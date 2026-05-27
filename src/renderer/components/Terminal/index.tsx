@@ -1,0 +1,222 @@
+import { useRef, useEffect, useCallback } from 'react';
+import { Terminal } from '@xterm/xterm';
+import { WebglAddon } from '@xterm/addon-webgl';
+import { FitAddon } from '@xterm/addon-fit';
+import '@xterm/xterm/css/xterm.css';
+
+interface TermInfo {
+  term: Terminal;
+  fitAddon: FitAddon;
+  container: HTMLDivElement;
+}
+
+interface TabInfo {
+  id: string;
+  shellId?: string;
+  cwd?: string;
+}
+
+interface TerminalAreaProps {
+  tabs: TabInfo[];
+  activeTabId: string;
+  onTitleChange: (tabId: string, title: string) => void;
+  onCwdChange: (tabId: string, cwd: string) => void;
+  onExit: (tabId: string) => void;
+}
+
+function formatTabTitle(raw: string): string {
+  const home = window.afterterm.env.userProfile;
+
+  if (/^[A-Za-z]:\\/.test(raw)) {
+    if (home && raw.toLowerCase() === home.toLowerCase()) return '~';
+    const segments = raw.split('\\').filter(Boolean);
+    if (segments.length <= 1) return raw;
+    return segments[segments.length - 1];
+  }
+
+  return raw;
+}
+
+const THEME = {
+  background: '#141414',
+  foreground: '#e0e0e0',
+  cursor: '#e0e0e0',
+  cursorAccent: '#141414',
+  selectionBackground: 'rgba(255,255,255,0.2)',
+  black: '#1a1a1a',
+  red: '#e06c75',
+  green: '#98c379',
+  yellow: '#e5c07b',
+  blue: '#61afef',
+  magenta: '#c678dd',
+  cyan: '#56b6c2',
+  white: '#abb2bf',
+  brightBlack: '#5c6370',
+  brightRed: '#e06c75',
+  brightGreen: '#98c379',
+  brightYellow: '#e5c07b',
+  brightBlue: '#61afef',
+  brightMagenta: '#c678dd',
+  brightCyan: '#56b6c2',
+  brightWhite: '#ffffff',
+};
+
+export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwdChange, onExit }: TerminalAreaProps) {
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const termsRef = useRef(new Map<string, TermInfo>());
+  const activeRef = useRef(activeTabId);
+  activeRef.current = activeTabId;
+
+  const onTitleChangeRef = useRef(onTitleChange);
+  onTitleChangeRef.current = onTitleChange;
+  const onCwdChangeRef = useRef(onCwdChange);
+  onCwdChangeRef.current = onCwdChange;
+  const onExitRef = useRef(onExit);
+  onExitRef.current = onExit;
+
+  const createTerminal = useCallback(async (tabId: string, shellId?: string, cwd?: string) => {
+    if (termsRef.current.has(tabId) || !wrapperRef.current) return;
+
+    const container = document.createElement('div');
+    container.className = 'xterm-container';
+    container.style.display = tabId === activeRef.current ? '' : 'none';
+    wrapperRef.current.appendChild(container);
+
+    const term = new Terminal({
+      theme: THEME,
+      fontFamily: "'Cascadia Code', 'Cascadia Mono', 'Consolas', 'Courier New', monospace",
+      fontSize: 14,
+      cursorBlink: true,
+      scrollback: 5000,
+      allowProposedApi: true,
+    });
+
+    const fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+    term.open(container);
+
+    try {
+      const webgl = new WebglAddon();
+      webgl.onContextLoss(() => webgl.dispose());
+      term.loadAddon(webgl);
+    } catch {
+      // WebGL not available — canvas fallback is fine
+    }
+
+    // Ctrl+V paste, Ctrl+C copy (when selection exists)
+    term.attachCustomKeyEventHandler((event) => {
+      if (event.type !== 'keydown') return true;
+
+      if (event.ctrlKey && !event.shiftKey && event.key === 'v') {
+        event.preventDefault();
+        navigator.clipboard.readText().then(text => {
+          if (text) term.paste(text);
+        });
+        return false;
+      }
+
+      if (event.ctrlKey && !event.shiftKey && event.key === 'c' && term.hasSelection()) {
+        navigator.clipboard.writeText(term.getSelection());
+        term.clearSelection();
+        return false;
+      }
+
+      return true;
+    });
+
+    termsRef.current.set(tabId, { term, fitAddon, container });
+
+    fitAddon.fit();
+
+    const api = window.afterterm;
+    await api.pty.create(tabId, shellId, cwd);
+
+    api.pty.onData(tabId, (data) => term.write(data));
+
+    term.onData((data) => api.pty.write(tabId, data));
+
+    term.onResize(({ cols, rows }) => api.pty.resize(tabId, cols, rows));
+
+    term.onTitleChange((rawTitle) => {
+      if (/^[A-Za-z]:\\/.test(rawTitle) && !/\.\w{1,4}$/.test(rawTitle)) {
+        onCwdChangeRef.current(tabId, rawTitle);
+      }
+      onTitleChangeRef.current(tabId, formatTabTitle(rawTitle));
+    });
+
+    api.pty.onExit(tabId, () => onExitRef.current(tabId));
+
+    // Sync initial size to PTY
+    api.pty.resize(tabId, term.cols, term.rows);
+
+    if (tabId === activeRef.current) {
+      term.focus();
+    }
+  }, []);
+
+  // Sync terminals with tab list — create new, destroy removed
+  useEffect(() => {
+    const currentIds = new Set(tabInfos.map(t => t.id));
+    const existingIds = new Set(termsRef.current.keys());
+
+    for (const tab of tabInfos) {
+      if (!existingIds.has(tab.id)) {
+        createTerminal(tab.id, tab.shellId, tab.cwd);
+      }
+    }
+
+    for (const id of existingIds) {
+      if (!currentIds.has(id)) {
+        const info = termsRef.current.get(id)!;
+        window.afterterm.pty.offData(id);
+        window.afterterm.pty.destroy(id);
+        info.term.dispose();
+        info.container.remove();
+        termsRef.current.delete(id);
+      }
+    }
+  }, [tabInfos, createTerminal]);
+
+  // Show/hide + focus on active tab change
+  useEffect(() => {
+    for (const [id, info] of termsRef.current) {
+      if (id === activeTabId) {
+        info.container.style.display = '';
+        info.fitAddon.fit();
+        info.term.focus();
+      } else {
+        info.container.style.display = 'none';
+      }
+    }
+  }, [activeTabId]);
+
+  // Resize active terminal when the wrapper resizes
+  useEffect(() => {
+    if (!wrapperRef.current) return;
+
+    const observer = new ResizeObserver(() => {
+      const info = termsRef.current.get(activeRef.current);
+      if (info) {
+        info.fitAddon.fit();
+      }
+    });
+
+    observer.observe(wrapperRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  // Cleanup all terminals on unmount
+  useEffect(() => {
+    return () => {
+      for (const [id, info] of termsRef.current) {
+        window.afterterm.pty.offData(id);
+        window.afterterm.pty.destroy(id);
+        info.term.dispose();
+        info.container.remove();
+      }
+      termsRef.current.clear();
+    };
+  }, []);
+
+  return <div ref={wrapperRef} className="terminal-instances" />;
+}
