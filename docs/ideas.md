@@ -51,6 +51,17 @@ When afterterm closes and reopens, automatically resume Claude Code sessions usi
 
 ---
 
+## Arrow Key Tab Navigation
+
+Move between tabs using arrow keys with a modifier. Faster than Ctrl+Tab cycling when you know which direction you want to go.
+
+- [ ] `Ctrl+Shift+↓` — next tab
+- [ ] `Ctrl+Shift+↑` — previous tab
+- [ ] Vertical arrows match the side panel layout (tabs are stacked vertically, not horizontal)
+- [ ] Should skip collapsed group members (only land on visible tabs)
+
+---
+
 ## Scrollback Snapshot
 
 On close, save each tab's visible buffer (last ~50 lines from xterm.js). On restore, write it into the fresh terminal before the user starts typing. Gives visual context about what was happening before the close — no scrollback lost.

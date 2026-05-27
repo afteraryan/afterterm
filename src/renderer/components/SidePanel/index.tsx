@@ -217,6 +217,8 @@ interface GroupHeaderProps {
   onContextMenu: (e: React.MouseEvent) => void;
   onDoubleClick: () => void;
   onAddTab: () => void;
+  onAddTabWithShell: (shellId: string) => void;
+  shells: { id: string; name: string }[];
   isRenaming: boolean;
   renameValue: string;
   onRenameChange: (v: string) => void;
@@ -226,8 +228,22 @@ interface GroupHeaderProps {
 
 function GroupHeader({
   group, tabCount, isDragging, onToggle, onContextMenu, onDoubleClick, onAddTab,
+  onAddTabWithShell, shells,
   isRenaming, renameValue, onRenameChange, onRenameCommit, overlay,
 }: GroupHeaderProps) {
+  const [showShellMenu, setShowShellMenu] = useState(false);
+  const shellMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showShellMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (shellMenuRef.current && !shellMenuRef.current.contains(e.target as Node)) {
+        setShowShellMenu(false);
+      }
+    };
+    window.addEventListener('mousedown', handler);
+    return () => window.removeEventListener('mousedown', handler);
+  }, [showShellMenu]);
   const { attributes, listeners, setNodeRef: setDragRef, transform } = useDraggable({
     id: `group-drag-${group.id}`,
     disabled: !!overlay,
@@ -300,6 +316,29 @@ function GroupHeader({
       >
         +
       </button>
+      <div className="group-shell-wrapper" ref={shellMenuRef}>
+        <button
+          className="group-add-btn group-shell-toggle"
+          onClick={e => { e.stopPropagation(); setShowShellMenu(p => !p); }}
+          title="Select shell type"
+          tabIndex={-1}
+        >
+          ▾
+        </button>
+        {showShellMenu && shells.length > 0 && (
+          <div className="shell-dropdown group-shell-dropdown">
+            {shells.map(s => (
+              <div
+                key={s.id}
+                className="shell-dropdown-item"
+                onClick={e => { e.stopPropagation(); onAddTabWithShell(s.id); setShowShellMenu(false); }}
+              >
+                {s.name}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -593,6 +632,8 @@ export function SidePanel(props: SidePanelProps) {
                     onContextMenu={e => openGroupCtx(e, group.id)}
                     onDoubleClick={() => startRename(group.id)}
                     onAddTab={() => onNewTab(group.id)}
+                    onAddTabWithShell={shellId => onNewTab(group.id, shellId)}
+                    shells={shells}
                     isRenaming={renamingGroupId === group.id}
                     renameValue={renameValue}
                     onRenameChange={setRenameValue}
@@ -640,6 +681,8 @@ export function SidePanel(props: SidePanelProps) {
                 onContextMenu={() => {}}
                 onDoubleClick={() => {}}
                 onAddTab={() => {}}
+                onAddTabWithShell={() => {}}
+                shells={[]}
                 isRenaming={false}
                 renameValue=""
                 onRenameChange={() => {}}

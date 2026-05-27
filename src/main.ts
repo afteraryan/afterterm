@@ -104,6 +104,23 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
   }
 
+  mainWindow.on('close', (e) => {
+    if (isQuitting || ptys.size === 0) return;
+    e.preventDefault();
+    dialog.showMessageBox(mainWindow!, {
+      type: 'question',
+      buttons: ['Close', 'Cancel'],
+      defaultId: 1,
+      title: 'afterterm',
+      message: `${ptys.size} terminal${ptys.size > 1 ? 's' : ''} still running. Close anyway?`,
+    }).then(({ response }) => {
+      if (response === 0) {
+        isQuitting = true;
+        mainWindow?.close();
+      }
+    });
+  });
+
   mainWindow.on('closed', () => { mainWindow = null; });
 
   // ── Keyboard shortcuts via before-input-event ─────────────────────────────

@@ -360,6 +360,24 @@
   opacity: 1 !important;
 }
 
+.group-shell-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.group-shell-toggle {
+  font-size: 9px !important;
+  width: 14px !important;
+  height: 14px !important;
+}
+
+.group-shell-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 2px;
+}
+
 /* ── Drag overlay ─────────────────────────────────────────────────── */
 
 .tab-drag-overlay {

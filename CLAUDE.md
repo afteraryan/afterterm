@@ -105,11 +105,13 @@ npm start
 
 ### Portable Build
 ```powershell
-npm run package
+npm run build
 ```
 Output: `out\afterterm-win32-x64\afterterm.exe` (~346MB, includes Chromium + node_modules)
 
-Run directly from the `out` folder or move the entire `afterterm-win32-x64` folder anywhere. To update: run `npm run package` again — it overwrites the same folder.
+Run directly from the `out` folder or move the entire `afterterm-win32-x64` folder anywhere.
+
+**Updating while running:** `npm run build` handles this automatically — it renames the running build to `out/afterterm-old-<timestamp>/` (Windows allows renaming a folder with a running exe), builds fresh to the standard path, and cleans up old builds on the next run. The running app keeps working from the renamed folder. Close and reopen to pick up the new build.
 
 Session data (`%APPDATA%\afterterm\`) is shared between dev and portable builds.
 
