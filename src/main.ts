@@ -107,6 +107,13 @@ function createNotifierWindow() {
 
   notifierWindow.setIgnoreMouseEvents(true, { forward: true });
 
+  // WM_NCACTIVATE (0x0086) fires whenever any app gains/loses focus, causing
+  // Windows to repaint the transparent window's non-client area as a white bar.
+  // Force a Chromium repaint immediately after so it overwrites the DWM artifact.
+  notifierWindow.hookWindowMessage(0x0086, () => {
+    notifierWindow?.webContents.invalidate();
+  });
+
   const notifierUrl = MAIN_WINDOW_VITE_DEV_SERVER_URL
     ? `${MAIN_WINDOW_VITE_DEV_SERVER_URL}?notifier=1`
     : `file://${path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`)}?notifier=1`;

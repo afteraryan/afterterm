@@ -204,13 +204,13 @@ function TabRow({
       onContextMenu={onContextMenu}
       {...(overlay ? {} : { ...attributes, ...listeners })}
     >
+      <span className="tab-shell-icon">›</span>
       {notif && !overlay && (notif === 'working' || !isActive) ? (
         <span
           className={`tab-notif-dot${notif === 'working' ? ' tab-notif-working' : ''}`}
           style={notif !== 'working' ? { background: NOTIF_DOT_COLOR[notif] } : undefined}
         />
       ) : null}
-      <span className="tab-shell-icon">›</span>
       <span className="tab-row-title">{tab.title}</span>
       <button
         className="tab-row-close"
