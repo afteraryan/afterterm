@@ -55,6 +55,8 @@ contextBridge.exposeInMainWorld('afterterm', {
       ipcRenderer.send('notify:tab-click', tabId),
     setIgnoreMouse: (ignore: boolean): void =>
       ipcRenderer.send('notifier:set-ignore-mouse', ignore),
+    hide: (): void =>
+      ipcRenderer.send('notifier:hide'),
   },
 
   pty: {

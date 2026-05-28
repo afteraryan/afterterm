@@ -150,12 +150,18 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
 
     termsRef.current.set(tabId, { term, fitAddon, container });
 
-    fitAddon.fit();
+    // Only fit visible tabs — fitAddon on a hidden container returns 0 dimensions
+    if (tabId === activeRef.current) {
+      fitAddon.fit();
+    }
 
     const api = window.afterterm;
-    await api.pty.create(tabId, shellId, cwd);
 
+    // Register data handler BEFORE creating the PTY — shell can emit the prompt
+    // immediately on spawn and we'd miss it if the listener isn't ready
     api.pty.onData(tabId, (data) => term.write(data));
+
+    await api.pty.create(tabId, shellId, cwd);
 
     term.onData((data) => api.pty.write(tabId, data));
 
@@ -210,8 +216,11 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
     for (const [id, info] of termsRef.current) {
       if (id === activeTabId) {
         info.container.style.display = '';
-        info.fitAddon.fit();
-        info.term.focus();
+        // RAF ensures the browser has reflowed display:none→'' before xterm measures
+        requestAnimationFrame(() => {
+          info.fitAddon.fit();
+          info.term.focus();
+        });
       } else {
         info.container.style.display = 'none';
       }

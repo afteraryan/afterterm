@@ -91,10 +91,13 @@ function createNotifierWindow() {
     transparent: true,
     backgroundColor: '#00000000',
     frame: false,
+    thickFrame: false,
+    hasShadow: false,
     alwaysOnTop: true,
     skipTaskbar: true,
     resizable: false,
-    focusable: true,
+    focusable: false,
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -186,9 +189,12 @@ function createWindow() {
 
 // ─── IPC: notification overlay ──────────────────────────────────────────────
 
-// Main window → notifier: push a new toast
+// Main window → notifier: push a new toast — show the window first so it's visible above other apps
 ipcMain.on('notify:push', (_event, toast) => {
-  notifierWindow?.webContents.send('notify:push', toast);
+  if (notifierWindow && !notifierWindow.isDestroyed()) {
+    notifierWindow.showInactive();
+    notifierWindow.webContents.send('notify:push', toast);
+  }
 });
 
 // Main window → notifier: dismiss toasts for a tab (user activated it)
@@ -208,6 +214,11 @@ ipcMain.on('notify:tab-click', (_event, tabId: string) => {
 // Notifier → self: toggle mouse passthrough
 ipcMain.on('notifier:set-ignore-mouse', (_event, ignore: boolean) => {
   notifierWindow?.setIgnoreMouseEvents(ignore, { forward: true });
+});
+
+// Notifier → self: hide window when all toasts are dismissed
+ipcMain.on('notifier:hide', () => {
+  notifierWindow?.hide();
 });
 
 // ─── IPC: pick folder ────────────────────────────────────────────────────────

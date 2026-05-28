@@ -60,9 +60,11 @@ export function NotifierApp() {
   const [toasts, setToasts] = useState<NotifierToast[]>([]);
 
   // Force transparent background — index.css sets body to #141414
+  // Clear title so Windows 11 snap tooltip doesn't show "afterterm"
   useEffect(() => {
     document.documentElement.style.background = 'transparent';
     document.body.style.background = 'transparent';
+    document.title = '';
   }, []);
 
   useEffect(() => {
@@ -77,9 +79,14 @@ export function NotifierApp() {
     });
   }, []);
 
-  // Window is interactive only when toasts are present — no hover latency
+  // Hide window entirely when no toasts — prevents WM_NCACTIVATE white bar artifact
+  // Show is triggered from main (showInactive) when a toast is pushed
   useEffect(() => {
-    window.afterterm.notifier.setIgnoreMouse(toasts.length === 0);
+    if (toasts.length === 0) {
+      window.afterterm.notifier.hide();
+    } else {
+      window.afterterm.notifier.setIgnoreMouse(false);
+    }
   }, [toasts.length]);
 
   const dismiss = useCallback((id: string) => {

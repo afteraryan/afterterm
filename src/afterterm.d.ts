@@ -38,6 +38,7 @@ interface AftertermNotifierAPI {
   onDismissTab(callback: (tabId: string) => void): void;
   clickTab(tabId: string): void;
   setIgnoreMouse(ignore: boolean): void;
+  hide(): void;
 }
 
 interface AftertermPtyAPI {
