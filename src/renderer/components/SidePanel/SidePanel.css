@@ -264,6 +264,18 @@
 .tab-row.notif-attention  { animation: notif-pulse-attention  1.6s ease-in-out infinite; }
 .tab-row.notif-background { animation: notif-pulse-background 2.4s ease-in-out infinite; }
 .tab-row.notif-compacting { animation: notif-pulse-compacting 2.4s ease-in-out infinite; }
+/* working: no row pulse — the spinning dot is the only indicator */
+
+.tab-notif-dot.tab-notif-working {
+  background: transparent;
+  border: 1.5px solid #61afef;
+  border-bottom-color: transparent;
+  animation: tab-notif-spin 0.7s linear infinite;
+}
+
+@keyframes tab-notif-spin {
+  to { transform: rotate(360deg); }
+}
 
 /* ── Group attention badge ────────────────────────────────────────── */
 

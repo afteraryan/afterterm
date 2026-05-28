@@ -31,6 +31,7 @@ const NOTIF_PREFIXES: [string, TabNotification][] = [
   ['⚠', 'attention'],  // ⚠
   ['⏳', 'background'], // ⏳
   ['⚙', 'compacting'], // ⚙
+  ['▶', 'working'],    // ▶ emitted by UserPromptSubmit hook
 ];
 
 function detectNotification(title: string): TabNotification | undefined {

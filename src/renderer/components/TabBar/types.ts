@@ -1,4 +1,4 @@
-export type TabNotification = 'done' | 'attention' | 'background' | 'compacting';
+export type TabNotification = 'done' | 'attention' | 'background' | 'compacting' | 'working';
 
 export interface Tab {
   id: string;

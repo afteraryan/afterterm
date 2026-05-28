@@ -103,6 +103,8 @@ export function App() {
   const handleNotification = useCallback((tabId: string, type: TabNotification | undefined, projectName: string) => {
     if (!type) return;
     state.setTabNotification(tabId, type);
+    // Working indicator is sidebar-only — no toast while Claude is mid-turn
+    if (type === 'working') return;
     // Only skip toast if user is actively looking at this tab right now
     if (stateRef.current.activeTabId === tabId && document.hasFocus()) return;
 

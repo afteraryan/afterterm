@@ -139,6 +139,7 @@ const NOTIF_DOT_COLOR: Record<TabNotification, string> = {
   attention:  '#d28c32',
   background: '#d28c32',
   compacting: '#666',
+  working:    '#61afef',
 };
 
 interface TabRowProps {
@@ -205,8 +206,8 @@ function TabRow({
     >
       {notif && !isActive && !overlay ? (
         <span
-          className="tab-notif-dot"
-          style={{ background: NOTIF_DOT_COLOR[notif] }}
+          className={`tab-notif-dot${notif === 'working' ? ' tab-notif-working' : ''}`}
+          style={notif !== 'working' ? { background: NOTIF_DOT_COLOR[notif] } : undefined}
         />
       ) : (
         <span className="tab-shell-icon">›</span>
@@ -642,7 +643,7 @@ export function SidePanel(props: SidePanelProps) {
               }
 
               const { group, tabs: groupTabs } = seg;
-              const notifCount = groupTabs.filter(t => t.notification && t.id !== activeTabId).length;
+              const notifCount = groupTabs.filter(t => t.notification && t.notification !== 'working' && t.id !== activeTabId).length;
               return (
                 <div key={group.id} className="group-section">
                   <GroupHeader
