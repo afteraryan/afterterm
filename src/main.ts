@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, screen } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { execFile, execSync } from 'child_process';
@@ -65,6 +65,7 @@ function getShellById(id?: string): ShellProfile {
 
 const ptys = new Map<string, pty.IPty>();
 let mainWindow: BrowserWindow | null = null;
+let notifierWindow: BrowserWindow | null = null;
 
 // ─── Window creation ──────────────────────────────────────────────────────────
 
@@ -75,6 +76,36 @@ function getIconPath() {
     return path.join(app.getAppPath(), 'assets', iconName);
   }
   return path.join(process.resourcesPath, 'assets', iconName);
+}
+
+function createNotifierWindow() {
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+  notifierWindow = new BrowserWindow({
+    x: width - 370,
+    y: 0,
+    width: 370,
+    height,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    focusable: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  notifierWindow.setIgnoreMouseEvents(true, { forward: true });
+
+  const notifierUrl = MAIN_WINDOW_VITE_DEV_SERVER_URL
+    ? `${MAIN_WINDOW_VITE_DEV_SERVER_URL}?notifier=1`
+    : `file://${path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`)}?notifier=1`;
+
+  notifierWindow.loadURL(notifierUrl);
+  notifierWindow.on('closed', () => { notifierWindow = null; });
 }
 
 function createWindow() {
@@ -148,6 +179,32 @@ function createWindow() {
     }
   });
 }
+
+// ─── IPC: notification overlay ──────────────────────────────────────────────
+
+// Main window → notifier: push a new toast
+ipcMain.on('notify:push', (_event, toast) => {
+  notifierWindow?.webContents.send('notify:push', toast);
+});
+
+// Main window → notifier: dismiss toasts for a tab (user activated it)
+ipcMain.on('notify:dismiss-tab', (_event, tabId: string) => {
+  notifierWindow?.webContents.send('notify:dismiss-tab', tabId);
+});
+
+// Notifier → main window: user clicked a toast → focus app + switch tab
+ipcMain.on('notify:tab-click', (_event, tabId: string) => {
+  if (mainWindow) {
+    mainWindow.show();
+    mainWindow.focus();
+    mainWindow.webContents.send('notify:activate-tab', tabId);
+  }
+});
+
+// Notifier → self: toggle mouse passthrough
+ipcMain.on('notifier:set-ignore-mouse', (_event, ignore: boolean) => {
+  notifierWindow?.setIgnoreMouseEvents(ignore, { forward: true });
+});
 
 // ─── IPC: pick folder ────────────────────────────────────────────────────────
 
@@ -306,7 +363,10 @@ app.on('before-quit', async (e) => {
 
 // ─── App lifecycle ────────────────────────────────────────────────────────────
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+  createNotifierWindow();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

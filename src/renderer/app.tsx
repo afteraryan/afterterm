@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { SidePanel } from './components/SidePanel';
 import { TerminalArea } from './components/Terminal';
-import { ToastContainer, ToastItem } from './components/Toast';
 import { useTabState } from './hooks/useTabState';
 import { TabNotification } from './components/TabBar/types';
 
@@ -19,9 +18,7 @@ export function App() {
   const [panelCollapsed, setPanelCollapsed] = useState(false);
   const [shells, setShells] = useState<{ id: string; name: string }[]>([]);
   const [initialized, setInitialized] = useState(false);
-  const [toasts, setToasts] = useState<ToastItem[]>([]);
 
-  // Refs for shortcuts (avoid stale closures)
   const stateRef = useRef(state);
   stateRef.current = state;
   const panelRef = useRef(panelCollapsed);
@@ -90,26 +87,35 @@ export function App() {
     });
   }, []);
 
+  // Notifier window sends tab-click → jump to that tab
+  useEffect(() => {
+    window.afterterm.notify.onActivateTab((tabId) => {
+      handleActivate(tabId);
+    });
+  }, []);
+
   const handleActivate = useCallback((tabId: string) => {
     state.setActiveTabId(tabId);
     state.setTabNotification(tabId, undefined);
-    setToasts(prev => prev.filter(t => t.tabId !== tabId));
+    window.afterterm.notify.dismissTab(tabId);
   }, [state.setActiveTabId, state.setTabNotification]);
 
   const handleNotification = useCallback((tabId: string, type: TabNotification | undefined, projectName: string) => {
-    state.setTabNotification(tabId, type);
     if (!type) return;
+    state.setTabNotification(tabId, type);
     if (stateRef.current.activeTabId === tabId) return;
-    setToasts(prev => {
-      // Replace any existing toast for this tab rather than stacking
-      const without = prev.filter(t => t.tabId !== tabId);
-      return [...without, {
-        id: `toast-${++toastCounter}`,
-        tabId,
-        type,
-        projectName,
-        message: TOAST_MESSAGES[type],
-      }];
+
+    const s = stateRef.current;
+    const tab = s.tabs.find(t => t.id === tabId);
+    const group = tab?.groupId ? s.groups.find(g => g.id === tab.groupId) : undefined;
+
+    window.afterterm.notify.push({
+      id: `toast-${++toastCounter}`,
+      tabId,
+      type,
+      primaryLabel: group?.label ?? (tab?.title || projectName),
+      secondaryLabel: group ? (tab?.title || projectName) : undefined,
+      message: TOAST_MESSAGES[type],
     });
   }, [state.setTabNotification]);
 
@@ -127,7 +133,6 @@ export function App() {
   const tabInfos = state.tabs.map(t => ({ id: t.id, shellId: t.shellId, cwd: t.cwd }));
 
   return (
-    <>
     <div className="app">
       <div className="titlebar-drag" />
       <SidePanel
@@ -178,11 +183,5 @@ export function App() {
         )}
       </div>
     </div>
-      <ToastContainer
-        toasts={toasts}
-        onDismiss={id => setToasts(prev => prev.filter(t => t.id !== id))}
-        onClickTab={handleActivate}
-      />
-    </>
   );
 }

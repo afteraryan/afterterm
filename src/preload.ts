@@ -32,6 +32,31 @@ contextBridge.exposeInMainWorld('afterterm', {
     },
   },
 
+  // Used by the main app window to send notifications to the overlay
+  notify: {
+    push: (toast: any): void =>
+      ipcRenderer.send('notify:push', toast),
+    dismissTab: (tabId: string): void =>
+      ipcRenderer.send('notify:dismiss-tab', tabId),
+    onActivateTab: (callback: (tabId: string) => void): void => {
+      ipcRenderer.on('notify:activate-tab', (_event, tabId) => callback(tabId));
+    },
+  },
+
+  // Used by the notifier overlay window itself
+  notifier: {
+    onPush: (callback: (toast: any) => void): void => {
+      ipcRenderer.on('notify:push', (_event, toast) => callback(toast));
+    },
+    onDismissTab: (callback: (tabId: string) => void): void => {
+      ipcRenderer.on('notify:dismiss-tab', (_event, tabId) => callback(tabId));
+    },
+    clickTab: (tabId: string): void =>
+      ipcRenderer.send('notify:tab-click', tabId),
+    setIgnoreMouse: (ignore: boolean): void =>
+      ipcRenderer.send('notifier:set-ignore-mouse', ignore),
+  },
+
   pty: {
     create: (tabId: string, shellId?: string, cwd?: string): Promise<{ pid: number }> =>
       ipcRenderer.invoke('pty:create', tabId, shellId, cwd),

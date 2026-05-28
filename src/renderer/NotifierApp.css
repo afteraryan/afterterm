@@ -1,0 +1,108 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: transparent;
+}
+
+.notifier-root {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 10px;
+  width: 340px;
+}
+
+.notif-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 13px;
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-left: 3px solid var(--notif-color, #46b464);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.75);
+  cursor: pointer;
+  animation: notif-in 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  transition: background 0.1s;
+  -webkit-app-region: no-drag;
+}
+
+.notif-card:hover {
+  background: #282828;
+}
+
+@keyframes notif-in {
+  from {
+    opacity: 0;
+    transform: translateX(28px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.notif-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.notif-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.notif-primary {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e8e8e8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notif-sub {
+  font-size: 11px;
+  color: #777;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notif-dismiss {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: #555;
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 0.1s, color 0.1s;
+  -webkit-app-region: no-drag;
+}
+
+.notif-dismiss:hover {
+  background: #383838;
+  color: #ddd;
+}
