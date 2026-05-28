@@ -87,6 +87,7 @@ function createNotifierWindow() {
     y: height - toastAreaHeight,
     width: toastAreaWidth,
     height: toastAreaHeight,
+    title: '',
     transparent: true,
     backgroundColor: '#00000000',
     frame: false,
