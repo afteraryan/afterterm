@@ -22,11 +22,9 @@ const TYPE_META: Record<NotifType, { icon: string; color: string }> = {
 interface ToastCardProps {
   toast: NotifierToast;
   onDismiss: (id: string) => void;
-  onMouseEnter: () => void;
-  onMouseLeave: () => void;
 }
 
-function ToastCard({ toast, onDismiss, onMouseEnter, onMouseLeave }: ToastCardProps) {
+function ToastCard({ toast, onDismiss }: ToastCardProps) {
   const meta = TYPE_META[toast.type];
 
   const handleClick = () => {
@@ -38,8 +36,6 @@ function ToastCard({ toast, onDismiss, onMouseEnter, onMouseLeave }: ToastCardPr
     <div
       className="notif-card"
       style={{ '--notif-color': meta.color } as React.CSSProperties}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
       onClick={handleClick}
     >
       <span className="notif-icon">{meta.icon}</span>
@@ -62,9 +58,8 @@ function ToastCard({ toast, onDismiss, onMouseEnter, onMouseLeave }: ToastCardPr
 
 export function NotifierApp() {
   const [toasts, setToasts] = useState<NotifierToast[]>([]);
-  const [hoverCount, setHoverCount] = useState(0);
 
-  // Force transparent background — index.css sets body to #141414 which overrides
+  // Force transparent background — index.css sets body to #141414
   useEffect(() => {
     document.documentElement.style.background = 'transparent';
     document.body.style.background = 'transparent';
@@ -82,28 +77,19 @@ export function NotifierApp() {
     });
   }, []);
 
-  // Toggle click-through based on whether mouse is over any toast
+  // Window is interactive only when toasts are present — no hover latency
   useEffect(() => {
-    window.afterterm.notifier.setIgnoreMouse(hoverCount === 0);
-  }, [hoverCount]);
+    window.afterterm.notifier.setIgnoreMouse(toasts.length === 0);
+  }, [toasts.length]);
 
   const dismiss = useCallback((id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  const enter = useCallback(() => setHoverCount(c => c + 1), []);
-  const leave = useCallback(() => setHoverCount(c => c - 1), []);
-
   return (
     <div className="notifier-root">
       {toasts.map(t => (
-        <ToastCard
-          key={t.id}
-          toast={t}
-          onDismiss={dismiss}
-          onMouseEnter={enter}
-          onMouseLeave={leave}
-        />
+        <ToastCard key={t.id} toast={t} onDismiss={dismiss} />
       ))}
     </div>
   );

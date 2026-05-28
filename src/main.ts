@@ -80,11 +80,12 @@ function getIconPath() {
 
 function createNotifierWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-  const toastAreaHeight = 640; // enough to stack ~8 toasts
+  const toastAreaHeight = 700;
+  const toastAreaWidth = 300;
   notifierWindow = new BrowserWindow({
-    x: width - 376,
+    x: width - toastAreaWidth - 4,
     y: height - toastAreaHeight,
-    width: 376,
+    width: toastAreaWidth,
     height: toastAreaHeight,
     transparent: true,
     backgroundColor: '#00000000',
