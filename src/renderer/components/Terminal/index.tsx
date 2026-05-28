@@ -3,6 +3,7 @@ import { Terminal } from '@xterm/xterm';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
+import { TabNotification } from '../TabBar/types';
 
 interface TermInfo {
   term: Terminal;
@@ -21,7 +22,29 @@ interface TerminalAreaProps {
   activeTabId: string;
   onTitleChange: (tabId: string, title: string) => void;
   onCwdChange: (tabId: string, cwd: string) => void;
+  onNotification: (tabId: string, type: TabNotification | undefined, projectName: string) => void;
   onExit: (tabId: string) => void;
+}
+
+const NOTIF_PREFIXES: [string, TabNotification][] = [
+  ['✅', 'done'],       // ✅
+  ['⚠', 'attention'],  // ⚠
+  ['⏳', 'background'], // ⏳
+  ['⚙', 'compacting'], // ⚙
+  ['▶', 'working'],    // ▶ emitted by UserPromptSubmit hook
+];
+
+function detectNotification(title: string): TabNotification | undefined {
+  for (const [prefix, type] of NOTIF_PREFIXES) {
+    if (title.startsWith(prefix)) return type;
+  }
+  return undefined;
+}
+
+function extractProjectName(rawTitle: string): string {
+  // "<emoji> project - message" → "project"
+  const match = rawTitle.match(/^.\s+(.+?)\s+-\s+/);
+  return match?.[1] ?? rawTitle;
 }
 
 function formatTabTitle(raw: string): string {
@@ -61,7 +84,7 @@ const THEME = {
   brightWhite: '#ffffff',
 };
 
-export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwdChange, onExit }: TerminalAreaProps) {
+export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwdChange, onNotification, onExit }: TerminalAreaProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const termsRef = useRef(new Map<string, TermInfo>());
   const activeRef = useRef(activeTabId);
@@ -71,6 +94,8 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
   onTitleChangeRef.current = onTitleChange;
   const onCwdChangeRef = useRef(onCwdChange);
   onCwdChangeRef.current = onCwdChange;
+  const onNotificationRef = useRef(onNotification);
+  onNotificationRef.current = onNotification;
   const onExitRef = useRef(onExit);
   onExitRef.current = onExit;
 
@@ -126,18 +151,28 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
 
     termsRef.current.set(tabId, { term, fitAddon, container });
 
-    fitAddon.fit();
+    // Only fit visible tabs — fitAddon on a hidden container returns 0 dimensions
+    if (tabId === activeRef.current) {
+      fitAddon.fit();
+    }
 
     const api = window.afterterm;
-    await api.pty.create(tabId, shellId, cwd);
 
+    // Register data handler BEFORE creating the PTY — shell can emit the prompt
+    // immediately on spawn and we'd miss it if the listener isn't ready
     api.pty.onData(tabId, (data) => term.write(data));
+
+    await api.pty.create(tabId, shellId, cwd);
 
     term.onData((data) => api.pty.write(tabId, data));
 
     term.onResize(({ cols, rows }) => api.pty.resize(tabId, cols, rows));
 
     term.onTitleChange((rawTitle) => {
+      const notifType = detectNotification(rawTitle);
+      const projectName = notifType ? extractProjectName(rawTitle) : rawTitle;
+      onNotificationRef.current(tabId, notifType, projectName);
+
       if (/^[A-Za-z]:\\/.test(rawTitle) && !/\.\w{1,4}$/.test(rawTitle)) {
         onCwdChangeRef.current(tabId, rawTitle);
       }
@@ -182,8 +217,11 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
     for (const [id, info] of termsRef.current) {
       if (id === activeTabId) {
         info.container.style.display = '';
-        info.fitAddon.fit();
-        info.term.focus();
+        // RAF ensures the browser has reflowed display:none→'' before xterm measures
+        requestAnimationFrame(() => {
+          info.fitAddon.fit();
+          info.term.focus();
+        });
       } else {
         info.container.style.display = 'none';
       }

@@ -3,6 +3,17 @@ interface ShellProfile {
   name: string;
 }
 
+type NotifType = 'done' | 'attention' | 'background' | 'compacting';
+
+interface NotifierToast {
+  id: string;
+  tabId: string;
+  type: NotifType;
+  primaryLabel: string;
+  secondaryLabel?: string;
+  message: string;
+}
+
 interface AftertermShellsAPI {
   list(): Promise<ShellProfile[]>;
 }
@@ -14,6 +25,20 @@ interface AftertermSessionAPI {
 
 interface AftertermShortcutsAPI {
   onShortcut(callback: (action: string) => void): void;
+}
+
+interface AftertermNotifyAPI {
+  push(toast: NotifierToast): void;
+  dismissTab(tabId: string): void;
+  onActivateTab(callback: (tabId: string) => void): void;
+}
+
+interface AftertermNotifierAPI {
+  onPush(callback: (toast: NotifierToast) => void): void;
+  onDismissTab(callback: (tabId: string) => void): void;
+  clickTab(tabId: string): void;
+  setIgnoreMouse(ignore: boolean): void;
+  hide(): void;
 }
 
 interface AftertermPtyAPI {
@@ -37,6 +62,8 @@ interface AftertermAPI {
   shells: AftertermShellsAPI;
   session: AftertermSessionAPI;
   shortcuts: AftertermShortcutsAPI;
+  notify: AftertermNotifyAPI;
+  notifier: AftertermNotifierAPI;
   pty: AftertermPtyAPI;
 }
 

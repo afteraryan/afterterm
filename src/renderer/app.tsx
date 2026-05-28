@@ -2,6 +2,16 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { SidePanel } from './components/SidePanel';
 import { TerminalArea } from './components/Terminal';
 import { useTabState } from './hooks/useTabState';
+import { TabNotification } from './components/TabBar/types';
+
+let toastCounter = 0;
+
+const TOAST_MESSAGES: Record<TabNotification, string> = {
+  done:       'Response complete',
+  attention:  'Needs permission',
+  background: 'Background tasks running',
+  compacting: 'Compacting context…',
+};
 
 export function App() {
   const state = useTabState();
@@ -9,7 +19,6 @@ export function App() {
   const [shells, setShells] = useState<{ id: string; name: string }[]>([]);
   const [initialized, setInitialized] = useState(false);
 
-  // Refs for shortcuts (avoid stale closures)
   const stateRef = useRef(state);
   stateRef.current = state;
   const panelRef = useRef(panelCollapsed);
@@ -62,13 +71,13 @@ export function App() {
         case 'next-tab': {
           if (s.tabs.length < 2) break;
           const idx = s.tabs.findIndex(t => t.id === s.activeTabId);
-          s.setActiveTabId(s.tabs[(idx + 1) % s.tabs.length].id);
+          handleActivate(s.tabs[(idx + 1) % s.tabs.length].id);
           break;
         }
         case 'prev-tab': {
           if (s.tabs.length < 2) break;
           const idx = s.tabs.findIndex(t => t.id === s.activeTabId);
-          s.setActiveTabId(s.tabs[(idx - 1 + s.tabs.length) % s.tabs.length].id);
+          handleActivate(s.tabs[(idx - 1 + s.tabs.length) % s.tabs.length].id);
           break;
         }
         case 'toggle-panel':
@@ -77,6 +86,41 @@ export function App() {
       }
     });
   }, []);
+
+  // Notifier window sends tab-click → jump to that tab
+  useEffect(() => {
+    window.afterterm.notify.onActivateTab((tabId) => {
+      handleActivate(tabId);
+    });
+  }, []);
+
+  const handleActivate = useCallback((tabId: string) => {
+    state.setActiveTabId(tabId);
+    state.setTabNotification(tabId, undefined);
+    window.afterterm.notify.dismissTab(tabId);
+  }, [state.setActiveTabId, state.setTabNotification]);
+
+  const handleNotification = useCallback((tabId: string, type: TabNotification | undefined, projectName: string) => {
+    if (!type) return;
+    state.setTabNotification(tabId, type);
+    // Working indicator is sidebar-only — no toast while Claude is mid-turn
+    if (type === 'working') return;
+    // Only skip toast if user is actively looking at this tab right now
+    if (stateRef.current.activeTabId === tabId && document.hasFocus()) return;
+
+    const s = stateRef.current;
+    const tab = s.tabs.find(t => t.id === tabId);
+    const group = tab?.groupId ? s.groups.find(g => g.id === tab.groupId) : undefined;
+
+    window.afterterm.notify.push({
+      id: `toast-${++toastCounter}`,
+      tabId,
+      type,
+      primaryLabel: group?.label ?? (tab?.title || projectName),
+      secondaryLabel: group ? (tab?.title || projectName) : undefined,
+      message: TOAST_MESSAGES[type],
+    });
+  }, [state.setTabNotification]);
 
   const handlePtyExit = useCallback((tabId: string) => {
     state.closeTab(tabId);
@@ -101,7 +145,7 @@ export function App() {
         collapsed={panelCollapsed}
         shells={shells}
         onToggleCollapse={() => setPanelCollapsed(p => !p)}
-        onActivate={state.setActiveTabId}
+        onActivate={handleActivate}
         onClose={state.closeTab}
         onNewTab={state.addTab}
         onCreateGroup={(t1, t2) => state.createGroup(t1, t2)}
@@ -136,6 +180,7 @@ export function App() {
             activeTabId={state.activeTabId}
             onTitleChange={state.renameTab}
             onCwdChange={state.updateTabCwd}
+            onNotification={handleNotification}
             onExit={handlePtyExit}
           />
         )}

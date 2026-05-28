@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, screen } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { execFile, execSync } from 'child_process';
@@ -65,6 +65,7 @@ function getShellById(id?: string): ShellProfile {
 
 const ptys = new Map<string, pty.IPty>();
 let mainWindow: BrowserWindow | null = null;
+let notifierWindow: BrowserWindow | null = null;
 
 // ─── Window creation ──────────────────────────────────────────────────────────
 
@@ -75,6 +76,50 @@ function getIconPath() {
     return path.join(app.getAppPath(), 'assets', iconName);
   }
   return path.join(process.resourcesPath, 'assets', iconName);
+}
+
+function createNotifierWindow() {
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+  const toastAreaHeight = 700;
+  const toastAreaWidth = 300;
+  notifierWindow = new BrowserWindow({
+    x: width - toastAreaWidth - 4,
+    y: height - toastAreaHeight,
+    width: toastAreaWidth,
+    height: toastAreaHeight,
+    title: '',
+    transparent: true,
+    backgroundColor: '#00000000',
+    frame: false,
+    thickFrame: false,
+    hasShadow: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    focusable: false,
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  notifierWindow.setIgnoreMouseEvents(true, { forward: true });
+
+  // WM_NCACTIVATE (0x0086) fires whenever any app gains/loses focus, causing
+  // Windows to repaint the transparent window's non-client area as a white bar.
+  // Force a Chromium repaint immediately after so it overwrites the DWM artifact.
+  notifierWindow.hookWindowMessage(0x0086, () => {
+    notifierWindow?.webContents.invalidate();
+  });
+
+  const notifierUrl = MAIN_WINDOW_VITE_DEV_SERVER_URL
+    ? `${MAIN_WINDOW_VITE_DEV_SERVER_URL}?notifier=1`
+    : `file://${path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`)}?notifier=1`;
+
+  notifierWindow.loadURL(notifierUrl);
+  notifierWindow.on('closed', () => { notifierWindow = null; });
 }
 
 function createWindow() {
@@ -149,6 +194,40 @@ function createWindow() {
   });
 }
 
+// ─── IPC: notification overlay ──────────────────────────────────────────────
+
+// Main window → notifier: push a new toast — show the window first so it's visible above other apps
+ipcMain.on('notify:push', (_event, toast) => {
+  if (notifierWindow && !notifierWindow.isDestroyed()) {
+    notifierWindow.showInactive();
+    notifierWindow.webContents.send('notify:push', toast);
+  }
+});
+
+// Main window → notifier: dismiss toasts for a tab (user activated it)
+ipcMain.on('notify:dismiss-tab', (_event, tabId: string) => {
+  notifierWindow?.webContents.send('notify:dismiss-tab', tabId);
+});
+
+// Notifier → main window: user clicked a toast → focus app + switch tab
+ipcMain.on('notify:tab-click', (_event, tabId: string) => {
+  if (mainWindow) {
+    mainWindow.show();
+    mainWindow.focus();
+    mainWindow.webContents.send('notify:activate-tab', tabId);
+  }
+});
+
+// Notifier → self: toggle mouse passthrough
+ipcMain.on('notifier:set-ignore-mouse', (_event, ignore: boolean) => {
+  notifierWindow?.setIgnoreMouseEvents(ignore, { forward: true });
+});
+
+// Notifier → self: hide window when all toasts are dismissed
+ipcMain.on('notifier:hide', () => {
+  notifierWindow?.hide();
+});
+
 // ─── IPC: pick folder ────────────────────────────────────────────────────────
 
 ipcMain.handle('dialog:pickFolder', async () => {
@@ -178,7 +257,7 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
   }
 
   // Clean PATH: strip stray quotes that corrupt cmd.exe's command resolution
-  const cleanEnv = { ...process.env } as Record<string, string>;
+  const cleanEnv = { ...process.env, AFTERTERM: '1' } as Record<string, string>;
   if (cleanEnv.Path) cleanEnv.Path = cleanEnv.Path.replace(/"/g, '');
   if (cleanEnv.PATH) cleanEnv.PATH = cleanEnv.PATH.replace(/"/g, '');
 
@@ -306,7 +385,10 @@ app.on('before-quit', async (e) => {
 
 // ─── App lifecycle ────────────────────────────────────────────────────────────
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+  createNotifierWindow();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

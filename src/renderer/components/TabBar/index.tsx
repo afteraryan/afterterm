@@ -314,7 +314,7 @@ export function TabBar(props: TabBarProps) {
   const [renamingGroupId, setRenamingGroupId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
-  const dwellTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const dwellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastOverRef = useRef<string | null>(null);
 
   const sensors = useSensors(
@@ -332,7 +332,7 @@ export function TabBar(props: TabBarProps) {
     const overId = event.over?.id as string | null;
 
     if (overId !== lastOverRef.current) {
-      clearTimeout(dwellTimerRef.current);
+      if (dwellTimerRef.current) clearTimeout(dwellTimerRef.current);
       setGroupPreviewTarget(null);
       lastOverRef.current = overId;
 
@@ -351,7 +351,7 @@ export function TabBar(props: TabBarProps) {
   }, [draggingTabId]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
-    clearTimeout(dwellTimerRef.current);
+    if (dwellTimerRef.current) clearTimeout(dwellTimerRef.current);
     const activeId = event.active.id as string;
     const overId = event.over?.id as string | null;
 
@@ -375,7 +375,7 @@ export function TabBar(props: TabBarProps) {
   }, [groupPreviewTarget, tabs, onAddToGroup, onCreateGroup, onMoveTab]);
 
   const handleDragCancel = useCallback(() => {
-    clearTimeout(dwellTimerRef.current);
+    if (dwellTimerRef.current) clearTimeout(dwellTimerRef.current);
     setDraggingTabId(null);
     setGroupPreviewTarget(null);
     setDropBeforeTarget(null);
