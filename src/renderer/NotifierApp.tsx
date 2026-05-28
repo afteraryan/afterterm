@@ -64,6 +64,12 @@ export function NotifierApp() {
   const [toasts, setToasts] = useState<NotifierToast[]>([]);
   const [hoverCount, setHoverCount] = useState(0);
 
+  // Force transparent background — index.css sets body to #141414 which overrides
+  useEffect(() => {
+    document.documentElement.style.background = 'transparent';
+    document.body.style.background = 'transparent';
+  }, []);
+
   useEffect(() => {
     window.afterterm.notifier.onPush((toast) => {
       setToasts(prev => {

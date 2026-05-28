@@ -86,6 +86,7 @@ function createNotifierWindow() {
     width: 370,
     height,
     transparent: true,
+    backgroundColor: '#00000000',
     frame: false,
     alwaysOnTop: true,
     skipTaskbar: true,
