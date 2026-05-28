@@ -11,7 +11,7 @@ import {
   DragEndEvent,
   closestCenter,
 } from '@dnd-kit/core';
-import { Tab, Group, GroupColor, GROUP_COLORS, COLOR_CYCLE } from '../TabBar/types';
+import { Tab, Group, GroupColor, GROUP_COLORS, COLOR_CYCLE, TabNotification } from '../TabBar/types';
 import './SidePanel.css';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -134,6 +134,13 @@ function ContextMenu({ menu, tabs, groups, onClose, ...actions }: ContextMenuPro
 
 // ─── Tab row ───────────────────────────────────────────────────────────────────
 
+const NOTIF_DOT_COLOR: Record<TabNotification, string> = {
+  done:       '#46b464',
+  attention:  '#d28c32',
+  background: '#d28c32',
+  compacting: '#666',
+};
+
 interface TabRowProps {
   tab: Tab;
   isActive: boolean;
@@ -175,6 +182,7 @@ function TabRow({
     '--arrow-color-active': arrowColorActive,
   } as React.CSSProperties;
 
+  const notif = tab.notification;
   const className = [
     'tab-row',
     isActive ? 'active' : '',
@@ -183,6 +191,7 @@ function TabRow({
     isOver && !isDragging ? 'drop-target' : '',
     isGroupPreview ? 'group-preview' : '',
     overlay ? 'tab-drag-overlay' : '',
+    notif && !isActive ? `notif-${notif}` : '',
   ].filter(Boolean).join(' ');
 
   return (
@@ -194,7 +203,14 @@ function TabRow({
       onContextMenu={onContextMenu}
       {...(overlay ? {} : { ...attributes, ...listeners })}
     >
-      <span className="tab-shell-icon">›</span>
+      {notif && !isActive && !overlay ? (
+        <span
+          className="tab-notif-dot"
+          style={{ background: NOTIF_DOT_COLOR[notif] }}
+        />
+      ) : (
+        <span className="tab-shell-icon">›</span>
+      )}
       <span className="tab-row-title">{tab.title}</span>
       <button
         className="tab-row-close"
@@ -212,6 +228,7 @@ function TabRow({
 interface GroupHeaderProps {
   group: Group;
   tabCount: number;
+  notifCount: number;
   isDragging: boolean;
   onToggle: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
@@ -227,7 +244,7 @@ interface GroupHeaderProps {
 }
 
 function GroupHeader({
-  group, tabCount, isDragging, onToggle, onContextMenu, onDoubleClick, onAddTab,
+  group, tabCount, notifCount, isDragging, onToggle, onContextMenu, onDoubleClick, onAddTab,
   onAddTabWithShell, shells,
   isRenaming, renameValue, onRenameChange, onRenameCommit, overlay,
 }: GroupHeaderProps) {
@@ -308,6 +325,9 @@ function GroupHeader({
         </div>
       )}
       {group.collapsed && <span className="group-count">{tabCount}</span>}
+      {notifCount > 0 && !overlay && (
+        <span className="group-notif-badge">{notifCount}</span>
+      )}
       <button
         className="group-add-btn"
         onClick={e => { e.stopPropagation(); onAddTab(); }}
@@ -429,7 +449,7 @@ export function SidePanel(props: SidePanelProps) {
     return () => window.removeEventListener('mousedown', handler);
   }, [shellDropdown, helpOpen]);
 
-  const dwellTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const dwellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastOverRef = useRef<string | null>(null);
 
   const sensors = useSensors(
@@ -440,7 +460,7 @@ export function SidePanel(props: SidePanelProps) {
     const overId = event.over?.id as string | null;
     if (overId === lastOverRef.current) return;
 
-    clearTimeout(dwellTimerRef.current);
+    if (dwellTimerRef.current) clearTimeout(dwellTimerRef.current);
     setGroupPreviewTarget(null);
     lastOverRef.current = overId;
 
@@ -453,7 +473,7 @@ export function SidePanel(props: SidePanelProps) {
   }, [draggingTabId]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
-    clearTimeout(dwellTimerRef.current);
+    if (dwellTimerRef.current) clearTimeout(dwellTimerRef.current);
     const activeId = event.active.id as string;
     const overId = event.over?.id as string | null;
 
@@ -495,7 +515,7 @@ export function SidePanel(props: SidePanelProps) {
   }, [groupPreviewTarget, tabs, onAddToGroup, onCreateGroup, onMoveTab, onMoveGroup, onMoveGroupAfterGroup]);
 
   const handleDragCancel = useCallback(() => {
-    clearTimeout(dwellTimerRef.current);
+    if (dwellTimerRef.current) clearTimeout(dwellTimerRef.current);
     setDraggingTabId(null);
     setDraggingGroupId(null);
     setGroupPreviewTarget(null);
@@ -622,11 +642,13 @@ export function SidePanel(props: SidePanelProps) {
               }
 
               const { group, tabs: groupTabs } = seg;
+              const notifCount = groupTabs.filter(t => t.notification && t.id !== activeTabId).length;
               return (
                 <div key={group.id} className="group-section">
                   <GroupHeader
                     group={group}
                     tabCount={groupTabs.length}
+                    notifCount={notifCount}
                     isDragging={group.id === draggingGroupId}
                     onToggle={() => onToggleGroupCollapse(group.id)}
                     onContextMenu={e => openGroupCtx(e, group.id)}
@@ -676,6 +698,7 @@ export function SidePanel(props: SidePanelProps) {
               <GroupHeader
                 group={draggingGroup}
                 tabCount={tabs.filter(t => t.groupId === draggingGroup.id).length}
+                notifCount={0}
                 isDragging={false}
                 onToggle={() => {}}
                 onContextMenu={() => {}}

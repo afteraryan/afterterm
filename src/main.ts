@@ -178,7 +178,7 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
   }
 
   // Clean PATH: strip stray quotes that corrupt cmd.exe's command resolution
-  const cleanEnv = { ...process.env } as Record<string, string>;
+  const cleanEnv = { ...process.env, AFTERTERM: '1' } as Record<string, string>;
   if (cleanEnv.Path) cleanEnv.Path = cleanEnv.Path.replace(/"/g, '');
   if (cleanEnv.PATH) cleanEnv.PATH = cleanEnv.PATH.replace(/"/g, '');
 

@@ -1,13 +1,25 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { SidePanel } from './components/SidePanel';
 import { TerminalArea } from './components/Terminal';
+import { ToastContainer, ToastItem } from './components/Toast';
 import { useTabState } from './hooks/useTabState';
+import { TabNotification } from './components/TabBar/types';
+
+let toastCounter = 0;
+
+const TOAST_MESSAGES: Record<TabNotification, string> = {
+  done:       'Response complete',
+  attention:  'Needs permission',
+  background: 'Background tasks running',
+  compacting: 'Compacting context…',
+};
 
 export function App() {
   const state = useTabState();
   const [panelCollapsed, setPanelCollapsed] = useState(false);
   const [shells, setShells] = useState<{ id: string; name: string }[]>([]);
   const [initialized, setInitialized] = useState(false);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   // Refs for shortcuts (avoid stale closures)
   const stateRef = useRef(state);
@@ -62,13 +74,13 @@ export function App() {
         case 'next-tab': {
           if (s.tabs.length < 2) break;
           const idx = s.tabs.findIndex(t => t.id === s.activeTabId);
-          s.setActiveTabId(s.tabs[(idx + 1) % s.tabs.length].id);
+          handleActivate(s.tabs[(idx + 1) % s.tabs.length].id);
           break;
         }
         case 'prev-tab': {
           if (s.tabs.length < 2) break;
           const idx = s.tabs.findIndex(t => t.id === s.activeTabId);
-          s.setActiveTabId(s.tabs[(idx - 1 + s.tabs.length) % s.tabs.length].id);
+          handleActivate(s.tabs[(idx - 1 + s.tabs.length) % s.tabs.length].id);
           break;
         }
         case 'toggle-panel':
@@ -77,6 +89,29 @@ export function App() {
       }
     });
   }, []);
+
+  const handleActivate = useCallback((tabId: string) => {
+    state.setActiveTabId(tabId);
+    state.setTabNotification(tabId, undefined);
+    setToasts(prev => prev.filter(t => t.tabId !== tabId));
+  }, [state.setActiveTabId, state.setTabNotification]);
+
+  const handleNotification = useCallback((tabId: string, type: TabNotification | undefined, projectName: string) => {
+    state.setTabNotification(tabId, type);
+    if (!type) return;
+    if (stateRef.current.activeTabId === tabId) return;
+    setToasts(prev => {
+      // Replace any existing toast for this tab rather than stacking
+      const without = prev.filter(t => t.tabId !== tabId);
+      return [...without, {
+        id: `toast-${++toastCounter}`,
+        tabId,
+        type,
+        projectName,
+        message: TOAST_MESSAGES[type],
+      }];
+    });
+  }, [state.setTabNotification]);
 
   const handlePtyExit = useCallback((tabId: string) => {
     state.closeTab(tabId);
@@ -92,6 +127,7 @@ export function App() {
   const tabInfos = state.tabs.map(t => ({ id: t.id, shellId: t.shellId, cwd: t.cwd }));
 
   return (
+    <>
     <div className="app">
       <div className="titlebar-drag" />
       <SidePanel
@@ -101,7 +137,7 @@ export function App() {
         collapsed={panelCollapsed}
         shells={shells}
         onToggleCollapse={() => setPanelCollapsed(p => !p)}
-        onActivate={state.setActiveTabId}
+        onActivate={handleActivate}
         onClose={state.closeTab}
         onNewTab={state.addTab}
         onCreateGroup={(t1, t2) => state.createGroup(t1, t2)}
@@ -136,10 +172,17 @@ export function App() {
             activeTabId={state.activeTabId}
             onTitleChange={state.renameTab}
             onCwdChange={state.updateTabCwd}
+            onNotification={handleNotification}
             onExit={handlePtyExit}
           />
         )}
       </div>
     </div>
+      <ToastContainer
+        toasts={toasts}
+        onDismiss={id => setToasts(prev => prev.filter(t => t.id !== id))}
+        onClickTab={handleActivate}
+      />
+    </>
   );
 }

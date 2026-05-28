@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Tab, Group, GroupColor, COLOR_CYCLE } from '../components/TabBar/types';
+import { Tab, Group, GroupColor, COLOR_CYCLE, TabNotification } from '../components/TabBar/types';
 
 let tabCounter = 0;
 let groupCounter = 0;
@@ -44,6 +44,10 @@ export function useTabState() {
 
   const renameTab = useCallback((tabId: string, title: string) => {
     setTabs(prev => prev.map(t => t.id === tabId ? { ...t, title } : t));
+  }, []);
+
+  const setTabNotification = useCallback((tabId: string, notification: TabNotification | undefined) => {
+    setTabs(prev => prev.map(t => t.id === tabId ? { ...t, notification } : t));
   }, []);
 
   const updateTabCwd = useCallback((tabId: string, cwd: string) => {
@@ -191,7 +195,7 @@ export function useTabState() {
   return {
     tabs, groups, activeTabId,
     setActiveTabId,
-    addTab, closeTab, renameTab, updateTabCwd,
+    addTab, closeTab, renameTab, updateTabCwd, setTabNotification,
     createGroup, addToGroup, removeFromGroup,
     renameGroup, setGroupColor, setGroupCwd, toggleGroupCollapse, deleteGroup,
     moveTab, moveGroup, moveGroupAfterGroup,

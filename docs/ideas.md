@@ -62,6 +62,17 @@ Move between tabs using arrow keys with a modifier. Faster than Ctrl+Tab cycling
 
 ---
 
+## Multiple Terminal Windows on Screen at Once
+
+Open multiple afterterm windows simultaneously — each is an independent Electron `BrowserWindow` with its own tab groups, side panel, and session. Useful for side-by-side project views without collapsing groups.
+
+**Open questions:**
+- Launch from tray icon or `File > New Window`?
+- Session persistence: one `session.json` per window, or a multi-window manifest?
+- Should groups be moveable between windows (drag out → new window)?
+
+---
+
 ## Scrollback Snapshot
 
 On close, save each tab's visible buffer (last ~50 lines from xterm.js). On restore, write it into the fresh terminal before the user starts typing. Gives visual context about what was happening before the close — no scrollback lost.

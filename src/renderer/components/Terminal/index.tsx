@@ -3,6 +3,7 @@ import { Terminal } from '@xterm/xterm';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
+import { TabNotification } from '../TabBar/types';
 
 interface TermInfo {
   term: Terminal;
@@ -21,7 +22,28 @@ interface TerminalAreaProps {
   activeTabId: string;
   onTitleChange: (tabId: string, title: string) => void;
   onCwdChange: (tabId: string, cwd: string) => void;
+  onNotification: (tabId: string, type: TabNotification | undefined, projectName: string) => void;
   onExit: (tabId: string) => void;
+}
+
+const NOTIF_PREFIXES: [string, TabNotification][] = [
+  ['✅', 'done'],       // ✅
+  ['⚠', 'attention'],  // ⚠
+  ['⏳', 'background'], // ⏳
+  ['⚙', 'compacting'], // ⚙
+];
+
+function detectNotification(title: string): TabNotification | undefined {
+  for (const [prefix, type] of NOTIF_PREFIXES) {
+    if (title.startsWith(prefix)) return type;
+  }
+  return undefined;
+}
+
+function extractProjectName(rawTitle: string): string {
+  // "<emoji> project - message" → "project"
+  const match = rawTitle.match(/^.\s+(.+?)\s+-\s+/);
+  return match?.[1] ?? rawTitle;
 }
 
 function formatTabTitle(raw: string): string {
@@ -61,7 +83,7 @@ const THEME = {
   brightWhite: '#ffffff',
 };
 
-export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwdChange, onExit }: TerminalAreaProps) {
+export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwdChange, onNotification, onExit }: TerminalAreaProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const termsRef = useRef(new Map<string, TermInfo>());
   const activeRef = useRef(activeTabId);
@@ -71,6 +93,8 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
   onTitleChangeRef.current = onTitleChange;
   const onCwdChangeRef = useRef(onCwdChange);
   onCwdChangeRef.current = onCwdChange;
+  const onNotificationRef = useRef(onNotification);
+  onNotificationRef.current = onNotification;
   const onExitRef = useRef(onExit);
   onExitRef.current = onExit;
 
@@ -138,6 +162,10 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
     term.onResize(({ cols, rows }) => api.pty.resize(tabId, cols, rows));
 
     term.onTitleChange((rawTitle) => {
+      const notifType = detectNotification(rawTitle);
+      const projectName = notifType ? extractProjectName(rawTitle) : rawTitle;
+      onNotificationRef.current(tabId, notifType, projectName);
+
       if (/^[A-Za-z]:\\/.test(rawTitle) && !/\.\w{1,4}$/.test(rawTitle)) {
         onCwdChangeRef.current(tabId, rawTitle);
       }

@@ -1,9 +1,12 @@
+export type TabNotification = 'done' | 'attention' | 'background' | 'compacting';
+
 export interface Tab {
   id: string;
   title: string;
   groupId?: string;
   shellId?: string;
   cwd?: string;
+  notification?: TabNotification;
 }
 
 export interface Group {
