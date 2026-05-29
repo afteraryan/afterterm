@@ -23,6 +23,7 @@ interface TerminalAreaProps {
   onTitleChange: (tabId: string, title: string) => void;
   onCwdChange: (tabId: string, cwd: string) => void;
   onNotification: (tabId: string, type: TabNotification | undefined, projectName: string) => void;
+  onUserInput: (tabId: string) => void;
   onExit: (tabId: string) => void;
 }
 
@@ -84,7 +85,7 @@ const THEME = {
   brightWhite: '#ffffff',
 };
 
-export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwdChange, onNotification, onExit }: TerminalAreaProps) {
+export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwdChange, onNotification, onUserInput, onExit }: TerminalAreaProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const termsRef = useRef(new Map<string, TermInfo>());
   const activeRef = useRef(activeTabId);
@@ -96,6 +97,8 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
   onCwdChangeRef.current = onCwdChange;
   const onNotificationRef = useRef(onNotification);
   onNotificationRef.current = onNotification;
+  const onUserInputRef = useRef(onUserInput);
+  onUserInputRef.current = onUserInput;
   const onExitRef = useRef(onExit);
   onExitRef.current = onExit;
 
@@ -164,7 +167,10 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
 
     await api.pty.create(tabId, shellId, cwd);
 
-    term.onData((data) => api.pty.write(tabId, data));
+    term.onData((data) => {
+      api.pty.write(tabId, data);
+      onUserInputRef.current(tabId);
+    });
 
     term.onResize(({ cols, rows }) => api.pty.resize(tabId, cols, rows));
 
@@ -173,9 +179,9 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
       const projectName = notifType ? extractProjectName(rawTitle) : rawTitle;
       onNotificationRef.current(tabId, notifType, projectName);
 
-      if (/^[A-Za-z]:\\/.test(rawTitle) && !/\.\w{1,4}$/.test(rawTitle)) {
-        onCwdChangeRef.current(tabId, rawTitle);
-      }
+      // NOTE: cwd is NOT captured from the title — cmd.exe sets its console title
+      // to "C:\…\cmd.exe - <command>", which looks path-like but is garbage. CWD is
+      // captured from the OSC 9;9 report below (cmd.exe only). See CLAUDE.md.
       onTitleChangeRef.current(tabId, formatTabTitle(rawTitle));
     });
 

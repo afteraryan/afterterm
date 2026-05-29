@@ -20,6 +20,7 @@ interface AftertermShellsAPI {
 
 interface AftertermSessionAPI {
   save(data: string): Promise<void>;
+  saveSync(data: string): void;
   load(): Promise<any>;
 }
 

@@ -127,9 +127,36 @@ export function App() {
     });
   }, [state.setTabNotification]);
 
+  // Typing into a terminal (e.g. interrupting Claude with Esc / Ctrl+C) ends the
+  // working turn from afterterm's view — clear the spinner. Leaves other notifs alone.
+  const handleUserInput = useCallback((tabId: string) => {
+    if (stateRef.current.tabs.find(t => t.id === tabId)?.notification === 'working') {
+      state.setTabNotification(tabId, undefined);
+    }
+  }, [state.setTabNotification]);
+
   const handlePtyExit = useCallback((tabId: string) => {
     state.closeTab(tabId);
   }, [state.closeTab]);
+
+  // Flush a synchronous save on window close — the debounced save's pending timer is
+  // cleared on unmount, so the last <2s of changes (e.g. a fresh cwd) would be lost.
+  useEffect(() => {
+    const flush = () => {
+      const s = stateRef.current;
+      if (!s.tabs.length) return;
+      const data = {
+        tabs: s.tabs.map(t => ({
+          id: t.id, title: t.title, groupId: t.groupId, shellId: t.shellId, cwd: t.cwd,
+        })),
+        groups: s.groups,
+        activeTabId: s.activeTabId,
+      };
+      window.afterterm.session.saveSync(JSON.stringify(data));
+    };
+    window.addEventListener('beforeunload', flush);
+    return () => window.removeEventListener('beforeunload', flush);
+  }, []);
 
   // Always keep at least one tab
   useEffect(() => {
@@ -186,6 +213,7 @@ export function App() {
             onTitleChange={state.renameTab}
             onCwdChange={state.updateTabCwd}
             onNotification={handleNotification}
+            onUserInput={handleUserInput}
             onExit={handlePtyExit}
           />
         )}

@@ -90,17 +90,19 @@ Save location: `%APPDATA%\afterterm\session.json`
 
 ### CWD capture — per-shell support
 
-A tab can only restore to its last directory if afterterm captured that directory while you worked. Capture relies on the shell *announcing* its path, and not every shell does:
+A tab can only restore to its last directory if afterterm captured that directory while you worked. Capture relies on the shell *announcing* its path via an OSC 9;9 report, and not every shell does:
 
 | Shell | CWD restore | How |
 |---|---|---|
 | **Command Prompt (cmd.exe)** | ✅ Supported | afterterm injects an OSC 9;9 cwd report into the `PROMPT` env var at spawn (`main.ts`); the renderer parses OSC 9;9 (`Terminal/index.tsx`). Any custom `PROMPT` is preserved. |
-| **Git Bash** | ✅ Supported | Its default prompt already sets the terminal title to the path (OSC 0), which afterterm parses as CWD. |
+| **Git Bash** | ❌ Not yet | Needs an OSC 7 / `PROMPT_COMMAND` injection. (Its MINGW title isn't a Windows path, so the old title-based heuristic never actually captured it.) |
 | **PowerShell 7 (pwsh)** | ❌ Not yet | Default prompt emits neither a path title nor OSC 9;9. Needs shell-integration prompt-wrapping (deferred — risk of clobbering custom prompts like oh-my-posh/starship). |
 | **Windows PowerShell** | ❌ Not yet | Same as pwsh. |
 | **WSL** | ❌ Not yet | Default prompt doesn't report cwd; would need an OSC 7 / `PROMPT_COMMAND` injection. |
 
 Unsupported shells fall back to spawning in the user home folder (`%USERPROFILE%`).
+
+> **Do not** re-add a title→cwd heuristic. cmd.exe sets its console title to `C:\…\cmd.exe - <command>`, which looks path-like but is garbage; capturing it poisoned the saved cwd (it failed `fs.existsSync` on restore → fell back to home). CWD comes from OSC 9;9 only.
 
 ## Keyboard Shortcuts
 

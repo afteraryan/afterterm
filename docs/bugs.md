@@ -6,30 +6,11 @@ Format per bug: a short title, the date observed, what happens, repro if known, 
 
 ---
 
-## Tab drag-reorder: can't drop a tab into the first position (of a group, or on top of another tab)
-
-**Observed:** 2026-05-29 · **Status:** open · **Severity:** low (annoyance, not blocking)
-
-**What happens:**
-When dragging a tab up/down in the side panel to reorder it, you cannot place a tab as the **first tab of a group** — there's no way to land it in the top slot. More generally, dropping a tab *on top of* another tab behaves unpredictably ("weird"): the drop position doesn't map cleanly to where you'd expect the tab to land.
-
-**Hypothesis (unconfirmed):**
-The reorder API is anchor-*after* based. `moveTab(tabId, afterTabId)` in `src/renderer/hooks/useTabState.ts` inserts the dragged tab *after* a target tab, with `afterTabId === null` meaning "very front of the whole list." There is no "insert *before* tab X" / "first slot *within* group G" anchor, so the first position inside a group is unreachable by drag. On top of that, the group-contiguity guard in `moveTab` (lines ~134-144) strips a tab's `groupId` when it lands somewhere not adjacent to its group — which can fire at group boundaries and make "drop at the top of a group" silently fall out of the group instead.
-
-The "dropping on top of another tab is weird" symptom likely comes from the droppable hit-target in `src/renderer/components/SidePanel/index.tsx` resolving the drop to an after-anchor regardless of whether the cursor is over the top or bottom half of the target row — so dropping on the upper half of a tab still inserts *after* it.
-
-**Likely fix direction (for when we tackle it):**
-- Add a notion of drop position relative to the hovered row (top-half → insert before, bottom-half → insert after), the way most list DnD UIs work.
-- Support an explicit "first slot of group G" target so the top-of-group position is reachable.
-- Make sure the contiguity guard doesn't eject a tab when it's legitimately dropped at its group's leading edge.
-
-**Note:** Deferred by Aryan on 2026-05-29 — "document this, we don't have to solve it now."
-
----
-
-## Working spinner stops while Claude is still running
+## Working spinner stops while Claude is still running (Stop-hook timing)
 
 **Observed:** 2026-05-29 · **Status:** open · **Severity:** medium (misleading status)
+
+> Two *other* spinner causes were fixed on 2026-05-29 and are no longer issues: (1) opening the tab used to clear the spinner — now `working` survives tab activation; (2) interrupting Claude (Esc/Ctrl+C) left the spinner stuck — typing into a working terminal now clears it. **What remains is only the Stop-hook timing case below.**
 
 **What happens:**
 The sidebar shows a rotating spinner on a tab while a Claude Code session is mid-turn, and it's supposed to stop when Claude is done. But Claude can emit a **text reply and then keep working** (more tool calls, a follow-up phase) — and in that case the spinner stops spinning even though Claude is still running. The indicator says "idle/done" while work is ongoing.

@@ -159,7 +159,7 @@ function TabRow({
   tab, isActive, inGroup, groupColor: gc_, isDragging, isGroupPreview,
   onActivate, onClose, onContextMenu, overlay,
 }: TabRowProps) {
-  const { attributes, listeners, setNodeRef: setDragRef, transform } = useDraggable({
+  const { attributes, listeners, setNodeRef: setDragRef } = useDraggable({
     id: tab.id,
     disabled: !!overlay,
   });
@@ -177,8 +177,10 @@ function TabRow({
   const arrowColor = gc_ ? GROUP_COLORS[gc_].border : '#3a3a3a';
   const arrowColorActive = gc_ ? GROUP_COLORS[gc_].border : '#5e5e5e';
 
+  // No transform on the in-list row — the DragOverlay renders the moving copy.
+  // Translating the source corrupts collision detection (it stays "closest to
+  // itself" when dragging up, so up-moves silently no-op).
   const style: React.CSSProperties = {
-    ...(transform && !overlay ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : {}),
     '--arrow-color': arrowColor,
     '--arrow-color-active': arrowColorActive,
   } as React.CSSProperties;
@@ -261,7 +263,7 @@ function GroupHeader({
     window.addEventListener('mousedown', handler);
     return () => window.removeEventListener('mousedown', handler);
   }, [showShellMenu]);
-  const { attributes, listeners, setNodeRef: setDragRef, transform } = useDraggable({
+  const { attributes, listeners, setNodeRef: setDragRef } = useDraggable({
     id: `group-drag-${group.id}`,
     disabled: !!overlay,
   });
@@ -284,7 +286,6 @@ function GroupHeader({
 
   const style: React.CSSProperties = {
     '--gc': color,
-    ...(transform && !overlay ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : {}),
   } as React.CSSProperties;
 
   const className = [
@@ -464,13 +465,18 @@ export function SidePanel(props: SidePanelProps) {
     setGroupPreviewTarget(null);
     lastOverRef.current = overId;
 
-    // Only start dwell timer when hovering over another tab (not a group header)
-    if (overId && !overId.startsWith('group-drop-') && overId !== draggingTabId) {
+    // Dwell-to-group preview only arms when both tabs are ungrouped — that's the only
+    // case dwell does anything now (create a new group). Every other drag is a
+    // positional move and must not be hijacked by the grouping preview.
+    const draggedTab = tabs.find(t => t.id === draggingTabId);
+    const overTab = overId ? tabs.find(t => t.id === overId) : undefined;
+    const bothUngrouped = !draggedTab?.groupId && !!overTab && !overTab.groupId;
+    if (overId && overId !== draggingTabId && bothUngrouped) {
       dwellTimerRef.current = setTimeout(() => {
         setGroupPreviewTarget(overId);
       }, 550);
     }
-  }, [draggingTabId]);
+  }, [draggingTabId, tabs]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     if (dwellTimerRef.current) clearTimeout(dwellTimerRef.current);
@@ -499,19 +505,10 @@ export function SidePanel(props: SidePanelProps) {
     }
 
     // Tab being dragged
-    if (groupPreviewTarget && overId === groupPreviewTarget) {
-      const targetTab = tabs.find(t => t.id === groupPreviewTarget);
-      if (targetTab?.groupId) {
-        onAddToGroup(activeId, targetTab.groupId);
-      } else {
-        onCreateGroup(activeId, groupPreviewTarget);
-      }
-    } else if (overId.startsWith('group-drop-') || overId.startsWith('group-drag-')) {
-      const targetGroupId = overId.replace('group-drop-', '').replace('group-drag-', '');
-      onAddToGroup(activeId, targetGroupId);
-    } else {
-      // Drop above the hovered row's midpoint → insert before it; below → after.
-      // This makes the first slot (and a group's first slot) reachable.
+    const activeTab = tabs.find(t => t.id === activeId);
+
+    const reorderOnto = (targetTabId: string) => {
+      // Above the hovered row's midpoint → before it; below → after.
       const activeRect = event.active.rect.current.translated;
       const overRect = event.over?.rect;
       let position: 'before' | 'after' = 'after';
@@ -520,8 +517,34 @@ export function SidePanel(props: SidePanelProps) {
         const overCenterY = overRect.top + overRect.height / 2;
         position = activeCenterY < overCenterY ? 'before' : 'after';
       }
-      onMoveTab(activeId, overId, position);
+      onMoveTab(activeId, targetTabId, position);
+    };
+
+    // Dwell-to-group is the explicit "merge into a new group" gesture — only needed
+    // when both tabs are ungrouped (positional drops join an existing group on their
+    // own, since moveTab inherits the drop target's group).
+    if (groupPreviewTarget && overId === groupPreviewTarget) {
+      const targetTab = tabs.find(t => t.id === groupPreviewTarget);
+      if (targetTab && !targetTab.groupId && !activeTab?.groupId) {
+        onCreateGroup(activeId, groupPreviewTarget);
+        return;
+      }
+      // else fall through to a positional move
     }
+
+    // Dropped on a group header → land at the top of that group (joining it).
+    if (overId.startsWith('group-drop-') || overId.startsWith('group-drag-')) {
+      const targetGroupId = overId.replace('group-drop-', '').replace('group-drag-', '');
+      const firstInGroup = tabs.find(t => t.groupId === targetGroupId);
+      if (firstInGroup && firstInGroup.id !== activeId) {
+        onMoveTab(activeId, firstInGroup.id, 'before');
+      } else if (!firstInGroup) {
+        onAddToGroup(activeId, targetGroupId);
+      }
+      return;
+    }
+
+    reorderOnto(overId);
   }, [groupPreviewTarget, tabs, onAddToGroup, onCreateGroup, onMoveTab, onMoveGroup, onMoveGroupAfterGroup]);
 
   const handleDragCancel = useCallback(() => {

@@ -119,30 +119,18 @@ export function useTabState() {
   const moveTab = useCallback((tabId: string, anchorTabId: string, position: 'before' | 'after') => {
     setTabs(prev => {
       const tab = prev.find(t => t.id === tabId);
-      if (!tab || tabId === anchorTabId) return prev;
+      const anchor = prev.find(t => t.id === anchorTabId);
+      if (!tab || !anchor || tabId === anchorTabId) return prev;
       const without = prev.filter(t => t.id !== tabId);
       const anchorIdx = without.findIndex(t => t.id === anchorTabId);
       if (anchorIdx === -1) return prev;
       const insertIdx = position === 'before' ? anchorIdx : anchorIdx + 1;
+      // The tab inherits the group of whatever it was dropped next to: drop among a
+      // group's tabs → join that group at that spot; drop next to an ungrouped tab →
+      // leave the group. Inserting adjacent to the anchor keeps every group contiguous.
+      const moved = { ...tab, groupId: anchor.groupId };
       const next = [...without];
-      next.splice(insertIdx, 0, tab);
-
-      // Reconcile group membership from where the tab landed:
-      const tabIdx = next.findIndex(t => t.id === tabId);
-      const prevG = tabIdx > 0 ? next[tabIdx - 1].groupId : undefined;
-      const nextG = tabIdx < next.length - 1 ? next[tabIdx + 1].groupId : undefined;
-
-      // Dropped in the interior of a group (both neighbors share it) → join that group.
-      // Makes "drop into the middle/top of a group" work and prevents a groupless tab
-      // from splitting a group's contiguous block.
-      if (prevG && prevG === nextG && tab.groupId !== prevG) {
-        return next.map(t => t.id === tabId ? { ...t, groupId: prevG } : t);
-      }
-      // In a group but no longer adjacent to it → leave the group (drag-out).
-      if (tab.groupId && prevG !== tab.groupId && nextG !== tab.groupId) {
-        return next.map(t => t.id === tabId ? { ...t, groupId: undefined } : t);
-      }
-
+      next.splice(insertIdx, 0, moved);
       return next;
     });
   }, []);

@@ -22,6 +22,8 @@ contextBridge.exposeInMainWorld('afterterm', {
   session: {
     save: (data: string): Promise<void> =>
       ipcRenderer.invoke('session:save', data),
+    saveSync: (data: string): void =>
+      ipcRenderer.sendSync('session:save-sync', data),
     load: (): Promise<any> =>
       ipcRenderer.invoke('session:load'),
   },

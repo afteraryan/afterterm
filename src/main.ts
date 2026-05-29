@@ -361,6 +361,15 @@ ipcMain.handle('session:save', (_event, data: string) => {
   } catch {}
 });
 
+// Synchronous save — used on window 'beforeunload' so the last state (e.g. a fresh
+// cwd) is flushed before the renderer tears down. sendSync blocks until written.
+ipcMain.on('session:save-sync', (event, data: string) => {
+  try {
+    fs.writeFileSync(getSessionPath(), data, 'utf-8');
+  } catch {}
+  event.returnValue = true;
+});
+
 ipcMain.handle('session:load', () => {
   try {
     return JSON.parse(fs.readFileSync(getSessionPath(), 'utf-8'));
