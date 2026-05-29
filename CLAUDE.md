@@ -48,7 +48,6 @@ src/
         index.tsx                      ← xterm.js lifecycle, PTY wiring, title intelligence, OSC 9;9 cwd capture, clipboard
       TabBar/
         types.ts                       ← Tab, Group, GroupColor, TabNotification types (shared)
-      Toast/                           ← ⚠ UNUSED — earlier in-window toast, superseded by NotifierApp overlay. Safe to delete.
 forge.config.ts                        ← ASAR unpack, rebuild skip, Vite plugin config
 ```
 
