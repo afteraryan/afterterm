@@ -261,6 +261,16 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
   if (cleanEnv.Path) cleanEnv.Path = cleanEnv.Path.replace(/"/g, '');
   if (cleanEnv.PATH) cleanEnv.PATH = cleanEnv.PATH.replace(/"/g, '');
 
+  // CWD reporting for session restore (cmd.exe only — see CLAUDE.md "Session Restore").
+  // cmd.exe doesn't announce its directory, so its tabs always restored to the home
+  // folder. Inject an OSC 9;9 (ConEmu-style) cwd report into the prompt: `$E` = ESC,
+  // `$P` = current path, `$E\` = ST. The renderer parses OSC 9;9 → updates tab cwd.
+  // Any existing custom PROMPT is preserved as the visible part.
+  if (shell.id === 'cmd') {
+    const visiblePrompt = cleanEnv.PROMPT || '$P$G';
+    cleanEnv.PROMPT = `$E]9;9;$P$E\\${visiblePrompt}`;
+  }
+
   const p = pty.spawn(shell.command, shell.args, {
     name: 'xterm-256color',
     cols: 80,

@@ -179,6 +179,21 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
       onTitleChangeRef.current(tabId, formatTabTitle(rawTitle));
     });
 
+    // OSC 9;9;<path> — ConEmu-style cwd report. cmd.exe emits this via its injected
+    // PROMPT (see main.ts) so its tabs can restore to the right directory. The handler
+    // receives the OSC 9 payload, i.e. "9;C:\path". Other OSC 9 uses (progress, notify)
+    // don't carry the "9;" prefix, so we ignore those and let xterm handle them.
+    term.parser.registerOscHandler(9, (data) => {
+      if (data.startsWith('9;')) {
+        const dir = data.slice(2);
+        if (/^[A-Za-z]:\\/.test(dir)) {
+          onCwdChangeRef.current(tabId, dir);
+          return true;
+        }
+      }
+      return false;
+    });
+
     api.pty.onExit(tabId, () => onExitRef.current(tabId));
 
     // Sync initial size to PTY

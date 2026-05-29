@@ -22,28 +22,33 @@ Named, color-coded, collapsible tab groups — exactly like Chrome's tab groups,
 - Hidden tabs use `display: none` to avoid rendering overhead
 - Shell profiles detected at startup (cmd.exe, pwsh.exe, powershell.exe, Git Bash, WSL)
 - Session state auto-saved to `%APPDATA%\afterterm\session.json` (2s debounce after changes)
+- A second always-on-top **notifier overlay window** renders toasts above all apps (see Notification System)
+- `AFTERTERM=1` is set on every spawned PTY's env so the Claude Code hook knows to route notifications to the in-app overlay instead of a Windows popup
 
 ## File Structure
 
 ```
 src/
-  main.ts                              ← Electron main: PTY IPC, shell detection, session persistence, keyboard shortcuts
-  preload.ts                           ← contextBridge: PTY API, session API, shell list, shortcuts
-  afterterm.d.ts                       ← Window.afterterm type declarations
+  main.ts                              ← Electron main: PTY IPC, shell detection, session persistence, keyboard shortcuts, notifier window + notify IPC
+  preload.ts                           ← contextBridge: PTY API, session API, shell list, shortcuts, notify (send) + notifier (receive) APIs
+  afterterm.d.ts                       ← Window.afterterm type declarations (incl. notify/notifier APIs)
   renderer/
-    index.tsx                          ← React root
-    app.tsx                            ← Layout: SidePanel + TerminalArea, session restore, shortcut dispatch
+    index.tsx                          ← React root; routes to NotifierApp when ?notifier=1, else App
+    app.tsx                            ← Layout: SidePanel + TerminalArea, session restore, shortcut dispatch, notification fan-out
     index.css                          ← App layout, titlebar drag region, terminal container styles
+    NotifierApp.tsx                    ← The floating overlay window's React root — toast cards, hide-when-empty logic
+    NotifierApp.css                    ← Overlay/toast styles
     hooks/
       useTabState.ts                   ← All tab/group state, session restore, group contiguity enforcement
     components/
       SidePanel/
-        index.tsx                      ← Tab list, groups, DnD, context menus, shell dropdown
-        SidePanel.css
+        index.tsx                      ← Tab list, groups, DnD, context menus, shell dropdown, tab glow/dot + working spinner + group badge
+        SidePanel.css                  ← incl. notification pulse keyframes + working-spinner animation
       Terminal/
-        index.tsx                      ← xterm.js lifecycle, PTY wiring, title intelligence, clipboard
+        index.tsx                      ← xterm.js lifecycle, PTY wiring, title intelligence, OSC 9;9 cwd capture, clipboard
       TabBar/
-        types.ts                       ← Tab, Group, GroupColor types (shared)
+        types.ts                       ← Tab, Group, GroupColor, TabNotification types (shared)
+      Toast/                           ← ⚠ UNUSED — earlier in-window toast, superseded by NotifierApp overlay. Safe to delete.
 forge.config.ts                        ← ASAR unpack, rebuild skip, Vite plugin config
 ```
 
@@ -60,9 +65,22 @@ Raw OSC 0 titles from the shell are transformed before display:
 - Non-path titles (process names, etc.) → displayed as-is
 - Paths ending in file extensions (`.exe`, `.bat`) are not saved as CWD
 
+## Notification System
+
+Wired to Claude Code's hook events (the hook lives at `~/.claude/hooks/notify.ps1`, gated on `AFTERTERM=1`). When a background tab needs attention, afterterm surfaces it three ways:
+
+- **Floating overlay toasts** — a separate always-on-top, transparent, frameless, click-through `BrowserWindow` (`notifierWindow` in main.ts) loads the same renderer with `?notifier=1`, which routes to `NotifierApp.tsx`. It stays **hidden** until a toast arrives (`showInactive()` on push), then hides again when the last toast clears — this is what keeps the Windows `WM_NCACTIVATE` white-bar artifact from showing. Clicking a toast focuses the main window and switches to that tab.
+- **Sidebar tab indicator** — a background tab with a pending notification gets a pulsing colored row + a colored dot to the right of its `›`. Cleared only on tab activation (not on title change).
+- **Working spinner** — while Claude is mid-turn, the tab shows a spinning arc after its `›` (no toast, no row pulse). Driven by a `▶ working` title emitted by the `UserPromptSubmit` hook; replaced by ✅/⏳/⚙ when the turn ends. (See `docs/bugs.md` — the spinner can stop early if Claude replies but keeps running.)
+- **Group header badge** — a count of group members with pending (non-working) notifications.
+
+Notification types map to title prefixes the shell hook emits: `✅` done, `⚠` attention, `⏳` background tasks, `⚙` compacting, `▶` working. Detection is in `Terminal/index.tsx` (`detectNotification`); fan-out to overlay + sidebar is in `app.tsx` (`handleNotification`). A toast is suppressed only when the user is *actually looking* at that tab (`activeTabId === tabId && document.hasFocus()`), so cross-app notifications still fire when afterterm is behind another window.
+
+IPC flow: renderer `notify:push` → main → `notifierWindow` `notify:push`; overlay click `notify:tab-click` → main → `mainWindow.focus()` + `notify:activate-tab` → renderer; `notifier:hide` / `notifier:set-ignore-mouse` overlay → main.
+
 ## Session Restore
 
-Windows ConPTY cannot be reconnected after app restart — the kernel object dies with the process.
+Windows ConPTY cannot be reconnected after app restart — the kernel object dies with the process. (A future design to make shells *survive* an app restart lives in `docs/design-01-persistent-pty-host.md`.)
 
 What afterterm does:
 - Auto-saves every 2 seconds (debounced): tab order, group names/colors/collapsed state, shell type, CWD
@@ -70,6 +88,20 @@ What afterterm does:
 - Limitation: scrollback, running processes, and command history are lost — each tab is a fresh shell
 
 Save location: `%APPDATA%\afterterm\session.json`
+
+### CWD capture — per-shell support
+
+A tab can only restore to its last directory if afterterm captured that directory while you worked. Capture relies on the shell *announcing* its path, and not every shell does:
+
+| Shell | CWD restore | How |
+|---|---|---|
+| **Command Prompt (cmd.exe)** | ✅ Supported | afterterm injects an OSC 9;9 cwd report into the `PROMPT` env var at spawn (`main.ts`); the renderer parses OSC 9;9 (`Terminal/index.tsx`). Any custom `PROMPT` is preserved. |
+| **Git Bash** | ✅ Supported | Its default prompt already sets the terminal title to the path (OSC 0), which afterterm parses as CWD. |
+| **PowerShell 7 (pwsh)** | ❌ Not yet | Default prompt emits neither a path title nor OSC 9;9. Needs shell-integration prompt-wrapping (deferred — risk of clobbering custom prompts like oh-my-posh/starship). |
+| **Windows PowerShell** | ❌ Not yet | Same as pwsh. |
+| **WSL** | ❌ Not yet | Default prompt doesn't report cwd; would need an OSC 7 / `PROMPT_COMMAND` injection. |
+
+Unsupported shells fall back to spawning in the user home folder (`%USERPROFILE%`).
 
 ## Keyboard Shortcuts
 
@@ -130,4 +162,9 @@ Session data (`%APPDATA%\afterterm\`) is shared between dev and portable builds.
 
 ## Docs
 
-Research and design documents live in `docs/`. Naming convention: `research-NN-<topic>.md` for research, other prefixes as needed.
+Research and design documents live in `docs/`. Naming convention: `research-NN-<topic>.md` for research, `design-NN-<topic>.md` for designs, other prefixes as needed.
+
+- `docs/research-00-terminal-landscape-and-stack-validation.md` — pre-build stack/landscape research
+- `docs/design-01-persistent-pty-host.md` — design for a detached PTY-host daemon so terminals survive an app update (not yet built)
+- `docs/ideas.md` — feature ideas backlog
+- `docs/bugs.md` — running list of known, unfixed bugs (distinct from the platform Known Limitations above)
