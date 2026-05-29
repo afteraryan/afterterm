@@ -116,31 +116,31 @@ export function useTabState() {
     setTabs(prev => prev.map(t => t.groupId === groupId ? { ...t, groupId: undefined } : t));
   }, []);
 
-  const moveTab = useCallback((tabId: string, afterTabId: string | null) => {
+  const moveTab = useCallback((tabId: string, anchorTabId: string, position: 'before' | 'after') => {
     setTabs(prev => {
       const tab = prev.find(t => t.id === tabId);
-      if (!tab) return prev;
+      if (!tab || tabId === anchorTabId) return prev;
       const without = prev.filter(t => t.id !== tabId);
-      let next: Tab[];
-      if (afterTabId === null) {
-        next = [tab, ...without];
-      } else {
-        const idx = without.findIndex(t => t.id === afterTabId);
-        if (idx === -1) return [...without, tab];
-        next = [...without];
-        next.splice(idx + 1, 0, tab);
-      }
+      const anchorIdx = without.findIndex(t => t.id === anchorTabId);
+      if (anchorIdx === -1) return prev;
+      const insertIdx = position === 'before' ? anchorIdx : anchorIdx + 1;
+      const next = [...without];
+      next.splice(insertIdx, 0, tab);
 
-      if (tab.groupId) {
-        const tabIdx = next.findIndex(t => t.id === tabId);
-        const prev_ = tabIdx > 0 ? next[tabIdx - 1] : null;
-        const next_ = tabIdx < next.length - 1 ? next[tabIdx + 1] : null;
-        const stillAdjacent =
-          (prev_ && prev_.groupId === tab.groupId) ||
-          (next_ && next_.groupId === tab.groupId);
-        if (!stillAdjacent) {
-          return next.map(t => t.id === tabId ? { ...t, groupId: undefined } : t);
-        }
+      // Reconcile group membership from where the tab landed:
+      const tabIdx = next.findIndex(t => t.id === tabId);
+      const prevG = tabIdx > 0 ? next[tabIdx - 1].groupId : undefined;
+      const nextG = tabIdx < next.length - 1 ? next[tabIdx + 1].groupId : undefined;
+
+      // Dropped in the interior of a group (both neighbors share it) → join that group.
+      // Makes "drop into the middle/top of a group" work and prevents a groupless tab
+      // from splitting a group's contiguous block.
+      if (prevG && prevG === nextG && tab.groupId !== prevG) {
+        return next.map(t => t.id === tabId ? { ...t, groupId: prevG } : t);
+      }
+      // In a group but no longer adjacent to it → leave the group (drag-out).
+      if (tab.groupId && prevG !== tab.groupId && nextG !== tab.groupId) {
+        return next.map(t => t.id === tabId ? { ...t, groupId: undefined } : t);
       }
 
       return next;

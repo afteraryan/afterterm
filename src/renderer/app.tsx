@@ -96,7 +96,12 @@ export function App() {
 
   const handleActivate = useCallback((tabId: string) => {
     state.setActiveTabId(tabId);
-    state.setTabNotification(tabId, undefined);
+    // 'working' is ongoing-turn state, not an unseen badge — keep it spinning even
+    // when you open the tab. Only clear the "you-haven't-seen-it" notifications.
+    const current = stateRef.current.tabs.find(t => t.id === tabId)?.notification;
+    if (current !== 'working') {
+      state.setTabNotification(tabId, undefined);
+    }
     window.afterterm.notify.dismissTab(tabId);
   }, [state.setActiveTabId, state.setTabNotification]);
 

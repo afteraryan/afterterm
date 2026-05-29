@@ -410,7 +410,7 @@ export interface SidePanelProps {
   onSetGroupCwd: (groupId: string) => void;
   onToggleGroupCollapse: (groupId: string) => void;
   onDeleteGroup: (groupId: string) => void;
-  onMoveTab: (tabId: string, afterTabId: string | null) => void;
+  onMoveTab: (tabId: string, anchorTabId: string, position: 'before' | 'after') => void;
   onMoveGroup: (groupId: string, afterTabId: string | null) => void;
   onMoveGroupAfterGroup: (groupId: string, afterGroupId: string) => void;
 }
@@ -510,7 +510,17 @@ export function SidePanel(props: SidePanelProps) {
       const targetGroupId = overId.replace('group-drop-', '').replace('group-drag-', '');
       onAddToGroup(activeId, targetGroupId);
     } else {
-      onMoveTab(activeId, overId);
+      // Drop above the hovered row's midpoint → insert before it; below → after.
+      // This makes the first slot (and a group's first slot) reachable.
+      const activeRect = event.active.rect.current.translated;
+      const overRect = event.over?.rect;
+      let position: 'before' | 'after' = 'after';
+      if (activeRect && overRect) {
+        const activeCenterY = activeRect.top + activeRect.height / 2;
+        const overCenterY = overRect.top + overRect.height / 2;
+        position = activeCenterY < overCenterY ? 'before' : 'after';
+      }
+      onMoveTab(activeId, overId, position);
     }
   }, [groupPreviewTarget, tabs, onAddToGroup, onCreateGroup, onMoveTab, onMoveGroup, onMoveGroupAfterGroup]);
 
