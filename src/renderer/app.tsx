@@ -47,7 +47,7 @@ export function App() {
       const data = {
         tabs: state.tabs.map(t => ({
           id: t.id, title: t.title, groupId: t.groupId,
-          shellId: t.shellId, cwd: t.cwd,
+          shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize,
         })),
         groups: state.groups,
         activeTabId: state.activeTabId,
@@ -147,7 +147,7 @@ export function App() {
       if (!s.tabs.length) return;
       const data = {
         tabs: s.tabs.map(t => ({
-          id: t.id, title: t.title, groupId: t.groupId, shellId: t.shellId, cwd: t.cwd,
+          id: t.id, title: t.title, groupId: t.groupId, shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize,
         })),
         groups: s.groups,
         activeTabId: s.activeTabId,
@@ -165,7 +165,7 @@ export function App() {
     }
   }, [initialized, state.tabs.length, state.addTab]);
 
-  const tabInfos = state.tabs.map(t => ({ id: t.id, shellId: t.shellId, cwd: t.cwd }));
+  const tabInfos = state.tabs.map(t => ({ id: t.id, shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize }));
 
   return (
     <div className="app">
@@ -214,6 +214,7 @@ export function App() {
             onCwdChange={state.updateTabCwd}
             onNotification={handleNotification}
             onUserInput={handleUserInput}
+            onFontSizeChange={state.setTabFontSize}
             onExit={handlePtyExit}
           />
         )}

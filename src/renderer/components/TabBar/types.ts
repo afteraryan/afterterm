@@ -7,6 +7,7 @@ export interface Tab {
   shellId?: string;
   cwd?: string;
   notification?: TabNotification;
+  fontSize?: number; // per-tab Ctrl+scroll zoom; persisted in session.json
 }
 
 export interface Group {

@@ -54,6 +54,10 @@ export function useTabState() {
     setTabs(prev => prev.map(t => t.id === tabId ? { ...t, cwd } : t));
   }, []);
 
+  const setTabFontSize = useCallback((tabId: string, fontSize: number) => {
+    setTabs(prev => prev.map(t => t.id === tabId ? { ...t, fontSize } : t));
+  }, []);
+
   const createGroup = useCallback((tabId1: string, tabId2?: string): string => {
     const id = makeGroupId();
     const usedColors = groups.map(g => g.color);
@@ -183,7 +187,7 @@ export function useTabState() {
   return {
     tabs, groups, activeTabId,
     setActiveTabId,
-    addTab, closeTab, renameTab, updateTabCwd, setTabNotification,
+    addTab, closeTab, renameTab, updateTabCwd, setTabNotification, setTabFontSize,
     createGroup, addToGroup, removeFromGroup,
     renameGroup, setGroupColor, setGroupCwd, toggleGroupCollapse, deleteGroup,
     moveTab, moveGroup, moveGroupAfterGroup,

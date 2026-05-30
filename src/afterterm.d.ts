@@ -18,6 +18,14 @@ interface AftertermShellsAPI {
   list(): Promise<ShellProfile[]>;
 }
 
+interface AftertermShellAPI {
+  openExternal(url: string): void;
+}
+
+interface AftertermFilesAPI {
+  pathForFile(file: File): string;
+}
+
 interface AftertermSessionAPI {
   save(data: string): Promise<void>;
   saveSync(data: string): void;
@@ -61,6 +69,8 @@ interface AftertermAPI {
   env: { userProfile: string };
   dialog: AftertermDialogAPI;
   shells: AftertermShellsAPI;
+  shell: AftertermShellAPI;
+  files: AftertermFilesAPI;
   session: AftertermSessionAPI;
   shortcuts: AftertermShortcutsAPI;
   notify: AftertermNotifyAPI;

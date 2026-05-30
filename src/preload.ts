@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
+import { contextBridge, ipcRenderer, IpcRendererEvent, webUtils } from 'electron';
 
 const dataListeners = new Map<string, (event: IpcRendererEvent, data: string) => void>();
 
@@ -17,6 +17,18 @@ contextBridge.exposeInMainWorld('afterterm', {
   shells: {
     list: (): Promise<{ id: string; name: string }[]> =>
       ipcRenderer.invoke('shells:list'),
+  },
+
+  shell: {
+    openExternal: (url: string): void => {
+      ipcRenderer.invoke('shell:openExternal', url);
+    },
+  },
+
+  files: {
+    // Electron 32+ removed File.path; webUtils.getPathForFile is the supported way
+    // to get a dropped file's absolute path. Must run in preload (has Node access).
+    pathForFile: (file: File): string => webUtils.getPathForFile(file),
   },
 
   session: {

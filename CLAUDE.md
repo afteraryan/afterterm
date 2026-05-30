@@ -6,6 +6,7 @@ A simple terminal emulator for Windows with **Chrome-style tab groups**. No exis
 
 - **Electron** (desktop runtime)
 - **@xterm/xterm v6** + **@xterm/addon-webgl** (terminal renderer)
+- **@xterm/addon-web-links** + **@xterm/addon-search** (clickable links, find-in-scrollback) — pinned to stable 0.12.x / 0.16.x; **don't** bump to the v6 betas (peer `^6.1.0-beta` → ERESOLVE). See `docs/features-terminal-interactions.md`.
 - **node-pty** (PTY / shell spawning via ConPTY)
 - **React 19** (UI)
 - **@dnd-kit/core** (drag-and-drop for tab grouping)
@@ -29,9 +30,9 @@ Named, color-coded, collapsible tab groups — exactly like Chrome's tab groups,
 
 ```
 src/
-  main.ts                              ← Electron main: PTY IPC, shell detection, session persistence, keyboard shortcuts, notifier window + notify IPC
-  preload.ts                           ← contextBridge: PTY API, session API, shell list, shortcuts, notify (send) + notifier (receive) APIs
-  afterterm.d.ts                       ← Window.afterterm type declarations (incl. notify/notifier APIs)
+  main.ts                              ← Electron main: PTY IPC, shell detection, session persistence, keyboard shortcuts, notifier window + notify IPC, shell:openExternal (link safelist)
+  preload.ts                           ← contextBridge: PTY API, session API, shell list, shortcuts, notify/notifier APIs, shell.openExternal, files.pathForFile (drag-drop)
+  afterterm.d.ts                       ← Window.afterterm type declarations (incl. notify/notifier, shell, files APIs)
   renderer/
     index.tsx                          ← React root; routes to NotifierApp when ?notifier=1, else App
     app.tsx                            ← Layout: SidePanel + TerminalArea, session restore, shortcut dispatch, notification fan-out
@@ -45,9 +46,9 @@ src/
         index.tsx                      ← Tab list, groups, DnD, context menus, shell dropdown, tab glow/dot + working spinner + group badge
         SidePanel.css                  ← incl. notification pulse keyframes + working-spinner animation
       Terminal/
-        index.tsx                      ← xterm.js lifecycle, PTY wiring, title intelligence, OSC 9;9 cwd capture, clipboard
+        index.tsx                      ← xterm.js lifecycle, PTY wiring, title intelligence, OSC 9;9 cwd capture, clipboard, links, find bar, font zoom, drag-drop
       TabBar/
-        types.ts                       ← Tab, Group, GroupColor, TabNotification types (shared)
+        types.ts                       ← Tab (incl. fontSize), Group, GroupColor, TabNotification types (shared)
 forge.config.ts                        ← ASAR unpack, rebuild skip, Vite plugin config
 ```
 
@@ -63,6 +64,12 @@ Raw OSC 0 titles from the shell are transformed before display:
 - `C:\` → `C:\` (root stays as-is)
 - Non-path titles (process names, etc.) → displayed as-is
 - Paths ending in file extensions (`.exe`, `.bat`) are not saved as CWD
+
+## Terminal Interactions
+
+Clickable links (+ OSC 8), right-click copy/paste, find-in-scrollback, per-tab font zoom, and
+file drag-and-drop — all in `Terminal/index.tsx`. See `docs/features-terminal-interactions.md`
+for behavior and implementation detail.
 
 ## Notification System
 
@@ -117,6 +124,10 @@ Registered via Electron `before-input-event` — work even when xterm.js has foc
 | Ctrl+Shift+B | Toggle side panel |
 | Ctrl+V | Paste (bracketed paste) |
 | Ctrl+C | Copy selection (SIGINT when no selection) |
+| Ctrl+Shift+A | Select all scrollback |
+| Ctrl+Shift+F | Find in current tab's scrollback |
+| Ctrl+scroll | Zoom font size (per-tab) |
+| Right-click | Copy selection if any, else paste (Windows QuickEdit style) |
 
 ## Windows-Specific Gotchas
 
@@ -169,3 +180,4 @@ Research and design documents live in `docs/`. Naming convention: `research-NN-<
 - `docs/design-01-persistent-pty-host.md` — design for a detached PTY-host daemon so terminals survive an app update (not yet built)
 - `docs/ideas.md` — feature ideas backlog
 - `docs/bugs.md` — running list of known, unfixed bugs (distinct from the platform Known Limitations above)
+- `docs/features-terminal-interactions.md` — links, right-click, find, font zoom, drag-drop (behavior + implementation)
