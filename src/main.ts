@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, screen } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, screen, shell } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { execFile, execSync } from 'child_process';
@@ -226,6 +226,21 @@ ipcMain.on('notifier:set-ignore-mouse', (_event, ignore: boolean) => {
 // Notifier → self: hide window when all toasts are dismissed
 ipcMain.on('notifier:hide', () => {
   notifierWindow?.hide();
+});
+
+// ─── IPC: open a link in the user's default browser ──────────────────────────
+
+// Clicked URLs / OSC 8 hyperlinks from the terminal. Safelist protocols so a
+// malicious escape sequence can't launch arbitrary handlers (file:, custom URI
+// schemes, etc.) — only the things you'd actually want a browser/mail client for.
+const OPEN_EXTERNAL_PROTOCOLS = ['http:', 'https:', 'mailto:'];
+
+ipcMain.handle('shell:openExternal', (_event, url: string) => {
+  try {
+    if (OPEN_EXTERNAL_PROTOCOLS.includes(new URL(url).protocol)) {
+      shell.openExternal(url);
+    }
+  } catch { /* not a valid URL — ignore */ }
 });
 
 // ─── IPC: pick folder ────────────────────────────────────────────────────────
