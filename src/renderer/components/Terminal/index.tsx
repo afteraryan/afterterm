@@ -303,7 +303,14 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
 
     term.onData((data) => {
       api.pty.write(tabId, data);
-      onUserInputRef.current(tabId);
+      // Clear the working spinner only on a REAL interrupt — a bare Esc ('\x1b') or
+      // Ctrl+C ('\x03'). Must NOT fire on the focus-report sequences xterm emits via
+      // onData when the terminal blurs on tab switch (focus-out is 'ESC [ O', focus-in
+      // 'ESC [ I') — those were stopping the spinner the moment you left the tab.
+      // Arrow keys etc. ('ESC [ A'…) are also multi-char and correctly excluded.
+      if (data === '\x1b' || data === '\x03') {
+        onUserInputRef.current(tabId);
+      }
     });
 
     term.onResize(({ cols, rows }) => api.pty.resize(tabId, cols, rows));

@@ -161,12 +161,20 @@ function createWindow() {
     }).then(({ response }) => {
       if (response === 0) {
         isQuitting = true;
-        mainWindow?.close();
+        // Quit the whole app — NOT just mainWindow.close(). The always-on-top
+        // notifier window otherwise keeps the process alive (window-all-closed
+        // never fires), leaving a headless zombie holding every shell.
+        app.quit();
       }
     });
   });
 
-  mainWindow.on('closed', () => { mainWindow = null; });
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+    // Main window gone → quit the app so the notifier window doesn't keep the
+    // process (and its shells) alive. before-quit drains PTYs; guarded to run once.
+    app.quit();
+  });
 
   // ── Keyboard shortcuts via before-input-event ─────────────────────────────
   mainWindow.webContents.on('before-input-event', (event, input) => {
@@ -395,7 +403,8 @@ ipcMain.handle('session:load', () => {
 
 // ─── Graceful shutdown — drain all PTYs before quit ──────────────────────────
 
-let isQuitting = false;
+let isQuitting = false;   // user has confirmed/initiated quit (suppresses close dialog)
+let ptysDrained = false;  // PTY teardown has run (separate so it always runs once)
 
 async function destroyAllPtys() {
   const kills = [...ptys.entries()].map(async ([, p]) => {
@@ -410,9 +419,10 @@ async function destroyAllPtys() {
 }
 
 app.on('before-quit', async (e) => {
-  if (isQuitting || ptys.size === 0) return;
-  isQuitting = true;
+  isQuitting = true; // any quit path suppresses the close-confirm dialog
+  if (ptysDrained || ptys.size === 0) return;
   e.preventDefault();
+  ptysDrained = true;
   await destroyAllPtys();
   app.quit();
 });
