@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, screen } from 'electron';
 import fs from 'fs';
 import path from 'path';
 
@@ -133,5 +133,20 @@ export async function runNotifierDemo(win: BrowserWindow): Promise<void> {
   push(2, 'attention', 'pwsh · build', 'Needs your input — overwrite existing file?');
   await wait(1200);
   push(3, 'background', 'wsl · deploy', 'Background task still running');
+  await wait(600);
+
+  // ── Diagnostics: prove whether pixels actually render and where the window is ──
+  const b = win.getBounds();
+  const displays = screen.getAllDisplays().map(d => ({ id: d.id, bounds: d.bounds, work: d.workArea, scale: d.scaleFactor }));
+  console.log(`NOTIFY_DEMO | bounds=${JSON.stringify(b)} visible=${win.isVisible()} opacity=${win.getOpacity()} alwaysOnTop=${win.isAlwaysOnTop()}`);
+  console.log(`NOTIFY_DEMO | displays=${JSON.stringify(displays)}`);
+  try {
+    const img = await win.webContents.capturePage();
+    const out = path.join(app.getAppPath(), 'demo-capture.png');
+    fs.writeFileSync(out, img.toPNG());
+    console.log(`NOTIFY_DEMO | captured web contents -> ${out} (size=${JSON.stringify(img.getSize())})`);
+  } catch (err) {
+    console.log(`NOTIFY_DEMO | capturePage failed: ${String(err)}`);
+  }
   console.log('NOTIFY_DEMO | three toasts shown — inspect for white bar and click-through, then close the app.');
 }
