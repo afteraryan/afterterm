@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { execFile, execSync } from 'child_process';
 import * as pty from 'node-pty';
+import { runNotifierSelfTest, runNotifierDemo } from './notifier-selftest';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -78,21 +79,37 @@ function getIconPath() {
   return path.join(process.resourcesPath, 'assets', iconName);
 }
 
+const NOTIFIER_WIDTH = 340;   // fixed column width; height is content-driven
+const NOTIFIER_MARGIN = 12;   // gap from the screen's bottom-right corner
+
+// Resize/reposition the overlay so it's anchored to the bottom-right of the work
+// area and exactly as tall as the rendered toast stack (the renderer measures and
+// reports `contentHeight`). Because the window is never larger than its visible
+// content, there is no invisible dead zone swallowing clicks, and nothing for DWM
+// to paint a white bar over above the toasts.
+function positionNotifier(contentHeight: number) {
+  if (!notifierWindow || notifierWindow.isDestroyed()) return;
+  const wa = screen.getPrimaryDisplay().workArea;
+  const h = Math.max(1, Math.ceil(contentHeight));
+  const x = wa.x + wa.width - NOTIFIER_WIDTH - NOTIFIER_MARGIN;
+  const y = wa.y + wa.height - h - NOTIFIER_MARGIN;
+  notifierWindow.setBounds({ x, y, width: NOTIFIER_WIDTH, height: h });
+}
+
 function createNotifierWindow() {
-  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-  const toastAreaHeight = 700;
-  const toastAreaWidth = 300;
+  const wa = screen.getPrimaryDisplay().workArea;
   notifierWindow = new BrowserWindow({
-    x: width - toastAreaWidth - 4,
-    y: height - toastAreaHeight,
-    width: toastAreaWidth,
-    height: toastAreaHeight,
+    x: wa.x + wa.width - NOTIFIER_WIDTH - NOTIFIER_MARGIN,
+    y: wa.y + wa.height - 80 - NOTIFIER_MARGIN,
+    width: NOTIFIER_WIDTH,
+    height: 80,
     title: '',
     transparent: true,
     backgroundColor: '#00000000',
     frame: false,
     thickFrame: false,
     hasShadow: false,
+    roundedCorners: false,
     alwaysOnTop: true,
     skipTaskbar: true,
     resizable: false,
@@ -105,14 +122,15 @@ function createNotifierWindow() {
     },
   });
 
+  // Click-through everywhere by default. The renderer flips this off only while
+  // the cursor is actually over a toast card (per-region hit-testing via forwarded
+  // mouse-move), so clicks reach the app behind the overlay everywhere except a card.
   notifierWindow.setIgnoreMouseEvents(true, { forward: true });
 
-  // WM_NCACTIVATE (0x0086) fires whenever any app gains/loses focus, causing
-  // Windows to repaint the transparent window's non-client area as a white bar.
-  // Force a Chromium repaint immediately after so it overwrites the DWM artifact.
-  notifierWindow.hookWindowMessage(0x0086, () => {
-    notifierWindow?.webContents.invalidate();
-  });
+  // Chromium copies the loaded document's title onto the native window — that's
+  // what drew "index.html" into the DWM caption strip (the "white bar"). Refuse
+  // every title update so the window stays titleless and no caption text is drawn.
+  notifierWindow.on('page-title-updated', (e) => e.preventDefault());
 
   const notifierUrl = MAIN_WINDOW_VITE_DEV_SERVER_URL
     ? `${MAIN_WINDOW_VITE_DEV_SERVER_URL}?notifier=1`
@@ -234,6 +252,12 @@ ipcMain.on('notifier:set-ignore-mouse', (_event, ignore: boolean) => {
 // Notifier → self: hide window when all toasts are dismissed
 ipcMain.on('notifier:hide', () => {
   notifierWindow?.hide();
+});
+
+// Notifier → self: renderer reports the measured height of its toast stack;
+// resize the window to match so it's exactly as tall as the visible toasts.
+ipcMain.on('notifier:resize', (_event, height: number) => {
+  positionNotifier(height);
 });
 
 // ─── IPC: open a link in the user's default browser ──────────────────────────
@@ -430,8 +454,18 @@ app.on('before-quit', async (e) => {
 // ─── App lifecycle ────────────────────────────────────────────────────────────
 
 app.whenReady().then(() => {
-  createWindow();
   createNotifierWindow();
+  // Headless geometry self-test: drive the overlay through a toast sequence and
+  // assert the window resizes to fit (no dead zone) and stays bottom-anchored.
+  if (process.env.AFTERTERM_NOTIFY_TEST === '1') {
+    runNotifierSelfTest(notifierWindow!);
+    return; // skip the main window — this run only exercises the overlay
+  }
+  if (process.env.AFTERTERM_NOTIFY_DEMO === '1') {
+    runNotifierDemo(notifierWindow!);
+    return; // leave toasts on screen for visual inspection
+  }
+  createWindow();
 });
 
 app.on('window-all-closed', () => {

@@ -3,3 +3,4 @@ out/
 .vite/
 *.log
 .claude/settings.local.json
+notify-selftest-result.json

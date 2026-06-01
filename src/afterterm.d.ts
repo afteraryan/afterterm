@@ -48,6 +48,7 @@ interface AftertermNotifierAPI {
   clickTab(tabId: string): void;
   setIgnoreMouse(ignore: boolean): void;
   hide(): void;
+  resize(height: number): void;
 }
 
 interface AftertermPtyAPI {

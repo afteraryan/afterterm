@@ -71,6 +71,8 @@ contextBridge.exposeInMainWorld('afterterm', {
       ipcRenderer.send('notifier:set-ignore-mouse', ignore),
     hide: (): void =>
       ipcRenderer.send('notifier:hide'),
+    resize: (height: number): void =>
+      ipcRenderer.send('notifier:resize', height),
   },
 
   pty: {

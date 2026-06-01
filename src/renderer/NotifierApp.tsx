@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './NotifierApp.css';
 
 export type NotifType = 'done' | 'attention' | 'background' | 'compacting';
@@ -58,6 +58,8 @@ function ToastCard({ toast, onDismiss }: ToastCardProps) {
 
 export function NotifierApp() {
   const [toasts, setToasts] = useState<NotifierToast[]>([]);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const ignoringRef = useRef(true);
 
   // Force transparent background — index.css sets body to #141414
   // Clear title so Windows 11 snap tooltip doesn't show "afterterm"
@@ -79,22 +81,53 @@ export function NotifierApp() {
     });
   }, []);
 
-  // Hide window entirely when no toasts — prevents WM_NCACTIVATE white bar artifact
-  // Show is triggered from main (showInactive) when a toast is pushed
+  // Report the toast stack's exact pixel height to main so the window can size
+  // itself to fit. ResizeObserver catches every change — toasts added/removed,
+  // text reflow, async font load — keeping the window flush with its content.
   useEffect(() => {
-    if (toasts.length === 0) {
-      window.afterterm.notifier.hide();
-    } else {
-      window.afterterm.notifier.setIgnoreMouse(false);
-    }
+    const el = rootRef.current;
+    if (!el) return;
+    const report = () => window.afterterm.notifier.resize(el.getBoundingClientRect().height);
+    report();
+    const ro = new ResizeObserver(report);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Hide the window when there are no toasts (nothing to show, nothing for DWM to
+  // paint a bar over). Showing is triggered from main (showInactive) on push.
+  useEffect(() => {
+    if (toasts.length === 0) window.afterterm.notifier.hide();
   }, [toasts.length]);
+
+  // Per-region click-through: the window starts mouse-transparent (forward:true),
+  // so we still receive move events. Flip interactivity on only while the cursor
+  // is over an actual toast card — everywhere else, clicks pass to the app behind.
+  useEffect(() => {
+    const setIgnore = (ignore: boolean) => {
+      if (ignoringRef.current === ignore) return;
+      ignoringRef.current = ignore;
+      window.afterterm.notifier.setIgnoreMouse(ignore);
+    };
+    const onMove = (e: MouseEvent) => {
+      const overCard = !!(e.target as HTMLElement | null)?.closest?.('.notif-card');
+      setIgnore(!overCard);
+    };
+    const onLeave = () => setIgnore(true);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseleave', onLeave);
+    return () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseleave', onLeave);
+    };
+  }, []);
 
   const dismiss = useCallback((id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
   return (
-    <div className="notifier-root">
+    <div className="notifier-root" ref={rootRef}>
       {toasts.map(t => (
         <ToastCard key={t.id} toast={t} onDismiss={dismiss} />
       ))}
