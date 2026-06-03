@@ -30,9 +30,13 @@ $sfx  = Join-Path $root 'out\afterterm-setup.exe'
 $7z   = 'C:\Program Files\7-Zip\7z.exe'
 $sfxModule = 'C:\Program Files\7-Zip\7z.sfx'
 
-# Guard: refuse to run from inside afterterm (the folder would be locked).
-if ($env:AFTERTERM -eq '1') {
-    Write-Error "You're inside afterterm — the build folder is locked. Close afterterm and run this from a plain PowerShell/Windows Terminal window."
+# Guard: refuse only if afterterm is actually running FROM the folder this build
+# overwrites. Building from a separate copy/worktree (whose out\ is a different
+# path) is fine even while afterterm runs — that's the point of a build copy.
+$runningHere = @(Get-Process afterterm -ErrorAction SilentlyContinue |
+    Where-Object { $_.Path -and $_.Path.StartsWith($base, [StringComparison]::OrdinalIgnoreCase) })
+if ($runningHere.Count -gt 0) {
+    Write-Error "afterterm is running from '$base' (the folder this build overwrites). Close it, or run this from a separate copy/worktree whose out\ is elsewhere."
     exit 1
 }
 if (-not (Test-Path $7z) -or -not (Test-Path $sfxModule)) {
