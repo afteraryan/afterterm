@@ -30,7 +30,8 @@ Named, color-coded, collapsible tab groups — exactly like Chrome's tab groups,
 
 ```
 src/
-  main.ts                              ← Electron main: PTY IPC, shell detection, session persistence, keyboard shortcuts, notifier window + notify IPC, shell:openExternal (link safelist)
+  main.ts                              ← Electron main: PTY IPC, shell detection, session persistence, keyboard shortcuts, notifier window + notify IPC, shell:openExternal (link safelist), Claude-hook self-install on startup
+  claude-hook-install.ts               ← reconcileClaudeHook(): self-installs the bundled notifier hook into ~/.claude (idempotent, additive, prefs.json opt-out). Pure Node, unit-tested.
   preload.ts                           ← contextBridge: PTY API, session API, shell list, shortcuts, notify/notifier APIs, shell.openExternal, files.pathForFile (drag-drop)
   afterterm.d.ts                       ← Window.afterterm type declarations (incl. notify/notifier, shell, files APIs)
   renderer/
@@ -49,7 +50,11 @@ src/
         index.tsx                      ← xterm.js lifecycle, PTY wiring, title intelligence, OSC 9;9 cwd capture, clipboard, links, find bar, font zoom, drag-drop
       TabBar/
         types.ts                       ← Tab (incl. fontSize), Group, GroupColor, TabNotification types (shared)
-forge.config.ts                        ← ASAR unpack, rebuild skip, Vite plugin config
+assets/
+  hooks/
+    afterterm-notify.ps1               ← bundled, distributable Claude Code hook (no-op unless AFTERTERM=1); copied into ~/.claude/hooks on first run
+    test-afterterm-notify.ps1          ← standalone test harness for the hook (12 cases)
+forge.config.ts                        ← ASAR unpack, rebuild skip, Vite plugin config (extraResource: ['assets'] bundles the hook)
 ```
 
 ## Default Shell
@@ -83,6 +88,43 @@ Wired to Claude Code's hook events (the hook lives at `~/.claude/hooks/notify.ps
 Notification types map to title prefixes the shell hook emits: `✅` done, `⚠` attention, `⏳` background tasks, `⚙` compacting, `▶` working. Detection is in `Terminal/index.tsx` (`detectNotification`); fan-out to overlay + sidebar is in `app.tsx` (`handleNotification`). A toast is suppressed only when the user is *actually looking* at that tab (`activeTabId === tabId && document.hasFocus()`), so cross-app notifications still fire when afterterm is behind another window.
 
 IPC flow: renderer `notify:push` → main → `notifierWindow` `notify:push`; overlay click `notify:tab-click` → main → `mainWindow.focus()` + `notify:activate-tab` → renderer; `notifier:hide` / `notifier:set-ignore-mouse` overlay → main.
+
+### Hook self-install (so notifications work on a fresh machine)
+
+Those decorated titles only exist if a hook is registered in the user's Claude
+Code config — which a fresh install on someone else's machine doesn't have.
+Claude Code has **no** way to inject a hook per-session (no env var, no extra
+settings file; only the global/project `settings.json` hierarchy, and hooks
+*merge* across it). So afterterm **ships its own hook and self-registers it**:
+
+- **`assets/hooks/afterterm-notify.ps1`** — a self-contained, distributable copy
+  of the notify logic. First line is `if ($env:AFTERTERM -ne '1') { exit 0 }`,
+  so even though it's registered globally it's a **complete no-op outside
+  afterterm** — zero output/latency/popups in the user's other terminals. It has
+  **no popup path** (popups are always suppressed inside afterterm), so it drops
+  the `popup.vbs`/`wscript` dependency of the dev-machine `~/.claude/hooks/notify.ps1`.
+  Forces UTF-8 stdout so the glyphs survive Windows PowerShell 5.1 too.
+- **`src/claude-hook-install.ts`** — `reconcileClaudeHook()` runs on every
+  startup from `main.ts` (`reconcileNotifierHook`). It's **idempotent and
+  additive**: copies the script into `~/.claude/hooks/` and merges its 5 entries
+  (`SessionStart`, `UserPromptSubmit`, `Notification`/`permission_prompt`,
+  `Stop`, `PreCompact`) into `~/.claude/settings.json` only if missing — never
+  touching the user's own hooks/permissions. Skips entirely when there's no
+  `~/.claude` (CC not installed) and **never clobbers** an unparseable settings file.
+- **Opt-out** is a single flag in `%APPDATA%\afterterm\prefs.json`
+  (`claudeNotifications: "enabled" | "disabled"`, default enabled). Reconcile
+  reads it first; `disabled` surgically removes only afterterm's entries and
+  stops re-adding them (this flag is what makes a manual removal *stick* — without
+  it, reconcile can't tell "never installed" from "deliberately removed"). No
+  settings UI yet; a future toggle just writes this flag.
+- **One-time toast**: the first time it registers (`prefs.claudeHookToastShown`),
+  `pushSetupToast()` fires a "Claude Code notifications enabled" toast so the user
+  knows their config was touched — it's not a silent dotfile edit. The toast uses
+  a sentinel `tabId`; `app.tsx` `handleActivate` ignores clicks for unknown tabs.
+
+Tests (no app needed): `assets/hooks/test-afterterm-notify.ps1` (12 cases, runs
+the hook as a subprocess) and `src/claude-hook-install.test.ts` (26 cases, run
+with `node src/claude-hook-install.test.ts` — Node 24+ strips the TS types).
 
 ## Session Restore
 
@@ -159,6 +201,13 @@ Run directly from the `out` folder or move the entire `afterterm-win32-x64` fold
 
 Session data (`%APPDATA%\afterterm\`) is shared between dev and portable builds.
 
+### Shareable Build (self-extracting `.exe`)
+
+The portable folder is ~346 MB — too heavy to hand to someone. To produce a single
+**~67 MB self-extracting `afterterm-setup.exe`** (recipients double-click, no unzip tool needed),
+prune dead weight (debug symbols, wrong-arch prebuilds, non-English locales) and repack with
+7-Zip LZMA2 ultra. Full step-by-step in [`docs/guide-01-distributable-build.md`](docs/guide-01-distributable-build.md).
+
 ### Packaging Notes
 
 - **No ASAR**: `asar: false` in forge.config.ts. The Forge Vite plugin strips `node_modules` from ASAR output, which breaks native modules. Disabling ASAR avoids this entirely.
@@ -178,6 +227,7 @@ Research and design documents live in `docs/`. Naming convention: `research-NN-<
 
 - `docs/research-00-terminal-landscape-and-stack-validation.md` — pre-build stack/landscape research
 - `docs/design-01-persistent-pty-host.md` — design for a detached PTY-host daemon so terminals survive an app update (not yet built)
+- `docs/guide-01-distributable-build.md` — shrink the portable build into a ~67 MB self-extracting `.exe` for sharing (7-Zip LZMA2 + pruning)
 - `docs/ideas.md` — feature ideas backlog
 - `docs/bugs.md` — running list of known, unfixed bugs (distinct from the platform Known Limitations above)
 - `docs/features-terminal-interactions.md` — links, right-click, find, font zoom, drag-drop (behavior + implementation)
