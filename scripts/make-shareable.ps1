@@ -12,14 +12,14 @@ Usage:
     pwsh -File scripts\make-shareable.ps1            # strips non-English locales (smallest, ~67 MB)
     pwsh -File scripts\make-shareable.ps1 -KeepLocales   # safe for non-English Windows (~larger)
 
-If `npm run build` fails with a certificate / TLS handshake error on this
-machine (intercepting proxy or self-signed CA), the CORRECT fix is to point
-Node at the real CA before running, e.g.:
-    $env:NODE_EXTRA_CA_CERTS = 'C:\path\to\corp-ca.pem'
-Only as a last resort, re-run with -InsecureTLS. That disables TLS verification
-for the build, so the Electron/native binaries it downloads are NOT
-authenticated — and they get packed into a .exe you redistribute. Use it only
-on a trusted network, never as the default.
+TLS: this script runs the build with Node's --use-system-ca so it trusts the
+Windows certificate store — that fixes the "unable to verify the first
+certificate" error on machines behind an intercepting proxy / corporate root CA
+(the secure way, using your real installed CAs). If that still isn't enough,
+point Node at the CA explicitly: $env:NODE_EXTRA_CA_CERTS = 'C:\path\to\ca.pem'.
+Only as an absolute last resort on a trusted network, -InsecureTLS disables
+verification entirely (NOT recommended — the binaries get packed into a .exe you
+redistribute).
 #>
 param([switch]$KeepLocales, [switch]$InsecureTLS)
 
@@ -47,8 +47,13 @@ if (-not (Test-Path $7z) -or -not (Test-Path $sfxModule)) {
 # ── Step 1: build the portable folder ────────────────────────────────────────
 Write-Host "`n[1/3] Building portable app (this takes a few minutes)..." -ForegroundColor Cyan
 Push-Location $root
+# Make Node trust the OS (Windows) certificate store. On machines behind an
+# intercepting proxy / corporate root CA, the Electron download otherwise fails
+# with "unable to verify the first certificate". This is the SECURE fix — it
+# uses the real installed CAs, not a bypass. (Node 22+/24.)
+$env:NODE_OPTIONS = (("$env:NODE_OPTIONS --use-system-ca").Trim())
 if ($InsecureTLS) {
-    Write-Warning "TLS verification DISABLED (-InsecureTLS): downloaded Electron/native binaries are NOT authenticated and will be packed into a redistributable .exe. Only safe on a trusted network — prefer NODE_EXTRA_CA_CERTS."
+    Write-Warning "TLS verification DISABLED (-InsecureTLS): downloaded Electron/native binaries are NOT authenticated and will be packed into a redistributable .exe. Only safe on a trusted network — prefer fixing the CA so --use-system-ca works."
     $env:NODE_TLS_REJECT_UNAUTHORIZED = '0'
 }
 npm run build
