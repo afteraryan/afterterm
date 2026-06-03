@@ -95,6 +95,12 @@ export function App() {
   }, []);
 
   const handleActivate = useCallback((tabId: string) => {
+    // Ignore clicks for tabs that no longer exist (closed tab, or the one-time
+    // setup toast's sentinel tabId) — just dismiss it; don't blank the view.
+    if (!stateRef.current.tabs.some(t => t.id === tabId)) {
+      window.afterterm.notify.dismissTab(tabId);
+      return;
+    }
     state.setActiveTabId(tabId);
     // 'working' is ongoing-turn state, not an unseen badge — keep it spinning even
     // when you open the tab. Only clear the "you-haven't-seen-it" notifications.

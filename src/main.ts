@@ -4,6 +4,7 @@ import fs from 'fs';
 import { execFile, execSync } from 'child_process';
 import * as pty from 'node-pty';
 import { runNotifierSelfTest, runNotifierDemo } from './notifier-selftest';
+import { reconcileClaudeHook, HOOK_SCRIPT_NAME } from './claude-hook-install';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -77,6 +78,54 @@ function getIconPath() {
     return path.join(app.getAppPath(), 'assets', iconName);
   }
   return path.join(process.resourcesPath, 'assets', iconName);
+}
+
+// Bundled afterterm-notify.ps1: alongside icons under assets/ in dev,
+// under resourcesPath/assets in a packaged build (forge extraResource: ['assets']).
+function getHookScriptSource() {
+  const isDev = !!MAIN_WINDOW_VITE_DEV_SERVER_URL;
+  const base = isDev ? app.getAppPath() : process.resourcesPath;
+  return path.join(base, 'assets', 'hooks', HOOK_SCRIPT_NAME);
+}
+
+// Register (or reconcile) afterterm's Claude Code notifier hook on startup, then
+// fire a one-time toast the first time it's installed so the user knows their
+// Claude config was touched. Idempotent + opt-out aware — see claude-hook-install.ts.
+function reconcileNotifierHook() {
+  try {
+    const result = reconcileClaudeHook({
+      scriptSource: getHookScriptSource(),
+      claudeDir: path.join(app.getPath('home'), '.claude'),
+      prefsPath: path.join(app.getPath('userData'), 'prefs.json'),
+    });
+    console.log(`[claude-hook] ${result.status} — ${result.detail}`);
+    if (result.showToast) pushSetupToast();
+  } catch (err) {
+    console.error('[claude-hook] reconcile failed:', err);
+  }
+}
+
+// One-time "notifications enabled" toast through the existing overlay path. Uses a
+// sentinel tabId the renderer ignores on click (handleActivate no-ops unknown tabs).
+function pushSetupToast() {
+  const win = notifierWindow;
+  if (!win || win.isDestroyed()) return;
+  const send = () => {
+    if (win.isDestroyed()) return;
+    win.showInactive();
+    win.webContents.send('notify:push', {
+      id: 'afterterm-setup',
+      tabId: '__afterterm_setup__',
+      type: 'done',
+      primaryLabel: 'Claude Code notifications enabled',
+      message: 'afterterm added a notifier hook to your Claude config',
+    });
+  };
+  if (win.webContents.isLoading()) {
+    win.webContents.once('did-finish-load', () => setTimeout(send, 1000));
+  } else {
+    setTimeout(send, 600);
+  }
 }
 
 const NOTIFIER_WIDTH = 340;   // fixed column width; height is content-driven
@@ -466,6 +515,7 @@ app.whenReady().then(() => {
     return; // leave toasts on screen for visual inspection
   }
   createWindow();
+  reconcileNotifierHook();
 });
 
 app.on('window-all-closed', () => {
