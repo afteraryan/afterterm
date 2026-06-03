@@ -11,8 +11,17 @@ Usage:
     cd D:\Tinkering\afterterm
     pwsh -File scripts\make-shareable.ps1            # strips non-English locales (smallest, ~67 MB)
     pwsh -File scripts\make-shareable.ps1 -KeepLocales   # safe for non-English Windows (~larger)
+
+If `npm run build` fails with a certificate / TLS handshake error on this
+machine (intercepting proxy or self-signed CA), the CORRECT fix is to point
+Node at the real CA before running, e.g.:
+    $env:NODE_EXTRA_CA_CERTS = 'C:\path\to\corp-ca.pem'
+Only as a last resort, re-run with -InsecureTLS. That disables TLS verification
+for the build, so the Electron/native binaries it downloads are NOT
+authenticated — and they get packed into a .exe you redistribute. Use it only
+on a trusted network, never as the default.
 #>
-param([switch]$KeepLocales)
+param([switch]$KeepLocales, [switch]$InsecureTLS)
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -34,7 +43,10 @@ if (-not (Test-Path $7z) -or -not (Test-Path $sfxModule)) {
 # ── Step 1: build the portable folder ────────────────────────────────────────
 Write-Host "`n[1/3] Building portable app (this takes a few minutes)..." -ForegroundColor Cyan
 Push-Location $root
-$env:NODE_TLS_REJECT_UNAUTHORIZED = '0'   # SSL workaround for this dev machine
+if ($InsecureTLS) {
+    Write-Warning "TLS verification DISABLED (-InsecureTLS): downloaded Electron/native binaries are NOT authenticated and will be packed into a redistributable .exe. Only safe on a trusted network — prefer NODE_EXTRA_CA_CERTS."
+    $env:NODE_TLS_REJECT_UNAUTHORIZED = '0'
+}
 npm run build
 Pop-Location
 if (-not (Test-Path "$base\afterterm.exe")) {
