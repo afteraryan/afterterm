@@ -138,7 +138,9 @@ What afterterm does:
 Save location: `%APPDATA%\afterterm\session.json`
 
 Tabs that were running a **Claude Code session auto-resume it on relaunch** (`claude --resume
-<sessionId>` in the session's cwd). The session UUID is captured per-tab via a file the notify
+<sessionId>` in the session's cwd) — **lazily**: the active tab resumes on launch, background
+tabs resume the first time you open them (resuming all at once can OOM-crash the app). The
+session UUID is captured per-tab via a file the notify
 hook writes — **not** the terminal/title channel — and persisted as `claudeSessionId` /
 `claudeCwd`. See [`docs/features-claude-session-resume.md`](docs/features-claude-session-resume.md)
 for the why and the wiring. (Dev isolation: `AFTERTERM_USER_DATA_DIR` redirects `session.json`
