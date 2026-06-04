@@ -12,6 +12,7 @@ interface TermInfo {
   fitAddon: FitAddon;
   search: SearchAddon;
   container: HTMLDivElement;
+  scheduleFit: () => void;
 }
 
 interface TabInfo {
@@ -185,6 +186,22 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
 
+    // Debounce fit() so a burst of resize/zoom events collapses into a single
+    // ConPTY resize. A touchpad pinch arrives as dozens of ctrl+wheel events;
+    // a window-edge drag fires the ResizeObserver continuously. Each raw fit()
+    // recomputes cols/rows → term.onResize → pty.resize → ResizePseudoConsole,
+    // and the hosted TUI (Claude Code/Ink) repaints on every one. Ink's known
+    // resize-redraw leak then floods scrollback with duplicated frames. Coalescing
+    // to the final size means the PTY (and Ink) sees one resize, not fifty.
+    let fitTimer: ReturnType<typeof setTimeout> | undefined;
+    const scheduleFit = () => {
+      if (fitTimer) clearTimeout(fitTimer);
+      fitTimer = setTimeout(() => {
+        fitTimer = undefined;
+        try { fitAddon.fit(); } catch { /* container hidden or disposed */ }
+      }, 80);
+    };
+
     // Plain URLs in output → underlined + clickable, opening the default browser
     term.loadAddon(new WebLinksAddon((_event, uri) => window.afterterm.shell.openExternal(uri)));
 
@@ -264,7 +281,7 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
       const next = Math.max(MIN_FONT_SIZE, Math.min(MAX_FONT_SIZE, cur + (event.deltaY < 0 ? 1 : -1)));
       if (next !== cur) {
         term.options.fontSize = next;
-        fitAddon.fit();
+        scheduleFit();
         onFontSizeChangeRef.current(tabId, next);
       }
     }, { capture: true, passive: false });
@@ -286,7 +303,7 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
       if (paths.length) term.paste(paths.join(' '));
     });
 
-    termsRef.current.set(tabId, { term, fitAddon, search, container });
+    termsRef.current.set(tabId, { term, fitAddon, search, container, scheduleFit });
 
     // Only fit visible tabs — fitAddon on a hidden container returns 0 dimensions
     if (tabId === activeRef.current) {
@@ -403,7 +420,7 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
     const observer = new ResizeObserver(() => {
       const info = termsRef.current.get(activeRef.current);
       if (info) {
-        info.fitAddon.fit();
+        info.scheduleFit();
       }
     });
 
