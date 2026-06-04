@@ -4,6 +4,9 @@ const dataListeners = new Map<string, (event: IpcRendererEvent, data: string) =>
 
 contextBridge.exposeInMainWorld('afterterm', {
   version: process.versions.electron,
+  // afterterm's own version (package.json), for the titlebar badge. Resolved once,
+  // synchronously, at preload time so it's a plain string on the API.
+  appVersion: ipcRenderer.sendSync('app:version') as string,
 
   env: {
     userProfile: process.env.USERPROFILE || '',

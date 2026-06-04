@@ -37,6 +37,44 @@ body {
   -webkit-app-region: drag;
   z-index: 50;
   background: #1a1a1a;
+  display: flex;
+  align-items: center;
+}
+
+/* afterterm icon + name + version, top-left (Windows app branding convention) */
+.titlebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-left: 10px;
+  user-select: none;
+}
+
+.titlebar-logo {
+  width: 18px;
+  height: 18px;
+  display: block;
+  -webkit-user-drag: none;
+  /* The app icon is dark-on-dark (same #1a1a1a as the titlebar), so it vanishes
+     into the bar. Brightness lifts the frame to a soft gray and makes the colored
+     dots / prompt read — no chip, no border edge. */
+  filter: brightness(1.7);
+}
+
+.titlebar-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #d6d6d6;
+  letter-spacing: 0.2px;
+}
+
+.titlebar-version {
+  font-size: 10.5px;
+  line-height: 1;
+  color: #9a9a9a;
+  background: rgba(255, 255, 255, 0.07);
+  padding: 2px 6px;
+  border-radius: 999px;
 }
 
 .terminal-area {
