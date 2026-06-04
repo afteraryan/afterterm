@@ -40,6 +40,14 @@ contextBridge.exposeInMainWorld('afterterm', {
       ipcRenderer.invoke('session:load'),
   },
 
+  // Main pushes a tab's captured Claude session id + cwd (from the notify hook's
+  // file channel) so the renderer can persist it for resume-on-restart.
+  claudeSession: {
+    onUpdate: (callback: (data: { tabId: string; sessionId: string; cwd: string }) => void): void => {
+      ipcRenderer.on('claude-session:update', (_event, data) => callback(data));
+    },
+  },
+
   shortcuts: {
     onShortcut: (callback: (action: string) => void): void => {
       ipcRenderer.on('shortcut', (_event, action) => callback(action));

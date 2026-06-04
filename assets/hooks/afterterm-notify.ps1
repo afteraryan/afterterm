@@ -61,6 +61,27 @@ if (-not $project) { $project = 'session' }
 # more verbose, fail-safe branch).
 $IsAutoMode = ($payload.permission_mode -eq 'auto')
 
+# Claude Code stamps every hook payload with the active session UUID. afterterm uses
+# it to resume this exact session after an app restart (`claude --resume <id>` is the
+# rename-proof key, and it is cwd-scoped, so the cwd matters too). Empty if absent.
+$SessionId = if ($payload.session_id) { [string]$payload.session_id } else { '' }
+
+# --- Report the session id + cwd to afterterm (resume-on-restart) --------------
+# This deliberately does NOT use the terminalSequence/title channel: when the user
+# also has another notify hook registered, Claude Code writes only the FIRST hook's
+# terminal output and silently drops ours — so the title channel can't carry this.
+# Instead afterterm hands us a private per-tab file path via env (AFTERTERM_TAB_ID +
+# AFTERTERM_SESSION_DIR) and we write the mapping straight to disk. Runs on every
+# event, so capture happens the instant a session starts and refreshes each turn.
+# Completely inert when the env isn't set (i.e. not launched by this afterterm).
+if ($SessionId -and $env:AFTERTERM_TAB_ID -and $env:AFTERTERM_SESSION_DIR) {
+    try {
+        $sessFile = Join-Path $env:AFTERTERM_SESSION_DIR ($env:AFTERTERM_TAB_ID + '.json')
+        @{ sessionId = $SessionId; cwd = $cwd } | ConvertTo-Json -Compress |
+            Set-Content -Path $sessFile -Encoding UTF8 -NoNewline
+    } catch {}
+}
+
 # State glyphs. Kept in the BMP / Dingbats range so they render without
 # surrogate-pair trouble across terminals.
 $E_ALERT = [char]0x26A0  # ⚠ permission needed

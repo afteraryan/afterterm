@@ -54,6 +54,17 @@ export function useTabState() {
     setTabs(prev => prev.map(t => t.id === tabId ? { ...t, cwd } : t));
   }, []);
 
+  // Record the tab's live Claude session (UUID + cwd) reported by the notify hook.
+  // Last write wins — every turn refreshes it, so a forked/cleared session updates
+  // to the newest id. Only writes when something actually changed (avoids churn /
+  // needless session.json saves on every hook event).
+  const setClaudeSession = useCallback((tabId: string, sessionId: string, cwd: string) => {
+    setTabs(prev => prev.map(t =>
+      t.id === tabId && (t.claudeSessionId !== sessionId || t.claudeCwd !== cwd)
+        ? { ...t, claudeSessionId: sessionId, claudeCwd: cwd }
+        : t));
+  }, []);
+
   const setTabFontSize = useCallback((tabId: string, fontSize: number) => {
     setTabs(prev => prev.map(t => t.id === tabId ? { ...t, fontSize } : t));
   }, []);
@@ -187,7 +198,7 @@ export function useTabState() {
   return {
     tabs, groups, activeTabId,
     setActiveTabId,
-    addTab, closeTab, renameTab, updateTabCwd, setTabNotification, setTabFontSize,
+    addTab, closeTab, renameTab, updateTabCwd, setClaudeSession, setTabNotification, setTabFontSize,
     createGroup, addToGroup, removeFromGroup,
     renameGroup, setGroupColor, setGroupCwd, toggleGroupCollapse, deleteGroup,
     moveTab, moveGroup, moveGroupAfterGroup,

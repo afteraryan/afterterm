@@ -32,6 +32,16 @@ interface AftertermSessionAPI {
   load(): Promise<any>;
 }
 
+interface ClaudeSessionUpdate {
+  tabId: string;
+  sessionId: string;
+  cwd: string;
+}
+
+interface AftertermClaudeSessionAPI {
+  onUpdate(callback: (data: ClaudeSessionUpdate) => void): void;
+}
+
 interface AftertermShortcutsAPI {
   onShortcut(callback: (action: string) => void): void;
 }
@@ -73,6 +83,7 @@ interface AftertermAPI {
   shell: AftertermShellAPI;
   files: AftertermFilesAPI;
   session: AftertermSessionAPI;
+  claudeSession: AftertermClaudeSessionAPI;
   shortcuts: AftertermShortcutsAPI;
   notify: AftertermNotifyAPI;
   notifier: AftertermNotifierAPI;

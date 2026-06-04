@@ -18,17 +18,20 @@ $ESC = [char]27; $BEL = [char]7
 $pass = 0; $fail = 0
 
 # Run the hook as a subprocess with a given AFTERTERM value + stdin payload.
+# Optionally sets the per-tab session-capture env (AFTERTERM_TAB_ID / _SESSION_DIR).
 # Returns the raw stdout string.
 function Invoke-Hook {
-    param([string]$Json, [string]$Afterterm = '1')
-    $prev = $env:AFTERTERM
-    if ($null -eq $Afterterm) { Remove-Item Env:AFTERTERM -ErrorAction SilentlyContinue }
-    else { $env:AFTERTERM = $Afterterm }
+    param([string]$Json, [string]$Afterterm = '1', [string]$TabId, [string]$SessionDir)
+    $prev = $env:AFTERTERM; $prevTab = $env:AFTERTERM_TAB_ID; $prevDir = $env:AFTERTERM_SESSION_DIR
+    if ($null -eq $Afterterm) { Remove-Item Env:AFTERTERM -ErrorAction SilentlyContinue } else { $env:AFTERTERM = $Afterterm }
+    if ($TabId)      { $env:AFTERTERM_TAB_ID = $TabId }       else { Remove-Item Env:AFTERTERM_TAB_ID -ErrorAction SilentlyContinue }
+    if ($SessionDir) { $env:AFTERTERM_SESSION_DIR = $SessionDir } else { Remove-Item Env:AFTERTERM_SESSION_DIR -ErrorAction SilentlyContinue }
     try {
         $out = $Json | & pwsh -NoProfile -File $script
     } finally {
-        if ($null -eq $prev) { Remove-Item Env:AFTERTERM -ErrorAction SilentlyContinue }
-        else { $env:AFTERTERM = $prev }
+        if ($null -eq $prev)    { Remove-Item Env:AFTERTERM -ErrorAction SilentlyContinue }             else { $env:AFTERTERM = $prev }
+        if ($null -eq $prevTab) { Remove-Item Env:AFTERTERM_TAB_ID -ErrorAction SilentlyContinue }      else { $env:AFTERTERM_TAB_ID = $prevTab }
+        if ($null -eq $prevDir) { Remove-Item Env:AFTERTERM_SESSION_DIR -ErrorAction SilentlyContinue } else { $env:AFTERTERM_SESSION_DIR = $prevDir }
     }
     return ($out -join "`n")
 }
@@ -137,6 +140,66 @@ if (-not [string]::IsNullOrWhiteSpace($noCwd)) {
     Write-Host "  FAIL  missing cwd -> emitted nothing" -ForegroundColor Red
     $fail++
 }
+
+# ── Session capture file channel (resume-on-restart) ──────────────────────────
+# The hook writes <AFTERTERM_SESSION_DIR>\<AFTERTERM_TAB_ID>.json = { sessionId, cwd }
+# so afterterm can `claude --resume` it next launch. Independent of the title channel.
+$sid = '11111111-2222-3333-4444-555555555555'
+$cwdDecoded = 'C:\Tinkering\afterterm'   # $cwd after JSON unescaping
+$tmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ("afterterm-test-" + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $tmpDir -Force | Out-Null
+
+function Assert-SessionFile {
+    param([string]$Name, [string]$Json, [string]$TabId, [string]$ExpectedSid, [string]$ExpectedCwd)
+    $f = Join-Path $tmpDir "$TabId.json"
+    Remove-Item $f -ErrorAction SilentlyContinue
+    Invoke-Hook -Json $Json -TabId $TabId -SessionDir $tmpDir | Out-Null
+    if (-not (Test-Path $f)) { Write-Host "  FAIL  $Name (no file written)" -ForegroundColor Red; $script:fail++; return }
+    $obj = Get-Content $f -Raw | ConvertFrom-Json
+    if ($obj.sessionId -eq $ExpectedSid -and $obj.cwd -eq $ExpectedCwd) {
+        Write-Host "  PASS  $Name" -ForegroundColor Green; $script:pass++
+    } else {
+        Write-Host "  FAIL  $Name" -ForegroundColor Red
+        Write-Host "        expected: [$ExpectedSid;$ExpectedCwd]"
+        Write-Host "        actual:   [$($obj.sessionId);$($obj.cwd)]"
+        $script:fail++
+    }
+}
+
+function Assert-NoSessionFile {
+    param([string]$Name, [string]$Json, [string]$TabId, [string]$SessionDir, [string]$Afterterm = '1')
+    $f = Join-Path $tmpDir "$TabId.json"
+    Remove-Item $f -ErrorAction SilentlyContinue
+    Invoke-Hook -Json $Json -TabId $TabId -SessionDir $SessionDir -Afterterm $Afterterm | Out-Null
+    if (-not (Test-Path $f)) { Write-Host "  PASS  $Name" -ForegroundColor Green; $script:pass++ }
+    else { Write-Host "  FAIL  $Name (file unexpectedly written)" -ForegroundColor Red; $script:fail++ }
+}
+
+# 13. SessionStart with session_id + tab env -> writes <tabId>.json with id + cwd.
+Assert-SessionFile 'SessionStart -> writes session file' `
+    "{`"hook_event_name`":`"SessionStart`",`"cwd`":`"$cwd`",`"session_id`":`"$sid`"}" 'tab-1' $sid $cwdDecoded
+
+# 14. (Re)written on every title-emitting event, e.g. Stop — refreshes each turn.
+Assert-SessionFile 'Stop -> refreshes session file' `
+    "{`"hook_event_name`":`"Stop`",`"cwd`":`"$cwd`",`"session_id`":`"$sid`"}" 'tab-2' $sid $cwdDecoded
+
+# 15. The title channel is unchanged by the file write.
+Assert-Title 'SessionStart (+session_id) -> title still clean' `
+    "{`"hook_event_name`":`"SessionStart`",`"cwd`":`"$cwd`",`"session_id`":`"$sid`"}" 'afterterm'
+
+# 16. No session_id -> nothing to capture, no file.
+Assert-NoSessionFile 'no session_id -> no file' `
+    "{`"hook_event_name`":`"SessionStart`",`"cwd`":`"$cwd`"}" 'tab-3' $tmpDir
+
+# 17. No AFTERTERM_SESSION_DIR (not launched by afterterm) -> no file.
+Assert-NoSessionFile 'no session-dir env -> no file' `
+    "{`"hook_event_name`":`"SessionStart`",`"cwd`":`"$cwd`",`"session_id`":`"$sid`"}" 'tab-4' ''
+
+# 18. Gate still wins: AFTERTERM unset -> no file even with the tab env present.
+Assert-NoSessionFile 'gate: AFTERTERM unset -> no file' `
+    "{`"hook_event_name`":`"SessionStart`",`"cwd`":`"$cwd`",`"session_id`":`"$sid`"}" 'tab-5' $tmpDir $null
+
+Remove-Item $tmpDir -Recurse -Force -ErrorAction SilentlyContinue
 
 Write-Host "`n$pass passed, $fail failed`n"
 exit ([int]($fail -gt 0))

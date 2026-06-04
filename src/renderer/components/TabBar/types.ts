@@ -8,6 +8,12 @@ export interface Tab {
   cwd?: string;
   notification?: TabNotification;
   fontSize?: number; // per-tab Ctrl+scroll zoom; persisted in session.json
+  // Claude Code session resume: the active session's UUID + the cwd it runs in,
+  // captured by the notify hook's file channel (main.ts watches it). On restore,
+  // afterterm relaunches the shell in claudeCwd and runs `claude --resume
+  // <claudeSessionId>`. Persisted in session.json.
+  claudeSessionId?: string;
+  claudeCwd?: string;
 }
 
 export interface Group {
