@@ -224,9 +224,11 @@ PATCH, breaking → MAJOR; still in `0.x` pre-stable). To cut a release: bump th
 version, commit, then **`npm run release`** — it builds the portable folder + a
 **version-stamped** `out/afterterm-<version>-setup.exe` and tags `vX.Y.Z` (refusing
 to re-release an already-tagged version). Then `git push origin vX.Y.Z` and
-`gh release create`. `npm run build` stays the quick, unversioned dev build.
-Milestone tags `v0.1.0`–`v0.5.0` are backfilled. Full process + the version lineage:
-[`docs/guide-02-releases.md`](docs/guide-02-releases.md).
+`gh release create`. `npm run build` stays the quick, unversioned dev build. Run the
+release from the **main repo checkout** so output lands in the standard `out\` folder
+(from a worktree, move it after); a Claude session must land the version bump via a
+**PR** (direct pushes to `main` are blocked). Tags exist from `v0.1.0` onward (`git tag
+-l -n1`). Full process + lineage: [`docs/guide-02-releases.md`](docs/guide-02-releases.md).
 
 ### Packaging Notes
 
