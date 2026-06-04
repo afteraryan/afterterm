@@ -69,6 +69,12 @@ export function useTabState() {
     setTabs(prev => prev.map(t => t.id === tabId ? { ...t, fontSize } : t));
   }, []);
 
+  // Drop the "restorable" marker once a tab is activated/resumed — the muted ✳ goes
+  // away and the tab looks normal again.
+  const clearTabRestorable = useCallback((tabId: string) => {
+    setTabs(prev => prev.map(t => t.id === tabId && t.claudeRestorable ? { ...t, claudeRestorable: false } : t));
+  }, []);
+
   const createGroup = useCallback((tabId1: string, tabId2?: string): string => {
     const id = makeGroupId();
     const usedColors = groups.map(g => g.color);
@@ -190,15 +196,21 @@ export function useTabState() {
     tabCounter = maxTabNum;
     groupCounter = maxGroupNum;
 
-    setTabs(saved.tabs);
+    // Mark every saved Claude session as "restorable" so the sidebar shows the muted
+    // ✳ — except the active tab, which auto-resumes on launch (so it's never dormant).
+    const activeId = saved.activeTabId || saved.tabs[0]?.id || '';
+    setTabs(saved.tabs.map(t => ({
+      ...t,
+      claudeRestorable: !!t.claudeSessionId && t.id !== activeId,
+    })));
     setGroups(saved.groups);
-    setActiveTabId(saved.activeTabId || saved.tabs[0]?.id || '');
+    setActiveTabId(activeId);
   }, []);
 
   return {
     tabs, groups, activeTabId,
     setActiveTabId,
-    addTab, closeTab, renameTab, updateTabCwd, setClaudeSession, setTabNotification, setTabFontSize,
+    addTab, closeTab, renameTab, updateTabCwd, setClaudeSession, clearTabRestorable, setTabNotification, setTabFontSize,
     createGroup, addToGroup, removeFromGroup,
     renameGroup, setGroupColor, setGroupCwd, toggleGroupCollapse, deleteGroup,
     moveTab, moveGroup, moveGroupAfterGroup,

@@ -14,6 +14,10 @@ export interface Tab {
   // <claudeSessionId>`. Persisted in session.json.
   claudeSessionId?: string;
   claudeCwd?: string;
+  // Transient (NOT persisted): true for a restored tab whose saved Claude session
+  // hasn't been resumed yet this launch. Drives the muted ✳ "click to restore"
+  // marker in the sidebar; cleared once the tab is activated/resumed.
+  claudeRestorable?: boolean;
 }
 
 export interface Group {

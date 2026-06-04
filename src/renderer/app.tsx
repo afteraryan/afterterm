@@ -112,6 +112,9 @@ export function App() {
       return;
     }
     state.setActiveTabId(tabId);
+    // Activating a restorable tab is what resumes its Claude session (the Terminal's
+    // activeTab effect injects `claude --resume`), so drop the muted ✳ marker now.
+    state.clearTabRestorable(tabId);
     // 'working' is ongoing-turn state, not an unseen badge — keep it spinning even
     // when you open the tab. Only clear the "you-haven't-seen-it" notifications.
     const current = stateRef.current.tabs.find(t => t.id === tabId)?.notification;
@@ -119,7 +122,7 @@ export function App() {
       state.setTabNotification(tabId, undefined);
     }
     window.afterterm.notify.dismissTab(tabId);
-  }, [state.setActiveTabId, state.setTabNotification]);
+  }, [state.setActiveTabId, state.setTabNotification, state.clearTabRestorable]);
 
   const handleNotification = useCallback((tabId: string, type: TabNotification | undefined, projectName: string) => {
     if (!type) return;

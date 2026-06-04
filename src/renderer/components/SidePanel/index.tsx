@@ -20,6 +20,12 @@ function gc(color: GroupColor) {
   return GROUP_COLORS[color].border;
 }
 
+// Strip a leading notification/Claude glyph (✳ ▶ ✅ ⚠ ⏳ ⚙ braille spinner …) from a
+// title, so a restorable tab's muted ✳ marker doesn't double up with the title's own.
+function stripLeadingGlyph(title: string): string {
+  return title.replace(/^[^\x00-\x7F]+\s*/, '');
+}
+
 // ─── Context Menu ─────────────────────────────────────────────────────────────
 
 interface CtxMenu {
@@ -213,7 +219,10 @@ function TabRow({
           style={notif !== 'working' ? { background: NOTIF_DOT_COLOR[notif] } : undefined}
         />
       ) : null}
-      <span className="tab-row-title">{tab.title}</span>
+      <span className="tab-row-title">{tab.claudeRestorable ? stripLeadingGlyph(tab.title) : tab.title}</span>
+      {tab.claudeRestorable && !overlay ? (
+        <span className="tab-restorable-star" title="Saved Claude session — click to resume">✳</span>
+      ) : null}
       <button
         className="tab-row-close"
         onClick={e => { e.stopPropagation(); onClose(); }}

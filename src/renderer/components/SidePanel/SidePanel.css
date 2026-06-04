@@ -186,6 +186,15 @@
   color: var(--arrow-color-active, #666);
 }
 
+/* Muted ✳ marking a restored tab whose saved Claude session hasn't been resumed
+   yet — "click to bring this conversation back". Cleared once the tab is opened. */
+.tab-restorable-star {
+  font-size: 11px;
+  line-height: 1;
+  color: #6e6e6e;
+  flex-shrink: 0;
+}
+
 /* Dwell group-creation preview */
 .tab-row.group-preview {
   background: rgba(255,255,255,0.05);
