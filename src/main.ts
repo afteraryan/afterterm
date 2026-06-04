@@ -348,6 +348,11 @@ ipcMain.handle('shells:list', () => {
   return detectShells().map(({ id, name }) => ({ id, name }));
 });
 
+// ─── IPC: app version (titlebar badge) ───────────────────────────────────────
+// Sync so the renderer has it immediately at preload time (no loading flash).
+// app.getVersion() reads package.json "version".
+ipcMain.on('app:version', (event) => { event.returnValue = app.getVersion(); });
+
 // ─── IPC: create PTY ─────────────────────────────────────────────────────────
 
 ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: string) => {

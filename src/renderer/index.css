@@ -37,6 +37,40 @@ body {
   -webkit-app-region: drag;
   z-index: 50;
   background: #1a1a1a;
+  display: flex;
+  align-items: center;
+}
+
+/* afterterm icon + name + version, top-left (Windows app branding convention) */
+.titlebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-left: 10px;
+  user-select: none;
+}
+
+.titlebar-logo {
+  width: 16px;
+  height: 16px;
+  display: block;
+  -webkit-user-drag: none;
+}
+
+.titlebar-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #d6d6d6;
+  letter-spacing: 0.2px;
+}
+
+.titlebar-version {
+  font-size: 10.5px;
+  line-height: 1;
+  color: #9a9a9a;
+  background: rgba(255, 255, 255, 0.07);
+  padding: 2px 6px;
+  border-radius: 999px;
 }
 
 .terminal-area {

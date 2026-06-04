@@ -1,7 +1,7 @@
 {
   "name": "afterterm",
   "productName": "afterterm",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Terminal emulator with Chrome-style tab groups",
   "main": ".vite/build/main.js",
   "scripts": {

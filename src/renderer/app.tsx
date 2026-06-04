@@ -3,6 +3,7 @@ import { SidePanel } from './components/SidePanel';
 import { TerminalArea } from './components/Terminal';
 import { useTabState } from './hooks/useTabState';
 import { TabNotification } from './components/TabBar/types';
+import logoUrl from '../../assets/icon-256.png';
 
 let toastCounter = 0;
 
@@ -185,7 +186,13 @@ export function App() {
 
   return (
     <div className="app">
-      <div className="titlebar-drag" />
+      <div className="titlebar-drag">
+        <div className="titlebar-brand">
+          <img className="titlebar-logo" src={logoUrl} alt="" />
+          <span className="titlebar-name">afterterm</span>
+          <span className="titlebar-version">v{window.afterterm.appVersion}</span>
+        </div>
+      </div>
       <SidePanel
         tabs={state.tabs}
         groups={state.groups}

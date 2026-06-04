@@ -77,6 +77,7 @@ interface AftertermDialogAPI {
 
 interface AftertermAPI {
   version: string;
+  appVersion: string;
   env: { userProfile: string };
   dialog: AftertermDialogAPI;
   shells: AftertermShellsAPI;
