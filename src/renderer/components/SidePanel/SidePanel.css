@@ -107,7 +107,9 @@
   overflow-x: hidden;
   scrollbar-width: thin;
   scrollbar-color: #333 transparent;
-  padding: 3px 0;
+  /* Extra bottom padding so the last tab isn't flush against the window edge
+     when the list is full / scrolled to the bottom. */
+  padding: 3px 0 12px;
   user-select: none;
 }
 
