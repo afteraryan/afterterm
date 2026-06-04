@@ -48,6 +48,7 @@ export function App() {
         tabs: state.tabs.map(t => ({
           id: t.id, title: t.title, groupId: t.groupId,
           shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize,
+          claudeSessionId: t.claudeSessionId, claudeCwd: t.claudeCwd,
         })),
         groups: state.groups,
         activeTabId: state.activeTabId,
@@ -91,6 +92,14 @@ export function App() {
   useEffect(() => {
     window.afterterm.notify.onActivateTab((tabId) => {
       handleActivate(tabId);
+    });
+  }, []);
+
+  // Main captures each tab's live Claude session (via the notify hook's file channel)
+  // and pushes it here → store on the tab so the next launch can resume it.
+  useEffect(() => {
+    window.afterterm.claudeSession.onUpdate(({ tabId, sessionId, cwd }) => {
+      stateRef.current.setClaudeSession(tabId, sessionId, cwd);
     });
   }, []);
 
@@ -154,6 +163,7 @@ export function App() {
       const data = {
         tabs: s.tabs.map(t => ({
           id: t.id, title: t.title, groupId: t.groupId, shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize,
+          claudeSessionId: t.claudeSessionId, claudeCwd: t.claudeCwd,
         })),
         groups: s.groups,
         activeTabId: s.activeTabId,
@@ -171,7 +181,7 @@ export function App() {
     }
   }, [initialized, state.tabs.length, state.addTab]);
 
-  const tabInfos = state.tabs.map(t => ({ id: t.id, shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize }));
+  const tabInfos = state.tabs.map(t => ({ id: t.id, shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize, claudeSessionId: t.claudeSessionId, claudeCwd: t.claudeCwd }));
 
   return (
     <div className="app">

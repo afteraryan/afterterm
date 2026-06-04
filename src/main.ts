@@ -9,6 +9,13 @@ import { reconcileClaudeHook, HOOK_SCRIPT_NAME } from './claude-hook-install';
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
 
+// Dev/test isolation: point userData (session.json, prefs.json) at a throwaway dir
+// so a dev run can't clobber the user's real, possibly-running build. Must be set
+// before any app.getPath('userData') call. No-op in normal use.
+if (process.env.AFTERTERM_USER_DATA_DIR) {
+  app.setPath('userData', process.env.AFTERTERM_USER_DATA_DIR);
+}
+
 // ─── Shell profiles ───────────────────────────────────────────────────────────
 
 interface ShellProfile {
@@ -352,8 +359,16 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
     } catch {}
   }
 
-  // Clean PATH: strip stray quotes that corrupt cmd.exe's command resolution
-  const cleanEnv = { ...process.env, AFTERTERM: '1' } as Record<string, string>;
+  // Clean PATH: strip stray quotes that corrupt cmd.exe's command resolution.
+  // AFTERTERM_TAB_ID + AFTERTERM_SESSION_DIR let the bundled notify hook write this
+  // tab's live Claude session id to disk for resume-on-restart (see claude-hook
+  // file channel — the title channel is unreliable when a second hook is present).
+  const cleanEnv = {
+    ...process.env,
+    AFTERTERM: '1',
+    AFTERTERM_TAB_ID: tabId,
+    AFTERTERM_SESSION_DIR: getClaudeSessionDir(),
+  } as Record<string, string>;
   if (cleanEnv.Path) cleanEnv.Path = cleanEnv.Path.replace(/"/g, '');
   if (cleanEnv.PATH) cleanEnv.PATH = cleanEnv.PATH.replace(/"/g, '');
 
@@ -451,6 +466,55 @@ function getSessionPath() {
   return path.join(app.getPath('userData'), 'session.json');
 }
 
+// ─── Claude session capture (resume-on-restart) ──────────────────────────────
+
+// The bundled notify hook writes <userData>/claude-sessions/<tabId>.json = { sessionId,
+// cwd } for each tab running Claude Code (it gets the dir + tabId from the PTY env).
+// We watch that dir and forward validated mappings to the renderer, which stores them
+// on the tab and persists them in session.json so the next launch can `claude --resume`.
+function getClaudeSessionDir() {
+  const dir = path.join(app.getPath('userData'), 'claude-sessions');
+  try { fs.mkdirSync(dir, { recursive: true }); } catch {}
+  return dir;
+}
+
+// SECURITY: these files are world-writable on disk — validate before trusting. The
+// sessionId is later typed into a shell as `claude --resume <id>`, so accept only a
+// canonical UUID (no shell metacharacters / newlines) and an absolute, clean path.
+const CLAUDE_UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+const CLAUDE_CWD_RE = /^[A-Za-z]:\\[^\r\n;&|`$<>"'*?\t]*$/;
+
+function readAndPushClaudeSession(tabId: string) {
+  try {
+    const raw = fs.readFileSync(path.join(getClaudeSessionDir(), `${tabId}.json`), 'utf-8');
+    const obj = JSON.parse(raw) as { sessionId?: unknown; cwd?: unknown };
+    if (typeof obj?.sessionId !== 'string' || typeof obj?.cwd !== 'string') return;
+    if (!CLAUDE_UUID_RE.test(obj.sessionId) || !CLAUDE_CWD_RE.test(obj.cwd)) return;
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('claude-session:update', { tabId, sessionId: obj.sessionId, cwd: obj.cwd });
+    }
+  } catch { /* missing / mid-write / unparseable — ignore, next write retries */ }
+}
+
+let claudeWatchStarted = false;
+function startClaudeSessionWatch() {
+  if (claudeWatchStarted) return;
+  claudeWatchStarted = true;
+  const dir = getClaudeSessionDir();
+  const debounce = new Map<string, NodeJS.Timeout>();
+  try {
+    // The hook rewrites a tab's file every turn; debounce per-tab so a burst of
+    // writes collapses into one read+push.
+    fs.watch(dir, (_event, filename) => {
+      const name = filename?.toString();
+      if (!name || !name.endsWith('.json')) return;
+      const tabId = name.slice(0, -'.json'.length);
+      clearTimeout(debounce.get(tabId));
+      debounce.set(tabId, setTimeout(() => { debounce.delete(tabId); readAndPushClaudeSession(tabId); }, 150));
+    });
+  } catch { /* dir watch unsupported — capture silently degrades, resume still works off last save */ }
+}
+
 ipcMain.handle('session:save', (_event, data: string) => {
   try {
     fs.writeFileSync(getSessionPath(), data, 'utf-8');
@@ -516,6 +580,7 @@ app.whenReady().then(() => {
   }
   createWindow();
   reconcileNotifierHook();
+  startClaudeSessionWatch();
 });
 
 app.on('window-all-closed', () => {

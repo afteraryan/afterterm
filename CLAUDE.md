@@ -137,6 +137,13 @@ What afterterm does:
 
 Save location: `%APPDATA%\afterterm\session.json`
 
+Tabs that were running a **Claude Code session auto-resume it on relaunch** (`claude --resume
+<sessionId>` in the session's cwd). The session UUID is captured per-tab via a file the notify
+hook writes — **not** the terminal/title channel — and persisted as `claudeSessionId` /
+`claudeCwd`. See [`docs/features-claude-session-resume.md`](docs/features-claude-session-resume.md)
+for the why and the wiring. (Dev isolation: `AFTERTERM_USER_DATA_DIR` redirects `session.json`
+to a throwaway dir.)
+
 ### CWD capture — per-shell support
 
 A tab can only restore to its last directory if afterterm captured that directory while you worked. Capture relies on the shell *announcing* its path via an OSC 9;9 report, and not every shell does:
@@ -231,3 +238,4 @@ Research and design documents live in `docs/`. Naming convention: `research-NN-<
 - `docs/ideas.md` — feature ideas backlog
 - `docs/bugs.md` — running list of known, unfixed bugs (distinct from the platform Known Limitations above)
 - `docs/features-terminal-interactions.md` — links, right-click, find, font zoom, drag-drop (behavior + implementation)
+- `docs/features-claude-session-resume.md` — auto-resume Claude sessions on relaunch (UUID capture via hook file channel, why not the terminal channel, security)

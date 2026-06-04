@@ -20,6 +20,8 @@ interface TabInfo {
   shellId?: string;
   cwd?: string;
   fontSize?: number;
+  claudeSessionId?: string;
+  claudeCwd?: string;
 }
 
 interface TerminalAreaProps {
@@ -32,6 +34,11 @@ interface TerminalAreaProps {
   onFontSizeChange: (tabId: string, fontSize: number) => void;
   onExit: (tabId: string) => void;
 }
+
+// SECURITY: claudeSessionId is read from persisted session.json (a plain file that
+// could be hand-edited) and typed into the shell as `claude --resume <id>`. Only run
+// it if it's a canonical UUID — no shell metacharacters or newlines can slip through.
+const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
 const NOTIF_PREFIXES: [string, TabNotification][] = [
   ['✅', 'done'],       // ✅
@@ -162,7 +169,7 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
     else info.search.findNext(text, { ...SEARCH_OPTIONS, incremental });
   }, []);
 
-  const createTerminal = useCallback(async (tabId: string, shellId?: string, cwd?: string, fontSize?: number) => {
+  const createTerminal = useCallback(async (tabId: string, shellId?: string, cwd?: string, fontSize?: number, claudeSessionId?: string, claudeCwd?: string) => {
     if (termsRef.current.has(tabId) || !hostRef.current) return;
 
     const container = document.createElement('div');
@@ -316,7 +323,22 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
     // immediately on spawn and we'd miss it if the listener isn't ready
     api.pty.onData(tabId, (data) => term.write(data));
 
-    await api.pty.create(tabId, shellId, cwd);
+    // Resume-on-restart: a tab carrying a saved Claude session must relaunch in that
+    // session's own directory, because `claude --resume <id>` resolves the session
+    // against the *current* cwd's project store (see CLAUDE.md / claude-code source).
+    // claudeCwd is the hook-reported dir, authoritative across all shells.
+    const spawnCwd = claudeCwd ?? cwd;
+    await api.pty.create(tabId, shellId, spawnCwd);
+
+    // Then type the resume command once the shell has printed its first prompt.
+    // Re-validate the persisted id here too: session.json is a plain file a user (or
+    // bad actor) could hand-edit, and this value becomes a typed shell command. A
+    // non-UUID is dropped rather than executed.
+    if (claudeSessionId && UUID_RE.test(claudeSessionId)) {
+      setTimeout(() => {
+        api.pty.write(tabId, `claude --resume ${claudeSessionId}\r`);
+      }, 700);
+    }
 
     term.onData((data) => {
       api.pty.write(tabId, data);
@@ -375,7 +397,7 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
 
     for (const tab of tabInfos) {
       if (!existingIds.has(tab.id)) {
-        createTerminal(tab.id, tab.shellId, tab.cwd, tab.fontSize);
+        createTerminal(tab.id, tab.shellId, tab.cwd, tab.fontSize, tab.claudeSessionId, tab.claudeCwd);
       }
     }
 
