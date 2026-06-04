@@ -169,6 +169,21 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
     else info.search.findNext(text, { ...SEARCH_OPTIONS, incremental });
   }, []);
 
+  // Lazy Claude-session resume. Resuming every saved session at once cold-starts N
+  // `claude` processes (+ their MCP servers) simultaneously, which can OOM-crash the
+  // app on a loaded machine. So we resume only the active tab on launch and defer the
+  // rest until first activated. pendingResume: tabId -> sessionId awaiting activation;
+  // resumed: guards against double-injecting.
+  const pendingResumeRef = useRef(new Map<string, string>());
+  const resumedRef = useRef(new Set<string>());
+
+  const resumeTab = useCallback((tabId: string, sessionId: string) => {
+    if (resumedRef.current.has(tabId) || !UUID_RE.test(sessionId)) return;
+    resumedRef.current.add(tabId);
+    // Short delay lets the freshly-spawned shell print its first prompt before we type.
+    setTimeout(() => window.afterterm.pty.write(tabId, `claude --resume ${sessionId}\r`), 700);
+  }, []);
+
   const createTerminal = useCallback(async (tabId: string, shellId?: string, cwd?: string, fontSize?: number, claudeSessionId?: string, claudeCwd?: string) => {
     if (termsRef.current.has(tabId) || !hostRef.current) return;
 
@@ -330,14 +345,14 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
     const spawnCwd = claudeCwd ?? cwd;
     await api.pty.create(tabId, shellId, spawnCwd);
 
-    // Then type the resume command once the shell has printed its first prompt.
-    // Re-validate the persisted id here too: session.json is a plain file a user (or
-    // bad actor) could hand-edit, and this value becomes a typed shell command. A
-    // non-UUID is dropped rather than executed.
+    // Resume the Claude session — lazily. The tab you're looking at resumes now;
+    // background tabs are deferred until you first switch to them (see resumeTab and
+    // the activeTabId effect), so we never cold-start N sessions in one burst. The id
+    // is re-validated as a UUID inside resumeTab (session.json is hand-editable, and
+    // this becomes a typed shell command).
     if (claudeSessionId && UUID_RE.test(claudeSessionId)) {
-      setTimeout(() => {
-        api.pty.write(tabId, `claude --resume ${claudeSessionId}\r`);
-      }, 700);
+      if (tabId === activeRef.current) resumeTab(tabId, claudeSessionId);
+      else pendingResumeRef.current.set(tabId, claudeSessionId);
     }
 
     term.onData((data) => {
@@ -388,7 +403,7 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
     if (tabId === activeRef.current) {
       term.focus();
     }
-  }, [openFind]);
+  }, [openFind, resumeTab]);
 
   // Sync terminals with tab list — create new, destroy removed
   useEffect(() => {
@@ -433,7 +448,14 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
         info.container.style.display = 'none';
       }
     }
-  }, [activeTabId]);
+
+    // Lazy resume: a background Claude tab resumes the first time you open it.
+    const pending = pendingResumeRef.current.get(activeTabId);
+    if (pending) {
+      pendingResumeRef.current.delete(activeTabId);
+      resumeTab(activeTabId, pending);
+    }
+  }, [activeTabId, resumeTab]);
 
   // Resize active terminal when the wrapper resizes
   useEffect(() => {

@@ -4,6 +4,20 @@ Tabs that were running a Claude Code session **auto-resume it when afterterm reo
 afterterm relaunches the shell in the session's directory and runs
 `claude --resume <sessionId>`, so the conversation comes back where you left it.
 
+## Lazy resume — one at a time, not all at once
+
+Resume is **lazy**: on launch only the **active tab** resumes immediately; every other
+Claude tab is deferred and resumes the **first time you switch to it**. Each tab keeps
+its session name in the sidebar in the meantime, so you see what's there before it loads.
+
+This is deliberate and important. Resuming every saved session at once cold-starts N
+`claude` processes *plus their MCP servers* simultaneously — on a loaded or
+lower-RAM machine that memory spike can OOM-crash the whole app (it did, with ~10
+sessions on a 16 GB box). Lazy resume means only the sessions you actually open are
+live, which is both safe and closer to how you work. Implementation: `resumeTab` +
+`pendingResumeRef` in `Terminal/index.tsx` (the active-tab effect drains the pending
+map on activation).
+
 ## The resume key is the UUID, never the title
 
 afterterm resumes by the Claude **session UUID**, stored per-tab as `claudeSessionId`
