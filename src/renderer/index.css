@@ -51,10 +51,14 @@ body {
 }
 
 .titlebar-logo {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   display: block;
   -webkit-user-drag: none;
+  /* The app icon is dark-on-dark (same #1a1a1a as the titlebar), so it vanishes
+     into the bar. Brightness lifts the frame to a soft gray and makes the colored
+     dots / prompt read — no chip, no border edge. */
+  filter: brightness(1.7);
 }
 
 .titlebar-name {
