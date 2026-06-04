@@ -1,13 +1,15 @@
 {
   "name": "afterterm",
   "productName": "afterterm",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "description": "Terminal emulator with Chrome-style tab groups",
   "main": ".vite/build/main.js",
   "scripts": {
     "start": "electron-forge start",
     "package": "electron-forge package",
     "build": "node scripts/build.js",
+    "release": "node scripts/release.js",
+    "make-shareable": "pwsh -File scripts/make-shareable.ps1",
     "make": "electron-forge make",
     "postinstall": "electron-rebuild"
   },

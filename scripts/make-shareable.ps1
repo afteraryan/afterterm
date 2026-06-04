@@ -25,8 +25,10 @@ param([switch]$KeepLocales, [switch]$InsecureTLS)
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
+# Version-stamp the installer so every release is preserved + distinguishable.
+$version = (Get-Content (Join-Path $root 'package.json') -Raw | ConvertFrom-Json).version
 $base = Join-Path $root 'out\afterterm-win32-x64'
-$sfx  = Join-Path $root 'out\afterterm-setup.exe'
+$sfx  = Join-Path $root "out\afterterm-$version-setup.exe"
 $7z   = 'C:\Program Files\7-Zip\7z.exe'
 $sfxModule = 'C:\Program Files\7-Zip\7z.sfx'
 
