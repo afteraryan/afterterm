@@ -82,3 +82,28 @@ Improve UI of notification pop-ups. Need more context and better information hie
 ## Scrollback Snapshot
 
 On close, save each tab's visible buffer (last ~50 lines from xterm.js). On restore, write it into the fresh terminal before the user starts typing. Gives visual context about what was happening before the close — no scrollback lost.
+
+---
+
+## Dependency check on first launch
+
+afterterm's Claude Code notifications only work if the recipient machine has
+**Claude Code** installed and **`pwsh`** (PowerShell 7) on PATH. Right now a
+fresh install silently does nothing if either is missing — the self-install
+hook (`claude-hook-install.ts`) skips when there's no `~/.claude`, and the hook
+can't run without `pwsh`.
+
+**Idea:** on startup, detect these and surface the result instead of failing
+silently.
+
+- [ ] Check for `~/.claude` (Claude Code installed) — if absent, the notifier
+      hook won't attach; show a one-time, dismissible notice.
+- [ ] Check `pwsh` is resolvable on PATH — if absent, the hook command would
+      error; warn and link to the PowerShell 7 install.
+- [ ] (Optional) check 7-Zip etc. are only build-time deps — not needed at runtime.
+- [ ] Keep it non-blocking: afterterm must run fine as a plain terminal even
+      with neither present. This is purely to explain *why* notifications are
+      quiet, not to gate the app.
+
+Not urgent — afterterm is fully usable without it; this just removes a "why
+aren't notifications working?" mystery.
