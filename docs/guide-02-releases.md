@@ -18,7 +18,9 @@ afterterm is in **`0.x`** = pre-stable: anything may change, and breaking change
 usually just bump MINOR. Move to `1.0.0` only when it's "stable enough to hand a
 stranger." Mnemonic: **break it → X, add to it → Y, fix it → Z.**
 
-### Version lineage (backfilled tags)
+### Version lineage
+
+`git tag -l -n1` is the authoritative list (this table is a convenience that can lag):
 
 | Tag | Milestone |
 |---|---|
@@ -27,21 +29,33 @@ stranger." Mnemonic: **break it → X, add to it → Y, fix it → Z.**
 | `v0.3.0` | Terminal conveniences (links, find, zoom, right-click, drag-drop) |
 | `v0.4.0` | Bundled Claude notify hook + self-install + shareable installer |
 | `v0.4.1` | Terminal fit debounce |
-| `v0.5.0` | Claude session resume + auto-capture |
+| `v0.5.0` | Claude session resume + auto-capture (+ lazy resume, versioning tooling) |
+| `v0.6.0` | Titlebar branding — icon + name + version badge |
+| `v0.7.0` | Sidebar: restorable-session ✳ marker + bottom padding |
+
+(`v0.1.0`–`v0.4.1` were backfilled onto the existing history; releases from `v0.5.0` on were cut with `npm run release`.)
 
 ## Cutting a release
 
 ```powershell
-# 1. Decide + bump the version in package.json per the table above (one line edit).
-# 2. Commit it (so the tag points at a real commit), then:
+# 1. Decide + bump the version in package.json (one line edit) and commit it.
+# 2. From the MAIN repo checkout (so output lands in the standard out\ folder):
 npm run release           # builds portable folder + out\afterterm-<version>-setup.exe, tags vX.Y.Z
 git push origin vX.Y.Z    # publish the tag
 gh release create vX.Y.Z out\afterterm-<version>-setup.exe --title "afterterm X.Y.Z" --notes "..."
 ```
 
-`npm run release` (`scripts/release.js`) will **refuse** to run if the version is
-already tagged — that's the guard that stops you shipping a stale build under an
-old number. Bump the version first.
+`npm run release` (`scripts/release.js`) **refuses** to run if the version is already
+tagged — the guard against shipping a stale build under an old number. Bump first.
+
+**Two notes for whoever cuts it:**
+- **Where you build from matters.** Run from the main repo checkout so the build lands
+  in `D:\Tinkering\afterterm\out\` (the standard folder). If you build from a temporary
+  git worktree, its `out\` is elsewhere — move `afterterm-win32-x64\` + the installer
+  into the standard folder afterward (preserving the prior build as `afterterm-old-<ts>`).
+- **A Claude Code session can't push the version-bump commit straight to `main`** — the
+  auto-mode classifier blocks direct pushes to the default branch. Open a one-line bump
+  PR, merge it, then run the release. Aryan running it locally can just commit to `main`.
 
 ## Artifacts & what's preserved
 
