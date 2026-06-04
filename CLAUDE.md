@@ -215,6 +215,17 @@ The portable folder is ~346 MB — too heavy to hand to someone. To produce a si
 prune dead weight (debug symbols, wrong-arch prebuilds, non-English locales) and repack with
 7-Zip LZMA2 ultra. Full step-by-step in [`docs/guide-01-distributable-build.md`](docs/guide-01-distributable-build.md).
 
+### Versioning & Releases
+
+`package.json` `version` is the source of truth (**semver**: feature → MINOR, fix →
+PATCH, breaking → MAJOR; still in `0.x` pre-stable). To cut a release: bump the
+version, commit, then **`npm run release`** — it builds the portable folder + a
+**version-stamped** `out/afterterm-<version>-setup.exe` and tags `vX.Y.Z` (refusing
+to re-release an already-tagged version). Then `git push origin vX.Y.Z` and
+`gh release create`. `npm run build` stays the quick, unversioned dev build.
+Milestone tags `v0.1.0`–`v0.5.0` are backfilled. Full process + the version lineage:
+[`docs/guide-02-releases.md`](docs/guide-02-releases.md).
+
 ### Packaging Notes
 
 - **No ASAR**: `asar: false` in forge.config.ts. The Forge Vite plugin strips `node_modules` from ASAR output, which breaks native modules. Disabling ASAR avoids this entirely.
@@ -235,6 +246,7 @@ Research and design documents live in `docs/`. Naming convention: `research-NN-<
 - `docs/research-00-terminal-landscape-and-stack-validation.md` — pre-build stack/landscape research
 - `docs/design-01-persistent-pty-host.md` — design for a detached PTY-host daemon so terminals survive an app update (not yet built)
 - `docs/guide-01-distributable-build.md` — shrink the portable build into a ~67 MB self-extracting `.exe` for sharing (7-Zip LZMA2 + pruning)
+- `docs/guide-02-releases.md` — versioning (semver) + how to cut a tagged, version-stamped release (`npm run release`)
 - `docs/ideas.md` — feature ideas backlog
 - `docs/bugs.md` — running list of known, unfixed bugs (distinct from the platform Known Limitations above)
 - `docs/features-terminal-interactions.md` — links, right-click, find, font zoom, drag-drop (behavior + implementation)
