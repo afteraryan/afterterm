@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -26,6 +26,8 @@ function stripLeadingGlyph(title: string): string {
   return title.replace(/^[^\x00-\x7F]+\s*/, '');
 }
 
+const MENU_VIEWPORT_MARGIN = 8;
+
 // ─── Context Menu ─────────────────────────────────────────────────────────────
 
 interface CtxMenu {
@@ -52,8 +54,23 @@ interface ContextMenuProps {
 }
 
 function ContextMenu({ menu, tabs, groups, onClose, ...actions }: ContextMenuProps) {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ left: menu.x, top: menu.y });
   const tab = menu.tabId ? tabs.find(t => t.id === menu.tabId) : undefined;
   const group = menu.groupId ? groups.find(g => g.id === menu.groupId) : undefined;
+
+  useLayoutEffect(() => {
+    const element = menuRef.current;
+    if (!element) return;
+
+    const rect = element.getBoundingClientRect();
+    const maxLeft = Math.max(MENU_VIEWPORT_MARGIN, window.innerWidth - rect.width - MENU_VIEWPORT_MARGIN);
+    const maxTop = Math.max(MENU_VIEWPORT_MARGIN, window.innerHeight - rect.height - MENU_VIEWPORT_MARGIN);
+    const left = Math.min(Math.max(menu.x, MENU_VIEWPORT_MARGIN), maxLeft);
+    const top = Math.min(Math.max(menu.y, MENU_VIEWPORT_MARGIN), maxTop);
+
+    setPosition(current => current.left === left && current.top === top ? current : { left, top });
+  });
 
   useEffect(() => {
     const handler = () => onClose();
@@ -62,7 +79,7 @@ function ContextMenu({ menu, tabs, groups, onClose, ...actions }: ContextMenuPro
   }, [onClose]);
 
   return (
-    <div className="ctx-menu" style={{ left: menu.x, top: menu.y }} onMouseDown={e => e.stopPropagation()}>
+    <div ref={menuRef} className="ctx-menu" style={position} onMouseDown={e => e.stopPropagation()}>
       {tab && (
         <>
           {tab.groupId ? (
