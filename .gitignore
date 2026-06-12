@@ -5,3 +5,8 @@ out/
 .claude/settings.local.json
 notify-selftest-result.json
 demo-capture.png
+
+# Session snapshots are machine-local (absolute paths + Claude session UUIDs).
+# Keep the convention (README) tracked; ignore the dated captures themselves.
+docs/session-snapshots/*.md
+!docs/session-snapshots/README.md

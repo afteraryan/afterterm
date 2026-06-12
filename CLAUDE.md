@@ -146,6 +146,11 @@ hook writes — **not** the terminal/title channel — and persisted as `claudeS
 for the why and the wiring. (Dev isolation: `AFTERTERM_USER_DATA_DIR` redirects `session.json`
 to a throwaway dir.)
 
+Point-in-time session snapshots (which Claude tabs were open in which project, **with
+resume UUIDs**) live in `docs/session-snapshots/` — see its README. The live truth is
+`session.json`; regenerate a dated snapshot with `node scripts/snapshot-sessions.js`.
+The dated files are git-ignored (machine-local paths/UUIDs); only the README is tracked.
+
 ### CWD capture — per-shell support
 
 A tab can only restore to its last directory if afterterm captured that directory while you worked. Capture relies on the shell *announcing* its path via an OSC 9;9 report, and not every shell does:
