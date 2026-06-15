@@ -85,6 +85,30 @@ On close, save each tab's visible buffer (last ~50 lines from xterm.js). On rest
 
 ---
 
+## Update self-install hook to a dispatcher (stop double notifications)
+
+`src/claude-hook-install.ts` (`reconcileClaudeHook`) registers
+`afterterm-notify.ps1` **additively** — alongside whatever hooks the user already
+has. On a machine that already runs its own popup `notify.ps1`, that produces
+**two** notifications inside afterterm (Windows popup *and* the overlay).
+
+**Idea:** instead of adding a standalone second entry, register **one dispatcher
+entry per event** that branches on `AFTERTERM`:
+
+```
+if AFTERTERM=1  → afterterm-notify.ps1   (overlay only)
+else            → the user's own hook    (or nothing if none)
+```
+
+- [ ] One dispatcher entry per event, not a coexisting `afterterm-notify.ps1` entry.
+- [ ] Stay idempotent + never clobber the user's own hooks (keep current guarantees).
+- [ ] Keep `prefs.json` opt-out + surgical removal working with the single-entry shape.
+
+Full write-up of the diagnosis and the manual fix already applied on the dev
+machine: [`note-01-duplicate-notifications-dispatcher.md`](note-01-duplicate-notifications-dispatcher.md).
+
+---
+
 ## Dependency check on first launch
 
 afterterm's Claude Code notifications only work if the recipient machine has

@@ -253,5 +253,6 @@ Research and design documents live in `docs/`. Naming convention: `research-NN-<
 - `docs/guide-02-releases.md` — versioning (semver) + how to cut a tagged, version-stamped release (`npm run release`)
 - `docs/ideas.md` — feature ideas backlog
 - `docs/bugs.md` — running list of known, unfixed bugs (distinct from the platform Known Limitations above)
+- `docs/note-01-duplicate-notifications-dispatcher.md` — why both the Windows popup and the overlay fired inside afterterm, and the settings.json dispatcher fix (incl. a TODO to make the self-install hook use the same approach)
 - `docs/features-terminal-interactions.md` — links, right-click, find, font zoom, drag-drop (behavior + implementation)
 - `docs/features-claude-session-resume.md` — auto-resume Claude sessions on relaunch (UUID capture via hook file channel, why not the terminal channel, security)
