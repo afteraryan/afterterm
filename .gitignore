@@ -3,6 +3,12 @@ out/
 releases/
 .vite/
 *.log
-.claude/settings.local.json
+
+# Local agent / tooling state (not part of the project)
+.claude/
+.jetro/
+AGENTS.md
+docs/session-snapshots/
+
 notify-selftest-result.json
 demo-capture.png

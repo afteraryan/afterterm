@@ -4,6 +4,16 @@
   "version": "0.7.1",
   "description": "Terminal emulator with Chrome-style tab groups",
   "main": ".vite/build/main.js",
+  "license": "MIT",
+  "author": "Aryan Saxena",
+  "homepage": "https://github.com/afteraryan/afterterm#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/afteraryan/afterterm.git"
+  },
+  "bugs": {
+    "url": "https://github.com/afteraryan/afterterm/issues"
+  },
   "scripts": {
     "start": "electron-forge start",
     "package": "electron-forge package",
