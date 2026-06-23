@@ -39,7 +39,7 @@ afterterm is designed for the workflow of running many [Claude Code](https://www
 - **Notifications when a session needs you** — when a background tab finishes, asks for permission, or hits an error, afterterm shows an always-on-top overlay toast (even when the window is behind other apps) plus a pulsing indicator on the tab. Click the toast to jump straight to that session.
 - **Live "working" indicator** — a spinner on a tab while Claude is mid-turn, so you can see at a glance which sessions are busy and which are waiting on you. Groups show a badge counting how many members need attention.
 - **Session auto-resume** — tabs running a Claude Code session reopen it (`claude --resume`) in the right directory after an app restart.
-- **Zero setup** — afterterm ships and self-installs its own Claude Code hook (idempotent, opt-out via a prefs flag) and stays a complete no-op in any terminal that isn't afterterm.
+- **Zero setup, no surprises** — afterterm ships its own Claude Code hook and self-installs it for you. The install is additive and idempotent: it never touches or overwrites your existing hooks, it shows a one-time toast the first time it edits your config (no silent dotfile changes), and a single prefs flag opts out — and *stays* opted out. Outside afterterm the hook is a complete no-op: zero output, zero latency, nothing in your other terminals.
 
 > None of this requires Claude Code — afterterm is a perfectly good general-purpose terminal — but it's where the design effort went.
 
