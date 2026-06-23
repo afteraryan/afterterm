@@ -193,10 +193,15 @@ Registered via Electron `before-input-event` — work even when xterm.js has foc
 
 ### Development
 ```powershell
-cd D:\Tinkering\afterterm
-$env:NODE_TLS_REJECT_UNAUTHORIZED="0"   # SSL cert issue on dev machine
 npm start
 ```
+
+> If your network intercepts TLS (corporate proxy / some antivirus), `npm install`
+> or the build may fail with certificate errors. Prefer pointing npm/Node at your
+> proxy's CA bundle (`NODE_EXTRA_CA_CERTS`). Only as a last resort, and never in
+> CI or shared environments, you can disable verification for one session with
+> `$env:NODE_TLS_REJECT_UNAUTHORIZED="0"` — this turns off all TLS checks, so don't
+> leave it set.
 
 ### Portable Build
 ```powershell
