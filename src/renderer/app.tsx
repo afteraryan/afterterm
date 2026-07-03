@@ -3,11 +3,13 @@ import { SidePanel } from './components/SidePanel';
 import { TerminalArea } from './components/Terminal';
 import { useTabState } from './hooks/useTabState';
 import { TabNotification } from './components/TabBar/types';
+import { onTitle, onOutput, onTick, onInterrupt, initTiming, TabTiming } from './spinnerState';
 import logoUrl from '../../assets/icon-256.png';
 
 let toastCounter = 0;
 
-const TOAST_MESSAGES: Record<TabNotification, string> = {
+// 'working' is intentionally absent — it's a sidebar-only spinner and never toasts.
+const TOAST_MESSAGES: Record<Exclude<TabNotification, 'working'>, string> = {
   done:       'Response complete',
   attention:  'Needs permission',
   background: 'Background tasks running',
@@ -24,6 +26,18 @@ export function App() {
   stateRef.current = state;
   const panelRef = useRef(panelCollapsed);
   panelRef.current = panelCollapsed;
+
+  // Per-tab timing for the working-spinner state machine (see spinnerState.ts).
+  // Lives in a ref — high-frequency PTY-output updates must never trigger a render.
+  const timingRef = useRef(new Map<string, TabTiming>());
+  const getTiming = (tabId: string, now: number): TabTiming => {
+    let t = timingRef.current.get(tabId);
+    if (!t) { t = initTiming(now); timingRef.current.set(tabId, t); }
+    return t;
+  };
+  const applyNotif = (tabId: string, cur: TabNotification | undefined, next: TabNotification | undefined) => {
+    if (next !== cur) stateRef.current.setTabNotification(tabId, next);
+  };
 
   // Load shells + restore session on mount
   useEffect(() => {
@@ -125,8 +139,15 @@ export function App() {
   }, [state.setActiveTabId, state.setTabNotification, state.clearTabRestorable]);
 
   const handleNotification = useCallback((tabId: string, type: TabNotification | undefined, projectName: string) => {
+    // Route the title through the spinner state machine. An undecorated title (type
+    // undefined) is a no-op here — `working` is cleared by output silence, not by a
+    // plain title (see spinnerState.ts / docs/bugs.md), so it can't stop the spinner.
+    const now = Date.now();
+    const timing = getTiming(tabId, now);
+    const cur = stateRef.current.tabs.find(t => t.id === tabId)?.notification;
+    applyNotif(tabId, cur, onTitle(cur, type, timing, now));
+
     if (!type) return;
-    state.setTabNotification(tabId, type);
     // Working indicator is sidebar-only — no toast while Claude is mid-turn
     if (type === 'working') return;
     // Only skip toast if user is actively looking at this tab right now
@@ -149,10 +170,39 @@ export function App() {
   // Typing into a terminal (e.g. interrupting Claude with Esc / Ctrl+C) ends the
   // working turn from afterterm's view — clear the spinner. Leaves other notifs alone.
   const handleUserInput = useCallback((tabId: string) => {
-    if (stateRef.current.tabs.find(t => t.id === tabId)?.notification === 'working') {
-      state.setTabNotification(tabId, undefined);
-    }
+    const cur = stateRef.current.tabs.find(t => t.id === tabId)?.notification;
+    applyNotif(tabId, cur, onInterrupt(cur));
   }, [state.setTabNotification]);
+
+  // Every PTY output chunk. Refreshes the tab's silence clock and, if the tab was
+  // paused at a permission prompt / compaction, re-arms `working` once Claude's
+  // output resumes (see spinnerState.ts). Must stay cheap — no render unless the
+  // notif actually changes (only on a rare re-arm), so normal output is free.
+  const handleOutput = useCallback((tabId: string, byteLen: number) => {
+    const now = Date.now();
+    const timing = getTiming(tabId, now);
+    const cur = stateRef.current.tabs.find(t => t.id === tabId)?.notification;
+    applyNotif(tabId, cur, onOutput(cur, timing, now, byteLen));
+  }, [state.setTabNotification]);
+
+  // Clock tick: clear a tab's `working` spinner after its output has been silent long
+  // enough (fixes the stuck-spinner bug where Stop's ✅ never fires). Also prunes
+  // timing entries for closed tabs.
+  useEffect(() => {
+    const id = setInterval(() => {
+      const now = Date.now();
+      const s = stateRef.current;
+      for (const tab of s.tabs) {
+        if (tab.notification !== 'working') continue;
+        const timing = timingRef.current.get(tab.id);
+        if (timing) applyNotif(tab.id, 'working', onTick('working', timing, now));
+      }
+      for (const id2 of [...timingRef.current.keys()]) {
+        if (!s.tabs.some(t => t.id === id2)) timingRef.current.delete(id2);
+      }
+    }, 500);
+    return () => clearInterval(id);
+  }, []);
 
   const handlePtyExit = useCallback((tabId: string) => {
     state.closeTab(tabId);
@@ -240,6 +290,7 @@ export function App() {
             onCwdChange={state.updateTabCwd}
             onNotification={handleNotification}
             onUserInput={handleUserInput}
+            onOutput={handleOutput}
             onFontSizeChange={state.setTabFontSize}
             onExit={handlePtyExit}
           />
