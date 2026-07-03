@@ -87,6 +87,13 @@ before any `userData` path is read).
 
 ## Known edges / future
 
+- **BOM on the capture file (fixed v0.7.2).** The hook writes `<tabId>.json` with PowerShell's
+  `Set-Content -Encoding UTF8`, which under **Windows PowerShell 5.1 prepends a UTF-8 BOM** (pwsh
+  7 does not). Node's `JSON.parse` throws on a leading BOM, and `readAndPushClaudeSession`'s catch
+  silently swallowed it — so on a 5.1 host *no* mapping was ever pushed or persisted, and nothing
+  auto-resumed (the failure was invisible until an app restart). `main.ts` now strips a leading
+  `U+FEFF` BOM before parsing. Fix belongs on the read side (host-agnostic + recovers already-written
+  files), not the hook.
 - Capture writes the file every hook event; `setClaudeSession` is a no-op when unchanged, so
   there's no extra `session.json` churn after the first capture.
 - `claude-sessions/<tabId>.json` files for closed tabs are not garbage-collected yet (harmless
