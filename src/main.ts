@@ -491,7 +491,11 @@ const CLAUDE_CWD_RE = /^[A-Za-z]:\\[^\r\n;&|`$<>"'*?\t]*$/;
 
 function readAndPushClaudeSession(tabId: string) {
   try {
-    const raw = fs.readFileSync(path.join(getClaudeSessionDir(), `${tabId}.json`), 'utf-8');
+    // The hook writes this file with `Set-Content -Encoding UTF8`, which under Windows
+    // PowerShell 5.1 prepends a UTF-8 BOM (pwsh 7 does not). Node's JSON.parse throws on
+    // a leading BOM, and the catch below would silently swallow it — dropping the mapping
+    // so nothing is ever persisted and no session can auto-resume. Strip it before parsing.
+    const raw = fs.readFileSync(path.join(getClaudeSessionDir(), `${tabId}.json`), 'utf-8').replace(/^\uFEFF/, '');
     const obj = JSON.parse(raw) as { sessionId?: unknown; cwd?: unknown };
     if (typeof obj?.sessionId !== 'string' || typeof obj?.cwd !== 'string') return;
     if (!CLAUDE_UUID_RE.test(obj.sessionId) || !CLAUDE_CWD_RE.test(obj.cwd)) return;
