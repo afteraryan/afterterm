@@ -1,0 +1,82 @@
+{"at":115,"gap":115,"len":16,"title":null,"notif":null,"phase":"startup"}
+{"at":1211,"gap":1096,"len":33,"title":"claude","notif":null,"phase":"startup"}
+{"at":1630,"gap":419,"len":6,"title":null,"notif":null,"phase":"startup"}
+{"at":1630,"gap":0,"len":24,"title":null,"notif":null,"phase":"startup"}
+{"at":1665,"gap":35,"len":5,"title":null,"notif":null,"phase":"startup"}
+{"at":2341,"gap":676,"len":18,"title":"✳ Claude Code","notif":null,"phase":"startup"}
+{"at":2413,"gap":72,"len":1289,"title":null,"notif":null,"phase":"startup"}
+{"at":2422,"gap":9,"len":3,"title":null,"notif":null,"phase":"startup"}
+{"at":2808,"gap":386,"len":14,"title":"afterterm","notif":null,"phase":"startup"}
+{"at":2826,"gap":18,"len":3,"title":null,"notif":null,"phase":"startup"}
+{"at":2976,"gap":150,"len":104,"title":null,"notif":null,"phase":"startup"}
+{"at":2999,"gap":23,"len":3,"title":null,"notif":null,"phase":"startup"}
+{"at":3244,"gap":245,"len":866,"title":null,"notif":null,"phase":"startup"}
+{"at":3260,"gap":16,"len":3,"title":null,"notif":null,"phase":"startup"}
+{"at":4121,"gap":861,"len":91,"title":null,"notif":null,"phase":"turn1"}
+{"at":4417,"gap":296,"len":18,"title":"⠂ Claude Code","notif":null,"phase":"turn1"}
+{"at":4426,"gap":9,"len":813,"title":null,"notif":null,"phase":"turn1"}
+{"at":4464,"gap":38,"len":95,"title":null,"notif":null,"phase":"turn1"}
+{"at":4472,"gap":8,"len":3,"title":null,"notif":null,"phase":"turn1"}
+{"at":4676,"gap":204,"len":69,"title":null,"notif":null,"phase":"turn1"}
+{"at":4687,"gap":11,"len":3,"title":null,"notif":null,"phase":"turn1"}
+{"at":4880,"gap":193,"len":26,"title":"▶ afterterm - working","notif":"working","phase":"turn1"}
+{"at":4949,"gap":69,"len":92,"title":null,"notif":null,"phase":"turn1"}
+{"at":4964,"gap":15,"len":3,"title":null,"notif":null,"phase":"turn1"}
+{"at":5108,"gap":144,"len":92,"title":null,"notif":null,"phase":"turn1"}
+{"at":5118,"gap":10,"len":3,"title":null,"notif":null,"phase":"turn1"}
+{"at":5215,"gap":97,"len":45,"title":null,"notif":null,"phase":"turn1"}
+{"at":5225,"gap":10,"len":3,"title":null,"notif":null,"phase":"turn1"}
+{"at":5351,"gap":126,"len":50,"title":null,"notif":null,"phase":"turn1"}
+{"at":5361,"gap":10,"len":3,"title":null,"notif":null,"phase":"turn1"}
+{"at":5378,"gap":17,"len":18,"title":"⠐ Claude Code","notif":null,"phase":"turn1"}
+{"at":5452,"gap":74,"len":50,"title":null,"notif":null,"phase":"turn1"}
+{"at":5454,"gap":2,"len":3,"title":null,"notif":null,"phase":"turn1"}
+{"at":5689,"gap":235,"len":45,"title":null,"notif":null,"phase":"turn1"}
+{"at":5700,"gap":11,"len":3,"title":null,"notif":null,"phase":"turn1"}
+{"at":5909,"gap":209,"len":45,"title":null,"notif":null,"phase":"turn1"}
+{"at":5919,"gap":10,"len":3,"title":null,"notif":null,"phase":"turn1"}
+{"at":6137,"gap":218,"len":45,"title":null,"notif":null,"phase":"turn1"}
+{"at":6149,"gap":12,"len":3,"title":null,"notif":null,"phase":"turn1"}
+{"at":6232,"gap":83,"len":45,"title":null,"notif":null,"phase":"turn1"}
+{"at":6241,"gap":9,"len":3,"title":null,"notif":null,"phase":"turn1"}
+{"at":6350,"gap":109,"len":18,"title":"⠂ Claude Code","notif":null,"phase":"turn1"}
+{"at":6365,"gap":15,"len":45,"title":null,"notif":null,"phase":"turn1"}
+{"at":6413,"gap":48,"len":34,"title":"⠂ Respond with single word","notif":null,"phase":"turn1"}
+{"at":6466,"gap":53,"len":45,"title":null,"notif":null,"phase":"turn1"}
+{"at":6489,"gap":23,"len":3,"title":null,"notif":null,"phase":"turn1"}
+{"at":6820,"gap":331,"len":57,"title":null,"notif":null,"phase":"turn1"}
+{"at":6843,"gap":23,"len":3,"title":null,"notif":null,"phase":"turn1"}
+{"at":6859,"gap":16,"len":98,"title":null,"notif":null,"phase":"turn1"}
+{"at":6874,"gap":15,"len":449,"title":null,"notif":null,"phase":"turn1"}
+{"at":6900,"gap":26,"len":128,"title":null,"notif":null,"phase":"turn1"}
+{"at":6922,"gap":22,"len":3,"title":null,"notif":null,"phase":"turn1"}
+{"at":7035,"gap":113,"len":86,"title":null,"notif":null,"phase":"turn1"}
+{"at":7046,"gap":11,"len":3,"title":null,"notif":null,"phase":"turn1"}
+{"at":7146,"gap":100,"len":47,"title":null,"notif":null,"phase":"turn1"}
+{"at":7155,"gap":9,"len":3,"title":null,"notif":null,"phase":"turn1"}
+{"at":7256,"gap":101,"len":45,"title":null,"notif":null,"phase":"turn1"}
+{"at":7278,"gap":22,"len":3,"title":null,"notif":null,"phase":"turn1"}
+{"at":7329,"gap":51,"len":31,"title":"⠐ Respond with single word","notif":null,"phase":"turn1"}
+{"at":7351,"gap":22,"len":23,"title":"✅ afterterm - done","notif":"done","phase":"turn1"}
+{"at":7394,"gap":43,"len":31,"title":"✳ Respond with single word","notif":null,"phase":"compacting"}
+{"at":7403,"gap":9,"len":71,"title":null,"notif":null,"phase":"compacting"}
+{"at":7900,"gap":497,"len":65,"title":null,"notif":null,"phase":"compacting"}
+{"at":7913,"gap":13,"len":373,"title":null,"notif":null,"phase":"compacting"}
+{"at":7923,"gap":10,"len":16,"title":null,"notif":null,"phase":"compacting"}
+{"at":8175,"gap":252,"len":31,"title":"⠐ Respond with single word","notif":null,"phase":"compacting"}
+{"at":8188,"gap":13,"len":1846,"title":null,"notif":null,"phase":"compacting"}
+{"at":8243,"gap":55,"len":94,"title":null,"notif":null,"phase":"compacting"}
+{"at":8265,"gap":22,"len":3,"title":null,"notif":null,"phase":"compacting"}
+{"at":8363,"gap":98,"len":46,"title":null,"notif":null,"phase":"compacting"}
+{"at":8373,"gap":10,"len":3,"title":null,"notif":null,"phase":"compacting"}
+{"at":8489,"gap":116,"len":94,"title":null,"notif":null,"phase":"compacting"}
+{"at":8511,"gap":22,"len":3,"title":null,"notif":null,"phase":"compacting"}
+{"at":8671,"gap":160,"len":29,"title":"⚙ afterterm - compacting","notif":"compacting","phase":"compacting"}
+{"at":8722,"gap":51,"len":31,"title":"✳ Respond with single word","notif":null,"phase":"observe"}
+{"at":8741,"gap":19,"len":268,"title":null,"notif":null,"phase":"observe"}
+{"at":12358,"gap":3617,"len":31,"title":null,"notif":null,"phase":"observe"}
+{"at":120110,"gap":107752,"len":32,"title":null,"notif":null,"phase":"observe"}
+{"at":120110,"gap":0,"len":5,"title":null,"notif":null,"phase":"observe"}
+{"at":120111,"gap":1,"len":20,"title":null,"notif":null,"phase":"observe"}
+{"at":120123,"gap":12,"len":24,"title":"","notif":null,"phase":"observe"}
+{"at":120167,"gap":44,"len":16,"title":null,"notif":null,"phase":"observe"}

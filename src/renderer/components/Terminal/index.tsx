@@ -31,6 +31,9 @@ interface TerminalAreaProps {
   onCwdChange: (tabId: string, cwd: string) => void;
   onNotification: (tabId: string, type: TabNotification | undefined, projectName: string) => void;
   onUserInput: (tabId: string) => void;
+  // Fires on every PTY output chunk (byteLen = chunk size) — drives the working-
+  // spinner's silence-clear and resume-based re-arm (see spinnerState.ts).
+  onOutput: (tabId: string, byteLen: number) => void;
   onFontSizeChange: (tabId: string, fontSize: number) => void;
   onExit: (tabId: string) => void;
 }
@@ -116,7 +119,7 @@ const THEME = {
   brightWhite: '#ffffff',
 };
 
-export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwdChange, onNotification, onUserInput, onFontSizeChange, onExit }: TerminalAreaProps) {
+export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwdChange, onNotification, onUserInput, onOutput, onFontSizeChange, onExit }: TerminalAreaProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const termsRef = useRef(new Map<string, TermInfo>());
   const activeRef = useRef(activeTabId);
@@ -130,6 +133,8 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
   onNotificationRef.current = onNotification;
   const onUserInputRef = useRef(onUserInput);
   onUserInputRef.current = onUserInput;
+  const onOutputRef = useRef(onOutput);
+  onOutputRef.current = onOutput;
   const onFontSizeChangeRef = useRef(onFontSizeChange);
   onFontSizeChangeRef.current = onFontSizeChange;
   const onExitRef = useRef(onExit);
@@ -336,7 +341,11 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
 
     // Register data handler BEFORE creating the PTY — shell can emit the prompt
     // immediately on spawn and we'd miss it if the listener isn't ready
-    api.pty.onData(tabId, (data) => term.write(data));
+    api.pty.onData(tabId, (data) => {
+      term.write(data);
+      // Feed output activity to the spinner state machine (silence-clear + re-arm).
+      onOutputRef.current(tabId, data.length);
+    });
 
     // Resume-on-restart: a tab carrying a saved Claude session must relaunch in that
     // session's own directory, because `claude --resume <id>` resolves the session
