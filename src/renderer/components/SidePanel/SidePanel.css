@@ -455,6 +455,167 @@
   margin-top: 2px;
 }
 
+/* ── Projects shelf (groups with no terminals) ────────────────────── */
+
+.project-shelf {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 50%;
+  border-top: 1px solid #242424;
+  background: #161616;
+  user-select: none;
+}
+
+.shelf-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 6px 0 10px;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background 0.08s;
+}
+
+.shelf-header:hover {
+  background: #1e1e1e;
+}
+
+.shelf-chevron {
+  font-size: 8px;
+  color: #555;
+  width: 9px;
+  flex-shrink: 0;
+}
+
+.shelf-title {
+  font-size: 10px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: #666;
+  text-transform: uppercase;
+  flex: 1;
+}
+
+.shelf-count {
+  font-size: 10px;
+  color: #555;
+  flex-shrink: 0;
+}
+
+.shelf-new-btn {
+  opacity: 0;
+  width: 18px !important;
+  height: 18px !important;
+}
+
+.shelf-header:hover .shelf-new-btn {
+  opacity: 1;
+}
+
+.shelf-list {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #333 transparent;
+  padding-bottom: 4px;
+}
+
+.shelf-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.shelf-list::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+
+.shelf-empty {
+  padding: 4px 12px 8px;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: #4a4a4a;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.shelf-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 6px 0 12px;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.08s;
+}
+
+.shelf-row:hover {
+  background: #212121;
+}
+
+.shelf-row.drop-over {
+  background: rgba(90, 156, 248, 0.08);
+  outline: 1px solid rgba(90, 156, 248, 0.4);
+  outline-offset: -1px;
+}
+
+/* The shelf's dot is dimmer than a live group's — nothing is running here. */
+.shelf-row .group-dot {
+  opacity: 0.55;
+}
+
+.shelf-row:hover .group-dot {
+  opacity: 1;
+}
+
+.shelf-name-block {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+}
+
+.shelf-name {
+  font-size: 11.5px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #8a8a8a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shelf-row:hover .shelf-name {
+  color: #d0d0d0;
+}
+
+.shelf-cwd {
+  font-size: 9px;
+  font-family: 'Cascadia Code', 'Consolas', monospace;
+  color: #4d4d4d;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shelf-row .group-add-btn {
+  color: #777;
+}
+
+.shelf-row:hover .group-add-btn {
+  opacity: 0.8;
+  color: var(--gc);
+}
+
+.shelf-shell-dropdown {
+  bottom: 100%;
+  top: auto;
+  margin: 0 0 2px;
+}
+
 /* ── Drag overlay ─────────────────────────────────────────────────── */
 
 .tab-drag-overlay {

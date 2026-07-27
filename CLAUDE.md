@@ -44,8 +44,11 @@ src/
       useTabState.ts                   ← All tab/group state, session restore, group contiguity enforcement
     components/
       SidePanel/
-        index.tsx                      ← Tab list, groups, DnD, context menus, shell dropdown, tab glow/dot + working spinner + group badge
-        SidePanel.css                  ← incl. notification pulse keyframes + working-spinner animation
+        index.tsx                      ← Tab list, groups, DnD, context menus, shell dropdown, tab glow/dot + working spinner + group badge, Projects shelf
+        SidePanel.css                  ← incl. notification pulse keyframes + working-spinner animation, Projects shelf styles
+      GroupModal/
+        index.tsx                      ← New/Edit project group dialog: name, folder picker, colour, shell, "open a terminal now"
+        GroupModal.css                 ← Modal overlay + form styles
       Terminal/
         index.tsx                      ← xterm.js lifecycle, PTY wiring, title intelligence, OSC 9;9 cwd capture, clipboard, links, find bar, font zoom, drag-drop
       TabBar/
@@ -56,6 +59,30 @@ assets/
     test-afterterm-notify.ps1          ← standalone test harness for the hook (12 cases)
 forge.config.ts                        ← ASAR unpack, rebuild skip, Vite plugin config (extraResource: ['assets'] bundles the hook)
 ```
+
+## Project Groups
+
+A group is a project: a name, a folder, a colour and a default shell. Two ways to make one:
+
+- **New project group…** (in the ▾ dropdown, or the `+` on the Projects shelf) opens a
+  modal that collects all four at once and opens the first terminal in the folder. Picking
+  the folder auto-fills the name with its last segment (`D:\…\aftertales` → `aftertales`),
+  until you type a name yourself. The same modal is "Edit group…" in the group's context menu.
+- **Dragging one tab onto another** stays instant, no dialog: the group is created with
+  defaults and its name field opens focused and selected.
+
+### The Projects shelf
+
+A group with no terminals still exists (its folder, colour and shell are saved), it just
+has nothing running. Those groups leave the live tab list and appear in the collapsible
+**Projects** shelf pinned to the bottom of the side panel. Clicking one opens a terminal in
+its folder, which returns the group to the live list above. Dropping a tab onto a shelf row
+does the same. Deleting a group is still an explicit context-menu action.
+
+This is what stops a closed project from becoming invisible: the sidebar builds its list by
+walking `tabs`, so before the shelf existed an empty group rendered nothing at all, and the
+only way back into it was to make a tab elsewhere, drag it in, then open a *second* terminal
+(the dragged-in shell is already running and cannot move to the project folder).
 
 ## Default Shell
 

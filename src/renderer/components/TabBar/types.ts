@@ -26,6 +26,9 @@ export interface Group {
   color: GroupColor;
   collapsed: boolean;
   cwd?: string;
+  // Default shell for terminals opened in this group (falls back to the app default
+  // when unset). Set in the group modal; persisted in session.json.
+  shellId?: string;
 }
 
 export type GroupColor =
@@ -52,3 +55,26 @@ export const GROUP_COLORS: Record<GroupColor, { bg: string; border: string; text
 export const COLOR_CYCLE: GroupColor[] = [
   'teal', 'blue', 'purple', 'orange', 'red', 'green', 'pink', 'yellow',
 ];
+
+// First unused colour in the cycle, so two groups don't look alike until every
+// colour is taken. Shared by the drag gesture and the new-group modal.
+export function nextGroupColor(existing: { color: GroupColor }[]): GroupColor {
+  const used = existing.map(g => g.color);
+  return COLOR_CYCLE.find(c => !used.includes(c)) ?? COLOR_CYCLE[existing.length % COLOR_CYCLE.length];
+}
+
+// Last segment of a Windows or POSIX path — the natural default name for a project
+// group ("D:\Pitara\aftertales" → "aftertales").
+export function pathBasename(p: string): string {
+  const parts = p.split(/[\\/]/).filter(Boolean);
+  return parts[parts.length - 1] ?? p;
+}
+
+// Tail of a path for narrow UI ("D:\Pitara\Work\Tinkering\afterterm" →
+// "…\Tinkering\afterterm"). Trimmed in JS rather than with a CSS ellipsis so the
+// project folder stays visible: it's the end of the path that identifies it.
+export function shortenPath(p: string, keep = 2): string {
+  const parts = p.split(/[\\/]/).filter(Boolean);
+  if (parts.length <= keep) return p;
+  return `…\\${parts.slice(-keep).join('\\')}`;
+}

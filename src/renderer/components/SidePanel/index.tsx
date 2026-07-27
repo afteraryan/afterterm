@@ -11,7 +11,10 @@ import {
   DragEndEvent,
   closestCenter,
 } from '@dnd-kit/core';
-import { Tab, Group, GroupColor, GROUP_COLORS, COLOR_CYCLE, TabNotification } from '../TabBar/types';
+import {
+  Tab, Group, GroupColor, GROUP_COLORS, COLOR_CYCLE, TabNotification, nextGroupColor, shortenPath,
+} from '../TabBar/types';
+import { GroupModal, GroupDraft } from '../GroupModal';
 import './SidePanel.css';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -45,9 +48,8 @@ interface ContextMenuProps {
   onCreateGroup: (tabId: string) => void;
   onAddToGroup: (tabId: string, groupId: string) => void;
   onRemoveFromGroup: (tabId: string) => void;
-  onRenameGroup: (groupId: string) => void;
   onSetColor: (groupId: string, color: GroupColor) => void;
-  onSetDirectory: (groupId: string) => void;
+  onEditGroup: (groupId: string) => void;
   onDeleteGroup: (groupId: string) => void;
   onCloseTab: (tabId: string) => void;
   onNewTabInGroup: (groupId: string) => void;
@@ -124,14 +126,11 @@ function ContextMenu({ menu, tabs, groups, onClose, ...actions }: ContextMenuPro
           <div className="ctx-menu-item" onClick={() => { actions.onNewTabInGroup(group.id); onClose(); }}>
             New terminal in group
           </div>
-          <div className="ctx-menu-item" onClick={() => { actions.onRenameGroup(group.id); onClose(); }}>
-            Rename group
-          </div>
-          <div className="ctx-menu-item" onClick={() => { actions.onSetDirectory(group.id); onClose(); }}>
-            Set directory{group.cwd ? '…' : ''}
+          <div className="ctx-menu-item" onClick={() => { actions.onEditGroup(group.id); onClose(); }}>
+            Edit group…
           </div>
           {group.cwd && (
-            <div className="ctx-menu-detail">{group.cwd.split('\\').pop()}</div>
+            <div className="ctx-menu-detail">{group.cwd}</div>
           )}
           <div className="ctx-menu-separator" />
           <div className="ctx-menu-section">Color</div>
@@ -340,6 +339,7 @@ function GroupHeader({
           autoFocus
           className="group-name-input"
           value={renameValue}
+          onFocus={e => e.currentTarget.select()}
           onChange={e => onRenameChange(e.target.value)}
           onBlur={onRenameCommit}
           onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') onRenameCommit(); }}
@@ -390,6 +390,87 @@ function GroupHeader({
   );
 }
 
+// ─── Projects shelf ────────────────────────────────────────────────────────────
+// A group with no terminals still exists (name, folder, colour, shell are saved) —
+// it just has nothing running. Those groups drop out of the live list into this
+// shelf at the bottom of the panel. Clicking one opens a terminal in its folder,
+// which puts the group straight back into the live list above.
+
+interface ShelfRowProps {
+  group: Group;
+  shells: { id: string; name: string }[];
+  onOpen: () => void;
+  onOpenWithShell: (shellId: string) => void;
+  onContextMenu: (e: React.MouseEvent) => void;
+}
+
+function ShelfRow({ group, shells, onOpen, onOpenWithShell, onContextMenu }: ShelfRowProps) {
+  const [showShellMenu, setShowShellMenu] = useState(false);
+  const shellMenuRef = useRef<HTMLDivElement>(null);
+  // Dropping a tab here joins the group (handleDragEnd's group-drop- branch), which
+  // is the other way a shelved project comes back to life.
+  const { setNodeRef, isOver } = useDroppable({ id: `group-drop-${group.id}` });
+
+  useEffect(() => {
+    if (!showShellMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (shellMenuRef.current && !shellMenuRef.current.contains(e.target as Node)) {
+        setShowShellMenu(false);
+      }
+    };
+    window.addEventListener('mousedown', handler);
+    return () => window.removeEventListener('mousedown', handler);
+  }, [showShellMenu]);
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`shelf-row ${isOver ? 'drop-over' : ''}`}
+      style={{ '--gc': gc(group.color) } as React.CSSProperties}
+      onClick={onOpen}
+      onContextMenu={onContextMenu}
+      title={group.cwd ? `Open a terminal in ${group.cwd}` : 'Open a terminal in this group'}
+    >
+      <span className="group-dot" />
+      <div className="shelf-name-block">
+        <span className="shelf-name">{group.label}</span>
+        {group.cwd && <span className="shelf-cwd">{shortenPath(group.cwd)}</span>}
+      </div>
+      <button
+        className="group-add-btn"
+        onClick={e => { e.stopPropagation(); onOpen(); }}
+        title="New terminal in group"
+        tabIndex={-1}
+      >
+        +
+      </button>
+      <div className="group-shell-wrapper" ref={shellMenuRef}>
+        <button
+          className="group-add-btn group-shell-toggle"
+          onClick={e => { e.stopPropagation(); setShowShellMenu(p => !p); }}
+          title="Select shell type"
+          tabIndex={-1}
+        >
+          ▾
+        </button>
+        {showShellMenu && shells.length > 0 && (
+          <div className="shell-dropdown group-shell-dropdown shelf-shell-dropdown">
+            {shells.map(s => (
+              <div
+                key={s.id}
+                className="shell-dropdown-item"
+                onClick={e => { e.stopPropagation(); onOpenWithShell(s.id); setShowShellMenu(false); }}
+              >
+                {s.name}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Segment helpers ───────────────────────────────────────────────────────────
 
 type Segment =
@@ -429,12 +510,13 @@ export interface SidePanelProps {
   onActivate: (tabId: string) => void;
   onClose: (tabId: string) => void;
   onNewTab: (groupId?: string, shellId?: string) => void;
-  onCreateGroup: (tabId1: string, tabId2?: string) => void;
+  onCreateGroup: (tabId1: string, tabId2?: string) => string;
+  onCreateProjectGroup: (draft: GroupDraft, openTerminal: boolean) => void;
+  onUpdateGroup: (groupId: string, draft: GroupDraft) => void;
   onAddToGroup: (tabId: string, groupId: string) => void;
   onRemoveFromGroup: (tabId: string) => void;
   onRenameGroup: (groupId: string, label: string) => void;
   onSetGroupColor: (groupId: string, color: GroupColor) => void;
-  onSetGroupCwd: (groupId: string) => void;
   onToggleGroupCollapse: (groupId: string) => void;
   onDeleteGroup: (groupId: string) => void;
   onMoveTab: (tabId: string, anchorTabId: string, position: 'before' | 'after') => void;
@@ -446,8 +528,8 @@ export function SidePanel(props: SidePanelProps) {
   const {
     tabs, groups, activeTabId, collapsed, shells, onToggleCollapse,
     onActivate, onClose, onNewTab,
-    onCreateGroup, onAddToGroup, onRemoveFromGroup,
-    onRenameGroup, onSetGroupColor, onSetGroupCwd, onToggleGroupCollapse,
+    onCreateGroup, onCreateProjectGroup, onUpdateGroup, onAddToGroup, onRemoveFromGroup,
+    onRenameGroup, onSetGroupColor, onToggleGroupCollapse,
     onDeleteGroup, onMoveTab, onMoveGroup, onMoveGroupAfterGroup,
   } = props;
 
@@ -459,6 +541,9 @@ export function SidePanel(props: SidePanelProps) {
   const [renameValue, setRenameValue] = useState('');
   const [shellDropdown, setShellDropdown] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [shelfOpen, setShelfOpen] = useState(false);
+  // null = closed; groupId absent = creating a new group.
+  const [modal, setModal] = useState<{ mode: 'create' | 'edit'; groupId?: string } | null>(null);
   const shellDropdownRef = useRef<HTMLDivElement>(null);
   const helpRef = useRef<HTMLDivElement>(null);
 
@@ -552,7 +637,7 @@ export function SidePanel(props: SidePanelProps) {
     if (groupPreviewTarget && overId === groupPreviewTarget) {
       const targetTab = tabs.find(t => t.id === groupPreviewTarget);
       if (targetTab && !targetTab.groupId && !activeTab?.groupId) {
-        onCreateGroup(activeId, groupPreviewTarget);
+        createGroupAndRename(activeId, groupPreviewTarget);
         return;
       }
       // else fall through to a positional move
@@ -599,6 +684,16 @@ export function SidePanel(props: SidePanelProps) {
     setCtxMenu(null);
   };
 
+  // The drag/context-menu gesture stays instant: the group is created with defaults and
+  // the name field opens focused and selected, so the placeholder name is one type away
+  // from gone. Deliberate project setup goes through the modal instead.
+  const createGroupAndRename = (tabId1: string, tabId2?: string) => {
+    const id = onCreateGroup(tabId1, tabId2);
+    if (!id) return;
+    setRenamingGroupId(id);
+    setRenameValue('New Group');
+  };
+
   const commitRename = () => {
     if (renamingGroupId && renameValue.trim()) {
       onRenameGroup(renamingGroupId, renameValue.trim());
@@ -608,6 +703,8 @@ export function SidePanel(props: SidePanelProps) {
 
   const groupMap = new Map(groups.map(g => [g.id, g]));
   const segments = computeSegments(tabs, groups);
+  // Groups with nothing running: they keep their config but leave the live list.
+  const shelfGroups = groups.filter(g => !tabs.some(t => t.groupId === g.id));
   const draggingTab = draggingTabId ? tabs.find(t => t.id === draggingTabId) : null;
   const draggingGroup = draggingGroupId ? groups.find(g => g.id === draggingGroupId) : null;
 
@@ -626,7 +723,7 @@ export function SidePanel(props: SidePanelProps) {
               >
                 ▾
               </button>
-              {shellDropdown && shells.length > 0 && (
+              {shellDropdown && (
                 <div className="shell-dropdown">
                   {shells.map(s => (
                     <div
@@ -637,6 +734,13 @@ export function SidePanel(props: SidePanelProps) {
                       {s.name}
                     </div>
                   ))}
+                  {shells.length > 0 && <div className="ctx-menu-separator" />}
+                  <div
+                    className="shell-dropdown-item"
+                    onClick={() => { setModal({ mode: 'create' }); setShellDropdown(false); }}
+                  >
+                    New project group…
+                  </div>
                 </div>
               )}
             </div>
@@ -739,6 +843,40 @@ export function SidePanel(props: SidePanelProps) {
             })}
           </div>
 
+          <div className="project-shelf">
+            <div className="shelf-header" onClick={() => setShelfOpen(p => !p)}>
+              <span className="shelf-chevron">{shelfOpen ? '▼' : '▶'}</span>
+              <span className="shelf-title">Projects</span>
+              {shelfGroups.length > 0 && <span className="shelf-count">{shelfGroups.length}</span>}
+              <button
+                className="panel-icon-btn shelf-new-btn"
+                onClick={e => { e.stopPropagation(); setModal({ mode: 'create' }); }}
+                title="New project group"
+                tabIndex={-1}
+              >
+                +
+              </button>
+            </div>
+            {shelfOpen && (
+              <div className="shelf-list">
+                {shelfGroups.length === 0 ? (
+                  <div className="shelf-empty">
+                    No closed projects. A group with no terminals appears here.
+                  </div>
+                ) : shelfGroups.map(g => (
+                  <ShelfRow
+                    key={g.id}
+                    group={g}
+                    shells={shells}
+                    onOpen={() => onNewTab(g.id)}
+                    onOpenWithShell={shellId => onNewTab(g.id, shellId)}
+                    onContextMenu={e => openGroupCtx(e, g.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
           <DragOverlay dropAnimation={null}>
             {draggingTab ? (
               <TabRow
@@ -782,17 +920,44 @@ export function SidePanel(props: SidePanelProps) {
           tabs={tabs}
           groups={groups}
           onClose={() => setCtxMenu(null)}
-          onCreateGroup={tabId => { onCreateGroup(tabId); setCtxMenu(null); }}
+          onCreateGroup={tabId => { createGroupAndRename(tabId); setCtxMenu(null); }}
           onAddToGroup={(tabId, groupId) => { onAddToGroup(tabId, groupId); setCtxMenu(null); }}
           onRemoveFromGroup={tabId => { onRemoveFromGroup(tabId); setCtxMenu(null); }}
-          onRenameGroup={startRename}
           onSetColor={(groupId, color) => { onSetGroupColor(groupId, color); setCtxMenu(null); }}
-          onSetDirectory={groupId => { onSetGroupCwd(groupId); setCtxMenu(null); }}
+          onEditGroup={groupId => { setModal({ mode: 'edit', groupId }); setCtxMenu(null); }}
           onDeleteGroup={groupId => { onDeleteGroup(groupId); setCtxMenu(null); }}
           onCloseTab={tabId => { onClose(tabId); setCtxMenu(null); }}
           onNewTabInGroup={groupId => { onNewTab(groupId); setCtxMenu(null); }}
         />
       )}
+
+      {modal && (() => {
+        const editing = modal.groupId ? groups.find(g => g.id === modal.groupId) : undefined;
+        // An edit whose group vanished (deleted underneath the menu) has nothing to show.
+        if (modal.mode === 'edit' && !editing) return null;
+        const initial: GroupDraft = editing
+          ? { label: editing.label, color: editing.color, cwd: editing.cwd, shellId: editing.shellId }
+          : { label: '', color: nextGroupColor(groups) };
+        return (
+          <GroupModal
+            mode={modal.mode}
+            initial={initial}
+            shells={shells}
+            onCancel={() => setModal(null)}
+            onSubmit={(draft, openTerminal) => {
+              if (editing) {
+                onUpdateGroup(editing.id, draft);
+              } else {
+                onCreateProjectGroup(draft, openTerminal);
+                // A group created without a terminal only exists in the shelf, so open
+                // the shelf — otherwise the Create button looks like it did nothing.
+                if (!openTerminal) setShelfOpen(true);
+              }
+              setModal(null);
+            }}
+          />
+        );
+      })()}
     </>
   );
 }
