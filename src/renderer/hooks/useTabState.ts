@@ -1,5 +1,14 @@
 import { useState, useCallback } from 'react';
-import { Tab, Group, GroupColor, COLOR_CYCLE, TabNotification } from '../components/TabBar/types';
+import { Tab, Group, GroupColor, nextGroupColor, TabNotification } from '../components/TabBar/types';
+
+// Everything the group modal can set. A group with no tabs is a valid, persisted
+// state (it sits in the sidebar's Projects shelf), so creation no longer needs a tab.
+export interface GroupConfig {
+  label: string;
+  color: GroupColor;
+  cwd?: string;
+  shellId?: string;
+}
 
 let tabCounter = 0;
 let groupCounter = 0;
@@ -14,8 +23,10 @@ export function useTabState() {
 
   const addTab = useCallback((groupId?: string, shellId?: string) => {
     const id = makeTabId();
-    const groupCwd = groupId ? groups.find(g => g.id === groupId)?.cwd : undefined;
-    const newTab: Tab = { id, title: 'Terminal', groupId, shellId, cwd: groupCwd };
+    // A terminal opened inside a group starts in the project folder and, unless the
+    // shell picker overrode it, uses the group's default shell.
+    const group = groupId ? groups.find(g => g.id === groupId) : undefined;
+    const newTab: Tab = { id, title: 'Terminal', groupId, shellId: shellId ?? group?.shellId, cwd: group?.cwd };
     setTabs(prev => {
       if (groupId) {
         const lastIdx = prev.map(t => t.groupId).lastIndexOf(groupId);
@@ -75,10 +86,26 @@ export function useTabState() {
     setTabs(prev => prev.map(t => t.id === tabId && t.claudeRestorable ? { ...t, claudeRestorable: false } : t));
   }, []);
 
+  // Group fully configured up front (name, folder, colour, shell). This is the modal's
+  // path — no tab is required, an empty group lives in the Projects shelf until one
+  // opens. Spawns the first terminal here rather than via addTab because the group
+  // isn't in `groups` yet this render, so addTab couldn't read its cwd/shell.
+  const createConfiguredGroup = useCallback((config: GroupConfig, openTerminal: boolean): string => {
+    const id = makeGroupId();
+    setGroups(prev => [...prev, { id, collapsed: false, ...config }]);
+    if (openTerminal) {
+      const tabId = makeTabId();
+      setTabs(prev => [...prev, {
+        id: tabId, title: 'Terminal', groupId: id, shellId: config.shellId, cwd: config.cwd,
+      }]);
+      setActiveTabId(tabId);
+    }
+    return id;
+  }, []);
+
   const createGroup = useCallback((tabId1: string, tabId2?: string): string => {
     const id = makeGroupId();
-    const usedColors = groups.map(g => g.color);
-    const color = COLOR_CYCLE.find(c => !usedColors.includes(c)) ?? COLOR_CYCLE[groups.length % COLOR_CYCLE.length];
+    const color = nextGroupColor(groups);
     const newGroup: Group = { id, label: 'New Group', color, collapsed: false };
     setGroups(prev => [...prev, newGroup]);
     setTabs(prev => {
@@ -124,8 +151,9 @@ export function useTabState() {
     setGroups(prev => prev.map(g => g.id === groupId ? { ...g, color } : g));
   }, []);
 
-  const setGroupCwd = useCallback((groupId: string, cwd: string) => {
-    setGroups(prev => prev.map(g => g.id === groupId ? { ...g, cwd } : g));
+  // Whole-group edit from the modal (name, folder, colour, shell in one commit).
+  const updateGroup = useCallback((groupId: string, config: GroupConfig) => {
+    setGroups(prev => prev.map(g => g.id === groupId ? { ...g, ...config } : g));
   }, []);
 
   const toggleGroupCollapse = useCallback((groupId: string) => {
@@ -211,8 +239,8 @@ export function useTabState() {
     tabs, groups, activeTabId,
     setActiveTabId,
     addTab, closeTab, renameTab, updateTabCwd, setClaudeSession, clearTabRestorable, setTabNotification, setTabFontSize,
-    createGroup, addToGroup, removeFromGroup,
-    renameGroup, setGroupColor, setGroupCwd, toggleGroupCollapse, deleteGroup,
+    createGroup, createConfiguredGroup, addToGroup, removeFromGroup,
+    renameGroup, setGroupColor, updateGroup, toggleGroupCollapse, deleteGroup,
     moveTab, moveGroup, moveGroupAfterGroup,
     restoreSession,
   };

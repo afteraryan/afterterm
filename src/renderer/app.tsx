@@ -257,14 +257,12 @@ export function App() {
         onClose={state.closeTab}
         onNewTab={state.addTab}
         onCreateGroup={(t1, t2) => state.createGroup(t1, t2)}
+        onCreateProjectGroup={(draft, openTerminal) => state.createConfiguredGroup(draft, openTerminal)}
+        onUpdateGroup={state.updateGroup}
         onAddToGroup={state.addToGroup}
         onRemoveFromGroup={state.removeFromGroup}
         onRenameGroup={state.renameGroup}
         onSetGroupColor={state.setGroupColor}
-        onSetGroupCwd={async (groupId) => {
-          const folder = await window.afterterm.dialog.pickFolder();
-          if (folder) state.setGroupCwd(groupId, folder);
-        }}
         onToggleGroupCollapse={state.toggleGroupCollapse}
         onDeleteGroup={state.deleteGroup}
         onMoveTab={state.moveTab}
