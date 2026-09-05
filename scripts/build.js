@@ -5,14 +5,30 @@ const path = require('path');
 const outDir = path.join(__dirname, '..', 'out');
 const buildDir = path.join(outDir, 'afterterm-win32-x64');
 
-// If the current build exists (possibly running), rename it out of the way
+// Move the current build out of the way before packaging over its path.
+//
+// This rename doubles as the lock test, so don't "try anyway" if it fails: a
+// successful rename proves nothing holds the folder, and a failure proves
+// something does. Building on regardless would have electron-forge write into
+// the folder a running afterterm is executing from, which either fails partway
+// or leaves a half-replaced build behind.
+//
+// What holds it is normally afterterm itself. A running .exe alone does NOT
+// block its folder being renamed; a process whose *current directory* is that
+// folder does. Launching afterterm.exe from Explorer or a pinned taskbar
+// shortcut sets exactly that, which is why an in-place build fails for anyone
+// who starts the app the ordinary way, and why closing it fixes it every time.
 if (fs.existsSync(buildDir)) {
   const oldDir = path.join(outDir, `afterterm-old-${Date.now()}`);
   try {
     fs.renameSync(buildDir, oldDir);
-    console.log(`Moved running build to ${path.basename(oldDir)}`);
+    console.log(`Moved current build to ${path.basename(oldDir)}`);
   } catch (e) {
-    console.error('Could not move old build — is it still locked? Trying anyway...');
+    console.error(`\nCannot move the current build out of the way (${e.code}):`);
+    console.error(`  ${buildDir}\n`);
+    console.error('afterterm is almost certainly still running from that folder.');
+    console.error('Close it (check the taskbar and the tray), then re-run this build.\n');
+    process.exit(1);
   }
 }
 

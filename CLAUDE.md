@@ -240,7 +240,21 @@ Output: `out\afterterm-win32-x64\afterterm.exe` (~346MB, includes Chromium + nod
 
 Run directly from the `out` folder or move the entire `afterterm-win32-x64` folder anywhere.
 
-**Updating while running:** `npm run build` handles this automatically — it renames the running build to `out/afterterm-old-<timestamp>/` (Windows allows renaming a folder with a running exe), builds fresh to the standard path, and cleans up old builds on the next run. The running app keeps working from the renamed folder. Close and reopen to pick up the new build.
+**Close afterterm before building.** `npm run build` moves the current build to
+`out/afterterm-old-<timestamp>/` and writes a fresh one to the standard path (old builds are
+cleaned up on the next run). That rename **fails while afterterm is running from that
+folder**, and `build.js` now stops with a clear message instead of packaging over a live
+build.
+
+A running `.exe` does not by itself block its folder being renamed; a process whose *current
+directory* is that folder does. Launching `afterterm.exe` from Explorer or a pinned taskbar
+shortcut sets exactly that, so for anyone starting the app the ordinary way an in-place build
+always fails until they close it. (`make-shareable.ps1` has always refused outright, which is
+what `npm run release` hits.)
+
+**To build without closing the app**, use a separate copy whose `out\` is a different path:
+`git worktree add`, copy `node_modules` into it, and build there, then move the artifacts
+into the standard `out\` folder afterwards. This is how `v0.8.0` and `v0.8.1` were cut.
 
 Session data (`%APPDATA%\afterterm\`) is shared between dev and portable builds.
 

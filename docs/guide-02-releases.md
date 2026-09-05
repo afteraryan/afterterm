@@ -80,7 +80,26 @@ tagged — the guard against shipping a stale build under an old number. Bump fi
 ## Where the build runs from
 
 The portable `afterterm-win32-x64` folder is self-contained — move it anywhere and
-run `afterterm.exe`. Updating in place: `npm run build`/`release` renames the running
-build aside (Windows allows renaming a folder with a running exe) and writes a fresh
-one; close & reopen to pick it up. (Session state in `%APPDATA%\afterterm` is shared
-across builds, so your tabs/sessions carry over — and Claude sessions auto-resume.)
+run `afterterm.exe`. (Session state in `%APPDATA%\afterterm` is shared across builds,
+so your tabs/sessions carry over — and Claude sessions auto-resume.)
+
+**Updating in place requires the app to be closed.** `npm run build` moves the current
+build aside and writes a fresh one, but that rename fails while afterterm is running
+from that folder, and `npm run release` refuses outright (`make-shareable.ps1`'s guard).
+A running `.exe` does not block its own folder being renamed; a process whose *current
+directory* is that folder does, and launching `afterterm.exe` from Explorer or a pinned
+taskbar shortcut sets exactly that. So in practice: close it, build, reopen.
+
+**To cut a release without closing the app**, build from a separate copy whose `out\` is
+a different path:
+
+```powershell
+git worktree add --detach .claude\worktrees\release-build <commit>
+# copy node_modules in (robocopy /E /MT:16), then from that worktree:
+npm run release
+```
+
+The tag lands in the shared repo either way. Afterwards copy
+`out\afterterm-<version>-setup.exe` into the main checkout's `out\`, and swap the built
+`afterterm-win32-x64` folder in whenever the app is next closed. `v0.8.0` and `v0.8.1`
+were both cut this way.
