@@ -32,6 +32,7 @@ stranger." Mnemonic: **break it → X, add to it → Y, fix it → Z.**
 | `v0.5.0` | Claude session resume + auto-capture (+ lazy resume, versioning tooling) |
 | `v0.6.0` | Titlebar branding — icon + name + version badge |
 | `v0.7.0` | Sidebar: restorable-session ✳ marker + bottom padding |
+| `v0.8.0` | Project groups: new/edit group modal + Projects shelf for groups with no terminals |
 
 (`v0.1.0`–`v0.4.1` were backfilled onto the existing history; releases from `v0.5.0` on were cut with `npm run release`.)
 
