@@ -42,9 +42,34 @@ The thing afterterm must do *while you work* is learn each tab's live session id
 %APPDATA%\afterterm\claude-sessions\<tabId>.json   =   { "sessionId": "...", "cwd": "..." }
 ```
 
-on every hook event, using `AFTERTERM_TAB_ID` + `AFTERTERM_SESSION_DIR` that `main.ts` sets
-on each PTY's env. `main.ts` watches that directory, validates the values, and pushes them to
-the renderer (`claude-session:update`), which stores them on the tab and persists them.
+on the `UserPromptSubmit` and `Stop` hook events, using `AFTERTERM_TAB_ID` +
+`AFTERTERM_SESSION_DIR` that `main.ts` sets on each PTY's env. `main.ts` watches that
+directory, validates the values, and pushes them to the renderer (`claude-session:update`),
+which stores them on the tab and persists them.
+
+### Only a real user turn may claim a tab
+
+Capture is deliberately restricted to those two events (`$CaptureEvents` in the hook), and
+**not** `SessionStart`. Claude Code runs a **shared background daemon** that pre-spawns
+throwaway `(spare)` sessions to keep startup fast. That daemon is a descendant of whichever
+PTY first started it, so it **inherits `AFTERTERM_TAB_ID` / `AFTERTERM_SESSION_DIR`** — and
+its spares fire `SessionStart` like any other session. Capturing on `SessionStart` therefore
+let a spare overwrite the tab's real mapping with its own id (last write wins). A spare that
+is never used gets retired without ever writing a transcript, so the next launch ran
+`claude --resume <id>` against a session that does not exist:
+
+```
+[bg] bg spawned 94f9e56a (spare)
+[bg] bg retire 94f9e56a: stale-spare, idle 23m [low memory]
+```
+
+A spare is never handed a user prompt and never finishes a turn, so gating on
+`UserPromptSubmit` / `Stop` keeps it out entirely while the real session still refreshes the
+mapping every turn. Cost: a session you start but never prompt is not captured, which is
+correct — there is nothing worth resuming yet.
+
+By design there is **no fallback** when a resume fails. The `claude --resume` error is left
+visible in the tab rather than swallowed, so a bad mapping shows up instead of hiding.
 
 ### Why not the title / OSC channel
 
@@ -55,7 +80,7 @@ a second notify hook is registered**: if the user also has a personal
 silently drops the rest** — afterterm's was dropped, so the id never arrived. Proven on the
 dev machine: the hook *fired* (it logged), but its OSC never reached the PTY stream, while
 `notify.ps1`'s titles did. The file channel sidesteps CC's hook-output behavior and ordering
-entirely, and capture fires on the resumed session's own `SessionStart`.
+entirely, and capture refreshes on the resumed session's first turn.
 
 ## Security
 
@@ -94,7 +119,11 @@ before any `userData` path is read).
   auto-resumed (the failure was invisible until an app restart). `main.ts` now strips a leading
   `U+FEFF` BOM before parsing. Fix belongs on the read side (host-agnostic + recovers already-written
   files), not the hook.
-- Capture writes the file every hook event; `setClaudeSession` is a no-op when unchanged, so
+- **Daemon spare sessions clobbering the mapping (fixed).** See "Only a real user turn may
+  claim a tab" above: capture used to run on every hook event, so a background `(spare)`
+  session spawned by Claude Code's shared daemon could claim the tab with an id that never
+  gets a transcript. Capture is now gated to `UserPromptSubmit` / `Stop`.
+- Capture writes the file on each user turn; `setClaudeSession` is a no-op when unchanged, so
   there's no extra `session.json` churn after the first capture.
 - `claude-sessions/<tabId>.json` files for closed tabs are not garbage-collected yet (harmless
   small files; the data is also in `session.json`).

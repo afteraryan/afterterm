@@ -71,10 +71,22 @@ $SessionId = if ($payload.session_id) { [string]$payload.session_id } else { '' 
 # also has another notify hook registered, Claude Code writes only the FIRST hook's
 # terminal output and silently drops ours — so the title channel can't carry this.
 # Instead afterterm hands us a private per-tab file path via env (AFTERTERM_TAB_ID +
-# AFTERTERM_SESSION_DIR) and we write the mapping straight to disk. Runs on every
-# event, so capture happens the instant a session starts and refreshes each turn.
+# AFTERTERM_SESSION_DIR) and we write the mapping straight to disk.
 # Completely inert when the env isn't set (i.e. not launched by this afterterm).
-if ($SessionId -and $env:AFTERTERM_TAB_ID -and $env:AFTERTERM_SESSION_DIR) {
+#
+# ONLY user-turn events may claim the tab (see $CaptureEvents). Claude Code runs a
+# shared background daemon that pre-spawns throwaway "spare" sessions, and that
+# daemon inherits AFTERTERM_TAB_ID / AFTERTERM_SESSION_DIR from whichever PTY first
+# started it. Those spares fire SessionStart, so capturing on SessionStart let a
+# spare overwrite the tab's real mapping with its own id. A retired spare never
+# writes a transcript, so the next launch ran `claude --resume <id>` against a
+# session that does not exist. A spare is never handed a user prompt and never
+# finishes a turn, so gating on UserPromptSubmit/Stop keeps it out entirely while
+# the real session refreshes the mapping on every turn.
+$CaptureEvents = @('UserPromptSubmit', 'Stop')
+
+if ($SessionId -and $CaptureEvents -contains $event -and
+    $env:AFTERTERM_TAB_ID -and $env:AFTERTERM_SESSION_DIR) {
     try {
         $sessFile = Join-Path $env:AFTERTERM_SESSION_DIR ($env:AFTERTERM_TAB_ID + '.json')
         @{ sessionId = $SessionId; cwd = $cwd } | ConvertTo-Json -Compress |

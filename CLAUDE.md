@@ -56,7 +56,7 @@ src/
 assets/
   hooks/
     afterterm-notify.ps1               ← bundled, distributable Claude Code hook (no-op unless AFTERTERM=1); copied into ~/.claude/hooks on first run
-    test-afterterm-notify.ps1          ← standalone test harness for the hook (12 cases)
+    test-afterterm-notify.ps1          ← standalone test harness for the hook (22 cases)
 forge.config.ts                        ← ASAR unpack, rebuild skip, Vite plugin config (extraResource: ['assets'] bundles the hook)
 ```
 
@@ -149,7 +149,7 @@ settings file; only the global/project `settings.json` hierarchy, and hooks
   knows their config was touched — it's not a silent dotfile edit. The toast uses
   a sentinel `tabId`; `app.tsx` `handleActivate` ignores clicks for unknown tabs.
 
-Tests (no app needed): `assets/hooks/test-afterterm-notify.ps1` (12 cases, runs
+Tests (no app needed): `assets/hooks/test-afterterm-notify.ps1` (22 cases, runs
 the hook as a subprocess) and `src/claude-hook-install.test.ts` (26 cases, run
 with `node src/claude-hook-install.test.ts` — Node 24+ strips the TS types).
 
@@ -169,7 +169,9 @@ Tabs that were running a **Claude Code session auto-resume it on relaunch** (`cl
 tabs resume the first time you open them (resuming all at once can OOM-crash the app). The
 session UUID is captured per-tab via a file the notify
 hook writes — **not** the terminal/title channel — and persisted as `claudeSessionId` /
-`claudeCwd`. See [`docs/features-claude-session-resume.md`](docs/features-claude-session-resume.md)
+`claudeCwd`. Capture only fires on `UserPromptSubmit` / `Stop`: Claude Code's shared background
+daemon inherits the tab env and pre-spawns throwaway `(spare)` sessions whose `SessionStart`
+used to hijack the mapping with an id that never gets a transcript. See [`docs/features-claude-session-resume.md`](docs/features-claude-session-resume.md)
 for the why and the wiring. (Dev isolation: `AFTERTERM_USER_DATA_DIR` redirects `session.json`
 to a throwaway dir.)
 
