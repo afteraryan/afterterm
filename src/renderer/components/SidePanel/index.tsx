@@ -399,17 +399,21 @@ function GroupHeader({
 interface ShelfRowProps {
   group: Group;
   shells: { id: string; name: string }[];
+  // A shelved group has no position in the live list, so a group drag can't land on it
+  // (moveGroupAfterGroup no-ops). Switch the drop target off rather than highlight a row
+  // that would do nothing. Live group headers do the same via their own `disabled`.
+  dropDisabled: boolean;
   onOpen: () => void;
   onOpenWithShell: (shellId: string) => void;
   onContextMenu: (e: React.MouseEvent) => void;
 }
 
-function ShelfRow({ group, shells, onOpen, onOpenWithShell, onContextMenu }: ShelfRowProps) {
+function ShelfRow({ group, shells, dropDisabled, onOpen, onOpenWithShell, onContextMenu }: ShelfRowProps) {
   const [showShellMenu, setShowShellMenu] = useState(false);
   const shellMenuRef = useRef<HTMLDivElement>(null);
   // Dropping a tab here joins the group (handleDragEnd's group-drop- branch), which
   // is the other way a shelved project comes back to life.
-  const { setNodeRef, isOver } = useDroppable({ id: `group-drop-${group.id}` });
+  const { setNodeRef, isOver } = useDroppable({ id: `group-drop-${group.id}`, disabled: dropDisabled });
 
   useEffect(() => {
     if (!showShellMenu) return;
@@ -868,6 +872,7 @@ export function SidePanel(props: SidePanelProps) {
                     key={g.id}
                     group={g}
                     shells={shells}
+                    dropDisabled={!!draggingGroupId}
                     onOpen={() => onNewTab(g.id)}
                     onOpenWithShell={shellId => onNewTab(g.id, shellId)}
                     onContextMenu={e => openGroupCtx(e, g.id)}
