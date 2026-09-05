@@ -175,11 +175,11 @@ function Assert-NoSessionFile {
     else { Write-Host "  FAIL  $Name (file unexpectedly written)" -ForegroundColor Red; $script:fail++ }
 }
 
-# 13. SessionStart with session_id + tab env -> writes <tabId>.json with id + cwd.
-Assert-SessionFile 'SessionStart -> writes session file' `
-    "{`"hook_event_name`":`"SessionStart`",`"cwd`":`"$cwd`",`"session_id`":`"$sid`"}" 'tab-1' $sid $cwdDecoded
+# 13. UserPromptSubmit with session_id + tab env -> writes <tabId>.json with id + cwd.
+Assert-SessionFile 'UserPromptSubmit -> writes session file' `
+    "{`"hook_event_name`":`"UserPromptSubmit`",`"cwd`":`"$cwd`",`"session_id`":`"$sid`"}" 'tab-1' $sid $cwdDecoded
 
-# 14. (Re)written on every title-emitting event, e.g. Stop — refreshes each turn.
+# 14. Rewritten when a turn ends too, so the mapping refreshes every turn.
 Assert-SessionFile 'Stop -> refreshes session file' `
     "{`"hook_event_name`":`"Stop`",`"cwd`":`"$cwd`",`"session_id`":`"$sid`"}" 'tab-2' $sid $cwdDecoded
 
@@ -197,7 +197,40 @@ Assert-NoSessionFile 'no session-dir env -> no file' `
 
 # 18. Gate still wins: AFTERTERM unset -> no file even with the tab env present.
 Assert-NoSessionFile 'gate: AFTERTERM unset -> no file' `
-    "{`"hook_event_name`":`"SessionStart`",`"cwd`":`"$cwd`",`"session_id`":`"$sid`"}" 'tab-5' $tmpDir $null
+    "{`"hook_event_name`":`"UserPromptSubmit`",`"cwd`":`"$cwd`",`"session_id`":`"$sid`"}" 'tab-5' $tmpDir $null
+
+# 19-21. Only user-turn events may claim the tab. Claude Code's shared background
+# daemon inherits AFTERTERM_TAB_ID/_SESSION_DIR and pre-spawns throwaway "spare"
+# sessions that fire SessionStart; capturing those overwrote the tab's real mapping
+# with an id that never gets a transcript, so resume failed on the next launch. A
+# spare never submits a prompt and never finishes a turn, so these three events must
+# not write, no matter how complete the payload is.
+Assert-NoSessionFile 'SessionStart -> no file (may be a daemon spare)' `
+    "{`"hook_event_name`":`"SessionStart`",`"cwd`":`"$cwd`",`"session_id`":`"$sid`"}" 'tab-6' $tmpDir
+
+Assert-NoSessionFile 'Notification -> no file' `
+    "{`"hook_event_name`":`"Notification`",`"cwd`":`"$cwd`",`"session_id`":`"$sid`",`"notification_type`":`"permission_prompt`"}" 'tab-7' $tmpDir
+
+Assert-NoSessionFile 'PreCompact -> no file' `
+    "{`"hook_event_name`":`"PreCompact`",`"cwd`":`"$cwd`",`"session_id`":`"$sid`"}" 'tab-8' $tmpDir
+
+# 22. A spare's SessionStart must not clobber a mapping a real turn already wrote.
+$keepFile = Join-Path $tmpDir 'tab-9.json'
+Remove-Item $keepFile -ErrorAction SilentlyContinue
+Invoke-Hook -Json "{`"hook_event_name`":`"UserPromptSubmit`",`"cwd`":`"$cwd`",`"session_id`":`"$sid`"}" `
+    -TabId 'tab-9' -SessionDir $tmpDir | Out-Null
+$spareSid = '99999999-8888-7777-6666-555555555555'
+Invoke-Hook -Json "{`"hook_event_name`":`"SessionStart`",`"cwd`":`"$cwd`",`"session_id`":`"$spareSid`"}" `
+    -TabId 'tab-9' -SessionDir $tmpDir | Out-Null
+$kept = (Get-Content $keepFile -Raw | ConvertFrom-Json).sessionId
+if ($kept -eq $sid) {
+    Write-Host "  PASS  spare SessionStart does not clobber a captured session" -ForegroundColor Green; $pass++
+} else {
+    Write-Host "  FAIL  spare SessionStart clobbered the captured session" -ForegroundColor Red
+    Write-Host "        expected: [$sid]"
+    Write-Host "        actual:   [$kept]"
+    $fail++
+}
 
 Remove-Item $tmpDir -Recurse -Force -ErrorAction SilentlyContinue
 
