@@ -297,6 +297,7 @@ Research and design documents live in `docs/`. Naming convention: `research-NN-<
 
 - `docs/research-00-terminal-landscape-and-stack-validation.md` — pre-build stack/landscape research
 - `docs/design-01-persistent-pty-host.md` — design for a detached PTY-host daemon so terminals survive an app update (not yet built)
+- `docs/design-02-projects-and-threads.md` — the projects-and-threads redesign (Home screen, pinned projects, named threads, sleep/wake, history); agreed 2026-09-06 against `docs/mockups/afterterm-next.html`. Execution plan in `PHASES.md` at the repo root.
 - `docs/guide-01-distributable-build.md` — shrink the portable build into a ~67 MB self-extracting `.exe` for sharing (7-Zip LZMA2 + pruning)
 - `docs/guide-02-releases.md` — versioning (semver) + how to cut a tagged, version-stamped release (`npm run release`)
 - `docs/ideas.md` — feature ideas backlog

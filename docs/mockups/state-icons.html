@@ -1,0 +1,70 @@
+<title>Thread State Icons</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap">
+<style>
+:root{--bg:#212121;--side:#171717;--hover:#2f2f2f;--hover2:#383838;--text:#ececec;--text2:#b4b4b4;--text3:#8e8e8e;--teal:#2dd4bf;--live:#4ade80;--need:#fbbf24;--sleep:#a78bfa}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;font-size:14px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1040px;margin:0 auto;padding:40px 24px 80px;display:flex;flex-direction:column;gap:40px}
+h1{font-size:22px;font-weight:500;margin:0 0 6px}
+h2{font-size:15px;font-weight:500;margin:0 0 14px}
+p{color:var(--text3);margin:0}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.opt{background:var(--hover);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:14px}
+.opt .nm{font-weight:500;display:flex;align-items:center;gap:10px}
+.opt .nm span{color:var(--text3);font-weight:400;font-size:13px}
+.sizes{display:flex;align-items:center;gap:22px}
+.row{display:flex;align-items:center;gap:9px;background:var(--side);border-radius:12px;padding:8px 12px}
+.row .n{flex:1}
+.row .ki{color:var(--text3)}
+.pills{display:flex;gap:6px;align-items:center}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:4px 10px 4px 8px;border-radius:999px;background:var(--hover2);font-weight:500;font-size:12.5px}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:var(--hover2);color:var(--text2);font-size:13px}
+.need{color:var(--need)}.run{color:var(--live)}.sleep{color:var(--sleep)}.mute{color:var(--text3)}
+.spin{width:12px;height:12px;border-radius:50%;border:2px solid var(--text2);border-right-color:transparent;animation:rot 1s linear infinite;display:inline-block}
+@keyframes rot{to{transform:rotate(360deg)}}
+svg{display:block;flex:none}
+</style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="chat" viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 3.5V17H6.5A2.5 2.5 0 0 1 4 14.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+  <symbol id="shell" viewBox="0 0 24 24"><path d="m5 7 5 5-5 5M12 17h7" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <!-- A: solid glyphs -->
+  <symbol id="a-bell" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0-6 6v3.6L4.4 15.5A1 1 0 0 0 5.2 17h13.6a1 1 0 0 0 .8-1.5L18 12.6V9a6 6 0 0 0-6-6z" fill="currentColor"/><path d="M9.5 19a2.5 2.5 0 0 0 5 0z" fill="currentColor"/></symbol>
+  <symbol id="a-play" viewBox="0 0 24 24"><path d="M8.5 5.9c0-1.1 1.2-1.8 2.1-1.2l8.4 5.9c.9.6.9 1.9 0 2.5l-8.4 5.9c-.9.6-2.1 0-2.1-1.2z" fill="currentColor"/></symbol>
+  <symbol id="a-moon" viewBox="0 0 24 24"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7z" fill="currentColor"/></symbol>
+  <symbol id="a-check" viewBox="0 0 24 24"><path d="m5.5 12.5 4 4 9-9" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <!-- B: solid badges (glyph cut out of a filled circle) -->
+  <symbol id="b-bell" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M12 6.2a3.9 3.9 0 0 0-3.9 3.9v2.3l-1 1.4a.6.6 0 0 0 .5.9h8.8a.6.6 0 0 0 .5-.9l-1-1.4v-2.3A3.9 3.9 0 0 0 12 6.2zM10.4 16.2a1.6 1.6 0 0 0 3.2 0z" fill="#1c1c1c"/></symbol>
+  <symbol id="b-play" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M9.6 8.4c0-.7.8-1.2 1.4-.8l5 3.6c.6.4.6 1.2 0 1.6l-5 3.6c-.6.4-1.4 0-1.4-.8z" fill="#1c1c1c"/></symbol>
+  <symbol id="b-moon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M16.8 13.6a5.4 5.4 0 0 1-6.4-6.4 5.4 5.4 0 1 0 6.4 6.4z" fill="#1c1c1c"/></symbol>
+  <symbol id="b-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="m8 12.3 2.6 2.6 5.4-5.4" fill="none" stroke="#1c1c1c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <!-- C: soft rounded outlines, thicker stroke -->
+  <symbol id="c-bell" viewBox="0 0 24 24"><path d="M12 4a5.5 5.5 0 0 0-5.5 5.5v3.2L5 15a1 1 0 0 0 .8 1.6h12.4A1 1 0 0 0 19 15l-1.5-2.3V9.5A5.5 5.5 0 0 0 12 4z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M10 19.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+  <symbol id="c-play" viewBox="0 0 24 24"><path d="M8.5 6.4c0-1 1.1-1.6 1.9-1.1l8 5.6c.8.5.8 1.7 0 2.2l-8 5.6c-.8.5-1.9-.1-1.9-1.1z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></symbol>
+  <symbol id="c-moon" viewBox="0 0 24 24"><path d="M19.5 14.2A7.8 7.8 0 0 1 9.8 4.5a7.8 7.8 0 1 0 9.7 9.7z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></symbol>
+  <symbol id="c-check" viewBox="0 0 24 24"><path d="m6 12.5 4 4 8-8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+<div class="wrap">
+  <div><h1>Thread state icons</h1><p>Three styles. Each shown at three sizes, on a sidebar row, in the header chip, and as a project counter pill.</p></div>
+  <div id="sets"></div>
+</div>
+<script>
+const sets=[
+  ['A','Solid glyphs','a','Filled shapes, like the folders'],
+  ['B','Solid badges','b','Glyph cut out of a filled circle'],
+  ['C','Soft outlines','c','Rounded, thicker strokes'],
+];
+const states=[
+  ['bell','Needs you','need'],['play','Running','run'],['moon','Asleep','sleep'],['check','Done','mute']
+];
+document.getElementById('sets').innerHTML=sets.map(([k,name,pre,desc])=>`
+  <div style="margin-bottom:36px"><h2>${k}. ${name} <span style="color:var(--text3);font-weight:400">· ${desc}</span></h2>
+  <div class="grid">${states.map(([id,label,cls])=>`
+    <div class="opt">
+      <div class="nm">${label}</div>
+      <div class="sizes ${cls}"><svg width="16" height="16"><use href="#${pre}-${id}"/></svg><svg width="24" height="24"><use href="#${pre}-${id}"/></svg><svg width="40" height="40"><use href="#${pre}-${id}"/></svg></div>
+      <div class="row"><svg class="ki" width="15" height="15"><use href="#chat"/></svg><span class="n">Map view vs grid for browsing tales</span><svg class="${cls}" width="15" height="15"><use href="#${pre}-${id}"/></svg></div>
+      <div class="pills"><span class="chip"><svg class="${cls}" width="15" height="15"><use href="#${pre}-${id}"/></svg>${label}</span><span class="pill"><svg class="${cls}" width="14" height="14"><use href="#${pre}-${id}"/></svg>2</span></div>
+    </div>`).join('')}
+    <div class="opt"><div class="nm">Working</div><div class="sizes"><span class="spin"></span></div><div class="row"><svg class="ki" width="15" height="15"><use href="#chat"/></svg><span class="n">Reimagine the sidebar around threads</span><span class="spin"></span></div><div class="pills"><span class="chip"><span class="spin"></span>Working</span></div></div>
+  </div></div>`).join('');
+</script>
