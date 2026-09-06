@@ -26,6 +26,9 @@ html, body, #root {
   display: flex;
   flex-direction: row;
   min-height: 0;
+  /* The sidebar grey continues behind the main pane, so the pane's rounded
+     top-left corner (below) shows that grey through the curve. */
+  background: var(--side);
 }
 
 /* ─── Screen-entrance transitions (Phase 1.1) ───────────────────────────────
@@ -66,6 +69,10 @@ html, body, #root {
   flex-direction: column;
   min-width: 0;
   background: var(--bg);
+  /* The main pane is an inset panel: its top-left corner curves where the title
+     bar strip and the sidebar meet it, matching the terminal card below. */
+  border-radius: var(--radius-surface) 0 0 0;
+  overflow: hidden;
 }
 
 /* ─── Terminal instances container ──────────────────────────────────────────── */
