@@ -1,0 +1,323 @@
+<title>afterterm Before and After</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap">
+<style>
+:root{--bg:#212121;--hover:#2f2f2f;--hover2:#383838;--side:#171717;--text:#ececec;--text2:#b4b4b4;--text3:#8e8e8e;--text4:#5c5c5c;--need:#fbbf24;--live:#4ade80;--sleep:#a78bfa}
+*{box-sizing:border-box}
+body{margin:0;background:#1a1a1a;color:var(--text);font-family:'Inter',system-ui,sans-serif;font-size:14px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1100px;margin:0 auto;padding:40px 24px 80px;display:flex;flex-direction:column;gap:36px}
+h1{font-size:22px;font-weight:500;margin:0 0 6px}
+.lead{color:var(--text3);margin:0}
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.cmp h2{grid-column:1/-1;margin:0 0 -4px;font-size:15px;font-weight:500}
+.cmp h2 span{color:var(--text3);font-weight:400;margin-left:8px}
+.col{border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+.col .cap{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);padding:10px 14px;background:#141414}
+.col .cap b{color:var(--text2);font-weight:500;letter-spacing:0;text-transform:none;margin-left:8px;font-size:12px}
+.col .body{padding:18px;flex:1;display:flex;flex-direction:column;gap:14px}
+.col.old .body{background:#0f0f0f}
+.col.new .body{background:var(--bg)}
+.note{font-size:12.5px;color:var(--text3);line-height:1.5}
+.note.warn{color:var(--need)}
+svg{display:block;flex:none}
+
+/* ─── OLD: exact values from src/renderer/components/SidePanel/SidePanel.css ─── */
+.o-panel{width:220px;background:#181818;border-right:1px solid #2a2a2a;font-family:'Cascadia Code','Consolas','Courier New',monospace;user-select:none}
+.o-head{display:flex;align-items:center;justify-content:space-between;padding:0 8px 0 12px;height:35px;border-bottom:1px solid #242424}
+.o-title{font-size:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-weight:600;letter-spacing:.1em;color:#666;text-transform:uppercase}
+.o-hact{display:flex;gap:2px}
+.o-ib{width:22px;height:22px;display:flex;align-items:center;justify-content:center;color:#555;border-radius:4px;font-size:14px}
+.o-ib.sm{font-size:10px;width:16px}
+.o-row{display:flex;align-items:center;height:28px;padding:0 10px 0 14px;color:#777;font-size:12.5px;gap:7px;white-space:nowrap;position:relative}
+.o-row.in{padding-left:28px}
+.o-row.active{background:#252525;color:#e8e8e8}
+.o-row .ar{font-size:11px;color:#3e3e3e}
+.o-row.active .ar{color:#666}
+.o-row .t{flex:1;overflow:hidden;text-overflow:ellipsis}
+.o-row .x{width:16px;height:16px;display:flex;align-items:center;justify-content:center;color:#555;font-size:12px;opacity:0}
+.o-row.active .x{opacity:1}
+.o-dot{width:7px;height:7px;border-radius:50%;flex:none}
+.o-star{font-size:11px;color:#6e6e6e}
+@keyframes o-pulse-done{0%,100%{background-color:transparent}50%{background-color:rgba(70,180,100,.12)}}
+@keyframes o-pulse-att{0%,100%{background-color:transparent}50%{background-color:rgba(210,140,50,.16)}}
+.o-row.done{animation:o-pulse-done 2.4s ease-in-out infinite}
+.o-row.att{animation:o-pulse-att 1.6s ease-in-out infinite}
+.o-spin{width:7px;height:7px;border-radius:50%;border:1.5px solid #61afef;border-bottom-color:transparent;animation:o-rot .7s linear infinite}
+@keyframes o-rot{to{transform:rotate(360deg)}}
+.o-g{--gc:#20b2aa;display:flex;align-items:center;height:26px;padding:0 8px;color:var(--gc);font-size:11px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-weight:500;letter-spacing:.02em;gap:6px;border-left:2px solid var(--gc);margin:2px 0}
+.o-g .ch{font-size:9px;opacity:.7;width:10px}
+.o-g .gd{width:7px;height:7px;border-radius:50%;background:var(--gc)}
+.o-g .nb{flex:1;min-width:0;display:flex;align-items:baseline;gap:6px;overflow:hidden}
+.o-g .cwd{font-size:9px;opacity:.4;font-family:'Cascadia Code','Consolas',monospace}
+.o-g .cnt{font-size:10px;opacity:.5}
+.o-g .badge{font-size:9px;font-weight:700;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:rgba(255,255,255,.07);color:var(--gc);display:flex;align-items:center;justify-content:center}
+.o-g .add{width:18px;height:18px;display:flex;align-items:center;justify-content:center;color:var(--gc);opacity:.7;font-size:14px}
+.o-shelf{border-top:1px solid #242424;background:#161616}
+.o-shelf .sh{display:flex;align-items:center;gap:6px;height:28px;padding:0 6px 0 10px}
+.o-shelf .sc{font-size:8px;color:#555;width:9px}
+.o-shelf .st{font-size:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-weight:600;letter-spacing:.1em;color:#666;text-transform:uppercase;flex:1}
+.o-shelf .sn{font-size:10px;color:#555}
+.o-srow{display:flex;align-items:center;gap:7px;height:34px;padding:0 6px 0 12px}
+.o-srow .gd{width:7px;height:7px;border-radius:50%;opacity:.55}
+.o-srow .nb{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;overflow:hidden}
+.o-srow .n{font-size:11.5px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#8a8a8a}
+.o-srow .c{font-size:9px;font-family:'Cascadia Code','Consolas',monospace;color:#4d4d4d}
+.o-toggle{width:20px;height:120px;background:#181818;border-right:1px solid #2a2a2a;display:flex;align-items:center;justify-content:center}
+.o-toggle span{font-size:11px;color:#444;writing-mode:vertical-rl;transform:rotate(180deg);letter-spacing:1px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.o-dd{background:#252525;border:1px solid #3a3a3a;border-radius:8px;padding:4px;min-width:160px;box-shadow:0 8px 24px rgba(0,0,0,.6);width:max-content}
+.o-dd div{padding:6px 10px;font-size:12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#ccc;border-radius:5px}
+.o-dd div:first-child{background:#333;color:#eee}
+
+/* ─── NEW: values from docs/mockups/afterterm-next.html ─── */
+.n-panel{width:264px;background:var(--side);padding:8px;font-family:'Inter',system-ui,sans-serif;font-size:14px}
+.n-lbl{font-size:13px;color:var(--text3);font-weight:500;margin:0 0 4px 12px;display:flex;align-items:center;justify-content:space-between;margin-right:6px}
+.n-pj{display:flex;align-items:center;gap:8px;padding:6px 6px 6px 10px;border-radius:10px;font-weight:500;margin:1px 0}
+.n-pj.dim{color:var(--text2);font-weight:400}
+.n-pj .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.n-pj .c{color:var(--text3);font-weight:400;font-size:12px}
+.n-th{display:flex;align-items:center;gap:9px;padding:6px 12px 6px 32px;border-radius:10px;color:var(--text2);margin:1px 0}
+.n-th.sel{background:var(--hover2);color:var(--text)}
+.n-th.sleep{opacity:.45}
+.n-th .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.n-th .prt{font-size:11px;color:var(--text3)}
+.ki{color:var(--text3)}
+.si{display:inline-grid;place-items:center;color:var(--text3)}
+.si.need{color:var(--need)}.si.run{color:var(--live)}.si.ok{color:var(--live)}.si.sleep{color:var(--sleep)}
+.n-spin{width:10px;height:10px;border-radius:50%;border:1.5px solid var(--text3);border-right-color:transparent;animation:o-rot 1s linear infinite}
+.sig{display:inline-flex;align-items:center;gap:5px;padding:3px 9px 3px 7px;border-radius:999px;background:var(--hover2);font-size:12.5px;font-weight:500;color:var(--text2);font-variant-numeric:tabular-nums}
+.sig+.sig{margin-left:4px}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:var(--hover);color:var(--text2);font-size:13px}
+.n-srow{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;color:var(--text)}
+.n-srow .g{width:18px;display:grid;place-items:center;color:var(--text3)}
+.n-srow .k{font-size:11px;color:var(--text4);margin-left:auto}
+.n-rail{width:56px;height:220px;background:var(--side);display:flex;flex-direction:column;align-items:center;gap:4px;padding:11px 0}
+.ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:var(--text3)}
+.ic.on{background:var(--hover2);color:var(--text)}
+.n-nt{background:var(--hover);border-radius:14px;padding:8px;width:260px;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.n-nt .hd{padding:6px 10px;font-size:12px;color:var(--text3);font-weight:500}
+.n-nt .in{background:var(--side);border-radius:8px;padding:7px 10px;color:var(--text3);margin-bottom:6px}
+.n-nt .opt{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px}
+.n-nt .opt.hi{background:var(--hover2)}
+.n-nt .opt .n{flex:1}.n-nt .opt .r{font-size:11.5px;color:var(--text3)}
+.n-nt .foot{display:flex;align-items:center;gap:8px;padding:8px 10px 4px;border-top:1px solid #3a3a3a;margin-top:6px;font-size:12.5px;color:var(--text3)}
+.n-nt .shb{margin-left:auto;display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--hover2);color:var(--text);font-size:12.5px}
+.n-card{background:var(--hover);border-radius:16px;padding:16px 16px 14px;display:flex;flex-direction:column;gap:14px;min-height:92px;width:250px}
+.n-card .hd{display:flex;align-items:center;gap:10px;font-weight:500}
+.n-card .hd .n{flex:1}
+.n-card .f{display:flex;align-items:center;gap:12px;color:var(--text3);font-size:13px;margin-top:auto}
+.n-card .f .ago{margin-left:auto}
+.mh{display:flex;align-items:center;gap:14px}
+.mh .t{flex:1;min-width:0}
+.mh .n{font-weight:500;font-size:15px;display:flex;align-items:center;gap:8px}
+.mh .m{color:var(--text3);font-size:12.5px;display:flex;gap:14px}
+.mh .m span{display:inline-flex;align-items:center;gap:6px}
+@keyframes once{0%{background:rgba(251,191,36,.18)}100%{background:transparent}}
+.n-th.once{animation:once 1.2s ease-out 1}
+@media (max-width:760px){.cmp{grid-template-columns:1fr}.cmp h2{grid-column:1}}
+@media (prefers-reduced-motion:reduce){.o-row.done,.o-row.att,.o-spin,.n-spin,.n-th.once{animation:none}}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="folder" viewBox="0 0 24 24"><path d="M2.5 7A2 2 0 0 1 4.5 5h4.6l2 2h8.4a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2z" fill="currentColor"/><path d="M2.5 9.5h19" stroke="rgba(0,0,0,.28)" stroke-width="1.2"/></symbol>
+  <symbol id="folder-open" viewBox="0 0 24 24"><path d="M2.5 7A2 2 0 0 1 4.5 5h4.6l2 2h7.4a2 2 0 0 1 2 2v1.5H6.6a2 2 0 0 0-1.9 1.4L2.5 17z" fill="currentColor" fill-opacity=".72"/><path d="M2.6 18.2 5 11.9a1.5 1.5 0 0 1 1.4-1H22l-2.7 7.1a2 2 0 0 1-1.9 1.3H4.3a1.8 1.8 0 0 1-1.7-2.1z" fill="currentColor"/></symbol>
+  <symbol id="chat" viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 3.5V17H6.5A2.5 2.5 0 0 1 4 14.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+  <symbol id="shell" viewBox="0 0 24 24"><path d="m5 7 5 5-5 5M12 17h7" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="bell" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0-6 6v3.6L4.4 15.5A1 1 0 0 0 5.2 17h13.6a1 1 0 0 0 .8-1.5L18 12.6V9a6 6 0 0 0-6-6z" fill="currentColor"/><path d="M9.5 19a2.5 2.5 0 0 0 5 0z" fill="currentColor"/></symbol>
+  <symbol id="play" viewBox="0 0 24 24"><path d="M8.5 5.9c0-1.1 1.2-1.8 2.1-1.2l8.4 5.9c.9.6.9 1.9 0 2.5l-8.4 5.9c-.9.6-2.1 0-2.1-1.2z" fill="currentColor"/></symbol>
+  <symbol id="moon" viewBox="0 0 24 24"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7z" fill="currentColor"/></symbol>
+  <symbol id="check" viewBox="0 0 24 24"><path d="m5.5 12.5 4 4 9-9" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="home" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+  <symbol id="term" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m7 9 3 3-3 3M12 15h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="panel" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9 4v16" stroke="currentColor" stroke-width="1.8"/></symbol>
+  <symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="chev-d" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="pin" viewBox="0 0 24 24"><path d="M15 3h-6l1 2v5.5L7 13v2h4v6h2v-6h4v-2l-3-2.5V5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+  <symbol id="branch" viewBox="0 0 24 24"><circle cx="6" cy="5" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="6" cy="19" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="18" cy="8" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M6 7.2v9.6M18 10.2c0 3.3-3 4.3-6 4.8-2.6.4-6 1-6 1.8" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+</svg>
+
+<div class="wrap">
+  <div><h1>What is removed, and what replaces it</h1><p class="lead">Left: afterterm 0.8.1 as built, its own colours, fonts and sizes. Right: the agreed design. Motion is live where it exists.</p></div>
+
+  <!-- 1 needs you -->
+  <div class="cmp">
+    <h2>1. A thread that needs you <span>row pulse and orange dot become the bell</span></h2>
+    <div class="col old"><div class="cap">Today <b>0.8.1</b></div><div class="body">
+      <div class="o-panel">
+        <div class="o-g"><span class="ch">▼</span><span class="gd"></span><div class="nb"><span>aftertales</span><span class="cwd">aftertales</span></div></div>
+        <div class="o-row in att"><span class="ar">›</span><span class="o-dot" style="background:#d28c32"></span><span class="t">⚠ Map view vs grid for b…</span><span class="x">×</span></div>
+        <div class="o-row in"><span class="ar">›</span><span class="t">next</span><span class="x">×</span></div>
+      </div>
+      <div class="note">The whole row breathes orange every 1.6s until you open it. The dot sits between the arrow and the title, and the ⚠ glyph is part of the title text.</div>
+    </div></div>
+    <div class="col new"><div class="cap">Next</div><div class="body">
+      <div class="n-panel">
+        <div class="n-pj"><svg width="18" height="18" style="color:#a78bfa"><use href="#folder-open"/></svg><span class="n">aftertales</span></div>
+        <div class="n-th once"><svg class="ki" width="15" height="15"><use href="#chat"/></svg><span class="n">Map view vs grid for browsing tales</span><span class="si need"><svg width="15" height="15"><use href="#bell"/></svg></span></div>
+        <div class="n-th"><svg class="ki" width="15" height="15"><use href="#shell"/></svg><span class="n">next</span><span class="prt">:3000</span><span class="si run"><svg width="14" height="14"><use href="#play"/></svg></span></div>
+      </div>
+      <div><span class="chip"><span class="si need"><svg width="15" height="15"><use href="#bell"/></svg></span>Needs you</span></div>
+      <div class="note">An amber bell at the right of the row, the same bell in the header chip, and one soft flash on the moment it starts needing you (shown above, it plays once on load). No repeating animation. The ⚠ leaves the title text.</div>
+    </div></div>
+  </div>
+
+  <!-- 2 done -->
+  <div class="cmp">
+    <h2>2. A chat that just finished <span>green pulse becomes a check that clears when viewed</span></h2>
+    <div class="col old"><div class="cap">Today <b>0.8.1</b></div><div class="body">
+      <div class="o-panel">
+        <div class="o-row in done"><span class="ar">›</span><span class="o-dot" style="background:#46b464"></span><span class="t">✅ Fix spinner sticking af…</span><span class="x">×</span></div>
+        <div class="o-row in"><span class="ar">›</span><span class="o-spin"></span><span class="t">▶ Reimagine the sidebar…</span><span class="x">×</span></div>
+      </div>
+      <div class="note">Green breathing row and a green dot until you open it. The spinner row below is the working state; it does not pulse.</div>
+    </div></div>
+    <div class="col new"><div class="cap">Next</div><div class="body">
+      <div class="n-panel">
+        <div class="n-th"><svg class="ki" width="15" height="15"><use href="#chat"/></svg><span class="n">Fix spinner sticking after compaction</span><span class="si ok"><svg width="15" height="15"><use href="#check"/></svg></span></div>
+        <div class="n-th"><svg class="ki" width="15" height="15"><use href="#chat"/></svg><span class="n">Reimagine the sidebar around threads</span><span class="n-spin"></span></div>
+      </div>
+      <div class="note">A green check at the right until you look at it, then nothing. The working spinner stays, moved to the right end so the left edge is always the kind of thread.</div>
+    </div></div>
+  </div>
+
+  <!-- 3 group badge -->
+  <div class="cmp">
+    <h2>3. A collapsed project with things pending <span>the count badge becomes counter pills</span></h2>
+    <div class="col old"><div class="cap">Today <b>0.8.1</b></div><div class="body">
+      <div class="o-panel">
+        <div class="o-g" style="--gc:#4682dc"><span class="ch">▶</span><span class="gd"></span><div class="nb"><span>job-hunt</span><span class="cwd">job-hunt</span></div><span class="cnt">6</span><span class="badge">2</span><span class="add">+</span></div>
+      </div>
+      <div class="note">A single number in the group's colour, meaning "two tabs have some notification". It does not say which kind.</div>
+    </div></div>
+    <div class="col new"><div class="cap">Next</div><div class="body">
+      <div class="n-panel">
+        <div class="n-pj"><svg width="18" height="18" style="color:#60a5fa"><use href="#folder"/></svg><span class="n">job-hunt</span><span class="c">6</span><span class="sig"><span class="si need"><svg width="15" height="15"><use href="#bell"/></svg></span>1</span><span class="sig"><span class="si run"><svg width="14" height="14"><use href="#play"/></svg></span>1</span></div>
+      </div>
+      <div class="note">One pill per state, each with its icon: one needs you, one running. Same pills on Home cards and on unpinned rows. Pinned collapsed projects get them too (this was a gap in the mock and is now in the spec).</div>
+    </div></div>
+  </div>
+
+  <!-- 4 shelf -->
+  <div class="cmp">
+    <h2>4. Projects with nothing running <span>the shelf becomes ordinary rows, and Home</span></h2>
+    <div class="col old"><div class="cap">Today <b>0.8.1</b></div><div class="body">
+      <div class="o-panel">
+        <div class="o-row in"><span class="ar">›</span><span class="t">cmd.exe</span><span class="x">×</span></div>
+        <div class="o-shelf">
+          <div class="sh"><span class="sc">▼</span><span class="st">Projects</span><span class="sn">3</span></div>
+          <div class="o-srow" style="--gc:#46b464"><span class="gd" style="background:var(--gc)"></span><div class="nb"><span class="n">moctale</span><span class="c">moctale-enh…</span></div></div>
+          <div class="o-srow" style="--gc:#c8b932"><span class="gd" style="background:var(--gc)"></span><div class="nb"><span class="n">afterthought</span><span class="c">afterthought</span></div></div>
+          <div class="o-srow" style="--gc:#c84646"><span class="gd" style="background:var(--gc)"></span><div class="nb"><span class="n">Learn: CNRS</span><span class="c">Code</span></div></div>
+        </div>
+      </div>
+      <div class="note">A separate drawer pinned to the bottom, only for groups with zero tabs. A group with one running tab cannot be put here.</div>
+    </div></div>
+    <div class="col new"><div class="cap">Next</div><div class="body">
+      <div class="n-panel">
+        <div class="n-lbl"><span>Projects</span></div>
+        <div class="n-pj dim"><svg width="18" height="18" style="color:#4ade80"><use href="#folder"/></svg><span class="n">moctale</span></div>
+        <div class="n-pj dim"><svg width="18" height="18" style="color:#60a5fa"><use href="#folder"/></svg><span class="n">afterthought</span><span class="sig"><span class="si run"><svg width="14" height="14"><use href="#play"/></svg></span>1</span></div>
+        <div class="n-pj dim"><svg width="18" height="18" style="color:#f87171"><use href="#folder"/></svg><span class="n">Learn: CNRS</span></div>
+      </div>
+      <div class="note">Every unpinned project is a row here whether or not something is running in it (afterthought has one running). Pinned projects sit above in their own section. Home shows the same split as cards and rows.</div>
+    </div></div>
+  </div>
+
+  <!-- 5 restorable -->
+  <div class="cmp">
+    <h2>5. A thread from before the restart <span>the ✳ marker becomes an asleep row</span></h2>
+    <div class="col old"><div class="cap">Today <b>0.8.1</b></div><div class="body">
+      <div class="o-panel">
+        <div class="o-row in"><span class="ar">›</span><span class="t">Handoff funding docs</span><span class="o-star" title="Saved Claude session">✳</span><span class="x">×</span></div>
+        <div class="o-row in"><span class="ar">›</span><span class="t">Fetch main</span><span class="x">×</span></div>
+      </div>
+      <div class="note">A grey ✳ means "a saved Claude session, click to resume". A plain shell from before the restart looks identical to a live one; it has already been respawned.</div>
+    </div></div>
+    <div class="col new"><div class="cap">Next</div><div class="body">
+      <div class="n-panel">
+        <div class="n-th sleep"><svg class="ki" width="15" height="15"><use href="#chat"/></svg><span class="n">Handoff funding docs</span><span class="si sleep"><svg width="15" height="15"><use href="#moon"/></svg></span></div>
+        <div class="n-th sleep"><svg class="ki" width="15" height="15"><use href="#shell"/></svg><span class="n">Fetch main</span><span class="si sleep"><svg width="15" height="15"><use href="#moon"/></svg></span></div>
+      </div>
+      <div><span class="chip"><span class="si sleep"><svg width="15" height="15"><use href="#moon"/></svg></span>Asleep · 2d</span></div>
+      <div class="note">Every thread from before the restart is asleep: dimmed row, moon, no process until you click. Chats and shells alike. Opening one shows its old output above a divider and a Wake button.</div>
+    </div></div>
+  </div>
+
+  <!-- 6 colour -->
+  <div class="cmp">
+    <h2>6. Project colour <span>the bar and dot become a solid folder</span></h2>
+    <div class="col old"><div class="cap">Today <b>0.8.1</b></div><div class="body">
+      <div class="o-panel">
+        <div class="o-g" style="--gc:#20b2aa"><span class="ch">▼</span><span class="gd"></span><div class="nb"><span>afterterm</span><span class="cwd">afterterm</span></div><span class="add">+</span></div>
+        <div class="o-row in active"><span class="ar" style="color:#4dd0ca">›</span><span class="t">Terminal tab states</span><span class="x">×</span></div>
+        <div class="o-row in"><span class="ar" style="color:#2a5a57">›</span><span class="t">GitHub repo audit</span><span class="x">×</span></div>
+      </div>
+      <div class="note">A 2px bar on the left of the header, a 7px dot, the name tinted, the folder name repeated in small mono, and the › arrows tinted per group.</div>
+    </div></div>
+    <div class="col new"><div class="cap">Next</div><div class="body">
+      <div class="n-panel">
+        <div class="n-pj"><svg width="18" height="18" style="color:#2dd4bf"><use href="#folder-open"/></svg><span class="n">afterterm</span></div>
+        <div class="n-th sel"><svg class="ki" width="15" height="15"><use href="#chat"/></svg><span class="n">Terminal tab states</span></div>
+        <div class="n-th"><svg class="ki" width="15" height="15"><use href="#chat"/></svg><span class="n">GitHub repo audit</span></div>
+      </div>
+      <div class="note">The colour lives in one place, a solid folder, open when expanded and closed when collapsed. Name in the text colour, no repeated folder name, no tinted arrows.</div>
+    </div></div>
+  </div>
+
+  <!-- 7 new thread -->
+  <div class="cmp">
+    <h2>7. Starting a terminal <span>the + and ▾ become the new thread chooser</span></h2>
+    <div class="col old"><div class="cap">Today <b>0.8.1</b></div><div class="body">
+      <div class="o-panel">
+        <div class="o-head"><span class="o-title">Terminals</span><div class="o-hact"><span class="o-ib">+</span><span class="o-ib sm">▾</span><span class="o-ib" style="font-size:11px;opacity:.4">?</span></div></div>
+      </div>
+      <div class="o-dd"><div>Command Prompt</div><div>PowerShell 7</div><div>Windows PowerShell</div><div>Git Bash</div><div>WSL</div><div>New project group…</div></div>
+      <div class="note">+ opens a tab with the default shell, always ungrouped. ▾ picks a different shell. Putting it in a project means dragging it there afterwards.</div>
+    </div></div>
+    <div class="col new"><div class="cap">Next</div><div class="body">
+      <div class="n-panel" style="padding-bottom:0">
+        <div class="n-srow"><span class="g"><svg width="16" height="16"><use href="#search"/></svg></span>Search<span class="k">Ctrl Shift P</span></div>
+        <div class="n-srow"><span class="g"><svg width="16" height="16"><use href="#plus"/></svg></span>New thread<span class="k">Ctrl Shift T</span></div>
+      </div>
+      <div class="n-nt"><div class="hd">New thread in</div><div class="in">Type to filter</div>
+        <div class="opt hi"><svg width="16" height="16" style="color:#2dd4bf"><use href="#folder"/></svg><span class="n">afterterm</span><span class="r">current</span></div>
+        <div class="opt"><svg width="16" height="16" class="ki"><use href="#term"/></svg><span class="n">No project</span></div>
+        <div class="opt"><svg width="16" height="16" style="color:#a78bfa"><use href="#folder"/></svg><span class="n">aftertales</span></div>
+        <div class="foot">Shell<span class="shb">Command Prompt <svg width="14" height="14" style="color:var(--text3)"><use href="#chev-d"/></svg></span></div></div>
+      <div class="note">One popover: current project preselected (Enter), No project one step down, any other project by typing. Shell dropdown at the bottom defaults to the project's shell. The + on a project row skips the chooser.</div>
+    </div></div>
+  </div>
+
+  <!-- 8 collapsed -->
+  <div class="cmp">
+    <h2>8. The sidebar hidden <span>the 20px strip becomes an icon rail</span></h2>
+    <div class="col old"><div class="cap">Today <b>0.8.1</b></div><div class="body">
+      <div class="o-toggle"><span>TERMINALS</span></div>
+      <div class="note">Ctrl+Shift+B shrinks the panel to zero; a 20px strip with vertical text is all that remains. Nothing can be done from it.</div>
+    </div></div>
+    <div class="col new"><div class="cap">Next</div><div class="body">
+      <div class="n-rail">
+        <span class="ic"><svg width="18" height="18"><use href="#panel"/></svg></span>
+        <span class="ic"><svg width="18" height="18"><use href="#home"/></svg></span>
+        <span class="ic on"><svg width="18" height="18"><use href="#term"/></svg></span>
+        <span class="ic"><svg width="18" height="18"><use href="#search"/></svg></span>
+        <span class="ic"><svg width="18" height="18"><use href="#plus"/></svg></span>
+      </div>
+      <div class="note">Same shortcut. The rail keeps the toggle, Home, Workspace, Search and New thread within reach.</div>
+    </div></div>
+  </div>
+
+  <!-- 9 header -->
+  <div class="cmp">
+    <h2>9. Above the terminal <span>nothing becomes a header</span></h2>
+    <div class="col old"><div class="cap">Today <b>0.8.1</b></div><div class="body">
+      <div style="height:56px;background:#0f0f0f;border-radius:6px;display:flex;align-items:center;padding:0 14px;color:#3e3e3e;font-family:'Cascadia Code','Consolas',monospace;font-size:12px">(terminal starts at the top edge)</div>
+      <div class="note">The only place a tab's name and state appear is the sidebar row. With the panel hidden, nothing on screen says which thread you are in.</div>
+    </div></div>
+    <div class="col new"><div class="cap">Next</div><div class="body">
+      <div class="mh"><div class="t"><div class="n"><svg class="ki" width="16" height="16"><use href="#chat"/></svg><span>Reimagine the sidebar around threads</span></div><div class="m"><span><svg width="15" height="15" style="color:#2dd4bf"><use href="#folder-open"/></svg>afterterm</span><span>Fable 5.1</span><span><svg width="14" height="14"><use href="#branch"/></svg>feat/threads</span></div></div><span class="chip"><span class="n-spin"></span>Working</span></div>
+      <div class="note">Name, project, model, branch and worktree on the left; the state chip and ⋯ on the right. Visible with the sidebar collapsed.</div>
+    </div></div>
+  </div>
+
+  <div class="note" style="max-width:720px">Not changed and not shown: drag a tab onto a tab to make a project, drag between projects, double-click to rename a project, the overlay toasts, the Claude hook, session capture and resume.</div>
+</div>
