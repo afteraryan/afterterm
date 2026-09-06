@@ -90,7 +90,7 @@ Two columns of equal top-row height (56px).
 
 Reached only through the project page icon or the right-click menu. Brand row on top. Then: folder icon and name, a line with folder path, branch and default shell, buttons Open, New thread, Pin or Unpin, Edit, Archive, and at the right of that row two logo buttons: **Open in File Explorer** and **Open in VS Code** (real product logos, tooltip on hover). Then three tabs, Live, Asleep, History, with a search box. History rows have Resume. No text box.
 
-The same two actions sit in every project right-click menu (Home cards and rows, sidebar rows), with their logos.
+The same two actions sit in every project right-click menu (Home cards and rows, sidebar rows), label on the left and logo at the right end of the entry, where a submenu chevron would sit.
 
 **Open in File Explorer** runs `explorer.exe <folder>`. It is always available.
 
@@ -170,6 +170,8 @@ The sidebar is built by walking **projects**, not tabs. This inversion is the re
 - **Under the date on Home.** Candidates: the counter pills totalled across projects (preferred), "last here 2h ago", the projects touched in the previous session, uncommitted-change count, nothing.
 - **Threads in General that are closed** are gone, not in history, because there is no page to list them on. Revisit if it hurts.
 - **Worktree grouping on the project page** (threads listed under the worktree they run in). Fits the model, not required.
+- **Search shortcut.** The mock uses Ctrl+K, which shells and editors inside the terminal also use (bash kill-line, Claude Code). Since afterterm's shortcuts are intercepted before the terminal sees them, Ctrl+K would be stolen from every thread. Candidates: Ctrl+Shift+K, Ctrl+P, Ctrl+Shift+P. Decide in Phase 2.
+- **Font.** Inter must ship inside the app (OFL licence allows it); the renderer cannot load Google Fonts offline and the CSP would block it anyway.
 - **Naming.** The code still says Group and Tab. Whether to rename to Project and Thread in code, or only in the UI, is a Phase 0 call.
 
 ## Rejected along the way
