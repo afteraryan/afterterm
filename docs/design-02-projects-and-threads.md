@@ -57,7 +57,7 @@ Icon style: solid glyphs at the same visual weight as the folders (sheet A in `m
 
 ### Home
 
-A full screen, no sidebar. Top-left: "afterterm" with two icons beside it, Home and Workspace. Nothing else in the title strip.
+A full screen, no sidebar, under the title bar (see "Title bar" below). Top-left, on its own 56px row: the Home and Workspace icons.
 
 - **Date** as the heading. Under it, the counter pills totalled across every project (bell with count, play with count). When both are zero, nothing is rendered there: no "0", no placeholder, no empty space reserved.
 - **Pinned**: cards. A card is the project's folder icon, its name, and a footer with counter pills and the time since last activity. No subheading, no typed notes, no derived text.
@@ -70,13 +70,16 @@ Clicking a card or row opens the workspace on that project. The project page ope
 
 ### Workspace
 
-Two columns of equal top-row height (56px).
+**Title bar.** A 32px strip across the full window width, above everything, in a tone darker than any surface below it (`#121212`). Left: "afterterm" and the version badge. Right: the Windows caption buttons, drawn by the OS through `titleBarOverlay` (height 32, colour the strip's grey, symbols `#8e8e8e`). The strip is the drag region. It is present on every screen, and nothing else ever shares its row, so nothing can collide with the caption buttons. (The first mock put the name, version and the Home and Workspace icons on a 56px row that also had to host the caption buttons; that failed the moment the header had content on its right. Corrected 2026-09-07.)
 
-**Sidebar**, in order: brand row (afterterm, Home, Workspace, collapse toggle), Search (Ctrl Shift P), New thread (Ctrl Shift T), then General (if any), Pinned, Projects.
+Below it, two columns of equal top-row height (56px).
+
+**Sidebar**, in order: icon row (Home, Workspace, collapse toggle), Search (Ctrl Shift P), New thread (Ctrl Shift T), then General (if any), Pinned, Projects.
 
 - A project row is its folder icon (open when expanded, closed when collapsed), name, thread count when collapsed, and on hover: + (new thread here) and the project page icon. Unpinned rows also carry the pin icon and the counter pills.
 - Clicking anywhere on a project row, including blank space, only expands or collapses it. Nothing on that row opens the project page except the dedicated icon.
 - Thread rows: kind icon, name, port for a running server, state icon at the right end. Asleep rows at 45% opacity. Five per project, then "Show N more". The list auto-expands if the open thread is beyond the fold.
+- Close on a row: on hover the row gains 24px of right padding (animated) and an × fades into the freed space at the edge; the port and state icon move with the padding, never over the name. The name is the only flexible element and truncates with an ellipsis. The selected row keeps the × without hover. × does what Close in the menu does, and clicking it does not select the row.
 - Right-click on a thread (same menu as the header ⋯): Open, Sleep or Wake, Move to project (submenu: General plus every project, with a back chevron on the header row), Open localhost:port (servers), Open project page, Close.
 - Collapsed sidebar: a 56px strip with the toggle, Home, Workspace, Search and New thread.
 - Expand and collapse animate.
@@ -145,7 +148,7 @@ One palette across projects, threads and history. Projects open the workspace, t
 
 Neutral greys only: page `#212121`, sidebar `#171717`, hover `#2f2f2f`, raised or selected `#383838`, text `#ececec` / `#b4b4b4` / `#8e8e8e`. No borders on surfaces; layers separate by tone. One white primary button. Inter, 14px, weights 400 and 500. Mono only inside the terminal pane. 16px radius on surfaces, 8 to 12 on rows, full round on chips and pills.
 
-Project colours are solid, saturated folder fills: teal `#2dd4bf`, blue `#60a5fa`, purple `#a78bfa`, orange `#fb923c`, red `#f87171`, green `#4ade80`, pink `#f472b6`, yellow `#facc15`. State colours are separate: amber `#fbbf24` for needs you, green `#4ade80` for running and done. Apart from the needs-you and done breath on rows, nothing glows or pulses; the other motion is short eased entrances (140 to 200ms) on menus, popovers, dialogs and view switches, the sidebar width, and expand/collapse. All off under reduced motion.
+Project colours are solid, saturated folder fills: teal `#2dd4bf`, blue `#60a5fa`, purple `#a78bfa`, orange `#fb923c`, red `#f87171`, green `#4ade80`, pink `#f472b6`, yellow `#facc15`. State colours are separate: amber `#fbbf24` for needs you, green `#4ade80` for running and done. Apart from the needs-you and done breath on rows, nothing glows or pulses; the other motion is short eased entrances (140 to 200ms) on menus, popovers and dialogs, the sidebar width, expand/collapse, and the screen transitions: into the Workspace the sidebar slides in from the left (18px, 260ms) and the main pane from the right (14px, 260ms, 40ms later); into Home the page rises (12px, scale .985, 280ms) with its sections staggered top to bottom at 40ms; into a project page the same rise. The title bar and the Home and Workspace icons occupy the same spot on every screen and never move. All off under reduced motion.
 
 Every dropdown and submenu marker is a real 16px chevron icon. Tooltips are the app's own dark pill, not the browser's.
 

@@ -10,6 +10,8 @@ Agreed with Aryan on 2026-09-06.
 
 **Orchestration.** Each phase is run by an orchestrator session that plans the phase, spawns subagents for independent pieces (renderer, main process, tests, docs), merges their work, and tests the result itself. The orchestrator comes back to Aryan only when the phase is finished and has passed its own testing, to hand it over for use. It does not ask Aryan to try half-built work.
 
+**One worktree and branch per phase, chained.** Phases 0 and 1 (and 1.1) live together on `worktree-projects-and-threads-plan`; that is done and stays as it is. From Phase 2 on, each phase gets its own git worktree and branch, created from the previous phase's branch: Phase 2 branches from `worktree-projects-and-threads-plan`, Phase 3 from Phase 2's branch, Phase 4 from Phase 3's, and so on. Name them `phase-2-home-and-projects`, `phase-3-thread-identity`, and so on. A phase never commits to an earlier phase's branch, and nothing is merged to `main` until Aryan has tested and says so. Record the branch name in the phase's Log line.
+
 **Self-testing, every phase.** Before a phase is called done:
 - Unit tests for everything with logic (data model, migration, detection, parsing), run and green.
 - The app launched and driven by the agent on the **secondary monitor**, never on the primary where Aryan is working: every screen and interaction of the phase exercised, with screenshots captured. Phase 0 sets up the harness for this (see its checklist).
@@ -33,6 +35,7 @@ Never close the running afterterm. A dev build runs beside it. A copied `session
 |---|---|---|---|
 | 0 | Data model and naming | small | done, with Aryan for testing |
 | 1 | Visual system and sidebar | none | done, with Aryan for testing |
+| 1.1 | Title bar, close on rows, view transitions | none | pending |
 | 2 | Home, pin, archive, project page | small | pending |
 | 3 | Thread identity: chat titles, branch, worktree, timestamps | medium | pending |
 | 4 | Sleep, wake, history, scrollback tail | medium | pending |
@@ -72,6 +75,19 @@ Cosmetic, no main-process changes.
 - [x] Remove the old glow and pulse styles.
 
 Done when: a fresh session and a restored session both look like the mock's workspace, every menu and hover works, and no old visual remains.
+
+## Phase 1.1: Title bar, close on rows, view transitions
+
+Goal: three things the mock missed and Aryan found while testing Phase 1. Same branch and worktree as Phase 1; this is a continuation, not a new phase. Cosmetic, renderer and window options only.
+
+- [ ] **A real title bar.** The mock had put "afterterm", the version and the Home and Workspace icons in a 56px row that also had to host the OS caption buttons, and the header collided with them. Fix: a separate 32px strip across the full width, in a tone darker than anything below it (`#121212`), holding "afterterm" and the version badge on the left and the Windows caption buttons on the right (the existing `titleBarOverlay`, height set to 32, colour set to the strip's grey, symbols `#8e8e8e`). The strip is the drag region. Everything else starts underneath it: the sidebar's icon row (Home, Workspace, collapse toggle) at 56px, the search and new-thread rows, the main header. Home and the project page get the same strip with their icon row under it. The old 36px branded strip goes.
+- [ ] **Close button on thread rows.** On hover the row gains 24px of right padding (animated, 140ms) and an × fades into the freed space at the right edge; the port and state icon move left with the padding, never over the name. The name is the only flexible part of the row and truncates with an ellipsis to whatever is left. The selected row keeps this layout without hover, so its × is always present. × does what Close in the menu does; clicking it must not select the row.
+- [ ] **Transitions between screens.** Into the Workspace: the sidebar slides in from the left (18px, 260ms) and the main pane from the right (14px, 260ms, 40ms later). Into Home: the page rises (12px, scale .985, 280ms) and its sections stagger top to bottom at 40ms intervals. Into a project page: the same rise. The title bar and the Home and Workspace icons never move. All off under reduced motion.
+- [ ] Screenshots of the three into `docs/screenshots/phase-1/`, and the harness run repeated for the title bar on both displays.
+
+Reference: `docs/mockups/afterterm-next.html` has all three implemented in HTML and CSS (search for `.titlebar`, `.th .xb`, and the `sidein`, `mainin`, `homein`, `stagger` keyframes). Copy the values, not the code.
+
+Done when: the caption buttons sit in their own strip on every screen with nothing under them, hovering any thread row shows an × without anything overlapping the name, and switching Home and Workspace animates as described.
 
 ## Phase 2: Home, pin, archive, project page
 
