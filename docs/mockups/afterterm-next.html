@@ -71,8 +71,8 @@ svg{display:block;flex:none}
 .b.s{padding:5px 11px;font-size:13px}
 .b.big{padding:12px 28px;font-size:15px}
 
-/* Windows caption buttons: drawn by the OS over our top row (titleBarOverlay, 56px, main-pane grey) */
-.titlebar{height:var(--titlebar);display:flex;align-items:center;gap:8px;padding-left:14px;background:#121212;-webkit-app-region:drag;user-select:none;flex:none}
+/* Title bar strip: sidebar grey, 32px; the Windows caption buttons are drawn by the OS at its right (titleBarOverlay 32px, #171717, symbols #8e8e8e). Changed from #121212 on 2026-09-07 so the strip and the sidebar are one colour. */
+.titlebar{height:var(--titlebar);display:flex;align-items:center;gap:8px;padding-left:14px;background:var(--side);-webkit-app-region:drag;user-select:none;flex:none}
 .titlebar .tname{font-size:12.5px;font-weight:500;color:var(--text2)}
 .titlebar .ver{font-size:11px;color:var(--text3);background:var(--hover);border-radius:999px;padding:0 7px;line-height:18px}
 .titlebar .sp{flex:1}
@@ -119,7 +119,7 @@ svg{display:block;flex:none}
 .more:hover{background:var(--hover);color:var(--text)}
 
 /* workspace */
-.work{display:grid;grid-template-columns:var(--sidebar) 1fr;height:100%;min-height:0;transition:grid-template-columns var(--med) var(--ease)}
+.work{display:grid;grid-template-columns:var(--sidebar) 1fr;height:100%;min-height:0;background:var(--side);transition:grid-template-columns var(--med) var(--ease)}
 .work.collapsed{grid-template-columns:var(--rail) 1fr}
 .side{background:var(--side);display:flex;flex-direction:column;min-height:0;padding:0 8px 8px}
 .side .brand{margin:0 -8px}
@@ -171,7 +171,8 @@ svg{display:block;flex:none}
 .work.collapsed .side>*:not(.rail){display:none}
 .work.collapsed .rail{display:flex}
 
-.main{display:flex;flex-direction:column;min-width:0;min-height:0}
+/* The main pane is inset on the sidebar grey: rounded top-left corner where the strip and the sidebar meet it (2026-09-07). */
+.main{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--bg);border-top-left-radius:16px;overflow:hidden}
 .mh{height:var(--toprow);display:flex;align-items:center;gap:14px;padding:0 20px;flex:none}
 .mh .t{min-width:0;flex:1}
 .mh .n{font-weight:500;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35;display:flex;align-items:center;gap:8px}

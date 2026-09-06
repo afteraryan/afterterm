@@ -37,7 +37,7 @@ src/
   renderer/
     index.tsx                          ← React root; routes to NotifierApp when ?notifier=1, else App
     app.tsx                            ← Layout: SidePanel + TerminalArea, session restore, shortcut dispatch, notification fan-out
-    index.css                          ← App layout, terminal card, find bar (titlebar drag region in sidebar brand row)
+    index.css                          ← App layout (title bar strip, then sidebar and main pane), screen-entry animations, terminal card, find bar
     theme.css                          ← Palette tokens, bundled Inter, shared classes, keyframes, reduced motion
     sessionMigration.ts                ← session.json shape: migrateSession (fills the project/thread fields on a 0.8.1 file) + serializeSession (the one save shape). Pure, unit-tested.
     sidebarWalk.ts                     ← computeSegments: sidebar rows built from groups first, so a group with zero tabs renders. Pure, unit-tested.
@@ -49,11 +49,14 @@ src/
       useTabState.ts                   ← All tab/group state, session restore, group contiguity enforcement
     components/
       SidePanel/
-        index.tsx                      ← Brand row, Search and New thread rows, General, Pinned and Projects sections, project and thread rows, five-row fold, rail when collapsed, DnD, right-click menus
+        index.tsx                      ← Icon row (Home, Workspace, collapse toggle), Search and New thread rows, General, Pinned and Projects sections, project and thread rows with the close x, five-row fold, rail when collapsed, DnD, right-click menus
         SidePanel.css                  ← Sidebar styles on the theme tokens, breath keyframes for needs-you and done rows, expand and collapse animation
       Header/
         index.tsx                      ← Main pane header: kind icon, name, project line, state chip, dots menu
         Header.css                     ← Header styles
+      TitleBar/
+        index.tsx                      ← The 32px title bar strip: name and version on the left, the OS caption buttons on the right, the window's drag region
+        TitleBar.css                     ← Strip styles (sidebar grey)
       GroupModal/
         index.tsx                      ← New/Edit project group dialog: name, folder picker, colour, shell, "open a terminal now"
         GroupModal.css                 ← Modal overlay + form styles
@@ -97,19 +100,23 @@ A group is a project: a name, a folder, a colour and a default shell. Two ways t
 
 Since Phase 1 of the projects-and-threads work the sidebar is built from projects first (src/renderer/sidebarWalk.ts), so a project with no threads is an ordinary row in the Projects section and the old bottom shelf is gone. Clicking the + on the row, or "New thread here" in its right-click menu, opens a terminal in its folder.
 
-## Sidebar and header (Phase 1 visual system)
+## Title bar, sidebar and header (Phase 1 and 1.1 visual system)
 
 The palette and Inter are bundled in assets/fonts, loaded by theme.css. The renderer's CSP allows only same-origin assets, so the app works offline.
 
-The sidebar structure, top to bottom: a brand row with afterterm, version badge, Home and Workspace icons and the collapse toggle; Search and New thread rows; General, only when there are threads with no project; Pinned, only when a project is pinned; Projects, every project as a row with its solid coloured folder icon (on hover, the + and project page icon appear, and on unpinned rows the pin icon); counter pills with a bell for threads that need you and a play for threads working (nothing at zero); thread rows show the kind icon (chat when a Claude session id was captured, shell otherwise), the title with the hook's glyph stripped, and the state icon at the right end; a five-row fold with "Show N more" that auto-expands when the open thread is beyond the fold; the rail (56px, Ctrl+Shift+B) with the toggle, Home, Workspace, Search and New thread.
+The title bar is a 32px strip across the whole window above every screen (`TitleBar/`), in the sidebar grey `#171717`: "afterterm" and the version badge on the left, the Windows caption buttons on the right, drawn by the OS through `titleBarOverlay` in main.ts (height 32, colour `#171717`, symbols `#8e8e8e`). The strip is the only drag region; nothing else shares its row, so nothing can sit under the caption buttons. Below it the sidebar and the main pane share a row whose background is the same grey, and the main pane has a rounded top-left corner at the surface radius, so the strip and the sidebar read as one L-shaped surface with the pane inset on it.
+
+The sidebar structure, top to bottom: an icon row (56px) with the Home and Workspace icons and the collapse toggle; Search and New thread rows; General, only when there are threads with no project; Pinned, only when a project is pinned; Projects, every project as a row with its solid coloured folder icon (on hover, the + and project page icon appear, and on unpinned rows the pin icon); counter pills with a bell for threads that need you and a play for threads working (nothing at zero); thread rows show the kind icon (chat when a Claude session id was captured, shell otherwise), the title with the hook's glyph stripped, and the state icon at the right end; on hover a row gains 24px of right padding (140ms) and a close x fades into the freed space, the selected row keeps it, and the x closes the thread without selecting it; a five-row fold with "Show N more" that auto-expands when the open thread is beyond the fold; the rail (56px, Ctrl+Shift+B) with the toggle, Home, Workspace, Search and New thread.
 
 The main pane header shows the kind icon, name, project on line 2, branch and worktree slots empty until Phase 3, state chip and dots menu.
+
+Screen entry: when the workspace appears (today, once the session has loaded; Phase 2 on every switch) the sidebar body slides in from the left (18px, 260ms) and the main pane from the right (14px, 260ms, 40ms later); the title bar and the icon row never move. Home and project keyframes (`homein`, `stagger`) are in theme.css for Phase 2. All off under reduced motion. `app.tsx` sets the class `enter-workspace` on the root for 400ms.
 
 Menus: Open, Move to project with a submenu and a back chevron, Open project page, Close on threads; New thread here, New thread with shell, Edit project, Open project page, Delete project on projects; the New thread row's right-click lists the shells.
 
 State today maps to notification and icon: attention is needs you, amber bell, row breathes amber (5% to 16% of the colour over 2.4s); working is spinner; done is green check, row breathes green until viewed; compacting and background are spinner; asleep is moon (nothing sets it until Phase 4); running is green play (Phase 5).
 
-Placeholders for later phases: Home, Search, the pin icon and the project page icon render as in the mock but are disabled with a tooltip naming their phase. Nothing pins, archives, sleeps or searches yet. The version badge stays in the brand row and the Windows caption buttons keep the colour set in main.ts (titleBarOverlay), which is a main-process setting Phase 1 did not touch.
+Placeholders for later phases: Home, Search, the pin icon and the project page icon render as in the mock but are disabled with a tooltip naming their phase. Nothing pins, archives, sleeps or searches yet.
 
 ## Default Shell
 
