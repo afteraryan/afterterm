@@ -27,10 +27,15 @@ html, body, #root {
 
 /* ─── Terminal instances container ──────────────────────────────────────────── */
 
+/* The terminal as a rounded card, like the mock's .term: margin off the
+   surrounding chrome, its own dark fill, clipped corners. */
 .terminal-instances {
   flex: 1;
   position: relative;
   overflow: hidden;
+  margin: 0 12px 12px;
+  border-radius: var(--radius-surface);
+  background: #191919;
 }
 
 /* Holds the imperatively-appended xterm containers. Absolute-filled so the
@@ -44,7 +49,7 @@ html, body, #root {
 .xterm-container {
   position: absolute;
   inset: 0;
-  padding: 4px 0 4px 8px;
+  padding: 10px 4px 10px 12px;
 }
 
 .xterm-container .xterm {

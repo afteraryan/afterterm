@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -11,290 +11,134 @@ import {
   DragEndEvent,
   closestCenter,
 } from '@dnd-kit/core';
-import {
-  Tab, Group, GroupColor, GROUP_COLORS, COLOR_CYCLE, TabNotification, nextGroupColor, shortenPath,
-} from '../TabBar/types';
+import { Tab, Group, GroupColor, nextGroupColor } from '../TabBar/types';
 import { GroupModal, GroupDraft } from '../GroupModal';
+import { Menu, MenuItem } from '../Menu';
+import { buildThreadMenu } from '../../threadMenu';
+import {
+  FolderIcon, KindIcon, StateIcon,
+  IconHome, IconTerm, IconPanel, IconSearch, IconPlus, IconPage, IconPin,
+  IconBell, IconPlay,
+} from '../Icons';
 // The row order is computed groups-first (see sidebarWalk.ts), so a group with no
-// terminals renders as a normal section instead of vanishing from the list.
+// terminals renders as a normal row instead of vanishing from the list. That walk
+// is what retired the old Projects shelf.
 import { computeSegments } from '../../sidebarWalk';
+import {
+  threadKind, threadState, stateBreathes, displayTitle, foldThreads,
+  projectCounts, sidebarSections,
+} from '../../threadView';
 import './SidePanel.css';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+const THREAD_FOLD_LIMIT = 5;
 
-function gc(color: GroupColor) {
-  return GROUP_COLORS[color].border;
-}
+// Tips for the actions that only arrive in a later phase. They are rendered as
+// aria-disabled rows rather than real disabled buttons: a disabled button emits no
+// mouse events in Chromium, so the app tooltip would never fire on it.
+const TIP_HOME = 'Home arrives in Phase 2';
+const TIP_SEARCH = 'Search arrives in Phase 2';
+const TIP_PROJECT_PAGE = 'Project page arrives in Phase 2';
+const TIP_PIN = 'Pin arrives in Phase 2';
 
-// Strip a leading notification/Claude glyph (✳ ▶ ✅ ⚠ ⏳ ⚙ braille spinner …) from a
-// title, so a restorable tab's muted ✳ marker doesn't double up with the title's own.
-function stripLeadingGlyph(title: string): string {
-  return title.replace(/^[^\x00-\x7F]+\s*/, '');
-}
+// ─── Thread row ────────────────────────────────────────────────────────────────
 
-const MENU_VIEWPORT_MARGIN = 8;
-
-// ─── Context Menu ─────────────────────────────────────────────────────────────
-
-interface CtxMenu {
-  x: number;
-  y: number;
-  tabId?: string;
-  groupId?: string;
-}
-
-interface ContextMenuProps {
-  menu: CtxMenu;
-  tabs: Tab[];
-  groups: Group[];
-  onClose: () => void;
-  onCreateGroup: (tabId: string) => void;
-  onAddToGroup: (tabId: string, groupId: string) => void;
-  onRemoveFromGroup: (tabId: string) => void;
-  onSetColor: (groupId: string, color: GroupColor) => void;
-  onEditGroup: (groupId: string) => void;
-  onDeleteGroup: (groupId: string) => void;
-  onCloseTab: (tabId: string) => void;
-  onNewTabInGroup: (groupId: string) => void;
-}
-
-function ContextMenu({ menu, tabs, groups, onClose, ...actions }: ContextMenuProps) {
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState({ left: menu.x, top: menu.y });
-  const tab = menu.tabId ? tabs.find(t => t.id === menu.tabId) : undefined;
-  const group = menu.groupId ? groups.find(g => g.id === menu.groupId) : undefined;
-
-  useLayoutEffect(() => {
-    const element = menuRef.current;
-    if (!element) return;
-
-    const rect = element.getBoundingClientRect();
-    const maxLeft = Math.max(MENU_VIEWPORT_MARGIN, window.innerWidth - rect.width - MENU_VIEWPORT_MARGIN);
-    const maxTop = Math.max(MENU_VIEWPORT_MARGIN, window.innerHeight - rect.height - MENU_VIEWPORT_MARGIN);
-    const left = Math.min(Math.max(menu.x, MENU_VIEWPORT_MARGIN), maxLeft);
-    const top = Math.min(Math.max(menu.y, MENU_VIEWPORT_MARGIN), maxTop);
-
-    setPosition(current => current.left === left && current.top === top ? current : { left, top });
-  });
-
-  useEffect(() => {
-    const handler = () => onClose();
-    window.addEventListener('mousedown', handler);
-    return () => window.removeEventListener('mousedown', handler);
-  }, [onClose]);
-
-  return (
-    <div ref={menuRef} className="ctx-menu" style={position} onMouseDown={e => e.stopPropagation()}>
-      {tab && (
-        <>
-          {tab.groupId ? (
-            <>
-              <div className="ctx-menu-item" onClick={() => { actions.onRemoveFromGroup(tab.id); onClose(); }}>
-                Remove from group
-              </div>
-              <div className="ctx-menu-separator" />
-            </>
-          ) : (
-            <>
-              {groups.length > 0 && (
-                <>
-                  <div className="ctx-menu-section">Add to group</div>
-                  {groups.map(g => (
-                    <div
-                      key={g.id}
-                      className="ctx-menu-item"
-                      onClick={() => { actions.onAddToGroup(tab.id, g.id); onClose(); }}
-                    >
-                      <span style={{ color: gc(g.color) }}>●</span>
-                      {g.label}
-                    </div>
-                  ))}
-                  <div className="ctx-menu-separator" />
-                </>
-              )}
-              <div className="ctx-menu-item" onClick={() => { actions.onCreateGroup(tab.id); onClose(); }}>
-                New group with this tab
-              </div>
-              <div className="ctx-menu-separator" />
-            </>
-          )}
-          <div className="ctx-menu-item danger" onClick={() => { actions.onCloseTab(tab.id); onClose(); }}>
-            Close terminal
-          </div>
-        </>
-      )}
-
-      {group && (
-        <>
-          <div className="ctx-menu-item" onClick={() => { actions.onNewTabInGroup(group.id); onClose(); }}>
-            New terminal in group
-          </div>
-          <div className="ctx-menu-item" onClick={() => { actions.onEditGroup(group.id); onClose(); }}>
-            Edit group…
-          </div>
-          {group.cwd && (
-            <div className="ctx-menu-detail">{group.cwd}</div>
-          )}
-          <div className="ctx-menu-separator" />
-          <div className="ctx-menu-section">Color</div>
-          <div className="color-swatches">
-            {COLOR_CYCLE.map(c => (
-              <div
-                key={c}
-                className={`color-swatch ${group.color === c ? 'active-swatch' : ''}`}
-                style={{ background: GROUP_COLORS[c].border }}
-                onClick={() => { actions.onSetColor(group.id, c); onClose(); }}
-              />
-            ))}
-          </div>
-          <div className="ctx-menu-separator" />
-          <div className="ctx-menu-item danger" onClick={() => { actions.onDeleteGroup(group.id); onClose(); }}>
-            Delete group
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-// ─── Tab row ───────────────────────────────────────────────────────────────────
-
-const NOTIF_DOT_COLOR: Record<TabNotification, string> = {
-  done:       '#46b464',
-  attention:  '#d28c32',
-  background: '#d28c32',
-  compacting: '#666',
-  working:    '#61afef',
-};
-
-interface TabRowProps {
+interface ThreadRowProps {
   tab: Tab;
   isActive: boolean;
-  inGroup: boolean;
-  groupColor?: GroupColor;
+  inProject: boolean;
   isDragging: boolean;
   isGroupPreview: boolean;
-  onActivate: () => void;
-  onClose: () => void;
-  onContextMenu: (e: React.MouseEvent) => void;
+  // A collapsed project keeps its thread rows mounted (that is what lets the
+  // expand and collapse animate), so they must be taken out of the drag graph
+  // while they are folded away: a zero-height row is still a droppable that
+  // closestCenter can pick.
+  inert?: boolean;
   overlay?: boolean;
+  onActivate: () => void;
+  onContextMenu: (e: React.MouseEvent) => void;
 }
 
-function TabRow({
-  tab, isActive, inGroup, groupColor: gc_, isDragging, isGroupPreview,
-  onActivate, onClose, onContextMenu, overlay,
-}: TabRowProps) {
-  const { attributes, listeners, setNodeRef: setDragRef } = useDraggable({
-    id: tab.id,
-    disabled: !!overlay,
-  });
-  const { setNodeRef: setDropRef, isOver } = useDroppable({
-    id: tab.id,
-    disabled: !!overlay,
-  });
+function ThreadRow({
+  tab, isActive, inProject, isDragging, isGroupPreview, inert, overlay,
+  onActivate, onContextMenu,
+}: ThreadRowProps) {
+  const off = !!overlay || !!inert;
+  const { attributes, listeners, setNodeRef: setDragRef } = useDraggable({ id: tab.id, disabled: off });
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: tab.id, disabled: off });
 
   const setRef = (node: HTMLDivElement | null) => {
     setDragRef(node);
     setDropRef(node);
   };
 
-  // Arrow color: group color if in a group, gray shades otherwise
-  const arrowColor = gc_ ? GROUP_COLORS[gc_].border : '#3a3a3a';
-  const arrowColorActive = gc_ ? GROUP_COLORS[gc_].border : '#5e5e5e';
+  const state = threadState(tab);
+  const breathe = !isActive && stateBreathes(state)
+    ? (state === 'needs-you' ? 'breathe-need' : 'breathe-done')
+    : '';
 
-  // No transform on the in-list row — the DragOverlay renders the moving copy.
+  // No transform on the in-list row: the DragOverlay renders the moving copy.
   // Translating the source corrupts collision detection (it stays "closest to
   // itself" when dragging up, so up-moves silently no-op).
-  const style: React.CSSProperties = {
-    '--arrow-color': arrowColor,
-    '--arrow-color-active': arrowColorActive,
-  } as React.CSSProperties;
-
-  const notif = tab.notification;
   const className = [
-    'tab-row',
-    isActive ? 'active' : '',
-    inGroup ? 'in-group' : '',
+    'th',
+    inProject ? '' : 'gen',
+    isActive ? 'sel' : '',
     isDragging ? 'dragging' : '',
     isOver && !isDragging ? 'drop-target' : '',
     isGroupPreview ? 'group-preview' : '',
-    overlay ? 'tab-drag-overlay' : '',
-    notif && !isActive ? `notif-${notif}` : '',
+    overlay ? 'drag-overlay' : '',
+    state === 'asleep' ? 'sleep' : '',
+    tab.claudeRestorable ? 'restorable' : '',
+    breathe,
   ].filter(Boolean).join(' ');
 
   return (
     <div
       ref={overlay ? undefined : setRef}
       className={className}
-      style={style}
       onClick={onActivate}
       onContextMenu={onContextMenu}
+      data-kind={threadKind(tab)}
+      data-tip={!overlay && tab.claudeRestorable ? 'Click to resume this chat' : undefined}
       {...(overlay ? {} : { ...attributes, ...listeners })}
     >
-      <span className="tab-shell-icon">›</span>
-      {notif && !overlay && (notif === 'working' || !isActive) ? (
-        <span
-          className={`tab-notif-dot${notif === 'working' ? ' tab-notif-working' : ''}`}
-          style={notif !== 'working' ? { background: NOTIF_DOT_COLOR[notif] } : undefined}
-        />
-      ) : null}
-      <span className="tab-row-title">{tab.claudeRestorable ? stripLeadingGlyph(tab.title) : tab.title}</span>
-      {tab.claudeRestorable && !overlay ? (
-        <span className="tab-restorable-star" title="Saved Claude session — click to resume">✳</span>
-      ) : null}
-      <button
-        className="tab-row-close"
-        onClick={e => { e.stopPropagation(); onClose(); }}
-        tabIndex={-1}
-      >
-        ×
-      </button>
+      <KindIcon kind={threadKind(tab)} />
+      <span className="n">{displayTitle(tab.title)}</span>
+      <StateIcon state={state} />
     </div>
   );
 }
 
-// ─── Group header ──────────────────────────────────────────────────────────────
+// ─── Project row ───────────────────────────────────────────────────────────────
 
-interface GroupHeaderProps {
+interface ProjectRowProps {
   group: Group;
-  tabCount: number;
-  notifCount: number;
+  threadCount: number;
+  counts: { needsYou: number; running: number };
+  pinned: boolean;
   isDragging: boolean;
+  overlay?: boolean;
   onToggle: () => void;
-  onContextMenu: (e: React.MouseEvent) => void;
   onDoubleClick: () => void;
-  onAddTab: () => void;
-  onAddTabWithShell: (shellId: string) => void;
-  shells: { id: string; name: string }[];
+  onContextMenu: (e: React.MouseEvent) => void;
+  onNewThread: () => void;
   isRenaming: boolean;
   renameValue: string;
   onRenameChange: (v: string) => void;
   onRenameCommit: () => void;
-  overlay?: boolean;
 }
 
-function GroupHeader({
-  group, tabCount, notifCount, isDragging, onToggle, onContextMenu, onDoubleClick, onAddTab,
-  onAddTabWithShell, shells,
-  isRenaming, renameValue, onRenameChange, onRenameCommit, overlay,
-}: GroupHeaderProps) {
-  const [showShellMenu, setShowShellMenu] = useState(false);
-  const shellMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!showShellMenu) return;
-    const handler = (e: MouseEvent) => {
-      if (shellMenuRef.current && !shellMenuRef.current.contains(e.target as Node)) {
-        setShowShellMenu(false);
-      }
-    };
-    window.addEventListener('mousedown', handler);
-    return () => window.removeEventListener('mousedown', handler);
-  }, [showShellMenu]);
+function ProjectRow({
+  group, threadCount, counts, pinned, isDragging, overlay,
+  onToggle, onDoubleClick, onContextMenu, onNewThread,
+  isRenaming, renameValue, onRenameChange, onRenameCommit,
+}: ProjectRowProps) {
   const { attributes, listeners, setNodeRef: setDragRef } = useDraggable({
     id: `group-drag-${group.id}`,
     disabled: !!overlay,
   });
+  // Distinct droppable id: dnd-kit keys droppables by id, so sharing the drag id
+  // would let one silently replace the other as the drop target.
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: `group-drop-${group.id}`,
     disabled: !!overlay || isDragging,
@@ -305,178 +149,91 @@ function GroupHeader({
     setDropRef(node);
   };
 
-  const color = gc(group.color);
-
-  const handleClick = (e: React.MouseEvent) => {
-    if (e.detail === 2) return;
-    onToggle();
-  };
-
-  const style: React.CSSProperties = {
-    '--gc': color,
-  } as React.CSSProperties;
+  const expanded = !group.collapsed;
 
   const className = [
-    'group-header',
+    'pj',
+    pinned ? '' : 'dim',
     isOver ? 'drop-over' : '',
     isDragging ? 'dragging' : '',
-    overlay ? 'group-drag-overlay' : '',
+    overlay ? 'drag-overlay' : '',
   ].filter(Boolean).join(' ');
+
+  const stop = (e: React.MouseEvent | React.PointerEvent) => e.stopPropagation();
 
   return (
     <div
       ref={overlay ? undefined : setRef}
       className={className}
-      style={style}
-      onClick={handleClick}
+      onClick={e => { if (e.detail === 2) return; onToggle(); }}
       onDoubleClick={e => { e.stopPropagation(); onDoubleClick(); }}
       onContextMenu={onContextMenu}
+      data-collapsed={expanded ? undefined : 'true'}
+      data-threads={threadCount}
       {...(overlay ? {} : { ...attributes, ...listeners })}
     >
-      <span className="group-chevron">
-        {group.collapsed ? '▶' : '▼'}
-      </span>
-      <span className="group-dot" />
+      <FolderIcon color={group.color} open={expanded} size={18} />
       {isRenaming ? (
         <input
           autoFocus
-          className="group-name-input"
+          className="pj-rename"
           value={renameValue}
           onFocus={e => e.currentTarget.select()}
           onChange={e => onRenameChange(e.target.value)}
           onBlur={onRenameCommit}
           onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') onRenameCommit(); }}
-          onClick={e => e.stopPropagation()}
+          onClick={stop}
+          onPointerDown={stop}
         />
       ) : (
-        <div className="group-name-block">
-          <span className="group-name">{group.label}</span>
-          {group.cwd && <span className="group-cwd">{group.cwd.split('\\').pop()}</span>}
-        </div>
+        <span className="n">{group.label}</span>
       )}
-      {group.collapsed && <span className="group-count">{tabCount}</span>}
-      {notifCount > 0 && !overlay && (
-        <span className="group-notif-badge">{notifCount}</span>
+      {!expanded && threadCount > 0 && <span className="c">{threadCount}</span>}
+      {counts.needsYou > 0 && (
+        <span className="sig need">
+          <span className="si need"><IconBell size={14} /></span>
+          {counts.needsYou}
+        </span>
       )}
-      <button
-        className="group-add-btn"
-        onClick={e => { e.stopPropagation(); onAddTab(); }}
-        title="New terminal in group"
-        tabIndex={-1}
-      >
-        +
-      </button>
-      <div className="group-shell-wrapper" ref={shellMenuRef}>
-        <button
-          className="group-add-btn group-shell-toggle"
-          onClick={e => { e.stopPropagation(); setShowShellMenu(p => !p); }}
-          title="Select shell type"
-          tabIndex={-1}
-        >
-          ▾
-        </button>
-        {showShellMenu && shells.length > 0 && (
-          <div className="shell-dropdown group-shell-dropdown">
-            {shells.map(s => (
-              <div
-                key={s.id}
-                className="shell-dropdown-item"
-                onClick={e => { e.stopPropagation(); onAddTabWithShell(s.id); setShowShellMenu(false); }}
-              >
-                {s.name}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Projects shelf ────────────────────────────────────────────────────────────
-// A group with no terminals still exists (name, folder, colour, shell are saved) —
-// it just has nothing running. Those groups drop out of the live list into this
-// shelf at the bottom of the panel. Clicking one opens a terminal in its folder,
-// which puts the group straight back into the live list above.
-
-interface ShelfRowProps {
-  group: Group;
-  shells: { id: string; name: string }[];
-  // A shelved group has no position in the live list, so a group drag can't land on it
-  // (moveGroupAfterGroup no-ops). Switch the drop target off rather than highlight a row
-  // that would do nothing. Live group headers do the same via their own `disabled`.
-  dropDisabled: boolean;
-  onOpen: () => void;
-  onOpenWithShell: (shellId: string) => void;
-  onContextMenu: (e: React.MouseEvent) => void;
-}
-
-function ShelfRow({ group, shells, dropDisabled, onOpen, onOpenWithShell, onContextMenu }: ShelfRowProps) {
-  const [showShellMenu, setShowShellMenu] = useState(false);
-  const shellMenuRef = useRef<HTMLDivElement>(null);
-  // Dropping a tab here joins the group (handleDragEnd's group-drop- branch), which
-  // is the other way a shelved project comes back to life. The id must differ from
-  // the group header's `group-drop-` id: the same empty group now also renders a
-  // header in the list above, and dnd-kit keys droppables by id, so a shared id
-  // would let this row silently replace the header as the drop target.
-  const { setNodeRef, isOver } = useDroppable({ id: `shelf-drop-${group.id}`, disabled: dropDisabled });
-
-  useEffect(() => {
-    if (!showShellMenu) return;
-    const handler = (e: MouseEvent) => {
-      if (shellMenuRef.current && !shellMenuRef.current.contains(e.target as Node)) {
-        setShowShellMenu(false);
-      }
-    };
-    window.addEventListener('mousedown', handler);
-    return () => window.removeEventListener('mousedown', handler);
-  }, [showShellMenu]);
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={`shelf-row ${isOver ? 'drop-over' : ''}`}
-      style={{ '--gc': gc(group.color) } as React.CSSProperties}
-      onClick={onOpen}
-      onContextMenu={onContextMenu}
-      title={group.cwd ? `Open a terminal in ${group.cwd}` : 'Open a terminal in this group'}
-    >
-      <span className="group-dot" />
-      <div className="shelf-name-block">
-        <span className="shelf-name">{group.label}</span>
-        {group.cwd && <span className="shelf-cwd">{shortenPath(group.cwd)}</span>}
-      </div>
-      <button
-        className="group-add-btn"
-        onClick={e => { e.stopPropagation(); onOpen(); }}
-        title="New terminal in group"
-        tabIndex={-1}
-      >
-        +
-      </button>
-      <div className="group-shell-wrapper" ref={shellMenuRef}>
-        <button
-          className="group-add-btn group-shell-toggle"
-          onClick={e => { e.stopPropagation(); setShowShellMenu(p => !p); }}
-          title="Select shell type"
-          tabIndex={-1}
-        >
-          ▾
-        </button>
-        {showShellMenu && shells.length > 0 && (
-          <div className="shell-dropdown group-shell-dropdown shelf-shell-dropdown">
-            {shells.map(s => (
-              <div
-                key={s.id}
-                className="shell-dropdown-item"
-                onClick={e => { e.stopPropagation(); onOpenWithShell(s.id); setShowShellMenu(false); }}
-              >
-                {s.name}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {counts.running > 0 && (
+        <span className="sig run">
+          <span className="si run"><IconPlay size={13} /></span>
+          {counts.running}
+        </span>
+      )}
+      {!overlay && (
+        <>
+          <button
+            className="ib"
+            data-tip={`New thread in ${group.label}`}
+            onPointerDown={stop}
+            onClick={e => { e.stopPropagation(); onNewThread(); }}
+            tabIndex={-1}
+          >
+            <IconPlus size={14} />
+          </button>
+          <span
+            className="ib disabled"
+            aria-disabled="true"
+            data-tip={TIP_PROJECT_PAGE}
+            onPointerDown={stop}
+            onClick={stop}
+          >
+            <IconPage size={14} />
+          </span>
+          {!pinned && (
+            <span
+              className="ib disabled"
+              aria-disabled="true"
+              data-tip={TIP_PIN}
+              onPointerDown={stop}
+              onClick={stop}
+            >
+              <IconPin size={14} />
+            </span>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -512,37 +269,33 @@ export function SidePanel(props: SidePanelProps) {
     tabs, groups, activeTabId, collapsed, shells, onToggleCollapse,
     onActivate, onClose, onNewTab,
     onCreateGroup, onCreateProjectGroup, onUpdateGroup, onAddToGroup, onRemoveFromGroup,
-    onRenameGroup, onSetGroupColor, onToggleGroupCollapse,
+    onRenameGroup, onToggleGroupCollapse,
     onDeleteGroup, onMoveTab, onMoveGroup, onMoveGroupAfterGroup,
   } = props;
 
   const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
   const [draggingGroupId, setDraggingGroupId] = useState<string | null>(null);
   const [groupPreviewTarget, setGroupPreviewTarget] = useState<string | null>(null);
-  const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const [renamingGroupId, setRenamingGroupId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
-  const [shellDropdown, setShellDropdown] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
-  const [shelfOpen, setShelfOpen] = useState(false);
-  // null = closed; groupId absent = creating a new group.
-  const [modal, setModal] = useState<{ mode: 'create' | 'edit'; groupId?: string } | null>(null);
-  const shellDropdownRef = useRef<HTMLDivElement>(null);
-  const helpRef = useRef<HTMLDivElement>(null);
+  // Which thread lists are past their five-row fold. Transient, keyed by project id
+  // ('general' for the projectless list): a fold is a glance, not a preference, so
+  // it is not persisted.
+  const [expandedLists, setExpandedLists] = useState<Record<string, boolean>>({});
 
+  // Keep the open thread visible: activating a thread whose project is collapsed
+  // (Ctrl+Tab, a toast click, the header menu) expands that project, the way the
+  // mock's selectThread does. Only activation triggers it, so the user can still
+  // collapse the project that holds the active thread.
   useEffect(() => {
-    if (!shellDropdown && !helpOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (shellDropdown && shellDropdownRef.current && !shellDropdownRef.current.contains(e.target as Node)) {
-        setShellDropdown(false);
-      }
-      if (helpOpen && helpRef.current && !helpRef.current.contains(e.target as Node)) {
-        setHelpOpen(false);
-      }
-    };
-    window.addEventListener('mousedown', handler);
-    return () => window.removeEventListener('mousedown', handler);
-  }, [shellDropdown, helpOpen]);
+    const tab = tabs.find(t => t.id === activeTabId);
+    const group = tab?.groupId ? groups.find(g => g.id === tab.groupId) : undefined;
+    if (group?.collapsed) onToggleGroupCollapse(group.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTabId]);
+  // null = closed; groupId absent = creating a new project.
+  const [modal, setModal] = useState<{ mode: 'create' | 'edit'; groupId?: string } | null>(null);
 
   const dwellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastOverRef = useRef<string | null>(null);
@@ -559,7 +312,7 @@ export function SidePanel(props: SidePanelProps) {
     setGroupPreviewTarget(null);
     lastOverRef.current = overId;
 
-    // Dwell-to-group preview only arms when both tabs are ungrouped — that's the only
+    // Dwell-to-group preview only arms when both tabs are ungrouped, that is the only
     // case dwell does anything now (create a new group). Every other drag is a
     // positional move and must not be hijacked by the grouping preview.
     const draggedTab = tabs.find(t => t.id === draggingTabId);
@@ -571,6 +324,16 @@ export function SidePanel(props: SidePanelProps) {
       }, 550);
     }
   }, [draggingTabId, tabs]);
+
+  // The drag/context-menu gesture stays instant: the project is created with defaults
+  // and the name field opens focused and selected, so the placeholder name is one type
+  // away from gone. Deliberate project setup goes through the modal instead.
+  const createGroupAndRename = useCallback((tabId1: string, tabId2?: string) => {
+    const id = onCreateGroup(tabId1, tabId2);
+    if (!id) return;
+    setRenamingGroupId(id);
+    setRenameValue('New Group');
+  }, [onCreateGroup]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     if (dwellTimerRef.current) clearTimeout(dwellTimerRef.current);
@@ -584,7 +347,7 @@ export function SidePanel(props: SidePanelProps) {
 
     if (!overId || overId === activeId) return;
 
-    // Group being dragged
+    // Project row being dragged
     if (activeId.startsWith('group-drag-')) {
       const draggedGroupId = activeId.replace('group-drag-', '');
       if (overId.startsWith('group-drop-') || overId.startsWith('group-drag-')) {
@@ -598,7 +361,7 @@ export function SidePanel(props: SidePanelProps) {
       return;
     }
 
-    // Tab being dragged
+    // Thread being dragged
     const activeTab = tabs.find(t => t.id === activeId);
 
     const reorderOnto = (targetTabId: string) => {
@@ -614,9 +377,9 @@ export function SidePanel(props: SidePanelProps) {
       onMoveTab(activeId, targetTabId, position);
     };
 
-    // Dwell-to-group is the explicit "merge into a new group" gesture — only needed
-    // when both tabs are ungrouped (positional drops join an existing group on their
-    // own, since moveTab inherits the drop target's group).
+    // Dwell-to-group is the explicit "merge into a new project" gesture, only needed
+    // when both threads are ungrouped (positional drops join an existing project on
+    // their own, since moveTab inherits the drop target's group).
     if (groupPreviewTarget && overId === groupPreviewTarget) {
       const targetTab = tabs.find(t => t.id === groupPreviewTarget);
       if (targetTab && !targetTab.groupId && !activeTab?.groupId) {
@@ -626,11 +389,11 @@ export function SidePanel(props: SidePanelProps) {
       // else fall through to a positional move
     }
 
-    // Dropped on a group header (or its shelf row) → land at the top of that group
-    // (joining it). A group with no tabs has no anchor to move before, so the tab is
-    // added to the group outright and useTabState places it at the end of the list.
-    if (overId.startsWith('group-drop-') || overId.startsWith('group-drag-') || overId.startsWith('shelf-drop-')) {
-      const targetGroupId = overId.replace(/^(group-drop-|group-drag-|shelf-drop-)/, '');
+    // Dropped on a project row → land at the top of that project (joining it). A
+    // project with no threads has no anchor to move before, so the thread is added to
+    // the group outright and useTabState places it at the end of the list.
+    if (overId.startsWith('group-drop-') || overId.startsWith('group-drag-')) {
+      const targetGroupId = overId.replace(/^(group-drop-|group-drag-)/, '');
       const firstInGroup = tabs.find(t => t.groupId === targetGroupId);
       if (firstInGroup && firstInGroup.id !== activeId) {
         onMoveTab(activeId, firstInGroup.id, 'before');
@@ -641,7 +404,7 @@ export function SidePanel(props: SidePanelProps) {
     }
 
     reorderOnto(overId);
-  }, [groupPreviewTarget, tabs, onAddToGroup, onCreateGroup, onMoveTab, onMoveGroup, onMoveGroupAfterGroup]);
+  }, [groupPreviewTarget, tabs, onAddToGroup, createGroupAndRename, onMoveTab, onMoveGroup, onMoveGroupAfterGroup]);
 
   const handleDragCancel = useCallback(() => {
     if (dwellTimerRef.current) clearTimeout(dwellTimerRef.current);
@@ -651,32 +414,11 @@ export function SidePanel(props: SidePanelProps) {
     lastOverRef.current = null;
   }, []);
 
-  const openTabCtx = (e: React.MouseEvent, tabId: string) => {
-    e.preventDefault();
-    setCtxMenu({ x: e.clientX, y: e.clientY, tabId });
-  };
-
-  const openGroupCtx = (e: React.MouseEvent, groupId: string) => {
-    e.preventDefault();
-    setCtxMenu({ x: e.clientX, y: e.clientY, groupId });
-  };
-
   const startRename = (groupId: string) => {
     const g = groups.find(g => g.id === groupId);
     if (!g) return;
     setRenamingGroupId(groupId);
     setRenameValue(g.label);
-    setCtxMenu(null);
-  };
-
-  // The drag/context-menu gesture stays instant: the group is created with defaults and
-  // the name field opens focused and selected, so the placeholder name is one type away
-  // from gone. Deliberate project setup goes through the modal instead.
-  const createGroupAndRename = (tabId1: string, tabId2?: string) => {
-    const id = onCreateGroup(tabId1, tabId2);
-    if (!id) return;
-    setRenamingGroupId(id);
-    setRenameValue('New Group');
   };
 
   const commitRename = () => {
@@ -686,74 +428,149 @@ export function SidePanel(props: SidePanelProps) {
     setRenamingGroupId(null);
   };
 
-  const groupMap = new Map(groups.map(g => [g.id, g]));
+  // ─── Menus ─────────────────────────────────────────────────────────────────
+
+  const shellItems = (groupId?: string): MenuItem[] =>
+    shells.map(s => ({ label: s.name, onSelect: () => onNewTab(groupId, s.id) }));
+
+  const openNewThreadShellMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (shells.length === 0) return;
+    setMenu({ x: e.clientX, y: e.clientY, items: shellItems(undefined) });
+  };
+
+  const openThreadMenu = (e: React.MouseEvent, tab: Tab) => {
+    e.preventDefault();
+    setMenu({
+      x: e.clientX,
+      y: e.clientY,
+      items: buildThreadMenu(tab, groups, {
+        open: () => onActivate(tab.id),
+        moveToGroup: id => (id ? onAddToGroup(tab.id, id) : onRemoveFromGroup(tab.id)),
+        close: () => onClose(tab.id),
+      }),
+    });
+  };
+
+  const openProjectMenu = (e: React.MouseEvent, group: Group) => {
+    e.preventDefault();
+    setMenu({
+      x: e.clientX,
+      y: e.clientY,
+      items: [
+        { label: 'New thread here', onSelect: () => onNewTab(group.id) },
+        { label: 'New thread with shell', submenu: { title: 'Shell', items: shellItems(group.id) } },
+        { label: 'Edit project', onSelect: () => setModal({ mode: 'edit', groupId: group.id }) },
+        { label: 'Open project page', disabled: true, tip: TIP_PROJECT_PAGE },
+        { label: 'Delete project', danger: true, onSelect: () => onDeleteGroup(group.id) },
+      ],
+    });
+  };
+
+  // ─── Derived rows ──────────────────────────────────────────────────────────
+
   const segments = computeSegments(tabs, groups);
-  // Groups with nothing running: they keep their config but leave the live list.
-  const shelfGroups = groups.filter(g => !tabs.some(t => t.groupId === g.id));
+  const { general, pinned, projects } = sidebarSections(segments);
+  const groupMap = new Map(groups.map(g => [g.id, g]));
   const draggingTab = draggingTabId ? tabs.find(t => t.id === draggingTabId) : null;
   const draggingGroup = draggingGroupId ? groups.find(g => g.id === draggingGroupId) : null;
 
+  const renderThreadList = (threads: Tab[], key: string, inProject: boolean, inert: boolean) => {
+    const { shown, hiddenCount, showMore } = foldThreads(threads, activeTabId, !!expandedLists[key], THREAD_FOLD_LIMIT);
+    return (
+      <>
+        {shown.map(tab => (
+          <ThreadRow
+            key={tab.id}
+            tab={tab}
+            isActive={tab.id === activeTabId}
+            inProject={inProject}
+            isDragging={tab.id === draggingTabId}
+            isGroupPreview={tab.id === groupPreviewTarget}
+            inert={inert}
+            onActivate={() => onActivate(tab.id)}
+            onContextMenu={e => openThreadMenu(e, tab)}
+          />
+        ))}
+        {showMore && (
+          <button
+            className="thmore"
+            onClick={() => setExpandedLists(p => ({ ...p, [key]: !p[key] }))}
+          >
+            {hiddenCount > 0 ? `Show ${hiddenCount} more` : 'Show less'}
+          </button>
+        )}
+      </>
+    );
+  };
+
+  const renderProject = (entry: { group: Group; tabs: Tab[] }, isPinned: boolean) => {
+    const { group, tabs: groupTabs } = entry;
+    const expanded = !group.collapsed;
+    const counts = projectCounts(groupTabs.map(threadState));
+    return (
+      <div className="pjw" key={group.id}>
+        <ProjectRow
+          group={group}
+          threadCount={groupTabs.length}
+          counts={counts}
+          pinned={isPinned}
+          isDragging={group.id === draggingGroupId}
+          onToggle={() => onToggleGroupCollapse(group.id)}
+          onDoubleClick={() => startRename(group.id)}
+          onContextMenu={e => openProjectMenu(e, group)}
+          onNewThread={() => onNewTab(group.id)}
+          isRenaming={renamingGroupId === group.id}
+          renameValue={renameValue}
+          onRenameChange={setRenameValue}
+          onRenameCommit={commitRename}
+        />
+        {groupTabs.length > 0 && (
+          // The list stays mounted while the project is collapsed: the 1fr → 0fr grid
+          // transition is what animates the collapse, and unmounting would cut it off.
+          <div className={`tlw${expanded ? '' : ' closed'}`} data-project={group.id} inert={!expanded}>
+            <div className="tli">
+              {renderThreadList(groupTabs, group.id, true, !expanded)}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <>
-      <div className={`side-panel ${collapsed ? 'collapsed' : ''}`}>
-        <div className="panel-header">
-          <span className="panel-title">Terminals</span>
-          <div className="panel-header-actions">
-            <button className="panel-icon-btn" onClick={() => onNewTab()} title="New terminal">+</button>
-            <div className="shell-dropdown-wrapper" ref={shellDropdownRef}>
-              <button
-                className="panel-icon-btn shell-dropdown-toggle"
-                onClick={() => setShellDropdown(p => !p)}
-                title="Select shell type"
-              >
-                ▾
-              </button>
-              {shellDropdown && (
-                <div className="shell-dropdown">
-                  {shells.map(s => (
-                    <div
-                      key={s.id}
-                      className="shell-dropdown-item"
-                      onClick={() => { onNewTab(undefined, s.id); setShellDropdown(false); }}
-                    >
-                      {s.name}
-                    </div>
-                  ))}
-                  {shells.length > 0 && <div className="ctx-menu-separator" />}
-                  <div
-                    className="shell-dropdown-item"
-                    onClick={() => { setModal({ mode: 'create' }); setShellDropdown(false); }}
-                  >
-                    New project group…
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="help-wrapper" ref={helpRef}>
-              <button
-                className="panel-icon-btn help-toggle"
-                onClick={() => setHelpOpen(p => !p)}
-                title="Keyboard shortcuts"
-              >
-                ?
-              </button>
-              {helpOpen && (
-                <div className="help-tooltip">
-                  <div className="help-title">Shortcuts</div>
-                  <div className="help-row"><kbd>Ctrl+Shift+T</kbd><span>New tab</span></div>
-                  <div className="help-row"><kbd>Ctrl+Shift+W</kbd><span>Close tab</span></div>
-                  <div className="help-row"><kbd>Ctrl+Tab</kbd><span>Next tab</span></div>
-                  <div className="help-row"><kbd>Ctrl+Shift+Tab</kbd><span>Previous tab</span></div>
-                  <div className="help-row"><kbd>Ctrl+Shift+B</kbd><span>Toggle panel</span></div>
-                  <div className="help-separator" />
-                  <div className="help-row"><kbd>Ctrl+V</kbd><span>Paste</span></div>
-                  <div className="help-row"><kbd>Ctrl+C</kbd><span>Copy / SIGINT</span></div>
-                </div>
-              )}
-            </div>
-            <button className="panel-icon-btn" onClick={onToggleCollapse} title="Close panel">‹</button>
-          </div>
+      <div className={`side-panel${collapsed ? ' collapsed' : ''}`}>
+        <div className="brand">
+          <span className="name">afterterm</span>
+          <span className="ver">v{window.afterterm.appVersion}</span>
+          <span className="ic disabled" aria-disabled="true" data-tip={TIP_HOME}>
+            <IconHome size={18} />
+          </span>
+          <span className="ic" aria-selected="true" data-tip="Workspace">
+            <IconTerm size={18} />
+          </span>
+          <span className="sp" />
+          <button className="ic" onClick={onToggleCollapse} data-tip="Close sidebar">
+            <IconPanel size={18} />
+          </button>
         </div>
+
+        <div className="srow disabled" aria-disabled="true" data-tip={TIP_SEARCH}>
+          <span className="g"><IconSearch size={16} /></span>
+          Search
+          <span className="k">Ctrl Shift P</span>
+        </div>
+
+        <button
+          className="srow"
+          onClick={() => onNewTab()}
+          onContextMenu={openNewThreadShellMenu}
+        >
+          <span className="g"><IconPlus size={16} /></span>
+          New thread
+          <span className="k">Ctrl Shift T</span>
+        </button>
 
         <DndContext
           sensors={sensors}
@@ -770,125 +587,59 @@ export function SidePanel(props: SidePanelProps) {
           onDragEnd={handleDragEnd}
           onDragCancel={handleDragCancel}
         >
-          <div className="panel-list">
-            {segments.map(seg => {
-              if (seg.type === 'tab') {
-                const { tab } = seg;
-                return (
-                  <TabRow
-                    key={tab.id}
-                    tab={tab}
-                    isActive={tab.id === activeTabId}
-                    inGroup={false}
-                    isDragging={tab.id === draggingTabId}
-                    isGroupPreview={tab.id === groupPreviewTarget}
-                    onActivate={() => onActivate(tab.id)}
-                    onClose={() => onClose(tab.id)}
-                    onContextMenu={e => openTabCtx(e, tab.id)}
-                  />
-                );
-              }
-
-              const { group, tabs: groupTabs } = seg;
-              const notifCount = groupTabs.filter(t => t.notification && t.notification !== 'working' && t.id !== activeTabId).length;
-              return (
-                <div key={group.id} className="group-section">
-                  <GroupHeader
-                    group={group}
-                    tabCount={groupTabs.length}
-                    notifCount={notifCount}
-                    isDragging={group.id === draggingGroupId}
-                    onToggle={() => onToggleGroupCollapse(group.id)}
-                    onContextMenu={e => openGroupCtx(e, group.id)}
-                    onDoubleClick={() => startRename(group.id)}
-                    onAddTab={() => onNewTab(group.id)}
-                    onAddTabWithShell={shellId => onNewTab(group.id, shellId)}
-                    shells={shells}
-                    isRenaming={renamingGroupId === group.id}
-                    renameValue={renameValue}
-                    onRenameChange={setRenameValue}
-                    onRenameCommit={commitRename}
-                  />
-                  {!group.collapsed && groupTabs.map(tab => (
-                    <TabRow
-                      key={tab.id}
-                      tab={tab}
-                      isActive={tab.id === activeTabId}
-                      inGroup
-                      groupColor={group.color}
-                      isDragging={tab.id === draggingTabId}
-                      isGroupPreview={tab.id === groupPreviewTarget}
-                      onActivate={() => onActivate(tab.id)}
-                      onClose={() => onClose(tab.id)}
-                      onContextMenu={e => openTabCtx(e, tab.id)}
-                    />
-                  ))}
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="project-shelf">
-            <div className="shelf-header" onClick={() => setShelfOpen(p => !p)}>
-              <span className="shelf-chevron">{shelfOpen ? '▼' : '▶'}</span>
-              <span className="shelf-title">Projects</span>
-              {shelfGroups.length > 0 && <span className="shelf-count">{shelfGroups.length}</span>}
-              <button
-                className="panel-icon-btn shelf-new-btn"
-                onClick={e => { e.stopPropagation(); setModal({ mode: 'create' }); }}
-                title="New project group"
-                tabIndex={-1}
-              >
-                +
-              </button>
-            </div>
-            {shelfOpen && (
-              <div className="shelf-list">
-                {shelfGroups.length === 0 ? (
-                  <div className="shelf-empty">
-                    No closed projects. A group with no terminals appears here.
-                  </div>
-                ) : shelfGroups.map(g => (
-                  <ShelfRow
-                    key={g.id}
-                    group={g}
-                    shells={shells}
-                    dropDisabled={!!draggingGroupId}
-                    onOpen={() => onNewTab(g.id)}
-                    onOpenWithShell={shellId => onNewTab(g.id, shellId)}
-                    onContextMenu={e => openGroupCtx(e, g.id)}
-                  />
-                ))}
+          <div className="scroll">
+            {general.length > 0 && (
+              <div className="sec">
+                <div className="lbl">General</div>
+                {renderThreadList(general, 'general', false, false)}
               </div>
             )}
+
+            {pinned.length > 0 && (
+              <div className="sec">
+                <div className="lbl">Pinned</div>
+                {pinned.map(entry => renderProject(entry, true))}
+              </div>
+            )}
+
+            <div className="sec">
+              <div className="lbl lblrow">
+                <span>Projects</span>
+                <button
+                  className="ib"
+                  data-tip="New project"
+                  onClick={() => setModal({ mode: 'create' })}
+                >
+                  <IconPlus size={14} />
+                </button>
+              </div>
+              {projects.map(entry => renderProject(entry, false))}
+            </div>
           </div>
 
           <DragOverlay dropAnimation={null}>
             {draggingTab ? (
-              <TabRow
+              <ThreadRow
                 tab={draggingTab}
                 isActive={false}
-                inGroup={!!draggingTab.groupId}
-                groupColor={draggingTab.groupId ? groupMap.get(draggingTab.groupId)?.color : undefined}
+                inProject={!!(draggingTab.groupId && groupMap.has(draggingTab.groupId))}
                 isDragging={false}
                 isGroupPreview={false}
                 onActivate={() => {}}
-                onClose={() => {}}
                 onContextMenu={() => {}}
                 overlay
               />
             ) : draggingGroup ? (
-              <GroupHeader
+              <ProjectRow
                 group={draggingGroup}
-                tabCount={tabs.filter(t => t.groupId === draggingGroup.id).length}
-                notifCount={0}
+                threadCount={tabs.filter(t => t.groupId === draggingGroup.id).length}
+                counts={{ needsYou: 0, running: 0 }}
+                pinned={draggingGroup.pinned}
                 isDragging={false}
                 onToggle={() => {}}
-                onContextMenu={() => {}}
                 onDoubleClick={() => {}}
-                onAddTab={() => {}}
-                onAddTabWithShell={() => {}}
-                shells={[]}
+                onContextMenu={() => {}}
+                onNewThread={() => {}}
                 isRenaming={false}
                 renameValue=""
                 onRenameChange={() => {}}
@@ -898,28 +649,33 @@ export function SidePanel(props: SidePanelProps) {
             ) : null}
           </DragOverlay>
         </DndContext>
+
+        <div className="rail">
+          <button className="ic" onClick={onToggleCollapse} data-tip="Open sidebar">
+            <IconPanel size={18} />
+          </button>
+          <span className="ic disabled" aria-disabled="true" data-tip={TIP_HOME}>
+            <IconHome size={18} />
+          </span>
+          <span className="ic" aria-selected="true" data-tip="Workspace">
+            <IconTerm size={18} />
+          </span>
+          <span className="ic disabled" aria-disabled="true" data-tip={TIP_SEARCH}>
+            <IconSearch size={18} />
+          </span>
+          <button className="ic" onClick={() => onNewTab()} data-tip="New thread">
+            <IconPlus size={18} />
+          </button>
+        </div>
       </div>
 
-      {ctxMenu && (
-        <ContextMenu
-          menu={ctxMenu}
-          tabs={tabs}
-          groups={groups}
-          onClose={() => setCtxMenu(null)}
-          onCreateGroup={tabId => { createGroupAndRename(tabId); setCtxMenu(null); }}
-          onAddToGroup={(tabId, groupId) => { onAddToGroup(tabId, groupId); setCtxMenu(null); }}
-          onRemoveFromGroup={tabId => { onRemoveFromGroup(tabId); setCtxMenu(null); }}
-          onSetColor={(groupId, color) => { onSetGroupColor(groupId, color); setCtxMenu(null); }}
-          onEditGroup={groupId => { setModal({ mode: 'edit', groupId }); setCtxMenu(null); }}
-          onDeleteGroup={groupId => { onDeleteGroup(groupId); setCtxMenu(null); }}
-          onCloseTab={tabId => { onClose(tabId); setCtxMenu(null); }}
-          onNewTabInGroup={groupId => { onNewTab(groupId); setCtxMenu(null); }}
-        />
+      {menu && (
+        <Menu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />
       )}
 
       {modal && (() => {
         const editing = modal.groupId ? groups.find(g => g.id === modal.groupId) : undefined;
-        // An edit whose group vanished (deleted underneath the menu) has nothing to show.
+        // An edit whose project vanished (deleted underneath the menu) has nothing to show.
         if (modal.mode === 'edit' && !editing) return null;
         const initial: GroupDraft = editing
           ? { label: editing.label, color: editing.color, cwd: editing.cwd, shellId: editing.shellId }
@@ -935,9 +691,6 @@ export function SidePanel(props: SidePanelProps) {
                 onUpdateGroup(editing.id, draft);
               } else {
                 onCreateProjectGroup(draft, openTerminal);
-                // A group created without a terminal only exists in the shelf, so open
-                // the shelf — otherwise the Create button looks like it did nothing.
-                if (!openTerminal) setShelfOpen(true);
               }
               setModal(null);
             }}

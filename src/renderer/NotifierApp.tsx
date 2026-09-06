@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './NotifierApp.css';
+import { IconBell, IconCheck, IconHourglass, IconCompact, IconX, IconFolder } from './components/Icons';
 
 export type NotifType = 'done' | 'attention' | 'background' | 'compacting';
 
@@ -9,14 +10,18 @@ export interface NotifierToast {
   type: NotifType;
   primaryLabel: string;
   secondaryLabel?: string;
+  projectColor?: string;
   message: string;
 }
 
-const TYPE_META: Record<NotifType, { icon: string; color: string }> = {
-  done:       { icon: '✅', color: '#46b464' },
-  attention:  { icon: '⚠',  color: '#d28c32' },
-  background: { icon: '⏳', color: '#d28c32' },
-  compacting: { icon: '⚙',  color: '#888'    },
+// The state icon and tint for each toast type, the same language as the
+// sidebar's StateIcon (Icons.tsx): amber bell for a permission prompt, green
+// check for done, and two neutral grey icons the sidebar does not need.
+const TYPE_META: Record<NotifType, { Icon: React.ComponentType<{ size?: number }>; rgb: string }> = {
+  attention:  { Icon: IconBell,      rgb: '251, 191, 36' },
+  done:       { Icon: IconCheck,     rgb: '74, 222, 128' },
+  background: { Icon: IconHourglass, rgb: '180, 180, 180' },
+  compacting: { Icon: IconCompact,   rgb: '180, 180, 180' },
 };
 
 interface ToastCardProps {
@@ -25,7 +30,7 @@ interface ToastCardProps {
 }
 
 function ToastCard({ toast, onDismiss }: ToastCardProps) {
-  const meta = TYPE_META[toast.type];
+  const { Icon, rgb } = TYPE_META[toast.type];
 
   const handleClick = () => {
     window.afterterm.notifier.clickTab(toast.tabId);
@@ -35,14 +40,26 @@ function ToastCard({ toast, onDismiss }: ToastCardProps) {
   return (
     <div
       className="notif-card"
-      style={{ '--notif-color': meta.color } as React.CSSProperties}
+      style={{ '--notif-c': rgb } as React.CSSProperties}
       onClick={handleClick}
     >
-      <span className="notif-icon">{meta.icon}</span>
+      <span className="notif-state">
+        <Icon size={17} />
+      </span>
       <div className="notif-body">
         <span className="notif-primary">{toast.primaryLabel}</span>
         <span className="notif-sub">
-          {toast.secondaryLabel ? `${toast.secondaryLabel} · ${toast.message}` : toast.message}
+          {toast.secondaryLabel ? (
+            <>
+              <span className="notif-project">
+                <IconFolder size={13} style={{ color: toast.projectColor || 'var(--text3)' }} />
+                {toast.secondaryLabel}
+              </span>
+              {`· ${toast.message}`}
+            </>
+          ) : (
+            toast.message
+          )}
         </span>
       </div>
       <button
@@ -50,7 +67,7 @@ function ToastCard({ toast, onDismiss }: ToastCardProps) {
         onClick={e => { e.stopPropagation(); onDismiss(toast.id); }}
         title="Dismiss"
       >
-        ×
+        <IconX size={15} />
       </button>
     </div>
   );

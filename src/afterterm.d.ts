@@ -11,6 +11,7 @@ interface NotifierToast {
   type: NotifType;
   primaryLabel: string;
   secondaryLabel?: string;
+  projectColor?: string;
   message: string;
 }
 

@@ -27,42 +27,44 @@ html, body, #root {
 
 .notif-card {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 12px 13px;
-  background: #1e1e1e;
-  border: 1px solid #363636;
-  border-left: 3px solid var(--notif-color, #46b464);
-  border-radius: 10px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 12px 12px 14px;
+  background: var(--hover);
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .45);
   cursor: pointer;
-  animation: notif-in 0.24s cubic-bezier(0.16, 1, 0.3, 1);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  transition: background 0.12s, border-color 0.12s;
+  animation: notif-in 220ms var(--ease);
+  font-family: var(--sans);
+  transition: background 120ms;
   -webkit-app-region: no-drag;
   width: 100%;
 }
 
 .notif-card:hover {
-  background: #2c2c2c;
-  border-color: #505050;
-  border-left-color: var(--notif-color, #46b464);
+  background: var(--hover2);
 }
 
 @keyframes notif-in {
   from {
     opacity: 0;
-    transform: translateX(24px) scale(0.97);
+    transform: translateY(8px) scale(.97);
   }
   to {
     opacity: 1;
-    transform: translateX(0) scale(1);
+    transform: none;
   }
 }
 
-.notif-icon {
-  font-size: 16px;
-  flex-shrink: 0;
-  line-height: 1.4;
+.notif-state {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: rgba(var(--notif-c), .14);
+  color: rgb(var(--notif-c));
 }
 
 .notif-body {
@@ -70,44 +72,53 @@ html, body, #root {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .notif-primary {
-  font-size: 13px;
-  font-weight: 600;
-  color: #e8e8e8;
-  line-height: 1.4;
-  word-break: break-word;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.35;
 }
 
 .notif-sub {
-  font-size: 11.5px;
-  color: #888;
-  line-height: 1.5;
-  word-break: break-word;
+  font-size: 12.5px;
+  color: var(--text3);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.notif-project {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text2);
 }
 
 .notif-dismiss {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border: none;
-  background: transparent;
-  color: #555;
-  font-size: 15px;
-  cursor: pointer;
-  border-radius: 4px;
-  padding: 0;
-  flex-shrink: 0;
-  transition: background 0.1s, color 0.1s;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  color: var(--text3);
+  flex: none;
+  opacity: 0;
+  transition: opacity 140ms, background 140ms;
   -webkit-app-region: no-drag;
-  margin-top: 1px;
+}
+
+.notif-card:hover .notif-dismiss {
+  opacity: 1;
 }
 
 .notif-dismiss:hover {
-  background: #3a3a3a;
-  color: #ddd;
+  background: var(--hover2);
+  color: var(--text);
 }

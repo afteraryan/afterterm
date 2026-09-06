@@ -1,21 +1,15 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { SidePanel } from './components/SidePanel';
 import { TerminalArea } from './components/Terminal';
+import { Header } from './components/Header';
+import { Tooltip } from './components/Tooltip';
 import { useTabState } from './hooks/useTabState';
-import { TabNotification } from './components/TabBar/types';
+import { TabNotification, GROUP_COLORS } from './components/TabBar/types';
 import { onTitle, onOutput, onTick, onInterrupt, initTiming, TabTiming } from './spinnerState';
 import { migrateSession, serializeSession } from './sessionMigration';
-import logoUrl from '../../assets/icon-256.png';
+import { displayTitle, toastMessage } from './threadView';
 
 let toastCounter = 0;
-
-// 'working' is intentionally absent — it's a sidebar-only spinner and never toasts.
-const TOAST_MESSAGES: Record<Exclude<TabNotification, 'working'>, string> = {
-  done:       'Response complete',
-  attention:  'Needs permission',
-  background: 'Background tasks running',
-  compacting: 'Compacting context…',
-};
 
 export function App() {
   const state = useTabState();
@@ -160,9 +154,10 @@ export function App() {
       id: `toast-${++toastCounter}`,
       tabId,
       type,
-      primaryLabel: group?.label ?? (tab?.title || projectName),
-      secondaryLabel: group ? (tab?.title || projectName) : undefined,
-      message: TOAST_MESSAGES[type],
+      primaryLabel: displayTitle(tab?.title || projectName),
+      secondaryLabel: group?.label,
+      projectColor: group ? GROUP_COLORS[group.color].border : undefined,
+      message: toastMessage(type),
     });
   }, [state.setTabNotification]);
 
@@ -229,15 +224,11 @@ export function App() {
 
   const tabInfos = state.tabs.map(t => ({ id: t.id, shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize, claudeSessionId: t.claudeSessionId, claudeCwd: t.claudeCwd }));
 
+  const activeTab = state.tabs.find(t => t.id === state.activeTabId);
+  const activeGroup = activeTab?.groupId ? state.groups.find(g => g.id === activeTab.groupId) : undefined;
+
   return (
     <div className="app">
-      <div className="titlebar-drag">
-        <div className="titlebar-brand">
-          <img className="titlebar-logo" src={logoUrl} alt="" />
-          <span className="titlebar-name">afterterm</span>
-          <span className="titlebar-version">v{window.afterterm.appVersion}</span>
-        </div>
-      </div>
       <SidePanel
         tabs={state.tabs}
         groups={state.groups}
@@ -263,15 +254,16 @@ export function App() {
       />
 
       <div className="terminal-area">
-        {panelCollapsed && (
-          <button
-            className="panel-reopen-btn"
-            onClick={() => setPanelCollapsed(false)}
-            title="Open terminals panel"
-          >
-            ›
-          </button>
-        )}
+        <Header
+          tab={activeTab}
+          group={activeGroup}
+          groups={state.groups}
+          actions={activeTab ? {
+            open: () => state.activateTab(activeTab.id),
+            moveToGroup: (id) => id ? state.addToGroup(activeTab.id, id) : state.removeFromGroup(activeTab.id),
+            close: () => state.closeTab(activeTab.id),
+          } : undefined}
+        />
         {initialized && (
           <TerminalArea
             tabs={tabInfos}
@@ -286,6 +278,7 @@ export function App() {
           />
         )}
       </div>
+      <Tooltip />
     </div>
   );
 }

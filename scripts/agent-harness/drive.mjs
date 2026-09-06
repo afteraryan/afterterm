@@ -29,23 +29,23 @@ import {
 const SEL = {
   panel: '.side-panel',
   panelCollapsedClass: 'collapsed',
-  list: '.panel-list',
-  groupSection: '.group-section',
-  groupHeader: '.group-header',
-  groupName: '.group-name',
-  groupCwd: '.group-cwd',
-  groupCount: '.group-count',
-  groupBadge: '.group-notif-badge',
-  groupNameInput: '.group-name-input',
-  tabRow: '.tab-row',
-  tabTitle: '.tab-row-title',
-  tabActiveClass: 'active',
-  tabRestorable: '.tab-restorable-star',
-  tabWorkingDot: '.tab-notif-working',
-  shelf: '.project-shelf',
-  shelfRow: '.shelf-row',
-  shelfName: '.shelf-name',
-  shelfCwd: '.shelf-cwd',
+  section: '.sec',
+  sectionLabel: '.lbl',
+  projectWrap: '.pjw',
+  projectRow: '.pj',
+  projectName: '.n',
+  projectRename: '.pj-rename',
+  pillNeed: '.sig.need',
+  pillRun: '.sig.run',
+  threadListWrap: '.tlw',
+  threadListClosedClass: 'closed',
+  threadRow: '.th',
+  threadName: '.n',
+  threadSelectedClass: 'sel',
+  threadRestorableClass: 'restorable',
+  stateIcon: '[data-state]',
+  showMore: '.thmore',
+  rail: '.rail',
 };
 
 // Windows virtual-key codes for the keys an agent is likely to press.
@@ -236,55 +236,67 @@ async function cmdSidebar() {
     const text = el => (el ? (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim() : '');
     const panel = document.querySelector(S.panel);
     if (!panel) return { present: false };
-    const tabInfo = row => ({
-      title: text(row.querySelector(S.tabTitle)),
-      active: row.classList.contains(S.tabActiveClass),
-      restorable: !!row.querySelector(S.tabRestorable),
-      working: !!row.querySelector(S.tabWorkingDot),
-      notif: (Array.from(row.classList).find(c => c.startsWith('notif-')) || '').replace('notif-', '') || null,
+
+    const threadInfo = row => {
+      const icon = row.querySelector(S.stateIcon);
+      return {
+        title: text(row.querySelector(S.threadName)),
+        active: row.classList.contains(S.threadSelectedClass),
+        kind: row.dataset.kind || null,
+        state: icon ? icon.getAttribute('data-state') : 'quiet',
+        restorable: row.classList.contains(S.threadRestorableClass),
+      };
+    };
+
+    const threadsUnder = wrap => Array.from(wrap.querySelectorAll(S.threadRow)).map(threadInfo);
+
+    const sections = Array.from(panel.querySelectorAll(S.section)).map(sec => {
+      const label = text(sec.querySelector(S.sectionLabel));
+      const projects = Array.from(sec.querySelectorAll(S.projectWrap)).map(w => {
+        const row = w.querySelector(S.projectRow);
+        const list = w.querySelector(S.threadListWrap);
+        // A collapsed project keeps its fold button in the DOM (inert); only report it when the list is open.
+        const more = list && !list.classList.contains(S.threadListClosedClass) ? w.querySelector(S.showMore) : null;
+        return {
+          label: text(row && row.querySelector(S.projectName))
+            || (row && row.querySelector(S.projectRename) ? row.querySelector(S.projectRename).value + ' (renaming)' : ''),
+          collapsed: !!(row && row.dataset.collapsed),
+          threads: row ? Number(row.dataset.threads || 0) : 0,
+          need: text(row && row.querySelector(S.pillNeed)) || null,
+          run: text(row && row.querySelector(S.pillRun)) || null,
+          more: text(more) || null,
+          rows: list && !list.classList.contains(S.threadListClosedClass) ? threadsUnder(list) : [],
+        };
+      });
+      // Threads that belong to no project sit directly in the section (General).
+      const loose = Array.from(sec.children)
+        .filter(c => c.matches && c.matches(S.threadRow))
+        .map(threadInfo);
+      const looseMore = sec.querySelector(':scope > ' + S.showMore);
+      return { label, projects, loose, looseMore: text(looseMore) || null };
     });
-    const items = [];
-    const list = panel.querySelector(S.list);
-    for (const child of list ? Array.from(list.children) : []) {
-      if (child.matches(S.tabRow)) { items.push({ kind: 'tab', ...tabInfo(child) }); continue; }
-      if (child.matches(S.groupSection)) {
-        const header = child.querySelector(S.groupHeader);
-        const tabs = Array.from(child.querySelectorAll(S.tabRow)).map(tabInfo);
-        const countEl = header && header.querySelector(S.groupCount);
-        items.push({
-          kind: 'group',
-          label: text(header && header.querySelector(S.groupName)) || (header && header.querySelector(S.groupNameInput) ? header.querySelector(S.groupNameInput).value + ' (renaming)' : ''),
-          cwd: text(header && header.querySelector(S.groupCwd)) || null,
-          collapsed: !!countEl,
-          count: countEl ? Number(text(countEl)) : tabs.length,
-          badge: text(header && header.querySelector(S.groupBadge)) || null,
-          tabs,
-        });
-        continue;
-      }
-      items.push({ kind: 'other', className: child.className, text: text(child).slice(0, 80) });
-    }
-    const shelf = panel.querySelector(S.shelf);
-    const shelfRows = shelf ? Array.from(shelf.querySelectorAll(S.shelfRow)).map(r => ({
-      label: text(r.querySelector(S.shelfName)),
-      cwd: text(r.querySelector(S.shelfCwd)) || null,
-    })) : null;
-    return { present: true, collapsed: panel.classList.contains(S.panelCollapsedClass), items, shelf: shelfRows };
+
+    return {
+      present: true,
+      collapsed: panel.classList.contains(S.panelCollapsedClass),
+      rail: !!panel.querySelector(S.rail),
+      sections,
+    };
   })(${JSON.stringify(SEL)})`);
 
   if (!tree.present) { console.log(`(no ${SEL.panel} in the DOM)`); return; }
-  console.log(`side-panel${tree.collapsed ? ' (collapsed)' : ''}`);
-  const tabLine = (t, indent) => `${indent}- ${t.active ? '* ' : ''}"${t.title}"${t.restorable ? ' [restorable]' : ''}${t.working ? ' [working]' : ''}${t.notif ? ` [${t.notif}]` : ''}`;
-  for (const item of tree.items) {
-    if (item.kind === 'tab') console.log(tabLine(item, '  '));
-    else if (item.kind === 'group') {
-      console.log(`  [group] ${item.label}${item.cwd ? ` (${item.cwd})` : ''}  tabs=${item.count}${item.collapsed ? ' collapsed' : ''}${item.badge ? ` badge=${item.badge}` : ''}`);
-      for (const t of item.tabs) console.log(tabLine(t, '    '));
-    } else console.log(`  [${item.className}] ${item.text}`);
-  }
-  if (tree.shelf) {
-    console.log(`  shelf: ${tree.shelf.length} project(s)`);
-    for (const s of tree.shelf) console.log(`    [shelf] ${s.label}${s.cwd ? ` (${s.cwd})` : ''}`);
+  console.log(`side-panel${tree.collapsed ? ' (collapsed, rail only)' : ''}`);
+  const threadLine = (t, indent) => `${indent}- ${t.active ? '* ' : ''}"${t.title}" [${t.kind || '?'}/${t.state || 'quiet'}]${t.restorable ? ' [restorable]' : ''}`;
+  for (const sec of tree.sections) {
+    console.log(`  ${sec.label}`);
+    for (const t of sec.loose) console.log(threadLine(t, '    '));
+    if (sec.looseMore) console.log(`    (${sec.looseMore})`);
+    for (const p of sec.projects) {
+      const pills = [p.need ? `need=${p.need}` : null, p.run ? `run=${p.run}` : null].filter(Boolean).join(' ');
+      console.log(`    [project] ${p.label}  threads=${p.threads}${p.collapsed ? ' collapsed' : ''}${pills ? '  ' + pills : ''}`);
+      for (const t of p.rows) console.log(threadLine(t, '      '));
+      if (p.more) console.log(`      (${p.more})`);
+    }
   }
 }
 

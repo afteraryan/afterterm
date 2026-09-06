@@ -96,10 +96,10 @@ function formatTabTitle(raw: string): string {
 }
 
 const THEME = {
-  background: '#141414',
+  background: '#191919',
   foreground: '#e0e0e0',
   cursor: '#e0e0e0',
-  cursorAccent: '#141414',
+  cursorAccent: '#191919',
   selectionBackground: 'rgba(255,255,255,0.2)',
   black: '#1a1a1a',
   red: '#e06c75',

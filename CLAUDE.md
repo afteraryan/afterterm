@@ -37,25 +37,37 @@ src/
   renderer/
     index.tsx                          ← React root; routes to NotifierApp when ?notifier=1, else App
     app.tsx                            ← Layout: SidePanel + TerminalArea, session restore, shortcut dispatch, notification fan-out
-    index.css                          ← App layout, titlebar drag region, terminal container styles
+    index.css                          ← App layout, terminal card, find bar (titlebar drag region in sidebar brand row)
+    theme.css                          ← Palette tokens, bundled Inter, shared classes, keyframes, reduced motion
     sessionMigration.ts                ← session.json shape: migrateSession (fills the project/thread fields on a 0.8.1 file) + serializeSession (the one save shape). Pure, unit-tested.
     sidebarWalk.ts                     ← computeSegments: sidebar rows built from groups first, so a group with zero tabs renders. Pure, unit-tested.
-    NotifierApp.tsx                    ← The floating overlay window's React root — toast cards, hide-when-empty logic
-    NotifierApp.css                    ← Overlay/toast styles
+    threadView.ts                      ← Pure: thread kind, state, display title, five-row fold, counter pills, sidebar sections. Unit-tested.
+    threadMenu.tsx                     ← The one thread menu for the sidebar right-click and the header dots button
+    NotifierApp.tsx                    ← The floating overlay window's React root: toast cards, hide-when-empty logic
+    NotifierApp.css                    ← Toast card styles (state icon in a tinted circle, thread name headline, project line with coloured folder)
     hooks/
       useTabState.ts                   ← All tab/group state, session restore, group contiguity enforcement
     components/
       SidePanel/
-        index.tsx                      ← Tab list, groups, DnD, context menus, shell dropdown, tab glow/dot + working spinner + group badge, Projects shelf
-        SidePanel.css                  ← incl. notification pulse keyframes + working-spinner animation, Projects shelf styles
+        index.tsx                      ← Brand row, Search and New thread rows, General, Pinned and Projects sections, project and thread rows, five-row fold, rail when collapsed, DnD, right-click menus
+        SidePanel.css                  ← Sidebar styles on the theme tokens, breath keyframes for needs-you and done rows, expand and collapse animation
+      Header/
+        index.tsx                      ← Main pane header: kind icon, name, project line, state chip, dots menu
+        Header.css                     ← Header styles
       GroupModal/
         index.tsx                      ← New/Edit project group dialog: name, folder picker, colour, shell, "open a terminal now"
         GroupModal.css                 ← Modal overlay + form styles
       Terminal/
         index.tsx                      ← xterm.js lifecycle, PTY wiring, title intelligence, OSC 9;9 cwd capture, clipboard, links, find bar, font zoom, drag-drop
+      Icons.tsx                        ← SVG icon set from the mock plus FolderIcon, StateIcon, KindIcon, Spinner
+      Menu.tsx                         ← Positioned menu with submenu and back chevron
+      Menu.css                         ← Menu styles
+      Tooltip.tsx                      ← The app tooltip; any element with data-tip
       TabBar/
         types.ts                       ← Tab (incl. fontSize), Group, GroupColor, TabNotification types (shared)
 assets/
+  fonts/
+    Inter Regular and Medium woff2     ← Bundled in assets/fonts, loaded by theme.css; LICENSE-Inter.txt
   hooks/
     afterterm-notify.ps1               ← bundled, distributable Claude Code hook (no-op unless AFTERTERM=1); copied into ~/.claude/hooks on first run
     test-afterterm-notify.ps1          ← standalone test harness for the hook (22 cases)
@@ -74,25 +86,30 @@ scripts/
 
 A group is a project: a name, a folder, a colour and a default shell. Two ways to make one:
 
-- **New project group…** (in the ▾ dropdown, or the `+` on the Projects shelf) opens a
+- **New project group…** (from the + beside the Projects label in the sidebar, or from "Edit project" in the project row's right-click menu) opens a
   modal that collects all four at once and opens the first terminal in the folder. Picking
   the folder auto-fills the name with its last segment (`D:\…\aftertales` → `aftertales`),
-  until you type a name yourself. The same modal is "Edit group…" in the group's context menu.
-- **Dragging one tab onto another** stays instant, no dialog: the group is created with
+  until you type a name yourself. The same modal is "Edit project…" in the project's context menu.
+- **Dragging one tab onto another** stays instant, no dialog: the project is created with
   defaults and its name field opens focused and selected.
 
-### The Projects shelf
+### Every project is a row
 
-A group with no terminals still exists (its folder, colour and shell are saved), it just
-has nothing running. Those groups leave the live tab list and appear in the collapsible
-**Projects** shelf pinned to the bottom of the side panel. Clicking one opens a terminal in
-its folder, which returns the group to the live list above. Dropping a tab onto a shelf row
-does the same. Deleting a group is still an explicit context-menu action.
+Since Phase 1 of the projects-and-threads work the sidebar is built from projects first (src/renderer/sidebarWalk.ts), so a project with no threads is an ordinary row in the Projects section and the old bottom shelf is gone. Clicking the + on the row, or "New thread here" in its right-click menu, opens a terminal in its folder.
 
-This is what stops a closed project from becoming invisible: the sidebar builds its list by
-walking `tabs`, so before the shelf existed an empty group rendered nothing at all, and the
-only way back into it was to make a tab elsewhere, drag it in, then open a *second* terminal
-(the dragged-in shell is already running and cannot move to the project folder).
+## Sidebar and header (Phase 1 visual system)
+
+The palette and Inter are bundled in assets/fonts, loaded by theme.css. The renderer's CSP allows only same-origin assets, so the app works offline.
+
+The sidebar structure, top to bottom: a brand row with afterterm, version badge, Home and Workspace icons and the collapse toggle; Search and New thread rows; General, only when there are threads with no project; Pinned, only when a project is pinned; Projects, every project as a row with its solid coloured folder icon (on hover, the + and project page icon appear, and on unpinned rows the pin icon); counter pills with a bell for threads that need you and a play for threads working (nothing at zero); thread rows show the kind icon (chat when a Claude session id was captured, shell otherwise), the title with the hook's glyph stripped, and the state icon at the right end; a five-row fold with "Show N more" that auto-expands when the open thread is beyond the fold; the rail (56px, Ctrl+Shift+B) with the toggle, Home, Workspace, Search and New thread.
+
+The main pane header shows the kind icon, name, project on line 2, branch and worktree slots empty until Phase 3, state chip and dots menu.
+
+Menus: Open, Move to project with a submenu and a back chevron, Open project page, Close on threads; New thread here, New thread with shell, Edit project, Open project page, Delete project on projects; the New thread row's right-click lists the shells.
+
+State today maps to notification and icon: attention is needs you, amber bell, row breathes amber (5% to 16% of the colour over 2.4s); working is spinner; done is green check, row breathes green until viewed; compacting and background are spinner; asleep is moon (nothing sets it until Phase 4); running is green play (Phase 5).
+
+Placeholders for later phases: Home, Search, the pin icon and the project page icon render as in the mock but are disabled with a tooltip naming their phase. Nothing pins, archives, sleeps or searches yet. The version badge stays in the brand row and the Windows caption buttons keep the colour set in main.ts (titleBarOverlay), which is a main-process setting Phase 1 did not touch.
 
 ## Default Shell
 
@@ -117,10 +134,10 @@ for behavior and implementation detail.
 
 Wired to Claude Code's hook events (the hook lives at `~/.claude/hooks/notify.ps1`, gated on `AFTERTERM=1`). When a background tab needs attention, afterterm surfaces it three ways:
 
-- **Floating overlay toasts** — a separate always-on-top, transparent, frameless, click-through `BrowserWindow` (`notifierWindow` in main.ts) loads the same renderer with `?notifier=1`, which routes to `NotifierApp.tsx`. It stays **hidden** until a toast arrives (`showInactive()` on push), then hides again when the last toast clears — this is what keeps the Windows `WM_NCACTIVATE` white-bar artifact from showing. Clicking a toast focuses the main window and switches to that tab.
-- **Sidebar tab indicator** — a background tab with a pending notification gets a pulsing colored row + a colored dot to the right of its `›`. Cleared only on tab activation (not on title change).
-- **Working spinner** — while Claude is mid-turn, the tab shows a spinning arc after its `›` (no toast, no row pulse). A `▶ working` title (from the `UserPromptSubmit` hook) starts it. The title channel alone is unreliable at *stopping* it (a mid-turn `⚠` permission prompt or `⚙` compaction replaces `working` with nothing to restore it; and if `Stop`'s `✅` never fires the spinner sticks), so afterterm uses the PTY output stream as a second signal — the decision logic lives in `src/renderer/spinnerState.ts` (pure, unit-tested): **silence-clear** (drop `working` after ~2.5s of no output — Claude's TUI is never silent >~450ms mid-turn but is silent forever at idle) and **re-arm** (flip `attention`/`compacting` back to `working` when output resumes after the pause). Wired in `app.tsx` (`handleOutput` + a 500ms tick) and fed by `Terminal/index.tsx` (`onOutput`). Empirical basis + capture harness: `scripts/spinner-harness/`.
-- **Group header badge** — a count of group members with pending (non-working) notifications.
+- **Floating overlay toasts**: a separate always-on-top, transparent, frameless, click-through `BrowserWindow` (`notifierWindow` in main.ts) loads the same renderer with `?notifier=1`, which routes to `NotifierApp.tsx`. It stays **hidden** until a toast arrives (`showInactive()` on push), then hides again when the last toast clears (this is what keeps the Windows `WM_NCACTIVATE` white-bar artifact from showing). Clicking a toast focuses the main window and switches to that tab. The card's headline is the thread name, line 2 is the project with its coloured folder and the message, and the state icon sits in a tinted circle (design in docs/mockups/toasts.html).
+- **Sidebar thread indicator**: a background thread that needs you shows an amber bell at the right end of its row and the row breathes amber (5% to 16% of the colour over 2.4s); a finished turn shows a green check and a green breath until the thread is viewed. Cleared only on thread activation.
+- **Working spinner**: while Claude is mid-turn, the spinner sits at the right end of the row (after the state icon slot). A `▶ working` title (from the `UserPromptSubmit` hook) starts it. The title channel alone is unreliable at *stopping* it (a mid-turn `⚠` permission prompt or `⚙` compaction replaces `working` with nothing to restore it; and if `Stop`'s `✅` never fires the spinner sticks), so afterterm uses the PTY output stream as a second signal. The decision logic lives in `src/renderer/spinnerState.ts` (pure, unit-tested): **silence-clear** (drop `working` after ~2.5s of no output; Claude's TUI is never silent >~450ms mid-turn but is silent forever at idle) and **re-arm** (flip `attention`/`compacting` back to `working` when output resumes after the pause). Wired in `app.tsx` (`handleOutput` + a 500ms tick) and fed by `Terminal/index.tsx` (`onOutput`). Empirical basis + capture harness: `scripts/spinner-harness/`.
+- **Project row pills**: a collapsed or expanded project row shows a bell pill with the count of threads that need you and a play pill with the count that are working (running joins in Phase 5); nothing at zero.
 
 Notification types map to title prefixes the shell hook emits: `✅` done, `⚠` attention, `⏳` background tasks, `⚙` compacting, `▶` working. Detection is in `Terminal/index.tsx` (`detectNotification`); fan-out to overlay + sidebar is in `app.tsx` (`handleNotification`). A toast is suppressed only when the user is *actually looking* at that tab (`activeTabId === tabId && document.hasFocus()`), so cross-app notifications still fire when afterterm is behind another window.
 
@@ -209,11 +226,11 @@ Registered via Electron `before-input-event` — work even when xterm.js has foc
 
 | Shortcut | Action |
 |---|---|
-| Ctrl+Shift+T | New tab (default shell) |
+| Ctrl+Shift+T | New tab (default shell), no project |
 | Ctrl+Shift+W | Close current tab |
 | Ctrl+Tab | Next tab |
 | Ctrl+Shift+Tab | Previous tab |
-| Ctrl+Shift+B | Toggle side panel |
+| Ctrl+Shift+B | Toggle the sidebar between full width and the icon rail |
 | Ctrl+V | Paste (bracketed paste) |
 | Ctrl+C | Copy selection (SIGINT when no selection) |
 | Ctrl+Shift+A | Select all scrollback |
@@ -237,7 +254,7 @@ Registered via Electron `before-input-event` — work even when xterm.js has foc
 npm start
 ```
 
-Unit tests (plain Node 24+, no framework): `npm test` runs `src/claude-hook-install.test.ts`, `src/renderer/spinnerState.test.ts`, `src/renderer/sessionMigration.test.ts` and `src/renderer/sidebarWalk.test.ts`. To drive the dev build itself, use the agent harness (see "Agent test harness"), never a bare `npm start` while someone is working on the primary monitor.
+Unit tests (plain Node 24+, no framework): `npm test` runs `src/claude-hook-install.test.ts`, `src/renderer/spinnerState.test.ts`, `src/renderer/sessionMigration.test.ts`, `src/renderer/sidebarWalk.test.ts` and `src/renderer/threadView.test.ts`. To drive the dev build itself, use the agent harness (see "Agent test harness"), never a bare `npm start` while someone is working on the primary monitor.
 
 > If your network intercepts TLS (corporate proxy / some antivirus), `npm install`
 > or the build may fail with certificate errors. Prefer pointing npm/Node at your
@@ -304,6 +321,13 @@ the monitor a person is using. `npm run harness -- --session <copy of session.js
 `AFTERTERM_REMOTE_DEBUG_PORT` (opt-in Chromium remote debugging). Safety rules, every
 command and the known limitations are in
 [`scripts/agent-harness/README.md`](scripts/agent-harness/README.md).
+
+**Screenshots are kept.** Every capture taken while testing a phase (harness CDP
+screenshots, per-window captures, whole-display captures) is saved under
+`docs/screenshots/<phase>/` in the repo and is never deleted, by anyone. New captures go
+there too, numbered, with a name that says what they show. Whole-display captures sit in
+`docs/screenshots/<phase>/displays/`, which git ignores because they show personal windows;
+everything else is committed with the phase. See `docs/screenshots/README.md`.
 
 ### Packaging Notes
 

@@ -12,3 +12,6 @@ docs/session-snapshots/
 
 notify-selftest-result.json
 demo-capture.png
+
+# Whole-display captures from the agent harness show personal windows; kept on disk, never committed
+docs/screenshots/**/displays/

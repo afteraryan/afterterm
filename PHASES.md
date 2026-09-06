@@ -14,6 +14,7 @@ Agreed with Aryan on 2026-09-06.
 - Unit tests for everything with logic (data model, migration, detection, parsing), run and green.
 - The app launched and driven by the agent on the **secondary monitor**, never on the primary where Aryan is working: every screen and interaction of the phase exercised, with screenshots captured. Phase 0 sets up the harness for this (see its checklist).
 - The done-when line of the phase verified against the running app, not against the code.
+- Every screenshot taken during that testing is saved under `docs/screenshots/<phase>/` in the repo and kept; nothing there is ever deleted (agreed with Aryan on 2026-09-07).
 
 **Testing by Aryan, three stages per phase.**
 1. Dev build launched through the agent harness (`npm run harness -- --session <copy of session.json>`), which points `AFTERTERM_USER_DATA_DIR` at a throwaway folder seeded with a copy of the production `session.json` so it shows real projects and threads, not sample data, and puts the window on the secondary display. Fully separate from the running app. The harness strips Claude session ids by default (`--claude-resume none`): resuming the live session from a second build restarted it.
