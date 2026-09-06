@@ -12,9 +12,52 @@ html, body, #root {
 
 .app {
   display: flex;
+  flex-direction: column;
   height: 100vh;
   width: 100vw;
   overflow: hidden;
+}
+
+/* Everything under the title bar strip (TitleBar.tsx): the sidebar and the
+   terminal area, side by side, exactly as .app laid them out before the
+   title bar existed. */
+.workspace {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  min-height: 0;
+}
+
+/* ─── Screen-entrance transitions (Phase 1.1) ───────────────────────────────
+   Keyframes live in theme.css. app.tsx sets one of these classes on div.app
+   when a screen finishes loading, and clears it ~400ms later so it never
+   lingers and a later switch can re-trigger it. The title bar and the
+   sidebar's icon row (outside .side-body) never animate. */
+
+.app.enter-workspace .side-panel .side-body {
+  animation: sidein 260ms var(--ease) both;
+}
+
+.app.enter-workspace .terminal-area {
+  animation: mainin 260ms var(--ease) 40ms both;
+}
+
+/* Unused until Phase 2 adds Home and the project page; wired now so the
+   classes and keyframes are ready. */
+.app.enter-home .home {
+  animation: homein 280ms var(--ease) both;
+}
+
+.app.enter-home .home > * {
+  animation: stagger 320ms var(--ease) both;
+}
+
+.app.enter-home .home > *:nth-child(2) { animation-delay: 40ms; }
+.app.enter-home .home > *:nth-child(3) { animation-delay: 80ms; }
+.app.enter-home .home > *:nth-child(4) { animation-delay: 120ms; }
+
+.app.enter-project .proj {
+  animation: homein 280ms var(--ease) both;
 }
 
 .terminal-area {

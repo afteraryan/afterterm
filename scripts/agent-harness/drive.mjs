@@ -43,6 +43,7 @@ const SEL = {
   threadName: '.n',
   threadSelectedClass: 'sel',
   threadRestorableClass: 'restorable',
+  threadClose: '.xb',
   stateIcon: '[data-state]',
   showMore: '.thmore',
   rail: '.rail',
@@ -245,6 +246,7 @@ async function cmdSidebar() {
         kind: row.dataset.kind || null,
         state: icon ? icon.getAttribute('data-state') : 'quiet',
         restorable: row.classList.contains(S.threadRestorableClass),
+        close: !!row.querySelector(S.threadClose),
       };
     };
 
@@ -286,7 +288,7 @@ async function cmdSidebar() {
 
   if (!tree.present) { console.log(`(no ${SEL.panel} in the DOM)`); return; }
   console.log(`side-panel${tree.collapsed ? ' (collapsed, rail only)' : ''}`);
-  const threadLine = (t, indent) => `${indent}- ${t.active ? '* ' : ''}"${t.title}" [${t.kind || '?'}/${t.state || 'quiet'}]${t.restorable ? ' [restorable]' : ''}`;
+  const threadLine = (t, indent) => `${indent}- ${t.active ? '* ' : ''}"${t.title}" [${t.kind || '?'}/${t.state || 'quiet'}]${t.close ? ' [x]' : ''}${t.restorable ? ' [restorable]' : ''}`;
   for (const sec of tree.sections) {
     console.log(`  ${sec.label}`);
     for (const t of sec.loose) console.log(threadLine(t, '    '));

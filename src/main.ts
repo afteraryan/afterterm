@@ -250,11 +250,11 @@ function createWindow() {
     icon: getIconPath(),
     titleBarStyle: 'hidden',
     titleBarOverlay: {
-      color: '#1a1a1a',
-      symbolColor: '#888',
-      height: 36,
+      color: '#121212',
+      symbolColor: '#8e8e8e',
+      height: 32,
     },
-    backgroundColor: '#141414',
+    backgroundColor: '#212121',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

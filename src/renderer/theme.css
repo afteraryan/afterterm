@@ -44,6 +44,7 @@
   --sidebar: 264px;
   --rail: 56px;
   --toprow: 56px;
+  --titlebar: 32px;
 
   --ease: cubic-bezier(.2, .8, .2, 1);
   --fast: 140ms;
@@ -130,6 +131,28 @@ svg {
 
 @keyframes rot {
   to { transform: rotate(360deg); }
+}
+
+/* Screen-entrance transitions (Phase 1.1). Applied in index.css when a class
+   is set on div.app; see app.tsx for when each is set. */
+@keyframes sidein {
+  from { opacity: 0; transform: translateX(-18px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes mainin {
+  from { opacity: 0; transform: translateX(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes homein {
+  from { opacity: 0; transform: translateY(12px) scale(.985); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes stagger {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
 }
 
 /* ── shared classes ────────────────────────────────────────────────── */

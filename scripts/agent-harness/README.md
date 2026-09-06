@@ -116,7 +116,7 @@ node scripts/agent-harness/drive.mjs <command> ...
 | `rightclick` | `drive rightclick ".group-header" 0` | Same with the right button (opens context menus). |
 | `type` | `drive type "hello"` | `Input.insertText` into the focused element. |
 | `key` | `drive key Enter`, `drive key b --ctrl --shift` | `Input.dispatchKeyEvent` down and up. Known names: Enter, Escape, Tab, Backspace, Delete, Space, Arrow keys, Home, End, PageUp, PageDown, F5, or any single character. Modifiers: `--ctrl`, `--shift`, `--alt`. |
-| `sidebar` | `drive sidebar` | The rendered sidebar as a tree: one block per section (General, Pinned, Projects); project rows with label, thread count, collapsed state and the counter pills (`need=`, `run=`); thread rows with title, `*` for active, `[kind/state]` from the row's kind icon and state icon, `[restorable]`; a `(Show N more)` line where a list is folded. Collapsed, the panel reports `(collapsed, rail only)` and lists nothing. |
+| `sidebar` | `drive sidebar` | The rendered sidebar as a tree: one block per section (General, Pinned, Projects); project rows with label, thread count, collapsed state and the counter pills (`need=`, `run=`); thread rows with title, `*` for active, `[kind/state]` from the row's kind icon and state icon, `[x]` when the row's close button is present, `[restorable]`; a `(Show N more)` line where a list is folded. Collapsed, the panel reports `(collapsed, rail only)` and lists nothing. |
 
 The sidebar selectors live in the `SEL` object at the top of `drive.mjs`,
 read from `src/renderer/components/SidePanel/index.tsx` and `SidePanel.css`.

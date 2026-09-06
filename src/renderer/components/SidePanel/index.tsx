@@ -18,7 +18,7 @@ import { buildThreadMenu } from '../../threadMenu';
 import {
   FolderIcon, KindIcon, StateIcon,
   IconHome, IconTerm, IconPanel, IconSearch, IconPlus, IconPage, IconPin,
-  IconBell, IconPlay,
+  IconBell, IconPlay, IconX,
 } from '../Icons';
 // The row order is computed groups-first (see sidebarWalk.ts), so a group with no
 // terminals renders as a normal row instead of vanishing from the list. That walk
@@ -56,11 +56,12 @@ interface ThreadRowProps {
   overlay?: boolean;
   onActivate: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
+  onClose: () => void;
 }
 
 function ThreadRow({
   tab, isActive, inProject, isDragging, isGroupPreview, inert, overlay,
-  onActivate, onContextMenu,
+  onActivate, onContextMenu, onClose,
 }: ThreadRowProps) {
   const off = !!overlay || !!inert;
   const { attributes, listeners, setNodeRef: setDragRef } = useDraggable({ id: tab.id, disabled: off });
@@ -105,6 +106,18 @@ function ThreadRow({
       <KindIcon kind={threadKind(tab)} />
       <span className="n">{displayTitle(tab.title)}</span>
       <StateIcon state={state} />
+      {!overlay && !inert && (
+        <button
+          className="xb"
+          data-tip="Close"
+          tabIndex={-1}
+          onPointerDown={e => e.stopPropagation()}
+          onMouseDown={e => e.stopPropagation()}
+          onClick={e => { e.stopPropagation(); onClose(); }}
+        >
+          <IconX size={14} />
+        </button>
+      )}
     </div>
   );
 }
@@ -490,6 +503,7 @@ export function SidePanel(props: SidePanelProps) {
             inert={inert}
             onActivate={() => onActivate(tab.id)}
             onContextMenu={e => openThreadMenu(e, tab)}
+            onClose={() => onClose(tab.id)}
           />
         ))}
         {showMore && (
@@ -542,8 +556,6 @@ export function SidePanel(props: SidePanelProps) {
     <>
       <div className={`side-panel${collapsed ? ' collapsed' : ''}`}>
         <div className="brand">
-          <span className="name">afterterm</span>
-          <span className="ver">v{window.afterterm.appVersion}</span>
           <span className="ic disabled" aria-disabled="true" data-tip={TIP_HOME}>
             <IconHome size={18} />
           </span>
@@ -556,99 +568,102 @@ export function SidePanel(props: SidePanelProps) {
           </button>
         </div>
 
-        <div className="srow disabled" aria-disabled="true" data-tip={TIP_SEARCH}>
-          <span className="g"><IconSearch size={16} /></span>
-          Search
-          <span className="k">Ctrl Shift P</span>
-        </div>
-
-        <button
-          className="srow"
-          onClick={() => onNewTab()}
-          onContextMenu={openNewThreadShellMenu}
-        >
-          <span className="g"><IconPlus size={16} /></span>
-          New thread
-          <span className="k">Ctrl Shift T</span>
-        </button>
-
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={e => {
-            const id = e.active.id as string;
-            if (id.startsWith('group-drag-')) {
-              setDraggingGroupId(id.replace('group-drag-', ''));
-            } else {
-              setDraggingTabId(id);
-            }
-          }}
-          onDragOver={handleDragOver}
-          onDragEnd={handleDragEnd}
-          onDragCancel={handleDragCancel}
-        >
-          <div className="scroll">
-            {general.length > 0 && (
-              <div className="sec">
-                <div className="lbl">General</div>
-                {renderThreadList(general, 'general', false, false)}
-              </div>
-            )}
-
-            {pinned.length > 0 && (
-              <div className="sec">
-                <div className="lbl">Pinned</div>
-                {pinned.map(entry => renderProject(entry, true))}
-              </div>
-            )}
-
-            <div className="sec">
-              <div className="lbl lblrow">
-                <span>Projects</span>
-                <button
-                  className="ib"
-                  data-tip="New project"
-                  onClick={() => setModal({ mode: 'create' })}
-                >
-                  <IconPlus size={14} />
-                </button>
-              </div>
-              {projects.map(entry => renderProject(entry, false))}
-            </div>
+        <div className="side-body">
+          <div className="srow disabled" aria-disabled="true" data-tip={TIP_SEARCH}>
+            <span className="g"><IconSearch size={16} /></span>
+            Search
+            <span className="k">Ctrl Shift P</span>
           </div>
 
-          <DragOverlay dropAnimation={null}>
-            {draggingTab ? (
-              <ThreadRow
-                tab={draggingTab}
-                isActive={false}
-                inProject={!!(draggingTab.groupId && groupMap.has(draggingTab.groupId))}
-                isDragging={false}
-                isGroupPreview={false}
-                onActivate={() => {}}
-                onContextMenu={() => {}}
-                overlay
-              />
-            ) : draggingGroup ? (
-              <ProjectRow
-                group={draggingGroup}
-                threadCount={tabs.filter(t => t.groupId === draggingGroup.id).length}
-                counts={{ needsYou: 0, running: 0 }}
-                pinned={draggingGroup.pinned}
-                isDragging={false}
-                onToggle={() => {}}
-                onDoubleClick={() => {}}
-                onContextMenu={() => {}}
-                onNewThread={() => {}}
-                isRenaming={false}
-                renameValue=""
-                onRenameChange={() => {}}
-                onRenameCommit={() => {}}
-                overlay
-              />
-            ) : null}
-          </DragOverlay>
-        </DndContext>
+          <button
+            className="srow"
+            onClick={() => onNewTab()}
+            onContextMenu={openNewThreadShellMenu}
+          >
+            <span className="g"><IconPlus size={16} /></span>
+            New thread
+            <span className="k">Ctrl Shift T</span>
+          </button>
+
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={e => {
+              const id = e.active.id as string;
+              if (id.startsWith('group-drag-')) {
+                setDraggingGroupId(id.replace('group-drag-', ''));
+              } else {
+                setDraggingTabId(id);
+              }
+            }}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+            onDragCancel={handleDragCancel}
+          >
+            <div className="scroll">
+              {general.length > 0 && (
+                <div className="sec">
+                  <div className="lbl">General</div>
+                  {renderThreadList(general, 'general', false, false)}
+                </div>
+              )}
+
+              {pinned.length > 0 && (
+                <div className="sec">
+                  <div className="lbl">Pinned</div>
+                  {pinned.map(entry => renderProject(entry, true))}
+                </div>
+              )}
+
+              <div className="sec">
+                <div className="lbl lblrow">
+                  <span>Projects</span>
+                  <button
+                    className="ib"
+                    data-tip="New project"
+                    onClick={() => setModal({ mode: 'create' })}
+                  >
+                    <IconPlus size={14} />
+                  </button>
+                </div>
+                {projects.map(entry => renderProject(entry, false))}
+              </div>
+            </div>
+
+            <DragOverlay dropAnimation={null}>
+              {draggingTab ? (
+                <ThreadRow
+                  tab={draggingTab}
+                  isActive={false}
+                  inProject={!!(draggingTab.groupId && groupMap.has(draggingTab.groupId))}
+                  isDragging={false}
+                  isGroupPreview={false}
+                  onActivate={() => {}}
+                  onContextMenu={() => {}}
+                  onClose={() => {}}
+                  overlay
+                />
+              ) : draggingGroup ? (
+                <ProjectRow
+                  group={draggingGroup}
+                  threadCount={tabs.filter(t => t.groupId === draggingGroup.id).length}
+                  counts={{ needsYou: 0, running: 0 }}
+                  pinned={draggingGroup.pinned}
+                  isDragging={false}
+                  onToggle={() => {}}
+                  onDoubleClick={() => {}}
+                  onContextMenu={() => {}}
+                  onNewThread={() => {}}
+                  isRenaming={false}
+                  renameValue=""
+                  onRenameChange={() => {}}
+                  onRenameCommit={() => {}}
+                  overlay
+                />
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+        </div>
 
         <div className="rail">
           <button className="ic" onClick={onToggleCollapse} data-tip="Open sidebar">

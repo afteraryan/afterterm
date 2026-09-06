@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { SidePanel } from './components/SidePanel';
 import { TerminalArea } from './components/Terminal';
 import { Header } from './components/Header';
+import { TitleBar } from './components/TitleBar';
 import { Tooltip } from './components/Tooltip';
 import { useTabState } from './hooks/useTabState';
 import { TabNotification, GROUP_COLORS } from './components/TabBar/types';
@@ -16,6 +17,13 @@ export function App() {
   const [panelCollapsed, setPanelCollapsed] = useState(false);
   const [shells, setShells] = useState<{ id: string; name: string }[]>([]);
   const [initialized, setInitialized] = useState(false);
+  // Screen-entrance animation class for div.app (Phase 1.1, see index.css and
+  // theme.css). Cleared ~400ms after being set so it never lingers. The
+  // workspace is the only screen today, so this plays once, when the
+  // restored session finishes loading, not on the empty first paint. Phase 2
+  // will set 'enter-home' / 'enter-project' here instead, when it adds
+  // switching between screens.
+  const [enterClass, setEnterClass] = useState('');
 
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -222,61 +230,73 @@ export function App() {
     }
   }, [initialized, state.tabs.length, state.addTab]);
 
+  // Play the workspace's entrance once the restored session has loaded (see
+  // enterClass above).
+  useEffect(() => {
+    if (!initialized) return;
+    setEnterClass('enter-workspace');
+    const timer = setTimeout(() => setEnterClass(''), 400);
+    return () => clearTimeout(timer);
+  }, [initialized]);
+
   const tabInfos = state.tabs.map(t => ({ id: t.id, shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize, claudeSessionId: t.claudeSessionId, claudeCwd: t.claudeCwd }));
 
   const activeTab = state.tabs.find(t => t.id === state.activeTabId);
   const activeGroup = activeTab?.groupId ? state.groups.find(g => g.id === activeTab.groupId) : undefined;
 
   return (
-    <div className="app">
-      <SidePanel
-        tabs={state.tabs}
-        groups={state.groups}
-        activeTabId={state.activeTabId}
-        collapsed={panelCollapsed}
-        shells={shells}
-        onToggleCollapse={() => setPanelCollapsed(p => !p)}
-        onActivate={handleActivate}
-        onClose={state.closeTab}
-        onNewTab={state.addTab}
-        onCreateGroup={(t1, t2) => state.createGroup(t1, t2)}
-        onCreateProjectGroup={(draft, openTerminal) => state.createConfiguredGroup(draft, openTerminal)}
-        onUpdateGroup={state.updateGroup}
-        onAddToGroup={state.addToGroup}
-        onRemoveFromGroup={state.removeFromGroup}
-        onRenameGroup={state.renameGroup}
-        onSetGroupColor={state.setGroupColor}
-        onToggleGroupCollapse={state.toggleGroupCollapse}
-        onDeleteGroup={state.deleteGroup}
-        onMoveTab={state.moveTab}
-        onMoveGroup={state.moveGroup}
-        onMoveGroupAfterGroup={state.moveGroupAfterGroup}
-      />
-
-      <div className="terminal-area">
-        <Header
-          tab={activeTab}
-          group={activeGroup}
+    <div className={`app${enterClass ? ` ${enterClass}` : ''}`}>
+      <TitleBar />
+      <div className="workspace">
+        <SidePanel
+          tabs={state.tabs}
           groups={state.groups}
-          actions={activeTab ? {
-            open: () => state.activateTab(activeTab.id),
-            moveToGroup: (id) => id ? state.addToGroup(activeTab.id, id) : state.removeFromGroup(activeTab.id),
-            close: () => state.closeTab(activeTab.id),
-          } : undefined}
+          activeTabId={state.activeTabId}
+          collapsed={panelCollapsed}
+          shells={shells}
+          onToggleCollapse={() => setPanelCollapsed(p => !p)}
+          onActivate={handleActivate}
+          onClose={state.closeTab}
+          onNewTab={state.addTab}
+          onCreateGroup={(t1, t2) => state.createGroup(t1, t2)}
+          onCreateProjectGroup={(draft, openTerminal) => state.createConfiguredGroup(draft, openTerminal)}
+          onUpdateGroup={state.updateGroup}
+          onAddToGroup={state.addToGroup}
+          onRemoveFromGroup={state.removeFromGroup}
+          onRenameGroup={state.renameGroup}
+          onSetGroupColor={state.setGroupColor}
+          onToggleGroupCollapse={state.toggleGroupCollapse}
+          onDeleteGroup={state.deleteGroup}
+          onMoveTab={state.moveTab}
+          onMoveGroup={state.moveGroup}
+          onMoveGroupAfterGroup={state.moveGroupAfterGroup}
         />
-        {initialized && (
-          <TerminalArea
-            tabs={tabInfos}
-            activeTabId={state.activeTabId}
-            onTitleChange={state.renameTab}
-            onCwdChange={state.updateTabCwd}
-            onNotification={handleNotification}
-            onUserInput={handleUserInput}
-            onOutput={handleOutput}
-            onFontSizeChange={state.setTabFontSize}
-            onExit={handlePtyExit}
+
+        <div className="terminal-area">
+          <Header
+            tab={activeTab}
+            group={activeGroup}
+            groups={state.groups}
+            actions={activeTab ? {
+              open: () => state.activateTab(activeTab.id),
+              moveToGroup: (id) => id ? state.addToGroup(activeTab.id, id) : state.removeFromGroup(activeTab.id),
+              close: () => state.closeTab(activeTab.id),
+            } : undefined}
           />
-        )}
+          {initialized && (
+            <TerminalArea
+              tabs={tabInfos}
+              activeTabId={state.activeTabId}
+              onTitleChange={state.renameTab}
+              onCwdChange={state.updateTabCwd}
+              onNotification={handleNotification}
+              onUserInput={handleUserInput}
+              onOutput={handleOutput}
+              onFontSizeChange={state.setTabFontSize}
+              onExit={handlePtyExit}
+            />
+          )}
+        </div>
       </div>
       <Tooltip />
     </div>

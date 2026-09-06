@@ -1,12 +1,5 @@
 /* Main pane header (Header.tsx). Relies on theme.css tokens: --toprow, --bg,
-   --text, --text3, --fast, plus the shared .ic and .chip classes.
-
-   -webkit-app-region: drag on the whole row lets the window be dragged by
-   the top row, like the sidebar's brand row; the dots button (and the menu
-   it opens) carve themselves out so they stay clickable. The native Windows
-   caption buttons (min/max/close) are overlaid at the top right, about
-   140px wide and 36px tall, so the right padding keeps the dots button
-   clear of them. */
+   --text, --text3, --fast, plus the shared .ic and .chip classes. */
 
 .header {
   height: var(--toprow);
@@ -14,9 +7,8 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 0 150px 0 20px;
+  padding: 0 20px 0 20px;
   background: var(--bg);
-  -webkit-app-region: drag;
 }
 
 .header-title {
@@ -66,7 +58,6 @@
   align-items: center;
   gap: 4px;
   flex: none;
-  -webkit-app-region: no-drag;
 }
 
 .header-chip {

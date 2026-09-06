@@ -2,7 +2,9 @@
    The workspace sidebar of docs/mockups/afterterm-next.html (.side, .brand,
    .srow, .scroll, .sec, .pj, .th, .tlw, .thmore, .rail), against the tokens in
    theme.css. No borders anywhere: the panel separates from the terminal by
-   tone. Collapsed, the panel narrows to the rail and only .rail is shown. */
+   tone. .brand and .rail are direct children of .side-panel; everything else
+   (Search, New thread, the scrolling section list) lives in .side-body.
+   Collapsed, the panel narrows to the rail and only .rail is shown. */
 
 .side-panel {
   display: flex;
@@ -28,8 +30,9 @@
 }
 
 /* ── Brand row ─────────────────────────────────────────────────────────── */
-/* The window's drag region: with the old title bar gone this row is what the
-   user grabs to move the window, so every control inside opts back out. */
+/* The name and version badge moved to the title bar strip above the whole
+   app, and that strip is now the only drag region. This row just holds the
+   Home and Workspace icons and the collapse toggle. */
 
 .side-panel .brand {
   height: var(--toprow);
@@ -39,28 +42,21 @@
   padding: 0 10px 0 14px;
   margin: 0 -8px;
   flex: none;
-  -webkit-app-region: drag;
-}
-
-.side-panel .brand .name {
-  font-weight: 500;
-  color: var(--text);
-}
-
-/* Aryan runs several builds side by side; the version says which one this is. */
-.side-panel .brand .ver {
-  font-size: 10.5px;
-  color: var(--text3);
-  margin-right: 6px;
 }
 
 .side-panel .brand .sp {
   flex: 1;
 }
 
-.side-panel .brand .ic,
-.side-panel .rail .ic {
-  -webkit-app-region: no-drag;
+/* ── Side body ─────────────────────────────────────────────────────────── */
+/* Everything below the brand row and above the rail: Search, New thread and
+   the scrolling section list. */
+
+.side-panel .side-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 /* ── Search and New thread rows ────────────────────────────────────────── */
@@ -264,7 +260,15 @@
   min-width: 0;
   cursor: pointer;
   position: relative;
-  transition: background var(--fast), color var(--fast);
+  transition: background var(--fast), color var(--fast), padding-right var(--fast) var(--ease);
+}
+
+/* Hovering or selecting a row makes room at the right edge for the close
+   button: the port and state icon slide left with the padding, the name is
+   the only flexible element so it truncates instead of being crossed over. */
+.side-panel .th:hover,
+.side-panel .th.sel {
+  padding-right: 36px;
 }
 
 /* A thread with no project sits at the section's own indent. */
@@ -334,6 +338,35 @@
 
 .side-panel .th.dragging {
   opacity: .4;
+}
+
+/* ── Close button on a thread row ──────────────────────────────────────── */
+/* Sits in the padding-right space the row opens on hover or when selected.
+   Does what Close in the menu does; clicking it must not select the row. */
+
+.side-panel .th .xb {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  color: var(--text3);
+  opacity: 0;
+  transition: opacity var(--fast), background var(--fast);
+}
+
+.side-panel .th:hover .xb,
+.side-panel .th.sel .xb {
+  opacity: 1;
+}
+
+.side-panel .th .xb:hover {
+  background: var(--hover2);
+  color: var(--text);
 }
 
 /* ── Show N more ───────────────────────────────────────────────────────── */
