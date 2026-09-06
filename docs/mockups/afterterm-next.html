@@ -231,11 +231,10 @@ svg{display:block;flex:none}
 .ph h1{margin:0;font-size:26px;font-weight:500;display:flex;align-items:center;gap:12px;letter-spacing:-.01em}
 .ph .f{color:var(--text3);margin:6px 0 0;font-size:13px;display:flex;gap:14px;flex-wrap:wrap}
 .ph .f span{display:inline-flex;align-items:center;gap:5px}
-.ph{display:flex;align-items:flex-start;gap:16px}
-.ph .phl{flex:1;min-width:0}
-.ph .phr{display:flex;gap:6px;flex:none;margin-top:2px}
-.ph .acts{display:flex;gap:6px;margin-top:18px;flex-wrap:wrap;align-items:center}
-.ic.lg{width:40px;height:40px;border-radius:12px;background:var(--hover)}
+.ph .phl{min-width:0}
+.ph .acts{display:flex;gap:6px;margin-top:18px;flex-wrap:wrap;align-items:center;width:100%}
+.ph .acts .push{margin-left:auto}
+.ic.lg{width:36px;height:36px;border-radius:12px;background:var(--hover)}
 .ic.lg:hover{background:var(--hover2)}
 .tabs{display:flex;align-items:center;gap:12px}
 .tabs .seg button{padding:5px 14px;font-size:14px}
@@ -284,8 +283,7 @@ svg{display:block;flex:none}
   .home{padding:16px 16px 96px}
   .cards{grid-template-columns:1fr}
   .proj{padding:8px 16px 96px}
-  .ph{flex-wrap:wrap}
-  .ph .phr{order:-1;width:100%}
+  .ph .acts .push{margin-left:0}
   .mh{padding:0 12px}
   .term{margin:0 10px 10px;padding:14px}
   .tabs{flex-wrap:wrap}
@@ -523,7 +521,7 @@ document.addEventListener('click',()=>{hideMenu()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){hideMenu();hideNT()}});
 function projectMenu(id){const p=P(id);
   if(p.archived)return [{label:'Restore',action:()=>archive(id,false)}];
-  return [{label:'Open',action:()=>openWorkspace(id)},{label:'New thread here',action:()=>createThread(id,p.shell)},{label:p.focused?'Unpin':'Pin',action:()=>toggleFocus(id)},{label:'Open project page',action:()=>go('project',id)},{label:`${svg('i-explorer',16)}Open in File Explorer`,action:()=>openIn('explorer',id)},{label:`${svg('i-vscode',16)}Open in VS Code`,action:()=>openIn('vscode',id)},{label:'Edit project',action:()=>openEdit(id)},{label:'Archive',action:()=>archive(id,true)}];
+  return [{label:'Open',action:()=>openWorkspace(id)},{label:'New thread here',action:()=>createThread(id,p.shell)},{label:p.focused?'Unpin':'Pin',action:()=>toggleFocus(id)},{label:'Open project page',action:()=>go('project',id)},{label:`Open in File Explorer<span class="r">${svg('i-explorer',16)}</span>`,action:()=>openIn('explorer',id)},{label:`Open in VS Code<span class="r">${svg('i-vscode',16)}</span>`,action:()=>openIn('vscode',id)},{label:'Edit project',action:()=>openEdit(id)},{label:'Archive',action:()=>archive(id,true)}];
 }
 function threadMenu(id){const t=T(id);const asleep=t.state==='sleeping';
   const move=[{head:'Move to'},{label:'General',action:()=>moveThread(t,null)},...projects.filter(p=>!p.archived&&p.id!==t.p).map(p=>({label:esc(p.name),action:()=>moveThread(t,p.id)}))];
@@ -725,8 +723,7 @@ function renderProject(id){
   el.innerHTML=`<button class="back" data-back>← Home</button>
     <div class="ph"><div class="phl"><h1>${folder(p,true,26)}${esc(p.name)}</h1>
       <p class="f"><span>${esc(p.folder)}</span><span>${svg('i-branch',13)} ${esc(p.branch)}</span><span>${shellName(p.shell)}</span></p>
-      <div class="acts"><button class="b p" data-open="${p.id}">Open</button><button class="b" data-add="${p.id}">New thread</button><button class="b" data-focus="${p.id}">${p.focused?'Unpin':'Pin'}</button><button class="b" data-edit>Edit</button><button class="b q" data-arch>${p.archived?'Restore':'Archive'}</button></div></div>
-      <div class="phr"><button class="ic lg" data-explorer="${p.id}" data-tip="Open in File Explorer">${svg('i-explorer',22)}</button><button class="ic lg" data-vscode="${p.id}" data-tip="Open in VS Code">${svg('i-vscode',22)}</button></div></div>
+      <div class="acts"><button class="b p" data-open="${p.id}">Open</button><button class="b" data-add="${p.id}">New thread</button><button class="b" data-focus="${p.id}">${p.focused?'Unpin':'Pin'}</button><button class="b" data-edit>Edit</button><button class="b q" data-arch>${p.archived?'Restore':'Archive'}</button><button class="ic lg push" data-explorer="${p.id}" data-tip="Open in File Explorer">${svg('i-explorer',20)}</button><button class="ic lg" data-vscode="${p.id}" data-tip="Open in VS Code">${svg('i-vscode',20)}</button></div></div></div>
     <div><div class="tabs"><div class="seg">${[['live','Live',live.length],['sleep','Asleep',sl.length],['hist','History',hist.length]].map(([k,l,n])=>`<button data-tab="${k}" aria-selected="${tab===k}">${l} <span style="opacity:.6">${n}</span></button>`).join('')}</div>
       <label class="srch">${svg('i-search',15)}<input id="hs" placeholder="Search"></label></div>
       <div class="list" id="tlist" style="margin-top:12px"></div></div>`;
