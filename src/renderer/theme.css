@@ -1,0 +1,279 @@
+/* ── afterterm visual system ──────────────────────────────────────────
+   Tokens, fonts and shared classes for the redesign in
+   docs/design-02-projects-and-threads.md ("Visual system"), matching
+   docs/mockups/afterterm-next.html. Loaded before index.css. */
+
+@font-face {
+  font-family: 'Inter';
+  src: url('../../assets/fonts/Inter-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Inter';
+  src: url('../../assets/fonts/Inter-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --need: #fbbf24;
+  --live: #4ade80;
+  --sleep: #a78bfa;
+
+  --bg: #212121;
+  --side: #171717;
+  --hover: #2f2f2f;
+  --hover2: #383838;
+  --raise: #2f2f2f;
+
+  --text: #ececec;
+  --text2: #b4b4b4;
+  --text3: #8e8e8e;
+  --text4: #5c5c5c;
+
+  --btn: #ececec;
+  --btn-text: #0d0d0d;
+
+  --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'Cascadia Code', 'Cascadia Mono', Consolas, monospace;
+
+  --sidebar: 264px;
+  --rail: 56px;
+  --toprow: 56px;
+
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --fast: 140ms;
+  --med: 200ms;
+
+  --radius-surface: 16px;
+  --radius-row: 10px;
+}
+
+/* ── base ──────────────────────────────────────────────────────────── */
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+input {
+  font: inherit;
+  color: inherit;
+}
+
+button:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid rgba(236, 236, 236, .5);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3a3a3a;
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+svg {
+  display: block;
+  flex: none;
+}
+
+/* ── keyframes ─────────────────────────────────────────────────────── */
+
+@keyframes viewin {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes popin {
+  from { opacity: 0; transform: scale(.96) translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes fadein {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: scale(.97) translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes rot {
+  to { transform: rotate(360deg); }
+}
+
+/* ── shared classes ────────────────────────────────────────────────── */
+
+/* .ic: 34px icon button (top rows, headers) */
+.ic {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: var(--text3);
+  flex: none;
+  transition: background var(--fast), color var(--fast);
+}
+.ic:hover { background: var(--hover); color: var(--text); }
+.ic[aria-selected="true"] { background: var(--hover2); color: var(--text); }
+
+/* .ib: 28px icon button (row-level actions) */
+.ib {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  color: var(--text3);
+  flex: none;
+  transition: opacity var(--fast), background var(--fast);
+}
+.ib:hover { background: var(--hover2); color: var(--text); }
+.ib.on { color: var(--text); }
+
+/* .si: inline state icon */
+.si {
+  display: inline-grid;
+  place-items: center;
+  color: var(--text3);
+  flex: none;
+}
+.si.need { color: var(--need); }
+.si.run { color: var(--live); }
+.si.ok { color: var(--live); }
+.si.sleep { color: var(--sleep); }
+
+/* .spin: small loading spinner */
+.spin {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid var(--text3);
+  border-right-color: transparent;
+  animation: rot 1s linear infinite;
+  flex: none;
+  display: inline-block;
+}
+
+/* .sig: counter pill */
+.sig {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px 3px 7px;
+  border-radius: 999px;
+  background: var(--hover2);
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--text2);
+}
+.sig + .sig { margin-left: 4px; }
+
+/* .chip: pill-shaped label */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--hover);
+  color: var(--text2);
+  font-size: 13px;
+  white-space: nowrap;
+  margin-right: 4px;
+}
+
+/* .lbl: section label */
+.lbl {
+  font-size: 13px;
+  color: var(--text3);
+  font-weight: 500;
+  margin: 0 0 8px 12px;
+}
+
+/* .b: pill button, with .p primary, .q quiet, .s small, .big large */
+.b {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--hover);
+  white-space: nowrap;
+  transition: background var(--fast);
+}
+.b:hover { background: var(--hover2); }
+.b.p { background: var(--btn); color: var(--btn-text); }
+.b.p:hover { background: #fff; }
+.b.q { background: transparent; color: var(--text2); }
+.b.q:hover { background: var(--hover); color: var(--text); }
+.b.s { padding: 5px 11px; font-size: 13px; }
+.b.big { padding: 12px 28px; font-size: 15px; }
+
+/* ── tooltip (Tooltip.tsx) ─────────────────────────────────────────── */
+
+.tip {
+  position: fixed;
+  z-index: 110;
+  background: #0d0d0d;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 9px;
+  border-radius: 8px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, 2px);
+  transition: opacity var(--fast), transform var(--fast);
+  white-space: nowrap;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .4);
+}
+.tip.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* ── reduced motion ────────────────────────────────────────────────── */
+/* Broad rule so every animation and transition is off, including classes
+   defined by other components loaded after this file. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

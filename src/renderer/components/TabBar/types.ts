@@ -59,14 +59,14 @@ export type GroupColor =
   | 'yellow';
 
 export const GROUP_COLORS: Record<GroupColor, { bg: string; border: string; text: string }> = {
-  teal:   { bg: 'rgba(32,178,170,0.15)', border: '#20b2aa', text: '#4dd0ca' },
-  blue:   { bg: 'rgba(70,130,220,0.15)', border: '#4682dc', text: '#6ba3f0' },
-  purple: { bg: 'rgba(148,103,189,0.15)', border: '#9467bd', text: '#b48dd4' },
-  orange: { bg: 'rgba(210,140,50,0.15)', border: '#d28c32', text: '#e8a84a' },
-  red:    { bg: 'rgba(200,70,70,0.15)', border: '#c84646', text: '#e07070' },
-  green:  { bg: 'rgba(70,180,100,0.15)', border: '#46b464', text: '#6dd48a' },
-  pink:   { bg: 'rgba(210,80,150,0.15)', border: '#d25096', text: '#e87ab8' },
-  yellow: { bg: 'rgba(200,185,50,0.15)', border: '#c8b932', text: '#e0d050' },
+  teal:   { bg: 'rgba(45,212,191,0.15)', border: '#2dd4bf', text: '#2dd4bf' },
+  blue:   { bg: 'rgba(96,165,250,0.15)', border: '#60a5fa', text: '#60a5fa' },
+  purple: { bg: 'rgba(167,139,250,0.15)', border: '#a78bfa', text: '#a78bfa' },
+  orange: { bg: 'rgba(251,146,60,0.15)', border: '#fb923c', text: '#fb923c' },
+  red:    { bg: 'rgba(248,113,113,0.15)', border: '#f87171', text: '#f87171' },
+  green:  { bg: 'rgba(74,222,128,0.15)', border: '#4ade80', text: '#4ade80' },
+  pink:   { bg: 'rgba(244,114,182,0.15)', border: '#f472b6', text: '#f472b6' },
+  yellow: { bg: 'rgba(250,204,21,0.15)', border: '#facc15', text: '#facc15' },
 };
 
 export const COLOR_CYCLE: GroupColor[] = [
@@ -80,7 +80,7 @@ export function nextGroupColor(existing: { color: GroupColor }[]): GroupColor {
   return COLOR_CYCLE.find(c => !used.includes(c)) ?? COLOR_CYCLE[existing.length % COLOR_CYCLE.length];
 }
 
-// Last segment of a Windows or POSIX path — the natural default name for a project
+// Last segment of a Windows or POSIX path, the natural default name for a project
 // group ("D:\Pitara\aftertales" → "aftertales").
 export function pathBasename(p: string): string {
   const parts = p.split(/[\\/]/).filter(Boolean);

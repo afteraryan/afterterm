@@ -10,105 +10,19 @@ html, body, #root {
   overflow: hidden;
 }
 
-body {
-  background: #141414;
-  color: #e0e0e0;
-  font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
-  -webkit-font-smoothing: antialiased;
-}
-
 .app {
   display: flex;
-  flex-direction: row;
   height: 100vh;
   width: 100vw;
   overflow: hidden;
-  padding-top: 36px;
-}
-
-/* ─── Titlebar drag region ─────────────────────────────────────────────────── */
-
-.titlebar-drag {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 36px;
-  -webkit-app-region: drag;
-  z-index: 50;
-  background: #1a1a1a;
-  display: flex;
-  align-items: center;
-}
-
-/* afterterm icon + name + version, top-left (Windows app branding convention) */
-.titlebar-brand {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding-left: 10px;
-  user-select: none;
-}
-
-.titlebar-logo {
-  width: 18px;
-  height: 18px;
-  display: block;
-  -webkit-user-drag: none;
-  /* The app icon is dark-on-dark (same #1a1a1a as the titlebar), so it vanishes
-     into the bar. Brightness lifts the frame to a soft gray and makes the colored
-     dots / prompt read — no chip, no border edge. */
-  filter: brightness(1.7);
-}
-
-.titlebar-name {
-  font-size: 12px;
-  font-weight: 600;
-  color: #d6d6d6;
-  letter-spacing: 0.2px;
-}
-
-.titlebar-version {
-  font-size: 10.5px;
-  line-height: 1;
-  color: #9a9a9a;
-  background: rgba(255, 255, 255, 0.07);
-  padding: 2px 6px;
-  border-radius: 999px;
 }
 
 .terminal-area {
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  background: #141414;
-  position: relative;
-}
-
-/* Re-open button when panel is collapsed */
-.panel-reopen-btn {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  z-index: 10;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #222;
-  border: 1px solid #333;
-  border-radius: 5px;
-  color: #666;
-  font-size: 15px;
-  cursor: pointer;
-  transition: background 0.1s, color 0.1s;
-}
-
-.panel-reopen-btn:hover {
-  background: #2a2a2a;
-  color: #aaa;
+  min-width: 0;
+  background: var(--bg);
 }
 
 /* ─── Terminal instances container ──────────────────────────────────────────── */
@@ -156,7 +70,7 @@ body {
 }
 
 /* ─── Find bar ───────────────────────────────────────────────────────────────
-   Floating, top-right of the terminal area — like conhost's Find dialog. Searches
+   Floating, top-right of the terminal area, like conhost's Find dialog. Searches
    only the active tab's scrollback. */
 
 .find-bar {
@@ -167,34 +81,32 @@ body {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 5px 6px;
-  background: #1e1e1e;
-  border: 1px solid #383838;
-  border-radius: 7px;
+  padding: 6px 8px;
+  background: var(--hover);
+  border-radius: 12px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
 }
 
 .find-input {
   width: 180px;
-  background: #141414;
-  border: 1px solid #333;
-  border-radius: 4px;
-  color: #e0e0e0;
+  background: var(--side);
+  border-radius: 8px;
+  color: var(--text);
   font-family: inherit;
   font-size: 12px;
-  padding: 4px 7px;
+  padding: 5px 9px;
   outline: none;
 }
 
 .find-input:focus {
-  border-color: #4682dc;
+  box-shadow: 0 0 0 2px rgba(236, 236, 236, .25);
 }
 
 .find-count {
   min-width: 38px;
   text-align: center;
   font-size: 11px;
-  color: #888;
+  color: var(--text3);
   font-variant-numeric: tabular-nums;
 }
 
@@ -205,15 +117,14 @@ body {
   align-items: center;
   justify-content: center;
   background: transparent;
-  border: none;
-  border-radius: 4px;
-  color: #aaa;
+  border-radius: 6px;
+  color: var(--text2);
   font-size: 13px;
   cursor: pointer;
   transition: background 0.1s, color 0.1s;
 }
 
 .find-btn:hover {
-  background: #2c2c2c;
-  color: #fff;
+  background: var(--hover2);
+  color: var(--text);
 }
