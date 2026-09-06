@@ -30,7 +30,7 @@ Never close the running afterterm. A dev build runs beside it. A copied `session
 
 | Phase | What it delivers | Backend work | Status |
 |---|---|---|---|
-| 0 | Data model and naming | small | pending |
+| 0 | Data model and naming | small | in progress |
 | 1 | Visual system and sidebar | none | pending |
 | 2 | Home, pin, archive, project page | small | pending |
 | 3 | Thread identity: chat titles, branch, worktree, timestamps | medium | pending |
@@ -162,3 +162,4 @@ Things we know we want and have not placed.
 ## Log
 
 - 2026-09-06: design agreed, plan written, working agreement recorded. No phase started.
+- 2026-09-06: Phase 0 started by an orchestrator session on branch `worktree-projects-and-threads-plan`. Split into four pieces: types and migration, sidebar walk, agent harness, tests.
