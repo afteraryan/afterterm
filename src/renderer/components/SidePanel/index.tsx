@@ -15,6 +15,9 @@ import {
   Tab, Group, GroupColor, GROUP_COLORS, COLOR_CYCLE, TabNotification, nextGroupColor, shortenPath,
 } from '../TabBar/types';
 import { GroupModal, GroupDraft } from '../GroupModal';
+// The row order is computed groups-first (see sidebarWalk.ts), so a group with no
+// terminals renders as a normal section instead of vanishing from the list.
+import { computeSegments } from '../../sidebarWalk';
 import './SidePanel.css';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -412,8 +415,11 @@ function ShelfRow({ group, shells, dropDisabled, onOpen, onOpenWithShell, onCont
   const [showShellMenu, setShowShellMenu] = useState(false);
   const shellMenuRef = useRef<HTMLDivElement>(null);
   // Dropping a tab here joins the group (handleDragEnd's group-drop- branch), which
-  // is the other way a shelved project comes back to life.
-  const { setNodeRef, isOver } = useDroppable({ id: `group-drop-${group.id}`, disabled: dropDisabled });
+  // is the other way a shelved project comes back to life. The id must differ from
+  // the group header's `group-drop-` id: the same empty group now also renders a
+  // header in the list above, and dnd-kit keys droppables by id, so a shared id
+  // would let this row silently replace the header as the drop target.
+  const { setNodeRef, isOver } = useDroppable({ id: `shelf-drop-${group.id}`, disabled: dropDisabled });
 
   useEffect(() => {
     if (!showShellMenu) return;
@@ -473,33 +479,6 @@ function ShelfRow({ group, shells, dropDisabled, onOpen, onOpenWithShell, onCont
       </div>
     </div>
   );
-}
-
-// ─── Segment helpers ───────────────────────────────────────────────────────────
-
-type Segment =
-  | { type: 'tab'; tab: Tab }
-  | { type: 'group'; group: Group; tabs: Tab[] };
-
-function computeSegments(tabs: Tab[], groups: Group[]): Segment[] {
-  const segments: Segment[] = [];
-  const groupMap = new Map(groups.map(g => [g.id, g]));
-  let i = 0;
-  while (i < tabs.length) {
-    const tab = tabs[i];
-    if (tab.groupId && groupMap.has(tab.groupId)) {
-      const group = groupMap.get(tab.groupId)!;
-      const groupTabs: Tab[] = [];
-      while (i < tabs.length && tabs[i].groupId === tab.groupId) {
-        groupTabs.push(tabs[i++]);
-      }
-      segments.push({ type: 'group', group, tabs: groupTabs });
-    } else {
-      segments.push({ type: 'tab', tab });
-      i++;
-    }
-  }
-  return segments;
 }
 
 // ─── Main SidePanel ────────────────────────────────────────────────────────────
@@ -647,9 +626,11 @@ export function SidePanel(props: SidePanelProps) {
       // else fall through to a positional move
     }
 
-    // Dropped on a group header → land at the top of that group (joining it).
-    if (overId.startsWith('group-drop-') || overId.startsWith('group-drag-')) {
-      const targetGroupId = overId.replace('group-drop-', '').replace('group-drag-', '');
+    // Dropped on a group header (or its shelf row) → land at the top of that group
+    // (joining it). A group with no tabs has no anchor to move before, so the tab is
+    // added to the group outright and useTabState places it at the end of the list.
+    if (overId.startsWith('group-drop-') || overId.startsWith('group-drag-') || overId.startsWith('shelf-drop-')) {
+      const targetGroupId = overId.replace(/^(group-drop-|group-drag-|shelf-drop-)/, '');
       const firstInGroup = tabs.find(t => t.groupId === targetGroupId);
       if (firstInGroup && firstInGroup.id !== activeId) {
         onMoveTab(activeId, firstInGroup.id, 'before');

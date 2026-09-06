@@ -18,6 +18,15 @@ export interface Tab {
   // hasn't been resumed yet this launch. Drives the muted ✳ "click to restore"
   // marker in the sidebar; cleared once the tab is activated/resumed.
   claudeRestorable?: boolean;
+  // Last time the user activated this tab (ms since epoch). Required, not optional,
+  // so every creation site has to set it: a missing timestamp would sort a thread
+  // as "never used" and hide it behind "Show more". Persisted in session.json.
+  // Phase 2 will also stamp it on PTY input and output.
+  lastActiveAt: number;
+  // Persisted, but nothing sets it true yet: sleep and wake arrive in Phase 4. It
+  // is in the model now so a session.json written today already carries the flag
+  // and Phase 4 needs no second migration.
+  asleep: boolean;
 }
 
 export interface Group {
@@ -29,6 +38,14 @@ export interface Group {
   // Default shell for terminals opened in this group (falls back to the app default
   // when unset). Set in the group modal; persisted in session.json.
   shellId?: string;
+  // Intent flags for the Home screen (Phase 2). Both are user actions only: nothing
+  // pins or archives a project automatically, so process state never overrides what
+  // the user chose. Required so creation sites cannot forget them; persisted.
+  pinned: boolean;
+  archived: boolean;
+  // Last time one of this group's tabs was activated (ms since epoch). Orders the
+  // Projects list on Home and in the sidebar. Persisted in session.json.
+  lastActiveAt: number;
 }
 
 export type GroupColor =

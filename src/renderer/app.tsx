@@ -4,6 +4,7 @@ import { TerminalArea } from './components/Terminal';
 import { useTabState } from './hooks/useTabState';
 import { TabNotification } from './components/TabBar/types';
 import { onTitle, onOutput, onTick, onInterrupt, initTiming, TabTiming } from './spinnerState';
+import { migrateSession, serializeSession } from './sessionMigration';
 import logoUrl from '../../assets/icon-256.png';
 
 let toastCounter = 0;
@@ -46,8 +47,11 @@ export function App() {
       window.afterterm.session.load(),
     ]).then(([shellList, saved]) => {
       setShells(shellList);
-      if (saved && saved.tabs?.length > 0) {
-        state.restoreSession(saved);
+      // The file may predate the current format (0.8.1 wrote no version field and
+      // none of the project/thread fields); migrate fills defaults or rejects it.
+      const session = migrateSession(saved, Date.now());
+      if (session && session.tabs.length > 0) {
+        state.restoreSession(session);
       } else {
         state.addTab();
       }
@@ -59,15 +63,7 @@ export function App() {
   useEffect(() => {
     if (!initialized || state.tabs.length === 0) return;
     const timer = setTimeout(() => {
-      const data = {
-        tabs: state.tabs.map(t => ({
-          id: t.id, title: t.title, groupId: t.groupId,
-          shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize,
-          claudeSessionId: t.claudeSessionId, claudeCwd: t.claudeCwd,
-        })),
-        groups: state.groups,
-        activeTabId: state.activeTabId,
-      };
+      const data = serializeSession(state.tabs, state.groups, state.activeTabId);
       window.afterterm.session.save(JSON.stringify(data));
     }, 2000);
     return () => clearTimeout(timer);
@@ -125,7 +121,10 @@ export function App() {
       window.afterterm.notify.dismissTab(tabId);
       return;
     }
-    state.setActiveTabId(tabId);
+    // activateTab (not setActiveTabId) so the tab and its group get a lastActiveAt
+    // stamp: this is the user choosing the tab, which is the only thing that should
+    // count as "used" until Phase 2 adds PTY activity.
+    state.activateTab(tabId);
     // Activating a restorable tab is what resumes its Claude session (the Terminal's
     // activeTab effect injects `claude --resume`), so drop the muted ✳ marker now.
     state.clearTabRestorable(tabId);
@@ -136,7 +135,7 @@ export function App() {
       state.setTabNotification(tabId, undefined);
     }
     window.afterterm.notify.dismissTab(tabId);
-  }, [state.setActiveTabId, state.setTabNotification, state.clearTabRestorable]);
+  }, [state.activateTab, state.setTabNotification, state.clearTabRestorable]);
 
   const handleNotification = useCallback((tabId: string, type: TabNotification | undefined, projectName: string) => {
     // Route the title through the spinner state machine. An undecorated title (type
@@ -214,14 +213,7 @@ export function App() {
     const flush = () => {
       const s = stateRef.current;
       if (!s.tabs.length) return;
-      const data = {
-        tabs: s.tabs.map(t => ({
-          id: t.id, title: t.title, groupId: t.groupId, shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize,
-          claudeSessionId: t.claudeSessionId, claudeCwd: t.claudeCwd,
-        })),
-        groups: s.groups,
-        activeTabId: s.activeTabId,
-      };
+      const data = serializeSession(s.tabs, s.groups, s.activeTabId);
       window.afterterm.session.saveSync(JSON.stringify(data));
     };
     window.addEventListener('beforeunload', flush);

@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Tab, Group, GroupColor, nextGroupColor, TabNotification } from '../components/TabBar/types';
+import type { SavedSession } from '../sessionMigration';
 
 // Everything the group modal can set. A group with no tabs is a valid, persisted
 // state (it sits in the sidebar's Projects shelf), so creation no longer needs a tab.
@@ -21,12 +22,21 @@ export function useTabState() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [activeTabId, setActiveTabId] = useState<string>('');
 
+  // Mirror of `tabs` for callbacks that must stay closure-safe: app.tsx registers
+  // some handlers once (shortcuts, toast clicks) and they keep the first render's
+  // callback, so a callback that read `tabs` directly would see an empty list.
+  const tabsRef = useRef(tabs);
+  tabsRef.current = tabs;
+
   const addTab = useCallback((groupId?: string, shellId?: string) => {
     const id = makeTabId();
     // A terminal opened inside a group starts in the project folder and, unless the
     // shell picker overrode it, uses the group's default shell.
     const group = groupId ? groups.find(g => g.id === groupId) : undefined;
-    const newTab: Tab = { id, title: 'Terminal', groupId, shellId: shellId ?? group?.shellId, cwd: group?.cwd };
+    const newTab: Tab = {
+      id, title: 'Terminal', groupId, shellId: shellId ?? group?.shellId, cwd: group?.cwd,
+      lastActiveAt: Date.now(), asleep: false,
+    };
     setTabs(prev => {
       if (groupId) {
         const lastIdx = prev.map(t => t.groupId).lastIndexOf(groupId);
@@ -92,11 +102,15 @@ export function useTabState() {
   // isn't in `groups` yet this render, so addTab couldn't read its cwd/shell.
   const createConfiguredGroup = useCallback((config: GroupConfig, openTerminal: boolean): string => {
     const id = makeGroupId();
-    setGroups(prev => [...prev, { id, collapsed: false, ...config }]);
+    const now = Date.now();
+    setGroups(prev => [...prev, {
+      id, collapsed: false, pinned: false, archived: false, lastActiveAt: now, ...config,
+    }]);
     if (openTerminal) {
       const tabId = makeTabId();
       setTabs(prev => [...prev, {
         id: tabId, title: 'Terminal', groupId: id, shellId: config.shellId, cwd: config.cwd,
+        lastActiveAt: now, asleep: false,
       }]);
       setActiveTabId(tabId);
     }
@@ -106,7 +120,10 @@ export function useTabState() {
   const createGroup = useCallback((tabId1: string, tabId2?: string): string => {
     const id = makeGroupId();
     const color = nextGroupColor(groups);
-    const newGroup: Group = { id, label: 'New Group', color, collapsed: false };
+    const newGroup: Group = {
+      id, label: 'New Group', color, collapsed: false,
+      pinned: false, archived: false, lastActiveAt: Date.now(),
+    };
     setGroups(prev => [...prev, newGroup]);
     setTabs(prev => {
       if (!tabId2 || tabId2 === tabId1) {
@@ -134,6 +151,10 @@ export function useTabState() {
       const tab = next.find(t => t.id === tabId)!;
       const withoutTab = next.filter(t => t.id !== tabId);
       const lastGroupIdx = withoutTab.map(t => t.groupId).lastIndexOf(groupId);
+      // A group with no tabs yet has no block to extend, so the tab goes to the end
+      // of the list: that is where the sidebar walk already draws an empty group, so
+      // the group stays put instead of jumping to the top.
+      if (lastGroupIdx === -1) return [...withoutTab, tab];
       withoutTab.splice(lastGroupIdx + 1, 0, tab);
       return withoutTab;
     });
@@ -211,7 +232,22 @@ export function useTabState() {
     });
   }, []);
 
-  const restoreSession = useCallback((saved: { tabs: Tab[]; groups: Group[]; activeTabId: string }) => {
+  // User-driven activation: focus the tab and record the moment on it and on its
+  // group. Only the user's own switching counts here; PTY input and output stamping
+  // is Phase 2, so an unattended background process cannot look "recently used".
+  const activateTab = useCallback((tabId: string) => {
+    const now = Date.now();
+    setActiveTabId(tabId);
+    setTabs(prev => prev.map(t => t.id === tabId ? { ...t, lastActiveAt: now } : t));
+    const groupId = tabsRef.current.find(t => t.id === tabId)?.groupId;
+    if (groupId) {
+      setGroups(prev => prev.map(g => g.id === groupId ? { ...g, lastActiveAt: now } : g));
+    }
+  }, []);
+
+  // `saved` has already been through migrateSession, so every field is present and
+  // well typed; nothing here needs to guess at defaults.
+  const restoreSession = useCallback((saved: SavedSession) => {
     // Reset counters to avoid ID collisions
     const maxTabNum = saved.tabs.reduce((max, t) => {
       const num = parseInt(t.id.replace('tab-', ''), 10);
@@ -237,7 +273,7 @@ export function useTabState() {
 
   return {
     tabs, groups, activeTabId,
-    setActiveTabId,
+    setActiveTabId, activateTab,
     addTab, closeTab, renameTab, updateTabCwd, setClaudeSession, clearTabRestorable, setTabNotification, setTabFontSize,
     createGroup, createConfiguredGroup, addToGroup, removeFromGroup,
     renameGroup, setGroupColor, updateGroup, toggleGroupCollapse, deleteGroup,
