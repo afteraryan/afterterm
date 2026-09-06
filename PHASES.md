@@ -56,6 +56,7 @@ Small backend: `lastActiveAt` stamped on PTY input and output, and a stored "las
 - [ ] Pin and unpin from cards, rows, sidebar, right-click and the project page. Archive and Restore.
 - [ ] Clicking a card or row opens the workspace on that project. The project page opens only from its icon or the menu.
 - [ ] Project page: header, Open, New thread, Pin, Edit, Archive; Live and Asleep tabs; History tab present but empty until Phase 4; search over the lists.
+- [ ] Open in File Explorer and Open in VS Code: logo buttons on the project page and entries in every project right-click menu. Main process: `explorer.exe <folder>`; VS Code found at startup like shells are (`code` on PATH, standard install folders, Insiders), `editorPath` in `prefs.json` as an override. Hide the VS Code action when nothing is found.
 - [ ] New thread chooser with project filter and shell dropdown (all five shells); + on a project row creates directly; `Ctrl+Shift+T` opens the chooser.
 - [ ] Search palette (`Ctrl+K`) over projects and threads. History entries join in Phase 4.
 - [ ] Decide and build what sits under the date (see Open decisions in the design doc).

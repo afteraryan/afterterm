@@ -64,7 +64,7 @@ A full screen, no sidebar. Top-left: "afterterm" with two icons beside it, Home 
 
 Counter pills: one pill per state worth counting, each with its icon and a number: bell 1, play 2. Nothing at zero.
 
-Clicking a card or row opens the workspace on that project. The project page opens only deliberately: the folder-with-chevron icon on hover at the right edge, or right-click. Pin is an icon on every card and row (filled when pinned). Right-click on a card or row: Open, Pin or Unpin, Open project page, Edit project, Archive.
+Clicking a card or row opens the workspace on that project. The project page opens only deliberately: the folder-with-chevron icon on hover at the right edge, or right-click. Pin is an icon on every card and row (filled when pinned). Right-click on a card or row: Open, Pin or Unpin, Open project page, Open in File Explorer, Open in VS Code, Edit project, Archive.
 
 ### Workspace
 
@@ -88,7 +88,11 @@ Two columns of equal top-row height (56px).
 
 ### Project page
 
-Reached only through the project page icon or the right-click menu. Brand row on top. Then: folder icon and name, a line with folder path, branch and default shell, buttons Open, New thread, Pin or Unpin, Edit, Archive. Then three tabs, Live, Asleep, History, with a search box. History rows have Resume. No text box.
+Reached only through the project page icon or the right-click menu. Brand row on top. Then: folder icon and name, a line with folder path, branch and default shell, buttons Open, New thread, Pin or Unpin, Edit, Archive, and at the right of that row two logo buttons: **Open in File Explorer** and **Open in VS Code** (real product logos, tooltip on hover). Then three tabs, Live, Asleep, History, with a search box. History rows have Resume. No text box.
+
+The same two actions sit in every project right-click menu (Home cards and rows, sidebar rows), with their logos.
+
+**Open in File Explorer** runs `explorer.exe <folder>`. **Open in VS Code** runs `code <folder>` (or the `Code.exe` path found at startup). afterterm detects VS Code the way it detects shells: `code` on PATH, then the standard install folders (`%LOCALAPPDATA%\Programs\Microsoft VS Code`, `%ProgramFiles%\Microsoft VS Code`), plus Insiders. When nothing is found the VS Code button and menu item are **hidden**, not greyed out; File Explorer is always there. A manual path in `prefs.json` (`editorPath`) overrides detection, which also covers forks like Cursor or Windsurf for people who use those.
 
 ### New thread chooser
 
@@ -120,6 +124,7 @@ The sidebar is built by walking **projects**, not tabs. This inversion is the re
 - Sidebar structure, collapse rail, 5-thread fold, kind icons (chat = captured session id).
 - Header with title and state chip; ⋯ and right-click menus; Move to project (today's group move); Close.
 - Pin and archive flags; Home screen; project page Live and Asleep tabs; new thread chooser; Edit project dialog (exists); search palette over projects and threads.
+- Open in File Explorer and Open in VS Code: a small main-process launcher plus VS Code detection at startup, alongside shell detection.
 
 **Needs the main process**
 

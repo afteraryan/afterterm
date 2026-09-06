@@ -231,7 +231,10 @@ svg{display:block;flex:none}
 .ph h1{margin:0;font-size:26px;font-weight:500;display:flex;align-items:center;gap:12px;letter-spacing:-.01em}
 .ph .f{color:var(--text3);margin:6px 0 0;font-size:13px;display:flex;gap:14px;flex-wrap:wrap}
 .ph .f span{display:inline-flex;align-items:center;gap:5px}
-.ph .acts{display:flex;gap:6px;margin-top:18px;flex-wrap:wrap}
+.ph .acts{display:flex;gap:6px;margin-top:18px;flex-wrap:wrap;align-items:center}
+.ph .acts .sp{flex:1}
+.ic.lg{width:38px;height:38px;border-radius:12px;background:var(--hover)}
+.ic.lg:hover{background:var(--hover2)}
 .tabs{display:flex;align-items:center;gap:12px}
 .tabs .seg button{padding:5px 14px;font-size:14px}
 .srch{margin-left:auto;display:flex;align-items:center;gap:8px;background:var(--side);border-radius:999px;padding:6px 14px;color:var(--text3)}
@@ -311,6 +314,8 @@ svg{display:block;flex:none}
   <symbol id="i-play" viewBox="0 0 24 24"><path d="M8.5 5.9c0-1.1 1.2-1.8 2.1-1.2l8.4 5.9c.9.6.9 1.9 0 2.5l-8.4 5.9c-.9.6-2.1 0-2.1-1.2z" fill="currentColor"/></symbol>
   <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7z" fill="currentColor"/></symbol>
   <symbol id="i-model" viewBox="0 0 24 24"><path d="M12 3.5c.6 3.8 2.7 5.9 6.5 6.5-3.8.6-5.9 2.7-6.5 6.5-.6-3.8-2.7-5.9-6.5-6.5 3.8-.6 5.9-2.7 6.5-6.5zM18.5 14.5c.3 1.7 1.2 2.6 2.9 2.9-1.7.3-2.6 1.2-2.9 2.9-.3-1.7-1.2-2.6-2.9-2.9 1.7-.3 2.6-1.2 2.9-2.9z" fill="currentColor"/></symbol>
+  <symbol id="i-explorer" viewBox="0 0 24 24"><path d="M2 6.5A2 2 0 0 1 4 4.5h5.2l2 2H20a2 2 0 0 1 2 2V10H2z" fill="#D99A00"/><path d="M2 10h20v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z" fill="#FFCA3A"/><path d="M2 10h20v1.5H2z" fill="#FFE08A"/></symbol>
+  <symbol id="i-vscode" viewBox="0 0 24 24"><path d="M17.3 2.2 21.6 4.3a1 1 0 0 1 .6.9v13.6a1 1 0 0 1-.6.9l-4.3 2.1a1 1 0 0 1-1.1-.2L7.5 13.5l-3.6 2.8a.7.7 0 0 1-.9 0l-1.2-1.1a.7.7 0 0 1 0-1L4.9 12 1.8 9.8a.7.7 0 0 1 0-1L3 7.7a.7.7 0 0 1 .9 0l3.6 2.8 8.7-8.1a1 1 0 0 1 1.1-.2z" fill="#2F8FE0"/><path d="M17.2 6.7 10.7 12l6.5 5.3z" fill="#1E6FB8"/><path d="M17.2 6.7v10.6L21 19V5z" fill="#3DA3F5"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
   <symbol id="i-folder" viewBox="0 0 24 24"><path d="M2.5 7A2 2 0 0 1 4.5 5h4.6l2 2h8.4a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2z" fill="currentColor"/><path d="M2.5 9.5h19" stroke="rgba(0,0,0,.28)" stroke-width="1.2"/></symbol>
   <symbol id="i-folder-open" viewBox="0 0 24 24"><path d="M2.5 7A2 2 0 0 1 4.5 5h4.6l2 2h7.4a2 2 0 0 1 2 2v1.5H6.6a2 2 0 0 0-1.9 1.4L2.5 17z" fill="currentColor" fill-opacity=".72"/><path d="M2.6 18.2 5 11.9a1.5 1.5 0 0 1 1.4-1H22l-2.7 7.1a2 2 0 0 1-1.9 1.3H4.3a1.8 1.8 0 0 1-1.7-2.1z" fill="currentColor"/></symbol>
@@ -476,6 +481,7 @@ document.querySelectorAll('[data-search]').forEach(b=>b.onclick=openPal);
 document.querySelectorAll('[data-newthread]').forEach(b=>b.onclick=e=>openNT(e.currentTarget));
 function rerender(){view==='home'?renderHome():view==='work'?renderWork():renderProject(currentProj)}
 function toggleFocus(id){const p=P(id);p.focused=!p.focused;toast(p.focused?`Pinned ${p.name}`:`Unpinned ${p.name}`);rerender()}
+function openIn(app,id){const p=P(id);toast(app==='vscode'?`Opening ${p.name} in VS Code`:`Opening ${p.folder} in File Explorer`)}
 function archive(id,on){const p=P(id);p.archived=on;if(on)p.focused=false;toast(on?`Archived ${p.name}`:`Restored ${p.name}`);rerender()}
 function openWorkspace(id){collapsed[id]=false;drawerOpen[id]=true;const f=liveOf(id)[0]||threads.find(t=>t.p===id);if(f)selected=f.id;go('work')}
 function selectThread(id){selected=id;const t=T(id);if(t&&t.p){collapsed[t.p]=false;drawerOpen[t.p]=true}if(t&&t.state==='done')t.state='idle'}
@@ -484,6 +490,8 @@ function bind(root){
   root.querySelectorAll('[data-open]').forEach(b=>b.onclick=e=>{e.stopPropagation();openWorkspace(b.dataset.open)});
   root.querySelectorAll('[data-focus]').forEach(b=>b.onclick=e=>{e.stopPropagation();toggleFocus(b.dataset.focus)});
   root.querySelectorAll('[data-unarch]').forEach(b=>b.onclick=e=>{e.stopPropagation();archive(b.dataset.unarch,false)});
+  root.querySelectorAll('[data-explorer]').forEach(b=>b.onclick=e=>{e.stopPropagation();openIn('explorer',b.dataset.explorer)});
+  root.querySelectorAll('[data-vscode]').forEach(b=>b.onclick=e=>{e.stopPropagation();openIn('vscode',b.dataset.vscode)});
   root.querySelectorAll('[data-add]').forEach(b=>b.onclick=e=>{e.stopPropagation();createThread(b.dataset.add,P(b.dataset.add).shell)});
   root.querySelectorAll('[data-pctx]').forEach(el=>el.oncontextmenu=e=>{e.preventDefault();showMenu(e.clientX,e.clientY,projectMenu(el.dataset.pctx))});
   root.querySelectorAll('[data-tctx]').forEach(el=>el.oncontextmenu=e=>{e.preventDefault();showMenu(e.clientX,e.clientY,threadMenu(el.dataset.tctx))});
@@ -511,7 +519,7 @@ document.addEventListener('click',()=>{hideMenu()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){hideMenu();hideNT()}});
 function projectMenu(id){const p=P(id);
   if(p.archived)return [{label:'Restore',action:()=>archive(id,false)}];
-  return [{label:'Open',action:()=>openWorkspace(id)},{label:'New thread here',action:()=>createThread(id,p.shell)},{label:p.focused?'Unpin':'Pin',action:()=>toggleFocus(id)},{label:'Open project page',action:()=>go('project',id)},{label:'Edit project',action:()=>openEdit(id)},{label:'Archive',action:()=>archive(id,true)}];
+  return [{label:'Open',action:()=>openWorkspace(id)},{label:'New thread here',action:()=>createThread(id,p.shell)},{label:p.focused?'Unpin':'Pin',action:()=>toggleFocus(id)},{label:'Open project page',action:()=>go('project',id)},{label:`${svg('i-explorer',16)}Open in File Explorer`,action:()=>openIn('explorer',id)},{label:`${svg('i-vscode',16)}Open in VS Code`,action:()=>openIn('vscode',id)},{label:'Edit project',action:()=>openEdit(id)},{label:'Archive',action:()=>archive(id,true)}];
 }
 function threadMenu(id){const t=T(id);const asleep=t.state==='sleeping';
   const move=[{head:'Move to'},{label:'General',action:()=>moveThread(t,null)},...projects.filter(p=>!p.archived&&p.id!==t.p).map(p=>({label:esc(p.name),action:()=>moveThread(t,p.id)}))];
@@ -713,7 +721,7 @@ function renderProject(id){
   el.innerHTML=`<button class="back" data-back>← Home</button>
     <div class="ph"><h1>${folder(p,true,26)}${esc(p.name)}</h1>
       <p class="f"><span>${esc(p.folder)}</span><span>${svg('i-branch',13)} ${esc(p.branch)}</span><span>${shellName(p.shell)}</span></p>
-      <div class="acts"><button class="b p" data-open="${p.id}">Open</button><button class="b" data-add="${p.id}">New thread</button><button class="b" data-focus="${p.id}">${p.focused?'Unpin':'Pin'}</button><button class="b" data-edit>Edit</button><button class="b q" data-arch>${p.archived?'Restore':'Archive'}</button></div></div>
+      <div class="acts"><button class="b p" data-open="${p.id}">Open</button><button class="b" data-add="${p.id}">New thread</button><button class="b" data-focus="${p.id}">${p.focused?'Unpin':'Pin'}</button><button class="b" data-edit>Edit</button><button class="b q" data-arch>${p.archived?'Restore':'Archive'}</button><span class="sp"></span><button class="ic lg" data-explorer="${p.id}" data-tip="Open in File Explorer">${svg('i-explorer',20)}</button><button class="ic lg" data-vscode="${p.id}" data-tip="Open in VS Code">${svg('i-vscode',20)}</button></div></div>
     <div><div class="tabs"><div class="seg">${[['live','Live',live.length],['sleep','Asleep',sl.length],['hist','History',hist.length]].map(([k,l,n])=>`<button data-tab="${k}" aria-selected="${tab===k}">${l} <span style="opacity:.6">${n}</span></button>`).join('')}</div>
       <label class="srch">${svg('i-search',15)}<input id="hs" placeholder="Search"></label></div>
       <div class="list" id="tlist" style="margin-top:12px"></div></div>`;
