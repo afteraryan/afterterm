@@ -133,7 +133,7 @@ New thread and Ctrl Shift T open a popover: "New thread in", a filter box, the c
 The floating notifications carry the same information as today (thread, project, what happened) and the same behaviour (click opens the thread, hide when empty, click-through window). Only the card changes, see `mockups/toasts.html`:
 
 - Headline is the thread name, since that is what the click returns you to. The project moves to the second line with its coloured folder, then the message: "aftertales · Needs permission".
-- The emoji becomes the sidebar's state icon in a tinted circle: amber bell for needs permission, green check for done, and two neutral-grey icons the sidebar does not need, an hourglass for background tasks and a compress mark for compacting.
+- The emoji becomes the sidebar's state icon in a tinted circle: amber bell for needs permission, green check for done, and two neutral-grey icons the sidebar does not need, an hourglass for background tasks and three lines pressing into one for compacting (Claude Code has no icon of its own for it; compaction shows there as text with a spinner).
 - No border, no left stripe. Raised grey `#2f2f2f`, 16px radius, the popover shadow. Dismiss appears on hover.
 - Entrance is a short rise (220ms), the same as menus, instead of a slide from the right.
 
