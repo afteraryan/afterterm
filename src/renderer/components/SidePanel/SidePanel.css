@@ -185,14 +185,26 @@
   font-size: 12px;
 }
 
+/* The hover buttons (+, project page, pin) take no room at rest, so a row with two
+   counter pills keeps its name readable at 264px. On hover they replace the count and
+   the pills, so the name does not reflow. */
 .side-panel .pj .ib {
-  opacity: 0;
+  display: none;
   width: 24px;
   height: 24px;
 }
 
 .side-panel .pj:hover .ib {
-  opacity: 1;
+  display: grid;
+}
+
+.side-panel .pj:hover .c,
+.side-panel .pj:hover .sig {
+  display: none;
+}
+
+.side-panel .pj .n {
+  min-width: 40px;
 }
 
 /* Unpinned rows read one step back from pinned ones: same row, lighter text. */
