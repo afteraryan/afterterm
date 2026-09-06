@@ -231,9 +231,11 @@ svg{display:block;flex:none}
 .ph h1{margin:0;font-size:26px;font-weight:500;display:flex;align-items:center;gap:12px;letter-spacing:-.01em}
 .ph .f{color:var(--text3);margin:6px 0 0;font-size:13px;display:flex;gap:14px;flex-wrap:wrap}
 .ph .f span{display:inline-flex;align-items:center;gap:5px}
+.ph{display:flex;align-items:flex-start;gap:16px}
+.ph .phl{flex:1;min-width:0}
+.ph .phr{display:flex;gap:6px;flex:none;margin-top:2px}
 .ph .acts{display:flex;gap:6px;margin-top:18px;flex-wrap:wrap;align-items:center}
-.ph .acts .sp{flex:1}
-.ic.lg{width:38px;height:38px;border-radius:12px;background:var(--hover)}
+.ic.lg{width:40px;height:40px;border-radius:12px;background:var(--hover)}
 .ic.lg:hover{background:var(--hover2)}
 .tabs{display:flex;align-items:center;gap:12px}
 .tabs .seg button{padding:5px 14px;font-size:14px}
@@ -282,6 +284,8 @@ svg{display:block;flex:none}
   .home{padding:16px 16px 96px}
   .cards{grid-template-columns:1fr}
   .proj{padding:8px 16px 96px}
+  .ph{flex-wrap:wrap}
+  .ph .phr{order:-1;width:100%}
   .mh{padding:0 12px}
   .term{margin:0 10px 10px;padding:14px}
   .tabs{flex-wrap:wrap}
@@ -315,7 +319,7 @@ svg{display:block;flex:none}
   <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7z" fill="currentColor"/></symbol>
   <symbol id="i-model" viewBox="0 0 24 24"><path d="M12 3.5c.6 3.8 2.7 5.9 6.5 6.5-3.8.6-5.9 2.7-6.5 6.5-.6-3.8-2.7-5.9-6.5-6.5 3.8-.6 5.9-2.7 6.5-6.5zM18.5 14.5c.3 1.7 1.2 2.6 2.9 2.9-1.7.3-2.6 1.2-2.9 2.9-.3-1.7-1.2-2.6-2.9-2.9 1.7-.3 2.6-1.2 2.9-2.9z" fill="currentColor"/></symbol>
   <symbol id="i-explorer" viewBox="0 0 24 24"><path d="M2 6.5A2 2 0 0 1 4 4.5h5.2l2 2H20a2 2 0 0 1 2 2V10H2z" fill="#D99A00"/><path d="M2 10h20v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z" fill="#FFCA3A"/><path d="M2 10h20v1.5H2z" fill="#FFE08A"/></symbol>
-  <symbol id="i-vscode" viewBox="0 0 24 24"><path d="M17.3 2.2 21.6 4.3a1 1 0 0 1 .6.9v13.6a1 1 0 0 1-.6.9l-4.3 2.1a1 1 0 0 1-1.1-.2L7.5 13.5l-3.6 2.8a.7.7 0 0 1-.9 0l-1.2-1.1a.7.7 0 0 1 0-1L4.9 12 1.8 9.8a.7.7 0 0 1 0-1L3 7.7a.7.7 0 0 1 .9 0l3.6 2.8 8.7-8.1a1 1 0 0 1 1.1-.2z" fill="#2F8FE0"/><path d="M17.2 6.7 10.7 12l6.5 5.3z" fill="#1E6FB8"/><path d="M17.2 6.7v10.6L21 19V5z" fill="#3DA3F5"/></symbol>
+  <symbol id="i-vscode" viewBox="0 0 100 100"><path d="M96.46 10.8 75.86.88c-2.39-1.15-5.24-.67-7.11 1.21L1.3 63.6c-1.82 1.65-1.81 4.51.01 6.15l5.51 5.01c1.49 1.35 3.73 1.45 5.33.24L93.38 13.38C96.1 11.31 100 13.26 100 16.68v-.24c0-2.41-1.38-4.6-3.54-5.64z" fill="#0065A9"/><path d="M96.46 89.2 75.86 99.12c-2.39 1.15-5.24.67-7.11-1.21L1.3 36.4c-1.82-1.65-1.81-4.51.01-6.15l5.51-5.01c1.49-1.35 3.73-1.45 5.33-.24l81.23 61.62C96.1 88.69 100 86.74 100 83.32v.24c0 2.41-1.38 4.6-3.54 5.64z" fill="#007ACC"/><path d="M75.86 99.13c-2.4 1.14-5.24.66-7.11-1.22 2.3 2.3 6.25.67 6.25-2.58V4.67c0-3.25-3.95-4.88-6.25-2.58 1.87-1.88 4.71-2.36 7.11-1.22l20.6 9.91C98.62 11.82 100 14.02 100 16.42v67.16c0 2.4-1.38 4.6-3.54 5.64l-20.6 9.91z" fill="#1F9CF0"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
   <symbol id="i-folder" viewBox="0 0 24 24"><path d="M2.5 7A2 2 0 0 1 4.5 5h4.6l2 2h8.4a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2z" fill="currentColor"/><path d="M2.5 9.5h19" stroke="rgba(0,0,0,.28)" stroke-width="1.2"/></symbol>
   <symbol id="i-folder-open" viewBox="0 0 24 24"><path d="M2.5 7A2 2 0 0 1 4.5 5h4.6l2 2h7.4a2 2 0 0 1 2 2v1.5H6.6a2 2 0 0 0-1.9 1.4L2.5 17z" fill="currentColor" fill-opacity=".72"/><path d="M2.6 18.2 5 11.9a1.5 1.5 0 0 1 1.4-1H22l-2.7 7.1a2 2 0 0 1-1.9 1.3H4.3a1.8 1.8 0 0 1-1.7-2.1z" fill="currentColor"/></symbol>
@@ -719,9 +723,10 @@ function renderProject(id){
   const live=liveOf(id),sl=sleepOf(id),hist=history.filter(h=>h.p===id);
   const el=document.getElementById('proj');
   el.innerHTML=`<button class="back" data-back>← Home</button>
-    <div class="ph"><h1>${folder(p,true,26)}${esc(p.name)}</h1>
+    <div class="ph"><div class="phl"><h1>${folder(p,true,26)}${esc(p.name)}</h1>
       <p class="f"><span>${esc(p.folder)}</span><span>${svg('i-branch',13)} ${esc(p.branch)}</span><span>${shellName(p.shell)}</span></p>
-      <div class="acts"><button class="b p" data-open="${p.id}">Open</button><button class="b" data-add="${p.id}">New thread</button><button class="b" data-focus="${p.id}">${p.focused?'Unpin':'Pin'}</button><button class="b" data-edit>Edit</button><button class="b q" data-arch>${p.archived?'Restore':'Archive'}</button><span class="sp"></span><button class="ic lg" data-explorer="${p.id}" data-tip="Open in File Explorer">${svg('i-explorer',20)}</button><button class="ic lg" data-vscode="${p.id}" data-tip="Open in VS Code">${svg('i-vscode',20)}</button></div></div>
+      <div class="acts"><button class="b p" data-open="${p.id}">Open</button><button class="b" data-add="${p.id}">New thread</button><button class="b" data-focus="${p.id}">${p.focused?'Unpin':'Pin'}</button><button class="b" data-edit>Edit</button><button class="b q" data-arch>${p.archived?'Restore':'Archive'}</button></div></div>
+      <div class="phr"><button class="ic lg" data-explorer="${p.id}" data-tip="Open in File Explorer">${svg('i-explorer',22)}</button><button class="ic lg" data-vscode="${p.id}" data-tip="Open in VS Code">${svg('i-vscode',22)}</button></div></div>
     <div><div class="tabs"><div class="seg">${[['live','Live',live.length],['sleep','Asleep',sl.length],['hist','History',hist.length]].map(([k,l,n])=>`<button data-tab="${k}" aria-selected="${tab===k}">${l} <span style="opacity:.6">${n}</span></button>`).join('')}</div>
       <label class="srch">${svg('i-search',15)}<input id="hs" placeholder="Search"></label></div>
       <div class="list" id="tlist" style="margin-top:12px"></div></div>`;

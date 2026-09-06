@@ -92,7 +92,35 @@ Reached only through the project page icon or the right-click menu. Brand row on
 
 The same two actions sit in every project right-click menu (Home cards and rows, sidebar rows), with their logos.
 
-**Open in File Explorer** runs `explorer.exe <folder>`. **Open in VS Code** runs `code <folder>` (or the `Code.exe` path found at startup). afterterm detects VS Code the way it detects shells: `code` on PATH, then the standard install folders (`%LOCALAPPDATA%\Programs\Microsoft VS Code`, `%ProgramFiles%\Microsoft VS Code`), plus Insiders. When nothing is found the VS Code button and menu item are **hidden**, not greyed out; File Explorer is always there. A manual path in `prefs.json` (`editorPath`) overrides detection, which also covers forks like Cursor or Windsurf for people who use those.
+**Open in File Explorer** runs `explorer.exe <folder>`. It is always available.
+
+**Open in VS Code** opens the folder in the editor afterterm found. Finding it, in order, at startup and again whenever a launch fails:
+
+1. `editorPath` in `prefs.json`, if set and the file exists. Wins over everything.
+2. What the `code` command actually is. `where code` gives a `code.cmd` shim; afterterm resolves the shim to its `.exe` (the shim sits in `<install>\bin`, the exe one level up) and identifies the product from the exe name: `Code.exe` is VS Code, `Code - Insiders.exe` is Insiders, `Cursor.exe` is Cursor, `Windsurf.exe` is Windsurf. So a machine where `code .` opens Cursor gets a Cursor button, not a VS Code button that opens Cursor.
+3. Standard install folders, checked in this order: VS Code per-user (`%LOCALAPPDATA%\Programs\Microsoft VS Code`), VS Code system-wide (`%ProgramFiles%\Microsoft VS Code`), Insiders, Cursor (`%LOCALAPPDATA%\Programs\cursor`), Windsurf. Catches installs where "Add to PATH" was left unticked.
+4. The Windows uninstall registry (`HKCU` and `HKLM` `...\Uninstall`, display name starting "Microsoft Visual Studio Code"), which catches installs in custom folders.
+
+The first hit is the **primary editor**: its real name and logo go on the button and in the menu. Any other editors found go into the project menu only ("Open in Cursor"), never on the page as extra buttons.
+
+Edge cases and what the UI does:
+
+| Case | Behaviour |
+|---|---|
+| Nothing found | The editor button and menu entry are hidden. The project menu gets **Choose editor…**, which opens a file picker and writes `editorPath`. |
+| `code` maps to Cursor or another fork | The button says and shows that product. |
+| `editorPath` points to a folder | Accepted if it contains a known editor exe; otherwise ignored with a one-time toast "Editor path not valid" and a Choose editor… link. |
+| `editorPath` file has been deleted | Treated as not set; detection runs; if that also fails, hidden plus Choose editor…. |
+| Portable (zip) VS Code | Only reachable through `editorPath`. |
+| Microsoft Store install | Found through step 2: the Store registers a `code` app execution alias. |
+| Several `code` on PATH | First one wins, same as the shell. |
+| Project folder missing (renamed, deleted, unplugged drive) | Both buttons disabled with the tooltip "Folder not found". |
+| Path contains spaces or non-ASCII | Passed as a single argument, never through a shell string. |
+| Folder is a WSL path (`\\wsl$\...`) | Passed through as is. Explorer handles it; VS Code opens it remotely if its WSL extension is installed. |
+| Launch fails at click time (uninstalled since startup, permissions) | Toast "Couldn't open VS Code" with a Choose editor… action; detection re-runs and the button hides if the editor is gone. |
+| `prefs.json` is not valid JSON | The key is ignored, nothing crashes, same rule as the existing `claudeNotifications` flag. |
+
+Detection runs once at startup and is cached for the session; a later Settings page gets a Re-detect button.
 
 ### New thread chooser
 
