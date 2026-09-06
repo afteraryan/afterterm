@@ -310,6 +310,7 @@ svg{display:block;flex:none}
   <symbol id="i-bell" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0-6 6v3.6L4.4 15.5A1 1 0 0 0 5.2 17h13.6a1 1 0 0 0 .8-1.5L18 12.6V9a6 6 0 0 0-6-6z" fill="currentColor"/><path d="M9.5 19a2.5 2.5 0 0 0 5 0z" fill="currentColor"/></symbol>
   <symbol id="i-play" viewBox="0 0 24 24"><path d="M8.5 5.9c0-1.1 1.2-1.8 2.1-1.2l8.4 5.9c.9.6.9 1.9 0 2.5l-8.4 5.9c-.9.6-2.1 0-2.1-1.2z" fill="currentColor"/></symbol>
   <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7z" fill="currentColor"/></symbol>
+  <symbol id="i-model" viewBox="0 0 24 24"><path d="M12 3.5c.6 3.8 2.7 5.9 6.5 6.5-3.8.6-5.9 2.7-6.5 6.5-.6-3.8-2.7-5.9-6.5-6.5 3.8-.6 5.9-2.7 6.5-6.5zM18.5 14.5c.3 1.7 1.2 2.6 2.9 2.9-1.7.3-2.6 1.2-2.9 2.9-.3-1.7-1.2-2.6-2.9-2.9 1.7-.3 2.6-1.2 2.9-2.9z" fill="currentColor"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
   <symbol id="i-folder" viewBox="0 0 24 24"><path d="M2.5 7A2 2 0 0 1 4.5 5h4.6l2 2h8.4a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2z" fill="currentColor"/><path d="M2.5 9.5h19" stroke="rgba(0,0,0,.28)" stroke-width="1.2"/></symbol>
   <symbol id="i-folder-open" viewBox="0 0 24 24"><path d="M2.5 7A2 2 0 0 1 4.5 5h4.6l2 2h7.4a2 2 0 0 1 2 2v1.5H6.6a2 2 0 0 0-1.9 1.4L2.5 17z" fill="currentColor" fill-opacity=".72"/><path d="M2.6 18.2 5 11.9a1.5 1.5 0 0 1 1.4-1H22l-2.7 7.1a2 2 0 0 1-1.9 1.3H4.3a1.8 1.8 0 0 1-1.7-2.1z" fill="currentColor"/></symbol>
@@ -378,7 +379,7 @@ const projects=[
 ];
 // p: project id, or null for a thread in General. wt: worktree folder, empty in the main checkout
 const threads=[
-  {id:'t1',p:'afterterm',kind:'chat',name:'Reimagine the sidebar around threads',state:'working',ago:'now',branch:'feat/threads',wt:'.worktrees\\feat-threads',last:'claude --resume 3f9c…a1e2',lines:[
+  {id:'t1',model:'Fable 5.1',p:'afterterm',kind:'chat',name:'Reimagine the sidebar around threads',state:'working',ago:'now',branch:'feat/threads',wt:'.worktrees\\feat-threads',last:'claude --resume 3f9c…a1e2',lines:[
     ['d','claude --resume 3f9c2b7e-1c44-4b0e-9a55-6d1a2e7fa1e2'],['',''],
     ['p','> '],['','Reimagine the sidebar around threads. A thread has a name, a state and a project; the terminal is only the container.'],['',''],
     ['b','● Read src/renderer/components/SidePanel/index.tsx'],['b','● Read src/renderer/hooks/useTabState.ts'],['b','● Edit src/renderer/components/TabBar/types.ts'],
@@ -387,7 +388,7 @@ const threads=[
   {id:'t2',p:'afterterm',kind:'server',name:'vite',state:'live',port:5173,ago:'2h',branch:'main',wt:'',last:'npm start',lines:[
     ['d','$ npm start'],['',''],['m','  VITE v5.4.8  ready in 412 ms'],['',''],['','  ➜  Local:   http://localhost:5173/'],['','  ➜  Network: use --host to expose'],['',''],
     ['d','14:02:11 [vite] hmr update /src/renderer/components/SidePanel/index.tsx'],['d','14:09:47 [vite] hmr update /src/renderer/hooks/useTabState.ts'],['d','14:31:02 [vite] hmr update /src/renderer/components/TabBar/types.ts'],['d','14:52:19 [vite] page reload src/main.ts']]},
-  {id:'t3',p:'afterterm',kind:'chat',name:'Fix spinner sticking after compaction',state:'done',ago:'1h',branch:'fix/spinner-compaction',wt:'.worktrees\\fix-spinner',last:'claude',lines:[
+  {id:'t3',model:'Opus 5 · 1M',p:'afterterm',kind:'chat',name:'Fix spinner sticking after compaction',state:'done',ago:'1h',branch:'fix/spinner-compaction',wt:'.worktrees\\fix-spinner',last:'claude',lines:[
     ['p','> '],['','The working spinner stays on after compaction ends. Find the state that never gets cleared.'],['',''],
     ['b','● Read src/renderer/spinnerState.ts'],['b','● Bash node src/renderer/spinnerState.test.ts'],['g','  ✔ 19 passed'],['',''],
     ['','Compaction replaces working, and the re-arm only fires on the attention state. Added compacting to the re-arm set and a test for the transition.'],['',''],
@@ -395,29 +396,29 @@ const threads=[
   {id:'t4',p:'afterterm',kind:'shell',name:'git',state:'idle',ago:'20m',branch:'main',wt:'',last:'git status',lines:[
     ['p','D:\\Pitara\\Work\\Tinkering\\afterterm> '],['','git status'],['','On branch main'],['','nothing to commit, working tree clean'],['',''],
     ['p','D:\\Pitara\\Work\\Tinkering\\afterterm> '],['cur','']]},
-  {id:'t5',p:'afterterm',kind:'chat',name:'Persist the Projects shelf state',state:'sleeping',ago:'2d',branch:'main',wt:'',last:'claude',lines:[
+  {id:'t5',model:'Opus 5',p:'afterterm',kind:'chat',name:'Persist the Projects shelf state',state:'sleeping',ago:'2d',branch:'main',wt:'',last:'claude',lines:[
     ['p','> '],['','The Projects shelf forgets whether it was open across restarts. Persist it in session.json.'],['',''],
     ['b','● Read src/renderer/components/SidePanel/index.tsx'],['b','● Edit src/renderer/hooks/useTabState.ts'],['','Added shelfOpen to the saved session next to the group list and restored it on launch.'],['',''],['g','Done.']]},
-  {id:'t13',p:'afterterm',kind:'chat',name:'Titlebar branding and version badge',state:'sleeping',ago:'4d',branch:'main',wt:'',last:'claude',lines:[
+  {id:'t13',model:'Sonnet 5',p:'afterterm',kind:'chat',name:'Titlebar branding and version badge',state:'sleeping',ago:'4d',branch:'main',wt:'',last:'claude',lines:[
     ['p','> '],['','Show the app icon, name and version in the top-left of the window.'],['',''],['b','● Edit src/renderer/app.tsx'],['g','Done.']]},
   {id:'t14',p:'afterterm',kind:'shell',name:'pwsh',state:'sleeping',ago:'5d',branch:'main',wt:'',last:'npm run build',lines:[
     ['p','PS D:\\Pitara\\Work\\Tinkering\\afterterm> '],['','npm run build'],['g','  packaged to out\\afterterm-win32-x64']]},
-  {id:'t6',p:'aftertales',kind:'chat',name:'Map view vs grid for browsing tales',state:'waiting',ago:'3m',branch:'main',wt:'',last:'claude',lines:[
+  {id:'t6',model:'Opus 5 · 1M',p:'aftertales',kind:'chat',name:'Map view vs grid for browsing tales',state:'waiting',ago:'3m',branch:'main',wt:'',last:'claude',lines:[
     ['p','> '],['','Prototype a map view for the 189 tales next to the existing grid and tell me which one is easier to browse.'],['',''],
     ['b','● Read src/pages/browse.tsx'],['b','● Write src/pages/browse-map.tsx'],['',''],['y','Permission needed'],['y','  Bash: npm install leaflet react-leaflet'],['d','  Allow once · Allow always · Deny']]},
   {id:'t7',p:'aftertales',kind:'server',name:'next',state:'live',port:3000,ago:'40m',branch:'main',wt:'',last:'npm run dev',lines:[
     ['d','$ npm run dev'],['',''],['m','  ▲ Next.js 15.1.2'],['','  - Local:        http://localhost:3000'],['',''],['g',' ✓ Ready in 1.8s'],
     ['d',' GET / 200 in 412ms'],['d',' GET /browse 200 in 96ms'],['d',' ○ Compiling /browse-map ...'],['g',' ✓ Compiled /browse-map in 640ms'],['d',' GET /browse-map 200 in 702ms']]},
-  {id:'t8',p:'aftertales',kind:'chat',name:'Write summaries for 189 tales',state:'sleeping',ago:'1d',branch:'main',wt:'',last:'claude',lines:[
+  {id:'t8',model:'Opus 5',p:'aftertales',kind:'chat',name:'Write summaries for 189 tales',state:'sleeping',ago:'1d',branch:'main',wt:'',last:'claude',lines:[
     ['p','> '],['','The site shows summaries, not full stories. Generate a two-line summary for every tale in content/tales.'],['',''],
     ['b','● Glob content/tales/*.md'],['','189 files. Summaries need the API key for the summariser service; it is not in .env.'],['',''],['y','Blocked on SUMMARISER_API_KEY. Stopping here.']]},
-  {id:'t9',p:'answer-machine',kind:'chat',name:'Results page layout',state:'sleeping',ago:'2d',branch:'main',wt:'',last:'claude',lines:[
+  {id:'t9',model:'Opus 5',p:'answer-machine',kind:'chat',name:'Results page layout',state:'sleeping',ago:'2d',branch:'main',wt:'',last:'claude',lines:[
     ['p','> '],['','Poll collection works. Lay out a results page that shows each question with a bar per answer.'],['',''],['b','● Read src/results.tsx'],['b','● Edit src/results.tsx'],['g','Done. Results page renders from the stored responses.']]},
   {id:'t10',p:'answer-machine',kind:'server',name:'wrangler',state:'sleeping',port:8787,ago:'2d',branch:'main',wt:'',last:'npx wrangler dev',lines:[
     ['d','$ npx wrangler dev'],['',''],['','wrangler 3.90.0'],['','[wrangler:inf] Ready on http://localhost:8787'],['d','[wrangler:inf] GET /api/polls 200 OK (18ms)'],['d','[wrangler:inf] POST /api/answer 201 Created (31ms)']]},
   {id:'t11',p:'afterthought',kind:'shell',name:'cmd',state:'idle',ago:'5d',branch:'main',wt:'',last:'npm test',lines:[
     ['p','D:\\Pitara\\Work\\Tinkering\\afterthought> '],['','npm test'],['',''],['g','  ✔ 41 passed'],['',''],['p','D:\\Pitara\\Work\\Tinkering\\afterthought> '],['cur','']]},
-  {id:'t12',p:'website-desk',kind:'chat',name:'Fix mobile nav overlap',state:'sleeping',ago:'6d',branch:'main',wt:'',last:'claude',lines:[
+  {id:'t12',model:'Sonnet 5',p:'website-desk',kind:'chat',name:'Fix mobile nav overlap',state:'sleeping',ago:'6d',branch:'main',wt:'',last:'claude',lines:[
     ['p','> '],['','On phones the nav overlaps the hero heading. Fix the stacking.'],['',''],['b','● Read src/components/Nav.astro'],['','The nav is position: fixed with no top padding on main. Added the offset and a test at 360px.'],['g','Done.']]},
 ];
 const history=[
@@ -514,7 +515,7 @@ function projectMenu(id){const p=P(id);
 }
 function threadMenu(id){const t=T(id);const asleep=t.state==='sleeping';
   const move=[{head:'Move to'},{label:'General',action:()=>moveThread(t,null)},...projects.filter(p=>!p.archived&&p.id!==t.p).map(p=>({label:esc(p.name),action:()=>moveThread(t,p.id)}))];
-  const items=[{label:'Open',action:()=>{selectThread(id);go('work')}},{label:asleep?'Wake':'Sleep',action:()=>asleep?wake(t):sleep(t)},{label:'Rename',action:()=>{renaming=id;if(view!=='work')go('work');else renderWork();}},{label:'Move to project',sub:move}];
+  const items=[{label:'Open',action:()=>{selectThread(id);go('work')}},{label:asleep?'Wake':'Sleep',action:()=>asleep?wake(t):sleep(t)},{label:'Move to project',sub:move}];
   if(t.port&&!asleep)items.push({label:`Open localhost:${t.port}`,action:()=>toast(`Opening localhost:${t.port}`)});
   if(t.p)items.push({label:'Open project page',action:()=>go('project',t.p)});
   items.push({label:'Close',action:()=>closeThread(t)});
@@ -683,6 +684,7 @@ function renderMain(){
   const lines=t.lines.map(([c,s])=>c==='cur'?'<div class="ln"><span class="cursor"></span></div>':c==='dv'?`<div class="dv">${esc(s)}</div>`:`<div class="ln"><span class="${c}">${esc(s)}</span></div>`).join('');
   m.innerHTML=`<div class="mh"><button class="ic menubtn" data-side>${svg('i-menu',18)}</button><div class="t"><div class="n">${kindIcon(t,16)}<span>${esc(t.name)}</span></div><div class="m">
       <span>${p?folder(p,true,15):svg('i-term',14)}${p?esc(p.name):'General'}</span>
+      ${t.model?`<span>${svg('i-model',14)}${esc(t.model)}</span>`:''}
       ${t.branch?`<span>${svg('i-branch',14)}${esc(t.branch)}</span>`:''}
       ${t.wt?`<span>${svg('i-worktree',14)}${esc(t.wt)}</span>`:''}</div></div>
     <div class="acts">${t.state==='idle'?'':`<span class="chip">${dotFor(t)}${stateText(t)}</span>`}<button class="ic" data-menu aria-label="More">${svg('i-more',18)}</button></div></div>
@@ -696,7 +698,7 @@ document.getElementById('side-search').onclick=openPal;
 function showHover(id,rowEl){
   if(window.matchMedia('(max-width:860px)').matches)return;
   const t=T(id),h=document.getElementById('hover');
-  h.innerHTML=`<div class="hn">${esc(t.name)}</div><dl><dt>Type</dt><dd>${kindWord[t.kind]} · ${stateWord[t.state]}${t.port?` on :${t.port}`:''}</dd>${t.branch?`<dt>Branch</dt><dd>${esc(t.branch)}</dd>`:''}${t.wt?`<dt>Worktree</dt><dd>${esc(t.wt)}</dd>`:''}${t.last?`<dt>Last ran</dt><dd>${esc(t.last)}</dd>`:''}<dt>Active</dt><dd>${t.ago==='now'?'now':t.ago+' ago'}</dd></dl><div class="hl">${esc(t.lines.filter(l=>l[1]&&l[0]!=='cur'&&l[0]!=='dv').slice(-2).map(l=>l[1]).join('\n'))}</div>`;
+  h.innerHTML=`<div class="hn">${esc(t.name)}</div><dl><dt>Type</dt><dd>${kindWord[t.kind]} · ${stateWord[t.state]}${t.port?` on :${t.port}`:''}</dd>${t.model?`<dt>Model</dt><dd>${esc(t.model)}</dd>`:''}${t.branch?`<dt>Branch</dt><dd>${esc(t.branch)}</dd>`:''}${t.wt?`<dt>Worktree</dt><dd>${esc(t.wt)}</dd>`:''}${t.last?`<dt>Last ran</dt><dd>${esc(t.last)}</dd>`:''}<dt>Active</dt><dd>${t.ago==='now'?'now':t.ago+' ago'}</dd></dl><div class="hl">${esc(t.lines.filter(l=>l[1]&&l[0]!=='cur'&&l[0]!=='dv').slice(-2).map(l=>l[1]).join('\n'))}</div>`;
   const r=rowEl.getBoundingClientRect();h.style.left=(r.right+8)+'px';h.style.top=Math.min(r.top-8,window.innerHeight-250)+'px';h.classList.add('show');
 }
 function hideHover(){document.getElementById('hover').classList.remove('show')}
@@ -719,7 +721,7 @@ function renderProject(id){
   const draw=q=>{q=(q||'').toLowerCase();
     if(tab==='hist'){const rows=hist.filter(h=>h.title.toLowerCase().includes(q));
       list.innerHTML=rows.map((h,i)=>`<div class="tl"><span class="ki">${svg(h.resumable?'i-chat':'i-shell',15)}</span><div class="tx"><div class="n">${esc(h.title)}</div><div class="d">${h.resumable?'Chat':'Shell'}</div></div><span class="t">${h.when}</span><div class="acts">${h.resumable?`<button class="b q s" data-res="${i}">Resume</button>`:''}</div></div>`).join('')||'<div class="nothing">Nothing here</div>';
-      list.querySelectorAll('[data-res]').forEach(b=>b.onclick=e=>{e.stopPropagation();const h=rows[+b.dataset.res];const nt={id:'t'+Date.now(),p:id,kind:'chat',name:h.title,state:'done',ago:'now',branch:p.branch,wt:'',last:'claude --resume',lines:[['d','claude --resume …'],['',''],['g','Resumed: '+h.title],['p','> '],['cur','']]};threads.unshift(nt);history.splice(history.indexOf(h),1);selectThread(nt.id);go('work')});
+      list.querySelectorAll('[data-res]').forEach(b=>b.onclick=e=>{e.stopPropagation();const h=rows[+b.dataset.res];const nt={id:'t'+Date.now(),p:id,kind:'chat',model:'Opus 5',name:h.title,state:'done',ago:'now',branch:p.branch,wt:'',last:'claude --resume',lines:[['d','claude --resume …'],['',''],['g','Resumed: '+h.title],['p','> '],['cur','']]};threads.unshift(nt);history.splice(history.indexOf(h),1);selectThread(nt.id);go('work')});
       return}
     const rows=(tab==='live'?live:sl).filter(t=>t.name.toLowerCase().includes(q));
     list.innerHTML=rows.map(t=>`<div class="tl" data-jump="${t.id}" data-tctx="${t.id}">${kindIcon(t)}<div class="tx"><div class="n">${esc(t.name)}</div><div class="d">${kindWord[t.kind]}${t.branch?' · '+esc(t.branch):''}${t.wt?' · '+esc(t.wt):''}${t.port?` · :${t.port}`:''}</div></div>${t.state==='sleeping'?'':dotFor(t)}<span class="t">${t.ago}</span><div class="acts"><button class="b q s">Open</button></div></div>`).join('')||`<div class="nothing">${tab==='live'?'Nothing running':'Nothing asleep'}</div>`;

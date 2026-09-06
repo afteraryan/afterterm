@@ -19,7 +19,7 @@ Status values: `pending`, `in progress`, `done`. Dates are absolute.
 Goal: the fields every later phase needs, with `session.json` staying loadable by older builds where possible.
 
 - [ ] `Group`: add `pinned`, `archived`, `lastActiveAt`. Default: unpinned, not archived, now.
-- [ ] `Tab`: add `customTitle`, `lastActiveAt`, `asleep`. Default: none, now, false.
+- [ ] `Tab`: add `lastActiveAt`, `asleep`. Default: now, false.
 - [ ] Decide whether code renames Group to Project and Tab to Thread, or only the UI does. Recommendation: UI only in this phase, code rename later if it earns its keep.
 - [ ] Session save and restore for the new fields, with a migration for files that lack them.
 - [ ] Invert the sidebar walk: build from projects, then their threads, so an empty project renders as a row rather than nothing. This retires the Projects shelf's reason to exist (see Phase 1).
@@ -40,7 +40,7 @@ Cosmetic, no main-process changes.
 - [ ] Project rows: click anywhere toggles; + and project page icon on hover; pin icon and counter pills on unpinned rows.
 - [ ] Thread rows: kind icon (chat when a session id is captured, shell otherwise), name, state icon at the right; five per project then "Show N more"; auto-expand to keep the open thread visible; expand and collapse animation.
 - [ ] Main pane header: kind icon, name, project on line 2, state chip, ⋯ menu. Branch and worktree slots are present but empty until Phase 3.
-- [ ] Right-click and ⋯ menu: Open, Rename (inline), Move to project (submenu with back chevron), Open project page, Close. Sleep and Wake appear in Phase 4.
+- [ ] Right-click and ⋯ menu: Open, Move to project (submenu with back chevron), Open project page, Close. Sleep and Wake appear in Phase 4. No rename: `/rename` in Claude Code is the only rename.
 - [ ] Retire the Projects shelf: an empty project is a normal row.
 - [ ] Remove the old glow and pulse styles.
 
@@ -68,7 +68,8 @@ Goal: a thread says what it is without being opened.
 
 Main process:
 
-- [ ] Chat title: read the first user prompt from the session's JSONL under `~/.claude/projects/`. Cache per session id. Renamed threads keep their custom title.
+- [ ] Chat title: unchanged, it is the terminal title Claude Code sets and updates on `/rename`; only strip the hook's state glyph from the text. Fallback for a chat with no title yet (before Claude's first reply): the first user prompt from the session's JSONL under `~/.claude/projects/`.
+- [ ] Model: the latest assistant message's model from the same JSONL, mapped to a display name with context size when present ("Opus 5", "Opus 5 · 1M", "Fable 5.1"). Header line 2 for chat threads, re-read each turn so `/model` shows up.
 - [ ] Branch: read `.git/HEAD` in the thread's cwd, re-read when cwd changes and on a slow poll.
 - [ ] Worktree: detect a `.git` file (not directory) and derive the worktree folder relative to the main repo.
 - [ ] Header line 2 shows branch and worktree with their icons; the hover card shows the same.
@@ -76,7 +77,7 @@ Main process:
 
 Limits to state in the release notes: branch and worktree only work where cwd is captured, which is cmd only until Phase 6.
 
-Done when: a chat thread's row shows its first prompt, and a thread in a worktree shows the branch and folder in the header.
+Done when: a chat row shows its Claude title with no state glyph in the text, the header shows the model and context size, and a thread in a worktree shows the branch and folder.
 
 ## Phase 4: Sleep, wake, history, scrollback tail
 

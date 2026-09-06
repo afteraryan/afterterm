@@ -25,7 +25,9 @@ The fix splits that one axis into two independent ones: a project is **pinned** 
 **Thread.** What today's tab is, seen as a unit of work rather than a process. A thread lives in a project (or in **General** if it has none), has a name, a kind, a state, and is backed by one terminal.
 
 - **Kind.** `chat` if the thread ran Claude (a session id was captured), otherwise `shell`. A server is a shell that happens to own a listening port. Kind decides the row icon: speech bubble for chat, terminal prompt for everything else.
-- **Name.** For a chat: the first prompt of the Claude session. For a shell: the folder name (today's title intelligence). Renameable.
+- **Name.** Unchanged from today. For a chat: the conversation summary Claude Code sets as the terminal title, and updates on `/rename`. The state glyph the hook prepends moves out of the text and into the row's icon. A chat has no title only until Claude's first reply (the title is a summary of the conversation), and in that gap afterterm falls back to the first prompt from the session's JSONL. For a shell: the folder name (today's title intelligence).
+- **Rename.** Only through Claude Code's `/rename`. afterterm has no rename of its own: it cannot set Claude's title cleanly (no hook or API), and two competing names would drift.
+- **Model.** For a chat: the model of the latest assistant message in the session's JSONL, shown as a display name with its context size when the id carries one: `claude-opus-5` is "Opus 5", `claude-opus-5[1m]` is "Opus 5 · 1M". Re-read each turn so a `/model` switch shows up.
 - **State.** See "States" below.
 - **Asleep.** The thread's process is not running. Its record (project, cwd, session id, shell, and a tail of its output) is kept. Waking respawns it: `claude --resume` for a chat, the last command re-run for a server, a fresh prompt in the folder for a shell.
 - **History.** Closing a thread moves its record to the project's history instead of deleting it. Chats in history can be resumed. A thread in General that is closed is simply closed.
@@ -73,14 +75,14 @@ Two columns of equal top-row height (56px).
 - A project row is its folder icon (open when expanded, closed when collapsed), name, thread count when collapsed, and on hover: + (new thread here) and the project page icon. Unpinned rows also carry the pin icon and the counter pills.
 - Clicking anywhere on a project row, including blank space, only expands or collapses it. Nothing on that row opens the project page except the dedicated icon.
 - Thread rows: kind icon, name, port for a running server, state icon at the right end. Asleep rows at 45% opacity. Five per project, then "Show N more". The list auto-expands if the open thread is beyond the fold.
-- Right-click on a thread (same menu as the header ⋯): Open, Sleep or Wake, Rename (inline), Move to project (submenu: General plus every project, with a back chevron on the header row), Open localhost:port (servers), Open project page, Close.
+- Right-click on a thread (same menu as the header ⋯): Open, Sleep or Wake, Move to project (submenu: General plus every project, with a back chevron on the header row), Open localhost:port (servers), Open project page, Close.
 - Collapsed sidebar: a 56px strip with the toggle, Home, Workspace, Search and New thread.
 - Expand and collapse animate.
 
 **Main pane**: header then terminal.
 
 - Header line 1: kind icon, thread name.
-- Header line 2, metadata only, each with its icon: project (coloured folder), branch (git branch glyph), worktree folder when the thread is in one (folder-with-fork). Example: `afterterm · feat/threads · .worktrees\feat-threads`.
+- Header line 2, metadata only, each with its icon: project (coloured folder), model for chat threads (sparkle), branch (git branch glyph), worktree folder when the thread is in one (folder-with-fork). Example: `afterterm · Opus 5 · 1M · feat/threads · .worktrees\feat-threads`.
 - Right side: the state chip (icon plus word: "Needs you", "Working", "Running on :5173", "Asleep · 2d"), hidden when quiet, then ⋯.
 - Asleep thread: the old output dimmed, a large Wake button at the top of the pane. Waking appends a "Woke just now" divider and continues below it.
 
@@ -106,7 +108,7 @@ Every dropdown and submenu marker is a real 16px chevron icon. Tooltips are the 
 
 ## Data model
 
-`Group` gains `pinned: boolean`, `archived: boolean`, `lastActiveAt: number`. `Tab` gains `customTitle?: string`, `lastActiveAt: number`, `asleep: boolean`, `branch?`, `worktree?`, `port?`, `chatTitle?`, and a per-thread scrollback tail file. A new `history` list per project holds closed threads: title, kind, session id, cwd, closed time. `session.json` stays backward compatible: missing flags default to unpinned, not archived, awake.
+`Group` gains `pinned: boolean`, `archived: boolean`, `lastActiveAt: number`. `Tab` gains `lastActiveAt: number`, `asleep: boolean`, `branch?`, `worktree?`, `port?`, `model?`, and a per-thread scrollback tail file. A new `history` list per project holds closed threads: title, kind, session id, cwd, closed time. `session.json` stays backward compatible: missing flags default to unpinned, not archived, awake.
 
 The sidebar is built by walking **projects**, not tabs. This inversion is the real structural change; today an empty group renders nothing because the list is built from `tabs`.
 
@@ -116,12 +118,12 @@ The sidebar is built by walking **projects**, not tabs. This inversion is the re
 
 - The whole visual system, folder icons, state icons, pills, chips, tooltips, animations.
 - Sidebar structure, collapse rail, 5-thread fold, kind icons (chat = captured session id).
-- Header with title and state chip; ⋯ and right-click menus; Rename; Move to project (today's group move); Close.
+- Header with title and state chip; ⋯ and right-click menus; Move to project (today's group move); Close.
 - Pin and archive flags; Home screen; project page Live and Asleep tabs; new thread chooser; Edit project dialog (exists); search palette over projects and threads.
 
 **Needs the main process**
 
-- Chat title: read the first user prompt from `~/.claude/projects/<hash>/<sessionId>.jsonl`. The session id is already captured per tab.
+- Model, and the no-title fallback: read the latest assistant message's model, and the first user prompt when there is no title yet, from `~/.claude/projects/<hash>/<sessionId>.jsonl`. The session id is already captured per tab. The name itself stays the terminal title Claude Code sets.
 - Branch and worktree: read `.git/HEAD` in the thread's cwd; a worktree's `.git` is a file pointing at the main repo.
 - Last-active timestamps: stamp on PTY input and output.
 - Sleep and wake: kill the PTY but keep the tab record; wake respawns in cwd and resumes the chat. Waking a server needs the last command, which needs shell integration.
@@ -142,6 +144,7 @@ The sidebar is built by walking **projects**, not tabs. This inversion is the re
 - Tracking chats instead of terminals as the unit. A chat names a thread well but not every thread is a chat, and afterterm should never become a viewer of every chat in `~/.claude`.
 - Auto-pinning on activity, and pin decay. Both put process state back in charge of intent.
 - A typed status note per project. It looked like a chat box and produced text nobody trusted.
+- Renaming threads in afterterm. `/rename` in Claude Code is the only rename; a second name would fight it.
 - A derived subheading on cards (last chat, last command). Noise.
 - "Sleep all" and a Sleep button in the header. Sleep lives in the menu; the header's right side is for state.
 - Arrow, document and info-circle icons for the project page. The arrow means "leave", the document means "file". Folder-with-chevron means "go into this project".
