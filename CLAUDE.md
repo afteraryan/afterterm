@@ -58,6 +58,14 @@ assets/
     afterterm-notify.ps1               ← bundled, distributable Claude Code hook (no-op unless AFTERTERM=1); copied into ~/.claude/hooks on first run
     test-afterterm-notify.ps1          ← standalone test harness for the hook (22 cases)
 forge.config.ts                        ← ASAR unpack, rebuild skip, Vite plugin config (extraResource: ['assets'] bundles the hook)
+scripts/
+  agent-harness/
+    README.md                          ← how an agent launches, drives, screenshots and stops the dev build (safety rules included)
+    launch.mjs                         ← seeds a throwaway AFTERTERM_USER_DATA_DIR, starts the dev build on a chosen display with CDP on, records pids
+    drive.mjs                          ← CDP client: targets, bounds, screenshot, eval, dom, click, rightclick, type, key, sidebar
+    stop.mjs                           ← kills exactly the recorded process tree, never by name
+    screenshot-display.ps1             ← OS-level capture of one whole display (shows title bar and notifier toasts)
+    lib.mjs                            ← shared: run records, process tree walk, WMI spawn, display and window queries, CDP client
 ```
 
 ## Project Groups
@@ -277,6 +285,19 @@ release from the **main repo checkout** so output lands in the standard `out\` f
 (from a worktree, move it after); a Claude session must land the version bump via a
 **PR** (direct pushes to `main` are blocked). Tags exist from `v0.1.0` onward (`git tag
 -l -n1`). Full process + lineage: [`docs/guide-02-releases.md`](docs/guide-02-releases.md).
+
+### Agent test harness
+
+`scripts/agent-harness/` launches the dev build in a throwaway profile, places it on
+a chosen display and drives it over the Chrome DevTools Protocol, so an agent can
+exercise and screenshot every screen of a phase without touching the running app or
+the monitor a person is using. `npm run harness -- --session <copy of session.json>`,
+`npm run harness:drive -- bounds | sidebar | screenshot <png> | click "<selector>"`,
+`npm run harness:stop`. Main-process support: `AFTERTERM_DISPLAY`
+(`primary` | `secondary` | index; moves the main window and the notifier overlay) and
+`AFTERTERM_REMOTE_DEBUG_PORT` (opt-in Chromium remote debugging). Safety rules, every
+command and the known limitations are in
+[`scripts/agent-harness/README.md`](scripts/agent-harness/README.md).
 
 ### Packaging Notes
 

@@ -21,7 +21,10 @@
     "release": "node scripts/release.js",
     "make-shareable": "pwsh -File scripts/make-shareable.ps1",
     "make": "electron-forge make",
-    "postinstall": "electron-rebuild"
+    "postinstall": "electron-rebuild",
+    "harness": "node scripts/agent-harness/launch.mjs",
+    "harness:drive": "node scripts/agent-harness/drive.mjs",
+    "harness:stop": "node scripts/agent-harness/stop.mjs"
   },
   "devDependencies": {
     "@electron-forge/cli": "^7.6.0",

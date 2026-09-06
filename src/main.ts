@@ -16,6 +16,33 @@ if (process.env.AFTERTERM_USER_DATA_DIR) {
   app.setPath('userData', process.env.AFTERTERM_USER_DATA_DIR);
 }
 
+// Agent harness: expose the Chrome DevTools Protocol so scripts/agent-harness can
+// drive and screenshot the renderer. Opt-in only: an open debugging port lets any
+// local process read and script the app, so it must never be on for normal users.
+// Chromium reads the switch at startup, hence module top level, before app ready.
+if (process.env.AFTERTERM_REMOTE_DEBUG_PORT) {
+  app.commandLine.appendSwitch('remote-debugging-port', process.env.AFTERTERM_REMOTE_DEBUG_PORT);
+}
+
+// Agent harness: AFTERTERM_DISPLAY picks the display every window (main and the
+// notifier overlay) is placed on, so an automated dev run stays off the monitor a
+// person is working on. Values: "primary" (default), "secondary" (the first
+// non-primary display, falling back to primary when there is only one) or an
+// integer index into screen.getAllDisplays(). Unset means the behaviour normal
+// users get, which is unchanged. This does not fix the "toasts on the wrong monitor"
+// bug in docs/bugs.md (that one is about following the main window at runtime).
+function getTargetDisplay(): Electron.Display {
+  const want = (process.env.AFTERTERM_DISPLAY ?? 'primary').trim().toLowerCase();
+  const primary = screen.getPrimaryDisplay();
+  if (want === '' || want === 'primary') return primary;
+  const all = screen.getAllDisplays();
+  if (want === 'secondary') return all.find(d => d.id !== primary.id) ?? primary;
+  const index = Number.parseInt(want, 10);
+  if (Number.isInteger(index) && index >= 0 && index < all.length) return all[index];
+  console.warn(`[afterterm] AFTERTERM_DISPLAY=${want} is not a display; using primary`);
+  return primary;
+}
+
 // ─── Shell profiles ───────────────────────────────────────────────────────────
 
 interface ShellProfile {
@@ -145,7 +172,7 @@ const NOTIFIER_MARGIN = 12;   // gap from the screen's bottom-right corner
 // to paint a white bar over above the toasts.
 function positionNotifier(contentHeight: number) {
   if (!notifierWindow || notifierWindow.isDestroyed()) return;
-  const wa = screen.getPrimaryDisplay().workArea;
+  const wa = getTargetDisplay().workArea;
   const h = Math.max(1, Math.ceil(contentHeight));
   const x = wa.x + wa.width - NOTIFIER_WIDTH - NOTIFIER_MARGIN;
   const y = wa.y + wa.height - h - NOTIFIER_MARGIN;
@@ -153,7 +180,7 @@ function positionNotifier(contentHeight: number) {
 }
 
 function createNotifierWindow() {
-  const wa = screen.getPrimaryDisplay().workArea;
+  const wa = getTargetDisplay().workArea;
   notifierWindow = new BrowserWindow({
     x: wa.x + wa.width - NOTIFIER_WIDTH - NOTIFIER_MARGIN,
     y: wa.y + wa.height - 80 - NOTIFIER_MARGIN,
@@ -196,10 +223,28 @@ function createNotifierWindow() {
   notifierWindow.on('closed', () => { notifierWindow = null; });
 }
 
+// Only when AFTERTERM_DISPLAY is set: size the main window to fit the target
+// display's work area and centre it there. Without the env var Electron's own
+// default placement is kept, so ordinary launches are untouched.
+function harnessWindowPlacement(): { x: number; y: number; width: number; height: number } | null {
+  if (!process.env.AFTERTERM_DISPLAY) return null;
+  const wa = getTargetDisplay().workArea;
+  const width = Math.min(1280, wa.width);
+  const height = Math.min(780, wa.height);
+  return {
+    x: wa.x + Math.floor((wa.width - width) / 2),
+    y: wa.y + Math.floor((wa.height - height) / 2),
+    width,
+    height,
+  };
+}
+
 function createWindow() {
+  const placement = harnessWindowPlacement();
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 780,
+    ...(placement ?? {}),
     minWidth: 800,
     minHeight: 500,
     icon: getIconPath(),
@@ -216,6 +261,12 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
+
+  // Re-apply the bounds once the window exists. Electron sizes a window created
+  // with explicit bounds on a display whose DPI differs from the primary's using
+  // the primary's scale (1280x780 came out as 1024x625 on a 100% monitor next to
+  // a 125% primary); setBounds on the existing window uses the right display.
+  if (placement) mainWindow.setBounds(placement);
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
