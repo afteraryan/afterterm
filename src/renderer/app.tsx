@@ -23,7 +23,7 @@ export function App() {
   panelRef.current = panelCollapsed;
 
   // Per-tab timing for the working-spinner state machine (see spinnerState.ts).
-  // Lives in a ref — high-frequency PTY-output updates must never trigger a render.
+  // Lives in a ref, high-frequency PTY-output updates must never trigger a render.
   const timingRef = useRef(new Map<string, TabTiming>());
   const getTiming = (tabId: string, now: number): TabTiming => {
     let t = timingRef.current.get(tabId);
@@ -110,7 +110,7 @@ export function App() {
 
   const handleActivate = useCallback((tabId: string) => {
     // Ignore clicks for tabs that no longer exist (closed tab, or the one-time
-    // setup toast's sentinel tabId) — just dismiss it; don't blank the view.
+    // setup toast's sentinel tabId), just dismiss it; don't blank the view.
     if (!stateRef.current.tabs.some(t => t.id === tabId)) {
       window.afterterm.notify.dismissTab(tabId);
       return;
@@ -122,7 +122,7 @@ export function App() {
     // Activating a restorable tab is what resumes its Claude session (the Terminal's
     // activeTab effect injects `claude --resume`), so drop the muted ✳ marker now.
     state.clearTabRestorable(tabId);
-    // 'working' is ongoing-turn state, not an unseen badge — keep it spinning even
+    // 'working' is ongoing-turn state, not an unseen badge, keep it spinning even
     // when you open the tab. Only clear the "you-haven't-seen-it" notifications.
     const current = stateRef.current.tabs.find(t => t.id === tabId)?.notification;
     if (current !== 'working') {
@@ -133,7 +133,7 @@ export function App() {
 
   const handleNotification = useCallback((tabId: string, type: TabNotification | undefined, projectName: string) => {
     // Route the title through the spinner state machine. An undecorated title (type
-    // undefined) is a no-op here — `working` is cleared by output silence, not by a
+    // undefined) is a no-op here, `working` is cleared by output silence, not by a
     // plain title (see spinnerState.ts / docs/bugs.md), so it can't stop the spinner.
     const now = Date.now();
     const timing = getTiming(tabId, now);
@@ -141,7 +141,7 @@ export function App() {
     applyNotif(tabId, cur, onTitle(cur, type, timing, now));
 
     if (!type) return;
-    // Working indicator is sidebar-only — no toast while Claude is mid-turn
+    // Working indicator is sidebar-only, no toast while Claude is mid-turn
     if (type === 'working') return;
     // Only skip toast if user is actively looking at this tab right now
     if (stateRef.current.activeTabId === tabId && document.hasFocus()) return;
@@ -162,7 +162,7 @@ export function App() {
   }, [state.setTabNotification]);
 
   // Typing into a terminal (e.g. interrupting Claude with Esc / Ctrl+C) ends the
-  // working turn from afterterm's view — clear the spinner. Leaves other notifs alone.
+  // working turn from afterterm's view, clear the spinner. Leaves other notifs alone.
   const handleUserInput = useCallback((tabId: string) => {
     const cur = stateRef.current.tabs.find(t => t.id === tabId)?.notification;
     applyNotif(tabId, cur, onInterrupt(cur));
@@ -170,7 +170,7 @@ export function App() {
 
   // Every PTY output chunk. Refreshes the tab's silence clock and, if the tab was
   // paused at a permission prompt / compaction, re-arms `working` once Claude's
-  // output resumes (see spinnerState.ts). Must stay cheap — no render unless the
+  // output resumes (see spinnerState.ts). Must stay cheap, no render unless the
   // notif actually changes (only on a rare re-arm), so normal output is free.
   const handleOutput = useCallback((tabId: string, byteLen: number) => {
     const now = Date.now();
@@ -202,7 +202,7 @@ export function App() {
     state.closeTab(tabId);
   }, [state.closeTab]);
 
-  // Flush a synchronous save on window close — the debounced save's pending timer is
+  // Flush a synchronous save on window close, the debounced save's pending timer is
   // cleared on unmount, so the last <2s of changes (e.g. a fresh cwd) would be lost.
   useEffect(() => {
     const flush = () => {

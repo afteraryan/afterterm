@@ -78,7 +78,7 @@ export function NotifierApp() {
   const rootRef = useRef<HTMLDivElement>(null);
   const ignoringRef = useRef(true);
 
-  // Force transparent background — index.css sets body to #141414
+  // Force transparent background, index.css sets body to #141414
   // Clear title so Windows 11 snap tooltip doesn't show "afterterm"
   useEffect(() => {
     document.documentElement.style.background = 'transparent';
@@ -99,8 +99,8 @@ export function NotifierApp() {
   }, []);
 
   // Report the toast stack's exact pixel height to main so the window can size
-  // itself to fit. ResizeObserver catches every change — toasts added/removed,
-  // text reflow, async font load — keeping the window flush with its content.
+  // itself to fit. ResizeObserver catches every change, toasts added/removed,
+  // text reflow, async font load, keeping the window flush with its content.
   useEffect(() => {
     const el = rootRef.current;
     if (!el) return;
@@ -119,7 +119,7 @@ export function NotifierApp() {
 
   // Per-region click-through: the window starts mouse-transparent (forward:true),
   // so we still receive move events. Flip interactivity on only while the cursor
-  // is over an actual toast card — everywhere else, clicks pass to the app behind.
+  // is over an actual toast card, everywhere else, clicks pass to the app behind.
   useEffect(() => {
     const setIgnore = (ignore: boolean) => {
       if (ignoringRef.current === ignore) return;

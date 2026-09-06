@@ -32,7 +32,7 @@ Never close the running afterterm. A dev build runs beside it. A copied `session
 | Phase | What it delivers | Backend work | Status |
 |---|---|---|---|
 | 0 | Data model and naming | small | done, with Aryan for testing |
-| 1 | Visual system and sidebar | none | in progress |
+| 1 | Visual system and sidebar | none | done, with Aryan for testing |
 | 2 | Home, pin, archive, project page | small | pending |
 | 3 | Thread identity: chat titles, branch, worktree, timestamps | medium | pending |
 | 4 | Sleep, wake, history, scrollback tail | medium | pending |
@@ -59,17 +59,17 @@ Goal: the workspace looks and behaves like the mock, using only data the app alr
 
 Cosmetic, no main-process changes.
 
-- [ ] Palette, type (Inter), radii, no-border surfaces, white primary button, tooltips, menus, animations, reduced motion.
-- [ ] Solid coloured folder icons, open and closed, replacing the group colour bar and dot.
-- [ ] State icon set A: bell, spinner, play, check, moon. Wired to today's notification states (`attention` = needs you, `working`, `done` transient until viewed). Running and asleep arrive in later phases; the icons ship now.
-- [ ] Sidebar: brand row with Home and Workspace icons and a collapse toggle; Search and New thread rows; Pinned and Projects sections; General for ungrouped tabs; collapse rail. `Ctrl+Shift+B` toggles the rail.
-- [ ] Project rows: click anywhere toggles; + and project page icon on hover; pin icon and counter pills on unpinned rows.
-- [ ] Thread rows: kind icon (chat when a session id is captured, shell otherwise), name, state icon at the right; five per project then "Show N more"; auto-expand to keep the open thread visible; expand and collapse animation.
-- [ ] Main pane header: kind icon, name, project on line 2, state chip, ⋯ menu. Branch and worktree slots are present but empty until Phase 3.
-- [ ] Right-click and ⋯ menu: Open, Move to project (submenu with back chevron), Open project page, Close. Sleep and Wake appear in Phase 4. No rename: `/rename` in Claude Code is the only rename.
-- [ ] Retire the Projects shelf: an empty project is a normal row.
-- [ ] Overlay toasts restyled (`NotifierApp.css` and the card markup only): thread name as headline, project with folder on line 2, state icon in a tinted circle, no border or stripe, rise entrance. Window behaviour untouched.
-- [ ] Remove the old glow and pulse styles.
+- [x] Palette, type (Inter), radii, no-border surfaces, white primary button, tooltips, menus, animations, reduced motion.
+- [x] Solid coloured folder icons, open and closed, replacing the group colour bar and dot.
+- [x] State icon set A: bell, spinner, play, check, moon. Wired to today's notification states (`attention` = needs you, `working`, `done` transient until viewed). Running and asleep arrive in later phases; the icons ship now.
+- [x] Sidebar: brand row with Home and Workspace icons and a collapse toggle; Search and New thread rows; Pinned and Projects sections; General for ungrouped tabs; collapse rail. `Ctrl+Shift+B` toggles the rail.
+- [x] Project rows: click anywhere toggles; + and project page icon on hover; pin icon and counter pills on unpinned rows.
+- [x] Thread rows: kind icon (chat when a session id is captured, shell otherwise), name, state icon at the right; five per project then "Show N more"; auto-expand to keep the open thread visible; expand and collapse animation.
+- [x] Main pane header: kind icon, name, project on line 2, state chip, ⋯ menu. Branch and worktree slots are present but empty until Phase 3.
+- [x] Right-click and ⋯ menu: Open, Move to project (submenu with back chevron), Open project page, Close. Sleep and Wake appear in Phase 4. No rename: `/rename` in Claude Code is the only rename.
+- [x] Retire the Projects shelf: an empty project is a normal row.
+- [x] Overlay toasts restyled (`NotifierApp.css` and the card markup only): thread name as headline, project with folder on line 2, state icon in a tinted circle, no border or stripe, rise entrance. Window behaviour untouched.
+- [x] Remove the old glow and pulse styles.
 
 Done when: a fresh session and a restored session both look like the mock's workspace, every menu and hover works, and no old visual remains.
 
@@ -166,3 +166,4 @@ Things we know we want and have not placed.
 - 2026-09-06: Phase 0 started by an orchestrator session on branch `worktree-projects-and-threads-plan`. Split into four pieces: types and migration, sidebar walk, agent harness, tests.
 - 2026-09-06: Phase 0 finished and handed to Aryan for testing. Verified through the harness with a copy of the real session (46 tabs, 14 groups, 3 with no tabs): the 0.8.1 file loaded, the saved file came back as version 2 with every new field on every tab and group, the three empty groups rendered as rows with the shelf collapsed, and + on an empty group opened a cmd in its folder. Unit tests: 123 checks green. Not released; no PR.
 - 2026-09-07: Phase 1 started by an orchestrator session on branch `worktree-projects-and-threads-plan`. Split into three waves: visual system (theme, Inter bundled from `assets/fonts/`, icons, menu, tooltip, pure thread-view logic with tests), then the sidebar restructure, main pane header and toast cards, then docs and the harness self-test.
+- 2026-09-07: Phase 1 finished and handed to Aryan for testing. Three waves: visual system, icons, menu and thread-view logic (Sonnet); sidebar restructure (Opus), header and app wiring (Sonnet), toast cards (Sonnet); docs (Haiku). Verified through the harness on the secondary display with a copy of the real session (47 tabs, 14 projects, 3 empty), with the same copy carrying placeholder session ids (chat kinds, restorable rows) and with an empty profile (one thread in General): Inter loaded from the bundle, no old class in the DOM, project rows collapse and expand, five-row fold with Show more and the forced-open case, thread and project right-click menus with the Move to project submenu and back chevron, the header dots menu, the Edit and New project modals, project delete, the New thread row and its shell menu, drag of a thread onto a project row, Ctrl+Shift+B rail, needs-you, done, background, compacting and working states with pills, breath and the header chip, four toast cards on the overlay, reduced motion emulation. Unit tests: 198 checks green across five files. Screenshots in `docs/screenshots/phase-1/`. Fixed during the test: hidden thread lists are inert, a collapsed project expands when its thread is activated, hover buttons no longer squeeze a project name beside its pills. Not released; no PR.

@@ -13,7 +13,7 @@ html, body, #root {
 
 .notifier-root {
   /* Anchored to the bottom of the (content-sized) window. Height is auto so its
-     measured box equals the toast stack — that's what main resizes the window to.
+     measured box equals the toast stack, that's what main resizes the window to.
      Padding leaves room for each card's drop shadow without clipping. */
   position: absolute;
   left: 0;

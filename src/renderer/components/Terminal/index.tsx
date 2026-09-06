@@ -31,7 +31,7 @@ interface TerminalAreaProps {
   onCwdChange: (tabId: string, cwd: string) => void;
   onNotification: (tabId: string, type: TabNotification | undefined, projectName: string) => void;
   onUserInput: (tabId: string) => void;
-  // Fires on every PTY output chunk (byteLen = chunk size) — drives the working-
+  // Fires on every PTY output chunk (byteLen = chunk size), drives the working-
   // spinner's silence-clear and resume-based re-arm (see spinnerState.ts).
   onOutput: (tabId: string, byteLen: number) => void;
   onFontSizeChange: (tabId: string, fontSize: number) => void;
@@ -40,7 +40,7 @@ interface TerminalAreaProps {
 
 // SECURITY: claudeSessionId is read from persisted session.json (a plain file that
 // could be hand-edited) and typed into the shell as `claude --resume <id>`. Only run
-// it if it's a canonical UUID — no shell metacharacters or newlines can slip through.
+// it if it's a canonical UUID, no shell metacharacters or newlines can slip through.
 const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
 const NOTIF_PREFIXES: [string, TabNotification][] = [
@@ -247,7 +247,7 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
       webgl.onContextLoss(() => webgl.dispose());
       term.loadAddon(webgl);
     } catch {
-      // WebGL not available — canvas fallback is fine
+      // WebGL not available, canvas fallback is fine
     }
 
     // Ctrl+V paste, Ctrl+C copy (when selection exists), Ctrl+Shift+A select all,
@@ -286,7 +286,7 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
     });
 
     // Right-click: copy the selection (and clear it) if there is one, otherwise
-    // paste — the classic Windows console QuickEdit behavior.
+    // paste, the classic Windows console QuickEdit behavior.
     container.addEventListener('contextmenu', (event) => {
       event.preventDefault();
       if (term.hasSelection()) {
@@ -332,14 +332,14 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
 
     termsRef.current.set(tabId, { term, fitAddon, search, container, scheduleFit });
 
-    // Only fit visible tabs — fitAddon on a hidden container returns 0 dimensions
+    // Only fit visible tabs, fitAddon on a hidden container returns 0 dimensions
     if (tabId === activeRef.current) {
       fitAddon.fit();
     }
 
     const api = window.afterterm;
 
-    // Register data handler BEFORE creating the PTY — shell can emit the prompt
+    // Register data handler BEFORE creating the PTY, shell can emit the prompt
     // immediately on spawn and we'd miss it if the listener isn't ready
     api.pty.onData(tabId, (data) => {
       term.write(data);
@@ -354,7 +354,7 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
     const spawnCwd = claudeCwd ?? cwd;
     await api.pty.create(tabId, shellId, spawnCwd);
 
-    // Resume the Claude session — lazily. The tab you're looking at resumes now;
+    // Resume the Claude session, lazily. The tab you're looking at resumes now;
     // background tabs are deferred until you first switch to them (see resumeTab and
     // the activeTabId effect), so we never cold-start N sessions in one burst. The id
     // is re-validated as a UUID inside resumeTab (session.json is hand-editable, and
@@ -366,10 +366,10 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
 
     term.onData((data) => {
       api.pty.write(tabId, data);
-      // Clear the working spinner only on a REAL interrupt — a bare Esc ('\x1b') or
+      // Clear the working spinner only on a REAL interrupt, a bare Esc ('\x1b') or
       // Ctrl+C ('\x03'). Must NOT fire on the focus-report sequences xterm emits via
       // onData when the terminal blurs on tab switch (focus-out is 'ESC [ O', focus-in
-      // 'ESC [ I') — those were stopping the spinner the moment you left the tab.
+      // 'ESC [ I'), those were stopping the spinner the moment you left the tab.
       // Arrow keys etc. ('ESC [ A'…) are also multi-char and correctly excluded.
       if (data === '\x1b' || data === '\x03') {
         onUserInputRef.current(tabId);
@@ -383,13 +383,13 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
       const projectName = notifType ? extractProjectName(rawTitle) : rawTitle;
       onNotificationRef.current(tabId, notifType, projectName);
 
-      // NOTE: cwd is NOT captured from the title — cmd.exe sets its console title
+      // NOTE: cwd is NOT captured from the title, cmd.exe sets its console title
       // to "C:\…\cmd.exe - <command>", which looks path-like but is garbage. CWD is
       // captured from the OSC 9;9 report below (cmd.exe only). See CLAUDE.md.
       onTitleChangeRef.current(tabId, formatTabTitle(rawTitle));
     });
 
-    // OSC 9;9;<path> — ConEmu-style cwd report. cmd.exe emits this via its injected
+    // OSC 9;9;<path>, ConEmu-style cwd report. cmd.exe emits this via its injected
     // PROMPT (see main.ts) so its tabs can restore to the right directory. The handler
     // receives the OSC 9 payload, i.e. "9;C:\path". Other OSC 9 uses (progress, notify)
     // don't carry the "9;" prefix, so we ignore those and let xterm handle them.
@@ -414,7 +414,7 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
     }
   }, [openFind, resumeTab]);
 
-  // Sync terminals with tab list — create new, destroy removed
+  // Sync terminals with tab list, create new, destroy removed
   useEffect(() => {
     const currentIds = new Set(tabInfos.map(t => t.id));
     const existingIds = new Set(termsRef.current.keys());
@@ -496,7 +496,7 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
 
   return (
     <div className="terminal-instances">
-      {/* React never touches this node's children — terminal containers are appended
+      {/* React never touches this node's children, terminal containers are appended
           imperatively. The find bar lives as a sibling so React can manage it freely. */}
       <div ref={hostRef} className="terminal-host" />
 
