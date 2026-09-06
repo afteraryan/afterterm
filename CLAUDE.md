@@ -38,6 +38,8 @@ src/
     index.tsx                          ← React root; routes to NotifierApp when ?notifier=1, else App
     app.tsx                            ← Layout: SidePanel + TerminalArea, session restore, shortcut dispatch, notification fan-out
     index.css                          ← App layout, titlebar drag region, terminal container styles
+    sessionMigration.ts                ← session.json shape: migrateSession (fills the project/thread fields on a 0.8.1 file) + serializeSession (the one save shape). Pure, unit-tested.
+    sidebarWalk.ts                     ← computeSegments: sidebar rows built from groups first, so a group with zero tabs renders. Pure, unit-tested.
     NotifierApp.tsx                    ← The floating overlay window's React root — toast cards, hide-when-empty logic
     NotifierApp.css                    ← Overlay/toast styles
     hooks/
@@ -172,6 +174,8 @@ What afterterm does:
 
 Save location: `%APPDATA%\afterterm\session.json`
 
+Format: `{ version, tabs, groups, activeTabId }`. `version: 2` since the projects-and-threads work; 0.8.1 wrote no version field. Loading goes through `migrateSession` in `src/renderer/sessionMigration.ts`, which fills the fields a 0.8.1 file lacks (`Group.pinned`, `Group.archived`, `Group.lastActiveAt`, `Tab.lastActiveAt`, `Tab.asleep`), drops entries without an id, strips transient fields and rejects anything that is not a session. Saving goes through `serializeSession` in the same module. Every 0.8.1 key keeps its name and meaning, so 0.8.1 still opens a file written by a newer build (it ignores the fields it does not know). Add new persisted fields in that module, not in `app.tsx`.
+
 Tabs that were running a **Claude Code session auto-resume it on relaunch** (`claude --resume
 <sessionId>` in the session's cwd) — **lazily**: the active tab resumes on launch, background
 tabs resume the first time you open them (resuming all at once can OOM-crash the app). The
@@ -232,6 +236,8 @@ Registered via Electron `before-input-event` — work even when xterm.js has foc
 ```powershell
 npm start
 ```
+
+Unit tests (plain Node 24+, no framework): `npm test` runs `src/claude-hook-install.test.ts`, `src/renderer/spinnerState.test.ts`, `src/renderer/sessionMigration.test.ts` and `src/renderer/sidebarWalk.test.ts`. To drive the dev build itself, use the agent harness (see "Agent test harness"), never a bare `npm start` while someone is working on the primary monitor.
 
 > If your network intercepts TLS (corporate proxy / some antivirus), `npm install`
 > or the build may fail with certificate errors. Prefer pointing npm/Node at your

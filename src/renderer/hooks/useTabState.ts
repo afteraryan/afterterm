@@ -33,10 +33,14 @@ export function useTabState() {
     // A terminal opened inside a group starts in the project folder and, unless the
     // shell picker overrode it, uses the group's default shell.
     const group = groupId ? groups.find(g => g.id === groupId) : undefined;
+    const now = Date.now();
     const newTab: Tab = {
       id, title: 'Terminal', groupId, shellId: shellId ?? group?.shellId, cwd: group?.cwd,
-      lastActiveAt: Date.now(), asleep: false,
+      lastActiveAt: now, asleep: false,
     };
+    // Opening a terminal in a project is the user acting on that project, so it
+    // counts as activity for the group as much as switching to one of its tabs does.
+    if (group) setGroups(prev => prev.map(g => g.id === group.id ? { ...g, lastActiveAt: now } : g));
     setTabs(prev => {
       if (groupId) {
         const lastIdx = prev.map(t => t.groupId).lastIndexOf(groupId);

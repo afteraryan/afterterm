@@ -16,6 +16,7 @@
   },
   "scripts": {
     "start": "electron-forge start",
+    "test": "node src/claude-hook-install.test.ts && node src/renderer/spinnerState.test.ts && node src/renderer/sessionMigration.test.ts && node src/renderer/sidebarWalk.test.ts",
     "package": "electron-forge package",
     "build": "node scripts/build.js",
     "release": "node scripts/release.js",

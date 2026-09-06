@@ -16,7 +16,7 @@ Agreed with Aryan on 2026-09-06.
 - The done-when line of the phase verified against the running app, not against the code.
 
 **Testing by Aryan, three stages per phase.**
-1. Dev build (`npm start`) with `AFTERTERM_USER_DATA_DIR` pointing at a throwaway folder, seeded with a copy of the production `session.json` so it shows real projects and threads, not sample data. Fully separate from the running app.
+1. Dev build launched through the agent harness (`npm run harness -- --session <copy of session.json>`), which points `AFTERTERM_USER_DATA_DIR` at a throwaway folder seeded with a copy of the production `session.json` so it shows real projects and threads, not sample data, and puts the window on the secondary display. Fully separate from the running app. The harness strips Claude session ids by default (`--claude-resume none`): resuming the live session from a second build restarted it.
 2. An unreleased production build (`npm run build`), which Aryan runs as the primary afterterm for a few days. Bugs go into `docs/bugs.md` tagged with the phase.
 3. Fix the list, then release.
 
@@ -30,7 +30,7 @@ Never close the running afterterm. A dev build runs beside it. A copied `session
 
 | Phase | What it delivers | Backend work | Status |
 |---|---|---|---|
-| 0 | Data model and naming | small | in progress |
+| 0 | Data model and naming | small | done, with Aryan for testing |
 | 1 | Visual system and sidebar | none | pending |
 | 2 | Home, pin, archive, project page | small | pending |
 | 3 | Thread identity: chat titles, branch, worktree, timestamps | medium | pending |
@@ -42,13 +42,13 @@ Never close the running afterterm. A dev build runs beside it. A copied `session
 
 Goal: the fields every later phase needs, with `session.json` staying loadable by older builds where possible.
 
-- [ ] `Group`: add `pinned`, `archived`, `lastActiveAt`. Default: unpinned, not archived, now.
-- [ ] `Tab`: add `lastActiveAt`, `asleep`. Default: now, false.
-- [ ] Code keeps `Group` and `Tab`; the UI says Project and Thread (decided).
-- [ ] Agent test harness: a script that launches the dev build with a throwaway `AFTERTERM_USER_DATA_DIR` seeded from a given `session.json`, places the window on the secondary display (`screen.getAllDisplays()`, an `AFTERTERM_DISPLAY` env var), and lets an agent drive and screenshot it. Every later phase uses it.
-- [ ] Session save and restore for the new fields, with a migration for files that lack them.
-- [ ] Invert the sidebar walk: build from projects, then their threads, so an empty project renders as a row rather than nothing. This retires the Projects shelf's reason to exist (see Phase 1).
-- [ ] Unit tests for the migration and the walk.
+- [x] `Group`: add `pinned`, `archived`, `lastActiveAt`. Default: unpinned, not archived, now. `lastActiveAt` is stamped when the user activates one of the group's tabs or opens a terminal in it; PTY activity stamping stays in Phase 2.
+- [x] `Tab`: add `lastActiveAt`, `asleep`. Default: now, false. Nothing sets `asleep` true until Phase 4.
+- [x] Code keeps `Group` and `Tab`; the UI says Project and Thread (decided).
+- [x] Agent test harness (`scripts/agent-harness/`, README there): a script that launches the dev build with a throwaway `AFTERTERM_USER_DATA_DIR` seeded from a given `session.json`, places the window on the secondary display (`screen.getAllDisplays()`, an `AFTERTERM_DISPLAY` env var), and lets an agent drive and screenshot it. Every later phase uses it.
+- [x] Session save and restore for the new fields, with a migration for files that lack them (`src/renderer/sessionMigration.ts`; saved files carry `version: 2` and every 0.8.1 key, so 0.8.1 still opens them).
+- [x] Invert the sidebar walk (`src/renderer/sidebarWalk.ts`): build from projects, then their threads, so an empty project renders as a row rather than nothing. Existing sessions keep their visible order; projects with no threads are appended after the live list. The Projects shelf is left in place and now duplicates those rows; Phase 1 retires it.
+- [x] Unit tests for the migration and the walk (`npm test` runs all four test files).
 
 Done when: a session saved by the current release loads, every project and thread carries the new fields, and the sidebar renders projects with zero threads without the shelf.
 
@@ -163,3 +163,4 @@ Things we know we want and have not placed.
 
 - 2026-09-06: design agreed, plan written, working agreement recorded. No phase started.
 - 2026-09-06: Phase 0 started by an orchestrator session on branch `worktree-projects-and-threads-plan`. Split into four pieces: types and migration, sidebar walk, agent harness, tests.
+- 2026-09-06: Phase 0 finished and handed to Aryan for testing. Verified through the harness with a copy of the real session (46 tabs, 14 groups, 3 with no tabs): the 0.8.1 file loaded, the saved file came back as version 2 with every new field on every tab and group, the three empty groups rendered as rows with the shelf collapsed, and + on an empty group opened a cmd in its folder. Unit tests: 123 checks green. Not released; no PR.
