@@ -70,7 +70,7 @@ Clicking a card or row opens the workspace on that project. The project page ope
 
 ### Workspace
 
-**Title bar.** A 32px strip across the full window width, above everything, in a tone darker than any surface below it (`#121212`). Left: "afterterm" and the version badge. Right: the Windows caption buttons, drawn by the OS through `titleBarOverlay` (height 32, colour the strip's grey, symbols `#8e8e8e`). The strip is the drag region. It is present on every screen, and nothing else ever shares its row, so nothing can collide with the caption buttons. (The first mock put the name, version and the Home and Workspace icons on a 56px row that also had to host the caption buttons; that failed the moment the header had content on its right. Corrected 2026-09-07.)
+**Title bar.** A 32px strip across the full window width, above everything, in the sidebar's grey (`#171717`, the same `--side` token; Aryan asked on 2026-09-07 for the strip and the sidebar to be one colour, so the strip reads as the sidebar continuing upward). Left: "afterterm" and the version badge. Right: the Windows caption buttons, drawn by the OS through `titleBarOverlay` (height 32, colour `#171717`, symbols `#8e8e8e`). The strip is the drag region. It is present on every screen, and nothing else ever shares its row, so nothing can collide with the caption buttons. (The first mock put the name, version and the Home and Workspace icons on a 56px row that also had to host the caption buttons; that failed the moment the header had content on its right. Corrected 2026-09-07.)
 
 Below it, two columns of equal top-row height (56px).
 

@@ -250,7 +250,7 @@ function createWindow() {
     icon: getIconPath(),
     titleBarStyle: 'hidden',
     titleBarOverlay: {
-      color: '#121212',
+      color: '#171717',
       symbolColor: '#8e8e8e',
       height: 32,
     },
