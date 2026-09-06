@@ -126,6 +126,10 @@ svg{display:block;flex:none}
 .th.sel{background:var(--hover2);color:var(--text)}
 .th .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .th.sleep{opacity:.45}
+@keyframes glow-need{0%,100%{background:rgba(251,191,36,.05)}50%{background:rgba(251,191,36,.16)}}
+@keyframes glow-ok{0%,100%{background:rgba(74,222,128,.04)}50%{background:rgba(74,222,128,.13)}}
+.th.waiting:not(.sel){animation:glow-need 2.4s ease-in-out infinite}
+.th.done:not(.sel){animation:glow-ok 2.8s ease-in-out infinite}
 .th .prt{font-size:11px;color:var(--text3)}
 .th input{background:var(--hover2);border:0;border-radius:6px;padding:2px 6px;width:100%;outline:none}
 .tlw{display:grid;grid-template-rows:1fr;transition:grid-template-rows var(--med) var(--ease)}
@@ -295,7 +299,7 @@ svg{display:block;flex:none}
   .tl:hover .t{display:block}
   .nt{left:12px!important;right:12px;width:auto}
 }
-@media (prefers-reduced-motion:reduce){.spin,.cursor,.view.active,.menu.show,.nt.show,.hover.show,.mbg.show,.mbg.show .modal,.palbg.show,.palbg.show .pal{animation:none}.side,.toast,.work,.pr,.cd,.th,.b,.ic,.ib,.tlw{transition:none}}
+@media (prefers-reduced-motion:reduce){.th.waiting,.th.done,.spin,.cursor,.view.active,.menu.show,.nt.show,.hover.show,.mbg.show,.mbg.show .modal,.palbg.show,.palbg.show .pal{animation:none}.side,.toast,.work,.pr,.cd,.th,.b,.ic,.ib,.tlw{transition:none}}
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">

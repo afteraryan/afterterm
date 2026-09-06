@@ -49,6 +49,8 @@ The fix splits that one axis into two independent ones: a project is **pinned** 
 
 Working ends on its own; Running does not. Done clears the moment the thread is viewed, exactly like today's ✅ notification. Quiet threads show no icon and no header chip.
 
+Needs you and Done also breathe: the row background cycles between 5% and 16% of the state colour over about 2.5s, on the rounded row shape, until the thread is viewed. It is the descendant of today's row pulse, slower and at lower opacity so it reads as a glow rather than a flash. The selected row does not breathe; the icon carries the state there.
+
 Icon style: solid glyphs at the same visual weight as the folders (sheet A in `mockups/state-icons.html`). One icon set drives the header chip, the right end of every thread row, the project page lists and the project counters.
 
 ## Screens
@@ -134,7 +136,7 @@ One palette across projects, threads and history. Projects open the workspace, t
 
 Neutral greys only: page `#212121`, sidebar `#171717`, hover `#2f2f2f`, raised or selected `#383838`, text `#ececec` / `#b4b4b4` / `#8e8e8e`. No borders on surfaces; layers separate by tone. One white primary button. Inter, 14px, weights 400 and 500. Mono only inside the terminal pane. 16px radius on surfaces, 8 to 12 on rows, full round on chips and pills.
 
-Project colours are solid, saturated folder fills: teal `#2dd4bf`, blue `#60a5fa`, purple `#a78bfa`, orange `#fb923c`, red `#f87171`, green `#4ade80`, pink `#f472b6`, yellow `#facc15`. State colours are separate: amber `#fbbf24` for needs you, green `#4ade80` for running and done. Nothing glows or pulses; the only motion is short eased entrances (140 to 200ms) on menus, popovers, dialogs and view switches, the sidebar width, and expand/collapse. All off under reduced motion.
+Project colours are solid, saturated folder fills: teal `#2dd4bf`, blue `#60a5fa`, purple `#a78bfa`, orange `#fb923c`, red `#f87171`, green `#4ade80`, pink `#f472b6`, yellow `#facc15`. State colours are separate: amber `#fbbf24` for needs you, green `#4ade80` for running and done. Apart from the needs-you and done breath on rows, nothing glows or pulses; the other motion is short eased entrances (140 to 200ms) on menus, popovers, dialogs and view switches, the sidebar width, and expand/collapse. All off under reduced motion.
 
 Every dropdown and submenu marker is a real 16px chevron icon. Tooltips are the app's own dark pill, not the browser's.
 
