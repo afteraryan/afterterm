@@ -1,0 +1,73 @@
+<title>afterterm Toasts</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap">
+<style>
+:root{--bg:#212121;--hover:#2f2f2f;--hover2:#383838;--text:#ececec;--text2:#b4b4b4;--text3:#8e8e8e;--need:#fbbf24;--live:#4ade80;--ease:cubic-bezier(.2,.8,.2,1)}
+*{box-sizing:border-box}
+body{margin:0;background:#1a1a1a;color:var(--text);font-family:'Inter',system-ui,sans-serif;font-size:14px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1000px;margin:0 auto;padding:40px 24px 80px;display:flex;flex-direction:column;gap:28px}
+h1{font-size:22px;font-weight:500;margin:0 0 6px}
+.lead{color:var(--text3);margin:0;max-width:640px;line-height:1.5}
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.col{border-radius:14px;overflow:hidden}
+.col .cap{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);padding:10px 14px;background:#141414}
+.col .cap b{color:var(--text2);font-weight:500;letter-spacing:0;text-transform:none;margin-left:8px;font-size:12px}
+.col .body{padding:22px;display:flex;flex-direction:column;gap:12px;align-items:flex-end;min-height:420px;background:radial-gradient(ellipse at 30% 20%,#2a2f36,#151719 70%)}
+.note{font-size:12.5px;color:var(--text3);line-height:1.5;max-width:720px}
+.btn{font:inherit;align-self:flex-start;padding:8px 14px;border-radius:999px;background:var(--hover);color:var(--text);border:0;cursor:pointer;font-weight:500}
+.btn:hover{background:var(--hover2)}
+svg{display:block;flex:none}
+
+/* OLD: exact values from src/renderer/NotifierApp.css */
+.o-card{display:flex;align-items:flex-start;gap:10px;padding:12px 13px;background:#1e1e1e;border:1px solid #363636;border-left:3px solid var(--nc,#46b464);border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;width:320px;animation:o-in .24s cubic-bezier(.16,1,.3,1)}
+@keyframes o-in{from{opacity:0;transform:translateX(24px) scale(.97)}to{opacity:1;transform:none}}
+.o-card .ic{font-size:16px;line-height:1.4}
+.o-card .b{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.o-card .p{font-size:13px;font-weight:600;color:#e8e8e8;line-height:1.4}
+.o-card .s{font-size:11.5px;color:#888;line-height:1.5}
+.o-card .x{width:20px;height:20px;display:flex;align-items:center;justify-content:center;color:#555;font-size:15px;margin-top:1px}
+
+/* NEW */
+.n-card{display:flex;align-items:center;gap:12px;padding:12px 12px 12px 14px;background:var(--hover);border-radius:16px;width:340px;box-shadow:0 12px 40px rgba(0,0,0,.45);animation:n-in .22s var(--ease)}
+@keyframes n-in{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+.n-card .st{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;flex:none;background:rgba(var(--c),.14);color:rgb(var(--c))}
+.n-card .b{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.n-card .p{font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35}
+.n-card .s{font-size:12.5px;color:var(--text3);display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden}
+.n-card .s .pn{display:inline-flex;align-items:center;gap:5px;color:var(--text2)}
+.n-card .x{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:var(--text3);flex:none;opacity:0;transition:opacity .14s,background .14s}
+.n-card:hover .x{opacity:1}
+.n-card .x:hover{background:var(--hover2);color:var(--text)}
+.n-card.need{--c:251,191,36}.n-card.ok{--c:74,222,128}.n-card.bg{--c:180,180,180}.n-card.cmp2{--c:180,180,180}
+@media (max-width:760px){.cmp{grid-template-columns:1fr}.col .body{min-height:0}}
+@media (prefers-reduced-motion:reduce){.o-card,.n-card{animation:none}}
+</style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="folder" viewBox="0 0 24 24"><path d="M2.5 7A2 2 0 0 1 4.5 5h4.6l2 2h8.4a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2z" fill="currentColor"/><path d="M2.5 9.5h19" stroke="rgba(0,0,0,.28)" stroke-width="1.2"/></symbol>
+  <symbol id="bell" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0-6 6v3.6L4.4 15.5A1 1 0 0 0 5.2 17h13.6a1 1 0 0 0 .8-1.5L18 12.6V9a6 6 0 0 0-6-6z" fill="currentColor"/><path d="M9.5 19a2.5 2.5 0 0 0 5 0z" fill="currentColor"/></symbol>
+  <symbol id="check" viewBox="0 0 24 24"><path d="m5.5 12.5 4 4 9-9" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="hourglass" viewBox="0 0 24 24"><path d="M6.5 3.5h11v2.2c0 1.6-.7 3.1-1.9 4.1L13.4 12l2.2 2.2a5.5 5.5 0 0 1 1.9 4.1v2.2h-11v-2.2c0-1.6.7-3.1 1.9-4.1L10.6 12 8.4 9.8A5.5 5.5 0 0 1 6.5 5.7z" fill="currentColor"/></symbol>
+  <symbol id="compact" viewBox="0 0 24 24"><path d="m7 4 5 5 5-5M7 20l5-5 5 5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+  <symbol id="x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></symbol>
+</svg>
+<div class="wrap">
+  <div><h1>Overlay toasts</h1><p class="lead">The floating notifications that appear above every app. Same information as today: which project, which thread, what happened. Click opens the thread. Left is 0.8.1 as built; right is the new language.</p></div>
+  <button class="btn" id="replay">Replay entrance</button>
+  <div class="cmp" id="cmp">
+    <div class="col old"><div class="cap">Today <b>0.8.1</b></div><div class="body" id="oldb">
+      <div class="o-card" style="--nc:#d28c32"><span class="ic">⚠</span><div class="b"><span class="p">aftertales</span><span class="s">Map view vs grid for browsing tales · Needs permission</span></div><span class="x">×</span></div>
+      <div class="o-card" style="--nc:#46b464"><span class="ic">✅</span><div class="b"><span class="p">afterterm</span><span class="s">Fix spinner sticking after compaction · Response complete</span></div><span class="x">×</span></div>
+      <div class="o-card" style="--nc:#d28c32"><span class="ic">⏳</span><div class="b"><span class="p">answer-machine</span><span class="s">Results page layout · Background tasks running</span></div><span class="x">×</span></div>
+      <div class="o-card" style="--nc:#888"><span class="ic">⚙</span><div class="b"><span class="p">afterterm</span><span class="s">Reimagine the sidebar around threads · Compacting context…</span></div><span class="x">×</span></div>
+    </div></div>
+    <div class="col new"><div class="cap">Next</div><div class="body" id="newb">
+      <div class="n-card need"><span class="st"><svg width="17" height="17"><use href="#bell"/></svg></span><div class="b"><span class="p">Map view vs grid for browsing tales</span><span class="s"><span class="pn"><svg width="13" height="13" style="color:#a78bfa"><use href="#folder"/></svg>aftertales</span>· Needs permission</span></div><span class="x"><svg width="15" height="15"><use href="#x"/></svg></span></div>
+      <div class="n-card ok"><span class="st"><svg width="17" height="17"><use href="#check"/></svg></span><div class="b"><span class="p">Fix spinner sticking after compaction</span><span class="s"><span class="pn"><svg width="13" height="13" style="color:#2dd4bf"><use href="#folder"/></svg>afterterm</span>· Done</span></div><span class="x"><svg width="15" height="15"><use href="#x"/></svg></span></div>
+      <div class="n-card bg"><span class="st"><svg width="17" height="17"><use href="#hourglass"/></svg></span><div class="b"><span class="p">Results page layout</span><span class="s"><span class="pn"><svg width="13" height="13" style="color:#fb923c"><use href="#folder"/></svg>answer-machine</span>· Background tasks running</span></div><span class="x"><svg width="15" height="15"><use href="#x"/></svg></span></div>
+      <div class="n-card cmp2"><span class="st"><svg width="17" height="17"><use href="#compact"/></svg></span><div class="b"><span class="p">Reimagine the sidebar around threads</span><span class="s"><span class="pn"><svg width="13" height="13" style="color:#2dd4bf"><use href="#folder"/></svg>afterterm</span>· Compacting context</span></div><span class="x"><svg width="15" height="15"><use href="#x"/></svg></span></div>
+    </div></div>
+  </div>
+  <div class="note">What changed: the thread name is the headline (it is what you click to get back to), the project moves to the second line with its coloured folder, the emoji becomes the same state icon the sidebar uses, in a tinted circle. No border, no left stripe; the card is the same raised grey and 16px radius as every other surface. Dismiss appears on hover. Entrance is a short rise instead of a slide from the right.</div>
+</div>
+<script>
+document.getElementById('replay').onclick=()=>{for(const id of ['oldb','newb']){const b=document.getElementById(id);const h=b.innerHTML;b.innerHTML='';requestAnimationFrame(()=>b.innerHTML=h)}};
+</script>

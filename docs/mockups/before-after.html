@@ -114,6 +114,20 @@ svg{display:block;flex:none}
 @keyframes glow-ok{0%,100%{background:rgba(74,222,128,.04)}50%{background:rgba(74,222,128,.13)}}
 .n-th.need{animation:glow-need 2.4s ease-in-out infinite}
 .n-th.ok{animation:glow-ok 2.8s ease-in-out infinite}
+/* toasts */
+.o-card{display:flex;align-items:flex-start;gap:10px;padding:12px 13px;background:#1e1e1e;border:1px solid #363636;border-left:3px solid var(--nc,#46b464);border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;width:300px}
+.o-card .ic{font-size:16px;line-height:1.4}
+.o-card .b{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.o-card .p{font-size:13px;font-weight:600;color:#e8e8e8;line-height:1.4}
+.o-card .s{font-size:11.5px;color:#888;line-height:1.5}
+.o-card .x{width:20px;height:20px;display:flex;align-items:center;justify-content:center;color:#555;font-size:15px}
+.n-card{display:flex;align-items:center;gap:12px;padding:12px 12px 12px 14px;background:var(--hover);border-radius:16px;width:320px;box-shadow:0 12px 40px rgba(0,0,0,.45)}
+.n-card .st{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;flex:none;background:rgba(var(--c),.14);color:rgb(var(--c))}
+.n-card .b{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.n-card .p{font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.n-card .s{font-size:12.5px;color:var(--text3);display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden}
+.n-card .s .pn{display:inline-flex;align-items:center;gap:5px;color:var(--text2)}
+.n-card.need{--c:251,191,36}.n-card.ok{--c:74,222,128}
 @media (max-width:760px){.cmp{grid-template-columns:1fr}.cmp h2{grid-column:1}}
 @media (prefers-reduced-motion:reduce){.o-row.done,.o-row.att,.o-spin,.n-spin,.n-th.need,.n-th.ok{animation:none}}
 </style>
@@ -318,6 +332,21 @@ svg{display:block;flex:none}
     <div class="col new"><div class="cap">Next</div><div class="body">
       <div class="mh"><div class="t"><div class="n"><svg class="ki" width="16" height="16"><use href="#chat"/></svg><span>Reimagine the sidebar around threads</span></div><div class="m"><span><svg width="15" height="15" style="color:#2dd4bf"><use href="#folder-open"/></svg>afterterm</span><span>Fable 5.1</span><span><svg width="14" height="14"><use href="#branch"/></svg>feat/threads</span></div></div><span class="chip"><span class="n-spin"></span>Working</span></div>
       <div class="note">Name, project, model, branch and worktree on the left; the state chip and ⋯ on the right. Visible with the sidebar collapsed.</div>
+    </div></div>
+  </div>
+
+  <!-- 10 toasts -->
+  <div class="cmp">
+    <h2>10. The floating notification <span>the bordered card becomes a raised card with the state icon</span></h2>
+    <div class="col old"><div class="cap">Today <b>0.8.1</b></div><div class="body">
+      <div class="o-card" style="--nc:#d28c32"><span class="ic">⚠</span><div class="b"><span class="p">aftertales</span><span class="s">Map view vs grid for browsing tales · Needs permission</span></div><span class="x">×</span></div>
+      <div class="o-card" style="--nc:#46b464"><span class="ic">✅</span><div class="b"><span class="p">afterterm</span><span class="s">Fix spinner sticking after compaction · Response complete</span></div><span class="x">×</span></div>
+      <div class="note">Project as the headline, thread buried in the grey line, an emoji for the type, a coloured stripe on the left, a 1px border.</div>
+    </div></div>
+    <div class="col new"><div class="cap">Next</div><div class="body">
+      <div class="n-card need"><span class="st"><svg width="17" height="17"><use href="#bell"/></svg></span><div class="b"><span class="p">Map view vs grid for browsing tales</span><span class="s"><span class="pn"><svg width="13" height="13" style="color:#a78bfa"><use href="#folder"/></svg>aftertales</span>· Needs permission</span></div></div>
+      <div class="n-card ok"><span class="st"><svg width="17" height="17"><use href="#check"/></svg></span><div class="b"><span class="p">Fix spinner sticking after compaction</span><span class="s"><span class="pn"><svg width="13" height="13" style="color:#2dd4bf"><use href="#folder"/></svg>afterterm</span>· Done</span></div></div>
+      <div class="note">Thread name as the headline, project with its folder on line 2, the sidebar's state icon in a tinted circle. No border or stripe; the same raised grey and radius as every other surface. All four types in <code>toasts.html</code>.</div>
     </div></div>
   </div>
 

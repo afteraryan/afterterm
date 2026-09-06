@@ -42,6 +42,7 @@ Cosmetic, no main-process changes.
 - [ ] Main pane header: kind icon, name, project on line 2, state chip, ⋯ menu. Branch and worktree slots are present but empty until Phase 3.
 - [ ] Right-click and ⋯ menu: Open, Move to project (submenu with back chevron), Open project page, Close. Sleep and Wake appear in Phase 4. No rename: `/rename` in Claude Code is the only rename.
 - [ ] Retire the Projects shelf: an empty project is a normal row.
+- [ ] Overlay toasts restyled (`NotifierApp.css` and the card markup only): thread name as headline, project with folder on line 2, state icon in a tinted circle, no border or stripe, rise entrance. Window behaviour untouched.
 - [ ] Remove the old glow and pulse styles.
 
 Done when: a fresh session and a restored session both look like the mock's workspace, every menu and hover works, and no old visual remains.

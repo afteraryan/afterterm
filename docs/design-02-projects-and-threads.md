@@ -128,6 +128,15 @@ Detection runs once at startup and is cached for the session; a later Settings p
 
 New thread and Ctrl Shift T open a popover: "New thread in", a filter box, the current project preselected, then No project, then every other project (pinned first). Enter takes the highlighted one. A shell dropdown at the bottom, defaulting to the chosen project's shell, listing Command Prompt, PowerShell 7, Windows PowerShell, Git Bash, WSL. The + on a project row skips the chooser.
 
+### Overlay toasts
+
+The floating notifications carry the same information as today (thread, project, what happened) and the same behaviour (click opens the thread, hide when empty, click-through window). Only the card changes, see `mockups/toasts.html`:
+
+- Headline is the thread name, since that is what the click returns you to. The project moves to the second line with its coloured folder, then the message: "aftertales · Needs permission".
+- The emoji becomes the sidebar's state icon in a tinted circle: amber bell for needs permission, green check for done, and two neutral-grey icons the sidebar does not need, an hourglass for background tasks and a compress mark for compacting.
+- No border, no left stripe. Raised grey `#2f2f2f`, 16px radius, the popover shadow. Dismiss appears on hover.
+- Entrance is a short rise (220ms), the same as menus, instead of a slide from the right.
+
 ### Search (Ctrl K)
 
 One palette across projects, threads and history. Projects open the workspace, threads select, history opens the project page on its History tab.
