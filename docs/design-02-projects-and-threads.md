@@ -49,7 +49,7 @@ The fix splits that one axis into two independent ones: a project is **pinned** 
 
 Working ends on its own; Running does not. Done clears the moment the thread is viewed, exactly like today's ✅ notification. Quiet threads show no icon and no header chip.
 
-Needs you and Done also breathe: the row background cycles between 5% and 16% of the state colour over about 2.5s, on the rounded row shape, until the thread is viewed. It is the descendant of today's row pulse, slower and at lower opacity so it reads as a glow rather than a flash. The selected row does not breathe; the icon carries the state there.
+Needs you and Done also breathe: the row background cycles between 5% and 16% of the state colour over about 2.5s, on the rounded row shape, until the thread is viewed. It is the descendant of today's row pulse, slower and at lower opacity so it reads as a glow rather than a flash. The selected row does not breathe; the icon carries the state there. Decided on 2026-09-06 against a lit-edge bar, an icon halo and a breathing ring (`mockups/glow-variants.html`), and against five other breath curves (`mockups/pill-breath-variants.html`); variant 1 of that sheet is final.
 
 Icon style: solid glyphs at the same visual weight as the folders (sheet A in `mockups/state-icons.html`). One icon set drives the header chip, the right end of every thread row, the project page lists and the project counters.
 
