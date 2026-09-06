@@ -31,7 +31,7 @@ Never close the running afterterm. A dev build runs beside it. A copied `session
 | Phase | What it delivers | Backend work | Status |
 |---|---|---|---|
 | 0 | Data model and naming | small | done, with Aryan for testing |
-| 1 | Visual system and sidebar | none | pending |
+| 1 | Visual system and sidebar | none | in progress |
 | 2 | Home, pin, archive, project page | small | pending |
 | 3 | Thread identity: chat titles, branch, worktree, timestamps | medium | pending |
 | 4 | Sleep, wake, history, scrollback tail | medium | pending |
@@ -164,3 +164,4 @@ Things we know we want and have not placed.
 - 2026-09-06: design agreed, plan written, working agreement recorded. No phase started.
 - 2026-09-06: Phase 0 started by an orchestrator session on branch `worktree-projects-and-threads-plan`. Split into four pieces: types and migration, sidebar walk, agent harness, tests.
 - 2026-09-06: Phase 0 finished and handed to Aryan for testing. Verified through the harness with a copy of the real session (46 tabs, 14 groups, 3 with no tabs): the 0.8.1 file loaded, the saved file came back as version 2 with every new field on every tab and group, the three empty groups rendered as rows with the shelf collapsed, and + on an empty group opened a cmd in its folder. Unit tests: 123 checks green. Not released; no PR.
+- 2026-09-07: Phase 1 started by an orchestrator session on branch `worktree-projects-and-threads-plan`. Split into three waves: visual system (theme, Inter bundled from `assets/fonts/`, icons, menu, tooltip, pure thread-view logic with tests), then the sidebar restructure, main pane header and toast cards, then docs and the harness self-test.
