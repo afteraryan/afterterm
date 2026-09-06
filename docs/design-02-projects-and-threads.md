@@ -59,7 +59,7 @@ Icon style: solid glyphs at the same visual weight as the folders (sheet A in `m
 
 A full screen, no sidebar. Top-left: "afterterm" with two icons beside it, Home and Workspace. Nothing else in the title strip.
 
-- **Date** as the heading. What sits under it is still open (see Open decisions).
+- **Date** as the heading. Under it, the counter pills totalled across every project (bell with count, play with count). When both are zero, nothing is rendered there: no "0", no placeholder, no empty space reserved.
 - **Pinned**: cards. A card is the project's folder icon, its name, and a footer with counter pills and the time since last activity. No subheading, no typed notes, no derived text.
 - **Projects**: compact rows for unpinned projects, sorted by last activity, "Show more" after four. A + at the right of the section label creates a project (tooltip "New project").
 - **Archived**: one link that expands to rows with Restore.
@@ -72,7 +72,7 @@ Clicking a card or row opens the workspace on that project. The project page ope
 
 Two columns of equal top-row height (56px).
 
-**Sidebar**, in order: brand row (afterterm, Home, Workspace, collapse toggle), Search (Ctrl K), New thread (Ctrl Shift T), then General (if any), Pinned, Projects.
+**Sidebar**, in order: brand row (afterterm, Home, Workspace, collapse toggle), Search (Ctrl Shift P), New thread (Ctrl Shift T), then General (if any), Pinned, Projects.
 
 - A project row is its folder icon (open when expanded, closed when collapsed), name, thread count when collapsed, and on hover: + (new thread here) and the project page icon. Unpinned rows also carry the pin icon and the counter pills.
 - Clicking anywhere on a project row, including blank space, only expands or collapses it. Nothing on that row opens the project page except the dedicated icon.
@@ -137,7 +137,7 @@ The floating notifications carry the same information as today (thread, project,
 - No border, no left stripe. Raised grey `#2f2f2f`, 16px radius, the popover shadow. Dismiss appears on hover.
 - Entrance is a short rise (220ms), the same as menus, instead of a slide from the right.
 
-### Search (Ctrl K)
+### Search (Ctrl Shift P)
 
 One palette across projects, threads and history. Projects open the workspace, threads select, history opens the project page on its History tab.
 
@@ -178,10 +178,10 @@ The sidebar is built by walking **projects**, not tabs. This inversion is the re
 
 ## Open decisions
 
-- **Under the date on Home.** Candidates: the counter pills totalled across projects (preferred), "last here 2h ago", the projects touched in the previous session, uncommitted-change count, nothing.
+- **Under the date on Home.** Settled 2026-09-06: the counter pills totalled across projects, nothing at all when both are zero.
 - **Threads in General that are closed** are gone, not in history, because there is no page to list them on. Revisit if it hurts.
 - **Worktree grouping on the project page** (threads listed under the worktree they run in). Fits the model, not required.
-- **Search shortcut.** The mock uses Ctrl+K, which shells and editors inside the terminal also use (bash kill-line, Claude Code). Since afterterm's shortcuts are intercepted before the terminal sees them, Ctrl+K would be stolen from every thread. Candidates: Ctrl+Shift+K, Ctrl+P, Ctrl+Shift+P. Decide in Phase 2.
+- **Search shortcut.** Settled 2026-09-06: Ctrl+Shift+P. Ctrl+K would have been stolen from every thread, since afterterm's shortcuts are intercepted before the terminal sees them and shells and Claude Code both use it.
 - **Font.** Inter must ship inside the app (OFL licence allows it); the renderer cannot load Google Fonts offline and the CSP would block it anyway.
 - **Naming.** The code still says Group and Tab. Whether to rename to Project and Thread in code, or only in the UI, is a Phase 0 call.
 

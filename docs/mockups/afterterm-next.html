@@ -69,6 +69,7 @@ svg{display:block;flex:none}
 .home{max-width:680px;margin:0 auto;padding:28px 24px 96px;display:flex;flex-direction:column;gap:36px}
 .home h1{margin:0;font-size:26px;font-weight:500;letter-spacing:-.01em}
 .home .sub{margin:6px 0 0;color:var(--text3)}
+.home .tot{display:flex;gap:6px;margin-top:12px}
 .lbl{font-size:13px;color:var(--text3);font-weight:500;margin:0 0 8px 12px}
 .cards{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .cd{background:var(--raise);border-radius:16px;padding:16px 16px 14px;display:flex;flex-direction:column;gap:14px;min-height:92px;cursor:pointer}
@@ -342,7 +343,7 @@ svg{display:block;flex:none}
     <div class="work" id="work">
       <aside class="side" id="side">
         <div class="brand"><span class="name">afterterm</span><button class="ic" data-go="home" title="Home"><svg width="18" height="18"><use href="#i-home"/></svg></button><button class="ic" data-go="work" aria-selected="true" title="Workspace"><svg width="18" height="18"><use href="#i-term"/></svg></button><span class="sp"></span><button class="ic" data-collapse title="Close sidebar"><svg width="18" height="18"><use href="#i-panel"/></svg></button></div>
-        <button class="srow" id="side-search"><span class="g"><svg width="16" height="16"><use href="#i-search"/></svg></span>Search<span class="k">Ctrl K</span></button>
+        <button class="srow" id="side-search"><span class="g"><svg width="16" height="16"><use href="#i-search"/></svg></span>Search<span class="k">Ctrl Shift P</span></button>
         <button class="srow" id="side-new"><span class="g"><svg width="16" height="16"><use href="#i-plus"/></svg></span>New thread<span class="k">Ctrl Shift T</span></button>
         <div class="scroll" id="side-scroll"></div>
         <div class="rail">
@@ -638,11 +639,11 @@ function renderHome(){
   const pinned=projects.filter(p=>p.focused&&!p.archived);
   const rest=projects.filter(p=>!p.focused&&!p.archived).sort((a,b)=>a.rank-b.rank);
   const arch=projects.filter(p=>p.archived);
-  const need=threads.filter(t=>t.state==='waiting').length;
+  const need=threads.filter(t=>t.state==='waiting').length,run=threads.filter(t=>t.state==='live'||t.state==='working').length;
   const shown=showAll?rest:rest.slice(0,4);
   const h=document.getElementById('home');
   h.innerHTML=`
-    <div><h1>Sunday, 6 September</h1>${need?`<p class="sub">${need} thread${need>1?'s':''} waiting for you</p>`:''}</div>
+    <div><h1>Sunday, 6 September</h1>${need||run?`<div class="sub tot">${need?`<span class="sig need" title="${need} waiting for you">${stIcon('waiting')}${need}</span>`:''}${run?`<span class="sig run" title="${run} running">${stIcon('live')}${run}</span>`:''}</div>`:''}</div>
     <div><div class="lbl">Pinned</div>${pinned.length?`<div class="cards">${pinned.map(card).join('')}</div>`:'<div class="nothing">Pin a project to keep it here</div>'}</div>
     <div><div class="lbl lblrow"><span>Projects</span><button class="ib" data-newproj data-tip="New project">${svg('i-plus',16)}</button></div><div class="list">${shown.map(p=>row(p)).join('')}${rest.length>4?`<button class="more" id="more">${showAll?'Show less':'Show more'}</button>`:''}</div></div>
     ${arch.length?`<div><button class="more" id="arch">Archived · ${arch.length}</button>${showArch?`<div class="list">${arch.map(p=>row(p,true)).join('')}</div>`:''}</div>`:''}`;
@@ -767,7 +768,7 @@ function query(q){q=q.toLowerCase();items=[];let html='';
 function paint(){palres.querySelectorAll('.pi').forEach((b,i)=>b.classList.toggle('hi',i===hi));const e=palres.querySelector('.pi.hi');e&&e.scrollIntoView({block:'nearest'})}
 palin.oninput=e=>query(e.target.value);
 document.addEventListener('keydown',e=>{
-  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();palbg.classList.contains('show')?closePal():openPal();return}
+  if((e.ctrlKey||e.metaKey)&&e.shiftKey&&e.key.toLowerCase()==='p'){e.preventDefault();palbg.classList.contains('show')?closePal():openPal();return}
   if((e.ctrlKey||e.metaKey)&&e.shiftKey&&e.key.toLowerCase()==='t'){e.preventDefault();if(view!=='work')go('work');const a=sideCollapsed?document.querySelector('.rail [data-newthread]'):document.getElementById('side-new');openNT(a);return}
   if(!palbg.classList.contains('show'))return;
   if(e.key==='Escape')closePal();
