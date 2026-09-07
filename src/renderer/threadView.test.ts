@@ -226,7 +226,7 @@ console.log('\nthreadView: toastMessage\n');
 
 console.log('\nthreadView: initialScreen\n');
 {
-  check('no projects opens the workspace', initialScreen([]) === 'workspace');
+  check('no projects still opens Home', initialScreen([]) === 'home');
   check('one project opens Home', initialScreen([group('A')]) === 'home');
   check('several projects open Home', initialScreen([group('A'), group('B')]) === 'home');
 }

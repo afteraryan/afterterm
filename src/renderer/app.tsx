@@ -220,12 +220,11 @@ export function App() {
       const session = migrateSession(saved, Date.now());
       if (session && session.tabs.length > 0) {
         state.restoreSession(session);
-        // Home is the launcher, so it only opens first when there is something to
-        // launch (see initialScreen in threadView.ts).
         setScreen(initialScreen(session.groups));
       } else {
         state.addTab();
-        setScreen('workspace');
+        // A fresh profile has no session at all; the rule is the same (always Home).
+        setScreen(initialScreen([]));
       }
       setInitialized(true);
     });

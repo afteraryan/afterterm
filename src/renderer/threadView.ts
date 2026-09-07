@@ -163,12 +163,13 @@ export function toastMessage(type: TabNotification): string {
   }
 }
 
-// Which screen the app opens on once the restored session has loaded. Home is the
-// launcher, so it only earns the first paint when there is something to launch: at
-// least one project. A fresh install has a single thread in General and no projects
-// at all, so Home would open on an empty board; that case starts in the workspace.
-export function initialScreen(groups: Pick<Group, 'id'>[]): 'home' | 'workspace' {
-  return groups.length > 0 ? 'home' : 'workspace';
+// Which screen the app opens on once the session has loaded. Always Home, decided
+// by Aryan on 2026-09-07: Home is the launcher and the first thing to see, even on
+// a fresh install with no project yet (the board then shows the empty Pinned hint
+// and the + to create one). The parameter stays so a later rule can look at the
+// session without changing the call site.
+export function initialScreen(_groups: Pick<Group, 'id'>[]): 'home' | 'workspace' {
+  return 'home';
 }
 
 // Which thread stays active after a project is archived. An archived project keeps

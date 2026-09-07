@@ -44,7 +44,7 @@ src/
     theme.css                          ← Palette tokens, bundled Inter, shared classes, keyframes, reduced motion, Home and project-page entrance animations
     sessionMigration.ts                ← session.json shape: migrateSession (fills the project/thread fields on a 0.8.1 file) + serializeSession (the one save shape). Pure, unit-tested.
     sidebarWalk.ts                     ← computeSegments: sidebar rows built from groups first, so a group with zero tabs renders. Pure, unit-tested.
-    threadView.ts                      ← Pure: thread kind, state, display title, five-row fold, counter pills, sidebar sections, initialScreen (Home or workspace). Unit-tested.
+    threadView.ts                      ← Pure: thread kind, state, display title, five-row fold, counter pills, sidebar sections, initialScreen (always Home). Unit-tested.
     homeView.ts                        ← Pure: Home screen rendering logic (date heading, pills, pinned cards, projects sorted by activity, archived list). Unit-tested. Test file: homeView.test.ts
     chooserView.ts                     ← Pure: new-thread chooser project and shell options, sorting and filtering. Unit-tested. Test file: chooserView.test.ts
     paletteView.ts                     ← Pure: search palette projects and threads, prefix-match ranking. Unit-tested. Test file: paletteView.test.ts
@@ -141,7 +141,7 @@ State today maps to notification and icon: attention is needs you, amber bell, r
 
 ### Home, project page, chooser and palette (Phase 2)
 
-Three screens under the title bar: Home, the workspace and the project page. Home and the project page render in place of the workspace, and the workspace stays mounted and hidden (`.workspace.hidden`, display none) so terminals keep running and the active tab's lazy Claude resume still fires; when the workspace comes back the active terminal is refit and focused unless something else holds the keyboard (`Terminal/index.tsx`, the `visible` prop). The app opens on Home when the restored session has at least one project and on the workspace when it has none (`initialScreen` in threadView.ts).
+Three screens under the title bar: Home, the workspace and the project page. Home and the project page render in place of the workspace, and the workspace stays mounted and hidden (`.workspace.hidden`, display none) so terminals keep running and the active tab's lazy Claude resume still fires; when the workspace comes back the active terminal is refit and focused unless something else holds the keyboard (`Terminal/index.tsx`, the `visible` prop). The app always opens on Home, projects or not (`initialScreen` in threadView.ts; Aryan's decision on 2026-09-07 after testing the first cut, which opened the workspace when there was no project).
 
 Home (`components/Home/`, pure logic in `homeView.ts`): the date heading ("Sunday, 6 September"), under it the counter pills totalled across every live project and General (bell for needs you, play for working), rendered only when a count is non-zero; Pinned cards (folder, name, pills, time since last activity, the project page icon on hover, the filled pin); Projects rows for unpinned projects sorted by lastActiveAt with Show more after four; an "Archived · N" link that expands to rows with Restore; a + on the Projects label that opens the New project modal. Clicking a card or row opens the workspace on that project (its first thread, or a new one when it has none); the project page opens only from the folder-with-chevron icon or the menu.
 
