@@ -34,18 +34,21 @@ src/
   claude-hook-install.ts               ← reconcileClaudeHook(): self-installs the bundled notifier hook into ~/.claude (idempotent, additive, prefs.json opt-out). Pure Node, unit-tested.
   editors.ts                           ← Editor product detection and info (product name from exe, list of installs)
   editor-detect.ts                     ← Pure search logic: finds the user's primary and alternate editors by prefs, code command, install folders and registry. Unit-tested. Test file: editor-detect.test.ts
-  preload.ts                           ← contextBridge: PTY API, session API, shell list, shortcuts, notify/notifier APIs, shell.openExternal, files.pathForFile (drag-drop), projects (folder picker and explorer launch), editors (list, open, choose), app.lastOpenedAt, pty.onActivity
+  claude-transcript.ts                 ← Reads a Claude session transcript (~/.claude/projects/<hash>/<sessionId>.jsonl): first prompt, latest model, modelDisplayName. Pure, unit-tested. Test file: claude-transcript.test.ts
+  git-info.ts                          ← Branch and worktree from .git/HEAD and a worktree's .git file, no git process spawned. Pure, unit-tested. Test file: git-info.test.ts
+  preload.ts                           ← contextBridge: PTY API, session API, shell list, shortcuts, notify/notifier APIs, shell.openExternal, files.pathForFile (drag-drop), projects (folder picker and explorer launch), editors (list, open, choose), app.lastOpenedAt, pty.onActivity, claudeSession (meta, onUpdate, onMeta), git (info, infoMany)
   prefs.ts                             ← readPrefs and updatePrefs: manages %APPDATA%/afterterm/prefs.json (claudeNotifications, claudeHookToastShown, lastOpenedAt, editorPath)
-  afterterm.d.ts                       ← Window.afterterm type declarations (incl. projects, editors, app.lastOpenedAt, pty.onActivity, notify/notifier, shell, files APIs)
+  afterterm.d.ts                       ← Window.afterterm type declarations (incl. projects, editors, app.lastOpenedAt, pty.onActivity, notify/notifier, shell, files, claudeSession, git APIs)
   renderer/
     index.tsx                          ← React root; routes to NotifierApp when ?notifier=1, else App
-    app.tsx                            ← Screen state (Home, workspace, project page), session restore, shortcut dispatch, notification fan-out, one ProjectActions object for all project menus, new thread chooser, search palette, in-app toast
+    app.tsx                            ← Screen state (Home, workspace, project page), session restore, shortcut dispatch, notification fan-out, one ProjectActions object for all project menus, new thread chooser, search palette, in-app toast, transcript meta and branch/worktree refresh (on capture, cwd change, restore, and a 30s poll)
     index.css                          ← App layout (title bar strip, then sidebar and main pane), screen-entry animations, terminal card, find bar
     theme.css                          ← Palette tokens, bundled Inter, shared classes, keyframes, reduced motion, Home and project-page entrance animations
-    sessionMigration.ts                ← session.json shape: migrateSession (fills the project/thread fields on a 0.8.1 file) + serializeSession (the one save shape). Pure, unit-tested.
+    sessionMigration.ts                ← session.json shape: migrateSession (fills the project/thread fields on a 0.8.1 file, incl. model, branch, worktree, claudeTitle) + serializeSession (the one save shape). Pure, unit-tested.
     sidebarWalk.ts                     ← computeSegments: sidebar rows built from groups first, so a group with zero tabs renders. Pure, unit-tested.
-    threadView.ts                      ← Pure: thread kind, state, display title, five-row fold, counter pills, sidebar sections, initialScreen (always Home). Unit-tested.
-    homeView.ts                        ← Pure: Home screen rendering logic (date heading, pills, pinned cards, projects sorted by activity, archived list). Unit-tested. Test file: homeView.test.ts
+    threadView.ts                      ← Pure: thread kind, state, display title, thread name (claudeTitle, Claude summary, first prompt, live title, in that order), model label, five-row fold, counter pills, sidebar sections, initialScreen (always Home). Unit-tested.
+    homeView.ts                        ← Pure: Home screen rendering logic (date heading, pills, pinned cards, projects sorted by activity, archived list, lastHereLine for the last-opened experiment). Unit-tested. Test file: homeView.test.ts
+    chatTitle.ts                       ← Claude Code's and the notify hook's title glyphs: claudeSummaryTitle, isHookTitle. Pure, unit-tested. Test file: chatTitle.test.ts
     chooserView.ts                     ← Pure: new-thread chooser project and shell options, sorting and filtering. Unit-tested. Test file: chooserView.test.ts
     paletteView.ts                     ← Pure: search palette projects and threads, prefix-match ranking. Unit-tested. Test file: paletteView.test.ts
     threadMenu.tsx                     ← The one thread menu for the sidebar right-click and the header dots button, Open project page enabled
@@ -53,26 +56,28 @@ src/
     NotifierApp.tsx                    ← The floating overlay window's React root: toast cards, hide-when-empty logic
     NotifierApp.css                    ← Toast card styles (state icon in a tinted circle, thread name headline, project line with coloured folder)
     hooks/
-      useTabState.ts                   ← All tab/group state, session restore, group contiguity enforcement, pin, archive, activity, openProject
+      useTabState.ts                   ← All tab/group state, session restore, group contiguity enforcement, pin, archive, activity, openProject, setClaudeMeta and setGitInfo (transcript and branch/worktree writes), threadGitCwd
     components/
       ScreenNav.tsx                    ← The screen navigation type and initial-screen logic. Styles in ScreenNav.css
       ScreenNav.css                    ← Screen types and entry-class styles
       Toast.tsx                        ← In-app toast pill (pin, archive, restore, editor errors). Styles in Toast.css
       Toast.css                        ← Toast styles (centre bottom, auto-hide)
+      ThreadHoverCard.tsx               ← The sidebar thread hover card: type, project, model, branch, worktree, active time, shown 350ms after hovering a row
+      ThreadHoverCard.css               ← Hover card styles
       SidePanel/
-        index.tsx                      ← Icon row (Home, Workspace, collapse toggle), Search and New thread rows, General, Pinned and Projects sections, project and thread rows with the close x, five-row fold, rail when collapsed, DnD, right-click menus, Home and Search wired, pin and project page buttons, shared project menu
+        index.tsx                      ← Icon row (Home, Workspace, collapse toggle), Search and New thread rows, General, Pinned and Projects sections, project and thread rows with the close x, five-row fold, rail when collapsed, DnD, right-click menus, Home and Search wired, pin and project page buttons, shared project menu, thread hover card on a 350ms hover delay
         SidePanel.css                  ← Sidebar styles on the theme tokens, breath keyframes for needs-you and done rows, expand and collapse animation
       Header/
-        index.tsx                      ← Main pane header: kind icon, name, project line, state chip, dots menu
+        index.tsx                      ← Main pane header: kind icon, name, project/model/branch/worktree line, state chip, dots menu
         Header.css                     ← Header styles
       TitleBar/
         index.tsx                      ← The 32px title bar strip: name and version on the left, the OS caption buttons on the right, the window's drag region
         TitleBar.css                     ← Strip styles (sidebar grey)
       Home/
-        index.tsx                      ← Home screen render, date heading, totals, pinned cards, projects list, archived section, Show more toggle
+        index.tsx                      ← Home screen render, date heading, totals, last-here line, pinned cards, projects list, archived section, Show more toggle
         Home.css                       ← Home layout and typography
       ProjectPage/
-        index.tsx                      ← Project page header, folder and shell line, action buttons (Open, New thread, Pin, Edit, Archive or Restore), Explorer and editor buttons, tabs (Live, Asleep, History), search box, thread list or empty state
+        index.tsx                      ← Project page header, folder and shell line, action buttons (Open, New thread, Pin, Edit, Archive or Restore), Explorer and editor buttons, tabs (Live, Asleep, History), search box, thread list (with kind/branch/worktree detail line) or empty state
         ProjectPage.css                ← Project page layout
       NewThreadChooser/
         index.tsx                      ← Overlay modal: current project first, then No project, then others by pin and activity; shell dropdown
@@ -90,7 +95,7 @@ src/
       Menu.css                         ← Menu styles
       Tooltip.tsx                      ← The app tooltip; any element with data-tip
       TabBar/
-        types.ts                       ← Tab (incl. fontSize), Group, GroupColor, TabNotification types (shared)
+        types.ts                       ← Tab (incl. fontSize, model, branch, worktree, claudeTitle, firstPrompt), Group, GroupColor, TabNotification types (shared)
 assets/
   fonts/
     Inter Regular and Medium woff2     ← Bundled in assets/fonts, loaded by theme.css; LICENSE-Inter.txt
@@ -101,8 +106,9 @@ forge.config.ts                        ← ASAR unpack, rebuild skip, Vite plugi
 scripts/
   agent-harness/
     README.md                          ← how an agent launches, drives, screenshots and stops the dev build (safety rules included)
-    launch.mjs                         ← seeds a throwaway AFTERTERM_USER_DATA_DIR, starts the dev build on a chosen display with CDP on, records pids
-    drive.mjs                          ← CDP client: targets, bounds, screenshot, eval, dom, click, rightclick, type, key, sidebar
+    launch.mjs                         ← seeds a throwaway AFTERTERM_USER_DATA_DIR, starts the dev build on a chosen display with CDP on, records pids; --prefs seeds prefs.json
+    drive.mjs                          ← CDP client: targets, bounds, screenshot, eval, dom, click, rightclick, hover (with --wait), unhover, drag, emulate-media, type, key, sidebar, screen, home, project, chooser, palette, header, hover-card, window
+    record.mjs                         ← records the page over CDP screencast into an mp4 through ffmpeg; drive record start/stop
     stop.mjs                           ← kills exactly the recorded process tree, never by name
     screenshot-display.ps1             ← OS-level capture of one whole display (shows title bar and notifier toasts)
     lib.mjs                            ← shared: run records, process tree walk, WMI spawn, display and window queries, CDP client
@@ -123,7 +129,7 @@ A group is a project: a name, a folder, a colour and a default shell. Two ways t
 
 Since Phase 1 of the projects-and-threads work the sidebar is built from projects first (src/renderer/sidebarWalk.ts), so a project with no threads is an ordinary row in the Projects section and the old bottom shelf is gone. Clicking the + on the row, or "New thread here" in its right-click menu, opens a terminal in its folder.
 
-## Title bar, sidebar, header, Home and project page (Phases 1 to 2)
+## Title bar, sidebar, header, Home and project page (Phases 1 to 3)
 
 The palette and Inter are bundled in assets/fonts, loaded by theme.css. The renderer's CSP allows only same-origin assets, so the app works offline.
 
@@ -157,9 +163,29 @@ The in-app toast (`components/Toast.tsx`, `.app-toast`) is a pill at the bottom 
 
 Activity stamping: main sends `pty:activity` for a tab at most once per 15s while it has input or output, ignoring the first 5s of a PTY's life so a shell banner or the app's own `claude --resume` does not read as activity; the renderer raises the thread's and its project's lastActiveAt. Activating a thread still stamps as before. The last-opened time is written to `prefs.json` as `lastOpenedAt` at startup and the previous value is exposed as `window.afterterm.app.lastOpenedAt`.
 
-**Experiment: last opened on Home.** Aryan asked on 2026-09-07 for the app's last-opened time to be shown in the UI as an experiment he runs as a user: one quiet line under the Home date ("Last here 2d ago"), text3, small, only when the gap is over an hour, nothing on the first launch. It is deliberately not a main element. Built in Phase 3 (see PHASES.md). Whenever work on afterterm resumes, the agent must bring this up with Aryan and ask whether he found it useful; the answer decides whether the line stays or goes. Do not extend it before that conversation.
+**Experiment: last opened on Home.** Aryan asked on 2026-09-07 for the app's last-opened time to be shown in the UI as an experiment he runs as a user: one quiet line under the Home date ("Last here 2d ago"), text3, small, only when the gap is over an hour, nothing on the first launch. It is deliberately not a main element. Built: `lastHereLine` in `homeView.ts`, rendered as `.home-lasthere`. Whenever work on afterterm resumes, the agent must bring this up with Aryan and ask whether he found it useful; the answer decides whether the line stays or goes. Do not extend it before that conversation.
 
 Editor detection (`editor-detect.ts`, pure and unit-tested, wired in main.ts) runs once after the window opens and is cached: `editorPath` in prefs.json first, then what the `code` command resolves to (the shim's exe, product read from the exe name so a `code` that opens Cursor is labelled Cursor), then the standard install folders, then the uninstall registry. The first hit is the primary editor (its name and logo on the button); extra editors are menu entries only. It re-runs after a failed launch and after Choose editor... (a file picker that writes `editorPath`). An unknown editor id at launch time is an error, never a fallback. `prefs.json` keys: `claudeNotifications`, `claudeHookToastShown`, `lastOpenedAt`, `editorPath`.
+
+### Thread identity (Phase 3)
+
+A thread's name (`threadName` in `threadView.ts`) tries four things in order: `claudeTitle` when one was ever captured, then the Claude Code summary already sitting in the raw title (`claudeSummaryTitle` in `chatTitle.ts`), then the transcript's first prompt (`firstPrompt`), then the stripped live title (`displayTitle`). A shell has no conversation to name itself after, so it always reads the live title. The fallback chain exists because the hook's own state titles ("▶ afterterm - working") are state, not a name, and a restored chat's shell briefly says "cmd.exe" before Claude sets its own title again, so neither can be trusted as the thread's name. `chatTitle.ts` is the one place that knows Claude Code's own title glyphs, so a change to Claude Code's title format is one edit there: idle is `✳`, busy on current builds is the four-frame `◐ ◓ ◑ ◒` spin, and busy on older builds is the wider `✢ ✶ ✻ ✽` dingbat cycle.
+
+The transcript reader (`src/claude-transcript.ts`, pure and unit-tested) reads a session's JSONL at `~/.claude/projects/<cwd with every non-alphanumeric character turned into "-">/<sessionId>.jsonl`. The file is never read whole: a head and a tail read of 256 KB each are enough, since the first prompt sits near the top and the current model near the bottom. The first prompt is the first `user` line that is not a sidechain, not a slash command and not wrapped in a tag. The model is the latest main-chain assistant message's model id, with its `[1m]` suffix restored from the latest model attachment when the attachment's base id matches the assistant's model; `<synthetic>` models and sidechains are skipped throughout. `AFTERTERM_CLAUDE_PROJECTS_DIR` overrides the projects folder for tests. Main invokes it on the `claude-session:meta` IPC and also pushes a fresh read after every hook write, once a turn, so a `/model` switch or Claude's first reply shows up without polling; on launch the renderer reads every restored chat's transcript once, sequentially, so a session with many chats does not fire dozens of concurrent reads in its first second.
+
+The model display name (`modelDisplayName`) turns an id into what a person reads: "claude-opus-5" is "Opus 5", "claude-opus-5[1m]" is "Opus 5 · 1M", "claude-fable-5-1" is "Fable 5.1", "claude-haiku-4-5" is "Haiku 4.5". `Tab.model` stores the raw id; the renderer maps it to the display name wherever it shows.
+
+Branch and worktree (`src/git-info.ts`, pure and unit-tested) never run `git`: they walk up from a folder looking for a `.git` entry, then read `HEAD` (an ordinary checkout) or a `.git` file (`gitdir: <path>`, a linked worktree, whose folder is then given relative to the main repo, like `.claude\worktrees\phase-3-thread-identity`). A detached `HEAD` shows its short commit hash. The folder read is `claudeCwd ?? cwd` (`threadGitCwd` in `useTabState.ts`): Claude usually runs where the work actually is, often a worktree, while the shell that launched it can still sit in the main checkout, so reading the shell's own cwd would show the wrong branch for a chat. Branch and worktree are refreshed after session restore, when a shell reports a new cwd, right after a Claude session is first captured, and on a 30 second poll (`GIT_POLL_MS` in `app.tsx`) that is skipped while the window is hidden. `Tab.branch` and `Tab.worktree` are persisted.
+
+Header line 2 (`Header/index.tsx`) shows, each with its own icon and a `data-meta` attribute: the project, the model (chats only), the branch, the worktree. A long worktree path ellipses rather than pushing the row wider.
+
+The hover card (`components/ThreadHoverCard.tsx`, mounted by the sidebar) appears 350ms after the pointer enters a sidebar thread row, to the row's right. It shows Type (the kind word plus the state word, and "Resumes on click" appended for a restored chat that has not resumed this launch), Project, Model, Branch, Worktree, Active (relative time since last activity). It hides on click, right-click, drag start, scroll and sidebar collapse. A "Last ran" row and output lines are left for Phases 4 and 5.
+
+The project page's thread rows carry a detail line under the name: kind word, then branch and worktree with their icons when present.
+
+The last-opened experiment on Home (see "Experiment: last opened on Home" above) is now built: `lastHereLine` in `homeView.ts` renders `.home-lasthere`.
+
+The limit to all of this: branch and worktree only show where the cwd is captured, which today is cmd only until Phase 6, except chats, whose cwd comes from the notify hook's file channel and so works from any shell.
 
 ## Default Shell
 
@@ -241,7 +267,7 @@ What afterterm does:
 
 Save location: `%APPDATA%\afterterm\session.json`
 
-Format: `{ version, tabs, groups, activeTabId }`. `version: 2` since the projects-and-threads work; 0.8.1 wrote no version field. Loading goes through `migrateSession` in `src/renderer/sessionMigration.ts`, which fills the fields a 0.8.1 file lacks (`Group.pinned`, `Group.archived`, `Group.lastActiveAt`, `Tab.lastActiveAt`, `Tab.asleep`), drops entries without an id, strips transient fields and rejects anything that is not a session. Saving goes through `serializeSession` in the same module. Every 0.8.1 key keeps its name and meaning, so 0.8.1 still opens a file written by a newer build (it ignores the fields it does not know). Add new persisted fields in that module, not in `app.tsx`.
+Format: `{ version, tabs, groups, activeTabId }`. `version: 2` since the projects-and-threads work; 0.8.1 wrote no version field. Loading goes through `migrateSession` in `src/renderer/sessionMigration.ts`, which fills the fields a 0.8.1 file lacks (`Group.pinned`, `Group.archived`, `Group.lastActiveAt`, `Tab.lastActiveAt`, `Tab.asleep`), drops entries without an id, strips transient fields and rejects anything that is not a session. Saving goes through `serializeSession` in the same module. Every 0.8.1 key keeps its name and meaning, so 0.8.1 still opens a file written by a newer build (it ignores the fields it does not know). Add new persisted fields in that module, not in `app.tsx`. Phase 3 adds `Tab.model`, `Tab.branch`, `Tab.worktree` and `Tab.claudeTitle` to the persisted keys, all optional strings; `Tab.firstPrompt` stays transient, re-read from the transcript on every launch. 0.8.1 still opens the file.
 
 Tabs that were running a **Claude Code session auto-resume it on relaunch** (`claude --resume
 <sessionId>` in the session's cwd) — **lazily**: the active tab resumes on launch, background
@@ -305,7 +331,7 @@ Registered via Electron `before-input-event` — work even when xterm.js has foc
 npm start
 ```
 
-Unit tests (plain Node 24+, no framework): `npm test` runs `src/editor-detect.test.ts`, `src/claude-hook-install.test.ts`, `src/renderer/spinnerState.test.ts`, `src/renderer/sessionMigration.test.ts`, `src/renderer/sidebarWalk.test.ts`, `src/renderer/threadView.test.ts`, `src/renderer/homeView.test.ts`, `src/renderer/chooserView.test.ts` and `src/renderer/paletteView.test.ts`. To drive the dev build itself, use the agent harness (see "Agent test harness"), never a bare `npm start` while someone is working on the primary monitor.
+Unit tests (plain Node 24+, no framework): `npm test` runs `src/editor-detect.test.ts`, `src/claude-hook-install.test.ts`, `src/renderer/spinnerState.test.ts`, `src/renderer/sessionMigration.test.ts`, `src/renderer/sidebarWalk.test.ts`, `src/renderer/threadView.test.ts`, `src/renderer/homeView.test.ts`, `src/renderer/chooserView.test.ts`, `src/renderer/paletteView.test.ts`, `src/claude-transcript.test.ts`, `src/git-info.test.ts` and `src/renderer/chatTitle.test.ts`. To drive the dev build itself, use the agent harness (see "Agent test harness"), never a bare `npm start` while someone is working on the primary monitor.
 
 > If your network intercepts TLS (corporate proxy / some antivirus), `npm install`
 > or the build may fail with certificate errors. Prefer pointing npm/Node at your
@@ -365,18 +391,21 @@ release from the **main repo checkout** so output lands in the standard `out\` f
 `scripts/agent-harness/` launches the dev build in a throwaway profile, places it on
 a chosen display and drives it over the Chrome DevTools Protocol, so an agent can
 exercise and screenshot every screen of a phase without touching the running app or
-the monitor a person is using. `npm run harness -- --session <copy of session.json>`,
-`npm run harness:drive -- <command>` with commands including bounds, sidebar, screenshot, click, hover, unhover, drag, emulate-media (with --click, --eval, --screenshot), screen, home, project, chooser, palette, and window bottom/restore/close-dialogs,
+the monitor a person is using. `npm run harness -- --session <copy of session.json>`
+(add `--prefs <file>` to seed prefs.json, for example a `lastOpenedAt` so Home's last-here line shows),
+`npm run harness:drive -- <command>` with commands including bounds, sidebar, screenshot, click, hover (add `--wait <ms>` for the hover card's 350ms delay), unhover, drag, emulate-media (with --click, --eval, --screenshot), screen, home, project, chooser, palette, header, hover-card, window bottom/restore/close-dialogs, and record start/stop (an mp4 screen recording of the drive session),
 `npm run harness:stop`. Main-process support: `AFTERTERM_DISPLAY`
 (`primary` | `secondary` | index; moves the main window and the notifier overlay) and
 `AFTERTERM_REMOTE_DEBUG_PORT` (opt-in Chromium remote debugging). Safety rules, every
 command and the known limitations are in
 [`scripts/agent-harness/README.md`](scripts/agent-harness/README.md).
 
-**Screenshots are kept.** Every capture taken while testing a phase (harness CDP
+**Screenshots and recordings are kept.** Every capture taken while testing a phase (harness CDP
 screenshots, per-window captures, whole-display captures) is saved under
 `docs/screenshots/<phase>/` in the repo and is never deleted, by anyone. New captures go
-there too, numbered, with a name that says what they show. Whole-display captures sit in
+there too, numbered, with a name that says what they show. Recordings (mp4 files from `drive record
+start` / `record stop`, through CDP screencast and ffmpeg) go in the same folder, numbered and named
+for the flow they show, and are kept the same way. Whole-display captures sit in
 `docs/screenshots/<phase>/displays/`, which git ignores because they show personal windows;
 everything else is committed with the phase. See `docs/screenshots/README.md`.
 

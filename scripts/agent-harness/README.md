@@ -36,9 +36,10 @@ Plain Node (24+) and PowerShell. No new dependencies: Node's global `fetch` and
 | File | Role |
 |---|---|
 | `launch.mjs` | Seeds a throwaway `AFTERTERM_USER_DATA_DIR`, starts `electron-forge start` with the placement and debug-port env vars, waits for the DevTools endpoint, records pids. |
-| `drive.mjs` | CDP client with subcommands: `targets`, `bounds`, `screenshot`, `eval`, `dom`, `click`, `rightclick`, `hover`, `unhover`, `drag`, `emulate-media`, `type`, `key`, `sidebar`, `screen`, `home`, `project`, `chooser`, `palette`, `header`, `hover-card`, `window`. |
+| `drive.mjs` | CDP client with subcommands: `targets`, `bounds`, `screenshot`, `eval`, `dom`, `click`, `rightclick`, `hover`, `unhover`, `drag`, `emulate-media`, `type`, `key`, `sidebar`, `screen`, `home`, `project`, `chooser`, `palette`, `header`, `hover-card`, `window`, `record`. |
 | `stop.mjs` | Kills exactly the recorded process tree and verifies it is gone. |
 | `screenshot-display.ps1` | Captures a whole physical display to PNG (shows native title bars and the notifier toasts, which CDP cannot). |
+| `record.mjs` | Long-running recorder: CDP screencast of the page content, stitched to mp4 with ffmpeg. Normally started detached by `drive.mjs record start`, not run by hand. See "Recording a test session" below. |
 | `lib.mjs` | Shared: arg parsing, run records, process tree walk, WMI spawn, display and window queries, the CDP client. |
 
 Main-process support lives in `src/main.ts`:
@@ -67,6 +68,7 @@ node scripts/agent-harness/launch.mjs --session "$env:TEMP\session-copy.json" `
 Options:
 
 - `--session <file>`: session.json to seed from. Omit for an empty start.
+- `--prefs <file>`: a JSON object merged into the generated `prefs.json` on top of `claudeHookToastShown: true`. Seeding `lastOpenedAt` (a time over an hour back) makes Home show its "Last here" line; without it a fresh profile is a first launch and shows nothing.
 - `--data-dir <dir>`: user-data dir (default: a fresh `%TEMP%\afterterm-agent-harness\run-<timestamp>`).
 - `--display primary|secondary|<n>`: default `secondary`.
 - `--port <n>`: remote debugging port, default `9333`.
@@ -129,6 +131,7 @@ node scripts/agent-harness/drive.mjs <command> ...
 | `header` | `drive header` | The main pane header as a tree: the name line, the kind (when the name line carries a `data-kind` attribute), one `<data-meta>=<text>` line per header meta item, the state chip text or `(quiet)`. `(no thread)` when the header shows its empty state. `(no .header in the DOM)` when the header itself is absent. |
 | `hover-card` | `drive hover ".th" 0 --wait 400` then `drive hover-card` | The thread hover card: the title, then one `<data-row>: <text>` line per `dl` row. `(no hover card)` when absent. The card appears 350ms after the pointer enters a thread row, so hover first with `--wait` (see the `hover` row above) before reading it. |
 | `window` | `drive window bottom`, `drive window restore`, `drive window close-dialogs` | OS-level window control (see "Capturing an occluded window" below). |
+| `record` | `drive record start --out out.mp4`, `drive record stop`, `drive record status` | Starts, stops and lists screen recordings of the page content (see "Recording a test session" below). |
 
 The sidebar selectors live in the `SEL` object at the top of `drive.mjs`,
 read from `src/renderer/components/SidePanel/index.tsx` and `SidePanel.css`.
@@ -176,6 +179,41 @@ lookups through the `SEL` object, printed as a plain tree (or JSON for
 its own "not open", "not on this screen" or "no thread" line instead of
 throwing, so a command can be used to check whether a screen or overlay is
 showing at all.
+
+## Recording a test session
+
+`drive.mjs record` drives `record.mjs`, a long-running recorder that captures the page
+content through CDP screencast frames (`Page.startScreencast`), the same view `screenshot`
+sees. That means a recording works even while the dev window is pushed to the bottom of the
+z-order for a test: no native title bar, no notifier overlay toasts, no mouse cursor, nothing
+the OS is drawing outside the page itself. For those, capture a whole display instead
+(`screenshot-display.ps1`).
+
+```powershell
+node scripts/agent-harness/drive.mjs record start --out docs/screenshots/phase-3/15-sidebar-drag-to-group.mp4
+node scripts/agent-harness/drive.mjs sidebar
+node scripts/agent-harness/drive.mjs drag ".th" 0 ".th" 2 --hold-ms 600
+node scripts/agent-harness/drive.mjs sidebar
+node scripts/agent-harness/drive.mjs record stop
+```
+
+`record start` waits for the first frame (up to 10s) before printing `recording <out>`, so a
+script that starts a recording and immediately drives the app does not race an empty video.
+`record stop` (no `--out` needed if it is the only recording running) writes a stop file the
+recorder polls for, waits up to 60s for the recorder process to exit, then prints the last
+lines of its log and the final path.
+
+Chromium only sends a frame when the page actually changes, so a recording plays back in real
+time by frame timestamp, not at a fixed rate: `record.mjs` stitches with ffmpeg's concat
+demuxer and a computed per-frame duration, so a long quiet stretch between two clicks does not
+bloat the file and a burst of frames does not vanish. `record.mjs` needs `ffmpeg` on `PATH`; if
+it is missing, the captured frames are kept next to the output path (`<out>.frames\`) along
+with the exact ffmpeg command to stitch them by hand, and recording still reports success
+rather than failing the test run.
+
+Recordings for a phase go in `docs/screenshots/<phase>/` next to that phase's screenshots,
+numbered the same way, and are kept forever like the screenshots (see
+`docs/screenshots/README.md`).
 
 ## Prove the window is on the secondary display
 
@@ -309,3 +347,7 @@ a main-process change, `npm run harness:stop` and launch again.
 - The harness inherits the caller's environment. Run it from a shell with a
   normal `PATH` (it needs `node`, `powershell.exe`, `taskkill.exe`).
 - Windows only, like the app.
+- A recorder started with `record start` is a separate WMI-spawned process, not part of the
+  electron tree, so `stop.mjs` does not kill it. Call `record stop` before `stop.mjs`; a
+  recorder left running against a stopped app just keeps polling for its stop file with a
+  dead CDP session, harmless but orphaned (`record status` shows its pid, killable by hand).

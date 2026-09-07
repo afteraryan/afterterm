@@ -34,6 +34,11 @@
 //   hover-card                    the thread hover card as a tree (or "(no hover card)")
 //   window bottom|restore|close-dialogs   OS-level window z-order, un-minimise, and
 //                                  closing stray native dialogs (e.g. a file picker)
+//   record start --out <file.mp4> [--max-width N] [--fps N] [--quality N]
+//                                  start recording the page content to video, detached
+//   record stop [--out <file.mp4>]     stop the recording (latest one if --out is omitted)
+//                                  and stitch it
+//   record status                  list recordings for this run and whether they are alive
 //
 // Every command reads latest.json (written by launch.mjs) for the port unless
 // --port or --data-dir is given.
@@ -41,9 +46,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  parseArgs, loadRun, resolvePort, listTargets, pickMainPage, Cdp, evaluate,
-  listDisplays, displayContaining, listWindows, pidListeningOn, sleep,
-  powershell, DPI_AWARE_PRELUDE,
+  REPO_ROOT, LATEST_FILE, parseArgs, loadRun, resolvePort, listTargets, pickMainPage, Cdp, evaluate,
+  listDisplays, displayContaining, listWindows, pidListeningOn, pidExists, spawnViaWmi,
+  readJson, writeJson, sleep, powershell, DPI_AWARE_PRELUDE,
 } from './lib.mjs';
 
 // ─── Sidebar selectors (keep in one place; later phases update them here) ─────
@@ -171,7 +176,7 @@ const { opts, positional } = parseArgs(process.argv.slice(2));
 const [command, ...args] = positional;
 
 if (!command || opts.help) {
-  console.log(fs.readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(0, 35).map(l => l.replace(/^\/\/ ?/, '')).join('\n'));
+  console.log(fs.readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(0, 44).map(l => l.replace(/^\/\/ ?/, '')).join('\n'));
   process.exit(command ? 0 : 1);
 }
 
@@ -193,6 +198,10 @@ try {
 
   if (command === 'targets') {
     for (const t of targets) console.log(`${t.type.padEnd(8)} ${t.id}  ${t.url}`);
+  } else if (command === 'record') {
+    // The recorder is its own detached process with its own CDP session (see
+    // record.mjs); this drive.mjs process needs no page connection of its own.
+    await cmdRecord(args[0]);
   } else {
     page = pickMainPage(targets);
     if (!page) throw new DriveError(`no main-window page target among: ${targets.map(t => `${t.type} ${t.url}`).join('; ')}`);
@@ -847,6 +856,101 @@ foreach ($h in @(${dialogs.map(d => d.hwnd).join(',')})) { [void][Harness.Close]
   }
 
   fail(`unknown window subcommand: ${sub}; known: bottom, restore, close-dialogs`);
+}
+
+// ─── Recording (see record.mjs) ────────────────────────────────────────────────
+// `record` spawns record.mjs as its own detached process (spawnViaWmi, same as
+// launch.mjs uses for the dev build, so it survives the caller's shell being
+// recycled) and tracks it two ways: `<out>.recording.json` next to the video
+// (the reliable one, always written) and a `recordings` list appended to the
+// run record when one is available, so `record status` and an --out-less
+// `record stop` need no arguments.
+
+async function cmdRecord(sub) {
+  if (!sub) fail('record needs start, stop or status');
+  if (sub === 'start') return cmdRecordStart();
+  if (sub === 'stop') return cmdRecordStop();
+  if (sub === 'status') return cmdRecordStatus();
+  fail(`unknown record subcommand: ${sub}; known: start, stop, status`);
+}
+
+async function cmdRecordStart() {
+  if (!opts.out) fail('record start needs --out <file.mp4>');
+  const outFile = path.resolve(String(opts.out));
+  fs.mkdirSync(path.dirname(outFile), { recursive: true });
+  const framesDir = `${outFile}.frames`;
+  const spawnLog = `${outFile}.spawn.log`;
+  const recordScript = path.join(REPO_ROOT, 'scripts', 'agent-harness', 'record.mjs');
+
+  const passthrough = [];
+  for (const k of ['max-width', 'fps', 'quality']) {
+    if (opts[k] !== undefined && opts[k] !== true) passthrough.push(`--${k} ${opts[k]}`);
+  }
+  const quote = s => `"${s}"`;
+  const commandLine = `cmd.exe /d /s /c "${quote(process.execPath)} ${quote(recordScript)} --out ${quote(outFile)} --port ${port} ${passthrough.join(' ')} >> ${quote(spawnLog)} 2>&1"`;
+
+  const pid = spawnViaWmi({ commandLine, cwd: REPO_ROOT, env: process.env, dataDir: path.dirname(outFile) });
+  const startedAt = new Date().toISOString();
+  const entry = { pid, out: outFile, port, startedAt };
+  writeJson(`${outFile}.recording.json`, entry);
+  addRecordingToRun(entry);
+
+  // Wait for the first frame so a caller knows recording has actually begun
+  // before it starts driving the app.
+  const deadline = Date.now() + 10000;
+  let sawFrame = false;
+  while (Date.now() < deadline) {
+    if (!pidExists(pid)) fail(`recorder exited before capturing a frame; see ${spawnLog} and ${outFile}.log`);
+    if (fs.existsSync(framesDir) && fs.readdirSync(framesDir).some(f => f.startsWith('frame-'))) { sawFrame = true; break; }
+    await sleep(200);
+  }
+  if (!sawFrame) console.error(`drive: no frame seen within 10s yet (pid ${pid} still running); continuing`);
+  console.log(`recording ${outFile}`);
+}
+
+async function cmdRecordStop() {
+  const outFile = opts.out ? path.resolve(String(opts.out)) : latestRecordingOut();
+  if (!outFile) fail('record stop found no recording to stop; pass --out <file.mp4>');
+  const infoFile = `${outFile}.recording.json`;
+  if (!fs.existsSync(infoFile)) fail(`no ${infoFile}; was this recording started with 'record start'?`);
+  const info = readJson(infoFile);
+  fs.writeFileSync(`${outFile}.stop`, '');
+  console.log(`stopping ${outFile} (pid ${info.pid})...`);
+
+  const deadline = Date.now() + 60000;
+  while (Date.now() < deadline && pidExists(info.pid)) await sleep(500);
+  if (pidExists(info.pid)) console.error(`drive: recorder pid ${info.pid} still alive after 60s`);
+
+  const logFile = `${outFile}.log`;
+  if (fs.existsSync(logFile)) {
+    const lines = fs.readFileSync(logFile, 'utf8').split(/\r?\n/).filter(Boolean);
+    for (const l of lines.slice(-10)) console.log(l);
+  }
+  console.log(outFile);
+}
+
+async function cmdRecordStatus() {
+  const recordings = run?.recordings ?? [];
+  if (!recordings.length) { console.log('(no recordings)'); return; }
+  for (const r of recordings) console.log(`${pidExists(r.pid) ? 'alive ' : 'gone  '} pid=${r.pid}  ${r.out}`);
+}
+
+function latestRecordingOut() {
+  const recordings = run?.recordings ?? [];
+  return recordings.length ? recordings[recordings.length - 1].out : null;
+}
+
+function addRecordingToRun(entry) {
+  const target = run ?? { port };
+  target.recordings = target.recordings ?? [];
+  target.recordings.push(entry);
+  run = target;
+  if (opts['data-dir']) {
+    const file = path.join(path.resolve(opts['data-dir']), 'harness.json');
+    if (fs.existsSync(file)) writeJson(file, target);
+  } else if (fs.existsSync(LATEST_FILE)) {
+    writeJson(LATEST_FILE, target);
+  }
 }
 
 function fail(msg) {
