@@ -77,6 +77,18 @@ contextBridge.exposeInMainWorld('afterterm', {
     onUpdate: (callback: (data: { tabId: string; sessionId: string; cwd: string }) => void): void => {
       ipcRenderer.on('claude-session:update', (_event, data) => callback(data));
     },
+    // The first user prompt and the current model, read from the session's transcript.
+    meta: (sessionId: string, cwd: string) => ipcRenderer.invoke('claude-session:meta', sessionId, cwd),
+    // Pushed once a turn, on every hook write, so a /model switch shows up by itself.
+    onMeta: (callback: (data: { tabId: string; sessionId: string; firstPrompt: string | null; model: string | null }) => void): void => {
+      ipcRenderer.on('claude-session:meta', (_event, data) => callback(data));
+    },
+  },
+
+  // Branch and worktree for a folder, read straight from .git (no git process).
+  git: {
+    info: (cwd: string) => ipcRenderer.invoke('git:info', cwd),
+    infoMany: (cwds: string[]) => ipcRenderer.invoke('git:infoMany', cwds),
   },
 
   shortcuts: {

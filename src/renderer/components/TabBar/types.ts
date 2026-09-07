@@ -27,6 +27,27 @@ export interface Tab {
   // is in the model now so a session.json written today already carries the flag
   // and Phase 4 needs no second migration.
   asleep: boolean;
+  // Claude Code model id of the latest assistant turn, read from the session
+  // transcript in main ("claude-opus-5[1m]"); the renderer maps it to a display
+  // name (threadView.ts, modelLabel). Chats only. Persisted in session.json.
+  model?: string;
+  // Git branch (or short detached hash) of the thread's cwd, read by main.
+  // Persisted in session.json.
+  branch?: string;
+  // Worktree folder relative to the main repo (".claude\worktrees\phase-3-thread-identity")
+  // when the cwd is inside a git worktree; absent in a main checkout. Persisted
+  // in session.json.
+  worktree?: string;
+  // Transient (NOT persisted): the last conversation title Claude Code set on the
+  // terminal, with its leading glyph already stripped (see chatTitle.ts). This is
+  // the thread's name once Claude has replied; the raw title keeps flipping
+  // between Claude's summary and the notify hook's state text, so the name has to
+  // be captured separately rather than read live off the title each render.
+  claudeTitle?: string;
+  // Transient (NOT persisted): the session's first user prompt, read from its
+  // transcript in main. The name fallback for a chat before Claude's first reply
+  // has produced a title.
+  firstPrompt?: string;
 }
 
 export interface Group {

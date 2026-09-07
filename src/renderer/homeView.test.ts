@@ -6,6 +6,7 @@
 
 import {
   dateHeading, relativeTime, homeSections, homeTotals, filterThreads, splitLiveAsleep,
+  lastHereLine,
 } from './homeView.ts';
 import type { Tab, Group } from './components/TabBar/types.ts';
 
@@ -166,6 +167,20 @@ console.log('\nhomeView: splitLiveAsleep\n');
   check('asleep holds the sleeping tabs, in order', split.asleep.map(t => t.id).join(',') === 'y');
   check('an empty list splits into two empty lists',
     splitLiveAsleep([]).live.length === 0 && splitLiveAsleep([]).asleep.length === 0);
+}
+
+console.log('\nhomeView: lastHereLine\n');
+{
+  const now = new Date(2026, 8, 6, 12, 0, 0).getTime();
+  check('null (first launch) shows nothing', lastHereLine(null, now) === null);
+  check('59 minutes ago shows nothing (within the hour)', lastHereLine(now - 59 * 60_000, now) === null);
+  check('exactly 1 hour ago shows nothing (boundary is exclusive)', lastHereLine(now - 60 * 60_000, now) === null);
+  check('61 minutes ago shows the line', lastHereLine(now - 61 * 60_000, now) === 'Last here 1h ago',
+    show(lastHereLine(now - 61 * 60_000, now)));
+  check('2 days ago shows the line', lastHereLine(now - 2 * 86_400_000, now) === 'Last here 2d ago');
+  check('a future timestamp shows nothing', lastHereLine(now + 60 * 60_000, now) === null);
+  check('NaN shows nothing', lastHereLine(NaN, now) === null);
+  check('Infinity shows nothing', lastHereLine(Infinity, now) === null);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

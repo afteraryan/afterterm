@@ -39,8 +39,44 @@ interface ClaudeSessionUpdate {
   cwd: string;
 }
 
+// What the session's transcript under ~/.claude/projects says about a thread: the
+// first user prompt (the thread name until Claude sets a title) and the model of the
+// latest assistant turn, id form ("claude-opus-5[1m]"). Both null when the transcript
+// has nothing to say; exists is false when there is no transcript at all.
+interface ClaudeSessionMeta {
+  firstPrompt: string | null;
+  model: string | null;
+  exists: boolean;
+}
+
+interface ClaudeSessionMetaPush {
+  tabId: string;
+  sessionId: string;
+  firstPrompt: string | null;
+  model: string | null;
+}
+
+// Branch and worktree for a folder. worktree is the linked worktree's folder relative
+// to the main repo (".claude\worktrees\phase-3-thread-identity"), null for an ordinary
+// checkout. branch is a short commit hash when HEAD is detached.
+interface GitInfo {
+  branch: string | null;
+  worktree: string | null;
+  repoRoot: string | null;
+}
+
 interface AftertermClaudeSessionAPI {
   onUpdate(callback: (data: ClaudeSessionUpdate) => void): void;
+  // Read the transcript now, for a thread whose session id is already known.
+  meta(sessionId: string, cwd: string): Promise<ClaudeSessionMeta>;
+  // Pushed once a turn, on every hook write, so a /model switch shows up by itself.
+  onMeta(callback: (data: ClaudeSessionMetaPush) => void): void;
+}
+
+interface AftertermGitAPI {
+  info(cwd: string): Promise<GitInfo>;
+  // One round trip for a whole list, in the same order. Capped at 500 entries.
+  infoMany(cwds: string[]): Promise<GitInfo[]>;
 }
 
 interface AftertermShortcutsAPI {
@@ -130,6 +166,7 @@ interface AftertermAPI {
   files: AftertermFilesAPI;
   session: AftertermSessionAPI;
   claudeSession: AftertermClaudeSessionAPI;
+  git: AftertermGitAPI;
   shortcuts: AftertermShortcutsAPI;
   notify: AftertermNotifyAPI;
   notifier: AftertermNotifierAPI;

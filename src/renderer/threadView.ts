@@ -15,6 +15,8 @@
 
 import type { Tab, Group, TabNotification } from './components/TabBar/types.ts';
 import type { Segment } from './sidebarWalk.ts';
+import { CLAUDE_TITLE_GLYPH, HOOK_TITLE_GLYPH, claudeSummaryTitle } from './chatTitle.ts';
+import { modelDisplayName } from '../claude-transcript.ts';
 
 export type ThreadKind = 'chat' | 'shell';
 
@@ -72,18 +74,55 @@ export function stateBreathes(state: ThreadState): boolean {
   return state === 'needs-you' || state === 'done';
 }
 
-// One leading hook glyph, plus the whitespace right after it. The hook writes
-// titles like "▶ project - working"; once the state moves into the row's icon, the
-// glyph in the text is redundant and would double up with it. The braille spinner
-// range covers glyphs a terminal spinner library might also prepend. Anything else
-// about the title, including plain paths like "C:\", is left untouched. A title
-// that becomes empty after stripping (or was already empty) falls back to
-// "Terminal", the same default a tab with no title shows today.
-const LEADING_GLYPH = /^[\u2705\u26A0\u23F3\u2699\u25B6\u2800-\u28FF\u2733]\s*/u;
+// A generic braille spinner glyph some other terminal spinner library might
+// still prepend, distinct from the hook and Claude Code's own glyphs below.
+const BRAILLE_SPINNER_GLYPH = /^[\u2800-\u28FF]\s*/u;
 
+// Strips one leading glyph, whichever family wrote it: the hook's state glyph
+// ("▶ project - working"), Claude Code's own summary/spinner glyph ("✳ Fix the
+// spinner"), or a braille spinner glyph. Both real glyph families are defined
+// once in chatTitle.ts (the one place that knows Claude's own glyphs), this
+// just composes them. Once state moves into the row's icon, any of these in the
+// text would double up with it. Anything else about the title, including plain
+// paths like "C:\", is left untouched. A title that becomes empty after
+// stripping (or was already empty) falls back to "Terminal", the same default a
+// tab with no title shows today.
 export function displayTitle(title: string): string {
-  const stripped = title.replace(LEADING_GLYPH, '');
+  const stripped = title
+    .replace(HOOK_TITLE_GLYPH, '')
+    .replace(CLAUDE_TITLE_GLYPH, '')
+    .replace(BRAILLE_SPINNER_GLYPH, '');
   return stripped.length > 0 ? stripped : 'Terminal';
+}
+
+// The name shown for a thread: the row title, header line 1, cards and toast
+// headlines. A chat's name is its Claude Code conversation, not whatever the OS
+// title channel happens to hold right now: the notify hook overwrites the same
+// title with its own state text while Claude works ("▶ afterterm - working"),
+// and a restored chat's shell can briefly show a plain title like "cmd.exe"
+// before Claude sets one again. Neither of those is the thread's name, so a
+// chat only falls back to the live title (via displayTitle) once nothing
+// better has ever been captured for it. A shell has no conversation to name
+// itself after, so it always reads the live title.
+export function threadName(tab: Pick<Tab, 'title' | 'claudeSessionId' | 'claudeTitle' | 'firstPrompt'>): string {
+  if (tab.claudeSessionId) {
+    if (tab.claudeTitle) return tab.claudeTitle;
+    const summary = claudeSummaryTitle(tab.title);
+    if (summary) return summary;
+    if (tab.firstPrompt) return tab.firstPrompt;
+    return displayTitle(tab.title);
+  }
+  return displayTitle(tab.title);
+}
+
+// The model shown on header line 2 for a chat thread ("Opus 5", "Opus 5 · 1M"),
+// or null when there is nothing to show (no model captured yet, or a shell).
+// modelDisplayName lives in claude-transcript.ts, the module that reads the
+// session transcript in main; this is just the null-safe wrapper the renderer
+// calls with whatever main last put on the tab.
+export function modelLabel(model: string | undefined): string | null {
+  if (!model) return null;
+  return modelDisplayName(model);
 }
 
 // The five-row fold for a project's thread list. `threads` is already in display

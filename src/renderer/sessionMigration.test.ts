@@ -52,6 +52,53 @@ console.log('\nsessionMigration: a 0.8.1 file loads with defaults\n');
   check('activeTabId is kept', s.activeTabId === 'tab-5');
 }
 
+console.log('\nsessionMigration: SESSION_FORMAT_VERSION stays 2 (Phase 3 is a fill-defaults pass)\n');
+{
+  check('the version constant has not been bumped', SESSION_FORMAT_VERSION === 2);
+}
+
+console.log('\nsessionMigration: model, branch, worktree (Phase 3)\n');
+{
+  // A Phase 2 file: version 2, but no model/branch/worktree on any tab.
+  const s = migrateSession(fixture081(), NOW)!;
+  check('model is absent, not null', s.tabs.every(t => t.model === undefined), show(s.tabs.map(t => t.model)));
+  check('branch is absent, not null', s.tabs.every(t => t.branch === undefined));
+  check('worktree is absent, not null', s.tabs.every(t => t.worktree === undefined));
+}
+{
+  // A file that already carries them keeps them.
+  const raw = fixture081() as any;
+  raw.tabs[1].model = 'claude-opus-5[1m]';
+  raw.tabs[1].branch = 'phase-3-thread-identity';
+  raw.tabs[1].worktree = '.claude\\worktrees\\phase-3-thread-identity';
+  const s = migrateSession(raw, NOW)!;
+  const chat = s.tabs.find(t => t.id === 'tab-5')!;
+  check('model kept', chat.model === 'claude-opus-5[1m]');
+  check('branch kept', chat.branch === 'phase-3-thread-identity');
+  check('worktree kept', chat.worktree === '.claude\\worktrees\\phase-3-thread-identity');
+}
+{
+  // Wrong types are dropped, not coerced.
+  const raw = fixture081() as any;
+  raw.tabs[0].model = 42;
+  raw.tabs[0].branch = { name: 'main' };
+  raw.tabs[0].worktree = ['a'];
+  const s = migrateSession(raw, NOW)!;
+  check('a numeric model is dropped', s.tabs[0].model === undefined);
+  check('an object branch is dropped', s.tabs[0].branch === undefined);
+  check('an array worktree is dropped', s.tabs[0].worktree === undefined);
+}
+{
+  // claudeTitle and firstPrompt are transient: stripped on load even if a file
+  // carries them (a stray write, or a future build sharing the file).
+  const raw = fixture081() as any;
+  raw.tabs[1].claudeTitle = 'Fix the spinner';
+  raw.tabs[1].firstPrompt = 'help me fix the spinner bug';
+  const s = migrateSession(raw, NOW)!;
+  check('claudeTitle is stripped', !('claudeTitle' in s.tabs[1]));
+  check('firstPrompt is stripped', !('firstPrompt' in s.tabs[1]));
+}
+
 console.log('\nsessionMigration: existing values are preserved\n');
 {
   const s = migrateSession(fixture081(), NOW)!;
@@ -176,7 +223,7 @@ console.log('\nserializeSession: persisted keys only, 0.8.1 compatible\n');
       pinned: true, archived: false, lastActiveAt: 333 },
   ];
   const out = serializeSession(tabs, groups, 'tab-1');
-  const PERSISTED = ['id', 'title', 'groupId', 'shellId', 'cwd', 'fontSize', 'claudeSessionId', 'claudeCwd', 'lastActiveAt', 'asleep'];
+  const PERSISTED = ['id', 'title', 'groupId', 'shellId', 'cwd', 'fontSize', 'claudeSessionId', 'claudeCwd', 'lastActiveAt', 'asleep', 'model', 'branch', 'worktree'];
   check('includes version', out.version === SESSION_FORMAT_VERSION);
   check('top-level shape is still {tabs, groups, activeTabId} plus version',
     isDeepStrictEqual(Object.keys(out).sort(), ['activeTabId', 'groups', 'tabs', 'version']));
@@ -207,6 +254,23 @@ console.log('\nround trip: serialize then migrate is stable\n');
   check('serialize -> JSON -> migrate reproduces the migrated session', isDeepStrictEqual(reloaded, migrated), show(reloaded));
   check('a second save of the reloaded session is byte-identical',
     JSON.stringify(serializeSession(reloaded.tabs as Tab[], reloaded.groups, reloaded.activeTabId)) === JSON.stringify(written));
+}
+{
+  // Phase 3: model, branch and worktree survive the same round trip.
+  const migrated = migrateSession(fixture081(), NOW)!;
+  const inMemoryTabs: Tab[] = migrated.tabs.map(t => ({
+    ...t,
+    claudeRestorable: !!t.claudeSessionId,
+    ...(t.id === 'tab-5' ? { model: 'claude-opus-5[1m]', branch: 'phase-3-thread-identity', worktree: '.claude\\worktrees\\phase-3-thread-identity' } : {}),
+  }));
+  const written: SavedSession = JSON.parse(JSON.stringify(serializeSession(inMemoryTabs, migrated.groups, migrated.activeTabId)));
+  const reloaded = migrateSession(written, NOW + 1)!;
+  const chat = reloaded.tabs.find(t => t.id === 'tab-5')!;
+  check('model survives serialize -> migrate', chat.model === 'claude-opus-5[1m]');
+  check('branch survives serialize -> migrate', chat.branch === 'phase-3-thread-identity');
+  check('worktree survives serialize -> migrate', chat.worktree === '.claude\\worktrees\\phase-3-thread-identity');
+  check('a shell tab with none of the three still has none after the round trip',
+    reloaded.tabs.find(t => t.id === 'tab-3')!.model === undefined);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

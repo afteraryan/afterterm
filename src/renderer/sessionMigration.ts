@@ -17,7 +17,7 @@ export const SESSION_FORMAT_VERSION = 2;
 
 // A tab as written to disk: the in-memory Tab minus the fields that describe a
 // live process, which are meaningless after a relaunch (each tab is a fresh shell).
-export type SavedTab = Omit<Tab, 'notification' | 'claudeRestorable'>;
+export type SavedTab = Omit<Tab, 'notification' | 'claudeRestorable' | 'claudeTitle' | 'firstPrompt'>;
 
 export interface SavedSession {
   version?: number;
@@ -30,11 +30,14 @@ export interface SavedSession {
 const PERSISTED_TAB_KEYS = [
   'id', 'title', 'groupId', 'shellId', 'cwd', 'fontSize',
   'claudeSessionId', 'claudeCwd', 'lastActiveAt', 'asleep',
+  'model', 'branch', 'worktree',
 ] as const;
 
-// Fields that describe a running process, never a saved one. Stripped on load in
-// case a build ever wrote them by mistake.
-const TRANSIENT_TAB_KEYS = ['notification', 'claudeRestorable'] as const;
+// Fields that describe a running process or a value re-derived on every launch,
+// never a saved one. Stripped on load in case a build ever wrote them by
+// mistake. claudeTitle and firstPrompt are re-captured from the title stream
+// and the transcript, so a stale saved copy would only go out of date.
+const TRANSIENT_TAB_KEYS = ['notification', 'claudeRestorable', 'claudeTitle', 'firstPrompt'] as const;
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -48,6 +51,16 @@ function asFlag(v: unknown, fallback: boolean): boolean {
 
 function asTimestamp(v: unknown, fallback: number): number {
   return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
+}
+
+// model, branch and worktree are all optional strings with no default: a file
+// that never had them should load with them absent, not with a made-up value.
+// A wrongly typed value (a number, an object) is dropped the same way, rather
+// than coerced, so a stray field from a future build cannot leak through as a
+// display string.
+function setOptionalString(tab: Record<string, unknown>, key: string, v: unknown): void {
+  if (typeof v === 'string') tab[key] = v;
+  else delete tab[key];
 }
 
 // Entries without a usable id cannot be addressed by anything (activation,
@@ -71,6 +84,9 @@ export function migrateSession(raw: unknown, now: number): SavedSession | null {
     for (const key of TRANSIENT_TAB_KEYS) delete tab[key];
     tab.lastActiveAt = asTimestamp(t.lastActiveAt, now);
     tab.asleep = asFlag(t.asleep, false);
+    setOptionalString(tab, 'model', t.model);
+    setOptionalString(tab, 'branch', t.branch);
+    setOptionalString(tab, 'worktree', t.worktree);
     return tab as unknown as SavedTab;
   });
 

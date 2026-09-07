@@ -114,3 +114,23 @@ export function splitLiveAsleep(tabs: Tab[]): { live: Tab[]; asleep: Tab[] } {
     asleep: tabs.filter(t => t.asleep),
   };
 }
+
+// The last-opened Home experiment (PHASES.md Phase 3, CLAUDE.md "Experiment:
+// last opened on Home"): one quiet line under the date reading "Last here 2d
+// ago", built from the app's previous launch time. Aryan runs this as a user;
+// whenever work on afterterm resumes, ask him whether it was useful, then keep
+// or remove it. Deliberately minimal: no icon, no card, nothing else on Home
+// changes because of it.
+//
+// Returns null (render nothing) when: there is no previous launch to report
+// (first run, lastOpenedAt is null); the value is not a finite number (a
+// corrupt prefs.json); the value is in the future (clock skew); or the gap is
+// an hour or less, so a quick relaunch or restart during a work session stays
+// silent. Otherwise "Last here " plus relativeTime, plus " ago".
+export function lastHereLine(lastOpenedAt: number | null, now: number): string | null {
+  if (lastOpenedAt === null) return null;
+  if (!Number.isFinite(lastOpenedAt)) return null;
+  if (lastOpenedAt > now) return null;
+  if (now - lastOpenedAt <= 60 * 60 * 1000) return null;
+  return `Last here ${relativeTime(lastOpenedAt, now)} ago`;
+}

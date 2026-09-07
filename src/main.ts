@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog, screen, shell } from 'electron';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import { execFile, execFileSync, execSync, spawn } from 'child_process';
 import * as pty from 'node-pty';
 import { runNotifierSelfTest, runNotifierDemo } from './notifier-selftest';
@@ -9,6 +10,8 @@ import { detectEditors } from './editor-detect.ts';
 import type { DetectDeps } from './editor-detect.ts';
 import type { EditorInfo } from './editors.ts';
 import { readPrefs, updatePrefs } from './prefs.ts';
+import { readTranscriptMeta, isSessionId } from './claude-transcript.ts';
+import { gitInfo } from './git-info.ts';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -859,6 +862,19 @@ function getClaudeSessionDir() {
 const CLAUDE_UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 const CLAUDE_CWD_RE = /^[A-Za-z]:\\[^\r\n;&|`$<>"'*?\t]*$/;
 
+// Where Claude Code keeps its session transcripts, one folder per cwd. Read-only:
+// afterterm never writes anything under it. AFTERTERM_CLAUDE_PROJECTS_DIR is the test
+// override, so a harness run can point at a fixture folder instead of the real one.
+function getClaudeProjectsDir() {
+  return process.env.AFTERTERM_CLAUDE_PROJECTS_DIR || path.join(os.homedir(), '.claude', 'projects');
+}
+
+// The first user prompt and the current model for one session, or the not-found
+// result. Never throws; the sessionId is validated inside readTranscriptMeta too.
+function readClaudeMeta(sessionId: string, cwd: string) {
+  return readTranscriptMeta(getClaudeProjectsDir(), cwd, sessionId, fs);
+}
+
 function readAndPushClaudeSession(tabId: string) {
   try {
     // The hook writes this file with `Set-Content -Encoding UTF8`, which under Windows
@@ -871,6 +887,13 @@ function readAndPushClaudeSession(tabId: string) {
     if (!CLAUDE_UUID_RE.test(obj.sessionId) || !CLAUDE_CWD_RE.test(obj.cwd)) return;
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('claude-session:update', { tabId, sessionId: obj.sessionId, cwd: obj.cwd });
+      // The hook rewrites this file on UserPromptSubmit and Stop, so once a turn. Read
+      // the transcript on the same beat: that is what keeps the model current after a
+      // /model switch, and gives a nameless chat its first-prompt fallback.
+      const meta = readClaudeMeta(obj.sessionId, obj.cwd);
+      mainWindow.webContents.send('claude-session:meta', {
+        tabId, sessionId: obj.sessionId, firstPrompt: meta.firstPrompt, model: meta.model,
+      });
     }
   } catch { /* missing / mid-write / unparseable — ignore, next write retries */ }
 }
@@ -893,6 +916,34 @@ function startClaudeSessionWatch() {
     });
   } catch { /* dir watch unsupported — capture silently degrades, resume still works off last save */ }
 }
+
+// On demand, for a thread the renderer already knows the session of (a restored tab,
+// or one whose hook file has not been rewritten this launch). Invalid input returns
+// the not-found result rather than throwing.
+ipcMain.handle('claude-session:meta', (_event, sessionId: unknown, cwd: unknown) => {
+  if (!isSessionId(sessionId) || typeof cwd !== 'string' || !cwd) {
+    return { firstPrompt: null, model: null, exists: false };
+  }
+  return readClaudeMeta(sessionId, cwd);
+});
+
+// ─── Branch and worktree ─────────────────────────────────────────────────────
+
+// Reads .git/HEAD (and a worktree's .git file), never runs git. See src/git-info.ts.
+ipcMain.handle('git:info', (_event, cwd: unknown) => {
+  if (typeof cwd !== 'string' || !cwd) return { branch: null, worktree: null, repoRoot: null };
+  return gitInfo(cwd, fs);
+});
+
+// One round trip for the renderer's slow poll over every live thread. Capped so a
+// bad caller cannot ask for an unbounded number of file walks on the main thread.
+const GIT_INFO_MANY_MAX = 500;
+ipcMain.handle('git:infoMany', (_event, cwds: unknown) => {
+  if (!Array.isArray(cwds)) return [];
+  return cwds.slice(0, GIT_INFO_MANY_MAX).map(cwd =>
+    typeof cwd === 'string' && cwd ? gitInfo(cwd, fs) : { branch: null, worktree: null, repoRoot: null }
+  );
+});
 
 ipcMain.handle('session:save', (_event, data: string) => {
   try {

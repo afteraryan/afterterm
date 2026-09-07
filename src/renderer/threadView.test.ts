@@ -5,6 +5,7 @@
 
 import {
   threadKind, threadState, stateLabel, stateBreathes, displayTitle,
+  threadName, modelLabel,
   foldThreads, projectCounts, sidebarSections, toastMessage,
   initialScreen, nextActiveTabAfterArchive,
 } from './threadView.ts';
@@ -82,10 +83,56 @@ console.log('\nthreadView: displayTitle\n');
   check('strips working glyph', displayTitle('\u25B6 project - working') === 'project - working');
   check('strips the restorable marker glyph', displayTitle('\u2733 Fix the spinner') === 'Fix the spinner');
   check('strips a braille spinner glyph', displayTitle('\u2820 Loading') === 'Loading');
+  check('strips a Claude busy-cycle glyph (\\u25D0)', displayTitle('\u25D0 Afterterm Phase 3 thread identity orchestration') === 'Afterterm Phase 3 thread identity orchestration');
+  check('strips an older Claude busy-cycle glyph (\\u2722)', displayTitle('\u2722 Fix the spinner') === 'Fix the spinner');
   check('a plain path is untouched', displayTitle('C:\\') === 'C:\\');
   check('a title with no glyph is untouched', displayTitle('Terminal') === 'Terminal');
   check('empty title falls back to Terminal', displayTitle('') === 'Terminal');
   check('a glyph with nothing after it falls back to Terminal', displayTitle('\u25B6') === 'Terminal');
+}
+
+console.log('\nthreadView: threadName\n');
+{
+  const CHAT = '3d71b0f2-26cb-4ad3-8371-6504ab2e37e2';
+
+  check('a chat with a captured claudeTitle uses it, ignoring the raw title',
+    threadName({ title: 'cmd.exe', claudeSessionId: CHAT, claudeTitle: 'Fix the spinner' }) === 'Fix the spinner');
+
+  check('claudeTitle wins even while the raw title carries a hook state (not clobbered by "working")',
+    threadName({ title: '\u25B6 afterterm - working', claudeSessionId: CHAT, claudeTitle: 'Fix the spinner' }) === 'Fix the spinner');
+
+  check('a chat with no claudeTitle but a Claude summary glyph on the raw title uses that summary',
+    threadName({ title: '\u2733 Fix the spinner', claudeSessionId: CHAT }) === 'Fix the spinner');
+
+  check('a chat with no claudeTitle, no summary glyph, but a firstPrompt falls back to it',
+    threadName({ title: 'cmd.exe', claudeSessionId: CHAT, firstPrompt: 'help me fix the spinner bug' }) === 'help me fix the spinner bug');
+
+  check('restored chat: shell reasserted a plain "cmd.exe" title, no claudeTitle yet, falls back to firstPrompt',
+    threadName({ title: 'cmd.exe', claudeSessionId: CHAT, claudeTitle: undefined, firstPrompt: 'help me fix the spinner bug' }) === 'help me fix the spinner bug');
+
+  check('a chat with nothing captured at all falls back to displayTitle of the raw title',
+    threadName({ title: 'cmd.exe', claudeSessionId: CHAT }) === 'cmd.exe');
+
+  check('a chat with nothing captured and a hook state title shows the stripped state text as a last resort',
+    threadName({ title: '\u25B6 afterterm - working', claudeSessionId: CHAT }) === 'afterterm - working');
+
+  check('empty-string claudeTitle is treated as not captured, falls through to the summary glyph',
+    threadName({ title: '\u2733 Fix the spinner', claudeSessionId: CHAT, claudeTitle: '' }) === 'Fix the spinner');
+
+  check('a shell tab always uses displayTitle, ignoring firstPrompt even when present',
+    threadName({ title: 'afterterm', claudeSessionId: undefined, firstPrompt: 'this should be ignored' }) === 'afterterm');
+
+  check('a shell tab with a hook-style title (should not normally happen) still just strips the glyph',
+    threadName({ title: '\u2705 afterterm - done', claudeSessionId: undefined }) === 'afterterm - done');
+}
+
+console.log('\nthreadView: modelLabel\n');
+{
+  check('undefined model is null', modelLabel(undefined) === null);
+  check('empty string model is null', modelLabel('') === null);
+  check('claude-opus-5 is "Opus 5"', modelLabel('claude-opus-5') === 'Opus 5');
+  check('claude-opus-5[1m] is "Opus 5 \u00b7 1M"', modelLabel('claude-opus-5[1m]') === 'Opus 5 \u00b7 1M');
+  check('claude-fable-5-1 is "Fable 5.1"', modelLabel('claude-fable-5-1') === 'Fable 5.1');
 }
 
 console.log('\nthreadView: foldThreads\n');
