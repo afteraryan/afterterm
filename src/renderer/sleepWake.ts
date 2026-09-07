@@ -81,13 +81,26 @@ export function asleepLabel(sleptAt: number | undefined, now: number): string {
 }
 
 // The line under the Wake button in the asleep pane: "Chat asleep since 2d
-// ago" / "Shell asleep since just now". Distinct wording from asleepLabel (full
-// sentence, "ago" instead of a bare unit) because the pane has room for a
-// sentence and the chip does not.
-export function asleepSinceText(kind: 'chat' | 'shell', sleptAt: number | undefined, now: number): string {
-  const kindWord = kind === 'chat' ? 'Chat' : 'Shell';
+// ago" / "Shell asleep since just now" / "Server asleep since 2d ago · runs npm
+// start". Distinct wording from asleepLabel (full sentence, "ago" instead of a
+// bare unit) because the pane has room for a sentence and the chip does not.
+// `kind` is the word threadView.kindWord already returns ('Chat' | 'Server' |
+// 'Shell'), not the old chat/shell union: the caller has already decided
+// whether this is a server, and repeating that decision here (from a port)
+// would be a second copy of kindWord's rule. `lastCommand` only ever adds the
+// " · runs <command>" suffix for a Server with a non-empty (trimmed) command;
+// a Chat or Shell never shows it, and a Server with no captured command yet
+// reads the same plain sentence as before Phase 5.
+export function asleepSinceText(
+  kind: 'Chat' | 'Server' | 'Shell',
+  sleptAt: number | undefined,
+  now: number,
+  lastCommand?: string,
+): string {
   const ago = sleptAt === undefined || now - sleptAt < 60_000 ? 'now' : relativeTime(sleptAt, now);
-  return `${kindWord} asleep since ${ago === 'now' ? 'just now' : ago + ' ago'}`;
+  const sentence = `${kind} asleep since ${ago === 'now' ? 'just now' : ago + ' ago'}`;
+  const command = lastCommand?.trim();
+  return kind === 'Server' && command ? `${sentence} · runs ${command}` : sentence;
 }
 
 // What waking respawns with. cwd prefers claudeCwd over cwd: a chat has to
@@ -95,12 +108,38 @@ export function asleepSinceText(kind: 'chat' | 'shell', sleptAt: number | undefi
 // resolves the session by cwd, not by id alone. resumeSessionId is only
 // returned when it is a canonical UUID; an invalid or missing id means "start a
 // fresh prompt", never "run resume with garbage".
+//
+// runCommand is the analogous check for a server: it gets typed into the fresh
+// shell exactly the way a session id gets run through `claude --resume`, so it
+// is validated the same defensive way before that ever happens. A thread only
+// gets a runCommand when it has a captured port (it is a server) and its
+// lastCommand, once trimmed, is non-empty, holds no control characters (no
+// CR/LF that could inject a second line, no ESC that could smuggle an escape
+// sequence into what looks like a plain command), and is at most 500
+// characters. Anything else, no port, no command, a command that fails a
+// check, yields null: the thread wakes as a plain shell in its folder instead
+// (the Phase 4 behaviour, kept as the fallback). A server never resumes a
+// chat, so resumeSessionId is always null here regardless of whatever a
+// (malformed) tab might otherwise carry.
+const CONTROL_CHAR_RE = /[\x00-\x1f\x7f]/;
+const RUN_COMMAND_MAX_LENGTH = 500;
+
 export function wakePlan(
-  tab: Pick<Tab, 'cwd' | 'claudeCwd' | 'claudeSessionId' | 'shellId'>,
-): { cwd: string | undefined; shellId: string | undefined; resumeSessionId: string | null } {
+  tab: Pick<Tab, 'cwd' | 'claudeCwd' | 'claudeSessionId' | 'shellId' | 'port' | 'lastCommand'>,
+): { cwd: string | undefined; shellId: string | undefined; resumeSessionId: string | null; runCommand: string | null } {
+  const trimmed = tab.lastCommand?.trim();
+  const runCommand =
+    tab.port !== undefined
+    && trimmed
+    && trimmed.length > 0
+    && trimmed.length <= RUN_COMMAND_MAX_LENGTH
+    && !CONTROL_CHAR_RE.test(trimmed)
+      ? trimmed
+      : null;
   return {
     cwd: tab.claudeCwd ?? tab.cwd,
     shellId: tab.shellId,
-    resumeSessionId: tab.claudeSessionId && UUID_RE.test(tab.claudeSessionId) ? tab.claudeSessionId : null,
+    resumeSessionId: runCommand ? null : (tab.claudeSessionId && UUID_RE.test(tab.claudeSessionId) ? tab.claudeSessionId : null),
+    runCommand,
   };
 }

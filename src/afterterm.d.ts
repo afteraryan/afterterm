@@ -152,6 +152,14 @@ interface PtyActivity {
   at: number;
 }
 
+// The port a tab's server is listening on, as found by main's server watcher: the
+// lowest listening TCP port owned by anything in that shell's process tree. null
+// means nothing in the tree listens any more, so the UI should drop the port.
+interface PtyPort {
+  tabId: string;
+  port: number | null;
+}
+
 interface AftertermPtyAPI {
   create(tabId: string, shellId?: string, cwd?: string): Promise<{ pid: number }>;
   write(tabId: string, data: string): void;
@@ -166,6 +174,9 @@ interface AftertermPtyAPI {
   // Throttled activity stamps from main: at most one per tab per 15 seconds while
   // the terminal has input or output. Registered once, for every tab.
   onActivity(callback: (data: PtyActivity) => void): void;
+  // The listening port of a tab's server, pushed whenever it changes (including to
+  // null when the server stops). Registered once, for every tab.
+  onPort(callback: (data: PtyPort) => void): void;
 }
 
 interface AftertermDialogAPI {

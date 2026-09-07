@@ -52,6 +52,8 @@ console.log('\nsessionMigration: a 0.8.1 file loads with defaults\n');
   check('activeTabId is kept', s.activeTabId === 'tab-5');
   check('every group gets history = [] (Phase 4)', s.groups.every(g => isDeepStrictEqual(g.history, [])));
   check('no tab gets a sleptAt out of nowhere (Phase 4)', s.tabs.every(t => t.sleptAt === undefined));
+  check('no tab gets a port out of nowhere (Phase 5)', s.tabs.every(t => t.port === undefined));
+  check('no tab gets a lastCommand out of nowhere (Phase 5)', s.tabs.every(t => t.lastCommand === undefined));
 }
 
 console.log('\nsessionMigration: SESSION_FORMAT_VERSION stays 2 (Phase 3 is a fill-defaults pass)\n');
@@ -159,6 +161,92 @@ console.log('\nsessionMigration: sleptAt and history (Phase 4)\n');
   const s = migrateSession(raw, NOW)!;
   check('only the one good entry is kept', s.groups[0].history.length === 1, show(s.groups[0].history));
   check('the surviving entry is the good one', s.groups[0].history[0].id === 'tab-9');
+}
+
+console.log('\nsessionMigration: port and lastCommand (Phase 5)\n');
+{
+  // A version-2 file with no port/lastCommand loads with both absent.
+  const s = migrateSession(fixture081(), NOW)!;
+  check('port is absent, not null', s.tabs.every(t => t.port === undefined));
+  check('lastCommand is absent, not null', s.tabs.every(t => t.lastCommand === undefined));
+}
+{
+  // A file that already carries valid values keeps them.
+  const raw = fixture081() as any;
+  raw.tabs[1].port = 5173;
+  raw.tabs[1].lastCommand = 'npm start';
+  const s = migrateSession(raw, NOW)!;
+  const chat = s.tabs.find(t => t.id === 'tab-5')!;
+  check('port kept', chat.port === 5173);
+  check('lastCommand kept', chat.lastCommand === 'npm start');
+}
+{
+  // Every invalid port shape is dropped, not coerced.
+  const raw = fixture081() as any;
+  raw.tabs[0].port = '5173';      // string
+  raw.tabs[1].port = 5173.5;      // float
+  raw.tabs[2].port = 0;           // zero
+  const s = migrateSession(raw, NOW)!;
+  check('a string port is dropped', s.tabs[0].port === undefined);
+  check('a float port is dropped', s.tabs[1].port === undefined);
+  check('a zero port is dropped', s.tabs[2].port === undefined);
+}
+{
+  const raw = fixture081() as any;
+  raw.tabs[0].port = -1;          // negative
+  raw.tabs[1].port = 70000;       // out of range
+  raw.tabs[2].port = NaN;         // NaN
+  const s = migrateSession(raw, NOW)!;
+  check('a negative port is dropped', s.tabs[0].port === undefined);
+  check('a port above 65535 is dropped', s.tabs[1].port === undefined);
+  check('a NaN port is dropped', s.tabs[2].port === undefined);
+}
+{
+  const raw = fixture081() as any;
+  raw.tabs[0].port = Infinity;
+  const s = migrateSession(raw, NOW)!;
+  check('an Infinity port is dropped', s.tabs[0].port === undefined);
+}
+{
+  // A non-string lastCommand is dropped.
+  const raw = fixture081() as any;
+  raw.tabs[0].lastCommand = 42;
+  raw.tabs[1].lastCommand = { cmd: 'npm start' };
+  const s = migrateSession(raw, NOW)!;
+  check('a numeric lastCommand is dropped', s.tabs[0].lastCommand === undefined);
+  check('an object lastCommand is dropped', s.tabs[1].lastCommand === undefined);
+}
+{
+  // serializeSession writes both when present, and writes the key at all
+  // (undefined) when absent, matching every other persisted key's pattern.
+  const raw = fixture081() as any;
+  raw.tabs[1].port = 5173;
+  raw.tabs[1].lastCommand = 'npm start';
+  const s = migrateSession(raw, NOW)!;
+  const written = serializeSession(s.tabs as unknown as Tab[], s.groups, s.activeTabId);
+  const chat = written.tabs.find(t => t.id === 'tab-5')!;
+  const plain = written.tabs.find(t => t.id === 'tab-3')!;
+  check('port is written when present', chat.port === 5173);
+  check('lastCommand is written when present', chat.lastCommand === 'npm start');
+  check('port key exists (as undefined) when absent, same pattern as every other persisted key',
+    'port' in plain && plain.port === undefined);
+  check('lastCommand key exists (as undefined) when absent',
+    'lastCommand' in plain && plain.lastCommand === undefined);
+  const onDisk = JSON.parse(JSON.stringify(written));
+  check('undefined port is absent on disk', !('port' in onDisk.tabs.find((t: any) => t.id === 'tab-3')));
+  check('undefined lastCommand is absent on disk', !('lastCommand' in onDisk.tabs.find((t: any) => t.id === 'tab-3')));
+}
+{
+  // A round trip keeps port and lastCommand.
+  const raw = fixture081() as any;
+  raw.tabs[1].port = 5173;
+  raw.tabs[1].lastCommand = 'npm start';
+  const migrated = migrateSession(raw, NOW)!;
+  const written = JSON.parse(JSON.stringify(serializeSession(migrated.tabs as unknown as Tab[], migrated.groups, migrated.activeTabId)));
+  const reloaded = migrateSession(written, NOW + 1)!;
+  const chat = reloaded.tabs.find(t => t.id === 'tab-5')!;
+  check('port survives serialize -> migrate', chat.port === 5173);
+  check('lastCommand survives serialize -> migrate', chat.lastCommand === 'npm start');
 }
 
 console.log('\nsessionMigration: existing values are preserved\n');
@@ -301,7 +389,7 @@ console.log('\nserializeSession: persisted keys only, 0.8.1 compatible\n');
       pinned: true, archived: false, lastActiveAt: 333, history: [] },
   ];
   const out = serializeSession(tabs, groups, 'tab-1');
-  const PERSISTED = ['id', 'title', 'groupId', 'shellId', 'cwd', 'fontSize', 'claudeSessionId', 'claudeCwd', 'lastActiveAt', 'asleep', 'sleptAt', 'model', 'branch', 'worktree', 'claudeTitle'];
+  const PERSISTED = ['id', 'title', 'groupId', 'shellId', 'cwd', 'fontSize', 'claudeSessionId', 'claudeCwd', 'lastActiveAt', 'asleep', 'sleptAt', 'model', 'branch', 'worktree', 'claudeTitle', 'port', 'lastCommand'];
   check('includes version', out.version === SESSION_FORMAT_VERSION);
   check('top-level shape is still {tabs, groups, activeTabId} plus version',
     isDeepStrictEqual(Object.keys(out).sort(), ['activeTabId', 'groups', 'tabs', 'version']));

@@ -58,6 +58,19 @@ export interface Tab {
   // transcript in main. The name fallback for a chat before Claude's first reply
   // has produced a title.
   firstPrompt?: string;
+  // The TCP port this thread's process tree was last seen listening on.
+  // Persisted. While the thread is awake, main keeps it current through the
+  // `pty:port` push (set when a listener appears in the shell's tree, cleared
+  // to undefined when it goes). While asleep it is kept as-is: it is what marks
+  // the thread as a server, so the asleep pane can say "Server asleep since 2d
+  // ago · runs npm start" and the wake can re-run the last command. Running
+  // state is `!asleep && port !== undefined` (threadView.ts).
+  port?: number;
+  // The last command line entered at the shell prompt, captured from the OSC
+  // 133 prompt marks cmd's injected PROMPT emits (commandMarks.ts,
+  // Terminal/index.tsx). cmd only until Phase 6. Persisted. A server wakes by
+  // re-running it.
+  lastCommand?: string;
 }
 
 export interface Group {

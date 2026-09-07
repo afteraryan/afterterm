@@ -5,7 +5,8 @@
 
 import {
   threadKind, threadState, stateLabel, stateBreathes, displayTitle,
-  threadName, modelLabel,
+  threadName, modelLabel, kindWord, runningLabel, localhostUrl, openLocalhostLabel,
+  needsCloseConfirm, closeConfirmText,
   foldThreads, projectCounts, sidebarSections, toastMessage,
   initialScreen, nextActiveTabAfterArchive,
 } from './threadView.ts';
@@ -50,6 +51,14 @@ console.log('\nthreadView: threadState\n');
   check('compacting maps to compacting', threadState({ asleep: false, notification: 'compacting' }) === 'compacting');
   check('background maps to background', threadState({ asleep: false, notification: 'background' }) === 'background');
   check('no notification maps to quiet', threadState({ asleep: false }) === 'quiet');
+  check('a captured port with no notification is running', threadState({ asleep: false, port: 5173 }) === 'running');
+  check('asleep beats a captured port', threadState({ asleep: true, port: 5173 }) === 'asleep');
+  check('attention beats a captured port', threadState({ asleep: false, notification: 'attention', port: 5173 }) === 'needs-you');
+  check('working beats a captured port', threadState({ asleep: false, notification: 'working', port: 5173 }) === 'working');
+  check('done beats a captured port', threadState({ asleep: false, notification: 'done', port: 5173 }) === 'done');
+  check('compacting beats a captured port', threadState({ asleep: false, notification: 'compacting', port: 5173 }) === 'compacting');
+  check('background beats a captured port', threadState({ asleep: false, notification: 'background', port: 5173 }) === 'background');
+  check('no port and no notification is quiet', threadState({ asleep: false, port: undefined }) === 'quiet');
 }
 
 console.log('\nthreadView: stateLabel\n');
@@ -133,6 +142,40 @@ console.log('\nthreadView: modelLabel\n');
   check('claude-opus-5 is "Opus 5"', modelLabel('claude-opus-5') === 'Opus 5');
   check('claude-opus-5[1m] is "Opus 5 \u00b7 1M"', modelLabel('claude-opus-5[1m]') === 'Opus 5 \u00b7 1M');
   check('claude-fable-5-1 is "Fable 5.1"', modelLabel('claude-fable-5-1') === 'Fable 5.1');
+}
+
+console.log('\nthreadView: kindWord\n');
+{
+  const CHAT = '3d71b0f2-26cb-4ad3-8371-6504ab2e37e2';
+  check('a chat (session id) is Chat, even with a port set', kindWord({ claudeSessionId: CHAT, port: 5173 }) === 'Chat');
+  check('a session id beats a port', kindWord({ claudeSessionId: CHAT, port: 5173 }) === 'Chat');
+  check('no session id but a port is Server', kindWord({ port: 5173 }) === 'Server');
+  check('no session id and no port is Shell', kindWord({}) === 'Shell');
+  check('an empty-string session id with no port is Shell', kindWord({ claudeSessionId: '' }) === 'Shell');
+}
+
+console.log('\nthreadView: runningLabel, localhostUrl, openLocalhostLabel\n');
+{
+  check('runningLabel', runningLabel(5173) === 'Running on :5173');
+  check('localhostUrl', localhostUrl(5173) === 'http://localhost:5173');
+  check('openLocalhostLabel', openLocalhostLabel(5173) === 'Open localhost:5173');
+}
+
+console.log('\nthreadView: needsCloseConfirm\n');
+{
+  check('awake with a port needs confirm', needsCloseConfirm({ asleep: false, port: 5173 }) === true);
+  check('awake with no port needs no confirm', needsCloseConfirm({ asleep: false, port: undefined }) === false);
+  check('asleep with a port needs no confirm (nothing running to lose)', needsCloseConfirm({ asleep: true, port: 5173 }) === false);
+  check('asleep with no port needs no confirm', needsCloseConfirm({ asleep: true, port: undefined }) === false);
+}
+
+console.log('\nthreadView: closeConfirmText\n');
+{
+  const t = closeConfirmText(5173);
+  check('title', t.title === 'Close the server on :5173?');
+  check('body', t.body === 'This thread is listening on :5173. Closing it stops the server.');
+  check('confirm label', t.confirm === 'Close thread');
+  check('cancel label', t.cancel === 'Cancel');
 }
 
 console.log('\nthreadView: foldThreads\n');

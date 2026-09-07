@@ -204,5 +204,13 @@ contextBridge.exposeInMainWorld('afterterm', {
     onActivity: (callback: (data: { tabId: string; at: number }) => void): void => {
       ipcRenderer.on('pty:activity', (_event, data) => callback(data));
     },
+
+    // The listening port of the server running in a tab, pushed by main's server
+    // watcher whenever it changes. null means nothing in that shell's process tree
+    // is listening any more (the server stopped, or the thread's PTY went away).
+    // One listener for every tab, registered once.
+    onPort: (callback: (data: { tabId: string; port: number | null }) => void): void => {
+      ipcRenderer.on('pty:port', (_event, data) => callback(data));
+    },
   },
 });

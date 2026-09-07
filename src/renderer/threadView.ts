@@ -32,16 +32,29 @@ export type ThreadState =
 
 // A thread is a chat when a Claude Code session id was captured for it. Everything
 // else, including a shell that happens to own a listening port (a server), is a
-// shell. Servers get their own icon in Phase 5; nothing here changes for them yet.
+// shell for the purpose of the row icon: a server does not get its own icon, only
+// its own word (kindWord, below) and its own state (running, via threadState).
 export function threadKind(tab: Pick<Tab, 'claudeSessionId'>): ThreadKind {
   return tab.claudeSessionId ? 'chat' : 'shell';
 }
 
+// The word for a thread's kind, shown in the asleep pane ("Server asleep since
+// 2d ago") and anywhere else that needs "Chat"/"Server"/"Shell" rather than the
+// icon. Distinct from threadKind/ThreadKind, which stay chat/shell for the row
+// icon: a server's icon does not change, only its words and its state do.
+export function kindWord(tab: Pick<Tab, 'claudeSessionId' | 'port'>): 'Chat' | 'Server' | 'Shell' {
+  if (tab.claudeSessionId) return 'Chat';
+  if (tab.port !== undefined) return 'Server';
+  return 'Shell';
+}
+
 // Asleep wins over everything: a thread with no process has no notification worth
-// showing. Otherwise today's notification maps one for one onto a state. 'running'
-// is part of the type because Phase 5 needs a value to produce, but nothing here
-// ever returns it: a server's running state is not derived from a notification.
-export function threadState(tab: Pick<Tab, 'asleep' | 'notification'>): ThreadState {
+// showing. Otherwise today's notification maps one for one onto a state, and a
+// notification wins over running: it asks something of the user (a permission, a
+// look at what finished) and running does not. Only once neither applies does a
+// captured port make the thread 'running' (Phase 5); with no port at all it is
+// 'quiet'.
+export function threadState(tab: Pick<Tab, 'asleep' | 'notification' | 'port'>): ThreadState {
   if (tab.asleep) return 'asleep';
   switch (tab.notification) {
     case 'attention': return 'needs-you';
@@ -49,7 +62,7 @@ export function threadState(tab: Pick<Tab, 'asleep' | 'notification'>): ThreadSt
     case 'done': return 'done';
     case 'compacting': return 'compacting';
     case 'background': return 'background';
-    default: return 'quiet';
+    default: return tab.port !== undefined ? 'running' : 'quiet';
   }
 }
 
@@ -72,6 +85,42 @@ export function stateLabel(state: ThreadState): string {
 // viewed. Every other state, including working and running, holds steady.
 export function stateBreathes(state: ThreadState): boolean {
   return state === 'needs-you' || state === 'done';
+}
+
+// The header chip and hover-card wording for a running server ("Running on
+// :5173"). stateLabel('running') still returns the bare "Running" for places
+// with no port to hand it (a state list with no thread context); this is the
+// richer wording used wherever the port is known.
+export function runningLabel(port: number): string {
+  return `Running on :${port}`;
+}
+
+// The bare "localhost:5173" URL and menu label for "Open localhost:port".
+export function localhostUrl(port: number): string {
+  return `http://localhost:${port}`;
+}
+
+export function openLocalhostLabel(port: number): string {
+  return `Open localhost:${port}`;
+}
+
+// A running server's process is worth confirming before it is torn down: an
+// asleep server has no process to lose, so only an awake one with a captured
+// port needs the confirm.
+export function needsCloseConfirm(tab: Pick<Tab, 'asleep' | 'port'>): boolean {
+  return !tab.asleep && tab.port !== undefined;
+}
+
+// The close-confirm dialog's text for a running server. Headings are plain and
+// literal, per house style: the title states exactly what closing does, not a
+// teaser.
+export function closeConfirmText(port: number): { title: string; body: string; confirm: string; cancel: string } {
+  return {
+    title: `Close the server on :${port}?`,
+    body: `This thread is listening on :${port}. Closing it stops the server.`,
+    confirm: 'Close thread',
+    cancel: 'Cancel',
+  };
 }
 
 // A generic braille spinner glyph some other terminal spinner library might

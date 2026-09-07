@@ -13,6 +13,8 @@ import { readPrefs, updatePrefs } from './prefs.ts';
 import { readTranscriptMeta, isSessionId } from './claude-transcript.ts';
 import { gitInfo } from './git-info.ts';
 import { isThreadId, parseTail, serializeTail, tailFilePath, trimTail } from './thread-tail.ts';
+import { listenerKey, parseNetstatListeners, parseProcessList, tabPorts } from './server-detect.ts';
+import type { Proc as ServerProc } from './server-detect.ts';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -138,6 +140,179 @@ function noteActivity(tabId: string): void {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('pty:activity', { tabId, at: now });
   }
+}
+
+// ─── Server watcher: which thread is listening on which port ─────────────────
+
+// A thread running a dev server should say so, with its port, within a couple of
+// seconds of the server printing "ready". Getting there means joining two lists:
+// the listening TCP sockets with their owning pids, and every process with its
+// parent, so a tab's shell pid can be expanded into the tree of things it started
+// (`npm start` is cmd.exe, then npm's node, then the server's node). The pure
+// parsing and the tree walk live in server-detect.ts; this is only the plumbing.
+//
+// The two commands cost very different amounts on Windows, and that shapes the
+// whole design. Measured on this machine:
+//   netstat -ano                          about 45 ms
+//   powershell.exe ... Get-CimInstance    about 1 s (a fresh PowerShell start)
+//   Get-NetTCPConnection                  about 1.5 s, so it is not used
+//   wmic                                  not present on this Windows at all
+// So netstat runs on every poll, and the process list is only re-read when the set
+// of listening sockets actually changed, when a PTY has been created or destroyed
+// since the last read, or when the cache is over a minute old.
+
+const SERVER_POLL_MS = 10_000;
+// A server prints its banner and then goes quiet; polling shortly after the last
+// output chunk is what makes the port appear right after "ready".
+const SERVER_BURST_DELAY_MS = 700;
+// A chatty program (a build watcher, a test runner) must not turn that into a poll
+// loop, so burst polls are rate limited.
+const SERVER_BURST_MIN_GAP_MS = 2_000;
+// How long a cached process list may be reused when nothing looks like it changed.
+const SERVER_PROC_MAX_AGE_MS = 60_000;
+
+const PROC_LIST_COMMAND =
+  'Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,'
+  + "@{n='c';e={[DateTimeOffset]::new($_.CreationDate).ToUnixTimeMilliseconds()}}"
+  + ' | ConvertTo-Json -Compress';
+// Single quotes inside the command on purpose: the argument is passed through
+// execFile, and Node wraps an argument containing double quotes in a way PowerShell
+// does not always unpick. PowerShell treats 'c' and "c" the same here.
+
+const shellPids = new Map<string, number>();
+const lastPortSent = new Map<string, number | null>();
+
+let cachedProcs: ServerProc[] = [];
+let cachedProcsAt = 0;
+let lastListenerKey: string | null = null;
+// Set whenever a PTY appears or disappears: the cached process list cannot describe
+// a tree that did not exist when it was taken.
+let treeDirty = true;
+
+let pollRunning = false;
+let pollAgain = false;
+let serverPollTimer: NodeJS.Timeout | null = null;
+let burstTimer: NodeJS.Timeout | null = null;
+let lastBurstPollAt = 0;
+// Warn once per failure kind: a machine without netstat would otherwise fill the log.
+let warnedNetstat = false;
+let warnedProcList = false;
+
+function runCommand(file: string, args: string[], maxBuffer: number, timeout: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    execFile(file, args, { windowsHide: true, maxBuffer, timeout }, (err, stdout) => {
+      if (err) reject(err);
+      else resolve(stdout);
+    });
+  });
+}
+
+function sendPort(tabId: string, port: number | null): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('pty:port', { tabId, port });
+  }
+}
+
+async function pollServers(reason: string): Promise<void> {
+  if (pollRunning) { pollAgain = true; return; }
+  pollRunning = true;
+  try {
+    if (ptys.size === 0) {
+      cachedProcs = [];
+      cachedProcsAt = 0;
+      lastListenerKey = null;
+      return;
+    }
+
+    let listeners: ReturnType<typeof parseNetstatListeners>;
+    try {
+      listeners = parseNetstatListeners(
+        await runCommand('netstat', ['-ano'], 8 * 1024 * 1024, 10_000),
+      );
+    } catch (err) {
+      if (!warnedNetstat) {
+        warnedNetstat = true;
+        console.warn(`[servers] netstat failed (${reason}), ports left as they were:`, err);
+      }
+      return;
+    }
+
+    const key = listenerKey(listeners);
+    const stale = Date.now() - cachedProcsAt > SERVER_PROC_MAX_AGE_MS;
+    if (key !== lastListenerKey || treeDirty || stale || cachedProcs.length === 0) {
+      try {
+        const json = await runCommand(
+          'powershell.exe',
+          ['-NoProfile', '-NonInteractive', '-Command', PROC_LIST_COMMAND],
+          16 * 1024 * 1024,
+          15_000,
+        );
+        cachedProcs = parseProcessList(json);
+        cachedProcsAt = Date.now();
+        treeDirty = false;
+      } catch (err) {
+        if (!warnedProcList) {
+          warnedProcList = true;
+          console.warn(`[servers] process list failed (${reason}), ports left as they were:`, err);
+        }
+        return;
+      }
+    }
+    lastListenerKey = key;
+
+    for (const [tabId, port] of tabPorts(shellPids, cachedProcs, listeners)) {
+      if (lastPortSent.get(tabId) === port) continue;
+      lastPortSent.set(tabId, port);
+      sendPort(tabId, port);
+    }
+  } finally {
+    pollRunning = false;
+    if (pollAgain) {
+      pollAgain = false;
+      void pollServers('a poll was requested while one was running');
+    }
+  }
+}
+
+function startServerPolling(): void {
+  if (serverPollTimer) return;
+  serverPollTimer = setInterval(() => {
+    if (ptys.size === 0) { stopServerPolling(); return; }
+    void pollServers('the slow interval');
+  }, SERVER_POLL_MS);
+}
+
+function stopServerPolling(): void {
+  if (serverPollTimer) { clearInterval(serverPollTimer); serverPollTimer = null; }
+  if (burstTimer) { clearTimeout(burstTimer); burstTimer = null; }
+}
+
+/**
+ * Called from the 16 ms output flush. Schedules one poll for shortly after the last
+ * chunk of a burst, never more often than SERVER_BURST_MIN_GAP_MS. The cost per chunk
+ * is one Date.now() and one timer reschedule.
+ */
+function noteOutputForServers(): void {
+  const now = Date.now();
+  const sinceLast = now - lastBurstPollAt;
+  const delay = sinceLast >= SERVER_BURST_MIN_GAP_MS
+    ? SERVER_BURST_DELAY_MS
+    : Math.max(SERVER_BURST_DELAY_MS, SERVER_BURST_MIN_GAP_MS - sinceLast);
+  if (burstTimer) clearTimeout(burstTimer);
+  burstTimer = setTimeout(() => {
+    burstTimer = null;
+    lastBurstPollAt = Date.now();
+    void pollServers('an output burst settled');
+  }, delay);
+}
+
+/** A tab's PTY has gone: forget it, and clear its port in the UI straight away. */
+function forgetServerTab(tabId: string): void {
+  shellPids.delete(tabId);
+  treeDirty = true;
+  const last = lastPortSent.get(tabId);
+  lastPortSent.delete(tabId);
+  if (typeof last === 'number') sendPort(tabId, null);
 }
 
 // ─── Window creation ──────────────────────────────────────────────────────────
@@ -428,6 +603,15 @@ const OPEN_EXTERNAL_PROTOCOLS = ['http:', 'https:', 'mailto:'];
 ipcMain.handle('shell:openExternal', (_event, url: string) => {
   try {
     if (OPEN_EXTERNAL_PROTOCOLS.includes(new URL(url).protocol)) {
+      // Under the agent harness, record the call instead of making it. An automated
+      // run must never throw a browser window onto the person's screen, and the log
+      // line is how a test asserts that "Open localhost:5173" really would have
+      // opened. The safelist check stays above this, so the line only appears for a
+      // URL that would genuinely have opened.
+      if (process.env.AFTERTERM_HARNESS === '1') {
+        console.log(`[harness] shell:openExternal ${url}`);
+        return;
+      }
       shell.openExternal(url);
     }
   } catch { /* not a valid URL — ignore */ }
@@ -751,14 +935,26 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
   if (cleanEnv.Path) cleanEnv.Path = cleanEnv.Path.replace(/"/g, '');
   if (cleanEnv.PATH) cleanEnv.PATH = cleanEnv.PATH.replace(/"/g, '');
 
-  // CWD reporting for session restore (cmd.exe only — see CLAUDE.md "Session Restore").
-  // cmd.exe doesn't announce its directory, so its tabs always restored to the home
-  // folder. Inject an OSC 9;9 (ConEmu-style) cwd report into the prompt: `$E` = ESC,
-  // `$P` = current path, `$E\` = ST. The renderer parses OSC 9;9 → updates tab cwd.
-  // Any existing custom PROMPT is preserved as the visible part.
+  // CWD reporting and prompt marks for cmd.exe (only cmd for now; the other shells
+  // come in Phase 6). In cmd's PROMPT syntax `$E` is ESC, `$P` is the current path,
+  // and a literal backslash after `$E` is the ST terminator, so `$E]9;9;$P$E\` is a
+  // complete OSC 9;9 sequence.
+  //
+  // Three things are injected around the visible prompt:
+  //   OSC 133;A   prompt start
+  //   OSC 9;9     the cwd report, which the renderer parses to update the tab's cwd
+  //               (cmd.exe otherwise never announces its directory, so its tabs all
+  //               restored to the home folder)
+  //   OSC 133;B   prompt end, meaning the typed command line starts right here
+  // The 133 marks are what makes last-command capture possible: when Enter is
+  // pressed, the renderer reads the buffer between the B mark's position and the
+  // cursor, which is exactly the command the user typed. That command is what lets a
+  // sleeping server thread re-run its server on wake.
+  //
+  // Any existing custom PROMPT is preserved, unchanged, as the visible part.
   if (shell.id === 'cmd') {
     const visiblePrompt = cleanEnv.PROMPT || '$P$G';
-    cleanEnv.PROMPT = `$E]9;9;$P$E\\${visiblePrompt}`;
+    cleanEnv.PROMPT = `$E]133;A$E\\$E]9;9;$P$E\\${visiblePrompt}$E]133;B$E\\`;
   }
 
   const p = pty.spawn(shell.command, shell.args, {
@@ -771,6 +967,14 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
 
   ptys.set(tabId, p);
   ptyCreatedAt.set(tabId, Date.now());
+
+  // Server watching: remember this tab's shell pid, mark the cached process list as
+  // out of date, keep the slow poll running, and look once a second from now (a shell
+  // that was told to re-run a server has it listening by about then).
+  shellPids.set(tabId, p.pid);
+  treeDirty = true;
+  startServerPolling();
+  setTimeout(() => { void pollServers('a PTY was created'); }, 1000);
 
   let buffer = '';
   let flushTimer: NodeJS.Timeout | null = null;
@@ -785,6 +989,7 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
         buffer = '';
         flushTimer = null;
         noteActivity(tabId);
+        noteOutputForServers();
       }, 16);
     }
   });
@@ -802,6 +1007,8 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
     ptys.delete(tabId);
     lastActivitySent.delete(tabId);
   ptyCreatedAt.delete(tabId);
+    forgetServerTab(tabId);
+    if (ptys.size === 0) stopServerPolling();
   });
 
   return { pid: p.pid };
@@ -834,6 +1041,8 @@ ipcMain.handle('pty:destroy', async (_event, tabId: string) => {
   ptys.delete(tabId);
   lastActivitySent.delete(tabId);
   ptyCreatedAt.delete(tabId);
+  forgetServerTab(tabId);
+  if (ptys.size === 0) stopServerPolling();
 
   await new Promise<void>(resolve => {
     execFile('taskkill', ['/PID', String(pid), '/T', '/F'], () => resolve());

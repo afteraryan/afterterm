@@ -13,8 +13,9 @@ import type { Tab, Group, HistoryEntry } from './components/TabBar/types';
 
 // Bump when a saved file needs a shape change a plain "fill defaults" pass cannot
 // express. A file with no version field is treated as version 1 (release 0.8.1).
-// Phase 4 (sleptAt, history) is still a fill-defaults pass, same as Phase 2 and 3
-// before it, so the version stays 2.
+// Phase 4 (sleptAt, history) and Phase 5 (port, lastCommand) are still
+// fill-defaults passes, same as Phase 2 and 3 before them, so the version
+// stays 2.
 export const SESSION_FORMAT_VERSION = 2;
 
 // A tab as written to disk: the in-memory Tab minus the fields that describe a
@@ -32,7 +33,7 @@ export interface SavedSession {
 const PERSISTED_TAB_KEYS = [
   'id', 'title', 'groupId', 'shellId', 'cwd', 'fontSize',
   'claudeSessionId', 'claudeCwd', 'lastActiveAt', 'asleep', 'sleptAt',
-  'model', 'branch', 'worktree', 'claudeTitle',
+  'model', 'branch', 'worktree', 'claudeTitle', 'port', 'lastCommand',
 ] as const;
 
 // Fields that describe a running process or a value re-derived on every launch,
@@ -79,6 +80,17 @@ function setOptionalString(tab: Record<string, unknown>, key: string, v: unknown
 // bogus "Asleep · NaNd" chip.
 function setOptionalNumber(tab: Record<string, unknown>, key: string, v: unknown): void {
   if (typeof v === 'number' && Number.isFinite(v)) tab[key] = v;
+  else delete tab[key];
+}
+
+// port is optional and constrained to what a real TCP port can be: an integer
+// from 1 to 65535. Anything else, a string, a float, 0, a negative number, a
+// number above 65535, is dropped rather than clamped or coerced, so a corrupt
+// or hand-edited file can never mark a thread as a server it isn't (a
+// stray/bogus port would make the sidebar and header claim it is running and
+// offer to open a dead localhost URL).
+function setOptionalPort(tab: Record<string, unknown>, key: string, v: unknown): void {
+  if (typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= 65535) tab[key] = v;
   else delete tab[key];
 }
 
@@ -133,6 +145,8 @@ export function migrateSession(raw: unknown, now: number): SavedSession | null {
     setOptionalString(tab, 'branch', t.branch);
     setOptionalString(tab, 'worktree', t.worktree);
     setOptionalString(tab, 'claudeTitle', t.claudeTitle);
+    setOptionalPort(tab, 'port', t.port);
+    setOptionalString(tab, 'lastCommand', t.lastCommand);
     return tab as unknown as SavedTab;
   });
 
