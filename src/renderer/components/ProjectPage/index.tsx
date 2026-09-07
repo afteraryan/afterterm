@@ -9,8 +9,9 @@ import { ScreenNav } from '../ScreenNav';
 import { Menu, MenuItem } from '../Menu';
 import {
   FolderIcon, IconChevL, IconSearch, IconExplorer, EditorLogo, KindIcon, StateIcon,
+  IconBranch, IconWorktree,
 } from '../Icons';
-import { threadKind, threadState, displayTitle } from '../../threadView';
+import { threadKind, threadState, threadName } from '../../threadView';
 import { relativeTime, filterThreads, splitLiveAsleep } from '../../homeView';
 import { buildProjectMenu, ProjectActions } from '../../projectMenu';
 import type { EditorInfo } from '../../../editors';
@@ -46,6 +47,10 @@ function shellName(shellId: string | undefined): string {
   if (!shellId) return 'Default shell';
   return SHELL_NAMES[shellId] ?? 'Default shell';
 }
+
+// The word before the " · " separators in a row's detail line: what mock's
+// kindWord dictionary uses ("Chat" / "Shell").
+const KIND_WORD: Record<'chat' | 'shell', string> = { chat: 'Chat', shell: 'Shell' };
 
 export function ProjectPage({
   group, tabs, activeTabId, now, editors, folderMissing, actions,
@@ -206,8 +211,22 @@ export function ProjectPage({
                   >
                     <KindIcon kind={threadKind(t)} />
                     <div className="tx">
-                      <div className="n">{displayTitle(t.title)}</div>
-                      <div className="d">{threadKind(t) === 'chat' ? 'Chat' : 'Shell'}</div>
+                      <div className="n">{threadName(t)}</div>
+                      <div className="d">
+                        {KIND_WORD[threadKind(t)]}
+                        {t.branch && (
+                          <>
+                            {' · '}
+                            <span data-meta="branch"><IconBranch size={13} />{t.branch}</span>
+                          </>
+                        )}
+                        {t.worktree && (
+                          <>
+                            {' · '}
+                            <span data-meta="worktree"><IconWorktree size={13} />{t.worktree}</span>
+                          </>
+                        )}
+                      </div>
                     </div>
                     {state !== 'quiet' && <StateIcon state={state} />}
                     <span className="t">{relativeTime(t.lastActiveAt, now)}</span>

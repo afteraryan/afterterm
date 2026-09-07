@@ -103,6 +103,21 @@ console.log('\npaletteView: paletteResults, each thread carries its group\n');
   check('a General thread carries no group', t2?.group === undefined, show(t2));
 }
 
+console.log('\npaletteView: paletteResults, threadName fallback\n');
+{
+  // A chat with no Claude title yet is searched by its threadName (the first
+  // prompt fallback), not its live shell title.
+  const tabs = [
+    tab('t1', { title: 'cmd.exe', claudeSessionId: 's1', firstPrompt: 'Refactor the login flow' }),
+  ];
+  const byPrompt = paletteResults([], tabs, 'login');
+  check('matches a word of the first prompt', byPrompt.threads.map(t => t.tab.id).join(',') === 't1', show(byPrompt.threads));
+
+  const byShellTitle = paletteResults([], tabs, 'cmd');
+  check('does not match the live shell title once a first prompt stands in for it',
+    byShellTitle.threads.length === 0, show(byShellTitle.threads));
+}
+
 console.log('\npaletteView: paletteResults, no results\n');
 {
   const r = paletteResults([group('A', { label: 'afterterm' })], [tab('t1', { title: 'afterterm' })], 'zzzzz');

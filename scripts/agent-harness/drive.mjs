@@ -12,7 +12,9 @@
 //   dom "<css selector>" [--html] matches: count plus trimmed innerText (or outerHTML)
 //   click "<css selector>" [index]     real mouse click on the element's centre
 //   rightclick "<css selector>" [index]
-//   hover "<css selector>" [index]     move the pointer onto the element's centre and hold it there
+//   hover "<css selector>" [index] [--wait <ms>]   move the pointer onto the element's centre
+//                                  and hold it there; --wait pauses after the move (a hover card
+//                                  needs 350ms to appear)
 //   unhover                       move the pointer to (2, 2) of the viewport, off every hover target
 //   drag "<from selector>" [fromIndex] "<to selector>" [toIndex] [--steps N] [--hold-ms N]
 //                                  press at the source centre, step to the target centre
@@ -28,6 +30,8 @@
 //   project                       the rendered project page as a tree
 //   chooser                       the new-thread chooser's rows
 //   palette                       the search palette's rows
+//   header                        the main pane header as a tree
+//   hover-card                    the thread hover card as a tree (or "(no hover card)")
 //   window bottom|restore|close-dialogs   OS-level window z-order, un-minimise, and
 //                                  closing stray native dialogs (e.g. a file picker)
 //
@@ -72,6 +76,7 @@ const SEL = {
     dateHeading: 'h1.home-date',
     totNeed: '.home .tot .sig.need',
     totRun: '.home .tot .sig.run',
+    lastHere: '.home-lasthere',
     pinnedCard: '.cards .cd',
     name: '.n',
     pillNeed: '.sig.need',
@@ -98,6 +103,7 @@ const SEL = {
     search: '.srch input',
     row: '.tl[data-tab-id]',
     rowName: '.n',
+    rowDetail: '.d',
     rowTime: '.t',
     stateIcon: '[data-state]',
     nothing: '.nothing',
@@ -123,6 +129,22 @@ const SEL = {
     itemMeta: '.m',
     hiClass: 'hi',
     nothing: '.nothing',
+  },
+
+  // Main pane header (src/renderer/components/Header/index.tsx).
+  header: {
+    root: '.header',
+    name: '.header-name',
+    metaItem: '.header-meta-item',
+    chip: '.header-chip',
+    empty: '.header-empty',
+  },
+
+  // Thread hover card (Phase 3).
+  hoverCard: {
+    root: '.hover-card',
+    title: '.hn',
+    row: 'dd[data-row]',
   },
 };
 
@@ -194,6 +216,8 @@ try {
       case 'project': await cmdProject(); break;
       case 'chooser': await cmdChooser(); break;
       case 'palette': await cmdPalette(); break;
+      case 'header': await cmdHeader(); break;
+      case 'hover-card': await cmdHoverCard(); break;
       case 'window': await cmdWindow(args[0]); break;
       default: throw new DriveError(`unknown command: ${command}`);
     }
@@ -321,7 +345,9 @@ async function cmdHover(selector, indexArg) {
     await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: mx, y: my, button: 'none' });
     await sleep(16);
   }
-  console.log(`hovered ${selector}[${index}] at (${x}, ${y}) of ${count} match(es)`);
+  const waitMs = Number(opts.wait ?? 0);
+  if (waitMs > 0) await sleep(waitMs);
+  console.log(`hovered ${selector}[${index}] at (${x}, ${y}) of ${count} match(es)${waitMs ? `, waited ${waitMs}ms` : ''}`);
 }
 
 async function cmdUnhover() {
@@ -544,6 +570,7 @@ async function cmdHome() {
       dateHeading: text(document.querySelector(S.dateHeading)),
       totNeed: text(document.querySelector(S.totNeed)) || null,
       totRun: text(document.querySelector(S.totRun)) || null,
+      lastHere: text(document.querySelector(S.lastHere)) || null,
       pinned,
       nothingPinned: text(document.querySelector(S.nothing)) || null,
       projects,
@@ -556,6 +583,7 @@ async function cmdHome() {
   if (!data.present) { console.log('(not on Home)'); return; }
   console.log(data.dateHeading || '(no date heading)');
   console.log(`  totals: need=${data.totNeed ?? 'none'} run=${data.totRun ?? 'none'}`);
+  if (data.lastHere) console.log(`  lasthere: ${data.lastHere}`);
   const pills = p => [p.need ? `need=${p.need}` : null, p.run ? `run=${p.run}` : null].filter(Boolean).join(' ');
   console.log('  Pinned:');
   if (!data.pinned.length) console.log(`    ${data.nothingPinned || '(none)'}`);
@@ -591,6 +619,7 @@ async function cmdProject() {
       return {
         tabId: row.dataset.tabId || null,
         name: text(row.querySelector(S.rowName)),
+        detail: text(row.querySelector(S.rowDetail)) || null,
         state: icon ? icon.getAttribute('data-state') : 'quiet',
         time: text(row.querySelector(S.rowTime)) || null,
       };
@@ -619,7 +648,7 @@ async function cmdProject() {
   if (!data.rows.length) {
     console.log(`  ${data.nothing || '(no rows)'}`);
   } else {
-    for (const r of data.rows) console.log(`  - "${r.name}" [${r.state || 'quiet'}]${r.time ? '  ' + r.time : ''}`);
+    for (const r of data.rows) console.log(`  - "${r.name}" [${r.detail || ''}] [${r.state || 'quiet'}]${r.time ? '  ' + r.time : ''}`);
   }
 }
 
@@ -666,6 +695,59 @@ async function cmdPalette() {
   console.log(`input: ${JSON.stringify(data.input)}`);
   if (!data.items.length) console.log(`  ${data.nothing || '(no results)'}`);
   for (const i of data.items) console.log(`  ${i.hi ? '*' : ' '} [${i.kind}/${i.id}] ${i.name}${i.meta ? '  ' + i.meta : ''}`);
+}
+
+async function cmdHeader() {
+  const S = SEL.header;
+  const data = await evaluate(cdp, `((S) => {
+    const text = el => (el ? (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim() : '');
+    const header = document.querySelector(S.root);
+    if (!header) return { present: false };
+    const isEmpty = !!header.querySelector(S.empty);
+    const nameEl = header.querySelector(S.name);
+    // KindIcon has no data attribute of its own today; this looks for one on
+    // any element inside the name line so a future KindIcon change (or a
+    // wrapper the Header agent adds) is picked up without touching the harness.
+    const kindEl = nameEl ? nameEl.querySelector('[data-kind]') : null;
+    const meta = Array.from(header.querySelectorAll(S.metaItem)).map(el => ({
+      meta: el.dataset.meta || null,
+      text: text(el),
+    }));
+    const chip = header.querySelector(S.chip);
+    return {
+      present: true,
+      isEmpty,
+      name: text(nameEl),
+      kind: kindEl ? kindEl.getAttribute('data-kind') : null,
+      meta,
+      chip: text(chip) || null,
+    };
+  })(${JSON.stringify(S)})`);
+
+  if (!data.present) { console.log(`(no ${SEL.header.root} in the DOM)`); return; }
+  if (data.isEmpty) { console.log('(no thread)'); return; }
+  console.log(data.name || '(no name)');
+  if (data.kind) console.log(`  kind: ${data.kind}`);
+  for (const m of data.meta) console.log(`  ${m.meta || '?'}=${m.text}`);
+  console.log(`  ${data.chip || '(quiet)'}`);
+}
+
+async function cmdHoverCard() {
+  const S = SEL.hoverCard;
+  const data = await evaluate(cdp, `((S) => {
+    const text = el => (el ? (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim() : '');
+    const card = document.querySelector(S.root);
+    if (!card) return { present: false };
+    const rows = Array.from(card.querySelectorAll(S.row)).map(dd => ({
+      row: dd.dataset.row || null,
+      text: text(dd),
+    }));
+    return { present: true, title: text(card.querySelector(S.title)), rows };
+  })(${JSON.stringify(S)})`);
+
+  if (!data.present) { console.log('(no hover card)'); return; }
+  console.log(data.title || '(no title)');
+  for (const r of data.rows) console.log(`  ${r.row || '?'}: ${r.text}`);
 }
 
 // The electron browser process id, re-resolved from the listening DevTools

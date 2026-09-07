@@ -153,6 +153,18 @@ console.log('\nhomeView: filterThreads\n');
     filterThreads(tabs, 'xyz').length === 0);
   check('whitespace-only query behaves like empty',
     filterThreads(tabs, '   ').length === 3);
+
+  // A chat with no Claude title yet falls back to threadName's firstPrompt
+  // rule, not the live title (which is still a plain shell title like
+  // "cmd.exe" at this point).
+  const withChat: Tab[] = [
+    ...tabs,
+    tab('d', { title: 'cmd.exe', claudeSessionId: 's1', firstPrompt: 'Refactor the login flow' }),
+  ];
+  check('a chat with no title yet matches a word from its first prompt',
+    filterThreads(withChat, 'login').map(t => t.id).join(',') === 'd');
+  check('the same chat does not match its live shell title',
+    filterThreads(withChat, 'cmd').length === 0);
 }
 
 console.log('\nhomeView: splitLiveAsleep\n');

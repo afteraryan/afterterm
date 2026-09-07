@@ -14,6 +14,7 @@ import {
   firstPrompt,
   isSessionId,
   latestModel,
+  latestModelAttachment,
   modelDisplayName,
   projectDirName,
   readTranscriptMeta,
@@ -166,6 +167,22 @@ console.log('\nclaude-transcript: latestModel\n');
   check('no assistant and no attachment gives null', latestModel(userLine('hi') + '\n') === null);
   check('an empty tail gives null', latestModel('') === null);
 }
+{
+  const head = [modelAttachment('claude-opus-5[1m]'), userLine('hi')].join('\n') + '\n';
+  check('the head attachment is found on its own',
+    latestModelAttachment(head) === 'claude-opus-5[1m]', show(latestModelAttachment(head)));
+  check('a chunk with no attachment gives null',
+    latestModelAttachment(assistantLine('claude-opus-5') + '\n') === null);
+  const tail = assistantLine('claude-opus-5') + '\n';
+  check('a fallback attachment from the head restores the suffix',
+    latestModel(tail, 'claude-opus-5[1m]') === 'claude-opus-5[1m]', show(latestModel(tail, 'claude-opus-5[1m]')));
+  check('a fallback attachment for another model is ignored',
+    latestModel(tail, 'claude-haiku-4-5[1m]') === 'claude-opus-5', show(latestModel(tail, 'claude-haiku-4-5[1m]')));
+  const tailWithAttachment = [modelAttachment('claude-opus-5'), assistantLine('claude-opus-5')].join('\n') + '\n';
+  check('the tail attachment wins over the head one',
+    latestModel(tailWithAttachment, 'claude-opus-5[1m]') === 'claude-opus-5',
+    show(latestModel(tailWithAttachment, 'claude-opus-5[1m]')));
+}
 
 console.log('\nclaude-transcript: modelDisplayName\n');
 {
@@ -225,6 +242,29 @@ console.log('\nclaude-transcript: readTranscriptMeta\n');
     bigMeta.firstPrompt === 'Head only prompt', show(bigMeta.firstPrompt));
   check('a big file gives the model from the tail',
     bigMeta.model === 'claude-fable-5-1', show(bigMeta.model));
+
+  // The same shape, but with the session-start model attachment in the head: it is
+  // the only place "[1m]" is written, and on a long session it never reaches the
+  // tail window, so the suffix has to come from the head read.
+  const BIG_1M = 'ee0e0e0e-0000-4000-8000-000000000002';
+  const lines1m = [modelAttachment('claude-opus-5[1m]'), userLine('Long opus session')];
+  for (let i = 0; i < 3000; i++) lines1m.push(filler);
+  lines1m.push(assistantLine('claude-opus-5'));
+  fs.writeFileSync(path.join(dir, `${BIG_1M}.jsonl`), lines1m.join('\n') + '\n', 'utf-8');
+  const meta1m = readTranscriptMeta(projects, cwd, BIG_1M, fs);
+  check('a big file takes the context suffix from the head attachment',
+    meta1m.model === 'claude-opus-5[1m]', show(meta1m.model));
+
+  // A head attachment for a different family than the tail's assistant model says
+  // nothing about the current turn, so it must not put a suffix on it.
+  const BIG_SWITCH = 'ee0e0e0e-0000-4000-8000-000000000003';
+  const linesSwitch = [modelAttachment('claude-opus-5[1m]'), userLine('Switched mid session')];
+  for (let i = 0; i < 3000; i++) linesSwitch.push(filler);
+  linesSwitch.push(assistantLine('claude-sonnet-5'));
+  fs.writeFileSync(path.join(dir, `${BIG_SWITCH}.jsonl`), linesSwitch.join('\n') + '\n', 'utf-8');
+  const metaSwitch = readTranscriptMeta(projects, cwd, BIG_SWITCH, fs);
+  check('a head attachment for another model leaves the assistant model unchanged',
+    metaSwitch.model === 'claude-sonnet-5', show(metaSwitch.model));
 
   const missing = readTranscriptMeta(projects, cwd, 'ffffffff-0000-4000-8000-000000000002', fs);
   check('a missing file gives the not found result',

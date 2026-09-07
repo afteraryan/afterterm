@@ -36,7 +36,7 @@ Plain Node (24+) and PowerShell. No new dependencies: Node's global `fetch` and
 | File | Role |
 |---|---|
 | `launch.mjs` | Seeds a throwaway `AFTERTERM_USER_DATA_DIR`, starts `electron-forge start` with the placement and debug-port env vars, waits for the DevTools endpoint, records pids. |
-| `drive.mjs` | CDP client with subcommands: `targets`, `bounds`, `screenshot`, `eval`, `dom`, `click`, `rightclick`, `type`, `key`, `sidebar`. |
+| `drive.mjs` | CDP client with subcommands: `targets`, `bounds`, `screenshot`, `eval`, `dom`, `click`, `rightclick`, `hover`, `unhover`, `drag`, `emulate-media`, `type`, `key`, `sidebar`, `screen`, `home`, `project`, `chooser`, `palette`, `header`, `hover-card`, `window`. |
 | `stop.mjs` | Kills exactly the recorded process tree and verifies it is gone. |
 | `screenshot-display.ps1` | Captures a whole physical display to PNG (shows native title bars and the notifier toasts, which CDP cannot). |
 | `lib.mjs` | Shared: arg parsing, run records, process tree walk, WMI spawn, display and window queries, the CDP client. |
@@ -114,7 +114,7 @@ node scripts/agent-harness/drive.mjs <command> ...
 | `dom` | `drive dom ".tab-row"`, add `--html` for outerHTML | Match count plus tag, classes and trimmed innerText per match. |
 | `click` | `drive click ".tab-row" 2` | Scrolls the element into view and dispatches a real `mousePressed` and `mouseReleased` at its centre through `Input.dispatchMouseEvent`, so React handlers and dnd-kit see a user-like click. Index defaults to 0. |
 | `rightclick` | `drive rightclick ".group-header" 0` | Same with the right button (opens context menus). |
-| `hover` | `drive hover ".pr" 0` | Scrolls the element into view, then steps the pointer onto its centre in a couple of `mouseMoved` events (so CSS `:hover` and React's `onMouseEnter` both see a real enter, not a teleport) and leaves it there. Prints the centre. |
+| `hover` | `drive hover ".pr" 0`, `drive hover ".th" 0 --wait 400` | Scrolls the element into view, then steps the pointer onto its centre in a couple of `mouseMoved` events (so CSS `:hover` and React's `onMouseEnter` both see a real enter, not a teleport) and leaves it there. Prints the centre. `--wait <ms>` pauses after the move, before the command returns: the thread hover card appears 350ms after the pointer enters a row, so `drive hover ".th" 0 --wait 400` then `drive hover-card` in a second call sees it. |
 | `unhover` | `drive unhover` | Moves the pointer to (2, 2) of the viewport, the title bar strip, which has no hover targets. |
 | `drag` | `drive drag ".tab-row" 0 ".tab-row" 2 --hold-ms 600` | Presses at the source element's centre, steps to the target element's centre (`--steps`, default 12, 16ms apart), an optional dwell at the target (`--hold-ms`, default 0; dnd-kit's dwell-to-group needs 600), then releases. An index is a bare integer right after its selector, so the two selector/index pairs never need extra flags to disambiguate. |
 | `emulate-media` | `drive emulate-media reduce` | `Emulation.setEmulatedMedia` for `prefers-reduced-motion`: `reduce`, `no-preference`, or `off` to clear every emulated feature. |
@@ -126,6 +126,8 @@ node scripts/agent-harness/drive.mjs <command> ...
 | `project` | `drive project` | The rendered project page: title, folder line, the action buttons under `.ph .acts` with their disabled state, the selected tab plus the other tab labels, the search box value, and one line per thread row (name, state, time), or the empty-state text. `(not on a project page)` when `.proj` is absent. |
 | `chooser` | `drive chooser` | The new-thread chooser's input value, one line per option (project id, name, tag, `*` when highlighted), and the shell label. `(no chooser open)` when absent. |
 | `palette` | `drive palette` | The search palette's input value and one line per result (kind, id, name, meta text, `*` when highlighted), or the empty-state text. `(no palette open)` when absent. |
+| `header` | `drive header` | The main pane header as a tree: the name line, the kind (when the name line carries a `data-kind` attribute), one `<data-meta>=<text>` line per header meta item, the state chip text or `(quiet)`. `(no thread)` when the header shows its empty state. `(no .header in the DOM)` when the header itself is absent. |
+| `hover-card` | `drive hover ".th" 0 --wait 400` then `drive hover-card` | The thread hover card: the title, then one `<data-row>: <text>` line per `dl` row. `(no hover card)` when absent. The card appears 350ms after the pointer enters a thread row, so hover first with `--wait` (see the `hover` row above) before reading it. |
 | `window` | `drive window bottom`, `drive window restore`, `drive window close-dialogs` | OS-level window control (see "Capturing an occluded window" below). |
 
 The sidebar selectors live in the `SEL` object at the top of `drive.mjs`,
@@ -134,7 +136,9 @@ When a phase renames classes, update that one object. `SEL.home`, `SEL.project`,
 `SEL.chooser` and `SEL.palette` hold the same kind of selector map for the
 Phase 2 screens; they read from the DOM hooks each screen's component is
 supposed to keep (`docs/design-02-projects-and-threads.md` and the components
-themselves), not from `SidePanel`.
+themselves), not from `SidePanel`. `SEL.header` (Phase 3, `src/renderer/components/Header/index.tsx`
+and `Header.css`) and `SEL.hoverCard` (Phase 3, the thread hover card) follow the
+same pattern.
 
 ### Hover, drag and reduced motion
 
@@ -165,12 +169,13 @@ their size, so a plain `click` works there.
 
 ### Screens
 
-`screen`, `home`, `project`, `chooser` and `palette` read the Phase 2 UI the
-way `sidebar` reads the side panel: DOM lookups through the `SEL` object,
-printed as a plain tree (or JSON for `screen`, since it is a small flag set
-rather than a list). Each one reports its own "not open" or "not on this
-screen" line instead of throwing, so a command can be used to check whether a
-screen or overlay is showing at all.
+`screen`, `home`, `project`, `chooser`, `palette`, `header` and `hover-card`
+read the Phase 2 and Phase 3 UI the way `sidebar` reads the side panel: DOM
+lookups through the `SEL` object, printed as a plain tree (or JSON for
+`screen`, since it is a small flag set rather than a list). Each one reports
+its own "not open", "not on this screen" or "no thread" line instead of
+throwing, so a command can be used to check whether a screen or overlay is
+showing at all.
 
 ## Prove the window is on the secondary display
 

@@ -191,6 +191,15 @@
 .proj .tl .d {
   color: var(--text3);
   font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.proj .tl .d span[data-meta] {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
 }
 
 .proj .tl .t {

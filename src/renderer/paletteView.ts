@@ -5,7 +5,7 @@
 // the unit tests can run with `node src/renderer/paletteView.test.ts`.
 
 import type { Group, Tab } from './components/TabBar/types.ts';
-import { displayTitle } from './threadView.ts';
+import { threadName } from './threadView.ts';
 
 export interface PaletteThreadResult {
   tab: Tab;
@@ -46,11 +46,11 @@ export function paletteResults(groups: Group[], tabs: Tab[], query: string): Pal
         const owner = groupById.get(t.groupId);
         if (!owner || owner.archived) return false;
       }
-      return displayTitle(t.title).toLowerCase().includes(q);
+      return threadName(t).toLowerCase().includes(q);
     })
     .map(t => ({ tab: t, group: t.groupId ? groupById.get(t.groupId) : undefined }))
     .sort((a, b) => {
-      const byRank = rankMatch(displayTitle(a.tab.title), q) - rankMatch(displayTitle(b.tab.title), q);
+      const byRank = rankMatch(threadName(a.tab), q) - rankMatch(threadName(b.tab), q);
       if (byRank !== 0) return byRank;
       return b.tab.lastActiveAt - a.tab.lastActiveAt;
     });

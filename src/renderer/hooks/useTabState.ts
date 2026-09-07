@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { Tab, Group, GroupColor, nextGroupColor, TabNotification } from '../components/TabBar/types';
 import type { SavedSession } from '../sessionMigration';
 import { nextActiveTabAfterArchive } from '../threadView';
+import { claudeSummaryTitle } from '../chatTitle';
 
 // Everything the group modal can set. A group with no tabs is a valid, persisted
 // state (it sits in the sidebar's Projects shelf), so creation no longer needs a tab.
@@ -10,6 +11,15 @@ export interface GroupConfig {
   color: GroupColor;
   cwd?: string;
   shellId?: string;
+}
+
+// Which folder a thread's branch and worktree are read from. The hook-captured
+// claudeCwd wins over the shell's own cwd: Claude usually runs where the work is,
+// which for this project is often a git worktree, while the shell that launched it
+// still sits in the main checkout. Reading the shell's cwd there would show the
+// main branch for a thread that is working on a phase branch.
+export function threadGitCwd(tab: Pick<Tab, 'cwd' | 'claudeCwd'>): string | undefined {
+  return tab.claudeCwd ?? tab.cwd;
 }
 
 let tabCounter = 0;
@@ -72,8 +82,57 @@ export function useTabState() {
     });
   }, [activeTabId]);
 
+  // The raw title stays on the tab (detectNotification and the spinner logic read
+  // it), but when Claude Code wrote it, its summary is also captured as the thread's
+  // name. Without that, the notify hook's next state title ("▶ afterterm - working")
+  // would overwrite the only copy of the conversation's name.
   const renameTab = useCallback((tabId: string, title: string) => {
-    setTabs(prev => prev.map(t => t.id === tabId ? { ...t, title } : t));
+    const claudeTitle = claudeSummaryTitle(title);
+    setTabs(prev => prev.map(t =>
+      t.id === tabId
+        ? (claudeTitle ? { ...t, title, claudeTitle } : { ...t, title })
+        : t));
+  }, []);
+
+  // What main read out of the session transcript. Both fields are "only when we
+  // learned something": a null firstPrompt must not erase a prompt already captured,
+  // and a null model (an unreadable or rotated-away transcript) keeps the last model
+  // known for the thread rather than blanking the header line.
+  const setClaudeMeta = useCallback((tabId: string, meta: { firstPrompt: string | null; model: string | null }) => {
+    setTabs(prev => {
+      let changed = false;
+      const next = prev.map(t => {
+        if (t.id !== tabId) return t;
+        const firstPrompt = meta.firstPrompt ?? t.firstPrompt;
+        const model = meta.model ?? t.model;
+        if (firstPrompt === t.firstPrompt && model === t.model) return t;
+        changed = true;
+        return { ...t, firstPrompt, model };
+      });
+      return changed ? next : prev;
+    });
+  }, []);
+
+  // Branch and worktree for the thread's folder, refreshed by app.tsx. A null value
+  // deletes the key (a folder that left git, or a worktree that is now a plain
+  // checkout, should stop showing a stale branch), and an unchanged pair writes
+  // nothing, which is what makes the 30 second poll free.
+  const setGitInfo = useCallback((tabId: string, info: { branch: string | null; worktree: string | null }) => {
+    setTabs(prev => {
+      let changed = false;
+      const next = prev.map(t => {
+        if (t.id !== tabId) return t;
+        const branch = info.branch ?? undefined;
+        const worktree = info.worktree ?? undefined;
+        if (branch === t.branch && worktree === t.worktree) return t;
+        changed = true;
+        const updated = { ...t, branch, worktree };
+        if (branch === undefined) delete updated.branch;
+        if (worktree === undefined) delete updated.worktree;
+        return updated;
+      });
+      return changed ? next : prev;
+    });
   }, []);
 
   const setTabNotification = useCallback((tabId: string, notification: TabNotification | undefined) => {
@@ -326,10 +385,17 @@ export function useTabState() {
     // Mark every saved Claude session as "restorable" so the sidebar shows the muted
     // ✳ — except the active tab, which auto-resumes on launch (so it's never dormant).
     const activeId = saved.activeTabId || saved.tabs[0]?.id || '';
-    setTabs(saved.tabs.map(t => ({
-      ...t,
-      claudeRestorable: !!t.claudeSessionId && t.id !== activeId,
-    })));
+    // The saved title may still be Claude's own summary ("✳ Fix the spinner"), so
+    // it names the thread from the first paint, before the restored shell replaces
+    // the title with something like "cmd.exe".
+    setTabs(saved.tabs.map(t => {
+      const claudeTitle = claudeSummaryTitle(t.title);
+      return {
+        ...t,
+        claudeRestorable: !!t.claudeSessionId && t.id !== activeId,
+        ...(claudeTitle ? { claudeTitle } : {}),
+      };
+    }));
     setGroups(saved.groups);
     setActiveTabId(activeId);
   }, []);
@@ -338,6 +404,7 @@ export function useTabState() {
     tabs, groups, activeTabId,
     setActiveTabId, activateTab,
     addTab, closeTab, renameTab, updateTabCwd, setClaudeSession, clearTabRestorable, setTabNotification, setTabFontSize,
+    setClaudeMeta, setGitInfo,
     createGroup, createConfiguredGroup, addToGroup, removeFromGroup,
     renameGroup, setGroupColor, updateGroup, toggleGroupCollapse, deleteGroup,
     togglePin, setGroupArchived, touchActivity, openProject,

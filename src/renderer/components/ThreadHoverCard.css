@@ -1,0 +1,59 @@
+/* Sidebar thread hover card (ThreadHoverCard.tsx). Values copied from the mock's
+   .hover / .hover.show (docs/mockups/afterterm-next.html, around line 251).
+   Relies on theme.css tokens: --hover, --text3, --med, --ease, keyframe popin. */
+
+.hover-card {
+  position: fixed;
+  z-index: 50;
+  width: 280px;
+  background: var(--hover);
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .5);
+  pointer-events: none;
+  transform-origin: top left;
+  animation: popin var(--med) var(--ease);
+}
+
+.hover-card .hn {
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+.hover-card dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 5px 14px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.hover-card dt {
+  color: var(--text3);
+}
+
+.hover-card dd {
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hover-card dd.hc-project {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.hover-card .hc-project-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hover-card {
+    animation: none;
+  }
+}

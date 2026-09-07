@@ -7,7 +7,7 @@ import { ScreenNav } from '../ScreenNav';
 import { Menu, MenuItem } from '../Menu';
 import { FolderIcon, IconPage, IconPin, IconPinOn, IconPlus, StateIcon } from '../Icons';
 import { threadState, projectCounts } from '../../threadView';
-import { dateHeading, relativeTime, homeSections, homeTotals } from '../../homeView';
+import { dateHeading, relativeTime, homeSections, homeTotals, lastHereLine } from '../../homeView';
 import { buildProjectMenu, ProjectActions } from '../../projectMenu';
 import type { EditorInfo } from '../../../editors';
 import './Home.css';
@@ -37,6 +37,13 @@ export function Home({ groups, tabs, now, editors, folderExists, actions, onNewP
     limit: PROJECT_LIMIT,
   });
   const totals = homeTotals(groups, tabs);
+
+  // The last-opened experiment (PHASES.md Phase 3, CLAUDE.md "Experiment: last
+  // opened on Home"). Aryan runs this as a user; whenever work on afterterm
+  // resumes, ask him whether it was useful, then keep or remove it. Deliberately
+  // this small: one quiet line, nothing else changes because of it. Guarded so a
+  // render without preload (a unit-style render, or a test harness) never throws.
+  const lastHere = lastHereLine(window.afterterm?.app?.lastOpenedAt ?? null, now);
 
   const tabsOf = (groupId: string) => tabs.filter(t => t.groupId === groupId);
 
@@ -168,6 +175,7 @@ export function Home({ groups, tabs, now, editors, folderExists, actions, onNewP
               )}
             </div>
           )}
+          {lastHere && <div className="home-lasthere">{lastHere}</div>}
         </div>
 
         <div>

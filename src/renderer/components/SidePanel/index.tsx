@@ -26,12 +26,16 @@ import {
 // is what retired the old Projects shelf.
 import { computeSegments } from '../../sidebarWalk';
 import {
-  threadKind, threadState, stateBreathes, displayTitle, foldThreads,
+  threadKind, threadState, stateBreathes, threadName, foldThreads,
   projectCounts, sidebarSections,
 } from '../../threadView';
+import { ThreadHoverCard } from '../ThreadHoverCard';
 import './SidePanel.css';
 
 const THREAD_FOLD_LIMIT = 5;
+// How long the pointer has to rest on a thread row before its card appears. Long
+// enough that moving the pointer down the list never flashes a card.
+const HOVER_DELAY_MS = 350;
 
 // ─── Thread row ────────────────────────────────────────────────────────────────
 
@@ -50,11 +54,15 @@ interface ThreadRowProps {
   onActivate: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
   onClose: () => void;
+  // Hover card timing lives in the SidePanel, so the row only reports "the pointer
+  // is resting on me, here is my rectangle" and "it left".
+  onHoverStart?: (rect: DOMRect) => void;
+  onHoverEnd?: () => void;
 }
 
 function ThreadRow({
   tab, isActive, inProject, isDragging, isGroupPreview, inert, overlay,
-  onActivate, onContextMenu, onClose,
+  onActivate, onContextMenu, onClose, onHoverStart, onHoverEnd,
 }: ThreadRowProps) {
   const off = !!overlay || !!inert;
   const { attributes, listeners, setNodeRef: setDragRef } = useDraggable({ id: tab.id, disabled: off });
@@ -90,14 +98,16 @@ function ThreadRow({
     <div
       ref={overlay ? undefined : setRef}
       className={className}
-      onClick={onActivate}
-      onContextMenu={onContextMenu}
+      onClick={() => { onHoverEnd?.(); onActivate(); }}
+      onContextMenu={e => { onHoverEnd?.(); onContextMenu(e); }}
+      onMouseEnter={overlay ? undefined : e => onHoverStart?.(e.currentTarget.getBoundingClientRect())}
+      onMouseLeave={overlay ? undefined : () => onHoverEnd?.()}
       data-kind={threadKind(tab)}
       data-tip={!overlay && tab.claudeRestorable ? 'Click to resume this chat' : undefined}
       {...(overlay ? {} : { ...attributes, ...listeners })}
     >
       <KindIcon kind={threadKind(tab)} />
-      <span className="n">{displayTitle(tab.title)}</span>
+      <span className="n">{threadName(tab)}</span>
       <StateIcon state={state} />
       {!overlay && !inert && (
         <button
@@ -309,6 +319,34 @@ export function SidePanel(props: SidePanelProps) {
   // ('general' for the projectless list): a fold is a glance, not a preference, so
   // it is not persisted.
   const [expandedLists, setExpandedLists] = useState<Record<string, boolean>>({});
+  // Which thread row the pointer is resting on, the rectangle the card points at,
+  // and the clock reading it was opened with (the card shows relative times and
+  // must not restart a timer of its own).
+  const [hover, setHover] = useState<{ tabId: string; anchor: DOMRect; now: number } | null>(null);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const hideHover = useCallback(() => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = null;
+    setHover(null);
+  }, []);
+
+  const startHover = useCallback((tabId: string, rect: DOMRect) => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => {
+      hoverTimerRef.current = null;
+      setHover({ tabId, anchor: rect, now: Date.now() });
+    }, HOVER_DELAY_MS);
+  }, []);
+
+  // A collapsed sidebar has no rows to point at, and an unmount must not leave a
+  // timer running that would open a card over whatever comes next.
+  useEffect(() => {
+    if (collapsed) hideHover();
+  }, [collapsed, hideHover]);
+  useEffect(() => () => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+  }, []);
 
   // Keep the open thread visible: activating a thread whose project is collapsed
   // (Ctrl+Tab, a toast click, the header menu) expands that project, the way the
@@ -505,6 +543,7 @@ export function SidePanel(props: SidePanelProps) {
   const segments = computeSegments(tabs, groups);
   const { general, pinned, projects } = sidebarSections(segments);
   const groupMap = new Map(groups.map(g => [g.id, g]));
+  const hoverTab = hover ? tabs.find(t => t.id === hover.tabId) : undefined;
   const draggingTab = draggingTabId ? tabs.find(t => t.id === draggingTabId) : null;
   const draggingGroup = draggingGroupId ? groups.find(g => g.id === draggingGroupId) : null;
 
@@ -524,6 +563,8 @@ export function SidePanel(props: SidePanelProps) {
             onActivate={() => onActivate(tab.id)}
             onContextMenu={e => openThreadMenu(e, tab)}
             onClose={() => onClose(tab.id)}
+            onHoverStart={rect => startHover(tab.id, rect)}
+            onHoverEnd={hideHover}
           />
         ))}
         {showMore && (
@@ -612,6 +653,7 @@ export function SidePanel(props: SidePanelProps) {
             sensors={sensors}
             collisionDetection={closestCenter}
             onDragStart={e => {
+              hideHover();
               const id = e.active.id as string;
               if (id.startsWith('group-drag-')) {
                 setDraggingGroupId(id.replace('group-drag-', ''));
@@ -623,7 +665,7 @@ export function SidePanel(props: SidePanelProps) {
             onDragEnd={handleDragEnd}
             onDragCancel={handleDragCancel}
           >
-            <div className="scroll">
+            <div className="scroll" onScroll={hideHover}>
               {general.length > 0 && (
                 <div className="sec">
                   <div className="lbl">General</div>
@@ -716,6 +758,17 @@ export function SidePanel(props: SidePanelProps) {
 
       {menu && (
         <Menu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />
+      )}
+
+      {/* Mounted at the panel root, outside the scrolling list, so the card is not
+          clipped by it. */}
+      {hoverTab && !collapsed && (
+        <ThreadHoverCard
+          tab={hoverTab}
+          group={hoverTab.groupId ? groupMap.get(hoverTab.groupId) : undefined}
+          anchor={hover!.anchor}
+          now={hover!.now}
+        />
       )}
 
     </>

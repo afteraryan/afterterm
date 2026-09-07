@@ -4,10 +4,10 @@
 // pane" in docs/design-02-projects-and-threads.md and PHASES.md Phase 1.
 import React, { useCallback, useRef, useState } from 'react';
 import { Tab, Group } from '../TabBar/types';
-import { FolderIcon, IconMore, IconTerm, KindIcon, StateIcon } from '../Icons';
+import { FolderIcon, IconBranch, IconModel, IconMore, IconTerm, IconWorktree, KindIcon, StateIcon } from '../Icons';
 import { Menu } from '../Menu';
 import { buildThreadMenu, ThreadMenuActions } from '../../threadMenu';
-import { displayTitle, threadKind, threadState, stateLabel } from '../../threadView';
+import { threadKind, threadName, threadState, stateLabel, modelLabel } from '../../threadView';
 import './Header.css';
 
 // Matches the menu's own min-width (Menu.css), so the panel opens flush with
@@ -43,21 +43,38 @@ export function Header({ tab, group, groups, actions }: HeaderProps) {
 
   const kind = threadKind(tab);
   const state = threadState(tab);
+  const model = kind === 'chat' ? modelLabel(tab.model) : null;
 
   return (
     <div className="header">
       <div className="header-title">
         <div className="header-name">
           <KindIcon kind={kind} />
-          <span>{displayTitle(tab.title)}</span>
+          <span>{threadName(tab)}</span>
         </div>
         <div className="header-meta">
-          <span className="header-meta-item">
-            {group ? <FolderIcon color={group.color} open /> : <IconTerm size={14} />}
+          <span className="header-meta-item" data-meta="project">
+            {group ? <FolderIcon color={group.color} open size={14} /> : <IconTerm size={14} />}
             {group ? group.label : 'General'}
           </span>
-          {/* Model, branch and worktree slots arrive in Phase 3 (thread identity).
-              Nothing is read for them yet, so nothing renders here. */}
+          {model && (
+            <span className="header-meta-item" data-meta="model">
+              <IconModel size={14} />
+              {model}
+            </span>
+          )}
+          {tab.branch && (
+            <span className="header-meta-item" data-meta="branch">
+              <IconBranch size={14} />
+              {tab.branch}
+            </span>
+          )}
+          {tab.worktree && (
+            <span className="header-meta-item header-meta-worktree" data-meta="worktree">
+              <IconWorktree size={14} />
+              <span className="header-meta-text">{tab.worktree}</span>
+            </span>
+          )}
         </div>
       </div>
       <div className="header-actions">

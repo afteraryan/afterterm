@@ -37,6 +37,7 @@
 }
 
 .header-meta {
+  min-width: 0;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -50,6 +51,22 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
+}
+
+/* The worktree path can run long. It shrinks and ellipsizes inside its own
+   item instead of wrapping or forcing the row wider, so it never pushes the
+   state chip out of the header. */
+.header-meta-worktree {
+  min-width: 0;
+  flex-shrink: 1;
+  overflow: hidden;
+}
+
+.header-meta-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

@@ -37,6 +37,15 @@
   margin-top: 12px;
 }
 
+/* The last-opened experiment (PHASES.md Phase 3, CLAUDE.md "Experiment: last
+   opened on Home"). One quiet line, nothing else about the date heading
+   changes for it: no icon, no background. */
+.home-lasthere {
+  color: var(--text3);
+  font-size: 12.5px;
+  margin-top: 8px;
+}
+
 .home .lblrow {
   display: flex;
   align-items: center;

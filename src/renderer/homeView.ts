@@ -13,7 +13,7 @@
 // can run with `node src/renderer/homeView.test.ts`.
 
 import type { Tab, Group } from './components/TabBar/types.ts';
-import { threadState, projectCounts, displayTitle } from './threadView.ts';
+import { threadState, projectCounts, threadName } from './threadView.ts';
 
 // "Sunday, 6 September": en-GB weekday and day-month order, no year. The
 // caller passes ms since epoch (Date.now() in the app, a fixed value in tests).
@@ -97,13 +97,14 @@ export function homeTotals(groups: Group[], tabs: Tab[]): { needsYou: number; ru
   return projectCounts(counted.map(threadState));
 }
 
-// Case-insensitive substring match on the thread's display title (the hook's
-// leading glyph already stripped), used by the project page's search box. An
-// empty query returns every thread, unfiltered.
+// Case-insensitive substring match on the thread's name (threadName: the
+// Claude title or first-prompt fallback for a chat, the glyph-stripped live
+// title otherwise), used by the project page's search box. An empty query
+// returns every thread, unfiltered.
 export function filterThreads(tabs: Tab[], query: string): Tab[] {
   const q = query.trim().toLowerCase();
   if (!q) return tabs;
-  return tabs.filter(t => displayTitle(t.title).toLowerCase().includes(q));
+  return tabs.filter(t => threadName(t).toLowerCase().includes(q));
 }
 
 // The project page's Live and Asleep tabs: a straight split on Tab.asleep,

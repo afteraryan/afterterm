@@ -125,15 +125,45 @@ function baseModelId(id: string): string {
 }
 
 /**
+ * The last model attachment's id in a chunk of transcript, or null. This is the only
+ * place the full id, context-size suffix included, is written down, and it is written
+ * at session start (and after some /model switches), so on a long session it sits in
+ * the head of the file rather than the tail.
+ */
+export function latestModelAttachment(text: string): string | null {
+  let attachmentModelId: string | null = null;
+  for (const line of String(text ?? '').split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    let obj: Record<string, unknown>;
+    try {
+      obj = JSON.parse(trimmed) as Record<string, unknown>;
+    } catch {
+      continue;
+    }
+    if (!obj || obj.isSidechain === true || obj.type !== 'attachment') continue;
+    const attachment = obj.attachment as { type?: unknown; identity?: { modelId?: unknown } } | undefined;
+    if (attachment?.type === 'model' && typeof attachment.identity?.modelId === 'string') {
+      attachmentModelId = attachment.identity.modelId;
+    }
+  }
+  return attachmentModelId;
+}
+
+/**
  * The model to display, read from the tail of a transcript, or null.
  *
  * Two sources disagree in a useful way. An assistant line carries the model of that
- * turn but never the context-size suffix; a model attachment (written at session start
- * and after some /model switches) carries the full id including "[1m]". So the
- * assistant line decides which model, and the attachment only adds the suffix back
- * when the two are the same model.
+ * turn but never the context-size suffix; a model attachment carries the full id
+ * including "[1m]". So the assistant line decides which model, and the attachment only
+ * adds the suffix back when the two are the same model.
+ *
+ * `fallbackAttachmentId` is the attachment found in the head of the file, used when the
+ * tail has none: on a long session the session-start attachment is the only one there
+ * is, and it is far outside the tail window, so without it the "[1m]" would be lost.
+ * The tail's own attachment still wins, it is the more recent statement.
  */
-export function latestModel(text: string): string | null {
+export function latestModel(text: string, fallbackAttachmentId?: string | null): string | null {
   let assistantModel: string | null = null;
   let attachmentModelId: string | null = null;
 
@@ -160,10 +190,14 @@ export function latestModel(text: string): string | null {
   }
 
   if (assistantModel) {
-    if (attachmentModelId && baseModelId(attachmentModelId) === assistantModel) return attachmentModelId;
+    // Tail attachment first, then the head one. Either only contributes its suffix,
+    // and only when it names the same model the latest assistant turn ran on.
+    for (const candidate of [attachmentModelId, fallbackAttachmentId]) {
+      if (candidate && baseModelId(candidate) === assistantModel) return candidate;
+    }
     return assistantModel;
   }
-  return attachmentModelId;
+  return attachmentModelId ?? fallbackAttachmentId ?? null;
 }
 
 const MODEL_FAMILIES = new Set(['opus', 'sonnet', 'haiku', 'fable']);
@@ -247,7 +281,13 @@ export function readTranscriptMeta(
       const tailRead = fsLike.readSync(fd, tailBuf, 0, CHUNK_BYTES, size - CHUNK_BYTES);
       tail = decode(tailBuf.subarray(0, tailRead));
     }
-    return { firstPrompt: firstPrompt(head), model: latestModel(tail), exists: true };
+    // head === tail on a small file, so the head attachment is already in `tail`
+    // there and passing it again changes nothing.
+    return {
+      firstPrompt: firstPrompt(head),
+      model: latestModel(tail, latestModelAttachment(head)),
+      exists: true,
+    };
   } catch {
     return NOT_FOUND;
   } finally {

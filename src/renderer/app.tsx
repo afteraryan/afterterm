@@ -11,11 +11,11 @@ import { SearchPalette } from './components/SearchPalette';
 import { GroupModal, GroupDraft } from './components/GroupModal';
 import { Toast } from './components/Toast';
 import type { Screen } from './components/ScreenNav';
-import { useTabState } from './hooks/useTabState';
+import { useTabState, threadGitCwd } from './hooks/useTabState';
 import { TabNotification, GROUP_COLORS, nextGroupColor } from './components/TabBar/types';
 import { onTitle, onOutput, onTick, onInterrupt, initTiming, TabTiming } from './spinnerState';
 import { migrateSession, serializeSession } from './sessionMigration';
-import { displayTitle, toastMessage, initialScreen } from './threadView';
+import { toastMessage, initialScreen, threadName } from './threadView';
 import { ProjectActions } from './projectMenu';
 import { buildThreadMenu } from './threadMenu';
 import type { EditorInfo } from '../editors';
@@ -31,6 +31,10 @@ const CLOCK_MS = 60_000;
 // Where the new thread chooser opens when no New thread control is on screen to
 // anchor it under.
 const CHOOSER_FALLBACK = { x: 80, y: 120 };
+// How often every thread's branch and worktree are re-read. Slow on purpose: a
+// branch switch is rare and nothing here is urgent, so this only has to be faster
+// than the user noticing a stale branch.
+const GIT_POLL_MS = 30_000;
 
 interface AppToast {
   // Distinguishes one toast from the next even when the wording repeats, so the
@@ -280,12 +284,105 @@ export function App() {
     });
   }, []);
 
+  // Read branch and worktree for one thread and put them on the tab. setGitInfo
+  // no-ops when nothing changed, so calling this more often than needed is free.
+  const refreshGit = useCallback((tabId: string, cwd: string | undefined) => {
+    if (!cwd) return;
+    window.afterterm.git.info(cwd).then(info => {
+      stateRef.current.setGitInfo(tabId, { branch: info.branch, worktree: info.worktree });
+    });
+  }, []);
+
+  // Read the session transcript for one thread (first prompt + model). Returns the
+  // promise so the startup pass can await one read before starting the next.
+  const refreshClaudeMeta = useCallback((tabId: string, sessionId: string, cwd: string) => {
+    return window.afterterm.claudeSession.meta(sessionId, cwd).then(meta => {
+      stateRef.current.setClaudeMeta(tabId, { firstPrompt: meta.firstPrompt, model: meta.model });
+    });
+  }, []);
+
   // Main captures each tab's live Claude session (via the notify hook's file channel)
-  // and pushes it here → store on the tab so the next launch can resume it.
+  // and pushes it here → store on the tab so the next launch can resume it. The first
+  // capture is also the moment the transcript and the folder become known, so both
+  // are read once here; later turns arrive on the meta push below.
   useEffect(() => {
     window.afterterm.claudeSession.onUpdate(({ tabId, sessionId, cwd }) => {
       stateRef.current.setClaudeSession(tabId, sessionId, cwd);
+      refreshClaudeMeta(tabId, sessionId, cwd);
+      refreshGit(tabId, cwd);
     });
+  }, []);
+
+  // Main re-reads the transcript after every hook write, that is once a turn, so a
+  // /model switch or Claude's first reply shows up without anything polling.
+  useEffect(() => {
+    window.afterterm.claudeSession.onMeta(({ tabId, firstPrompt, model }) => {
+      stateRef.current.setClaudeMeta(tabId, { firstPrompt, model });
+    });
+  }, []);
+
+  // One pass over the restored session: the transcript for every chat, and branch
+  // and worktree for every thread with a folder. The transcript reads run one after
+  // another, a session with 40 chats would otherwise fire 40 concurrent 512 KB reads
+  // in the first second of launch; the git lookups are one round trip for the lot.
+  useEffect(() => {
+    if (!initialized) return;
+    let cancelled = false;
+    const tabs = stateRef.current.tabs;
+
+    (async () => {
+      for (const tab of tabs) {
+        if (cancelled) return;
+        if (!tab.claudeSessionId || !tab.claudeCwd) continue;
+        await refreshClaudeMeta(tab.id, tab.claudeSessionId, tab.claudeCwd);
+      }
+    })();
+
+    const withCwd = tabs
+      .map(t => ({ id: t.id, cwd: threadGitCwd(t) }))
+      .filter((t): t is { id: string; cwd: string } => !!t.cwd);
+    if (withCwd.length > 0) {
+      window.afterterm.git.infoMany(withCwd.map(t => t.cwd)).then(infos => {
+        if (cancelled) return;
+        withCwd.forEach((t, i) => {
+          const info = infos[i];
+          if (info) stateRef.current.setGitInfo(t.id, { branch: info.branch, worktree: info.worktree });
+        });
+      });
+    }
+
+    return () => { cancelled = true; };
+  }, [initialized]);
+
+  // Slow refresh so a branch switched from inside a terminal (or from another app)
+  // catches up on its own. setGitInfo writes nothing when a thread's branch is
+  // unchanged, so a quiet window costs one main-process call and no render. Paused
+  // while the window is hidden, where nobody can see the answer anyway.
+  useEffect(() => {
+    if (!initialized) return;
+    const id = setInterval(() => {
+      if (document.hidden) return;
+      const withCwd = stateRef.current.tabs
+        .map(t => ({ id: t.id, cwd: threadGitCwd(t) }))
+        .filter((t): t is { id: string; cwd: string } => !!t.cwd);
+      if (withCwd.length === 0) return;
+      window.afterterm.git.infoMany(withCwd.map(t => t.cwd)).then(infos => {
+        withCwd.forEach((t, i) => {
+          const info = infos[i];
+          if (info) stateRef.current.setGitInfo(t.id, { branch: info.branch, worktree: info.worktree });
+        });
+      });
+    }, GIT_POLL_MS);
+    return () => clearInterval(id);
+  }, [initialized]);
+
+  // A shell that reported a new cwd (OSC 9;9) may have walked into another repo or
+  // worktree, so its branch is re-read. threadGitCwd still decides which folder
+  // actually counts for a chat.
+  const handleCwdChange = useCallback((tabId: string, cwd: string) => {
+    stateRef.current.updateTabCwd(tabId, cwd);
+    const tab = stateRef.current.tabs.find(t => t.id === tabId);
+    refreshGit(tabId, tab?.claudeCwd ?? cwd);
   }, []);
 
   // Opening a thread clears what it was waiting to tell you: the pending
@@ -344,7 +441,7 @@ export function App() {
       id: `toast-${++toastCounter}`,
       tabId,
       type,
-      primaryLabel: displayTitle(tab?.title || projectName),
+      primaryLabel: tab ? threadName(tab) : projectName,
       secondaryLabel: group?.label,
       projectColor: group ? GROUP_COLORS[group.color].border : undefined,
       message: toastMessage(type),
@@ -570,7 +667,7 @@ export function App() {
               activeTabId={state.activeTabId}
               visible={screen === 'workspace'}
               onTitleChange={state.renameTab}
-              onCwdChange={state.updateTabCwd}
+              onCwdChange={handleCwdChange}
               onNotification={handleNotification}
               onUserInput={handleUserInput}
               onOutput={handleOutput}

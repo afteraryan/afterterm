@@ -4,7 +4,7 @@
 // wiring.
 import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { paletteResults } from '../../paletteView';
-import { displayTitle, threadKind, threadState } from '../../threadView';
+import { threadName, threadKind, threadState } from '../../threadView';
 import type { Group, Tab } from '../TabBar/types';
 import { FolderIcon, KindIcon, StateIcon } from '../Icons';
 import './SearchPalette.css';
@@ -133,7 +133,7 @@ export function SearchPalette({ groups, tabs, onOpenProject, onOpenThread, onClo
                     onMouseEnter={() => setHi(index)}
                   >
                     <KindIcon kind={kind} size={15} />
-                    <span className="n">{displayTitle(tab.title)}</span>
+                    <span className="n">{threadName(tab)}</span>
                     {state !== 'quiet' && <StateIcon state={state} size={15} />}
                     <span className="m">{group ? group.label : 'General'}</span>
                   </button>
