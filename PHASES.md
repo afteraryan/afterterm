@@ -135,12 +135,12 @@ Goal: closing afterterm, or putting a thread down, stops costing context.
 
 Main process:
 
-- [ ] Sleep: kill the PTY tree, keep the tab record, mark `asleep`. Restored tabs start asleep instead of "restorable", replacing today's ✳ marker.
-- [ ] Wake: respawn in cwd; `claude --resume` for chats (existing); a fresh prompt for shells. Servers re-run their last command only once Phase 5 has it; until then a server wakes as a shell in its folder.
-- [ ] Scrollback tail: on sleep and close, write the last N lines to `%APPDATA%\afterterm\threads\<id>.txt`; on wake, replay dimmed above a "Woke just now" divider.
-- [ ] History: on close, append `{title, kind, sessionId, cwd, closedAt}` to the project's history in `session.json` (or a sibling file if it grows). Resume from the project page and from `Ctrl+K`.
-- [ ] Sidebar and header: moon icon, "Asleep · 2d" chip, large Wake button in the pane, Sleep and Wake in the menus.
-- [ ] Lazy resume stays: waking is always user-initiated, never all at once on launch.
+- [x] Sleep: kill the PTY tree, keep the tab record, mark `asleep`. Restored tabs start asleep instead of "restorable", replacing today's ✳ marker. (`sleepTab`/`restoredTab` in `src/renderer/sleepWake.ts`, `teardownTerminal` in `src/renderer/components/Terminal/index.tsx`, `restoreSession` in `src/renderer/hooks/useTabState.ts`.)
+- [x] Wake: respawn in cwd; `claude --resume` for chats (existing); a fresh prompt for shells. Servers re-run their last command only once Phase 5 has it; until then a server wakes as a shell in its folder. (`wakeTab`/`wakePlan` in `src/renderer/sleepWake.ts`, `createTerminal` in `src/renderer/components/Terminal/index.tsx`.)
+- [x] Scrollback tail: on sleep and close, write the last N lines to `%APPDATA%\afterterm\threads\<id>.txt`; on wake, replay dimmed above a "Woke just now" divider. (`src/thread-tail.ts`: `trimTail`, `serializeTail`, `parseTail`, `renderTailForTerminal`; `threads:saveTail`/`saveTailsSync`/`readTail`/`deleteTail`/`prune` in `src/main.ts`; `captureTail` and the wake replay in `src/renderer/components/Terminal/index.tsx`; `handleTail` and the `beforeunload` flush in `src/renderer/app.tsx`.)
+- [x] History: on close, append `{title, kind, sessionId, cwd, closedAt}` to the project's history in `session.json` (or a sibling file if it grows). Resume from the project page and from `Ctrl+K`. Went into `session.json` directly rather than a sibling file (`Group.history`, capped at `HISTORY_MAX`); resume is from the project page's History tab and from the search palette (`Ctrl+Shift+P`, not `Ctrl+K`, per the Phase 0 decision), not a separate `Ctrl+K`. (`src/renderer/history.ts`: `historyEntryFor`, `appendHistory`, `tabFromHistory`, `isResumable`; `closeTab`/`resumeFromHistory` in `src/renderer/hooks/useTabState.ts`; `resumeThread` in `src/renderer/app.tsx`.)
+- [x] Sidebar and header: moon icon, "Asleep · 2d" chip, large Wake button in the pane, Sleep and Wake in the menus. (`IconMoon`/`StateIcon` in `src/renderer/components/Icons.tsx`, `asleepLabel`/`asleepSinceText` in `src/renderer/sleepWake.ts`, `src/renderer/components/AsleepPane/index.tsx`, `buildThreadMenu` in `src/renderer/threadMenu.tsx`.)
+- [x] Lazy resume stays: waking is always user-initiated, never all at once on launch. Phase 4 goes further than "stays": every restored thread now starts asleep (not just background ones), so nothing at all resumes automatically, not even the active tab. (`restoredTab` in `src/renderer/sleepWake.ts`; `docs/features-claude-session-resume.md` updated.)
 
 Done when: relaunching shows every previous thread asleep with its old output visible, and closing a chat leaves it findable and resumable.
 

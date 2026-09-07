@@ -78,6 +78,11 @@ const NOTIF_PREFIXES: [string, TabNotification][] = [
   ['▶', 'working'],    // ▶ emitted by UserPromptSubmit hook
 ];
 
+// How long after the spawn the viewport is scrolled back to a woken thread's replay:
+// cmd.exe's clear and banner arrive well inside this, and the resume command is
+// typed at 700 ms, after it.
+const REPLAY_SCROLL_MS = 450;
+
 const DEFAULT_FONT_SIZE = 14;
 const MIN_FONT_SIZE = 6;
 const MAX_FONT_SIZE = 40;
@@ -131,14 +136,18 @@ function formatTabTitle(raw: string): string {
 // measures UTF-8 with Buffer, a Node global the sandboxed renderer does not have.
 function captureTail(term: Terminal, max: number = TAIL_MAX_LINES): string[] {
   const buffer = term.buffer.active;
-  const start = Math.max(0, buffer.length - max);
+  // The viewport is part of the buffer and ConPTY paints from its top, so a short
+  // session leaves a run of blank rows under the prompt. Read one screenful beyond
+  // `max`, drop the blank rows at the end, and only then keep the last `max` lines:
+  // otherwise "the last 20 lines" of a fresh shell would be 20 empty rows.
+  const start = Math.max(0, buffer.length - max - term.rows);
   const lines: string[] = [];
   for (let i = start; i <= buffer.length - 1; i++) {
     const line = buffer.getLine(i);
     lines.push(line ? line.translateToString(true).replace(/\s+$/, '') : '');
   }
   while (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
-  return lines;
+  return lines.slice(-max);
 }
 
 const THEME = {
@@ -452,12 +461,24 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       // with a divider under it, so waking looks like coming back to the same desk
       // rather than opening a blank terminal. Written before the shell spawns so the
       // fresh prompt lands under the divider.
+      //
+      // ConPTY does not append to whatever the terminal already shows: it paints its
+      // own viewport with absolute cursor positions and clears the screen when the
+      // shell starts, so a tail left in the viewport would be wiped by the first
+      // paint (seen in the Phase 4 test: only the cmd banner survived). The replay is
+      // therefore pushed into scrollback with a screenful of newlines before the
+      // spawn (ConPTY's clear is a viewport erase, which leaves scrollback alone), and
+      // once the first paint has settled the viewport is scrolled back up so the
+      // tail, the divider and the fresh prompt are on screen together.
+      let replayLines = 0;
       if (tab.wokeAt) {
         const tail = await window.afterterm.threads.readTail(tabId);
         // Slept again while the file was being read: the teardown has already run,
         // so there must be no PTY left behind for it.
         if (!termsRef.current.has(tabId)) return;
-        term.write(renderTailForTerminal(tail ?? [], 'Woke just now', term.cols));
+        const lines = tail ?? [];
+        replayLines = lines.length + 2;
+        term.write(renderTailForTerminal(lines, 'Woke just now', term.cols) + '\r\n'.repeat(term.rows));
       }
 
       // Waking respawns where the thread was: claudeCwd over cwd, because
@@ -466,6 +487,16 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       // hook-reported dir, authoritative across all shells.
       const plan = wakePlan(tab);
       await api.pty.create(tabId, plan.shellId, plan.cwd);
+
+      // Bring the replay back into view once ConPTY's first paint (the clear and the
+      // shell banner) has landed. Only for the thread on screen: a background wake is
+      // scrolled to the bottom like any terminal, and the user finds the tail above.
+      if (replayLines > 0) {
+        setTimeout(() => {
+          if (tabId !== activeRef.current || !termsRef.current.has(tabId)) return;
+          term.scrollLines(-replayLines);
+        }, REPLAY_SCROLL_MS);
+      }
 
       // A chat picks its session back up; a shell just gets a fresh prompt. The id is
       // re-validated as a UUID inside resumeTab as well (session.json is

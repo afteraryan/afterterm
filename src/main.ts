@@ -313,6 +313,15 @@ function createWindow() {
 
   mainWindow.on('close', (e) => {
     if (isQuitting || ptys.size === 0) return;
+    // A harness run (scripts/agent-harness, AFTERTERM_HARNESS=1) quits through
+    // `drive window quit`, which posts WM_CLOSE to this window to exercise the
+    // renderer's quit flush (tails and the asleep stamps). Nobody is there to
+    // answer a confirm dialog, so the harness gets the "Close" answer straight away.
+    if (process.env.AFTERTERM_HARNESS === '1') {
+      isQuitting = true;
+      app.quit();
+      return;
+    }
     e.preventDefault();
     dialog.showMessageBox(mainWindow!, {
       type: 'question',

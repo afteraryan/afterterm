@@ -38,7 +38,8 @@
 //   tail [n]                      last n lines (default 30) of the active tab's xterm
 //                                  buffer via window.__afterterm; add --tab <id> for a
 //                                  specific tab instead of the active one
-//   window bottom|restore|close-dialogs   OS-level window z-order, un-minimise, and
+//   window bottom|restore|quit|close-dialogs   OS-level window z-order, un-minimise,
+//                                  a graceful quit (WM_CLOSE, so the quit flush runs), and
 //                                  closing stray native dialogs (e.g. a file picker)
 //   record start --out <file.mp4> [--max-width N] [--fps N] [--quality N]
 //                                  start recording the page content to video, detached
@@ -914,7 +915,7 @@ $bmp.Dispose()
 }
 
 async function cmdWindow(sub) {
-  if (!sub) fail('window needs bottom, restore or close-dialogs');
+  if (!sub) fail('window needs bottom, restore, quit or close-dialogs');
   const electronPid = resolveElectronPid();
   if (!electronPid) fail('could not resolve the electron process id');
   const windows = listWindows(electronPid);
@@ -940,6 +941,31 @@ ${call}
     return;
   }
 
+  if (sub === 'quit') {
+    // A graceful quit, as the user's close button would do it: WM_CLOSE to the main
+    // window, so the renderer's beforeunload flush (session.json with every thread
+    // stamped asleep, and every live terminal's tail) runs before the process goes.
+    // stop.mjs kills the tree outright and skips all of that. The dev build answers
+    // its own "terminals still running" confirm for a harness run (AFTERTERM_HARNESS=1
+    // in src/main.ts), so nothing waits on a dialog. Polls until the electron process
+    // is gone (up to 30s).
+    const win = pickMainWindow(windows);
+    if (!win) fail(`no visible top-level window found for pid ${electronPid}`);
+    const script = `
+Add-Type -Namespace Harness -Name Quit -MemberDefinition @'
+[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern System.IntPtr PostMessage(System.IntPtr hWnd, uint Msg, System.IntPtr wParam, System.IntPtr lParam);
+'@
+[void][Harness.Quit]::PostMessage([IntPtr]${win.hwnd}, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
+"posted"`;
+    const out = powershell(script).trim();
+    const deadline = Date.now() + 30_000;
+    while (Date.now() < deadline && pidExists(electronPid)) await sleep(250);
+    const gone = !pidExists(electronPid);
+    console.log(`hwnd=${win.hwnd} WM_CLOSE ${out}; electron ${electronPid} ${gone ? 'exited' : 'still running after 30s'}`);
+    if (!gone) process.exitCode = 1;
+    return;
+  }
+
   if (sub === 'close-dialogs') {
     // Native common dialogs (file pickers, message boxes) run in-process under
     // the electron browser pid and carry the stock Windows dialog class.
@@ -956,7 +982,7 @@ foreach ($h in @(${dialogs.map(d => d.hwnd).join(',')})) { [void][Harness.Close]
     return;
   }
 
-  fail(`unknown window subcommand: ${sub}; known: bottom, restore, close-dialogs`);
+  fail(`unknown window subcommand: ${sub}; known: bottom, restore, quit, close-dialogs`);
 }
 
 // ─── Recording (see record.mjs) ────────────────────────────────────────────────

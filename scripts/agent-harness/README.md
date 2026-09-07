@@ -55,8 +55,10 @@ Main-process support lives in `src/main.ts`:
   display and falls back to primary on a single-monitor machine.
 - `AFTERTERM_REMOTE_DEBUG_PORT=<n>` turns on Chromium's remote debugging port.
   Opt-in only, because an open port lets any local process script the app.
-- `AFTERTERM_HARNESS=1` is set on the app and so inherited by its shells; nothing
-  reads it yet, it is there so future code can tell a harness run apart.
+- `AFTERTERM_HARNESS=1` is set on the app and so inherited by its shells. Since Phase 4
+  the main window's close handler reads it: a harness run skips the "terminals still
+  running" confirm dialog and quits at once, which is what lets `drive window quit`
+  exercise the quit flush without anyone there to click a button.
 
 ## Launch
 
@@ -139,7 +141,7 @@ node scripts/agent-harness/drive.mjs <command> ...
 | `hover-card` | `drive hover ".th" 0 --wait 400` then `drive hover-card` | The thread hover card: the title, then one `<data-row>: <text>` line per `dl` row. `(no hover card)` when absent. The card appears 350ms after the pointer enters a thread row, so hover first with `--wait` (see the `hover` row above) before reading it. |
 | `pane` | `drive pane` | Phase 4: the asleep pane (`.asleep-pane`) that covers the terminal card while the active thread is asleep, as a tree: `asleep pane for <tab id>`, `wake button: yes\|no`, `since: <text>`, `past lines: <N>` and the last 5 saved tail lines indented (or `past: (none)` while the tail is loading or empty). When no thread is asleep, prints `(terminal)` and `terminal: shown\|hidden` (whether `.terminal-instances` carries `asleep-hidden`). |
 | `tail` | `drive tail`, `drive tail 10`, `drive tail 10 --tab <id>` | Phase 4: the last n lines (default 30) of an xterm buffer, read through `window.__afterterm.activeTail(n)` for the active tab or `window.__afterterm.tail(id, n)` for `--tab <id>`. One line per entry; `(no terminal)` when the hook is missing or the tab has no live terminal (e.g. it is asleep). |
-| `window` | `drive window bottom`, `drive window restore`, `drive window close-dialogs` | OS-level window control (see "Capturing an occluded window" below). |
+| `window` | `drive window bottom`, `drive window restore`, `drive window quit`, `drive window close-dialogs` | OS-level window control (see "Capturing an occluded window" below). `quit` posts WM_CLOSE to the main window and waits for the process to exit: a graceful quit, so the renderer's quit flush runs (session.json with every thread stamped asleep, and every live terminal's tail file), which `stop.mjs`'s hard kill skips. The dev build answers its own "terminals still running" confirm when `AFTERTERM_HARNESS=1` (`src/main.ts`), so nothing waits on a dialog. |
 | `record` | `drive record start --out out.mp4`, `drive record stop`, `drive record status` | Starts, stops and lists screen recordings of the page content (see "Recording a test session" below). |
 
 The sidebar selectors live in the `SEL` object at the top of `drive.mjs`,

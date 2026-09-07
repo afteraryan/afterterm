@@ -81,7 +81,7 @@ Improve UI of notification pop-ups. Need more context and better information hie
 
 ## Scrollback Snapshot
 
-On close, save each tab's visible buffer (last ~50 lines from xterm.js). On restore, write it into the fresh terminal before the user starts typing. Gives visual context about what was happening before the close — no scrollback lost.
+Built in Phase 4, as the scrollback tail. See "Sleep, wake, history and the scrollback tail (Phase 4)" in `CLAUDE.md` for what shipped: a tail is written on sleep and on close, and replayed dimmed above a "Woke just now" divider on wake.
 
 ---
 
