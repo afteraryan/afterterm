@@ -36,7 +36,7 @@ Never close the running afterterm. A dev build runs beside it. A copied `session
 | 0 | Data model and naming | small | done, with Aryan for testing |
 | 1 | Visual system and sidebar | none | done, with Aryan for testing |
 | 1.1 | Title bar, close on rows, view transitions | none | done, with Aryan for testing |
-| 2 | Home, pin, archive, project page | small | pending |
+| 2 | Home, pin, archive, project page | small | in progress |
 | 3 | Thread identity: chat titles, branch, worktree, timestamps | medium | pending |
 | 4 | Sleep, wake, history, scrollback tail | medium | pending |
 | 5 | Servers: running state, port, open localhost | medium to large | pending |
@@ -186,3 +186,4 @@ Things we know we want and have not placed.
 - 2026-09-07: Phase 1.1 started by the Phase 1 orchestrator session, same branch `worktree-projects-and-threads-plan`. Split into two pieces by file: title bar strip, window options and screen transitions; sidebar brand row trim and the close button on thread rows.
 - 2026-09-07: Phase 1.1 finished and handed to Aryan for testing, same branch `worktree-projects-and-threads-plan`. Title bar strip and transitions (Sonnet), sidebar icon row and close button (Sonnet). Verified through the harness with the real session copy: the 32px strip holds the name, version and the OS caption buttons with nothing under them, captured natively on the secondary display (100%) and, with the window moved there at the bottom of the z-order, on the primary (125%); hovering a row adds 24px of padding and the x with no overlap of the name (measured), the selected row keeps it, clicking the x closed the thread and left the selection where it was; the workspace entry animates the sidebar body and the main pane only (computed styles: sidein 260ms, mainin 260ms with a 40ms delay, none on the icon row or the strip). Mid-test Aryan asked for the strip and the caption buttons to take the sidebar grey (#171717), which is in. Screenshots 33 to 39 in `docs/screenshots/phase-1/`. Not released; no PR.
 - 2026-09-07: Phase 1.1 follow-up from Aryan while testing: the main pane's top-left corner is rounded where the strip and the sidebar meet it, so it matches the terminal card. Screenshot 40.
+- 2026-09-07: Phase 2 started by an orchestrator session on branch `phase-2-home-and-projects` (worktree `.claude/worktrees/phase-2-home-and-projects`, created from `worktree-projects-and-threads-plan` at d0ce70c). Split into two waves: main process (activity stamping, last-opened time, Explorer and editor launch, editor detection), Home and project page, chooser and palette, harness hover and drag; then app wiring, sidebar and menus, then the harness self-test and docs.
