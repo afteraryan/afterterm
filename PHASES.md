@@ -12,16 +12,15 @@ Agreed with Aryan on 2026-09-06.
 
 **One worktree and branch per phase, chained.** Phases 0 and 1 (and 1.1) live together on `worktree-projects-and-threads-plan`; that is done and stays as it is. From Phase 2 on, each phase gets its own git worktree and branch, created from the previous phase's branch: Phase 2 branches from `worktree-projects-and-threads-plan`, Phase 3 from Phase 2's branch, Phase 4 from Phase 3's, and so on. Name them `phase-2-home-and-projects`, `phase-3-thread-identity`, and so on. A phase never commits to an earlier phase's branch, and nothing is merged to `main` until Aryan has tested and says so. Record the branch name in the phase's Log line.
 
-**Self-testing, every phase.** Before a phase is called done:
+**Self-testing, every phase.** Aryan tests nothing until every phase is done (decided 2026-09-07, see below), so the orchestrator's own testing is the only testing a phase gets. It has to be thorough enough that the finished app has no issues from the agent's side, main process or renderer, on the real session copy and on an empty profile. Before a phase is called done:
 - Unit tests for everything with logic (data model, migration, detection, parsing), run and green.
 - The app launched and driven by the agent on the **secondary monitor**, never on the primary where Aryan is working: every screen and interaction of the phase exercised, with screenshots captured. Phase 0 sets up the harness for this (see its checklist).
 - The done-when line of the phase verified against the running app, not against the code.
 - Every screenshot taken during that testing is saved under `docs/screenshots/<phase>/` in the repo and kept; nothing there is ever deleted (agreed with Aryan on 2026-09-07).
 
-**Testing by Aryan, three stages per phase.**
-1. Dev build launched through the agent harness (`npm run harness -- --session <copy of session.json>`), which points `AFTERTERM_USER_DATA_DIR` at a throwaway folder seeded with a copy of the production `session.json` so it shows real projects and threads, not sample data, and puts the window on the secondary display. Fully separate from the running app. The harness strips Claude session ids by default (`--claude-resume none`): resuming the live session from a second build restarted it.
-2. An unreleased production build (`npm run build`), which Aryan runs as the primary afterterm for a few days. Bugs go into `docs/bugs.md` tagged with the phase.
-3. Fix the list, then release.
+**Testing by Aryan: once, after every phase is done.** Decided 2026-09-07 at the Phase 2 handoff. Aryan does no manual testing between phases, and no agent asks him to. When Phase 6 is finished he takes an unreleased production build (`npm run build`) as his primary afterterm for a few days, bugs go into `docs/bugs.md` tagged with the phase they belong to, the list is fixed, then a release is cut. The harness (`npm run harness -- --session <copy of session.json>`, a throwaway `AFTERTERM_USER_DATA_DIR` seeded from a copy of the real `session.json`, window on the secondary display, Claude session ids stripped by default) is the agent's tool, not Aryan's.
+
+**How a phase ends.** One orchestrator session works on one phase only. When its phase is done and self-tested it comes back to Aryan with three things, in this order: the questions only Aryan can decide, the decisions it took on its own that he should know about, and, once that discussion is over, the handoff prompt for the next phase, pasted in the chat so a fresh session can start from it. It does not start the next phase itself.
 
 Never close the running afterterm. A dev build runs beside it. A copied `session.json` carries Claude session ids; resume stays lazy (on click), so the two builds do not fight over a session unless the same thread is opened in both.
 
@@ -33,14 +32,15 @@ Never close the running afterterm. A dev build runs beside it. A copied `session
 
 **Decisions taken on 2026-09-07 (Phase 2 handoff).**
 - The app always opens on Home, projects or not.
-- The app's last-opened time (`lastOpenedAt` in prefs.json) is stored and exposed to the renderer but shown nowhere; projects and threads use their own `lastActiveAt`.
+- The app's last-opened time (`lastOpenedAt` in prefs.json, the previous launch) gets a **subtle experiment in the UI**, built in Phase 3: a quiet line under the Home date, never a main element. Aryan runs the experiment as a user; whenever work on afterterm resumes, the agent revisits it with him and asks whether it was useful, then it is kept or removed. Projects and threads keep using their own `lastActiveAt`.
+- Aryan tests manually only once every phase is done; no agent asks him to test in between. Self-testing has to be thorough enough that the finished app has no issues from the agent's side, backend or frontend.
 
 | Phase | What it delivers | Backend work | Status |
 |---|---|---|---|
-| 0 | Data model and naming | small | done, with Aryan for testing |
-| 1 | Visual system and sidebar | none | done, with Aryan for testing |
-| 1.1 | Title bar, close on rows, view transitions | none | done, with Aryan for testing |
-| 2 | Home, pin, archive, project page | small | done, with Aryan for testing |
+| 0 | Data model and naming | small | done |
+| 1 | Visual system and sidebar | none | done |
+| 1.1 | Title bar, close on rows, view transitions | none | done |
+| 2 | Home, pin, archive, project page | small | done |
 | 3 | Thread identity: chat titles, branch, worktree, timestamps | medium | pending |
 | 4 | Sleep, wake, history, scrollback tail | medium | pending |
 | 5 | Servers: running state, port, open localhost | medium to large | pending |
@@ -122,6 +122,7 @@ Main process:
 - [ ] Worktree: detect a `.git` file (not directory) and derive the worktree folder relative to the main repo.
 - [ ] Header line 2 shows branch and worktree with their icons; the hover card shows the same.
 - [ ] `lastActiveAt` drives the time shown on cards, rows and the project page.
+- [ ] **Experiment: last opened on Home.** One quiet line under the date (below the counter pills when they show), text3 colour, 12.5px, reading "Last here 2d ago" from `window.afterterm.app.lastOpenedAt` and `relativeTime`. Shown only when the gap is over an hour, nothing on the first launch (null) or after a quick relaunch. No icon, no card, nothing else moves. Documented in CLAUDE.md as an experiment Aryan is running as a user: whenever work resumes, ask him whether it was useful, then keep or remove it.
 
 Limits to state in the release notes: branch and worktree only work where cwd is captured, which is cmd only until Phase 6.
 
@@ -192,3 +193,4 @@ Things we know we want and have not placed.
 - 2026-09-07: Phase 2 started by an orchestrator session on branch `phase-2-home-and-projects` (worktree `.claude/worktrees/phase-2-home-and-projects`, created from `worktree-projects-and-threads-plan` at d0ce70c). Split into two waves: main process (activity stamping, last-opened time, Explorer and editor launch, editor detection), Home and project page, chooser and palette, harness hover and drag; then app wiring, sidebar and menus, then the harness self-test and docs.
 - 2026-09-07: Phase 2 finished and handed to Aryan for testing on branch `phase-2-home-and-projects` (pushed; no PR, no merge). Wave 1: main process (Opus: PTY activity stamps, last-opened time, Explorer launch, editor detection with tests, editor open and Choose editor, Ctrl+Shift+P), Home and project page with the shared project menu (Sonnet), chooser and palette (Sonnet), harness hover, drag, screen trees and occluded-window capture (Sonnet). Wave 2: app wiring, pin, archive, activity, sidebar and menus (Opus). Docs (Haiku). Verified through the harness on the secondary display, pushed to the bottom of the z-order because a video was playing there, with a copy of the real session (48 threads, 14 projects, 3 empty, one without a folder), a small seed carrying pinned, archived, missing-folder and no-folder projects, and an empty profile: Home opens first (at first only when projects existed; changed to always after the handoff, see the next line); pin from a Home row, a card, the sidebar row and the project page; Pinned card and section; card click opens the workspace on that project; Show more and Show less; the project menu with the Explorer and VS Code logos, the no-folder variant, the archived variant, and the missing-folder variant with both entries disabled and the "Folder not found" tip; archive from the menu and the page, the Archived link, Restore from the row and the page, opening an archived row restores it; the project page icon from Home rows, sidebar rows, the thread menu and the header menu; Live, Asleep and empty History tabs, search, tooltip on the logo buttons; New thread chooser from the row, the rail and Ctrl+Shift+T (from Home it switches to the workspace first and keeps focus), filter, arrows, the shell dropdown, Enter creating a pwsh thread in the chosen project; the palette from Ctrl+Shift+P and the Search row, filter, Enter, toggle and Escape; needs-you totals pill under the date and the project pill; activity stamps on typing landing in the saved session.json and lastOpenedAt in prefs.json; entrance animations (homein 280ms, stagger 40ms and 80ms) and their absence under reduced motion, measured in one CDP session; Explorer launch (window opened and closed again); sidebar drag still moves a thread into a project. Unit tests: 324 checks green across nine files. Fixed during the test: the terminal took focus from the chooser opened by the shortcut, Escape only worked from the input, an unknown editor id fell back to the primary editor and launched it, and every project read "now" after a relaunch because a shell banner counted as activity (main now ignores a PTY's first 5s). Screenshots 01 to 37 in `docs/screenshots/phase-2/`. Not released; no PR.
 - 2026-09-07: Phase 2 follow-up from Aryan: the app always opens on Home, projects or not (it had opened the workspace when there was no project). Same branch, one-line rule change in `initialScreen` with its test.
+- 2026-09-07: Working agreement changed at the Phase 2 handoff: Aryan tests once, after every phase is done, never in between; each phase ends with the questions for Aryan, the decisions taken, then the handoff prompt for the next phase. The last-opened time becomes a subtle Home experiment, built in Phase 3, to be revisited with Aryan when work resumes.
