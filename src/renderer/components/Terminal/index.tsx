@@ -8,7 +8,7 @@ import '@xterm/xterm/css/xterm.css';
 import { TabNotification } from '../TabBar/types';
 import { wakePlan } from '../../sleepWake';
 import {
-  parseOsc133, initialCommandMarkState, onMark, onEnter,
+  parseOsc133, initialCommandMarkState, onMark, onEnter, onInput,
   type CommandMarkState,
 } from '../../commandMarks';
 import { TAIL_MAX_LINES, renderTailForTerminal } from '../../../thread-tail';
@@ -580,6 +580,14 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
             marksRef.current.set(tabId, result.state);
             if (result.command) onCommandRef.current(tabId, result.command);
           }
+        } else {
+          // Every other chunk is fed to the mark state as typed text, the second
+          // signal onEnter uses to drop output a background process printed on the
+          // prompt line while the user was typing. onInput ignores escape sequences
+          // (arrows, the focus reports xterm emits on tab switch) and control
+          // characters, so only real characters and pasted text land in it.
+          const marks = marksRef.current.get(tabId);
+          if (marks) marksRef.current.set(tabId, onInput(marks, data));
         }
         api.pty.write(tabId, data);
         // Clear the working spinner only on a REAL interrupt, a bare Esc ('\x1b') or

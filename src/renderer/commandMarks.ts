@@ -44,10 +44,16 @@ export interface CommandMarkState {
   atPrompt: boolean;
   /** Where the prompt ended (buffer row, absolute; column), set by B. */
   promptEnd: { row: number; col: number } | null;
+  /**
+   * The printable text the user has actually typed (or pasted) since the prompt
+   * end, the second signal onEnter uses to reject output that landed on the
+   * prompt line while they were typing. Reset by A, by B and by Enter.
+   */
+  typed: string;
 }
 
 export function initialCommandMarkState(): CommandMarkState {
-  return { atPrompt: false, promptEnd: null };
+  return { atPrompt: false, promptEnd: null, typed: '' };
 }
 
 /**
@@ -67,13 +73,66 @@ export function initialCommandMarkState(): CommandMarkState {
 export function onMark(state: CommandMarkState, mark: Mark, cursor: { row: number; col: number }): CommandMarkState {
   switch (mark) {
     case 'A':
-      return { atPrompt: false, promptEnd: null };
+      return { atPrompt: false, promptEnd: null, typed: '' };
     case 'B':
-      return { atPrompt: true, promptEnd: { ...cursor } };
+      return { atPrompt: true, promptEnd: { ...cursor }, typed: '' };
     case 'C':
     case 'D':
       return { ...state, atPrompt: false };
   }
+}
+
+/**
+ * Apply one chunk of user input (everything xterm's onData hands over except
+ * Enter, which goes to onEnter instead). Only meaningful at a fresh prompt, so
+ * it is a no-op outside one.
+ *
+ * The chunk is scanned character by character:
+ * - a printable character (0x20 and above, not DEL) is appended;
+ * - backspace (DEL 0x7f, or 0x08) drops the last character typed so far;
+ * - an escape sequence is skipped whole: "ESC [" up to its final byte (0x40 to
+ *   0x7e) covers arrows, Home/End/Delete, the focus reports xterm emits on tab
+ *   switch (ESC [ I / ESC [ O) and the bracketed-paste markers ESC [ 200~ and
+ *   ESC [ 201~; "ESC O x" (SS3, arrows in application mode) and any other
+ *   "ESC x" are skipped as two or three characters;
+ * - every other control character is ignored.
+ *
+ * Because the paste markers are ordinary CSI sequences, the pasted body between
+ * them is appended by the printable rule with no special case: a pasted command
+ * is typed text too.
+ */
+export function onInput(state: CommandMarkState, data: string): CommandMarkState {
+  if (!state.atPrompt) return state;
+  let typed = state.typed;
+  let i = 0;
+  while (i < data.length) {
+    const ch = data[i];
+    const code = data.charCodeAt(i);
+    if (ch === '\x1b') {
+      i++;
+      if (data[i] === '[') {
+        i++;
+        while (i < data.length) {
+          const final = data.charCodeAt(i);
+          i++;
+          if (final >= 0x40 && final <= 0x7e) break;
+        }
+      } else if (data[i] === 'O') {
+        i += 2;
+      } else {
+        i++;
+      }
+      continue;
+    }
+    if (ch === '\x7f' || ch === '\b') {
+      typed = typed.slice(0, -1);
+      i++;
+      continue;
+    }
+    if (code >= 0x20) typed += ch;
+    i++;
+  }
+  return { ...state, typed };
 }
 
 /**
@@ -87,7 +146,20 @@ export function onMark(state: CommandMarkState, mark: Mark, cursor: { row: numbe
  * command is null. At a captured prompt, the read text is cleaned
  * (cleanCommand) and atPrompt is turned off (a second Enter right after,
  * unless a new B mark reopens it, reads nothing rather than the same command
- * again — see the "Enter twice" test).
+ * again, see the "Enter twice" test).
+ *
+ * Two signals decide the command, and the buffer normally wins. The buffer is
+ * what the shell echoed, so it is the only thing that reflects line editing:
+ * history recall types nothing at all yet the buffer holds the whole command,
+ * tab completion changes the ending, and a command edited in the middle with
+ * the arrow keys does not end with the sequence of characters that were typed.
+ * The typed text is what the user actually pressed. So the typed text is only
+ * preferred when the buffer ends with exactly what was typed but carries more
+ * text in front of it: whatever that extra is, it was never typed here, so it
+ * is provably not part of the command. That is the case a background process
+ * printing on the prompt line produces (seen on 2026-09-07: a `start /b` server
+ * printed its ready line right after the prompt-end mark, and the read came
+ * back as "tiny-server ready on http://localhost:48767node server.js 48766").
  */
 export function onEnter(
   state: CommandMarkState,
@@ -96,8 +168,14 @@ export function onEnter(
   if (!state.atPrompt || !state.promptEnd) {
     return { state, command: null };
   }
-  const raw = readFrom(state.promptEnd);
-  return { state: { ...state, atPrompt: false }, command: cleanCommand(raw) };
+  const nextState = { ...state, atPrompt: false, typed: '' };
+  const fromBuffer = cleanCommand(readFrom(state.promptEnd));
+  const typed = state.typed.trim();
+  if (typed.length > 0 && fromBuffer !== null
+    && fromBuffer.length > typed.length && fromBuffer.endsWith(typed)) {
+    return { state: nextState, command: cleanCommand(state.typed) };
+  }
+  return { state: nextState, command: fromBuffer };
 }
 
 // Strip control characters (anything below 0x20, plus DEL/0x7f) rather than
