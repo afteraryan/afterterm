@@ -30,6 +30,17 @@ export function integrationEnabled(prefs: unknown, shellId: string): boolean {
 // a chance to set one. Verified on PowerShell 7.6 and Windows PowerShell 5.1, so
 // it deliberately avoids anything PowerShell-7-only.
 //
+// The banner: a shell started with -EncodedCommand (rather than opened plainly
+// and left to its own interactive startup) prints no startup banner at all, so
+// without this the terminal would look unlike a normal PowerShell window. The
+// bootstrap prints the same banner text itself, as its first action once the
+// once-only guard has passed: "Windows PowerShell" plus the copyright line on
+// Windows PowerShell, or "PowerShell <version>" (built from $PSVersionTable so
+// it is right on any install) on PowerShell 7, each followed by a blank line.
+// The one difference from a normal launch: PowerShell prints its banner before
+// the profile runs, but this bootstrap necessarily runs after the profile, so
+// any profile output appears before the banner here instead of after it.
+//
 // The Write-Error trick: by the time the wrapped prompt gets to call the user's
 // original prompt function, $? has already been overwritten to $true by the string
 // building above (any successful expression resets it). If the command the user
@@ -38,6 +49,13 @@ export function integrationEnabled(prefs: unknown, shellId: string): boolean {
 // suppressed error is raised first to flip $? back to $false before handing off.
 export const PWSH_BOOTSTRAP = `if ($global:__AftertermPromptWrapped) { return }
 $global:__AftertermPromptWrapped = $true
+if ($PSVersionTable.PSEdition -eq 'Core') {
+  Write-Host "PowerShell $($PSVersionTable.PSVersion)"
+} else {
+  Write-Host 'Windows PowerShell'
+  Write-Host 'Copyright (C) Microsoft Corporation. All rights reserved.'
+}
+Write-Host ''
 if ($null -eq $function:prompt) {
   $global:__AftertermOriginalPrompt = { "PS $($executionContext.SessionState.Path.CurrentLocation)$('>' * ($nestedPromptLevel + 1)) " }
 } else {

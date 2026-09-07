@@ -65,6 +65,8 @@ A few details matter here:
 
 Verified on PowerShell 7.6 and Windows PowerShell 5.1 directly (`shell-integration.test.ts`'s real-shell section), so the bootstrap deliberately avoids anything PowerShell-7-only.
 
+One more side effect of `-EncodedCommand`: a shell started with a command prints no startup banner at all, so without help the terminal would not look like a normal PowerShell window. `PWSH_BOOTSTRAP` prints that banner itself, as its first action once the once-only guard has passed ("Windows PowerShell" plus the copyright line, or "PowerShell `<version>`" built from `$PSVersionTable`, each followed by a blank line). The one difference from a plain launch: PowerShell prints its banner before the profile runs, while this bootstrap runs after the profile, so any profile output appears before the banner here instead of after it.
+
 ### Git Bash: a `PROMPT_COMMAND` hook through the environment
 
 Args stay exactly as they were (`--login -i`); the whole mechanism enters through the environment, since bash reads `PROMPT_COMMAND` (a variable holding a command or function to run before every prompt) without needing to be launched any differently. Two env vars are set:
