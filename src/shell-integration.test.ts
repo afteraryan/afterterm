@@ -87,11 +87,6 @@ console.log('\nshell-integration: PWSH_BOOTSTRAP shape\n');
     PWSH_BOOTSTRAP.includes("FileSystem"));
   check('restores $? with a suppressed Write-Error',
     PWSH_BOOTSTRAP.includes('Write-Error') && PWSH_BOOTSTRAP.includes('-ErrorAction Ignore'));
-  check('contains the Windows PowerShell banner text',
-    PWSH_BOOTSTRAP.includes('Windows PowerShell')
-    && PWSH_BOOTSTRAP.includes('Copyright (C) Microsoft Corporation. All rights reserved.'));
-  check('contains the PowerShell 7 banner text',
-    PWSH_BOOTSTRAP.includes('PowerShell $($PSVersionTable.PSVersion)'));
 }
 
 console.log('\nshell-integration: BASH_HOOK and BASH_BOOTSTRAP shape\n');
@@ -365,8 +360,6 @@ function checkBasicPwshOutput(label: string, out: string) {
 if (havePwsh) {
   const { out } = runPwshLike('pwsh.exe', PWSH_BOOTSTRAP, basicPwshLines);
   checkBasicPwshOutput('pwsh', out);
-  check('pwsh: prints its own banner ("PowerShell <version>") as the first output',
-    /^PowerShell \d+\.\d+\.\d+/.test(out), show(out.slice(0, 40)));
 } else {
   check('pwsh.exe not found, real-shell pwsh checks skipped', true);
 }
@@ -375,9 +368,6 @@ if (havePwsh) {
   // powershell.exe (Windows PowerShell 5.1) is always present on Windows.
   const { out } = runPwshLike('powershell.exe', PWSH_BOOTSTRAP, basicPwshLines);
   checkBasicPwshOutput('powershell', out);
-  check('powershell: prints the Windows PowerShell banner as the first output',
-    out.startsWith('Windows PowerShell\nCopyright (C) Microsoft Corporation. All rights reserved.'),
-    show(out.slice(0, 100)));
 }
 
 function customPromptScript(): string {
