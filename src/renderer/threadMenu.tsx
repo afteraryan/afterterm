@@ -9,6 +9,9 @@ export interface ThreadMenuActions {
   open: () => void;
   moveToGroup: (groupId: string | undefined) => void; // undefined = General (no project)
   close: () => void;
+  // Only passed where there is a screen to go to. A thread with no project has no
+  // page to open, so the item stays out of the menu in that case either way.
+  openProjectPage?: () => void;
 }
 
 export function buildThreadMenu(tab: Tab, groups: Group[], actions: ThreadMenuActions): MenuItem[] {
@@ -34,11 +37,10 @@ export function buildThreadMenu(tab: Tab, groups: Group[], actions: ThreadMenuAc
   ];
 
   if (tab.groupId) {
-    items.push({
-      label: 'Open project page',
-      disabled: true,
-      tip: 'Project page arrives in Phase 2',
-    });
+    const openPage = actions.openProjectPage;
+    items.push(openPage
+      ? { label: 'Open project page', onSelect: openPage }
+      : { label: 'Open project page', disabled: true });
   }
 
   items.push({ label: 'Close', danger: true, onSelect: actions.close });

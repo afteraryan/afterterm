@@ -95,8 +95,9 @@
   flex: none;
 }
 
-/* Not yet available: dimmed, no hover, but still tooltipped (a real disabled
-   button emits no mouse events, so the app tooltip would never fire). */
+/* Unavailable action: dimmed, no hover, but still tooltipped (a real disabled
+   button emits no mouse events, so the app tooltip would never fire). Nothing in
+   the sidebar is disabled today; the rule stays for the next one that is. */
 .side-panel .disabled {
   opacity: .4;
   cursor: default;

@@ -162,3 +162,29 @@ export function toastMessage(type: TabNotification): string {
     case 'working': return '';
   }
 }
+
+// Which screen the app opens on once the restored session has loaded. Home is the
+// launcher, so it only earns the first paint when there is something to launch: at
+// least one project. A fresh install has a single thread in General and no projects
+// at all, so Home would open on an empty board; that case starts in the workspace.
+export function initialScreen(groups: Pick<Group, 'id'>[]): 'home' | 'workspace' {
+  return groups.length > 0 ? 'home' : 'workspace';
+}
+
+// Which thread stays active after a project is archived. An archived project keeps
+// its threads running but takes them out of the sidebar, so leaving the active
+// thread inside one would leave a terminal on screen that the user can no longer
+// navigate back to. The first thread outside every archived project takes over; if
+// there is none, the active thread is left as it is (nothing better to switch to).
+export function nextActiveTabAfterArchive(
+  tabs: Pick<Tab, 'id' | 'groupId'>[],
+  activeTabId: string,
+  archivedGroupIds: string[],
+): string {
+  const archived = new Set(archivedGroupIds);
+  const hidden = (tab: Pick<Tab, 'groupId'>) => !!tab.groupId && archived.has(tab.groupId);
+  const active = tabs.find(t => t.id === activeTabId);
+  if (!active || !hidden(active)) return activeTabId;
+  const fallback = tabs.find(t => !hidden(t));
+  return fallback ? fallback.id : activeTabId;
+}

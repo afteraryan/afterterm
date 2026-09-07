@@ -27,6 +27,10 @@ interface TabInfo {
 interface TerminalAreaProps {
   tabs: TabInfo[];
   activeTabId: string;
+  // False while another screen (Home, a project page) is showing. The area stays
+  // mounted so the terminals keep running, but a hidden container measures 0, so
+  // the active terminal is refit and refocused when it comes back.
+  visible: boolean;
   onTitleChange: (tabId: string, title: string) => void;
   onCwdChange: (tabId: string, cwd: string) => void;
   onNotification: (tabId: string, type: TabNotification | undefined, projectName: string) => void;
@@ -119,7 +123,7 @@ const THEME = {
   brightWhite: '#ffffff',
 };
 
-export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwdChange, onNotification, onUserInput, onOutput, onFontSizeChange, onExit }: TerminalAreaProps) {
+export function TerminalArea({ tabs: tabInfos, activeTabId, visible, onTitleChange, onCwdChange, onNotification, onUserInput, onOutput, onFontSizeChange, onExit }: TerminalAreaProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const termsRef = useRef(new Map<string, TermInfo>());
   const activeRef = useRef(activeTabId);
@@ -465,6 +469,23 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, onTitleChange, onCwd
       resumeTab(activeTabId, pending);
     }
   }, [activeTabId, resumeTab]);
+
+  // Coming back from another screen. The workspace is hidden with display: none
+  // while Home or a project page shows, and FitAddon on a hidden container
+  // measures 0, so the active terminal is left at the size it had. Refit it once
+  // the container is on screen again (RAF, so the browser has reflowed first) and
+  // give it the keyboard back: the click that brought us here was on a button
+  // that has just unmounted.
+  useEffect(() => {
+    if (!visible) return;
+    const info = termsRef.current.get(activeTabId);
+    if (!info) return;
+    const frame = requestAnimationFrame(() => {
+      try { info.fitAddon.fit(); } catch { /* container not laid out yet */ }
+      info.term.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [visible, activeTabId]);
 
   // Resize active terminal when the wrapper resizes
   useEffect(() => {

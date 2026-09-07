@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { Tab, Group, GroupColor, nextGroupColor, TabNotification } from '../components/TabBar/types';
 import type { SavedSession } from '../sessionMigration';
+import { nextActiveTabAfterArchive } from '../threadView';
 
 // Everything the group modal can set. A group with no tabs is a valid, persisted
 // state (it sits in the sidebar's Projects shelf), so creation no longer needs a tab.
@@ -27,6 +28,10 @@ export function useTabState() {
   // callback, so a callback that read `tabs` directly would see an empty list.
   const tabsRef = useRef(tabs);
   tabsRef.current = tabs;
+  // Same reason as tabsRef: archiving and activity stamping read the current groups
+  // from handlers that were registered once.
+  const groupsRef = useRef(groups);
+  groupsRef.current = groups;
 
   const addTab = useCallback((groupId?: string, shellId?: string) => {
     const id = makeTabId();
@@ -249,6 +254,60 @@ export function useTabState() {
     }
   }, []);
 
+  // Pin and unpin a project. Pinning is explicit and only explicit: nothing else in
+  // the app sets this flag, so a project reaches the Pinned section only because the
+  // user put it there.
+  const togglePin = useCallback((groupId: string) => {
+    setGroups(prev => prev.map(g => g.id === groupId ? { ...g, pinned: !g.pinned } : g));
+  }, []);
+
+  // Archive takes a project off the board: it leaves the sidebar (sidebarSections
+  // drops archived groups) and moves to Home's Archived list. Its threads keep
+  // running, they are just no longer reachable from the sidebar, so an active thread
+  // inside the project hands over to the first thread outside every archived one.
+  // Archiving also clears `pinned`; restoring leaves the project unpinned, because
+  // pinning is a deliberate act and has to be repeated deliberately.
+  const setGroupArchived = useCallback((groupId: string, archived: boolean) => {
+    setGroups(prev => prev.map(g =>
+      g.id === groupId ? { ...g, archived, pinned: archived ? false : g.pinned } : g));
+    if (!archived) return;
+    const archivedIds = groupsRef.current
+      .filter(g => g.archived || g.id === groupId)
+      .map(g => g.id);
+    setActiveTabId(cur => nextActiveTabAfterArchive(tabsRef.current, cur, archivedIds));
+  }, []);
+
+  // PTY activity (input or output, throttled in main to one stamp per tab per 15s)
+  // counts as the thread being used, so Home's "5m" and the project ordering track
+  // work that happens without a tab switch. Never moves a timestamp backwards, and
+  // writes nothing when neither value would change, so a busy terminal does not
+  // trigger a render (and a session save) every 15 seconds for no reason.
+  const touchActivity = useCallback((tabId: string, at: number) => {
+    const tab = tabsRef.current.find(t => t.id === tabId);
+    if (!tab) return;
+    if (tab.lastActiveAt < at) {
+      setTabs(prev => prev.map(t => t.id === tabId && t.lastActiveAt < at ? { ...t, lastActiveAt: at } : t));
+    }
+    const groupId = tab.groupId;
+    if (!groupId) return;
+    const group = groupsRef.current.find(g => g.id === groupId);
+    if (group && group.lastActiveAt < at) {
+      setGroups(prev => prev.map(g => g.id === groupId && g.lastActiveAt < at ? { ...g, lastActiveAt: at } : g));
+    }
+  }, []);
+
+  // Open a project in the workspace: expand it in the sidebar and focus its first
+  // thread in tab order. Returns false when the project has no threads at all, which
+  // is the caller's cue to open one (a project with nothing running should still be
+  // one click from a terminal).
+  const openProject = useCallback((groupId: string): boolean => {
+    setGroups(prev => prev.map(g => g.id === groupId && g.collapsed ? { ...g, collapsed: false } : g));
+    const first = tabsRef.current.find(t => t.groupId === groupId);
+    if (!first) return false;
+    activateTab(first.id);
+    return true;
+  }, [activateTab]);
+
   // `saved` has already been through migrateSession, so every field is present and
   // well typed; nothing here needs to guess at defaults.
   const restoreSession = useCallback((saved: SavedSession) => {
@@ -281,6 +340,7 @@ export function useTabState() {
     addTab, closeTab, renameTab, updateTabCwd, setClaudeSession, clearTabRestorable, setTabNotification, setTabFontSize,
     createGroup, createConfiguredGroup, addToGroup, removeFromGroup,
     renameGroup, setGroupColor, updateGroup, toggleGroupCollapse, deleteGroup,
+    togglePin, setGroupArchived, touchActivity, openProject,
     moveTab, moveGroup, moveGroupAfterGroup,
     restoreSession,
   };

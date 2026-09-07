@@ -11,10 +11,11 @@ import {
   DragEndEvent,
   closestCenter,
 } from '@dnd-kit/core';
-import { Tab, Group, GroupColor, nextGroupColor } from '../TabBar/types';
-import { GroupModal, GroupDraft } from '../GroupModal';
+import { Tab, Group, GroupColor } from '../TabBar/types';
 import { Menu, MenuItem } from '../Menu';
 import { buildThreadMenu } from '../../threadMenu';
+import { buildProjectMenu, ProjectActions } from '../../projectMenu';
+import type { EditorInfo } from '../../../editors';
 import {
   FolderIcon, KindIcon, StateIcon,
   IconHome, IconTerm, IconPanel, IconSearch, IconPlus, IconPage, IconPin,
@@ -31,14 +32,6 @@ import {
 import './SidePanel.css';
 
 const THREAD_FOLD_LIMIT = 5;
-
-// Tips for the actions that only arrive in a later phase. They are rendered as
-// aria-disabled rows rather than real disabled buttons: a disabled button emits no
-// mouse events in Chromium, so the app tooltip would never fire on it.
-const TIP_HOME = 'Home arrives in Phase 2';
-const TIP_SEARCH = 'Search arrives in Phase 2';
-const TIP_PROJECT_PAGE = 'Project page arrives in Phase 2';
-const TIP_PIN = 'Pin arrives in Phase 2';
 
 // ─── Thread row ────────────────────────────────────────────────────────────────
 
@@ -135,6 +128,8 @@ interface ProjectRowProps {
   onDoubleClick: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
   onNewThread: () => void;
+  onOpenProjectPage: () => void;
+  onTogglePin: () => void;
   isRenaming: boolean;
   renameValue: string;
   onRenameChange: (v: string) => void;
@@ -143,7 +138,7 @@ interface ProjectRowProps {
 
 function ProjectRow({
   group, threadCount, counts, pinned, isDragging, overlay,
-  onToggle, onDoubleClick, onContextMenu, onNewThread,
+  onToggle, onDoubleClick, onContextMenu, onNewThread, onOpenProjectPage, onTogglePin,
   isRenaming, renameValue, onRenameChange, onRenameCommit,
 }: ProjectRowProps) {
   const { attributes, listeners, setNodeRef: setDragRef } = useDraggable({
@@ -225,25 +220,27 @@ function ProjectRow({
           >
             <IconPlus size={14} />
           </button>
-          <span
-            className="ib disabled"
-            aria-disabled="true"
-            data-tip={TIP_PROJECT_PAGE}
+          <button
+            className="ib"
+            data-tip="Open project page"
             onPointerDown={stop}
-            onClick={stop}
+            onClick={e => { e.stopPropagation(); onOpenProjectPage(); }}
+            tabIndex={-1}
           >
             <IconPage size={14} />
-          </span>
+          </button>
+          {/* Only the unpinned rows carry a pin button: a pinned project sits in the
+              Pinned section, where unpinning is a right-click away. */}
           {!pinned && (
-            <span
-              className="ib disabled"
-              aria-disabled="true"
-              data-tip={TIP_PIN}
+            <button
+              className="ib"
+              data-tip="Pin"
               onPointerDown={stop}
-              onClick={stop}
+              onClick={e => { e.stopPropagation(); onTogglePin(); }}
+              tabIndex={-1}
             >
               <IconPin size={14} />
-            </span>
+            </button>
           )}
         </>
       )}
@@ -263,15 +260,29 @@ export interface SidePanelProps {
   onActivate: (tabId: string) => void;
   onClose: (tabId: string) => void;
   onNewTab: (groupId?: string, shellId?: string) => void;
+  // Screens the sidebar can send you to, and the popovers it opens. The chooser is
+  // anchored under whichever New thread control was used, so the caller is handed
+  // that control's bottom-left corner.
+  onGoHome: () => void;
+  onSearch: () => void;
+  onOpenChooser: (anchor: { x: number; y: number }) => void;
+  onOpenProjectPage: (groupId: string) => void;
+  onTogglePin: (groupId: string) => void;
+  // The New/Edit project dialog lives in app.tsx now, so Home, the project page and
+  // the sidebar all open the same one. Editing an existing project is reached
+  // through the shared project menu (projectActions.edit), so only the "new"
+  // entry point is a prop here.
+  onNewProject: () => void;
+  // Everything the shared project right-click menu needs (projectMenu.tsx).
+  editors: EditorInfo[];
+  folderExists: Record<string, boolean>; // keyed by folder path
+  projectActions: ProjectActions;
   onCreateGroup: (tabId1: string, tabId2?: string) => string;
-  onCreateProjectGroup: (draft: GroupDraft, openTerminal: boolean) => void;
-  onUpdateGroup: (groupId: string, draft: GroupDraft) => void;
   onAddToGroup: (tabId: string, groupId: string) => void;
   onRemoveFromGroup: (tabId: string) => void;
   onRenameGroup: (groupId: string, label: string) => void;
   onSetGroupColor: (groupId: string, color: GroupColor) => void;
   onToggleGroupCollapse: (groupId: string) => void;
-  onDeleteGroup: (groupId: string) => void;
   onMoveTab: (tabId: string, anchorTabId: string, position: 'before' | 'after') => void;
   onMoveGroup: (groupId: string, afterTabId: string | null) => void;
   onMoveGroupAfterGroup: (groupId: string, afterGroupId: string) => void;
@@ -281,9 +292,11 @@ export function SidePanel(props: SidePanelProps) {
   const {
     tabs, groups, activeTabId, collapsed, shells, onToggleCollapse,
     onActivate, onClose, onNewTab,
-    onCreateGroup, onCreateProjectGroup, onUpdateGroup, onAddToGroup, onRemoveFromGroup,
+    onGoHome, onSearch, onOpenChooser, onOpenProjectPage, onTogglePin,
+    onNewProject, editors, folderExists, projectActions,
+    onCreateGroup, onAddToGroup, onRemoveFromGroup,
     onRenameGroup, onToggleGroupCollapse,
-    onDeleteGroup, onMoveTab, onMoveGroup, onMoveGroupAfterGroup,
+    onMoveTab, onMoveGroup, onMoveGroupAfterGroup,
   } = props;
 
   const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
@@ -307,8 +320,6 @@ export function SidePanel(props: SidePanelProps) {
     if (group?.collapsed) onToggleGroupCollapse(group.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTabId]);
-  // null = closed; groupId absent = creating a new project.
-  const [modal, setModal] = useState<{ mode: 'create' | 'edit'; groupId?: string } | null>(null);
 
   const dwellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastOverRef = useRef<string | null>(null);
@@ -443,6 +454,13 @@ export function SidePanel(props: SidePanelProps) {
 
   // ─── Menus ─────────────────────────────────────────────────────────────────
 
+  // The chooser opens just under whichever New thread control was clicked (the row
+  // when the sidebar is open, the rail button when it is collapsed).
+  const openChooserUnder = (el: HTMLElement) => {
+    const rect = el.getBoundingClientRect();
+    onOpenChooser({ x: rect.left, y: rect.bottom + 6 });
+  };
+
   const shellItems = (groupId?: string): MenuItem[] =>
     shells.map(s => ({ label: s.name, onSelect: () => onNewTab(groupId, s.id) }));
 
@@ -461,23 +479,25 @@ export function SidePanel(props: SidePanelProps) {
         open: () => onActivate(tab.id),
         moveToGroup: id => (id ? onAddToGroup(tab.id, id) : onRemoveFromGroup(tab.id)),
         close: () => onClose(tab.id),
+        openProjectPage: tab.groupId ? () => onOpenProjectPage(tab.groupId!) : undefined,
       }),
     });
   };
 
   const openProjectMenu = (e: React.MouseEvent, group: Group) => {
     e.preventDefault();
-    setMenu({
-      x: e.clientX,
-      y: e.clientY,
-      items: [
-        { label: 'New thread here', onSelect: () => onNewTab(group.id) },
-        { label: 'New thread with shell', submenu: { title: 'Shell', items: shellItems(group.id) } },
-        { label: 'Edit project', onSelect: () => setModal({ mode: 'edit', groupId: group.id }) },
-        { label: 'Open project page', disabled: true, tip: TIP_PROJECT_PAGE },
-        { label: 'Delete project', danger: true, onSelect: () => onDeleteGroup(group.id) },
-      ],
-    });
+    const folderMissing = !!group.cwd && folderExists[group.cwd] === false;
+    const items = buildProjectMenu(group, { editors, folderMissing }, projectActions);
+    // The shell submenu is a sidebar convenience, not part of the shared project
+    // menu, so it is spliced in here, right after "New thread here".
+    const afterNewThread = items.findIndex(i => i.label === 'New thread here') + 1;
+    if (afterNewThread > 0 && shells.length > 0) {
+      items.splice(afterNewThread, 0, {
+        label: 'New thread with shell',
+        submenu: { title: 'Shell', items: shellItems(group.id) },
+      });
+    }
+    setMenu({ x: e.clientX, y: e.clientY, items });
   };
 
   // ─── Derived rows ──────────────────────────────────────────────────────────
@@ -534,6 +554,8 @@ export function SidePanel(props: SidePanelProps) {
           onDoubleClick={() => startRename(group.id)}
           onContextMenu={e => openProjectMenu(e, group)}
           onNewThread={() => onNewTab(group.id)}
+          onOpenProjectPage={() => onOpenProjectPage(group.id)}
+          onTogglePin={() => onTogglePin(group.id)}
           isRenaming={renamingGroupId === group.id}
           renameValue={renameValue}
           onRenameChange={setRenameValue}
@@ -556,10 +578,10 @@ export function SidePanel(props: SidePanelProps) {
     <>
       <div className={`side-panel${collapsed ? ' collapsed' : ''}`}>
         <div className="brand">
-          <span className="ic disabled" aria-disabled="true" data-tip={TIP_HOME}>
+          <button className="ic" data-go="home" onClick={onGoHome} data-tip="Home">
             <IconHome size={18} />
-          </span>
-          <span className="ic" aria-selected="true" data-tip="Workspace">
+          </button>
+          <span className="ic" data-go="work" aria-selected="true" data-tip="Workspace">
             <IconTerm size={18} />
           </span>
           <span className="sp" />
@@ -569,15 +591,16 @@ export function SidePanel(props: SidePanelProps) {
         </div>
 
         <div className="side-body">
-          <div className="srow disabled" aria-disabled="true" data-tip={TIP_SEARCH}>
+          <button className="srow" onClick={onSearch}>
             <span className="g"><IconSearch size={16} /></span>
             Search
             <span className="k">Ctrl Shift P</span>
-          </div>
+          </button>
 
           <button
             className="srow"
-            onClick={() => onNewTab()}
+            data-new-thread=""
+            onClick={e => openChooserUnder(e.currentTarget)}
             onContextMenu={openNewThreadShellMenu}
           >
             <span className="g"><IconPlus size={16} /></span>
@@ -621,7 +644,7 @@ export function SidePanel(props: SidePanelProps) {
                   <button
                     className="ib"
                     data-tip="New project"
-                    onClick={() => setModal({ mode: 'create' })}
+                    onClick={onNewProject}
                   >
                     <IconPlus size={14} />
                   </button>
@@ -654,6 +677,8 @@ export function SidePanel(props: SidePanelProps) {
                   onDoubleClick={() => {}}
                   onContextMenu={() => {}}
                   onNewThread={() => {}}
+                  onOpenProjectPage={() => {}}
+                  onTogglePin={() => {}}
                   isRenaming={false}
                   renameValue=""
                   onRenameChange={() => {}}
@@ -669,16 +694,21 @@ export function SidePanel(props: SidePanelProps) {
           <button className="ic" onClick={onToggleCollapse} data-tip="Open sidebar">
             <IconPanel size={18} />
           </button>
-          <span className="ic disabled" aria-disabled="true" data-tip={TIP_HOME}>
+          <button className="ic" data-go="home" onClick={onGoHome} data-tip="Home">
             <IconHome size={18} />
-          </span>
-          <span className="ic" aria-selected="true" data-tip="Workspace">
+          </button>
+          <span className="ic" data-go="work" aria-selected="true" data-tip="Workspace">
             <IconTerm size={18} />
           </span>
-          <span className="ic disabled" aria-disabled="true" data-tip={TIP_SEARCH}>
+          <button className="ic" onClick={onSearch} data-tip="Search">
             <IconSearch size={18} />
-          </span>
-          <button className="ic" onClick={() => onNewTab()} data-tip="New thread">
+          </button>
+          <button
+            className="ic"
+            data-new-thread=""
+            onClick={e => openChooserUnder(e.currentTarget)}
+            data-tip="New thread"
+          >
             <IconPlus size={18} />
           </button>
         </div>
@@ -688,30 +718,6 @@ export function SidePanel(props: SidePanelProps) {
         <Menu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />
       )}
 
-      {modal && (() => {
-        const editing = modal.groupId ? groups.find(g => g.id === modal.groupId) : undefined;
-        // An edit whose project vanished (deleted underneath the menu) has nothing to show.
-        if (modal.mode === 'edit' && !editing) return null;
-        const initial: GroupDraft = editing
-          ? { label: editing.label, color: editing.color, cwd: editing.cwd, shellId: editing.shellId }
-          : { label: '', color: nextGroupColor(groups) };
-        return (
-          <GroupModal
-            mode={modal.mode}
-            initial={initial}
-            shells={shells}
-            onCancel={() => setModal(null)}
-            onSubmit={(draft, openTerminal) => {
-              if (editing) {
-                onUpdateGroup(editing.id, draft);
-              } else {
-                onCreateProjectGroup(draft, openTerminal);
-              }
-              setModal(null);
-            }}
-          />
-        );
-      })()}
     </>
   );
 }

@@ -31,6 +31,14 @@ html, body, #root {
   background: var(--side);
 }
 
+/* Home and the project page take the workspace's place under the title bar, but
+   the workspace stays mounted so its terminals keep running: it is hidden, not
+   unmounted. Their own fill and scrolling live in Home.css and ProjectPage.css
+   (.screen-home, .screen-project). */
+.workspace.hidden {
+  display: none;
+}
+
 /* ─── Screen-entrance transitions (Phase 1.1) ───────────────────────────────
    Keyframes live in theme.css. app.tsx sets one of these classes on div.app
    when a screen finishes loading, and clears it ~400ms later so it never
@@ -45,8 +53,6 @@ html, body, #root {
   animation: mainin 260ms var(--ease) 40ms both;
 }
 
-/* Unused until Phase 2 adds Home and the project page; wired now so the
-   classes and keyframes are ready. */
 .app.enter-home .home {
   animation: homein 280ms var(--ease) both;
 }

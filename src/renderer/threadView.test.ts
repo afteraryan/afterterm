@@ -6,6 +6,7 @@
 import {
   threadKind, threadState, stateLabel, stateBreathes, displayTitle,
   foldThreads, projectCounts, sidebarSections, toastMessage,
+  initialScreen, nextActiveTabAfterArchive,
 } from './threadView.ts';
 import type { ThreadState } from './threadView.ts';
 import { computeSegments } from './sidebarWalk.ts';
@@ -221,6 +222,35 @@ console.log('\nthreadView: toastMessage\n');
   for (const [type, expected] of cases) {
     check(`toastMessage(${type}) is "${expected || '(empty, no toast)'}"`, toastMessage(type) === expected);
   }
+}
+
+console.log('\nthreadView: initialScreen\n');
+{
+  check('no projects opens the workspace', initialScreen([]) === 'workspace');
+  check('one project opens Home', initialScreen([group('A')]) === 'home');
+  check('several projects open Home', initialScreen([group('A'), group('B')]) === 'home');
+}
+
+console.log('\nthreadView: nextActiveTabAfterArchive\n');
+{
+  const tabs = [
+    tab('t1', { groupId: 'A' }),
+    tab('t2', { groupId: 'A' }),
+    tab('t3'),
+    tab('t4', { groupId: 'B' }),
+  ];
+  check('an active thread outside the archived project is kept',
+    nextActiveTabAfterArchive(tabs, 't3', ['A']) === 't3');
+  check('an active thread inside the archived project hands over to the first thread outside it',
+    nextActiveTabAfterArchive(tabs, 't1', ['A']) === 't3', show(nextActiveTabAfterArchive(tabs, 't1', ['A'])));
+  check('a thread in a second archived project is skipped',
+    nextActiveTabAfterArchive([tab('x', { groupId: 'A' }), tab('y', { groupId: 'B' }), tab('z')], 'x', ['A', 'B']) === 'z');
+  check('the active thread is left alone when every thread is in an archived project',
+    nextActiveTabAfterArchive([tab('x', { groupId: 'A' }), tab('y', { groupId: 'A' })], 'x', ['A']) === 'x');
+  check('an unknown active id is left alone',
+    nextActiveTabAfterArchive(tabs, 'gone', ['A']) === 'gone');
+  check('a General thread is never treated as archived',
+    nextActiveTabAfterArchive([tab('g'), tab('a', { groupId: 'A' })], 'g', ['A']) === 'g');
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);
