@@ -526,13 +526,13 @@ export function App() {
   }, []);
 
   // Closing a thread inside a project files it in that project's history; a thread
-  // in General is simply gone. Only the first is worth saying out loud, and saying
-  // it is what tells the user where the thread went.
+  // in General is simply gone. Neither says anything: a "Moved to history" toast was
+  // tried and Aryan dropped it at the Phase 4 handoff (2026-09-07), closing is too
+  // frequent an action to announce.
   const closeThread = useCallback((tabId: string) => {
     const wasAsleep = !!stateRef.current.tabs.find(t => t.id === tabId)?.asleep;
-    if (stateRef.current.closeTab(tabId)) {
-      showToast({ message: 'Moved to history' });
-    } else if (wasAsleep) {
+    const toHistory = stateRef.current.closeTab(tabId);
+    if (!toHistory && wasAsleep) {
       // Closing an awake thread goes through handleTail, which is what deletes a
       // General thread's tail file. An asleep thread has no terminal left to hand a
       // tail over, so its file has to be dropped here instead of waiting for the
@@ -545,7 +545,7 @@ export function App() {
         return next;
       });
     }
-  }, [showToast]);
+  }, []);
 
   // Sleep, wake and resume, the three things Phase 4 adds. Sleeping is a record
   // change here; the terminal layer sees `asleep` turn true and does the rest

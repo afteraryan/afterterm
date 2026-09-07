@@ -79,7 +79,7 @@ export function useTabState() {
   // Resume possible, and its scrollback tail file is kept under the same id. A
   // thread in General has no project to file it under, so closing it really does end
   // it (design-02, "Open decisions"). Returns whether the thread went to history, so
-  // the caller can say so ("Moved to history") only where it is true.
+  // the caller knows whether the thread's tail file is still wanted.
   const closeTab = useCallback((tabId: string): boolean => {
     const tab = tabsRef.current.find(t => t.id === tabId);
     const group = tab?.groupId ? groupsRef.current.find(g => g.id === tab.groupId) : undefined;
