@@ -10,6 +10,7 @@ import { detectEditors } from './editor-detect.ts';
 import type { DetectDeps } from './editor-detect.ts';
 import type { EditorInfo } from './editors.ts';
 import { readPrefs, updatePrefs } from './prefs.ts';
+import { planSpawn } from './shell-integration.ts';
 import { readTranscriptMeta, isSessionId } from './claude-transcript.ts';
 import { gitInfo } from './git-info.ts';
 import { isThreadId, parseTail, serializeTail, tailFilePath, trimTail } from './thread-tail.ts';
@@ -924,12 +925,6 @@ ipcMain.handle('editors:choose', async () => {
 
 ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: string) => {
   const shell = getShellById(shellId);
-  let dir = process.env.USERPROFILE || 'C:\\';
-  if (cwd) {
-    try {
-      if (fs.existsSync(cwd) && fs.statSync(cwd).isDirectory()) dir = cwd;
-    } catch {}
-  }
 
   // Clean PATH: strip stray quotes that corrupt cmd.exe's command resolution.
   // AFTERTERM_TAB_ID + AFTERTERM_SESSION_DIR let the bundled notify hook write this
@@ -944,34 +939,65 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
   if (cleanEnv.Path) cleanEnv.Path = cleanEnv.Path.replace(/"/g, '');
   if (cleanEnv.PATH) cleanEnv.PATH = cleanEnv.PATH.replace(/"/g, '');
 
-  // CWD reporting and prompt marks for cmd.exe (only cmd for now; the other shells
-  // come in Phase 6). In cmd's PROMPT syntax `$E` is ESC, `$P` is the current path,
-  // and a literal backslash after `$E` is the ST terminator, so `$E]9;9;$P$E\` is a
-  // complete OSC 9;9 sequence.
+  // CWD reporting and prompt marks, for every shell. The renderer only ever sees
+  // OSC 9;9 (a Windows path) and OSC 133;A/B (prompt start and prompt end), so it
+  // needs no per-shell knowledge: the 133 marks are what makes last-command capture
+  // possible (on Enter, the renderer reads the buffer between the B mark and the
+  // cursor), and the 9;9 report is what lets a tab restore to its last directory.
   //
-  // Three things are injected around the visible prompt:
-  //   OSC 133;A   prompt start
-  //   OSC 9;9     the cwd report, which the renderer parses to update the tab's cwd
-  //               (cmd.exe otherwise never announces its directory, so its tabs all
-  //               restored to the home folder)
-  //   OSC 133;B   prompt end, meaning the typed command line starts right here
-  // The 133 marks are what makes last-command capture possible: when Enter is
-  // pressed, the renderer reads the buffer between the B mark's position and the
-  // cursor, which is exactly the command the user typed. That command is what lets a
-  // sleeping server thread re-run its server on wake.
+  // planSpawn (src/shell-integration.ts, which holds the exact injected texts)
+  // decides all of it and returns the command, args, cwd and env to spawn with:
+  //   cmd                    PROMPT becomes `$E]133;A$E\` + `$E]9;9;$P$E\` + the
+  //                          visible prompt (any custom PROMPT is kept) + `$E]133;B$E\`
+  //   pwsh, Windows PowerShell  args become `-NoExit -EncodedCommand <bootstrap>`,
+  //                          which wraps the existing `prompt` function after the
+  //                          user's profile has run
+  //   Git Bash               PROMPT_COMMAND and AFTERTERM_BASH_HOOK in the env, args
+  //                          untouched
+  //   WSL                    the same two, plus WSLENV so they cross into the distro,
+  //                          where the hook emits OSC 7 `file://<distro>/<path>`
   //
-  // Any existing custom PROMPT is preserved, unchanged, as the visible part.
-  if (shell.id === 'cmd') {
-    const visiblePrompt = cleanEnv.PROMPT || '$P$G';
-    cleanEnv.PROMPT = `$E]133;A$E\\$E]9;9;$P$E\\${visiblePrompt}$E]133;B$E\\`;
+  // Opt-out is per shell in prefs.json (`shellIntegration: { pwsh: "off" }`), read
+  // at every spawn so a change needs no restart. Failure mode: the shell always
+  // opens, a hook that does not take just means no cwd capture and no prompt marks.
+  //
+  // planSpawn also owns the cwd decision (a missing or stale directory falls back to
+  // home) and deliberately never stats a `\\wsl$\` path: for the wsl shell such a cwd
+  // becomes `wsl.exe -d <distro> --cd <linux path>`, for any other shell it falls
+  // back to home.
+  const plan = planSpawn({
+    shell,
+    cwd,
+    home: process.env.USERPROFILE || 'C:\\',
+    env: cleanEnv,
+    prefs: readPrefs(getPrefsPath()).prefs,
+    dirExists: (candidate) => {
+      try {
+        return fs.existsSync(candidate) && fs.statSync(candidate).isDirectory();
+      } catch {
+        return false;
+      }
+    },
+  });
+
+  if (process.env.AFTERTERM_HARNESS === '1') {
+    // Values only, never env contents (the bash hook is one very long line). This is
+    // how a harness run proves the opt-out and the WSL --cd mapping without a debugger.
+    const safeArgs = plan.args.map((a, i) =>
+      plan.args[i - 1] === '-EncodedCommand' ? '<encoded>' : a
+    );
+    console.log(
+      `[harness] pty:create ${tabId} shell=${shell.id} integration=${plan.integration ? 'on' : 'off'} ` +
+      `cwd=${plan.cwd} cwdFallback=${plan.cwdFallback} args=${JSON.stringify(safeArgs)}`
+    );
   }
 
-  const p = pty.spawn(shell.command, shell.args, {
+  const p = pty.spawn(plan.command, plan.args, {
     name: 'xterm-256color',
     cols: 80,
     rows: 24,
-    cwd: dir,
-    env: cleanEnv,
+    cwd: plan.cwd,
+    env: plan.env,
   });
 
   ptys.set(tabId, p);

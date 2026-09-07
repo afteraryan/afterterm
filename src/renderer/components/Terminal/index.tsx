@@ -12,6 +12,7 @@ import {
   type CommandMarkState,
 } from '../../commandMarks';
 import { TAIL_MAX_LINES, renderTailForTerminal } from '../../../thread-tail';
+import { isWindowsDrivePath, osc7ToWindowsPath } from '../../../shell-paths';
 
 interface TermInfo {
   term: Terminal;
@@ -74,8 +75,10 @@ interface TerminalAreaProps {
   // disk, a closed thread's only if it went to a project's history.
   onTail: (tabId: string, lines: string[], reason: 'sleep' | 'close') => void;
   // A command line the user just entered at a shell prompt, read out of the buffer
-  // between the OSC 133;B mark and the cursor (commandMarks.ts). cmd only until
-  // Phase 6, since only cmd's PROMPT emits the marks.
+  // between the OSC 133;B mark and the cursor (commandMarks.ts). Every shell with
+  // integration emits the marks: cmd through its injected PROMPT, PowerShell through
+  // a wrapped prompt function, Git Bash and WSL through a PROMPT_COMMAND hook (all
+  // set up in src/shell-integration.ts).
   onCommand: (tabId: string, command: string) => void;
 }
 
@@ -609,18 +612,22 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
 
         // NOTE: cwd is NOT captured from the title, cmd.exe sets its console title
         // to "C:\…\cmd.exe - <command>", which looks path-like but is garbage. CWD is
-        // captured from the OSC 9;9 report below (cmd.exe only). See CLAUDE.md.
+        // captured from the OSC reports below: 9;9 for every shell with integration,
+        // OSC 7 for WSL. See CLAUDE.md.
         onTitleChangeRef.current(tabId, formatTabTitle(rawTitle));
       });
 
-      // OSC 9;9;<path>, ConEmu-style cwd report. cmd.exe emits this via its injected
-      // PROMPT (see main.ts) so its tabs can restore to the right directory. The handler
-      // receives the OSC 9 payload, i.e. "9;C:\path". Other OSC 9 uses (progress, notify)
-      // don't carry the "9;" prefix, so we ignore those and let xterm handle them.
+      // OSC 9;9;<path>, ConEmu-style cwd report, carrying a Windows path. Every shell
+      // with integration except WSL emits it: cmd through its injected PROMPT,
+      // PowerShell through a wrapped prompt function, Git Bash through a
+      // PROMPT_COMMAND hook (all set up in src/shell-integration.ts), so those tabs can
+      // restore to the right directory. The handler receives the OSC 9 payload, i.e.
+      // "9;C:\path". Other OSC 9 uses (progress, notify) don't carry the "9;" prefix,
+      // so we ignore those and let xterm handle them.
       term.parser.registerOscHandler(9, (data) => {
         if (data.startsWith('9;')) {
           const dir = data.slice(2);
-          if (/^[A-Za-z]:\\/.test(dir)) {
+          if (isWindowsDrivePath(dir)) {
             onCwdChangeRef.current(tabId, dir);
             return true;
           }
@@ -628,9 +635,26 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         return false;
       });
 
-      // OSC 133;A/B/C/D, the de facto shell-integration marks. cmd's injected PROMPT
-      // (main.ts) emits A before the prompt and B after it, which is what makes the
-      // typed command line locatable in the buffer (commandMarks.ts).
+      // OSC 7 "file://<host>/<path>", the cwd report WSL uses instead of 9;9. It comes
+      // from afterterm's WSL PROMPT_COMMAND hook (which puts the distro name in the
+      // host slot), and from any Linux tool that emits OSC 7 on its own. The payload is
+      // a Linux path, so it is converted to the Windows form Tab.cwd stores: a /mnt/c
+      // path becomes "C:\…", anything else becomes "\\wsl$\<distro>\…", which Explorer,
+      // the editor launcher and the branch reader can all open (shell-paths.ts).
+      term.parser.registerOscHandler(7, (data) => {
+        const dir = osc7ToWindowsPath(data);
+        if (dir) {
+          onCwdChangeRef.current(tabId, dir);
+          return true;
+        }
+        return false;
+      });
+
+      // OSC 133;A/B/C/D, the de facto shell-integration marks. Every shell with
+      // integration emits A before the prompt and B after it (cmd through its injected
+      // PROMPT, PowerShell through a wrapped prompt function, Git Bash and WSL through
+      // a PROMPT_COMMAND hook, all in src/shell-integration.ts), which is what makes
+      // the typed command line locatable in the buffer (commandMarks.ts).
       term.parser.registerOscHandler(133, (payload) => {
         const mark = parseOsc133(payload);
         if (!mark) return false;
