@@ -26,6 +26,12 @@ A tab only knows its shell's own pid, and `npm start` is several processes deep:
 
 Windows re-uses pids, so a plain parent walk could adopt a stranger's whole subtree if a long-dead shell's pid gets handed to something unrelated. `descendantPids` guards against this the same way `scripts/agent-harness/lib.mjs` already does: an edge where a "child" was created before its claimed parent is dropped, since that child cannot really belong to that parent.
 
+### The MSYS gap in a Git Bash tree, and the bridge
+
+A Git Bash tree needs one more list before this walk works at all. MSYS launches a program through a fork stub that execs the real process and then exits, so by the time a program started from Git Bash is actually running, its Windows parent pid points at a stub process that is already gone. Native children below that point, node, cmd, the server itself, keep intact Windows parent links, so the break is exactly one hop wide, right below the interactive bash, but it is enough to cut the whole subtree off from the walk: found in the harness on 2026-09-08, a server started in a Git Bash tab was never matched to it (no port ever appeared), and closing or sleeping that tab left the server running as an orphan, since the same broken chain is what `taskkill /T` walks too.
+
+`parseMsysPs` reads MSYS's own process table through `<git root>\usr\bin\ps.exe -l` (about 55 ms measured), whose `PID`/`PPID` columns are MSYS's own numbering but whose `WINPID` column is the real Windows pid netstat and `Win32_Process` both use. `applyMsysParents` re-points each MSYS process's Windows parent at its MSYS parent's WINPID, which bridges precisely the gap the fork stub leaves; everything below that point already has real Windows links and needs no repair. `main.ts` only runs `ps.exe` while a Git Bash tab is actually live, and only on the polls that re-read the process list anyway, never on every netstat poll. `killTree`, the one function sleep, close and quit all funnel through, reads it fresh immediately before the shell dies (the process list has to still contain the shell's rows at that moment), then kills the shell's tree plus every pid in the merged descendant set. A harness run logs `[harness] msys tree <tab> pids=<list>` whenever a Git Bash tree turns out to hold more than the shell itself.
+
 ### Why the poll is shaped this way
 
 The two commands cost very different amounts on Windows. Measured on the development machine: `netstat -ano` about 45 ms, a fresh `powershell.exe -Command "Get-CimInstance Win32_Process ..."` about 1 s, `Get-NetTCPConnection -State Listen` about 1.5 s (not used), `wmic` not present on this Windows at all.
@@ -56,7 +62,7 @@ Waking a server needs to know what to re-run. afterterm captures the last comman
 
 The buffer alone is not enough when something else prints on the prompt line. Found in the harness on 2026-09-07: a background server started with `start /b` printed its ready line right after the prompt-end mark while the next command was being typed, and the read came back as `tiny-server ready on http://localhost:48767node server.js 48766`. So `onInput` in `commandMarks.ts` also tracks the text actually typed since the prompt end (printable characters and pasted text; backspace deletes, escape sequences and other control characters ignored), fed from every non-Enter chunk in `term.onData`. `onEnter` prefers that typed text only when the buffer ends with exactly it but carries more in front: whatever the extra is, it was never typed here, so it is provably not part of the command. In every other case the buffer still wins, which keeps history recall (nothing typed at all), tab completion (the buffer ends differently) and mid-line arrow-key edits correct.
 
-This works for cmd only, until Phase 6 adds the equivalent prompt hook for the other shells. A pwsh, Git Bash or WSL thread still gets a port (process-tree detection has nothing shell-specific about it) but no `lastCommand`, so its server wakes as a plain fresh prompt in its folder rather than being re-run.
+This worked for cmd only until Phase 6, which added the equivalent prompt hook for pwsh, Windows PowerShell, Git Bash and WSL (see `docs/features-shell-integration.md`): every shell now captures `lastCommand` the same way, so a server thread in any of them wakes by re-running its last command exactly like a cmd thread does.
 
 ## Wake: re-running the command
 
@@ -96,10 +102,12 @@ A typical run seeds a project whose folder holds a tiny server (for example `nod
 
 Verified this way on 2026-09-07: `npm start` turned a row green with `:48765` and the chip "Running on :48765" about a second after the server's ready line; the row's name switched from the shell's live title to "npm start"; Ctrl+C cleared the port within 3 seconds; Sleep asked first and, once confirmed, kept the port ("runs npm start"); Wake re-typed the command after 700 ms and the server was back within 4 seconds, both after a plain sleep/wake and after a graceful quit and relaunch; "Open localhost:48765" reached `shell:openExternal`; the close confirm appeared from the row's ×, Ctrl+Shift+W and both menus, and Close thread killed the tree and filed the thread into history.
 
+Re-verified in a Git Bash thread on 2026-09-08, after Phase 6's shell integration and the MSYS process-tree fix landed: `npm start -- <port>` in Git Bash turned the row green with the port and named it by the command, the same as cmd; the close and sleep confirms, "Open localhost:port", and Wake re-running the command all worked identically; and, specifically because of the MSYS fix, sleeping and closing that thread actually stopped the server this time (the process no longer survives as an orphan the way it did before the fix), confirmed by the port not being reachable afterward and by the `[harness] msys tree <tab> pids=<list>` log line naming every pid the tree kill actually reached.
+
 ## Limits
 
 - A server started with `start` or otherwise detached from the shell's own process tree is invisible the moment the shell returns: detection only ever walks the PTY's own descendants.
 - Only TCP listeners are found. A UDP-only service shows no port.
 - A chat thread never re-runs anything. `runCommand` is a shell-only idea; a chat's wake path only ever considers `resumeSessionId`.
 - `lastCommand` is simply the last Enter at a captured prompt. Typing an unrelated command after stopping the server replaces what a later wake would re-run.
-- pwsh, Git Bash and WSL threads get a port (process-tree detection is shell-agnostic) but no `lastCommand` until Phase 6's prompt hooks land, so their servers wake as a plain fresh prompt rather than being re-run.
+- Since Phase 6, pwsh, Windows PowerShell, Git Bash and WSL threads capture `lastCommand` the same way cmd does (see `docs/features-shell-integration.md`), so this list of limits no longer needs a cmd-only carve-out. WSL's coverage is unit-tested only, since WSL is not installed on the development machine.

@@ -179,9 +179,11 @@ node scripts/agent-harness/drive.mjs <command> ...
 | `tail` | `drive tail`, `drive tail 10`, `drive tail 10 --tab <id>` | Phase 4: the last n lines (default 30) of an xterm buffer, read through `window.__afterterm.activeTail(n)` for the active tab or `window.__afterterm.tail(id, n)` for `--tab <id>`. One line per entry; `(no terminal)` when the hook is missing or the tab has no live terminal (e.g. it is asleep). |
 | `confirm` | `drive confirm` | Phase 5: the confirm dialog shown when closing or sleeping a thread that owns a listening port (`src/renderer/components/ConfirmDialog/index.tsx`), as a tree: `confirm dialog`, then `title:`, `body:`, `confirm:` and `cancel:` lines reading the dialog's `.modal-title`, `.confirm-body`, `[data-confirm]` and `[data-cancel]` text. `(no confirm dialog)` when it is not open. Click its buttons with `drive click "[data-confirm]"` (close or sleep anyway) and `drive click "[data-cancel]"` (keep the thread running). |
 | `opened` | `drive opened` | Phase 5: the URL the last "Open localhost:port" click reached, from `window.__afterterm.lastOpenExternal` (set by `app.tsx`), or `(nothing opened)`. A harness run never actually opens a browser: with `AFTERTERM_HARNESS=1`, main.ts logs `[harness] shell:openExternal <url>` to the harness log instead of calling `shell.openExternal`. The log line plus this command are how a test proves the click reached the safelisted open-external path without any browser window ever appearing on the person's display. |
-| `marks [--tab id]` | `drive marks --tab <id>` | Phase 5: `window.__afterterm.commandState(id)` (`src/renderer/components/Terminal/index.tsx`), the OSC 133-style prompt marks used to tell whether a thread is sitting at a shell prompt and where it ends, printed as `at prompt: yes\|no` and `prompt end: row R col C` (or `(none)`). `(no marks)` when the hook returns null. There is no `window.__afterterm.activeTabId` hook as of this writing, so `--tab <id>` is required; `marks` falls back to that hook automatically if a later phase adds one, but until then omitting `--tab` fails with a message saying so. |
+| `marks [--tab id]` | `drive marks --tab <id>` | Phase 5: `window.__afterterm.commandState(id)` (`src/renderer/components/Terminal/index.tsx`), the OSC 133-style prompt marks used to tell whether a thread is sitting at a shell prompt and where it ends, printed as `at prompt: yes\|no` and `prompt end: row R col C` (or `(none)`). `(no marks)` when the hook returns null. There is no `window.__afterterm.activeTabId` hook as of this writing, so `--tab <id>` is required; `marks` falls back to that hook automatically if a later phase adds one, but until then omitting `--tab` fails with a message saying so. Phase 6 extended the underlying marks to pwsh, Windows PowerShell, Git Bash and WSL, so `marks` reads the same "at prompt" state for any of them; "at prompt: no" forever on a thread that should be integrated usually means that shell's hook never installed (an rc file clobbered it, the bootstrap failed, or it is opted off in `prefs.json`). |
 | `window` | `drive window bottom`, `drive window restore`, `drive window quit`, `drive window close-dialogs` | OS-level window control (see "Capturing an occluded window" below). `quit` posts WM_CLOSE to the main window and waits for the process to exit: a graceful quit, so the renderer's quit flush runs (session.json with every thread stamped asleep, and every live terminal's tail file), which `stop.mjs`'s hard kill skips. The dev build answers its own "terminals still running" confirm when `AFTERTERM_HARNESS=1` (`src/main.ts`), so nothing waits on a dialog. |
 | `record` | `drive record start --out out.mp4`, `drive record stop`, `drive record status` | Starts, stops and lists screen recordings of the page content (see "Recording a test session" below). |
+
+Phase 6 added two more `[harness]`-prefixed lines to the harness log itself (not a `drive` command, grep the log named by `--log`, or `<data-dir>\harness.log`): `[harness] pty:create <tab> shell=<id> integration=on|off cwd=<dir> cwdFallback=<bool> args=[...]` on every spawn (an `-EncodedCommand` arg for pwsh/Windows PowerShell prints as `<encoded>`, not the actual base64), and `[harness] msys tree <tab> pids=<list>` whenever a Git Bash tab's process tree turns out to hold more than the shell itself. `marks` above is the DOM-side check that a shell's integration actually took; these two log lines are the main-process-side proof of what was planned and killed.
 
 The sidebar selectors live in the `SEL` object at the top of `drive.mjs`,
 read from `src/renderer/components/SidePanel/index.tsx` and `SidePanel.css`.
@@ -422,6 +424,47 @@ npm run harness:drive -- pane                              # still "runs npm sta
 npm run harness:drive -- click "[data-wake]"                # brings the server back
 npm run harness:drive -- sidebar                            # [shell/running] :48765 again
 npm run harness:stop
+
+# Phase 6 flow: shell integration (cwd capture and last-command capture) for pwsh
+# and Git Bash, the opt-out, and the harness's own --env and --prefs support for
+# testing a real custom prompt
+Copy-Item "$env:APPDATA\afterterm\session.json" "$env:TEMP\session-copy.json"
+npm run harness -- --session "$env:TEMP\session-copy.json"
+npm run harness:drive -- click ".th" 0                       # wake or open a pwsh or Git Bash thread
+npm run harness:drive -- click ".terminal-host"               # focus the terminal so typed keys reach the shell
+npm run harness:drive -- marks --tab <id>                     # "at prompt: yes" once the shell has settled
+npm run harness:drive -- type "cd ..\some-sibling-folder"
+npm run harness:drive -- key Enter
+npm run harness:drive -- header                                # branch/worktree updated within a couple of seconds
+npm run harness:drive -- type "npm start -- 48770"
+npm run harness:drive -- key Enter
+# wait about 3 seconds for the server to bind its port
+npm run harness:drive -- sidebar                                # row named "npm start -- 48770", :48770, [shell/running]
+npm run harness:drive -- header                                 # "Running on :48770"
+npm run harness:drive -- rightclick ".th" 0
+npm run harness:drive -- dom ".ctx-menu-item"                    # find Sleep's index
+npm run harness:drive -- click ".ctx-menu-item" <n>
+npm run harness:drive -- confirm                                 # "...Wake runs npm start -- 48770 again."
+npm run harness:drive -- click "[data-confirm]"
+npm run harness:drive -- pane                                    # "Server asleep since just now · runs npm start -- 48770"
+npm run harness:drive -- click "[data-wake]"
+npm run harness:drive -- tail 10                                 # the command re-typed, server back within a few seconds
+npm run harness:stop
+#   Select-String "\[harness\] pty:create" $env:TEMP\afterterm-agent-harness\run-*\harness.log
+#   Select-String "\[harness\] msys tree" $env:TEMP\afterterm-agent-harness\run-*\harness.log   # Git Bash only
+
+# Custom-prompt check: point USERPROFILE/HOME at a scratch home so pwsh's own
+# $PROFILE and Git Bash's ~/.bash_profile are read from there, never the real
+# ones, and opt one shell out via --prefs to prove the opt-out actually holds
+New-Item -ItemType Directory -Force "$env:TEMP\afterterm-scratch-home\Documents\PowerShell" | Out-Null
+Set-Content "$env:TEMP\afterterm-scratch-home\Documents\PowerShell\Microsoft.PowerShell_profile.ps1" 'function prompt { "scratch> " }'
+'{"shellIntegration":{"powershell":"off"}}' | Set-Content "$env:TEMP\afterterm-prefs-patch.json"
+npm run harness -- --session "$env:TEMP\session-copy.json" --prefs "$env:TEMP\afterterm-prefs-patch.json" `
+  --env "USERPROFILE=$env:TEMP\afterterm-scratch-home;HOME=$env:TEMP\afterterm-scratch-home"
+npm run harness:drive -- marks --tab <pwsh-tab-id>                # "at prompt: no" forever: Windows PowerShell is opted off
+npm run harness:drive -- marks --tab <another-shell-tab-id>       # still "at prompt: yes" for a shell left on
+npm run harness:drive -- tail 10                                  # the scratch prompt ("scratch> ") is still visible, unwrapped-looking, in a pwsh thread left on
+npm run harness:stop
 ```
 
 Renderer edits (`src/renderer/**`) show up live in the running harness app through
@@ -447,6 +490,15 @@ particularly often: sleep, wake and the scrollback tail file are all main-proces
   blocks the app until someone closes it by hand. `drive window close-dialogs`
   closes any such dialog by posting `WM_CLOSE` to it, cheaper than reaching for
   the mouse.
+- A window pushed to the bottom of the z-order with `window bottom` is occluded, and
+  Chromium then defers `requestAnimationFrame` callbacks until something forces a
+  paint. Anything in the app that waits on a frame before showing itself lands only
+  after the next `screenshot`: `Ctrl+Shift+T` places its chooser in a frame
+  callback, so `key t --ctrl --shift` followed by `screen` reports no chooser, and
+  the chooser then pops up, unseen, on the next capture and swallows the next click
+  (found in Phase 6: a click meant for a row landed on the chooser's "No project"
+  and created a cmd thread). Take a `screenshot` right after such a shortcut, or use
+  the on-screen control (`click "[data-new-thread]" 0`) instead.
 - `Browser.getWindowForTarget` is not implemented by Electron's DevTools endpoint,
   which is why `bounds` uses an OS query for the window rectangle.
 - `key` goes through Chromium's input pipeline; the app's global shortcuts are
