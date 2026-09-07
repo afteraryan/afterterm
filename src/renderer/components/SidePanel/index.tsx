@@ -103,7 +103,6 @@ function ThreadRow({
       onMouseEnter={overlay ? undefined : e => onHoverStart?.(e.currentTarget.getBoundingClientRect())}
       onMouseLeave={overlay ? undefined : () => onHoverEnd?.()}
       data-kind={threadKind(tab)}
-      data-tip={!overlay && tab.claudeRestorable ? 'Click to resume this chat' : undefined}
       {...(overlay ? {} : { ...attributes, ...listeners })}
     >
       <KindIcon kind={threadKind(tab)} />

@@ -21,7 +21,10 @@ export function ThreadHoverCard({ tab, group, anchor, now }: ThreadHoverCardProp
   const kind = threadKind(tab);
   const state = threadState(tab);
   const kindWord = kind === 'chat' ? 'Chat' : 'Shell';
-  const typeText = state === 'quiet' ? kindWord : `${kindWord} · ${stateLabel(state)}`;
+  // A restored chat that has not been resumed yet says so here rather than in a
+  // row tooltip, which would sit on top of this card.
+  const typeBase = state === 'quiet' ? kindWord : `${kindWord} · ${stateLabel(state)}`;
+  const typeText = tab.claudeRestorable ? `${typeBase} · Resumes on click` : typeBase;
   const model = modelLabel(tab.model);
   const active = relativeTime(tab.lastActiveAt, now);
   const activeText = active === 'now' ? 'now' : `${active} ago`;

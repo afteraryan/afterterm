@@ -25,6 +25,7 @@ const { opts } = parseArgs(process.argv.slice(2));
 if (opts.help) {
   console.log(`usage: node scripts/agent-harness/launch.mjs [options]
   --session <file>    session.json to seed the throwaway profile from (copied, never edited)
+  --prefs <file>      JSON merged into the throwaway prefs.json (lastOpenedAt, editorPath, ...)
   --data-dir <dir>    user-data dir to use (default: a fresh folder under %TEMP%\\afterterm-agent-harness)
   --display <which>   primary | secondary | <index into screen.getAllDisplays()> (default: secondary)
   --port <n>          remote debugging port (default: ${DEFAULT_PORT})
@@ -88,7 +89,10 @@ if (sessionSource) {
 // on a profile that has never shown it. Pre-marking it keeps the throwaway profile
 // quiet; the hook itself stays enabled (reconcile is idempotent and the hook is
 // already registered on a dev machine).
-writeJson(path.join(dataDir, 'prefs.json'), { claudeHookToastShown: true });
+// --prefs <file> merges extra keys on top (a lastOpenedAt two days back makes Home show its
+// "Last here" line; a fresh profile has no previous launch and shows nothing).
+const extraPrefs = opts.prefs ? JSON.parse(fs.readFileSync(String(opts.prefs), 'utf8')) : {};
+writeJson(path.join(dataDir, 'prefs.json'), { claudeHookToastShown: true, ...extraPrefs });
 
 const forgeCli = path.join(REPO_ROOT, 'node_modules', '@electron-forge', 'cli', 'dist', 'electron-forge.js');
 if (!fs.existsSync(forgeCli)) fail(`electron-forge CLI not found at ${forgeCli}; run npm install`);

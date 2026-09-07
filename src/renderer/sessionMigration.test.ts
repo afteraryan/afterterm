@@ -89,14 +89,21 @@ console.log('\nsessionMigration: model, branch, worktree (Phase 3)\n');
   check('an array worktree is dropped', s.tabs[0].worktree === undefined);
 }
 {
-  // claudeTitle and firstPrompt are transient: stripped on load even if a file
-  // carries them (a stray write, or a future build sharing the file).
+  // firstPrompt is transient: stripped on load even if a file carries it (a stray
+  // write, or a future build sharing the file). claudeTitle is persisted: a chat
+  // keeps its name across relaunches even though the restored shell overwrites
+  // the raw title.
   const raw = fixture081() as any;
   raw.tabs[1].claudeTitle = 'Fix the spinner';
   raw.tabs[1].firstPrompt = 'help me fix the spinner bug';
+  raw.tabs[0].claudeTitle = 42;
   const s = migrateSession(raw, NOW)!;
-  check('claudeTitle is stripped', !('claudeTitle' in s.tabs[1]));
+  check('claudeTitle is kept', s.tabs[1].claudeTitle === 'Fix the spinner');
+  check('a non-string claudeTitle is dropped', !('claudeTitle' in s.tabs[0]));
   check('firstPrompt is stripped', !('firstPrompt' in s.tabs[1]));
+  const written = serializeSession(s.tabs as unknown as Tab[], s.groups, s.activeTabId);
+  check('claudeTitle is written back', written.tabs[1].claudeTitle === 'Fix the spinner');
+  check('firstPrompt is never written', !('firstPrompt' in written.tabs[1]));
 }
 
 console.log('\nsessionMigration: existing values are preserved\n');
@@ -223,7 +230,7 @@ console.log('\nserializeSession: persisted keys only, 0.8.1 compatible\n');
       pinned: true, archived: false, lastActiveAt: 333 },
   ];
   const out = serializeSession(tabs, groups, 'tab-1');
-  const PERSISTED = ['id', 'title', 'groupId', 'shellId', 'cwd', 'fontSize', 'claudeSessionId', 'claudeCwd', 'lastActiveAt', 'asleep', 'model', 'branch', 'worktree'];
+  const PERSISTED = ['id', 'title', 'groupId', 'shellId', 'cwd', 'fontSize', 'claudeSessionId', 'claudeCwd', 'lastActiveAt', 'asleep', 'model', 'branch', 'worktree', 'claudeTitle'];
   check('includes version', out.version === SESSION_FORMAT_VERSION);
   check('top-level shape is still {tabs, groups, activeTabId} plus version',
     isDeepStrictEqual(Object.keys(out).sort(), ['activeTabId', 'groups', 'tabs', 'version']));

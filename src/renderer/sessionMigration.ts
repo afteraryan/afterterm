@@ -17,7 +17,7 @@ export const SESSION_FORMAT_VERSION = 2;
 
 // A tab as written to disk: the in-memory Tab minus the fields that describe a
 // live process, which are meaningless after a relaunch (each tab is a fresh shell).
-export type SavedTab = Omit<Tab, 'notification' | 'claudeRestorable' | 'claudeTitle' | 'firstPrompt'>;
+export type SavedTab = Omit<Tab, 'notification' | 'claudeRestorable' | 'firstPrompt'>;
 
 export interface SavedSession {
   version?: number;
@@ -30,14 +30,17 @@ export interface SavedSession {
 const PERSISTED_TAB_KEYS = [
   'id', 'title', 'groupId', 'shellId', 'cwd', 'fontSize',
   'claudeSessionId', 'claudeCwd', 'lastActiveAt', 'asleep',
-  'model', 'branch', 'worktree',
+  'model', 'branch', 'worktree', 'claudeTitle',
 ] as const;
 
 // Fields that describe a running process or a value re-derived on every launch,
 // never a saved one. Stripped on load in case a build ever wrote them by
-// mistake. claudeTitle and firstPrompt are re-captured from the title stream
-// and the transcript, so a stale saved copy would only go out of date.
-const TRANSIENT_TAB_KEYS = ['notification', 'claudeRestorable', 'claudeTitle', 'firstPrompt'] as const;
+// mistake. firstPrompt is re-read from the transcript, so a stale saved copy
+// would only go out of date. claudeTitle is deliberately NOT here: every restored
+// shell overwrites the raw title with its own ("cmd.exe") within seconds of a
+// launch, so the raw title cannot carry a chat's name across a relaunch; the
+// captured Claude title is saved on its own (see PERSISTED_TAB_KEYS).
+const TRANSIENT_TAB_KEYS = ['notification', 'claudeRestorable', 'firstPrompt'] as const;
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -87,6 +90,7 @@ export function migrateSession(raw: unknown, now: number): SavedSession | null {
     setOptionalString(tab, 'model', t.model);
     setOptionalString(tab, 'branch', t.branch);
     setOptionalString(tab, 'worktree', t.worktree);
+    setOptionalString(tab, 'claudeTitle', t.claudeTitle);
     return tab as unknown as SavedTab;
   });
 

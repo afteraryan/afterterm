@@ -385,11 +385,12 @@ export function useTabState() {
     // Mark every saved Claude session as "restorable" so the sidebar shows the muted
     // ✳ — except the active tab, which auto-resumes on launch (so it's never dormant).
     const activeId = saved.activeTabId || saved.tabs[0]?.id || '';
-    // The saved title may still be Claude's own summary ("✳ Fix the spinner"), so
-    // it names the thread from the first paint, before the restored shell replaces
-    // the title with something like "cmd.exe".
+    // A saved claudeTitle names the thread from the first paint. A file written
+    // before that field existed may still carry Claude's own summary as the raw
+    // title ("✳ Fix the spinner"), so that is the fallback, read before the
+    // restored shell replaces the title with something like "cmd.exe".
     setTabs(saved.tabs.map(t => {
-      const claudeTitle = claudeSummaryTitle(t.title);
+      const claudeTitle = t.claudeTitle || claudeSummaryTitle(t.title);
       return {
         ...t,
         claudeRestorable: !!t.claudeSessionId && t.id !== activeId,

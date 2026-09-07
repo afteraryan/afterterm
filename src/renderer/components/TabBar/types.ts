@@ -38,11 +38,13 @@ export interface Tab {
   // when the cwd is inside a git worktree; absent in a main checkout. Persisted
   // in session.json.
   worktree?: string;
-  // Transient (NOT persisted): the last conversation title Claude Code set on the
-  // terminal, with its leading glyph already stripped (see chatTitle.ts). This is
-  // the thread's name once Claude has replied; the raw title keeps flipping
-  // between Claude's summary and the notify hook's state text, so the name has to
-  // be captured separately rather than read live off the title each render.
+  // The last conversation title Claude Code set on the terminal, with its leading
+  // glyph already stripped (see chatTitle.ts). This is the thread's name once
+  // Claude has replied; the raw title keeps flipping between Claude's summary and
+  // the notify hook's state text, so the name has to be captured separately rather
+  // than read live off the title each render. Persisted in session.json: every
+  // restored shell overwrites the raw title with "cmd.exe" seconds after launch,
+  // so without its own field a chat would lose its name on the second relaunch.
   claudeTitle?: string;
   // Transient (NOT persisted): the session's first user prompt, read from its
   // transcript in main. The name fallback for a chat before Claude's first reply
