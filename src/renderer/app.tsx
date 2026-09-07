@@ -736,10 +736,29 @@ export function App() {
   // pushes the port it found (or null when it has gone). Nothing here wakes or
   // activates anything: a port appearing on a background thread only changes its
   // row and its project's pills.
+  // A null for a thread that is already asleep is dropped: sleeping kills the
+  // process tree, and main reports the listener going away once the kill has run,
+  // but the record keeps its port while asleep (it is what marks the thread as a
+  // server, so the pane can say "runs npm start" and the wake can re-run it). Only
+  // an awake thread losing its listener (the server was stopped, the shell stays)
+  // clears the port.
   useEffect(() => {
     window.afterterm.pty.onPort(({ tabId, port }) => {
+      if (port === null && stateRef.current.tabs.find(t => t.id === tabId)?.asleep) return;
       stateRef.current.setPort(tabId, port);
     });
+  }, []);
+
+  // Harness hook: the current record of one thread (drive eval
+  // "window.__afterterm.tab('tab-1')"), so a test can check port, lastCommand and
+  // asleep without going through the saved file's two second debounce. Extended,
+  // not replaced, for the same reason as openLocalhost's hook above.
+  useEffect(() => {
+    const win = window as unknown as { __afterterm?: Record<string, unknown> };
+    win.__afterterm = {
+      ...(win.__afterterm ?? {}),
+      tab: (tabId: string) => stateRef.current.tabs.find(t => t.id === tabId) ?? null,
+    };
   }, []);
 
   // A project page whose project was deleted (from its own menu, say) has nothing
