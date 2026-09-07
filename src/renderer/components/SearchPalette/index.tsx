@@ -59,6 +59,16 @@ export function SearchPalette({ groups, tabs, onOpenProject, onOpenThread, onClo
     }
   };
 
+  // Escape closes from anywhere, not only from the input, in case focus has
+  // wandered to the terminal behind the backdrop.
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   rowRefs.current = [];
   let flatIndex = -1;
 

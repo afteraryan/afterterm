@@ -115,10 +115,19 @@ let notifierWindow: BrowserWindow | null = null;
 // sent straight away, then everything is suppressed until the window passes.
 // The cost per chunk is one Map lookup and a Date.now(), nothing allocated.
 const ACTIVITY_INTERVAL_MS = 15_000;
+// A shell prints its banner and prompt the moment it spawns, and a restored chat
+// gets `claude --resume` typed into it by the app. Neither is the user doing
+// anything, and on a relaunch every thread would otherwise read "now" at once and
+// Home's ordering would be lost. Activity in the first seconds of a PTY's life is
+// not stamped; activation already stamps the thread the user actually opened.
+const ACTIVITY_GRACE_MS = 5_000;
 const lastActivitySent = new Map<string, number>();
+const ptyCreatedAt = new Map<string, number>();
 
 function noteActivity(tabId: string): void {
   const now = Date.now();
+  const created = ptyCreatedAt.get(tabId);
+  if (created !== undefined && now - created < ACTIVITY_GRACE_MS) return;
   const last = lastActivitySent.get(tabId);
   if (last !== undefined && now - last < ACTIVITY_INTERVAL_MS) return;
   lastActivitySent.set(tabId, now);
@@ -641,8 +650,20 @@ ipcMain.handle('editors:open', async (_event, folder: unknown, editorId?: unknow
   if (typeof folder !== 'string' || folder.trim() === '' || !isUsableFolder(folder)) {
     return { ok: false, error: 'Folder not found', editors: cachedEditors };
   }
-  const editor = (typeof editorId === 'string' ? cachedEditors.find(e => e.id === editorId) : undefined)
-    ?? cachedEditors[0];
+  // No id means the primary editor. An id that matches nothing is an error, not a
+  // silent fallback: the renderer's list can be stale, and opening a different
+  // editor than the one clicked would be a surprise.
+  let editor: EditorInfo | undefined;
+  if (typeof editorId === 'string' && editorId !== '') {
+    editor = cachedEditors.find(e => e.id === editorId);
+    if (!editor) {
+      runEditorDetection('unknown editor id from the renderer');
+      editor = cachedEditors.find(e => e.id === editorId);
+    }
+    if (!editor) return { ok: false, error: 'Editor not found', editors: cachedEditors };
+  } else {
+    editor = cachedEditors[0];
+  }
   if (!editor) return { ok: false, error: 'No editor found', editors: cachedEditors };
 
   const result = await new Promise<{ ok: boolean; error?: string }>(resolve => {
@@ -736,6 +757,7 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
   });
 
   ptys.set(tabId, p);
+  ptyCreatedAt.set(tabId, Date.now());
 
   let buffer = '';
   let flushTimer: NodeJS.Timeout | null = null;
@@ -766,6 +788,7 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
     }
     ptys.delete(tabId);
     lastActivitySent.delete(tabId);
+  ptyCreatedAt.delete(tabId);
   });
 
   return { pid: p.pid };
@@ -797,6 +820,7 @@ ipcMain.handle('pty:destroy', async (_event, tabId: string) => {
   const pid = p.pid;
   ptys.delete(tabId);
   lastActivitySent.delete(tabId);
+  ptyCreatedAt.delete(tabId);
 
   await new Promise<void>(resolve => {
     execFile('taskkill', ['/PID', String(pid), '/T', '/F'], () => resolve());
@@ -909,6 +933,7 @@ async function destroyAllPtys() {
   await Promise.all(kills);
   ptys.clear();
   lastActivitySent.clear();
+  ptyCreatedAt.clear();
 }
 
 app.on('before-quit', async (e) => {

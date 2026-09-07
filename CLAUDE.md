@@ -30,19 +30,26 @@ Named, color-coded, collapsible tab groups — exactly like Chrome's tab groups,
 
 ```
 src/
-  main.ts                              ← Electron main: PTY IPC, shell detection, session persistence, keyboard shortcuts, notifier window + notify IPC, shell:openExternal (link safelist), Claude-hook self-install on startup
+  main.ts                              ← Electron main: PTY IPC, shell detection, session persistence, keyboard shortcuts, notifier window + notify IPC, shell:openExternal (link safelist), Claude-hook self-install on startup, PTY activity stamping, last-opened time, editor detection and launch
   claude-hook-install.ts               ← reconcileClaudeHook(): self-installs the bundled notifier hook into ~/.claude (idempotent, additive, prefs.json opt-out). Pure Node, unit-tested.
-  preload.ts                           ← contextBridge: PTY API, session API, shell list, shortcuts, notify/notifier APIs, shell.openExternal, files.pathForFile (drag-drop)
-  afterterm.d.ts                       ← Window.afterterm type declarations (incl. notify/notifier, shell, files APIs)
+  editors.ts                           ← Editor product detection and info (product name from exe, list of installs)
+  editor-detect.ts                     ← Pure search logic: finds the user's primary and alternate editors by prefs, code command, install folders and registry. Unit-tested. Test file: editor-detect.test.ts
+  preload.ts                           ← contextBridge: PTY API, session API, shell list, shortcuts, notify/notifier APIs, shell.openExternal, files.pathForFile (drag-drop), projects (folder picker and explorer launch), editors (list, open, choose), app.lastOpenedAt, pty.onActivity
+  prefs.ts                             ← readPrefs and updatePrefs: manages %APPDATA%/afterterm/prefs.json (claudeNotifications, claudeHookToastShown, lastOpenedAt, editorPath)
+  afterterm.d.ts                       ← Window.afterterm type declarations (incl. projects, editors, app.lastOpenedAt, pty.onActivity, notify/notifier, shell, files APIs)
   renderer/
     index.tsx                          ← React root; routes to NotifierApp when ?notifier=1, else App
-    app.tsx                            ← Layout: SidePanel + TerminalArea, session restore, shortcut dispatch, notification fan-out
+    app.tsx                            ← Screen state (Home, workspace, project page), session restore, shortcut dispatch, notification fan-out, one ProjectActions object for all project menus, new thread chooser, search palette, in-app toast
     index.css                          ← App layout (title bar strip, then sidebar and main pane), screen-entry animations, terminal card, find bar
-    theme.css                          ← Palette tokens, bundled Inter, shared classes, keyframes, reduced motion
+    theme.css                          ← Palette tokens, bundled Inter, shared classes, keyframes, reduced motion, Home and project-page entrance animations
     sessionMigration.ts                ← session.json shape: migrateSession (fills the project/thread fields on a 0.8.1 file) + serializeSession (the one save shape). Pure, unit-tested.
     sidebarWalk.ts                     ← computeSegments: sidebar rows built from groups first, so a group with zero tabs renders. Pure, unit-tested.
-    threadView.ts                      ← Pure: thread kind, state, display title, five-row fold, counter pills, sidebar sections. Unit-tested.
-    threadMenu.tsx                     ← The one thread menu for the sidebar right-click and the header dots button
+    threadView.ts                      ← Pure: thread kind, state, display title, five-row fold, counter pills, sidebar sections, initialScreen (Home or workspace). Unit-tested.
+    homeView.ts                        ← Pure: Home screen rendering logic (date heading, pills, pinned cards, projects sorted by activity, archived list). Unit-tested. Test file: homeView.test.ts
+    chooserView.ts                     ← Pure: new-thread chooser project and shell options, sorting and filtering. Unit-tested. Test file: chooserView.test.ts
+    paletteView.ts                     ← Pure: search palette projects and threads, prefix-match ranking. Unit-tested. Test file: paletteView.test.ts
+    threadMenu.tsx                     ← The one thread menu for the sidebar right-click and the header dots button, Open project page enabled
+    projectMenu.tsx                    ← buildProjectMenu: Open, New thread here, Pin/Unpin, Open project page, Open in File Explorer, Open in <editor> per detected editor, Edit, Archive/Restore, Delete
     NotifierApp.tsx                    ← The floating overlay window's React root: toast cards, hide-when-empty logic
     NotifierApp.css                    ← Toast card styles (state icon in a tinted circle, thread name headline, project line with coloured folder)
     hooks/

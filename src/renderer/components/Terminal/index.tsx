@@ -482,7 +482,11 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, visible, onTitleChan
     if (!info) return;
     const frame = requestAnimationFrame(() => {
       try { info.fitAddon.fit(); } catch { /* container not laid out yet */ }
-      info.term.focus();
+      // Only take the keyboard when nothing else holds it: Ctrl+Shift+T from Home
+      // switches to the workspace and opens the new thread chooser in the same
+      // breath, and its input must keep focus (Escape and Enter go to it).
+      const active = document.activeElement;
+      if (!active || active === document.body) info.term.focus();
     });
     return () => cancelAnimationFrame(frame);
   }, [visible, activeTabId]);

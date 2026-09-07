@@ -61,8 +61,17 @@ export function NewThreadChooser({
       if (rootRef.current && rootRef.current.contains(e.target as Node)) return;
       onClose();
     };
+    // Escape closes from anywhere, not only from the input: focus can end up in
+    // the terminal behind the popover, and the popover must still go away.
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
     window.addEventListener('mousedown', handleMouseDown);
-    return () => window.removeEventListener('mousedown', handleMouseDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [onClose]);
 
   const pick = (index: number) => {

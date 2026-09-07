@@ -17,7 +17,9 @@
 //   drag "<from selector>" [fromIndex] "<to selector>" [toIndex] [--steps N] [--hold-ms N]
 //                                  press at the source centre, step to the target centre
 //                                  (default 12 steps), optional dwell (--hold-ms), then release
-//   emulate-media reduce|no-preference|off   set or clear prefers-reduced-motion
+//   emulate-media reduce|no-preference|off [--click "<sel>"] [--wait <ms>] [--eval "<js>"] [--screenshot <png>]
+//                                  set prefers-reduced-motion for this one session and observe it
+//                                  in the same session (the override ends when the command exits)
 //   type "<text>"                 insert text at the focused element
 //   key <Enter|Escape|Tab|...> [--ctrl] [--shift] [--alt]
 //   sidebar                       the rendered sidebar as a tree
@@ -147,7 +149,7 @@ const { opts, positional } = parseArgs(process.argv.slice(2));
 const [command, ...args] = positional;
 
 if (!command || opts.help) {
-  console.log(fs.readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(0, 33).map(l => l.replace(/^\/\/ ?/, '')).join('\n'));
+  console.log(fs.readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(0, 35).map(l => l.replace(/^\/\/ ?/, '')).join('\n'));
   process.exit(command ? 0 : 1);
 }
 
@@ -375,6 +377,24 @@ async function cmdEmulateMedia(mode) {
   else fail(`unknown mode ${mode}; known: reduce, no-preference, off`);
   await cdp.send('Emulation.setEmulatedMedia', { features });
   console.log(`set prefers-reduced-motion: ${mode === 'off' ? '(cleared)' : mode}`);
+  // CDP emulation lives only as long as the DevTools session that set it, and
+  // every drive command opens its own session, so the override is gone the moment
+  // this command exits. Anything that must observe it has to run right here:
+  // --click "<selector>" [--index N] clicks first, --wait <ms> pauses, --eval
+  // "<js>" prints a result and --screenshot <png> captures, all in this session.
+  if (opts.click) {
+    const { x, y, count, index } = await elementCentre(String(opts.click), opts.index);
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'none' });
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+    console.log(`clicked ${opts.click}[${index}] at (${x}, ${y}) of ${count} match(es)`);
+  }
+  if (opts.wait) await sleep(Number(opts.wait));
+  if (opts.eval) {
+    const value = await evaluate(cdp, String(opts.eval));
+    console.log(value === undefined ? 'undefined' : JSON.stringify(value, null, 2));
+  }
+  if (opts.screenshot) await cmdScreenshot(String(opts.screenshot));
 }
 
 async function cmdType(text) {
