@@ -18,7 +18,12 @@ export const LATEST_FILE = path.join(POINTER_DIR, 'latest.json');
 
 export const DEFAULT_PORT = 9333;
 
-// Minimal argv parser: `--key value`, `--flag`, and bare positionals.
+// Flags that may appear more than once and collect an array instead of the
+// last value winning. Everything else keeps the old last-value-wins behaviour.
+const REPEATABLE_FLAGS = new Set(['env']);
+
+// Minimal argv parser: `--key value`, `--flag`, and bare positionals. A flag in
+// REPEATABLE_FLAGS is always returned as an array, even given once.
 export function parseArgs(argv) {
   const opts = {};
   const positional = [];
@@ -27,11 +32,18 @@ export function parseArgs(argv) {
     if (a.startsWith('--')) {
       const key = a.slice(2);
       const next = argv[i + 1];
+      let value;
       if (next !== undefined && !next.startsWith('--')) {
-        opts[key] = next;
+        value = next;
         i++;
       } else {
-        opts[key] = true;
+        value = true;
+      }
+      if (REPEATABLE_FLAGS.has(key)) {
+        if (!Array.isArray(opts[key])) opts[key] = [];
+        opts[key].push(value);
+      } else {
+        opts[key] = value;
       }
     } else {
       positional.push(a);

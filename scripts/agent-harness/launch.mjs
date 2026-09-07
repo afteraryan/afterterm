@@ -6,6 +6,7 @@
 //                                         [--display primary|secondary|N] [--port <n>]
 //                                         [--log <file>] [--timeout <seconds>]
 //                                         [--claude-resume none|background|all]
+//                                         [--env KEY=VALUE ...]
 //
 // Safety: this never touches %APPDATA%\afterterm (the real profile) and never
 // touches the running production afterterm. It only starts a fresh electron-forge
@@ -35,7 +36,11 @@ if (opts.help) {
                         none:       every tab loses it, so no click can resume a real session
                         background: the active tab loses it so nothing resumes at launch; other
                                     tabs keep it (restorable marker shows) and resume when clicked
-                        all:        the copy is seeded unchanged (the active tab resumes at once)`);
+                        all:        the copy is seeded unchanged (the active tab resumes at once)
+  --env KEY=VALUE     extra environment variable for the dev build (repeatable, or one
+                        --env with several pairs separated by ";"). Cannot override
+                        AFTERTERM_USER_DATA_DIR, AFTERTERM_DISPLAY,
+                        AFTERTERM_REMOTE_DEBUG_PORT or AFTERTERM_HARNESS`);
   process.exit(0);
 }
 
@@ -51,6 +56,29 @@ if (!/^(background|none|all)$/.test(claudeResume)) fail(`bad --claude-resume ${c
 
 if (!Number.isInteger(port) || port <= 0) fail(`bad --port ${opts.port}`);
 if (!/^(primary|secondary|\d+)$/.test(display)) fail(`bad --display ${display} (primary, secondary or an index)`);
+
+// --env KEY=VALUE, repeatable, or one --env with several pairs separated by ";".
+// Never lets a caller override the four variables the harness itself relies on:
+// a stray --env AFTERTERM_DISPLAY=primary would silently defeat the "stay off the
+// display a person is working on" safety rule, so it fails loudly instead.
+const RESERVED_ENV_KEYS = new Set([
+  'AFTERTERM_USER_DATA_DIR', 'AFTERTERM_DISPLAY', 'AFTERTERM_REMOTE_DEBUG_PORT', 'AFTERTERM_HARNESS',
+]);
+const extraEnv = {};
+const extraEnvKeys = [];
+for (const raw of Array.isArray(opts.env) ? opts.env : []) {
+  if (raw === true) fail('--env needs a KEY=VALUE argument');
+  for (const pair of String(raw).split(';')) {
+    const eq = pair.indexOf('=');
+    if (eq === -1) fail(`bad --env ${pair} (expected KEY=VALUE)`);
+    const key = pair.slice(0, eq);
+    const value = pair.slice(eq + 1);
+    if (!key) fail(`bad --env ${pair} (empty key)`);
+    if (RESERVED_ENV_KEYS.has(key)) fail(`--env cannot override ${key}; the harness sets it itself`);
+    extraEnv[key] = value;
+    if (!extraEnvKeys.includes(key)) extraEnvKeys.push(key);
+  }
+}
 
 // A DevTools endpoint already answering on the port means another harness run
 // (or something else) owns it; two runs on one port would make drive/stop ambiguous.
@@ -99,6 +127,7 @@ if (!fs.existsSync(forgeCli)) fail(`electron-forge CLI not found at ${forgeCli};
 
 const env = {
   ...process.env,
+  ...extraEnv,
   AFTERTERM_USER_DATA_DIR: dataDir,
   AFTERTERM_DISPLAY: display,
   AFTERTERM_REMOTE_DEBUG_PORT: String(port),
@@ -134,6 +163,7 @@ const record = {
   startedAt,
   sessionSource,
   claudeResume,
+  extraEnv: extraEnvKeys,
   targets: [],
 };
 writeJson(path.join(dataDir, 'harness.json'), record);
@@ -143,6 +173,7 @@ console.log(`data dir : ${dataDir}`);
 console.log(`log      : ${logFile}`);
 console.log(`root pid : ${rootPid} (cmd.exe wrapper; electron is found below)`);
 console.log(`display  : ${display}`);
+console.log(`extra env: ${extraEnvKeys.length ? extraEnvKeys.join(', ') : '(none)'}`);
 console.log(`waiting for DevTools on http://127.0.0.1:${port} (up to ${timeoutMs / 1000}s)...`);
 
 // Wait for the DevTools endpoint, then for the main window's page target (the

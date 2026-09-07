@@ -88,6 +88,14 @@ Options:
   what runs `claude --resume`; see the safety rule above). `all` seeds the copy
   unchanged (the active tab's session is live at launch, since it was live when
   the source `session.json` was copied).
+- `--env KEY=VALUE` (repeatable): an extra environment variable for the dev
+  build. Pass it more than once, or put several pairs in one `--env` separated
+  by `;`. The value may be empty (`--env FOO=`) and may itself contain `=` or
+  spaces. Cannot override `AFTERTERM_USER_DATA_DIR`, `AFTERTERM_DISPLAY`,
+  `AFTERTERM_REMOTE_DEBUG_PORT` or `AFTERTERM_HARNESS`, the four the harness
+  sets itself; trying fails with a message naming the key. The key names (never
+  the values, a value could be private) are recorded in the run record as
+  `extraEnv` and printed in the launch summary.
 
 What it does, in order: creates the data dir, writes `session.json` (from the
 parsed copy) and `prefs.json` with `claudeHookToastShown: true` (so the one-time
@@ -102,7 +110,35 @@ socket), and writes the run record to `<data-dir>\harness.json` and to
 
 The record holds `pid` (a `cmd.exe` wrapper that only redirects output to the log),
 `rootImage`, `electronPid`, `electronPath`, `port`, `display`, `dataDir`, `log`,
-`startedAt`, `sessionSource`, `claudeResume`, `tree` and `targets`.
+`startedAt`, `sessionSource`, `claudeResume`, `extraEnv` (the names of any `--env`
+keys, not their values), `tree` and `targets`.
+
+### Environment overrides
+
+Phase 6 tests a custom PowerShell prompt without touching the user's real
+`$PROFILE`, by pointing `USERPROFILE` at a scratch folder (pwsh derives
+`$PROFILE` from the Documents folder, which expands `%USERPROFILE%`, verified
+on this machine), and a custom Git Bash prompt through `HOME`, and it overrides
+`APPDATA`-independent things the same way. `--env KEY=VALUE` (see the option
+list above) is how:
+
+```powershell
+npm run harness -- --session "$env:TEMP\session-copy.json" --env "USERPROFILE=$env:TEMP\afterterm-scratch-home" --env "HOME=$env:TEMP\afterterm-scratch-home"
+```
+
+or the same thing as one flag:
+
+```powershell
+npm run harness -- --session "$env:TEMP\session-copy.json" --env "USERPROFILE=$env:TEMP\afterterm-scratch-home;HOME=$env:TEMP\afterterm-scratch-home"
+```
+
+`AFTERTERM_USER_DATA_DIR` still decides where `session.json` and `prefs.json`
+live (see `--data-dir` above), so a scratch home only changes what the shells
+inside the app read: their profiles and rc files. It also means the notifier
+hook self-install looks for `~/.claude` under the scratch home instead of the
+real one, finds nothing there, and skips (see "Hook self-install" in the main
+`CLAUDE.md`), so a harness run with a scratch home never touches the real
+`~/.claude/hooks` or `~/.claude/settings.json`.
 
 The dev build is created through WMI (`Win32_Process.Create`), not
 `child_process`. A child spawned the ordinary way, even `detached`, died together

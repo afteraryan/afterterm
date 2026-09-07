@@ -18,6 +18,9 @@ export interface AftertermPrefs {
   lastOpenedAt?: number;
   // Editor executable the user picked by hand. Wins over detection.
   editorPath?: string;
+  // Per-shell opt-out for the OSC 133/9;9 prompt integration (Phase 6). A shell
+  // missing here, or set to anything but 'off', keeps integration on.
+  shellIntegration?: Partial<Record<'cmd' | 'pwsh' | 'powershell' | 'gitbash' | 'wsl', 'on' | 'off'>>;
   [key: string]: unknown;
 }
 
