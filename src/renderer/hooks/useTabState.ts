@@ -1,8 +1,12 @@
 import { useState, useCallback, useRef } from 'react';
 import { Tab, Group, GroupColor, nextGroupColor, TabNotification } from '../components/TabBar/types';
 import type { SavedSession } from '../sessionMigration';
-import { nextActiveTabAfterArchive } from '../threadView';
+import { nextActiveTabAfterArchive, threadName } from '../threadView';
 import { claudeSummaryTitle } from '../chatTitle';
+// Named apart from the hook's own sleepTab/wakeTab callbacks below: these are the
+// pure record transforms, the callbacks are the state actions that apply them.
+import { sleepTab as sleepTabRecord, wakeTab as wakeTabRecord, restoredTab } from '../sleepWake';
+import { historyEntryFor, appendHistory, removeHistoryEntry, tabFromHistory, maxNumericId } from '../history';
 
 // Everything the group modal can set. A group with no tabs is a valid, persisted
 // state (it sits in the sidebar's Projects shelf), so creation no longer needs a tab.
@@ -70,7 +74,20 @@ export function useTabState() {
     return id;
   }, [groups]);
 
-  const closeTab = useCallback((tabId: string) => {
+  // Closing a thread that belongs to a project files it in that project's history
+  // rather than dropping it: the record (title, kind, session id, cwd) is what makes
+  // Resume possible, and its scrollback tail file is kept under the same id. A
+  // thread in General has no project to file it under, so closing it really does end
+  // it (design-02, "Open decisions"). Returns whether the thread went to history, so
+  // the caller can say so ("Moved to history") only where it is true.
+  const closeTab = useCallback((tabId: string): boolean => {
+    const tab = tabsRef.current.find(t => t.id === tabId);
+    const group = tab?.groupId ? groupsRef.current.find(g => g.id === tab.groupId) : undefined;
+    if (tab && group) {
+      const entry = historyEntryFor(tab, threadName(tab), Date.now());
+      setGroups(prev => prev.map(g =>
+        g.id === group.id ? { ...g, history: appendHistory(g.history, entry) } : g));
+    }
     setTabs(prev => {
       const idx = prev.findIndex(t => t.id === tabId);
       const next = prev.filter(t => t.id !== tabId);
@@ -80,7 +97,58 @@ export function useTabState() {
       }
       return next;
     });
+    return !!(tab && group);
   }, [activeTabId]);
+
+  // Sleep is only a record change here: the terminal layer watches `asleep` and is
+  // what actually captures the tail and kills the PTY tree. Keeping the two apart
+  // means every sleep path (menu, pane, shutdown) agrees on what the record becomes.
+  const sleepTab = useCallback((tabId: string) => {
+    const now = Date.now();
+    setTabs(prev => prev.map(t => t.id === tabId ? sleepTabRecord(t, now) : t));
+  }, []);
+
+  // Waking is the user acting on the project, so the project's lastActiveAt moves
+  // too, exactly as activateTab does it. Without that, waking a thread from a
+  // background row would leave its project sorted as untouched on Home.
+  const wakeTab = useCallback((tabId: string) => {
+    const now = Date.now();
+    setTabs(prev => prev.map(t => t.id === tabId ? wakeTabRecord(t, now) : t));
+    const groupId = tabsRef.current.find(t => t.id === tabId)?.groupId;
+    if (groupId) {
+      setGroups(prev => prev.map(g => g.id === groupId ? { ...g, lastActiveAt: now } : g));
+    }
+  }, []);
+
+  // Resume a closed thread from a project's history. The recreated tab keeps the
+  // closed thread's id (history.ts, tabFromHistory) so its saved tail file is found
+  // again, and comes back awake with wokeAt set, so the terminal layer replays that
+  // tail above a "Woke just now" divider the moment it mounts. Returns the new tab's
+  // id, or null when the project or the entry has gone.
+  const resumeFromHistory = useCallback((groupId: string, entryId: string): string | null => {
+    const group = groupsRef.current.find(g => g.id === groupId);
+    const entry = group?.history.find(e => e.id === entryId);
+    if (!group || !entry) return null;
+    const now = Date.now();
+    const tab = tabFromHistory(entry, group, now);
+    // Same splice as addTab: the thread lands at the end of its project's contiguous
+    // block, which is what keeps every group contiguous in the tab list.
+    setTabs(prev => {
+      const lastIdx = prev.map(t => t.groupId).lastIndexOf(groupId);
+      if (lastIdx === -1) return [...prev, tab];
+      const next = [...prev];
+      next.splice(lastIdx + 1, 0, tab);
+      return next;
+    });
+    setGroups(prev => prev.map(g => g.id === groupId
+      ? { ...g, history: removeHistoryEntry(g.history, entryId), lastActiveAt: now }
+      : g));
+    // setActiveTabId, not activateTab: the tab is not in `tabs` yet this render, so
+    // activateTab's own stamping would find nothing. tabFromHistory already set
+    // lastActiveAt on the tab, and the group's stamp is in the setGroups above.
+    setActiveTabId(tab.id);
+    return tab.id;
+  }, []);
 
   // The raw title stays on the tab (detectNotification and the spinner logic read
   // it), but when Claude Code wrote it, its summary is also captured as the thread's
@@ -158,12 +226,6 @@ export function useTabState() {
     setTabs(prev => prev.map(t => t.id === tabId ? { ...t, fontSize } : t));
   }, []);
 
-  // Drop the "restorable" marker once a tab is activated/resumed — the muted ✳ goes
-  // away and the tab looks normal again.
-  const clearTabRestorable = useCallback((tabId: string) => {
-    setTabs(prev => prev.map(t => t.id === tabId && t.claudeRestorable ? { ...t, claudeRestorable: false } : t));
-  }, []);
-
   // Group fully configured up front (name, folder, colour, shell). This is the modal's
   // path — no tab is required, an empty group lives in the Projects shelf until one
   // opens. Spawns the first terminal here rather than via addTab because the group
@@ -172,7 +234,7 @@ export function useTabState() {
     const id = makeGroupId();
     const now = Date.now();
     setGroups(prev => [...prev, {
-      id, collapsed: false, pinned: false, archived: false, lastActiveAt: now, ...config,
+      id, collapsed: false, pinned: false, archived: false, lastActiveAt: now, history: [], ...config,
     }]);
     if (openTerminal) {
       const tabId = makeTabId();
@@ -190,7 +252,7 @@ export function useTabState() {
     const color = nextGroupColor(groups);
     const newGroup: Group = {
       id, label: 'New Group', color, collapsed: false,
-      pinned: false, archived: false, lastActiveAt: Date.now(),
+      pinned: false, archived: false, lastActiveAt: Date.now(), history: [],
     };
     setGroups(prev => [...prev, newGroup]);
     setTabs(prev => {
@@ -370,32 +432,30 @@ export function useTabState() {
   // `saved` has already been through migrateSession, so every field is present and
   // well typed; nothing here needs to guess at defaults.
   const restoreSession = useCallback((saved: SavedSession) => {
-    // Reset counters to avoid ID collisions
-    const maxTabNum = saved.tabs.reduce((max, t) => {
-      const num = parseInt(t.id.replace('tab-', ''), 10);
-      return isNaN(num) ? max : Math.max(max, num);
-    }, 0);
-    const maxGroupNum = saved.groups.reduce((max, g) => {
-      const num = parseInt(g.id.replace('group-', ''), 10);
-      return isNaN(num) ? max : Math.max(max, num);
-    }, 0);
-    tabCounter = maxTabNum;
-    groupCounter = maxGroupNum;
+    // Reset counters to avoid ID collisions. History ids count as taken ids, not
+    // just live tab ids: a closed thread keeps its id in its project's history and
+    // its scrollback tail still sits at threads/<id>.txt, so handing that id to a
+    // brand new tab would replay a stranger's output into it and let Resume find the
+    // wrong thread.
+    const now = Date.now();
+    tabCounter = maxNumericId('tab-', [
+      ...saved.tabs.map(t => t.id),
+      ...saved.groups.flatMap(g => (g.history ?? []).map(e => e.id)),
+    ]);
+    groupCounter = maxNumericId('group-', saved.groups.map(g => g.id));
 
-    // Mark every saved Claude session as "restorable" so the sidebar shows the muted
-    // ✳ — except the active tab, which auto-resumes on launch (so it's never dormant).
     const activeId = saved.activeTabId || saved.tabs[0]?.id || '';
+    // Every restored thread starts asleep (sleepWake.ts, restoredTab): nothing is
+    // spawned until the user wakes something, which is what keeps a relaunch from
+    // cold-starting N shells (and N `claude --resume` processes) at once.
     // A saved claudeTitle names the thread from the first paint. A file written
     // before that field existed may still carry Claude's own summary as the raw
-    // title ("✳ Fix the spinner"), so that is the fallback, read before the
-    // restored shell replaces the title with something like "cmd.exe".
+    // title (Claude's own glyph in front of it), so that is the fallback, read
+    // before the restored shell replaces the title with something like "cmd.exe".
     setTabs(saved.tabs.map(t => {
       const claudeTitle = t.claudeTitle || claudeSummaryTitle(t.title);
-      return {
-        ...t,
-        claudeRestorable: !!t.claudeSessionId && t.id !== activeId,
-        ...(claudeTitle ? { claudeTitle } : {}),
-      };
+      const tab = restoredTab(t, now);
+      return claudeTitle ? { ...tab, claudeTitle } : tab;
     }));
     setGroups(saved.groups);
     setActiveTabId(activeId);
@@ -404,7 +464,8 @@ export function useTabState() {
   return {
     tabs, groups, activeTabId,
     setActiveTabId, activateTab,
-    addTab, closeTab, renameTab, updateTabCwd, setClaudeSession, clearTabRestorable, setTabNotification, setTabFontSize,
+    addTab, closeTab, renameTab, updateTabCwd, setClaudeSession, setTabNotification, setTabFontSize,
+    sleepTab, wakeTab, resumeFromHistory,
     setClaudeMeta, setGitInfo,
     createGroup, createConfiguredGroup, addToGroup, removeFromGroup,
     renameGroup, setGroupColor, updateGroup, toggleGroupCollapse, deleteGroup,

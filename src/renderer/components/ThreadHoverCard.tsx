@@ -8,6 +8,7 @@ import { Tab, Group } from './TabBar/types';
 import { FolderIcon } from './Icons';
 import { threadKind, threadName, threadState, stateLabel, modelLabel } from '../threadView';
 import { relativeTime } from '../homeView';
+import { asleepLabel } from '../sleepWake';
 import './ThreadHoverCard.css';
 
 export interface ThreadHoverCardProps {
@@ -21,10 +22,13 @@ export function ThreadHoverCard({ tab, group, anchor, now }: ThreadHoverCardProp
   const kind = threadKind(tab);
   const state = threadState(tab);
   const kindWord = kind === 'chat' ? 'Chat' : 'Shell';
-  // A restored chat that has not been resumed yet says so here rather than in a
-  // row tooltip, which would sit on top of this card.
-  const typeBase = state === 'quiet' ? kindWord : `${kindWord} · ${stateLabel(state)}`;
-  const typeText = tab.claudeRestorable ? `${typeBase} · Resumes on click` : typeBase;
+  // Asleep reads "Chat · Asleep · 2d" rather than the plain "Asleep" stateLabel
+  // wording other rows use, since this card has room to say how long ago.
+  const typeText = state === 'quiet'
+    ? kindWord
+    : state === 'asleep'
+      ? `${kindWord} · ${asleepLabel(tab.sleptAt, now)}`
+      : `${kindWord} · ${stateLabel(state)}`;
   const model = modelLabel(tab.model);
   const active = relativeTime(tab.lastActiveAt, now);
   const activeText = active === 'now' ? 'now' : `${active} ago`;

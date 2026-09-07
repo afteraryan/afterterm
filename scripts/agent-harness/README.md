@@ -28,15 +28,20 @@ Plain Node (24+) and PowerShell. No new dependencies: Node's global `fetch` and
   copied live profile is exactly that session, and any other tab may be open there
   too. By default the seed strips every `claudeSessionId` (see `--claude-resume`);
   resuming the live session from the dev build made the live Claude Code process
-  restart and the dev tree die. With `background` or `all`, a `click` on a
-  restorable tab runs a real `claude --resume`.
+  restart and the dev tree die. From Phase 4 on, nothing resumes automatically:
+  a relaunch shows every previous chat thread asleep, and a click opens the
+  Asleep tab or the asleep pane without spawning anything. What still runs a
+  real `claude --resume` is a **Wake**, whether clicked on the asleep pane's
+  `[data-wake]` button or chosen from a thread's ⋯/right-click menu, so
+  `--claude-resume`'s default of `none` (and care with `background`/`all`)
+  still matters: only `wake` a thread you mean to actually resume.
 
 ## What each part does
 
 | File | Role |
 |---|---|
 | `launch.mjs` | Seeds a throwaway `AFTERTERM_USER_DATA_DIR`, starts `electron-forge start` with the placement and debug-port env vars, waits for the DevTools endpoint, records pids. |
-| `drive.mjs` | CDP client with subcommands: `targets`, `bounds`, `screenshot`, `eval`, `dom`, `click`, `rightclick`, `hover`, `unhover`, `drag`, `emulate-media`, `type`, `key`, `sidebar`, `screen`, `home`, `project`, `chooser`, `palette`, `header`, `hover-card`, `window`, `record`. |
+| `drive.mjs` | CDP client with subcommands: `targets`, `bounds`, `screenshot`, `eval`, `dom`, `click`, `rightclick`, `hover`, `unhover`, `drag`, `emulate-media`, `type`, `key`, `sidebar`, `screen`, `home`, `project`, `chooser`, `palette`, `header`, `hover-card`, `pane`, `tail`, `window`, `record`. |
 | `stop.mjs` | Kills exactly the recorded process tree and verifies it is gone. |
 | `screenshot-display.ps1` | Captures a whole physical display to PNG (shows native title bars and the notifier toasts, which CDP cannot). |
 | `record.mjs` | Long-running recorder: CDP screencast of the page content, stitched to mp4 with ffmpeg. Normally started detached by `drive.mjs record start`, not run by hand. See "Recording a test session" below. |
@@ -75,10 +80,12 @@ Options:
 - `--log <file>`: dev build stdout and stderr, default `<data-dir>\harness.log`.
 - `--timeout <seconds>`: wait for the DevTools endpoint, default 120.
 - `--claude-resume none|background|all`: default `none`, which strips every
-  `claudeSessionId` so no launch or click can resume a real session. `background`
+  `claudeSessionId` so no thread can `claude --resume` a real session. `background`
   removes only the active tab's id, so nothing resumes at launch while other tabs
-  keep their restorable marker and resume when clicked. `all` seeds the copy
-  unchanged (the active tab resumes at once).
+  keep their id and can be resumed with `Wake` (Phase 4: waking, not clicking, is
+  what runs `claude --resume`; see the safety rule above). `all` seeds the copy
+  unchanged (the active tab's session is live at launch, since it was live when
+  the source `session.json` was copied).
 
 What it does, in order: creates the data dir, writes `session.json` (from the
 parsed copy) and `prefs.json` with `claudeHookToastShown: true` (so the one-time
@@ -122,14 +129,16 @@ node scripts/agent-harness/drive.mjs <command> ...
 | `emulate-media` | `drive emulate-media reduce` | `Emulation.setEmulatedMedia` for `prefers-reduced-motion`: `reduce`, `no-preference`, or `off` to clear every emulated feature. |
 | `type` | `drive type "hello"` | `Input.insertText` into the focused element. |
 | `key` | `drive key Enter`, `drive key b --ctrl --shift` | `Input.dispatchKeyEvent` down and up. Known names: Enter, Escape, Tab, Backspace, Delete, Space, Arrow keys, Home, End, PageUp, PageDown, F5, or any single character. Modifiers: `--ctrl`, `--shift`, `--alt`. |
-| `sidebar` | `drive sidebar` | The rendered sidebar as a tree: one block per section (General, Pinned, Projects); project rows with label, thread count, collapsed state and the counter pills (`need=`, `run=`); thread rows with title, `*` for active, `[kind/state]` from the row's kind icon and state icon, `[x]` when the row's close button is present, `[restorable]`; a `(Show N more)` line where a list is folded. Collapsed, the panel reports `(collapsed, rail only)` and lists nothing. |
+| `sidebar` | `drive sidebar` | The rendered sidebar as a tree: one block per section (General, Pinned, Projects); project rows with label, thread count, collapsed state and the counter pills (`need=`, `run=`); thread rows with title, `*` for active, `[kind/state]` from the row's kind icon and state icon, `[asleep]` when the row carries the `sleep` class, `[x]` when the row's close button is present; a `(Show N more)` line where a list is folded. Collapsed, the panel reports `(collapsed, rail only)` and lists nothing. Phase 4 removed the `restorable` class and its `[restorable]` marker; asleep is the only sleep-state marker now. |
 | `screen` | `drive screen` | One JSON object: `screen` (`home`, `workspace` or `project`, from `.app`'s `data-screen`), `entrance` (the `enter-home` / `enter-project` / `enter-workspace` class while it's still on `.app`, or `null`), and whether the search palette, new-thread chooser, a menu, a dialog, or a toast is present. |
 | `home` | `drive home` | The rendered Home screen as a tree: the date heading, the `need`/`run` totals, one line per pinned card (name, pills, relative time, pin state), one line per project row, the "Show more" line when present, and the archived section (its toggle line, then its rows once expanded). `(not on Home)` when `.home` is absent. |
-| `project` | `drive project` | The rendered project page: title, folder line, the action buttons under `.ph .acts` with their disabled state, the selected tab plus the other tab labels, the search box value, and one line per thread row (name, state, time), or the empty-state text. `(not on a project page)` when `.proj` is absent. |
+| `project` | `drive project` | The rendered project page: title, folder line, the action buttons under `.ph .acts` with their disabled state, the selected tab plus the other tab labels (printed first, so a reader always knows which list the rows below belong to), the search box value, then one line per row. Live and Asleep rows (`.tl[data-tab-id]`) print name, state and time as before. History rows (`.tl[data-history-id]`, Phase 4) have no state icon, so they print as `- "title" [chat|shell] <time> [resume]`, kind read from the row's `.d` text and `[resume]` shown only when the row carries a `[data-resume]` button. `(not on a project page)` when `.proj` is absent. |
 | `chooser` | `drive chooser` | The new-thread chooser's input value, one line per option (project id, name, tag, `*` when highlighted), and the shell label. `(no chooser open)` when absent. |
-| `palette` | `drive palette` | The search palette's input value and one line per result (kind, id, name, meta text, `*` when highlighted), or the empty-state text. `(no palette open)` when absent. |
-| `header` | `drive header` | The main pane header as a tree: the name line, the kind (when the name line carries a `data-kind` attribute), one `<data-meta>=<text>` line per header meta item, the state chip text or `(quiet)`. `(no thread)` when the header shows its empty state. `(no .header in the DOM)` when the header itself is absent. |
+| `palette` | `drive palette` | The search palette's input value, then each group header (`.gl`, e.g. Projects, Threads and Phase 4's History) followed by its rows (kind, id, name, meta text, `*` when highlighted), or the empty-state text. History rows carry `data-kind="history"` and a meta like "project · 3d", read the same generic way as project and thread rows. `(no palette open)` when absent. |
+| `header` | `drive header` | The main pane header as a tree: the name line, the kind (when the name line carries a `data-kind` attribute), one `<data-meta>=<text>` line per header meta item, the state chip text or `(quiet)` (Phase 4: an asleep thread's chip reads "Asleep · 2d"). `(no thread)` when the header shows its empty state. `(no .header in the DOM)` when the header itself is absent. |
 | `hover-card` | `drive hover ".th" 0 --wait 400` then `drive hover-card` | The thread hover card: the title, then one `<data-row>: <text>` line per `dl` row. `(no hover card)` when absent. The card appears 350ms after the pointer enters a thread row, so hover first with `--wait` (see the `hover` row above) before reading it. |
+| `pane` | `drive pane` | Phase 4: the asleep pane (`.asleep-pane`) that covers the terminal card while the active thread is asleep, as a tree: `asleep pane for <tab id>`, `wake button: yes\|no`, `since: <text>`, `past lines: <N>` and the last 5 saved tail lines indented (or `past: (none)` while the tail is loading or empty). When no thread is asleep, prints `(terminal)` and `terminal: shown\|hidden` (whether `.terminal-instances` carries `asleep-hidden`). |
+| `tail` | `drive tail`, `drive tail 10`, `drive tail 10 --tab <id>` | Phase 4: the last n lines (default 30) of an xterm buffer, read through `window.__afterterm.activeTail(n)` for the active tab or `window.__afterterm.tail(id, n)` for `--tab <id>`. One line per entry; `(no terminal)` when the hook is missing or the tab has no live terminal (e.g. it is asleep). |
 | `window` | `drive window bottom`, `drive window restore`, `drive window close-dialogs` | OS-level window control (see "Capturing an occluded window" below). |
 | `record` | `drive record start --out out.mp4`, `drive record stop`, `drive record status` | Starts, stops and lists screen recordings of the page content (see "Recording a test session" below). |
 
@@ -141,7 +150,7 @@ Phase 2 screens; they read from the DOM hooks each screen's component is
 supposed to keep (`docs/design-02-projects-and-threads.md` and the components
 themselves), not from `SidePanel`. `SEL.header` (Phase 3, `src/renderer/components/Header/index.tsx`
 and `Header.css`) and `SEL.hoverCard` (Phase 3, the thread hover card) follow the
-same pattern.
+same pattern, as does `SEL.asleepPane` (Phase 4, `src/renderer/components/AsleepPane/index.tsx`).
 
 ### Hover, drag and reduced motion
 
@@ -172,8 +181,8 @@ their size, so a plain `click` works there.
 
 ### Screens
 
-`screen`, `home`, `project`, `chooser`, `palette`, `header` and `hover-card`
-read the Phase 2 and Phase 3 UI the way `sidebar` reads the side panel: DOM
+`screen`, `home`, `project`, `chooser`, `palette`, `header`, `hover-card` and `pane`
+read the Phase 2 through 4 UI the way `sidebar` reads the side panel: DOM
 lookups through the `SEL` object, printed as a plain tree (or JSON for
 `screen`, since it is a small flag set rather than a list). Each one reports
 its own "not open", "not on this screen" or "no thread" line instead of
@@ -311,12 +320,32 @@ npm run harness:drive -- chooser                      # New-thread chooser
 npm run harness:drive -- key p --ctrl --shift
 npm run harness:drive -- palette                      # Search palette
 npm run harness:stop
+
+# Phase 4 flow: sleep, wake, the scrollback tail, and the project page's History tab
+Copy-Item "$env:APPDATA\afterterm\session.json" "$env:TEMP\session-copy.json"
+npm run harness -- --session "$env:TEMP\session-copy.json"
+npm run harness:drive -- sidebar                       # relaunched threads show [asleep], never [restorable]
+npm run harness:drive -- click ".th" 0
+npm run harness:drive -- pane                           # asleep pane: wake button, "asleep since", saved tail
+npm run harness:drive -- click "[data-wake]"
+npm run harness:drive -- tail 10                        # the dim saved tail, then a "Woke just now" divider, then live output
+npm run harness:drive -- rightclick ".th" 0
+npm run harness:drive -- dom ".ctx-menu-item"            # find Sleep's index first
+npm run harness:drive -- click ".ctx-menu-item" <n>      # Sleep
+npm run harness:drive -- pane                            # asleep again, "since just now"
+npm run harness:drive -- rightclick ".th" 0
+npm run harness:drive -- click ".ctx-menu-item" <n>      # Open project page
+npm run harness:drive -- click ".tabs .seg button" 2     # the History tab (check the index with `drive project` first)
+npm run harness:drive -- project                         # History rows: "title" [chat|shell] time [resume]
+npm run harness:drive -- click "[data-resume]"
+npm run harness:stop
 ```
 
 Renderer edits (`src/renderer/**`) show up live in the running harness app through
 Vite HMR; no relaunch needed. A `src/main.ts` or `src/preload.ts` edit does NOT restart
 Electron: the bundle is rebuilt but the running process keeps its old code. To pick up
-a main-process change, `npm run harness:stop` and launch again.
+a main-process change, `npm run harness:stop` and launch again. This bites Phase 4
+particularly often: sleep, wake and the scrollback tail file are all main-process work.
 
 ## Known limitations
 

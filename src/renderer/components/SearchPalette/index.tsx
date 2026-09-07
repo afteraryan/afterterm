@@ -5,6 +5,7 @@
 import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { paletteResults } from '../../paletteView';
 import { threadName, threadKind, threadState } from '../../threadView';
+import { relativeTime } from '../../homeView';
 import type { Group, Tab } from '../TabBar/types';
 import { FolderIcon, KindIcon, StateIcon } from '../Icons';
 import './SearchPalette.css';
@@ -14,18 +15,21 @@ export interface SearchPaletteProps {
   tabs: Tab[];
   onOpenProject: (groupId: string) => void;
   onOpenThread: (tabId: string) => void;
+  // Opens the project page on its History tab: a closed thread has nothing
+  // else to select (design-02 "Search").
+  onOpenHistory: (groupId: string, entryId: string) => void;
   onClose: () => void;
 }
 
-export function SearchPalette({ groups, tabs, onOpenProject, onOpenThread, onClose }: SearchPaletteProps) {
+export function SearchPalette({ groups, tabs, onOpenProject, onOpenThread, onOpenHistory, onClose }: SearchPaletteProps) {
   const [query, setQuery] = useState('');
   const [hi, setHi] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const rowRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const results = useMemo(() => paletteResults(groups, tabs, query), [groups, tabs, query]);
-  const { projects, threads } = results;
-  const total = projects.length + threads.length;
+  const { projects, threads, history } = results;
+  const total = projects.length + threads.length + history.length;
 
   useLayoutEffect(() => {
     inputRef.current?.focus();
@@ -35,14 +39,22 @@ export function SearchPalette({ groups, tabs, onOpenProject, onOpenThread, onClo
     rowRefs.current[hi]?.scrollIntoView({ block: 'nearest' });
   }, [hi]);
 
+  // Enter and click span the three result groups in the order they render:
+  // projects, then threads, then history.
   const open = (index: number) => {
     if (index < projects.length) {
       const group = projects[index];
       if (group) onOpenProject(group.id);
       return;
     }
-    const thread = threads[index - projects.length];
-    if (thread) onOpenThread(thread.tab.id);
+    const threadIndex = index - projects.length;
+    if (threadIndex < threads.length) {
+      const thread = threads[threadIndex];
+      if (thread) onOpenThread(thread.tab.id);
+      return;
+    }
+    const entry = history[threadIndex - threads.length];
+    if (entry) onOpenHistory(entry.group.id, entry.entry.id);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -136,6 +148,31 @@ export function SearchPalette({ groups, tabs, onOpenProject, onOpenThread, onClo
                     <span className="n">{threadName(tab)}</span>
                     {state !== 'quiet' && <StateIcon state={state} size={15} />}
                     <span className="m">{group ? group.label : 'General'}</span>
+                  </button>
+                );
+              })}
+            </>
+          )}
+          {history.length > 0 && (
+            <>
+              <div className="gl">History</div>
+              {history.map(({ entry, group }) => {
+                flatIndex++;
+                const index = flatIndex;
+                return (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    ref={el => { rowRefs.current[index] = el; }}
+                    className={`pi${index === hi ? ' hi' : ''}`}
+                    data-kind="history"
+                    data-id={entry.id}
+                    onClick={() => open(index)}
+                    onMouseEnter={() => setHi(index)}
+                  >
+                    <KindIcon kind={entry.kind} size={15} />
+                    <span className="n">{entry.title}</span>
+                    <span className="m">{group.label} · {relativeTime(entry.closedAt, Date.now())}</span>
                   </button>
                 );
               })}

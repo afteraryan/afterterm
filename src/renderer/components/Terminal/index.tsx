@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useState } from 'react';
+import { useRef, useEffect, useCallback, useState, forwardRef, useImperativeHandle } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { FitAddon } from '@xterm/addon-fit';
@@ -6,6 +6,8 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SearchAddon, ISearchOptions } from '@xterm/addon-search';
 import '@xterm/xterm/css/xterm.css';
 import { TabNotification } from '../TabBar/types';
+import { wakePlan } from '../../sleepWake';
+import { TAIL_MAX_LINES, renderTailForTerminal } from '../../../thread-tail';
 
 interface TermInfo {
   term: Terminal;
@@ -22,6 +24,20 @@ interface TabInfo {
   fontSize?: number;
   claudeSessionId?: string;
   claudeCwd?: string;
+  // The source of truth this whole layer reconciles to: an asleep thread has no
+  // xterm instance and no PTY, an awake one has both.
+  asleep: boolean;
+  // Set for one render when a thread wakes (or comes back from history), which is
+  // the cue to replay its saved scrollback tail above a "Woke just now" divider.
+  wokeAt?: number;
+}
+
+// What the app can ask this layer for at quit time: the on-screen tail of one
+// terminal, or of every terminal at once. Only the buffer knows what is on screen,
+// so the flush has to come through here rather than out of app state.
+export interface TerminalAreaHandle {
+  readTail(tabId: string): string[] | null;
+  readAllTails(): Record<string, string[]>;
 }
 
 interface TerminalAreaProps {
@@ -31,6 +47,9 @@ interface TerminalAreaProps {
   // mounted so the terminals keep running, but a hidden container measures 0, so
   // the active terminal is refit and refocused when it comes back.
   visible: boolean;
+  // True while the active thread is asleep: the AsleepPane is showing in this
+  // thread's place, so the whole terminal card (find bar included) goes away.
+  hidden: boolean;
   onTitleChange: (tabId: string, title: string) => void;
   onCwdChange: (tabId: string, cwd: string) => void;
   onNotification: (tabId: string, type: TabNotification | undefined, projectName: string) => void;
@@ -40,6 +59,10 @@ interface TerminalAreaProps {
   onOutput: (tabId: string, byteLen: number) => void;
   onFontSizeChange: (tabId: string, fontSize: number) => void;
   onExit: (tabId: string) => void;
+  // The last lines of a terminal, handed over the moment before it is destroyed.
+  // The app decides what happens to them: a sleeping thread's tail is written to
+  // disk, a closed thread's only if it went to a project's history.
+  onTail: (tabId: string, lines: string[], reason: 'sleep' | 'close') => void;
 }
 
 // SECURITY: claudeSessionId is read from persisted session.json (a plain file that
@@ -99,6 +122,25 @@ function formatTabTitle(raw: string): string {
   return raw;
 }
 
+// The last `max` rows of a terminal, as plain strings. `translateToString(true)`
+// trims each row's right padding; the trailing empty rows below a prompt are dropped
+// too, since a tail made mostly of blank lines shows nothing when it is replayed.
+//
+// The byte cap and the canonical trim live in main (thread-tail.ts, trimTail, called
+// by every threads:save* handler). They are not applied here on purpose: trimTail
+// measures UTF-8 with Buffer, a Node global the sandboxed renderer does not have.
+function captureTail(term: Terminal, max: number = TAIL_MAX_LINES): string[] {
+  const buffer = term.buffer.active;
+  const start = Math.max(0, buffer.length - max);
+  const lines: string[] = [];
+  for (let i = start; i <= buffer.length - 1; i++) {
+    const line = buffer.getLine(i);
+    lines.push(line ? line.translateToString(true).replace(/\s+$/, '') : '');
+  }
+  while (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+  return lines;
+}
+
 const THEME = {
   background: '#191919',
   foreground: '#e0e0e0',
@@ -123,7 +165,10 @@ const THEME = {
   brightWhite: '#ffffff',
 };
 
-export function TerminalArea({ tabs: tabInfos, activeTabId, visible, onTitleChange, onCwdChange, onNotification, onUserInput, onOutput, onFontSizeChange, onExit }: TerminalAreaProps) {
+export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(function TerminalArea(
+  { tabs: tabInfos, activeTabId, visible, hidden, onTitleChange, onCwdChange, onNotification, onUserInput, onOutput, onFontSizeChange, onExit, onTail },
+  ref,
+) {
   const hostRef = useRef<HTMLDivElement>(null);
   const termsRef = useRef(new Map<string, TermInfo>());
   const activeRef = useRef(activeTabId);
@@ -143,6 +188,8 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, visible, onTitleChan
   onFontSizeChangeRef.current = onFontSizeChange;
   const onExitRef = useRef(onExit);
   onExitRef.current = onExit;
+  const onTailRef = useRef(onTail);
+  onTailRef.current = onTail;
 
   // ── Find bar state (operates on the active tab only) ──────────────────────
   const [findOpen, setFindOpen] = useState(false);
@@ -178,13 +225,24 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, visible, onTitleChan
     else info.search.findNext(text, { ...SEARCH_OPTIONS, incremental });
   }, []);
 
-  // Lazy Claude-session resume. Resuming every saved session at once cold-starts N
-  // `claude` processes (+ their MCP servers) simultaneously, which can OOM-crash the
-  // app on a loaded machine. So we resume only the active tab on launch and defer the
-  // rest until first activated. pendingResume: tabId -> sessionId awaiting activation;
-  // resumed: guards against double-injecting.
-  const pendingResumeRef = useRef(new Map<string, string>());
+  // Resume is user-initiated by construction now: a terminal is only ever created
+  // when the user wakes a thread (every restored thread starts asleep), so nothing
+  // can cold-start N `claude` processes and their MCP servers in one burst at
+  // launch, which is what used to OOM-crash the app on a loaded machine. `resumed`
+  // still guards against double-injecting into one live terminal; the entry is
+  // dropped when a thread sleeps, so waking it again resumes again.
   const resumedRef = useRef(new Set<string>());
+
+  // A destroy in flight, per tab. Waking a thread the instant after it slept must
+  // wait for its old PTY to be gone: main's `pty:create` puts the new PTY in its map
+  // under the same tab id, and the OLD PTY's exit handler then deletes that entry
+  // unconditionally, leaving the new PTY alive but unreachable (input and resize go
+  // nowhere, silently).
+  const pendingDestroyRef = useRef(new Map<string, Promise<void>>());
+  // Terminals being built right now. createTerminal has awaits in it, so the
+  // reconcile effect can run again before the new TermInfo is in the map; without
+  // this a second pass would build a second terminal for the same tab.
+  const creatingRef = useRef(new Set<string>());
 
   const resumeTab = useCallback((tabId: string, sessionId: string) => {
     if (resumedRef.current.has(tabId) || !UUID_RE.test(sessionId)) return;
@@ -193,253 +251,301 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, visible, onTitleChan
     setTimeout(() => window.afterterm.pty.write(tabId, `claude --resume ${sessionId}\r`), 700);
   }, []);
 
-  const createTerminal = useCallback(async (tabId: string, shellId?: string, cwd?: string, fontSize?: number, claudeSessionId?: string, claudeCwd?: string) => {
-    if (termsRef.current.has(tabId) || !hostRef.current) return;
-
-    const container = document.createElement('div');
-    container.className = 'xterm-container';
-    container.style.display = tabId === activeRef.current ? '' : 'none';
-    hostRef.current.appendChild(container);
-
-    const term = new Terminal({
-      theme: THEME,
-      fontFamily: "'Cascadia Code', 'Cascadia Mono', 'Consolas', 'Courier New', monospace",
-      fontSize: fontSize ?? DEFAULT_FONT_SIZE,
-      cursorBlink: true,
-      scrollback: 5000,
-      allowProposedApi: true,
-      // OSC 8 hyperlinks (e.g. `ls --hyperlink`, ripgrep, modern CLIs) → open in browser
-      linkHandler: {
-        activate: (_event, uri) => window.afterterm.shell.openExternal(uri),
-      },
-    });
-
-    const fitAddon = new FitAddon();
-    term.loadAddon(fitAddon);
-
-    // Debounce fit() so a burst of resize/zoom events collapses into a single
-    // ConPTY resize. A touchpad pinch arrives as dozens of ctrl+wheel events;
-    // a window-edge drag fires the ResizeObserver continuously. Each raw fit()
-    // recomputes cols/rows → term.onResize → pty.resize → ResizePseudoConsole,
-    // and the hosted TUI (Claude Code/Ink) repaints on every one. Ink's known
-    // resize-redraw leak then floods scrollback with duplicated frames. Coalescing
-    // to the final size means the PTY (and Ink) sees one resize, not fifty.
-    let fitTimer: ReturnType<typeof setTimeout> | undefined;
-    const scheduleFit = () => {
-      if (fitTimer) clearTimeout(fitTimer);
-      fitTimer = setTimeout(() => {
-        fitTimer = undefined;
-        try { fitAddon.fit(); } catch { /* container hidden or disposed */ }
-      }, 80);
-    };
-
-    // Plain URLs in output → underlined + clickable, opening the default browser
-    term.loadAddon(new WebLinksAddon((_event, uri) => window.afterterm.shell.openExternal(uri)));
-
-    const search = new SearchAddon();
-    term.loadAddon(search);
-    search.onDidChangeResults(({ resultIndex, resultCount }) => {
-      if (tabId === activeRef.current) {
-        setMatchInfo({ current: resultCount > 0 ? resultIndex + 1 : 0, total: resultCount });
-      }
-    });
-
-    term.open(container);
-
-    try {
-      const webgl = new WebglAddon();
-      webgl.onContextLoss(() => webgl.dispose());
-      term.loadAddon(webgl);
-    } catch {
-      // WebGL not available, canvas fallback is fine
-    }
-
-    // Ctrl+V paste, Ctrl+C copy (when selection exists), Ctrl+Shift+A select all,
-    // Ctrl+Shift+F find. The find/select-all combos live here (not main.ts's
-    // before-input-event) because they act on this terminal's xterm instance.
-    term.attachCustomKeyEventHandler((event) => {
-      if (event.type !== 'keydown') return true;
-
-      if (event.ctrlKey && !event.shiftKey && event.key === 'v') {
-        event.preventDefault();
-        navigator.clipboard.readText().then(text => {
-          if (text) term.paste(text);
-        });
-        return false;
-      }
-
-      if (event.ctrlKey && !event.shiftKey && event.key === 'c' && term.hasSelection()) {
-        navigator.clipboard.writeText(term.getSelection());
-        term.clearSelection();
-        return false;
-      }
-
-      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'a') {
-        event.preventDefault();
-        term.selectAll();
-        return false;
-      }
-
-      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'f') {
-        event.preventDefault();
-        openFind();
-        return false;
-      }
-
-      return true;
-    });
-
-    // Right-click: copy the selection (and clear it) if there is one, otherwise
-    // paste, the classic Windows console QuickEdit behavior.
-    container.addEventListener('contextmenu', (event) => {
-      event.preventDefault();
-      if (term.hasSelection()) {
-        navigator.clipboard.writeText(term.getSelection());
-        term.clearSelection();
-      } else {
-        navigator.clipboard.readText().then(text => {
-          if (text) term.paste(text);
-        });
-      }
-    });
-
-    // Ctrl+scroll → zoom this tab's font size (per-tab, persisted via session.json).
-    // Capture phase + preventDefault so xterm's viewport doesn't also scroll.
-    container.addEventListener('wheel', (event) => {
-      if (!event.ctrlKey) return;
-      event.preventDefault();
-      const cur = term.options.fontSize ?? DEFAULT_FONT_SIZE;
-      const next = Math.max(MIN_FONT_SIZE, Math.min(MAX_FONT_SIZE, cur + (event.deltaY < 0 ? 1 : -1)));
-      if (next !== cur) {
-        term.options.fontSize = next;
-        scheduleFit();
-        onFontSizeChangeRef.current(tabId, next);
-      }
-    }, { capture: true, passive: false });
-
-    // Drag a file/folder from Explorer → paste its absolute path (quoted if it has
-    // spaces). Multiple files are space-separated, matching cmd.exe drag behavior.
-    container.addEventListener('dragover', (event) => {
-      event.preventDefault();
-      if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
-    });
-    container.addEventListener('drop', (event) => {
-      event.preventDefault();
-      const files = event.dataTransfer?.files;
-      if (!files || files.length === 0) return;
-      const paths = Array.from(files).map(f => {
-        const p = window.afterterm.files.pathForFile(f);
-        return /\s/.test(p) ? `"${p}"` : p;
-      });
-      if (paths.length) term.paste(paths.join(' '));
-    });
-
-    termsRef.current.set(tabId, { term, fitAddon, search, container, scheduleFit });
-
-    // Only fit visible tabs, fitAddon on a hidden container returns 0 dimensions
-    if (tabId === activeRef.current) {
-      fitAddon.fit();
-    }
+  // Sleep and close are the same routine with a different reason: hand the tail over,
+  // stop listening, kill the process tree, drop the xterm. The order matters. offData
+  // runs first so nothing can still be written into the buffer after it has been
+  // read: main batches output on a 16ms timer and flushes what it holds when the
+  // process exits, so a chunk can land between a capture and a dispose. With the
+  // listener off, the captured tail is exactly what was on screen.
+  const teardownTerminal = useCallback(async (tabId: string, reason: 'sleep' | 'close') => {
+    const info = termsRef.current.get(tabId);
+    if (!info) return;
+    termsRef.current.delete(tabId);
 
     const api = window.afterterm;
+    api.pty.offData(tabId);
+    // The exit that this destroy causes must not reach the "PTY exited, close the
+    // tab" path: a sleeping thread keeps its tab.
+    api.pty.offExit(tabId);
+    onTailRef.current(tabId, captureTail(info.term), reason);
+    // A woken thread should resume its session again, so this tab stops counting as
+    // already resumed the moment its terminal goes.
+    resumedRef.current.delete(tabId);
 
-    // Register data handler BEFORE creating the PTY, shell can emit the prompt
-    // immediately on spawn and we'd miss it if the listener isn't ready
-    api.pty.onData(tabId, (data) => {
-      term.write(data);
-      // Feed output activity to the spinner state machine (silence-clear + re-arm).
-      onOutputRef.current(tabId, data.length);
+    const destroy = api.pty.destroy(tabId).finally(() => {
+      if (pendingDestroyRef.current.get(tabId) === destroy) pendingDestroyRef.current.delete(tabId);
     });
+    pendingDestroyRef.current.set(tabId, destroy);
 
-    // Resume-on-restart: a tab carrying a saved Claude session must relaunch in that
-    // session's own directory, because `claude --resume <id>` resolves the session
-    // against the *current* cwd's project store (see CLAUDE.md / claude-code source).
-    // claudeCwd is the hook-reported dir, authoritative across all shells.
-    const spawnCwd = claudeCwd ?? cwd;
-    await api.pty.create(tabId, shellId, spawnCwd);
+    info.term.dispose();
+    info.container.remove();
+    await destroy;
+  }, []);
 
-    // Resume the Claude session, lazily. The tab you're looking at resumes now;
-    // background tabs are deferred until you first switch to them (see resumeTab and
-    // the activeTabId effect), so we never cold-start N sessions in one burst. The id
-    // is re-validated as a UUID inside resumeTab (session.json is hand-editable, and
-    // this becomes a typed shell command).
-    if (claudeSessionId && UUID_RE.test(claudeSessionId)) {
-      if (tabId === activeRef.current) resumeTab(tabId, claudeSessionId);
-      else pendingResumeRef.current.set(tabId, claudeSessionId);
-    }
+  const createTerminal = useCallback(async (tab: TabInfo) => {
+    const tabId = tab.id;
+    if (termsRef.current.has(tabId) || creatingRef.current.has(tabId) || !hostRef.current) return;
+    creatingRef.current.add(tabId);
+    try {
+      // A wake right after a sleep: the old PTY has to be gone before the new one is
+      // asked for (see pendingDestroyRef).
+      const pending = pendingDestroyRef.current.get(tabId);
+      if (pending) await pending;
+      if (termsRef.current.has(tabId) || !hostRef.current) return;
 
-    term.onData((data) => {
-      api.pty.write(tabId, data);
-      // Clear the working spinner only on a REAL interrupt, a bare Esc ('\x1b') or
-      // Ctrl+C ('\x03'). Must NOT fire on the focus-report sequences xterm emits via
-      // onData when the terminal blurs on tab switch (focus-out is 'ESC [ O', focus-in
-      // 'ESC [ I'), those were stopping the spinner the moment you left the tab.
-      // Arrow keys etc. ('ESC [ A'…) are also multi-char and correctly excluded.
-      if (data === '\x1b' || data === '\x03') {
-        onUserInputRef.current(tabId);
-      }
-    });
+      const container = document.createElement('div');
+      container.className = 'xterm-container';
+      container.style.display = tabId === activeRef.current ? '' : 'none';
+      hostRef.current.appendChild(container);
 
-    term.onResize(({ cols, rows }) => api.pty.resize(tabId, cols, rows));
+      const term = new Terminal({
+        theme: THEME,
+        fontFamily: "'Cascadia Code', 'Cascadia Mono', 'Consolas', 'Courier New', monospace",
+        fontSize: tab.fontSize ?? DEFAULT_FONT_SIZE,
+        cursorBlink: true,
+        scrollback: 5000,
+        allowProposedApi: true,
+        // OSC 8 hyperlinks (e.g. `ls --hyperlink`, ripgrep, modern CLIs) → open in browser
+        linkHandler: {
+          activate: (_event, uri) => window.afterterm.shell.openExternal(uri),
+        },
+      });
 
-    term.onTitleChange((rawTitle) => {
-      const notifType = detectNotification(rawTitle);
-      const projectName = notifType ? extractProjectName(rawTitle) : rawTitle;
-      onNotificationRef.current(tabId, notifType, projectName);
+      const fitAddon = new FitAddon();
+      term.loadAddon(fitAddon);
 
-      // NOTE: cwd is NOT captured from the title, cmd.exe sets its console title
-      // to "C:\…\cmd.exe - <command>", which looks path-like but is garbage. CWD is
-      // captured from the OSC 9;9 report below (cmd.exe only). See CLAUDE.md.
-      onTitleChangeRef.current(tabId, formatTabTitle(rawTitle));
-    });
+      // Debounce fit() so a burst of resize/zoom events collapses into a single
+      // ConPTY resize. A touchpad pinch arrives as dozens of ctrl+wheel events;
+      // a window-edge drag fires the ResizeObserver continuously. Each raw fit()
+      // recomputes cols/rows → term.onResize → pty.resize → ResizePseudoConsole,
+      // and the hosted TUI (Claude Code/Ink) repaints on every one. Ink's known
+      // resize-redraw leak then floods scrollback with duplicated frames. Coalescing
+      // to the final size means the PTY (and Ink) sees one resize, not fifty.
+      let fitTimer: ReturnType<typeof setTimeout> | undefined;
+      const scheduleFit = () => {
+        if (fitTimer) clearTimeout(fitTimer);
+        fitTimer = setTimeout(() => {
+          fitTimer = undefined;
+          try { fitAddon.fit(); } catch { /* container hidden or disposed */ }
+        }, 80);
+      };
 
-    // OSC 9;9;<path>, ConEmu-style cwd report. cmd.exe emits this via its injected
-    // PROMPT (see main.ts) so its tabs can restore to the right directory. The handler
-    // receives the OSC 9 payload, i.e. "9;C:\path". Other OSC 9 uses (progress, notify)
-    // don't carry the "9;" prefix, so we ignore those and let xterm handle them.
-    term.parser.registerOscHandler(9, (data) => {
-      if (data.startsWith('9;')) {
-        const dir = data.slice(2);
-        if (/^[A-Za-z]:\\/.test(dir)) {
-          onCwdChangeRef.current(tabId, dir);
-          return true;
+      // Plain URLs in output → underlined + clickable, opening the default browser
+      term.loadAddon(new WebLinksAddon((_event, uri) => window.afterterm.shell.openExternal(uri)));
+
+      const search = new SearchAddon();
+      term.loadAddon(search);
+      search.onDidChangeResults(({ resultIndex, resultCount }) => {
+        if (tabId === activeRef.current) {
+          setMatchInfo({ current: resultCount > 0 ? resultIndex + 1 : 0, total: resultCount });
         }
+      });
+
+      term.open(container);
+
+      try {
+        const webgl = new WebglAddon();
+        webgl.onContextLoss(() => webgl.dispose());
+        term.loadAddon(webgl);
+      } catch {
+        // WebGL not available, canvas fallback is fine
       }
-      return false;
-    });
 
-    api.pty.onExit(tabId, () => onExitRef.current(tabId));
+      // Ctrl+V paste, Ctrl+C copy (when selection exists), Ctrl+Shift+A select all,
+      // Ctrl+Shift+F find. The find/select-all combos live here (not main.ts's
+      // before-input-event) because they act on this terminal's xterm instance.
+      term.attachCustomKeyEventHandler((event) => {
+        if (event.type !== 'keydown') return true;
 
-    // Sync initial size to PTY
-    api.pty.resize(tabId, term.cols, term.rows);
+        if (event.ctrlKey && !event.shiftKey && event.key === 'v') {
+          event.preventDefault();
+          navigator.clipboard.readText().then(text => {
+            if (text) term.paste(text);
+          });
+          return false;
+        }
 
-    if (tabId === activeRef.current) {
-      term.focus();
+        if (event.ctrlKey && !event.shiftKey && event.key === 'c' && term.hasSelection()) {
+          navigator.clipboard.writeText(term.getSelection());
+          term.clearSelection();
+          return false;
+        }
+
+        if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'a') {
+          event.preventDefault();
+          term.selectAll();
+          return false;
+        }
+
+        if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'f') {
+          event.preventDefault();
+          openFind();
+          return false;
+        }
+
+        return true;
+      });
+
+      // Right-click: copy the selection (and clear it) if there is one, otherwise
+      // paste, the classic Windows console QuickEdit behavior.
+      container.addEventListener('contextmenu', (event) => {
+        event.preventDefault();
+        if (term.hasSelection()) {
+          navigator.clipboard.writeText(term.getSelection());
+          term.clearSelection();
+        } else {
+          navigator.clipboard.readText().then(text => {
+            if (text) term.paste(text);
+          });
+        }
+      });
+
+      // Ctrl+scroll → zoom this tab's font size (per-tab, persisted via session.json).
+      // Capture phase + preventDefault so xterm's viewport doesn't also scroll.
+      container.addEventListener('wheel', (event) => {
+        if (!event.ctrlKey) return;
+        event.preventDefault();
+        const cur = term.options.fontSize ?? DEFAULT_FONT_SIZE;
+        const next = Math.max(MIN_FONT_SIZE, Math.min(MAX_FONT_SIZE, cur + (event.deltaY < 0 ? 1 : -1)));
+        if (next !== cur) {
+          term.options.fontSize = next;
+          scheduleFit();
+          onFontSizeChangeRef.current(tabId, next);
+        }
+      }, { capture: true, passive: false });
+
+      // Drag a file/folder from Explorer → paste its absolute path (quoted if it has
+      // spaces). Multiple files are space-separated, matching cmd.exe drag behavior.
+      container.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+      });
+      container.addEventListener('drop', (event) => {
+        event.preventDefault();
+        const files = event.dataTransfer?.files;
+        if (!files || files.length === 0) return;
+        const paths = Array.from(files).map(f => {
+          const p = window.afterterm.files.pathForFile(f);
+          return /\s/.test(p) ? `"${p}"` : p;
+        });
+        if (paths.length) term.paste(paths.join(' '));
+      });
+
+      termsRef.current.set(tabId, { term, fitAddon, search, container, scheduleFit });
+
+      // Only fit visible tabs, fitAddon on a hidden container returns 0 dimensions
+      if (tabId === activeRef.current) {
+        fitAddon.fit();
+      }
+
+      const api = window.afterterm;
+
+      // Register data handler BEFORE creating the PTY, shell can emit the prompt
+      // immediately on spawn and we'd miss it if the listener isn't ready
+      api.pty.onData(tabId, (data) => {
+        term.write(data);
+        // Feed output activity to the spinner state machine (silence-clear + re-arm).
+        onOutputRef.current(tabId, data.length);
+      });
+
+      // A woken thread replays what was on its screen when it went to sleep, dimmed,
+      // with a divider under it, so waking looks like coming back to the same desk
+      // rather than opening a blank terminal. Written before the shell spawns so the
+      // fresh prompt lands under the divider.
+      if (tab.wokeAt) {
+        const tail = await window.afterterm.threads.readTail(tabId);
+        // Slept again while the file was being read: the teardown has already run,
+        // so there must be no PTY left behind for it.
+        if (!termsRef.current.has(tabId)) return;
+        term.write(renderTailForTerminal(tail ?? [], 'Woke just now', term.cols));
+      }
+
+      // Waking respawns where the thread was: claudeCwd over cwd, because
+      // `claude --resume <id>` resolves the session against the *current* cwd's
+      // project store (see CLAUDE.md / claude-code source), and claudeCwd is the
+      // hook-reported dir, authoritative across all shells.
+      const plan = wakePlan(tab);
+      await api.pty.create(tabId, plan.shellId, plan.cwd);
+
+      // A chat picks its session back up; a shell just gets a fresh prompt. The id is
+      // re-validated as a UUID inside resumeTab as well (session.json is
+      // hand-editable, and this becomes a typed shell command).
+      if (plan.resumeSessionId) resumeTab(tabId, plan.resumeSessionId);
+
+      term.onData((data) => {
+        api.pty.write(tabId, data);
+        // Clear the working spinner only on a REAL interrupt, a bare Esc ('\x1b') or
+        // Ctrl+C ('\x03'). Must NOT fire on the focus-report sequences xterm emits via
+        // onData when the terminal blurs on tab switch (focus-out is 'ESC [ O', focus-in
+        // 'ESC [ I'), those were stopping the spinner the moment you left the tab.
+        // Arrow keys etc. ('ESC [ A'…) are also multi-char and correctly excluded.
+        if (data === '\x1b' || data === '\x03') {
+          onUserInputRef.current(tabId);
+        }
+      });
+
+      term.onResize(({ cols, rows }) => api.pty.resize(tabId, cols, rows));
+
+      term.onTitleChange((rawTitle) => {
+        const notifType = detectNotification(rawTitle);
+        const projectName = notifType ? extractProjectName(rawTitle) : rawTitle;
+        onNotificationRef.current(tabId, notifType, projectName);
+
+        // NOTE: cwd is NOT captured from the title, cmd.exe sets its console title
+        // to "C:\…\cmd.exe - <command>", which looks path-like but is garbage. CWD is
+        // captured from the OSC 9;9 report below (cmd.exe only). See CLAUDE.md.
+        onTitleChangeRef.current(tabId, formatTabTitle(rawTitle));
+      });
+
+      // OSC 9;9;<path>, ConEmu-style cwd report. cmd.exe emits this via its injected
+      // PROMPT (see main.ts) so its tabs can restore to the right directory. The handler
+      // receives the OSC 9 payload, i.e. "9;C:\path". Other OSC 9 uses (progress, notify)
+      // don't carry the "9;" prefix, so we ignore those and let xterm handle them.
+      term.parser.registerOscHandler(9, (data) => {
+        if (data.startsWith('9;')) {
+          const dir = data.slice(2);
+          if (/^[A-Za-z]:\\/.test(dir)) {
+            onCwdChangeRef.current(tabId, dir);
+            return true;
+          }
+        }
+        return false;
+      });
+
+      api.pty.onExit(tabId, () => onExitRef.current(tabId));
+
+      // Sync initial size to PTY
+      api.pty.resize(tabId, term.cols, term.rows);
+
+      if (tabId === activeRef.current) {
+        term.focus();
+      }
+    } finally {
+      creatingRef.current.delete(tabId);
     }
   }, [openFind, resumeTab]);
 
-  // Sync terminals with tab list, create new, destroy removed
+  // Reconcile the terminals with the tab list. `asleep` is the source of truth:
+  // awake with no terminal → build one (a wake, or a brand new thread); asleep with
+  // a terminal → sleep it; a terminal whose tab is gone → close it. Both of the last
+  // two run the same teardown, only the reason differs, which is what the app uses to
+  // decide whether the tail is kept.
   useEffect(() => {
     const currentIds = new Set(tabInfos.map(t => t.id));
-    const existingIds = new Set(termsRef.current.keys());
 
     for (const tab of tabInfos) {
-      if (!existingIds.has(tab.id)) {
-        createTerminal(tab.id, tab.shellId, tab.cwd, tab.fontSize, tab.claudeSessionId, tab.claudeCwd);
+      if (tab.asleep) {
+        if (termsRef.current.has(tab.id)) void teardownTerminal(tab.id, 'sleep');
+      } else if (!termsRef.current.has(tab.id)) {
+        void createTerminal(tab);
       }
     }
 
-    for (const id of existingIds) {
-      if (!currentIds.has(id)) {
-        const info = termsRef.current.get(id)!;
-        window.afterterm.pty.offData(id);
-        window.afterterm.pty.destroy(id);
-        info.term.dispose();
-        info.container.remove();
-        termsRef.current.delete(id);
-      }
+    // A copy of the keys: teardownTerminal deletes from the map as it goes.
+    for (const id of [...termsRef.current.keys()]) {
+      if (!currentIds.has(id)) void teardownTerminal(id, 'close');
     }
-  }, [tabInfos, createTerminal]);
+  }, [tabInfos, createTerminal, teardownTerminal]);
 
   // Show/hide + focus on active tab change. Switching tabs also closes the find bar
   // (search is scoped to a single terminal).
@@ -461,14 +567,7 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, visible, onTitleChan
         info.container.style.display = 'none';
       }
     }
-
-    // Lazy resume: a background Claude tab resumes the first time you open it.
-    const pending = pendingResumeRef.current.get(activeTabId);
-    if (pending) {
-      pendingResumeRef.current.delete(activeTabId);
-      resumeTab(activeTabId, pending);
-    }
-  }, [activeTabId, resumeTab]);
+  }, [activeTabId]);
 
   // Coming back from another screen. The workspace is hidden with display: none
   // while Home or a project page shows, and FitAddon on a hidden container
@@ -506,11 +605,46 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, visible, onTitleChan
     return () => observer.disconnect();
   }, []);
 
+  // What the app reads at quit time, when every awake thread's screen has to reach
+  // disk before the window goes.
+  useImperativeHandle(ref, (): TerminalAreaHandle => ({
+    readTail: (tabId) => {
+      const info = termsRef.current.get(tabId);
+      return info ? captureTail(info.term) : null;
+    },
+    readAllTails: () => {
+      const tails: Record<string, string[]> = {};
+      for (const [id, info] of termsRef.current) tails[id] = captureTail(info.term);
+      return tails;
+    },
+  }), []);
+
+  // Read by scripts/agent-harness/drive.mjs, which drives the app for phase testing
+  // and has no other way to see what a terminal is showing (the xterm buffer is not
+  // in the DOM as text). Returns null when the thread has no terminal, which is
+  // itself the answer to "is it asleep".
+  useEffect(() => {
+    const readTail = (tabId: string, n: number): string[] | null => {
+      const info = termsRef.current.get(tabId);
+      return info ? captureTail(info.term, n) : null;
+    };
+    (window as unknown as {
+      __afterterm?: {
+        tail(tabId: string, n?: number): string[] | null;
+        activeTail(n?: number): string[] | null;
+      };
+    }).__afterterm = {
+      tail: (tabId, n = 30) => readTail(tabId, n),
+      activeTail: (n = 30) => readTail(activeRef.current, n),
+    };
+  }, []);
+
   // Cleanup all terminals on unmount
   useEffect(() => {
     return () => {
       for (const [id, info] of termsRef.current) {
         window.afterterm.pty.offData(id);
+        window.afterterm.pty.offExit(id);
         window.afterterm.pty.destroy(id);
         info.term.dispose();
         info.container.remove();
@@ -520,7 +654,7 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, visible, onTitleChan
   }, []);
 
   return (
-    <div className="terminal-instances">
+    <div className={`terminal-instances${hidden ? ' asleep-hidden' : ''}`}>
       {/* React never touches this node's children, terminal containers are appended
           imperatively. The find bar lives as a sibling so React can manage it freely. */}
       <div ref={hostRef} className="terminal-host" />
@@ -556,4 +690,4 @@ export function TerminalArea({ tabs: tabInfos, activeTabId, visible, onTitleChan
       )}
     </div>
   );
-}
+});

@@ -311,11 +311,6 @@
   opacity: .45;
 }
 
-/* A restored thread whose saved Claude session has not been resumed yet. */
-.side-panel .th.restorable {
-  opacity: .6;
-}
-
 /* Needs you and Done breathe until the thread is looked at: 5% to 16% of the
    state colour on the rounded row, slower and softer than the old row pulse.
    The selected row never breathes; its icon carries the state. */

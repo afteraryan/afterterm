@@ -10,7 +10,8 @@
 // Node, and so both the main process (writing/reading files) and the renderer (turning
 // the tail back into escape sequences) share one definition of the format.
 
-import path from 'node:path';
+// No node:path import: the renderer bundles this module too (for renderTailForTerminal),
+// and Vite warns on Node built-ins there. The join below is enough for a Windows-only app.
 
 /** How many lines of tail we keep. Enough to see the last command and its output. */
 export const TAIL_MAX_LINES = 200;
@@ -29,7 +30,7 @@ export function isThreadId(id: unknown): id is string {
 
 /** Where one thread's tail lives. Callers must have checked isThreadId first. */
 export function tailFilePath(dir: string, id: string): string {
-  return path.join(dir, `${id}.txt`);
+  return `${dir.replace(/[\\/]+$/, '')}\\${id}.txt`;
 }
 
 /** UTF-8 length of a string, without allocating a Buffer per call where avoidable. */

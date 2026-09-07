@@ -8,6 +8,7 @@ import { FolderIcon, IconBranch, IconModel, IconMore, IconTerm, IconWorktree, Ki
 import { Menu } from '../Menu';
 import { buildThreadMenu, ThreadMenuActions } from '../../threadMenu';
 import { threadKind, threadName, threadState, stateLabel, modelLabel } from '../../threadView';
+import { asleepLabel } from '../../sleepWake';
 import './Header.css';
 
 // Matches the menu's own min-width (Menu.css), so the panel opens flush with
@@ -20,9 +21,13 @@ export interface HeaderProps {
   groups: Group[];
   // Undefined only when there is no active tab (nothing to act on).
   actions?: ThreadMenuActions;
+  // Clock reading for the asleep chip's "Asleep · 2d" wording (asleepLabel).
+  // Required, not read from Date.now() here, so the chip updates on the same
+  // tick as the rest of the app instead of drifting on its own render timing.
+  now: number;
 }
 
-export function Header({ tab, group, groups, actions }: HeaderProps) {
+export function Header({ tab, group, groups, actions, now }: HeaderProps) {
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -81,7 +86,7 @@ export function Header({ tab, group, groups, actions }: HeaderProps) {
         {state !== 'quiet' && (
           <span className="chip header-chip">
             <StateIcon state={state} />
-            {stateLabel(state)}
+            {state === 'asleep' ? asleepLabel(tab.sleptAt, now) : stateLabel(state)}
           </span>
         )}
         {actions && (

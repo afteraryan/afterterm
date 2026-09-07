@@ -1,0 +1,50 @@
+/* Asleep pane (AsleepPane/index.tsx): the mock's .term.asleep (see
+   docs/mockups/afterterm-next.html, .wakebox and .term .past). Mirrors
+   index.css's .terminal-instances exactly (same flex, margin, background,
+   radius) so it sits in the terminal card's spot without shifting the header
+   or the sidebar; it scrolls its own content instead of clipping it, since
+   the tail can run long. */
+
+.asleep-pane {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow-y: auto;
+  margin: 0 12px 12px;
+  border-radius: var(--radius-surface);
+  background: #191919;
+  padding: 18px 22px;
+}
+
+/* Sticky at the pane's own top-fifth, like the mock, so the Wake button stays
+   in view above a long scrolled-past tail instead of scrolling off with it. */
+.asleep-pane .wakebox {
+  position: sticky;
+  top: 20%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--sans);
+  margin: -40px 0 0;
+}
+
+.asleep-pane .wakebox .w {
+  color: var(--text3);
+  font-size: 13px;
+}
+
+/* The dimmed scrollback tail: same mono, size and line-height as the live
+   terminal, at 30% opacity and inert (the design calls it "old output
+   dimmed", not old output you can still select or click through). */
+.asleep-pane .past {
+  margin-top: 14px;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.6;
+  color: #c8c8c8;
+  opacity: .3;
+  pointer-events: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

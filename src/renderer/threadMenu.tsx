@@ -1,6 +1,6 @@
 // The one thread menu, shared by the sidebar right-click and the main pane
-// header's dots button. No rename, no sleep, no wake: those arrive later
-// (Tab.asleep exists in the data model but nothing sets it true yet).
+// header's dots button. Sleep and wake are here now (Phase 4); still no
+// rename, `/rename` in Claude Code is the only rename.
 import { Tab, Group } from './components/TabBar/types';
 import { MenuItem } from './components/Menu';
 import { FolderIcon, IconTerm } from './components/Icons';
@@ -9,6 +9,8 @@ export interface ThreadMenuActions {
   open: () => void;
   moveToGroup: (groupId: string | undefined) => void; // undefined = General (no project)
   close: () => void;
+  sleep: () => void;
+  wake: () => void;
   // Only passed where there is a screen to go to. A thread with no project has no
   // page to open, so the item stays out of the menu in that case either way.
   openProjectPage?: () => void;
@@ -33,6 +35,7 @@ export function buildThreadMenu(tab: Tab, groups: Group[], actions: ThreadMenuAc
 
   const items: MenuItem[] = [
     { label: 'Open', onSelect: actions.open },
+    tab.asleep ? { label: 'Wake', onSelect: actions.wake } : { label: 'Sleep', onSelect: actions.sleep },
     { label: 'Move to project', submenu: { title: 'Move to', items: moveItems } },
   ];
 

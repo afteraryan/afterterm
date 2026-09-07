@@ -94,6 +94,13 @@ html, body, #root {
   background: #191919;
 }
 
+/* An asleep thread has no terminal: its pane stands in the card's place. The area
+   stays mounted (React never owns the xterm containers, so unmounting it would
+   strand them), it just stops taking space. */
+.terminal-instances.asleep-hidden {
+  display: none;
+}
+
 /* Holds the imperatively-appended xterm containers. Absolute-filled so the
    containers (position: absolute; inset: 0) size to it, leaving .terminal-instances
    free to also host the React-managed find bar as a sibling. */

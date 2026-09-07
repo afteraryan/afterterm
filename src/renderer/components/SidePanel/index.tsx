@@ -90,7 +90,6 @@ function ThreadRow({
     isGroupPreview ? 'group-preview' : '',
     overlay ? 'drag-overlay' : '',
     state === 'asleep' ? 'sleep' : '',
-    tab.claudeRestorable ? 'restorable' : '',
     breathe,
   ].filter(Boolean).join(' ');
 
@@ -268,6 +267,8 @@ export interface SidePanelProps {
   onToggleCollapse: () => void;
   onActivate: (tabId: string) => void;
   onClose: (tabId: string) => void;
+  onSleep: (tabId: string) => void;
+  onWake: (tabId: string) => void;
   onNewTab: (groupId?: string, shellId?: string) => void;
   // Screens the sidebar can send you to, and the popovers it opens. The chooser is
   // anchored under whichever New thread control was used, so the caller is handed
@@ -300,7 +301,7 @@ export interface SidePanelProps {
 export function SidePanel(props: SidePanelProps) {
   const {
     tabs, groups, activeTabId, collapsed, shells, onToggleCollapse,
-    onActivate, onClose, onNewTab,
+    onActivate, onClose, onSleep, onWake, onNewTab,
     onGoHome, onSearch, onOpenChooser, onOpenProjectPage, onTogglePin,
     onNewProject, editors, folderExists, projectActions,
     onCreateGroup, onAddToGroup, onRemoveFromGroup,
@@ -516,6 +517,8 @@ export function SidePanel(props: SidePanelProps) {
         open: () => onActivate(tab.id),
         moveToGroup: id => (id ? onAddToGroup(tab.id, id) : onRemoveFromGroup(tab.id)),
         close: () => onClose(tab.id),
+        sleep: () => onSleep(tab.id),
+        wake: () => onWake(tab.id),
         openProjectPage: tab.groupId ? () => onOpenProjectPage(tab.groupId!) : undefined,
       }),
     });

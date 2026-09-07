@@ -32,6 +32,12 @@
 //   palette                       the search palette's rows
 //   header                        the main pane header as a tree
 //   hover-card                    the thread hover card as a tree (or "(no hover card)")
+//   pane                           the asleep pane as a tree (data-tab-id, wake button,
+//                                  since text, past lines), or "(terminal)" plus whether
+//                                  .terminal-instances is hidden when no thread is asleep
+//   tail [n]                      last n lines (default 30) of the active tab's xterm
+//                                  buffer via window.__afterterm; add --tab <id> for a
+//                                  specific tab instead of the active one
 //   window bottom|restore|close-dialogs   OS-level window z-order, un-minimise, and
 //                                  closing stray native dialogs (e.g. a file picker)
 //   record start --out <file.mp4> [--max-width N] [--fps N] [--quality N]
@@ -69,7 +75,7 @@ const SEL = {
   threadRow: '.th',
   threadName: '.n',
   threadSelectedClass: 'sel',
-  threadRestorableClass: 'restorable',
+  threadAsleepClass: 'sleep', // Phase 4: replaces threadRestorableClass ('restorable' no longer exists)
   threadClose: '.xb',
   stateIcon: '[data-state]',
   showMore: '.thmore',
@@ -112,6 +118,9 @@ const SEL = {
     rowTime: '.t',
     stateIcon: '[data-state]',
     nothing: '.nothing',
+    // Phase 4: History tab rows (closed threads; no state icon, an optional Resume button).
+    historyRow: '.tl[data-history-id]',
+    resumeButton: '.acts [data-resume]',
   },
 
   // New-thread chooser (src/renderer/components/NewThreadChooser/index.tsx).
@@ -134,6 +143,7 @@ const SEL = {
     itemMeta: '.m',
     hiClass: 'hi',
     nothing: '.nothing',
+    groupLabel: '.gl', // Phase 4: group headers ("Projects", "Threads", "History")
   },
 
   // Main pane header (src/renderer/components/Header/index.tsx).
@@ -151,6 +161,17 @@ const SEL = {
     title: '.hn',
     row: 'dd[data-row]',
   },
+
+  // Asleep pane (Phase 4, src/renderer/components/AsleepPane/index.tsx): shown in the
+  // main pane instead of the terminal card while the active thread is asleep.
+  asleepPane: {
+    root: '.asleep-pane',
+    wake: '[data-wake]',
+    since: '.wakebox .w',
+    past: 'pre.past',
+  },
+  // Phase 4: the terminal host carries this class while the asleep pane covers it.
+  terminalHidden: '.terminal-instances.asleep-hidden',
 };
 
 // Windows virtual-key codes for the keys an agent is likely to press.
@@ -176,7 +197,7 @@ const { opts, positional } = parseArgs(process.argv.slice(2));
 const [command, ...args] = positional;
 
 if (!command || opts.help) {
-  console.log(fs.readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(0, 44).map(l => l.replace(/^\/\/ ?/, '')).join('\n'));
+  console.log(fs.readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(0, 50).map(l => l.replace(/^\/\/ ?/, '')).join('\n'));
   process.exit(command ? 0 : 1);
 }
 
@@ -227,6 +248,8 @@ try {
       case 'palette': await cmdPalette(); break;
       case 'header': await cmdHeader(); break;
       case 'hover-card': await cmdHoverCard(); break;
+      case 'pane': await cmdPane(); break;
+      case 'tail': await cmdTail(args[0]); break;
       case 'window': await cmdWindow(args[0]); break;
       default: throw new DriveError(`unknown command: ${command}`);
     }
@@ -469,7 +492,7 @@ async function cmdSidebar() {
         active: row.classList.contains(S.threadSelectedClass),
         kind: row.dataset.kind || null,
         state: icon ? icon.getAttribute('data-state') : 'quiet',
-        restorable: row.classList.contains(S.threadRestorableClass),
+        asleep: row.classList.contains(S.threadAsleepClass),
         close: !!row.querySelector(S.threadClose),
       };
     };
@@ -512,7 +535,7 @@ async function cmdSidebar() {
 
   if (!tree.present) { console.log(`(no ${SEL.panel} in the DOM)`); return; }
   console.log(`side-panel${tree.collapsed ? ' (collapsed, rail only)' : ''}`);
-  const threadLine = (t, indent) => `${indent}- ${t.active ? '* ' : ''}"${t.title}" [${t.kind || '?'}/${t.state || 'quiet'}]${t.close ? ' [x]' : ''}${t.restorable ? ' [restorable]' : ''}`;
+  const threadLine = (t, indent) => `${indent}- ${t.active ? '* ' : ''}"${t.title}" [${t.kind || '?'}/${t.state || 'quiet'}]${t.asleep ? ' [asleep]' : ''}${t.close ? ' [x]' : ''}`;
   for (const sec of tree.sections) {
     console.log(`  ${sec.label}`);
     for (const t of sec.loose) console.log(threadLine(t, '    '));
@@ -633,6 +656,15 @@ async function cmdProject() {
         time: text(row.querySelector(S.rowTime)) || null,
       };
     });
+    // Phase 4: History tab rows. No state icon (the thread is closed); an
+    // optional Resume button on rows that carry a resumable session.
+    const historyRows = Array.from(document.querySelectorAll(S.historyRow)).map(row => ({
+      historyId: row.dataset.historyId || null,
+      name: text(row.querySelector(S.rowName)),
+      detail: text(row.querySelector(S.rowDetail)) || null,
+      time: text(row.querySelector(S.rowTime)) || null,
+      resume: !!row.querySelector(S.resumeButton),
+    }));
     const search = document.querySelector(S.search);
     return {
       present: true,
@@ -642,6 +674,7 @@ async function cmdProject() {
       tabs,
       search: search ? search.value : '',
       rows,
+      historyRows,
       nothing: text(document.querySelector(S.nothing)) || null,
     };
   })(${JSON.stringify(S)})`);
@@ -650,14 +683,21 @@ async function cmdProject() {
   console.log(data.title || '(no title)');
   console.log(`  folder: ${data.folderLine || '(none)'}`);
   console.log(`  actions: ${data.actions.map(a => `${a.action}${a.disabled ? ' (disabled)' : ''}`).join(', ') || '(none)'}`);
+  // The selected tab label prints before the rows, so a reader always knows
+  // which list (Live, Asleep or History) the rows below belong to.
   const selected = data.tabs.find(t => t.selected);
   const others = data.tabs.filter(t => !t.selected).map(t => t.label);
   console.log(`  tab: ${selected ? selected.label : '(none selected)'}  other tabs: ${others.join(', ') || '(none)'}`);
   console.log(`  search: ${JSON.stringify(data.search)}`);
-  if (!data.rows.length) {
-    console.log(`  ${data.nothing || '(no rows)'}`);
-  } else {
+  if (data.rows.length) {
     for (const r of data.rows) console.log(`  - "${r.name}" [${r.detail || ''}] [${r.state || 'quiet'}]${r.time ? '  ' + r.time : ''}`);
+  } else if (data.historyRows.length) {
+    for (const r of data.historyRows) {
+      const kind = (r.detail || '').toLowerCase() === 'chat' ? 'chat' : 'shell';
+      console.log(`  - "${r.name}" [${kind}]${r.time ? '  ' + r.time : ''}${r.resume ? ' [resume]' : ''}`);
+    }
+  } else {
+    console.log(`  ${data.nothing || '(no rows)'}`);
   }
 }
 
@@ -690,20 +730,29 @@ async function cmdPalette() {
     const root = document.querySelector(S.root);
     if (!root) return { present: false };
     const input = document.querySelector(S.input);
-    const items = Array.from(document.querySelectorAll(S.item)).map(i => ({
-      kind: i.dataset.kind || null,
-      id: i.dataset.id || null,
-      name: text(i.querySelector(S.itemName)),
-      meta: text(i.querySelector(S.itemMeta)) || null,
-      hi: i.classList.contains(S.hiClass),
-    }));
-    return { present: true, input: input ? input.value : '', items, nothing: text(document.querySelector(S.nothing)) || null };
+    // Walk group headers (Projects, Threads, and Phase 4's History) and result
+    // rows together in document order, so each row prints under its own group.
+    const rows = Array.from(root.querySelectorAll(S.groupLabel + ', ' + S.item)).map(el => {
+      if (el.matches(S.groupLabel)) return { group: text(el) };
+      return {
+        kind: el.dataset.kind || null,
+        id: el.dataset.id || null,
+        name: text(el.querySelector(S.itemName)),
+        meta: text(el.querySelector(S.itemMeta)) || null,
+        hi: el.classList.contains(S.hiClass),
+      };
+    });
+    return { present: true, input: input ? input.value : '', rows, nothing: text(document.querySelector(S.nothing)) || null };
   })(${JSON.stringify(S)})`);
 
   if (!data.present) { console.log('(no palette open)'); return; }
   console.log(`input: ${JSON.stringify(data.input)}`);
-  if (!data.items.length) console.log(`  ${data.nothing || '(no results)'}`);
-  for (const i of data.items) console.log(`  ${i.hi ? '*' : ' '} [${i.kind}/${i.id}] ${i.name}${i.meta ? '  ' + i.meta : ''}`);
+  const items = data.rows.filter(r => r.group === undefined);
+  if (!items.length) console.log(`  ${data.nothing || '(no results)'}`);
+  for (const r of data.rows) {
+    if (r.group !== undefined) { console.log(`  ${r.group}`); continue; }
+    console.log(`  ${r.hi ? '*' : ' '} [${r.kind}/${r.id}] ${r.name}${r.meta ? '  ' + r.meta : ''}`);
+  }
 }
 
 async function cmdHeader() {
@@ -757,6 +806,58 @@ async function cmdHoverCard() {
   if (!data.present) { console.log('(no hover card)'); return; }
   console.log(data.title || '(no title)');
   for (const r of data.rows) console.log(`  ${r.row || '?'}: ${r.text}`);
+}
+
+// Phase 4: the asleep pane (src/renderer/components/AsleepPane/index.tsx) that
+// covers the terminal card while the active thread is asleep.
+async function cmdPane() {
+  const S = SEL.asleepPane;
+  const data = await evaluate(cdp, `((S, hiddenSel) => {
+    const text = el => (el ? (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim() : '');
+    const root = document.querySelector(S.root);
+    const hostHidden = !!document.querySelector(hiddenSel);
+    if (!root) return { present: false, hostHidden };
+    const pastEl = root.querySelector(S.past);
+    // Absent while the tail is still loading or once loaded empty (AsleepPane
+    // only renders <pre class="past"> when tail !== null && tail.length > 0).
+    const pastLines = pastEl ? (pastEl.innerText || pastEl.textContent || '').replace(/\\r\\n/g, '\\n').split('\\n') : null;
+    return {
+      present: true,
+      tabId: root.dataset.tabId || null,
+      wake: !!root.querySelector(S.wake),
+      since: text(root.querySelector(S.since)),
+      pastLines,
+    };
+  })(${JSON.stringify(S)}, ${JSON.stringify(SEL.terminalHidden)})`);
+
+  if (!data.present) {
+    console.log('(terminal)');
+    console.log(`terminal: ${data.hostHidden ? 'hidden' : 'shown'}`);
+    return;
+  }
+  console.log(`asleep pane for ${data.tabId || '(unknown)'}`);
+  console.log(`wake button: ${data.wake ? 'yes' : 'no'}`);
+  console.log(`since: ${data.since || '(none)'}`);
+  if (!data.pastLines) {
+    console.log('past: (none)');
+  } else {
+    console.log(`past lines: ${data.pastLines.length}`);
+    for (const l of data.pastLines.slice(-5)) console.log(`  ${l}`);
+  }
+}
+
+// Phase 4: reads an xterm buffer through window.__afterterm, the hook Terminal/
+// index.tsx installs for the harness (tail(tabId, n) and activeTail(n), each
+// trimming trailing blank lines and returning null when there is no terminal
+// for that id, e.g. it is asleep).
+async function cmdTail(nArg) {
+  const n = Number(nArg ?? 30) || 30;
+  const expr = opts.tab
+    ? `window.__afterterm && window.__afterterm.tail(${JSON.stringify(String(opts.tab))}, ${n})`
+    : `window.__afterterm && window.__afterterm.activeTail(${n})`;
+  const lines = await evaluate(cdp, expr);
+  if (!lines) { console.log('(no terminal)'); return; }
+  for (const l of lines) console.log(l);
 }
 
 // The electron browser process id, re-resolved from the listening DevTools

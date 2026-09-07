@@ -1,6 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { SidePanel } from './components/SidePanel';
 import { TerminalArea } from './components/Terminal';
+import type { TerminalAreaHandle } from './components/Terminal';
+import { AsleepPane } from './components/AsleepPane';
 import { Header } from './components/Header';
 import { TitleBar } from './components/TitleBar';
 import { Tooltip } from './components/Tooltip';
@@ -15,6 +17,7 @@ import { useTabState, threadGitCwd } from './hooks/useTabState';
 import { TabNotification, GROUP_COLORS, nextGroupColor } from './components/TabBar/types';
 import { onTitle, onOutput, onTick, onInterrupt, initTiming, TabTiming } from './spinnerState';
 import { migrateSession, serializeSession } from './sessionMigration';
+import { sleepAllForShutdown } from './sleepWake';
 import { toastMessage, initialScreen, threadName } from './threadView';
 import { ProjectActions } from './projectMenu';
 import { buildThreadMenu } from './threadMenu';
@@ -79,6 +82,18 @@ export function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   // null = closed; groupId absent = creating a new project.
   const [projectModal, setProjectModal] = useState<{ mode: 'create' | 'edit'; groupId?: string } | null>(null);
+  // The saved scrollback tail of every thread whose pane may need it, keyed by tab
+  // id. Filled when a thread goes to sleep (the terminal hands its last lines over
+  // on the way out) and, for a thread restored from disk, read from its tail file
+  // the first time its pane shows.
+  const [tails, setTails] = useState<Record<string, string[]>>({});
+  // Which tab a project page opens on. Everything that opens a project page shows
+  // Live; only the palette's history results open it on History.
+  const [projectPageTab, setProjectPageTab] = useState<'live' | 'asleep' | 'history'>('live');
+
+  // The terminal layer, for the one thing only it knows: what is on each screen
+  // right now. Read at quit, when every awake thread's tail has to reach disk.
+  const terminalRef = useRef<TerminalAreaHandle>(null);
 
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -87,11 +102,18 @@ export function App() {
   const screenRef = useRef(screen);
   screenRef.current = screen;
 
+  // Read by the clock effect and the tail-reading effect below, both of which run
+  // before `activeTab` is derived further down.
+  const activeTabAsleep = !!state.tabs.find(t => t.id === state.activeTabId)?.asleep;
+
   // Every screen switch goes through here so the entrance class always replays.
   const goScreen = useCallback((next: Screen, groupId?: string) => {
     if (next === 'project') {
       if (!groupId) return;
       setProjectPageId(groupId);
+      // Every route into a project page lands on Live. The one exception sets
+      // History straight after calling this (see the palette's onOpenHistory).
+      setProjectPageTab('live');
     }
     setScreen(next);
     setScreenSeq(n => n + 1);
@@ -256,7 +278,7 @@ export function App() {
           setPaletteOpen(open => !open);
           break;
         case 'close-tab':
-          if (s.tabs.length > 0) s.closeTab(s.activeTabId);
+          if (s.tabs.length > 0) closeThread(s.activeTabId);
           break;
         case 'next-tab': {
           if (s.tabs.length < 2) break;
@@ -338,6 +360,15 @@ export function App() {
       }
     })();
 
+    // Tail files outlive their threads (a closed thread keeps one for Resume), so
+    // the only moment it is safe to sweep the folder is here, once the restored
+    // session is in state: anything not backing a live thread or a history entry
+    // belongs to a thread that was closed and forgotten long ago.
+    window.afterterm.threads.prune([
+      ...tabs.map(t => t.id),
+      ...stateRef.current.groups.flatMap(g => g.history.map(e => e.id)),
+    ]);
+
     const withCwd = tabs
       .map(t => ({ id: t.id, cwd: threadGitCwd(t) }))
       .filter((t): t is { id: string; cwd: string } => !!t.cwd);
@@ -386,12 +417,11 @@ export function App() {
   }, []);
 
   // Opening a thread clears what it was waiting to tell you: the pending
-  // notification badge, the muted restorable marker, and any overlay toast for it.
-  // 'working' is ongoing-turn state, not an unseen badge, so it keeps spinning.
+  // notification badge and any overlay toast for it. 'working' is ongoing-turn
+  // state, not an unseen badge, so it keeps spinning.
   const clearThreadBadges = useCallback((tabId: string) => {
     const current = stateRef.current.tabs.find(t => t.id === tabId)?.notification;
     if (current !== 'working') stateRef.current.setTabNotification(tabId, undefined);
-    stateRef.current.clearTabRestorable(tabId);
     window.afterterm.notify.dismissTab(tabId);
   }, []);
 
@@ -406,8 +436,9 @@ export function App() {
     // stamp: this is the user choosing the tab, which is the only thing that should
     // count as "used" until Phase 2 adds PTY activity.
     state.activateTab(tabId);
-    // Activating a restorable tab is what resumes its Claude session (the Terminal's
-    // activeTab effect injects `claude --resume`), so the badges go now.
+    // An asleep thread is only shown, never woken: opening it puts its pane on
+    // screen with the old output and a Wake button, and nothing is spawned until
+    // that button (or the menu's Wake) is used.
     clearThreadBadges(tabId);
   }, [state.activateTab, clearThreadBadges]);
 
@@ -485,9 +516,93 @@ export function App() {
     return () => clearInterval(id);
   }, []);
 
+  // Sleep destroys the PTY too, and its exit listener is unregistered before the
+  // kill for exactly that reason, but the guard stays: a sleeping thread must never
+  // be closed by its own process going away.
   const handlePtyExit = useCallback((tabId: string) => {
-    state.closeTab(tabId);
-  }, [state.closeTab]);
+    const tab = stateRef.current.tabs.find(t => t.id === tabId);
+    if (!tab || tab.asleep) return;
+    closeThread(tabId);
+  }, []);
+
+  // Closing a thread inside a project files it in that project's history; a thread
+  // in General is simply gone. Only the first is worth saying out loud, and saying
+  // it is what tells the user where the thread went.
+  const closeThread = useCallback((tabId: string) => {
+    const wasAsleep = !!stateRef.current.tabs.find(t => t.id === tabId)?.asleep;
+    if (stateRef.current.closeTab(tabId)) {
+      showToast({ message: 'Moved to history' });
+    } else if (wasAsleep) {
+      // Closing an awake thread goes through handleTail, which is what deletes a
+      // General thread's tail file. An asleep thread has no terminal left to hand a
+      // tail over, so its file has to be dropped here instead of waiting for the
+      // next launch's prune.
+      window.afterterm.threads.deleteTail(tabId);
+      setTails(prev => {
+        if (prev[tabId] === undefined) return prev;
+        const next = { ...prev };
+        delete next[tabId];
+        return next;
+      });
+    }
+  }, [showToast]);
+
+  // Sleep, wake and resume, the three things Phase 4 adds. Sleeping is a record
+  // change here; the terminal layer sees `asleep` turn true and does the rest
+  // (capture the tail, unhook the listeners, kill the process tree).
+  const sleepThread = useCallback((tabId: string) => {
+    stateRef.current.sleepTab(tabId);
+    // Nothing left to time: the spinner's silence clock belongs to a running
+    // process, and a stale entry would survive into the next wake.
+    timingRef.current.delete(tabId);
+    window.afterterm.notify.dismissTab(tabId);
+  }, []);
+
+  // No screen switch and no activation: Wake from a background thread's menu wakes
+  // it where it is, and the pane's own Wake button is on the active thread anyway.
+  const wakeThread = useCallback((tabId: string) => {
+    stateRef.current.wakeTab(tabId);
+  }, []);
+
+  // Bring a closed thread back from its project's history. The recreated tab carries
+  // the closed thread's id, so its saved tail replays, and it comes back awake.
+  const resumeThread = useCallback((groupId: string, entryId: string) => {
+    const s = stateRef.current;
+    const group = s.groups.find(g => g.id === groupId);
+    const entry = group?.history.find(e => e.id === entryId);
+    const tabId = s.resumeFromHistory(groupId, entryId);
+    if (!tabId || !entry) return;
+    // The new tab is not in state yet this tick, so its session and folder are read
+    // from the entry, which is where tabFromHistory takes them from.
+    const cwd = entry.cwd ?? group?.cwd;
+    if (entry.kind === 'chat' && entry.sessionId && entry.cwd) {
+      refreshClaudeMeta(tabId, entry.sessionId, entry.cwd);
+    }
+    refreshGit(tabId, cwd);
+    goScreen('workspace');
+  }, [refreshClaudeMeta, refreshGit, goScreen]);
+
+  // The last lines of a terminal that is about to be destroyed. A sleeping thread's
+  // tail is what its pane shows and what it replays on waking, so it is both kept in
+  // state and written to disk. A closed thread's is only worth keeping when the
+  // thread itself was kept: a closed General thread leaves nothing behind, file
+  // included.
+  const handleTail = useCallback((tabId: string, lines: string[], reason: 'sleep' | 'close') => {
+    if (reason === 'sleep') {
+      setTails(prev => ({ ...prev, [tabId]: lines }));
+      window.afterterm.threads.saveTail(tabId, lines);
+      return;
+    }
+    const inHistory = stateRef.current.groups.some(g => g.history.some(e => e.id === tabId));
+    if (inHistory) window.afterterm.threads.saveTail(tabId, lines);
+    else window.afterterm.threads.deleteTail(tabId);
+    setTails(prev => {
+      if (prev[tabId] === undefined) return prev;
+      const next = { ...prev };
+      delete next[tabId];
+      return next;
+    });
+  }, []);
 
   // Flush a synchronous save on window close, the debounced save's pending timer is
   // cleared on unmount, so the last <2s of changes (e.g. a fresh cwd) would be lost.
@@ -495,7 +610,12 @@ export function App() {
     const flush = () => {
       const s = stateRef.current;
       if (!s.tabs.length) return;
-      const data = serializeSession(s.tabs, s.groups, s.activeTabId);
+      // Screens first: once the window is gone the buffers are gone with it, and a
+      // thread with no saved tail wakes into a blank terminal.
+      window.afterterm.threads.saveTailsSync(terminalRef.current?.readAllTails() ?? {});
+      // Quitting puts every thread to sleep, stamped now, so the "Asleep · 2d" chip
+      // on the next launch counts from when the app actually closed.
+      const data = serializeSession(sleepAllForShutdown(s.tabs, Date.now()), s.groups, s.activeTabId);
       window.afterterm.session.saveSync(JSON.stringify(data));
     };
     window.addEventListener('beforeunload', flush);
@@ -519,15 +639,30 @@ export function App() {
     return () => clearTimeout(timer);
   }, [initialized, screen, screenSeq]);
 
-  // The clock behind the relative times on Home and the project page. It runs
-  // only while one of those screens is open, and is set once on entry so a screen
-  // opened after a long spell in the workspace never shows a stale "5m".
+  // The clock behind the relative times on Home and the project page, and behind
+  // the "Asleep · 2d" chip and the asleep pane's "asleep since" line, which are the
+  // only relative times in the workspace. It is set once on entry so a screen opened
+  // after a long spell elsewhere never shows a stale "5m".
   useEffect(() => {
-    if (screen === 'workspace') return;
+    if (screen === 'workspace' && !activeTabAsleep) return;
     setNow(Date.now());
     const id = setInterval(() => setNow(Date.now()), CLOCK_MS);
     return () => clearInterval(id);
-  }, [screen, screenSeq]);
+  }, [screen, screenSeq, activeTabAsleep]);
+
+  // A sleeping thread's pane shows the output it had when it went to sleep. It is
+  // already in `tails` when the thread slept in this session; a thread restored from
+  // disk has to read its file, once (an empty array is stored for a missing file, so
+  // a thread that never saved one is not re-read on every render).
+  useEffect(() => {
+    const tab = stateRef.current.tabs.find(t => t.id === state.activeTabId);
+    if (!tab?.asleep || tails[tab.id] !== undefined) return;
+    let cancelled = false;
+    window.afterterm.threads.readTail(tab.id).then(lines => {
+      if (!cancelled) setTails(prev => ({ ...prev, [tab.id]: lines ?? [] }));
+    });
+    return () => { cancelled = true; };
+  }, [state.activeTabId, activeTabAsleep, tails]);
 
   // Folder existence for the screens that show it. One round trip per entry, so a
   // folder deleted while you were in the workspace is caught on the way back.
@@ -571,7 +706,7 @@ export function App() {
     if (!projectPageId || !state.groups.some(g => g.id === projectPageId)) goScreen('home');
   }, [initialized, screen, projectPageId, state.groups, goScreen]);
 
-  const tabInfos = state.tabs.map(t => ({ id: t.id, shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize, claudeSessionId: t.claudeSessionId, claudeCwd: t.claudeCwd }));
+  const tabInfos = state.tabs.map(t => ({ id: t.id, shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize, claudeSessionId: t.claudeSessionId, claudeCwd: t.claudeCwd, asleep: t.asleep, wokeAt: t.wokeAt }));
 
   const activeTab = state.tabs.find(t => t.id === state.activeTabId);
   const activeGroup = activeTab?.groupId ? state.groups.find(g => g.id === activeTab.groupId) : undefined;
@@ -605,10 +740,14 @@ export function App() {
           folderMissing={folderMissing(pageGroup)}
           actions={projectActions}
           onOpenThread={openThreadInWorkspace}
+          onResume={entryId => resumeThread(pageGroup.id, entryId)}
+          initialTab={projectPageTab}
           threadMenu={tab => buildThreadMenu(tab, state.groups, {
             open: () => openThreadInWorkspace(tab.id),
             moveToGroup: id => (id ? state.addToGroup(tab.id, id) : state.removeFromGroup(tab.id)),
-            close: () => state.closeTab(tab.id),
+            close: () => closeThread(tab.id),
+            sleep: () => sleepThread(tab.id),
+            wake: () => wakeThread(tab.id),
             openProjectPage: tab.groupId ? () => goScreen('project', tab.groupId) : undefined,
           })}
           onBack={() => goScreen('home')}
@@ -627,7 +766,9 @@ export function App() {
           shells={shells}
           onToggleCollapse={() => setPanelCollapsed(p => !p)}
           onActivate={handleActivate}
-          onClose={state.closeTab}
+          onClose={closeThread}
+          onSleep={sleepThread}
+          onWake={wakeThread}
           onNewTab={state.addTab}
           onGoHome={() => goScreen('home')}
           onSearch={() => setPaletteOpen(open => !open)}
@@ -654,18 +795,33 @@ export function App() {
             tab={activeTab}
             group={activeGroup}
             groups={state.groups}
+            now={now}
             actions={activeTab ? {
               open: () => state.activateTab(activeTab.id),
               moveToGroup: (id) => id ? state.addToGroup(activeTab.id, id) : state.removeFromGroup(activeTab.id),
-              close: () => state.closeTab(activeTab.id),
+              close: () => closeThread(activeTab.id),
+              sleep: () => sleepThread(activeTab.id),
+              wake: () => wakeThread(activeTab.id),
               openProjectPage: activeTab.groupId ? () => goScreen('project', activeTab.groupId) : undefined,
             } : undefined}
           />
+          {/* An asleep thread has no terminal at all, so its pane stands in for one:
+              the saved tail, dimmed, and a Wake button. */}
+          {activeTab?.asleep && (
+            <AsleepPane
+              tab={activeTab}
+              tail={tails[activeTab.id] ?? null}
+              now={now}
+              onWake={() => wakeThread(activeTab.id)}
+            />
+          )}
           {initialized && (
             <TerminalArea
+              ref={terminalRef}
               tabs={tabInfos}
               activeTabId={state.activeTabId}
               visible={screen === 'workspace'}
+              hidden={!!activeTab?.asleep}
               onTitleChange={state.renameTab}
               onCwdChange={handleCwdChange}
               onNotification={handleNotification}
@@ -673,6 +829,7 @@ export function App() {
               onOutput={handleOutput}
               onFontSizeChange={state.setTabFontSize}
               onExit={handlePtyExit}
+              onTail={handleTail}
             />
           )}
         </div>
@@ -699,6 +856,14 @@ export function App() {
           tabs={state.tabs}
           onOpenProject={groupId => { projectActions.open(groupId); setPaletteOpen(false); }}
           onOpenThread={tabId => { openThreadInWorkspace(tabId); setPaletteOpen(false); }}
+          onOpenHistory={(groupId, _entryId) => {
+            // A history hit opens its project page on the History tab, where the row
+            // and its Resume button live; the entry id is not needed to get there,
+            // the list is short and searchable in place.
+            goScreen('project', groupId);
+            setProjectPageTab('history');
+            setPaletteOpen(false);
+          }}
           onClose={() => setPaletteOpen(false)}
         />
       )}

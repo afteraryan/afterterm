@@ -1,10 +1,9 @@
 // The project page (mock #view-project / renderProject): reached only through
 // the project page icon or a project's right-click menu, never by clicking a
 // Home card or row directly. Shows the folder, its default shell, the action
-// row, and the project's threads split into Live, Asleep and History (History
-// stays empty this phase: no sleep/wake, no closing-to-history yet).
-import React, { useState } from 'react';
-import { Tab, Group } from '../TabBar/types';
+// row, and the project's threads split into Live, Asleep and History.
+import React, { useEffect, useState } from 'react';
+import { Tab, Group, HistoryEntry } from '../TabBar/types';
 import { ScreenNav } from '../ScreenNav';
 import { Menu, MenuItem } from '../Menu';
 import {
@@ -13,6 +12,7 @@ import {
 } from '../Icons';
 import { threadKind, threadState, threadName } from '../../threadView';
 import { relativeTime, filterThreads, splitLiveAsleep } from '../../homeView';
+import { isResumable, historyTitleMatches } from '../../history';
 import { buildProjectMenu, ProjectActions } from '../../projectMenu';
 import type { EditorInfo } from '../../../editors';
 import './ProjectPage.css';
@@ -26,11 +26,17 @@ export interface ProjectPageProps {
   folderMissing: boolean;
   actions: ProjectActions;
   onOpenThread: (tabId: string) => void; // select it and go to the workspace
+  onResume: (entryId: string) => void; // recreate a history entry and open it
   threadMenu: (tab: Tab) => MenuItem[]; // the one thread menu, built by the caller
   onBack: () => void; // "Home" link at the top
   // Not in the original contract: ScreenNav needs somewhere to send a click
   // on the Workspace icon (its Home icon reuses onBack).
   onGoWorkspace: () => void;
+  // Which tab to open on: the palette's History rows and a future "resume"
+  // link land here directly instead of always opening on Live. Read once into
+  // state; a later change is followed by the effect below so a second click
+  // through the palette (page already mounted) still switches tabs.
+  initialTab?: ProjectTab;
 }
 
 type ProjectTab = 'live' | 'asleep' | 'history';
@@ -54,23 +60,29 @@ const KIND_WORD: Record<'chat' | 'shell', string> = { chat: 'Chat', shell: 'Shel
 
 export function ProjectPage({
   group, tabs, activeTabId, now, editors, folderMissing, actions,
-  onOpenThread, threadMenu, onBack, onGoWorkspace,
+  onOpenThread, onResume, threadMenu, onBack, onGoWorkspace, initialTab,
 }: ProjectPageProps) {
-  const [tab, setTab] = useState<ProjectTab>('live');
+  const [tab, setTab] = useState<ProjectTab>(initialTab ?? 'live');
   const [query, setQuery] = useState('');
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
 
+  // The page stays mounted across a search-palette "open on History" click
+  // that lands on it a second time, so the prop's own change has to re-steer
+  // the tab, not just its initial value.
+  useEffect(() => {
+    if (initialTab) setTab(initialTab);
+  }, [initialTab]);
+
   const { live, asleep } = splitLiveAsleep(tabs);
-  // History arrives with sleep/wake and closing-to-history (later phases);
-  // the tab exists now so the layout and the empty state are already right.
-  const history: Tab[] = [];
+  const history = group.history;
 
   const hasFolder = !!group.cwd;
   const primaryEditor = editors[0];
 
-  const listForTab = tab === 'live' ? live : tab === 'asleep' ? asleep : history;
-  const filtered = filterThreads(listForTab, query);
-  const emptyLabel = tab === 'live' ? 'Nothing running' : tab === 'asleep' ? 'Nothing asleep' : 'Nothing here yet';
+  const listForTab = tab === 'live' ? live : asleep;
+  const filtered = tab === 'history' ? [] : filterThreads(listForTab, query);
+  const filteredHistory = tab === 'history' ? history.filter(e => historyTitleMatches(e, query)) : [];
+  const emptyLabel = tab === 'live' ? 'Nothing running' : tab === 'asleep' ? 'Nothing asleep' : 'Nothing here';
 
   const openHeaderMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -193,7 +205,15 @@ export function ProjectPage({
           </div>
 
           <div className="list">
-            {filtered.length === 0 ? (
+            {tab === 'history' ? (
+              filteredHistory.length === 0 ? (
+                <div className="nothing">{emptyLabel}</div>
+              ) : (
+                filteredHistory.map(entry => (
+                  <HistoryRow key={entry.id} entry={entry} now={now} onResume={onResume} />
+                ))
+              )
+            ) : filtered.length === 0 ? (
               <div className="nothing">{emptyLabel}</div>
             ) : (
               filtered.map(t => {
@@ -248,6 +268,29 @@ export function ProjectPage({
       </div>
 
       {menu && <Menu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
+    </div>
+  );
+}
+
+// A closed thread. Unlike a live or asleep row, there is nothing to open: the
+// row itself is inert (no role="button", no click handler), only Resume, and
+// only when the entry is actually resumable, does anything.
+function HistoryRow({ entry, now, onResume }: { entry: HistoryEntry; now: number; onResume: (id: string) => void }) {
+  return (
+    <div className="tl" data-history-id={entry.id}>
+      <KindIcon kind={entry.kind} />
+      <div className="tx">
+        <div className="n">{entry.title}</div>
+        <div className="d">{KIND_WORD[entry.kind]}</div>
+      </div>
+      <span className="t">{relativeTime(entry.closedAt, now)}</span>
+      <div className="acts">
+        {isResumable(entry) && (
+          <button type="button" className="b q s" data-resume onClick={() => onResume(entry.id)}>
+            Resume
+          </button>
+        )}
+      </div>
     </div>
   );
 }
