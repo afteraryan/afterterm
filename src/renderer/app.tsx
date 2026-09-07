@@ -93,8 +93,8 @@ export function App() {
   // about once; every other close still goes straight through.
   // One dialog serves both Close and Sleep: Aryan decided on 2026-09-07 that Sleep
   // asks the same way Close does, since both stop the running server. The difference
-  // is only that Wake brings it back, which the sleep wording is what says so. `kind`
-  // is what picks the text, the danger styling and which action the confirm runs.
+  // is only that Wake brings it back, which the sleep wording says. `kind` picks
+  // the text, the danger styling and which action the confirm runs.
   const [pendingConfirm, setPendingConfirm] =
     useState<{ kind: 'close' | 'sleep'; tabId: string; port: number } | null>(null);
   // Which tab a project page opens on. Everything that opens a project page shows
