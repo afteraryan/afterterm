@@ -14,8 +14,17 @@ import { planSpawn } from './shell-integration.ts';
 import { readTranscriptMeta, isSessionId } from './claude-transcript.ts';
 import { gitInfo } from './git-info.ts';
 import { isThreadId, parseTail, serializeTail, tailFilePath, trimTail } from './thread-tail.ts';
-import { listenerKey, parseNetstatListeners, parseProcessList, tabPorts, trackFirstSeen } from './server-detect.ts';
-import type { Proc as ServerProc } from './server-detect.ts';
+import {
+  applyMsysParents,
+  descendantPids,
+  listenerKey,
+  parseMsysPs,
+  parseNetstatListeners,
+  parseProcessList,
+  tabPorts,
+  trackFirstSeen,
+} from './server-detect.ts';
+import type { MsysProc, Proc as ServerProc } from './server-detect.ts';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -161,6 +170,16 @@ function noteActivity(tabId: string): void {
 // So netstat runs on every poll, and the process list is only re-read when the set
 // of listening sockets actually changed, when a PTY has been created or destroyed
 // since the last read, or when the cache is over a minute old.
+//
+// Git Bash needs a third list. An MSYS program execs through a fork stub that exits
+// immediately, so anything a Git Bash thread starts is left with a Windows parent pid
+// that no longer exists: the walk from the shell pid stops at the interactive bash and
+// a server started there is neither matched to the thread nor killed with it. MSYS's
+// own process table still records the true parent, so for a live Git Bash tab the
+// bundled `<git root>\usr\bin\ps.exe -l` is read too (about 55 ms) and its edges are
+// folded into the Windows list by applyMsysParents. Native processes below the gap
+// (npm's node, cmd, the server) keep intact Windows links, so bridging the MSYS edges
+// is enough. ps.exe never runs when no Git Bash tab is live.
 
 const SERVER_POLL_MS = 10_000;
 // A server prints its banner and then goes quiet; polling shortly after the last
@@ -180,14 +199,73 @@ const PROC_LIST_COMMAND =
 // execFile, and Node wraps an argument containing double quotes in a way PowerShell
 // does not always unpick. PowerShell treats 'c' and "c" the same here.
 
-const shellPids = new Map<string, number>();
+/**
+ * What a live tab's shell is: its pid, which shell profile it came from, and the
+ * executable it was spawned with. The shell id and command are what the Git Bash
+ * repair needs (which tabs are MSYS, and where that install's ps.exe lives).
+ */
+interface ShellInfo {
+  pid: number;
+  shellId: string;
+  command: string;
+}
+
+const shellPids = new Map<string, ShellInfo>();
 const lastPortSent = new Map<string, number | null>();
+
+/** Just the pids, which is the shape tabPorts takes. */
+function shellPidMap(): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const [tabId, info] of shellPids) out.set(tabId, info.pid);
+  return out;
+}
+
+/**
+ * The MSYS `ps.exe` that ships beside a Git Bash: the profile command is
+ * `<git root>\bin\bash.exe`, so ps is `<git root>\usr\bin\ps.exe`. Null when it is
+ * not there, which is the signal to skip the repair entirely.
+ */
+function msysPsPath(shellCommand: string): string | null {
+  if (!shellCommand) return null;
+  try {
+    const candidate = path.join(path.dirname(path.dirname(shellCommand)), 'usr', 'bin', 'ps.exe');
+    return fs.existsSync(candidate) ? candidate : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The ps.exe of the first live Git Bash tab, or null when no such tab exists. */
+function liveMsysPsPath(): string | null {
+  for (const info of shellPids.values()) {
+    if (info.shellId !== 'gitbash') continue;
+    const ps = msysPsPath(info.command);
+    if (ps) return ps;
+  }
+  return null;
+}
+
+/** Read MSYS's process table. Returns an empty list on any failure, warning once. */
+async function readMsysProcs(psPath: string, reason: string): Promise<MsysProc[]> {
+  try {
+    return parseMsysPs(await runCommand(psPath, ['-l'], 4 * 1024 * 1024, 5_000));
+  } catch (err) {
+    if (!warnedMsysPs) {
+      warnedMsysPs = true;
+      console.warn(`[servers] MSYS ps failed (${reason}), Git Bash trees stay unbridged:`, err);
+    }
+    return [];
+  }
+}
 // When each listening socket ("pid:port") was first seen, so a tree listening on
 // several ports can show the one that started latest, which is the one the user just
 // started. trackFirstSeen adds and prunes entries; portForTree reads them.
 const listenerFirstSeen = new Map<string, number>();
 
 let cachedProcs: ServerProc[] = [];
+// MSYS's own parent links, read alongside cachedProcs and with the same lifetime.
+// Empty when no Git Bash tab is live, or when ps.exe could not be run.
+let cachedMsys: MsysProc[] = [];
 let cachedProcsAt = 0;
 let lastListenerKey: string | null = null;
 // Set whenever a PTY appears or disappears: the cached process list cannot describe
@@ -202,6 +280,7 @@ let lastBurstPollAt = 0;
 // Warn once per failure kind: a machine without netstat would otherwise fill the log.
 let warnedNetstat = false;
 let warnedProcList = false;
+let warnedMsysPs = false;
 
 function runCommand(file: string, args: string[], maxBuffer: number, timeout: number): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -224,6 +303,7 @@ async function pollServers(reason: string): Promise<void> {
   try {
     if (ptys.size === 0) {
       cachedProcs = [];
+      cachedMsys = [];
       cachedProcsAt = 0;
       lastListenerKey = null;
       // No shells means no trees to match, and any listener still up belongs to
@@ -258,6 +338,10 @@ async function pollServers(reason: string): Promise<void> {
           15_000,
         );
         cachedProcs = parseProcessList(json);
+        // Only when a Git Bash tab is live, and only on the polls that actually
+        // re-read the process list, so the two lists never date apart.
+        const psPath = liveMsysPsPath();
+        cachedMsys = psPath ? await readMsysProcs(psPath, reason) : [];
         cachedProcsAt = Date.now();
         treeDirty = false;
       } catch (err) {
@@ -270,7 +354,20 @@ async function pollServers(reason: string): Promise<void> {
     }
     lastListenerKey = key;
 
-    for (const [tabId, port] of tabPorts(shellPids, cachedProcs, listeners, listenerFirstSeen)) {
+    // The Git Bash bridge: with no MSYS rows this is cachedProcs unchanged.
+    const procs = cachedMsys.length > 0 ? applyMsysParents(cachedProcs, cachedMsys) : cachedProcs;
+
+    if (process.env.AFTERTERM_HARNESS === '1' && cachedMsys.length > 0) {
+      for (const [tabId, info] of shellPids) {
+        if (info.shellId !== 'gitbash') continue;
+        const tree = descendantPids(procs, info.pid);
+        if (tree.size > 1) {
+          console.log(`[harness] msys tree ${tabId} pids=${[...tree].join(',')}`);
+        }
+      }
+    }
+
+    for (const [tabId, port] of tabPorts(shellPidMap(), procs, listeners, listenerFirstSeen)) {
       if (lastPortSent.get(tabId) === port) continue;
       lastPortSent.set(tabId, port);
       sendPort(tabId, port);
@@ -323,6 +420,49 @@ function forgetServerTab(tabId: string): void {
   const last = lastPortSent.get(tabId);
   lastPortSent.delete(tabId);
   if (typeof last === 'number') sendPort(tabId, null);
+}
+
+/** taskkill a pid and its Windows subtree. Never rejects: a dead pid is normal. */
+function taskkillTree(pid: number): Promise<void> {
+  return new Promise<void>(resolve => {
+    execFile(
+      'taskkill',
+      ['/PID', String(pid), '/T', '/F'],
+      { windowsHide: true, timeout: 5_000 },
+      () => resolve(),
+    );
+  });
+}
+
+/**
+ * Kill a tab's shell and everything it started.
+ *
+ * `taskkill /T` walks the same Windows parent links the server watcher does, so for a
+ * Git Bash tab it stops at the interactive bash and leaves anything below the MSYS
+ * fork gap running (a dev server outliving the thread that started it, seen in the
+ * harness). So for a gitbash tab MSYS's table is read first, while the shell is still
+ * alive and its rows still exist, merged with the last process list, and every pid in
+ * the resulting tree is killed after the shell itself. The process list may be stale,
+ * which is fine: the MSYS rows are fresh and the Windows links below them rarely move.
+ *
+ * Nothing here throws and the whole thing is bounded, so a close is never held up by
+ * a hung kill. Non-gitbash tabs get exactly the single taskkill they always got.
+ */
+async function killTree(tabId: string, pid: number, info: ShellInfo | undefined): Promise<void> {
+  const isGitBash = info?.shellId === 'gitbash';
+  const psPath = isGitBash ? msysPsPath(info!.command) : null;
+  const rows = psPath ? await readMsysProcs(psPath, `closing ${tabId}`) : [];
+
+  await taskkillTree(pid);
+
+  if (rows.length === 0 || cachedProcs.length === 0) return;
+  const tree = descendantPids(applyMsysParents(cachedProcs, rows), pid);
+  const rest = [...tree].filter(p => p !== pid);
+  if (rest.length === 0) return;
+  if (process.env.AFTERTERM_HARNESS === '1') {
+    console.log(`[harness] msys tree ${tabId} pids=${[...tree].join(',')}`);
+  }
+  await Promise.all(rest.map(p => taskkillTree(p)));
 }
 
 // ─── Window creation ──────────────────────────────────────────────────────────
@@ -1006,7 +1146,9 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
   // Server watching: remember this tab's shell pid, mark the cached process list as
   // out of date, keep the slow poll running, and look once a second from now (a shell
   // that was told to re-run a server has it listening by about then).
-  shellPids.set(tabId, p.pid);
+  // shell.command, not plan.command: the profile's own executable is what locates the
+  // Git install (plan.command can be rewritten, as it is for WSL).
+  shellPids.set(tabId, { pid: p.pid, shellId: shell.id, command: shell.command });
   treeDirty = true;
   startServerPolling();
   setTimeout(() => { void pollServers('a PTY was created'); }, 1000);
@@ -1073,15 +1215,15 @@ ipcMain.handle('pty:destroy', async (_event, tabId: string) => {
   const p = ptys.get(tabId);
   if (!p) return;
   const pid = p.pid;
+  // Read before forgetServerTab drops it: killTree needs the shell id and command.
+  const info = shellPids.get(tabId);
   ptys.delete(tabId);
   lastActivitySent.delete(tabId);
   ptyCreatedAt.delete(tabId);
   forgetServerTab(tabId);
   if (ptys.size === 0) stopServerPolling();
 
-  await new Promise<void>(resolve => {
-    execFile('taskkill', ['/PID', String(pid), '/T', '/F'], () => resolve());
-  });
+  await killTree(tabId, pid, info);
 
   await Promise.race([
     new Promise<void>(resolve => {
@@ -1307,11 +1449,8 @@ let isQuitting = false;   // user has confirmed/initiated quit (suppresses close
 let ptysDrained = false;  // PTY teardown has run (separate so it always runs once)
 
 async function destroyAllPtys() {
-  const kills = [...ptys.entries()].map(async ([, p]) => {
-    const pid = p.pid;
-    await new Promise<void>(r =>
-      execFile('taskkill', ['/PID', String(pid), '/T', '/F'], () => r())
-    );
+  const kills = [...ptys.entries()].map(async ([tabId, p]) => {
+    await killTree(tabId, p.pid, shellPids.get(tabId));
     try { p.kill(); } catch {}
   });
   await Promise.all(kills);

@@ -26,6 +26,12 @@
 // That needs a memory of when each listener was first seen, which main.ts keeps in a
 // map and hands to portForTree; trackFirstSeen below is what maintains that map.
 //
+// Git Bash needs one extra list. Every exec of an MSYS program forks a stub that
+// exits at once, so the real process is left pointing at a Windows parent pid that
+// no longer exists and the walk from the shell pid stops there. MSYS's own table
+// still knows the true parent, so `ps -l` is read as well for a Git Bash tab and its
+// edges are folded into the Windows list (parseMsysPs + applyMsysParents below).
+//
 // Everything here is pure text and set work, no Electron and no child_process, so it
 // runs under plain Node for the tests and main.ts only has to orchestrate: run the two
 // commands, feed the output in, send the ports that changed.
@@ -279,4 +285,88 @@ export function tabPorts(
     out.set(tabId, portForTree(listeners, descendantPids(procs, pid), firstSeen));
   }
   return out;
+}
+
+/**
+ * One row of MSYS's own process table, as `ps -l` prints it inside Git Bash.
+ *
+ * pid and ppid are MSYS pids, its own numbering, which mean nothing to Windows;
+ * winpid is the Windows pid of the same process, the number netstat and
+ * Win32_Process speak.
+ */
+export interface MsysProc {
+  pid: number;
+  ppid: number;
+  winpid: number;
+}
+
+/**
+ * The rows of MSYS `ps -l` output (the ps.exe that ships under a Git install's
+ * usr\bin).
+ *
+ * The columns are `PID PPID PGID WINPID TTY UID STIME COMMAND`, so only the first
+ * four fields are read and the rest of the line (a TTY of `cons1` or `?`, and a
+ * command that can contain spaces) is ignored. The header, blank lines and any row
+ * whose first four fields are not non-negative integers are skipped, so a localised
+ * or truncated line costs one row rather than the whole list.
+ */
+export function parseMsysPs(text: string): MsysProc[] {
+  if (typeof text !== 'string' || text === '') return [];
+  const out: MsysProc[] = [];
+  for (const rawLine of text.split(/\r?\n/)) {
+    const parts = rawLine.trim().split(/\s+/);
+    if (parts.length < 4) continue;
+    const nums = parts.slice(0, 4).map(f => (/^\d+$/.test(f) ? Number(f) : NaN));
+    if (nums.some(n => !Number.isInteger(n))) continue;
+    out.push({ pid: nums[0], ppid: nums[1], winpid: nums[3] });
+  }
+  return out;
+}
+
+/**
+ * The Windows process list with the parent links MSYS knows about but Windows does
+ * not, so a Git Bash tree can be walked from the shell pid like any other tree.
+ *
+ * Every exec of an MSYS program goes through a fork stub that exits as soon as the
+ * real process is up, which leaves the real process with a Windows ppid pointing at
+ * a pid that no longer exists: the Windows walk stops dead at that gap, and a server
+ * started from a Git Bash thread is never matched to it (nor killed with it). MSYS's
+ * own table still records the true parent, so each row's real Windows parent is
+ * looked up as: this row's MSYS ppid, then that MSYS row's winpid. Native children
+ * below the gap (node, cmd) keep intact Windows links, so repairing the MSYS edges
+ * is enough to make the whole walk complete.
+ *
+ * Returns a new array; the input is never mutated, and `created` is left exactly as
+ * it was so the pid-reuse guard in descendantPids keeps working. A row is left alone
+ * when its MSYS parent is 1 or 0 (MSYS's own root), when that MSYS parent is not in
+ * the ps output, when the parent's winpid is not a process we can see, or when the
+ * parent's winpid is the row's own pid.
+ */
+export function applyMsysParents(procs: Proc[], msys: MsysProc[]): Proc[] {
+  if (!Array.isArray(procs)) return [];
+  if (!Array.isArray(msys) || msys.length === 0) return procs.slice();
+
+  const winPidByMsysPid = new Map<number, number>();
+  for (const row of msys) {
+    if (!winPidByMsysPid.has(row.pid)) winPidByMsysPid.set(row.pid, row.winpid);
+  }
+  const knownWinPids = new Set<number>();
+  for (const p of procs) knownWinPids.add(p.pid);
+
+  const parentByWinPid = new Map<number, number>();
+  for (const row of msys) {
+    if (row.ppid <= 1) continue;
+    const parentWinPid = winPidByMsysPid.get(row.ppid);
+    if (parentWinPid === undefined) continue;
+    if (parentWinPid === row.winpid) continue;
+    if (!knownWinPids.has(parentWinPid)) continue;
+    if (!parentByWinPid.has(row.winpid)) parentByWinPid.set(row.winpid, parentWinPid);
+  }
+  if (parentByWinPid.size === 0) return procs.slice();
+
+  return procs.map(p => {
+    const parent = parentByWinPid.get(p.pid);
+    if (parent === undefined || parent === p.ppid) return p;
+    return { pid: p.pid, ppid: parent, created: p.created };
+  });
 }

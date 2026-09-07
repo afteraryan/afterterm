@@ -9,15 +9,17 @@
 // exists to avoid.
 
 import {
+  applyMsysParents,
   descendantPids,
   listenerKey,
+  parseMsysPs,
   parseNetstatListeners,
   parseProcessList,
   portForTree,
   tabPorts,
   trackFirstSeen,
 } from './server-detect.ts';
-import type { Listener, Proc } from './server-detect.ts';
+import type { Listener, MsysProc, Proc } from './server-detect.ts';
 
 let pass = 0, fail = 0;
 function check(name: string, cond: boolean, detail = '') {
@@ -338,6 +340,138 @@ console.log('\nserver-detect: tabPorts\n');
       new Map([['300:5173', 1000], ['300:60123', 2000]])).get('tab-1') === 60123,
     show(tabPorts(shellPids, procs, listeners,
       new Map([['300:5173', 1000], ['300:60123', 2000]])).get('tab-1')));
+}
+
+console.log('\nserver-detect: parseMsysPs\n');
+{
+  // Real `ps -l` output from a Git Bash install, with both TTY shapes and a command
+  // that contains spaces.
+  const real = [
+    '      PID    PPID    PGID     WINPID   TTY         UID    STIME COMMAND',
+    '     2844    2090    2844      10264  cons1     197609 02:30:27 /usr/bin/bash',
+    '     2090       1    2090      50368  cons1     197609 02:27:39 /usr/bin/bash',
+    '     2853    2844    2844      48276  cons1     197609 02:30:28 /c/Program Files/nodejs/node',
+    '     3298       1    3298      10012  ?         197609 02:32:56 /usr/bin/bash',
+    '',
+  ].join('\r\n');
+  const rows = parseMsysPs(real);
+  check('the header is skipped and every process row is parsed', rows.length === 4, show(rows));
+  check('pid, ppid and winpid come from the first four columns',
+    rows[0].pid === 2844 && rows[0].ppid === 2090 && rows[0].winpid === 10264, show(rows[0]));
+  check('a row whose parent is MSYS root keeps ppid 1',
+    rows[1].ppid === 1 && rows[1].winpid === 50368, show(rows[1]));
+  check('a command with spaces does not break the row',
+    rows[2].pid === 2853 && rows[2].winpid === 48276, show(rows[2]));
+  check('a ? tty parses like a cons tty', rows[3].winpid === 10012, show(rows[3]));
+
+  check('CRLF and LF give the same rows',
+    show(parseMsysPs(real.replace(/\r\n/g, '\n'))) === show(rows));
+
+  const noisy = [
+    'ps: warning: something went wrong',
+    '      PID    PPID    PGID     WINPID   TTY         UID    STIME COMMAND',
+    '',
+    '   ',
+    '     abc    2090    2844      10264  cons1     197609 02:30:27 /usr/bin/bash',
+    '     2844    2090    2844',
+    '     -5      2090    2844      10264  cons1     197609 02:30:27 /usr/bin/bash',
+    '     2844    2090    2844      10264  cons1     197609 02:30:27 /usr/bin/bash',
+  ].join('\n');
+  check('garbage lines are skipped and good rows survive',
+    parseMsysPs(noisy).length === 1 && parseMsysPs(noisy)[0].winpid === 10264,
+    show(parseMsysPs(noisy)));
+  check('empty text gives no rows', parseMsysPs('').length === 0);
+  check('non-text gives no rows', parseMsysPs(undefined as unknown as string).length === 0);
+}
+
+console.log('\nserver-detect: applyMsysParents\n');
+{
+  // The exact chain measured in the harness: bin\bash.exe launches usr\bin\bash,
+  // which execs `npm start`. The MSYS fork stub (27888) has already exited, so 10264
+  // points at a parent Windows no longer knows, and the walk from 24328 stops at
+  // 50368. Created times increase down the chain so the pid-reuse guard is happy.
+  const procs: Proc[] = [
+    { pid: 24328, ppid: 30944, created: 1000 }, // bin\bash.exe, the pid node-pty reports
+    { pid: 50368, ppid: 24328, created: 2000 }, // usr\bin\bash --login -i
+    { pid: 10264, ppid: 27888, created: 3000 }, // bash running npm start, parent gone
+    { pid: 8704, ppid: 10264, created: 4000 },  // its fork child
+    { pid: 48276, ppid: 8704, created: 5000 },  // npm-cli.js
+    { pid: 8252, ppid: 48276, created: 6000 },  // cmd /d /s /c node server.js
+    { pid: 31224, ppid: 8252, created: 7000 },  // the listener
+    { pid: 30944, ppid: 4, created: 500 },      // electron
+  ];
+  const msys: MsysProc[] = [
+    { pid: 2844, ppid: 2090, winpid: 10264 },
+    { pid: 2090, ppid: 1, winpid: 50368 },
+    { pid: 2853, ppid: 2844, winpid: 48276 },
+    { pid: 3298, ppid: 1, winpid: 10012 },
+  ];
+
+  const before = descendantPids(procs, 24328);
+  check('before the merge the walk stops at the MSYS gap',
+    before.size === 2 && before.has(50368) && !before.has(31224), show(before));
+
+  const merged = applyMsysParents(procs, msys);
+  const after = descendantPids(merged, 24328);
+  check('after the merge the whole chain is reachable',
+    after.has(10264) && after.has(8704) && after.has(48276) && after.has(8252) && after.has(31224),
+    show(after));
+  check('the bridged row now names the real shell as its parent',
+    merged.find(p => p.pid === 10264)?.ppid === 50368,
+    show(merged.find(p => p.pid === 10264)));
+  check('the input array is not mutated', procs.find(p => p.pid === 10264)?.ppid === 27888);
+  check('created times are carried through untouched',
+    merged.every(p => p.created === procs.find(q => q.pid === p.pid)?.created));
+  check('a row whose MSYS parent is 1 is left alone',
+    merged.find(p => p.pid === 50368)?.ppid === 24328);
+  // MSYS skips the fork stub in its own table, so a row it does mention is re-pointed
+  // at the MSYS parent even when its Windows link was already usable. The stub stays
+  // reachable through its own parent, so the tree is the same set either way.
+  check('a row MSYS also names is re-pointed at the MSYS parent',
+    merged.find(p => p.pid === 48276)?.ppid === 10264,
+    show(merged.find(p => p.pid === 48276)));
+  check('the skipped fork stub is still in the tree', after.has(8704));
+  check('a proc no ps row mentions is left alone',
+    merged.find(p => p.pid === 30944)?.ppid === 4);
+
+  const listeners: Listener[] = [
+    { port: 48774, pid: 31224, address: '0.0.0.0' },
+    { port: 48774, pid: 31224, address: '[::]' },
+    { port: 22, pid: 4242, address: '0.0.0.0' },
+  ];
+  check('portForTree finds nothing before the merge',
+    portForTree(listeners, descendantPids(procs, 24328)) === null);
+  check('portForTree finds the server through the merged list',
+    portForTree(listeners, after) === 48774, show(portForTree(listeners, after)));
+  check('tabPorts reports the port for the Git Bash tab',
+    tabPorts(new Map([['tab-1', 24328]]), merged, listeners).get('tab-1') === 48774,
+    show(tabPorts(new Map([['tab-1', 24328]]), merged, listeners).get('tab-1')));
+  check('tabPorts still reports null for that tab without the merge',
+    tabPorts(new Map([['tab-1', 24328]]), procs, listeners).get('tab-1') === null);
+
+  // The MSYS parent has to be a process we can actually see, otherwise the row would
+  // be pointed at a pid that means nothing in the Windows list.
+  const orphan = applyMsysParents(procs, [{ pid: 900, ppid: 901, winpid: 10264 },
+    { pid: 901, ppid: 1, winpid: 77777 }]);
+  check('a parent winpid missing from the process list changes nothing',
+    orphan.find(p => p.pid === 10264)?.ppid === 27888, show(orphan.find(p => p.pid === 10264)));
+
+  const selfParent = applyMsysParents(procs, [{ pid: 900, ppid: 901, winpid: 10264 },
+    { pid: 901, ppid: 1, winpid: 10264 }]);
+  check('an MSYS parent that resolves to the row itself changes nothing',
+    selfParent.find(p => p.pid === 10264)?.ppid === 27888);
+
+  // The pid-reuse guard has to survive the merge: a bridged child that started
+  // before its new parent is still not that parent's child.
+  const recycled: Proc[] = procs.map(p => (p.pid === 10264 ? { ...p, created: 100 } : p));
+  const mergedRecycled = applyMsysParents(recycled, msys);
+  check('the created-time guard still drops a bridged edge that runs backwards',
+    !descendantPids(mergedRecycled, 24328).has(10264),
+    show(descendantPids(mergedRecycled, 24328)));
+
+  check('no ps rows leaves the list as it was',
+    show(applyMsysParents(procs, [])) === show(procs));
+  check('an empty process list stays empty', applyMsysParents([], msys).length === 0);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);
