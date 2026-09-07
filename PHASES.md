@@ -42,6 +42,11 @@ Never close the running afterterm. A dev build runs beside it. A copied `session
 - The replayed tail stays plain dimmed text, 200 lines and 64 KB.
 - The last-opened Home experiment is not decided; Aryan decides during his manual testing after Phase 6. Nobody asks before then.
 
+**Decisions taken on 2026-09-07 (Phase 5 handoff).**
+- Sleep asks before stopping a server, the same way Close does. The wording says that Wake runs the command again.
+- When a thread listens on several ports, the row shows the one that started latest (a tie falls back to the lowest).
+- A server thread is named by the command that runs it ("npm start", "node server.js 48766"), asleep or awake, instead of the shell's live title.
+
 | Phase | What it delivers | Backend work | Status |
 |---|---|---|---|
 | 0 | Data model and naming | small | done |

@@ -141,7 +141,7 @@ node scripts/agent-harness/drive.mjs <command> ...
 | `hover-card` | `drive hover ".th" 0 --wait 400` then `drive hover-card` | The thread hover card: the title, then one `<data-row>: <text>` line per `dl` row. `(no hover card)` when absent. The card appears 350ms after the pointer enters a thread row, so hover first with `--wait` (see the `hover` row above) before reading it. |
 | `pane` | `drive pane` | Phase 4: the asleep pane (`.asleep-pane`) that covers the terminal card while the active thread is asleep, as a tree: `asleep pane for <tab id>`, `wake button: yes\|no`, `since: <text>`, `past lines: <N>` and the last 5 saved tail lines indented (or `past: (none)` while the tail is loading or empty). When no thread is asleep, prints `(terminal)` and `terminal: shown\|hidden` (whether `.terminal-instances` carries `asleep-hidden`). |
 | `tail` | `drive tail`, `drive tail 10`, `drive tail 10 --tab <id>` | Phase 4: the last n lines (default 30) of an xterm buffer, read through `window.__afterterm.activeTail(n)` for the active tab or `window.__afterterm.tail(id, n)` for `--tab <id>`. One line per entry; `(no terminal)` when the hook is missing or the tab has no live terminal (e.g. it is asleep). |
-| `confirm` | `drive confirm` | Phase 5: the close confirm shown when closing a thread that owns a listening port (`src/renderer/components/ConfirmDialog/index.tsx`), as a tree: `confirm dialog`, then `title:`, `body:`, `confirm:` and `cancel:` lines reading the dialog's `.modal-title`, `.confirm-body`, `[data-confirm]` and `[data-cancel]` text. `(no confirm dialog)` when it is not open. Click its buttons with `drive click "[data-confirm]"` (close anyway) and `drive click "[data-cancel]"` (keep the thread running). |
+| `confirm` | `drive confirm` | Phase 5: the confirm dialog shown when closing or sleeping a thread that owns a listening port (`src/renderer/components/ConfirmDialog/index.tsx`), as a tree: `confirm dialog`, then `title:`, `body:`, `confirm:` and `cancel:` lines reading the dialog's `.modal-title`, `.confirm-body`, `[data-confirm]` and `[data-cancel]` text. `(no confirm dialog)` when it is not open. Click its buttons with `drive click "[data-confirm]"` (close or sleep anyway) and `drive click "[data-cancel]"` (keep the thread running). |
 | `opened` | `drive opened` | Phase 5: the URL the last "Open localhost:port" click reached, from `window.__afterterm.lastOpenExternal` (set by `app.tsx`), or `(nothing opened)`. A harness run never actually opens a browser: with `AFTERTERM_HARNESS=1`, main.ts logs `[harness] shell:openExternal <url>` to the harness log instead of calling `shell.openExternal`. The log line plus this command are how a test proves the click reached the safelisted open-external path without any browser window ever appearing on the person's display. |
 | `marks [--tab id]` | `drive marks --tab <id>` | Phase 5: `window.__afterterm.commandState(id)` (`src/renderer/components/Terminal/index.tsx`), the OSC 133-style prompt marks used to tell whether a thread is sitting at a shell prompt and where it ends, printed as `at prompt: yes\|no` and `prompt end: row R col C` (or `(none)`). `(no marks)` when the hook returns null. There is no `window.__afterterm.activeTabId` hook as of this writing, so `--tab <id>` is required; `marks` falls back to that hook automatically if a later phase adds one, but until then omitting `--tab` fails with a message saying so. |
 | `window` | `drive window bottom`, `drive window restore`, `drive window quit`, `drive window close-dialogs` | OS-level window control (see "Capturing an occluded window" below). `quit` posts WM_CLOSE to the main window and waits for the process to exit: a graceful quit, so the renderer's quit flush runs (session.json with every thread stamped asleep, and every live terminal's tail file), which `stop.mjs`'s hard kill skips. The dev build answers its own "terminals still running" confirm when `AFTERTERM_HARNESS=1` (`src/main.ts`), so nothing waits on a dialog. |
@@ -350,7 +350,8 @@ npm run harness:drive -- project                         # History rows: "title"
 npm run harness:drive -- click "[data-resume]"
 npm run harness:stop
 
-# Phase 5 flow: a server thread's port, the close confirm, "Open localhost", and
+# Phase 5 flow: a server thread's port, its name (the command it was started
+# with, not its live title), the close and sleep confirms, "Open localhost", and
 # the port surviving a relaunch (seed a small project whose folder holds a tiny
 # Node http server, e.g. `node -e "require('http').createServer((q,r)=>r.end('hi')).listen(48765)"`
 # wired up as its `npm start`)
@@ -361,7 +362,7 @@ npm run harness:drive -- click ".terminal-host"          # focus the terminal so
 npm run harness:drive -- type "npm start"
 npm run harness:drive -- key Enter
 # wait about 3 seconds for the server to bind its port and the sidebar to notice
-npm run harness:drive -- sidebar                         # the row now reads [shell/running] :48765
+npm run harness:drive -- sidebar                         # the row is now named "npm start" (the command, not the shell's live title), [shell/running] :48765
 npm run harness:drive -- header                          # the chip now reads "Running on :48765"
 npm run harness:drive -- rightclick ".th" 0
 npm run harness:drive -- dom ".ctx-menu-item"             # find "Open localhost:48765"'s index
@@ -373,7 +374,9 @@ npm run harness:drive -- confirm                           # the close confirm: 
 npm run harness:drive -- click "[data-cancel]"             # keep the thread running
 npm run harness:drive -- rightclick ".th" 0
 npm run harness:drive -- dom ".ctx-menu-item"             # find Sleep's index
-npm run harness:drive -- click ".ctx-menu-item" <n>       # Sleep
+npm run harness:drive -- click ".ctx-menu-item" <n>       # Sleep now shows the confirm dialog too
+npm run harness:drive -- confirm                           # "Sleep the server on :48765?" / "...Wake runs npm start again."
+npm run harness:drive -- click "[data-confirm]"             # confirm the sleep
 npm run harness:drive -- pane                              # "Server asleep since just now · runs npm start"
 npm run harness:drive -- click "[data-wake]"               # re-runs npm start
 npm run harness:drive -- tail 10                           # shows the command re-typed and its output

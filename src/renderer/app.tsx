@@ -19,7 +19,7 @@ import { TabNotification, GROUP_COLORS, nextGroupColor } from './components/TabB
 import { onTitle, onOutput, onTick, onInterrupt, initTiming, TabTiming } from './spinnerState';
 import { migrateSession, serializeSession } from './sessionMigration';
 import { sleepAllForShutdown } from './sleepWake';
-import { toastMessage, initialScreen, threadName, needsCloseConfirm, closeConfirmText, localhostUrl } from './threadView';
+import { toastMessage, initialScreen, threadName, needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText, localhostUrl } from './threadView';
 import { ProjectActions } from './projectMenu';
 import { buildThreadMenu } from './threadMenu';
 import type { EditorInfo } from '../editors';
@@ -91,7 +91,12 @@ export function App() {
   // The running server whose close is waiting on a confirm, or null. Closing a
   // thread that owns a listening port stops that server, which is worth asking
   // about once; every other close still goes straight through.
-  const [closeConfirm, setCloseConfirm] = useState<{ tabId: string; port: number } | null>(null);
+  // One dialog serves both Close and Sleep: Aryan decided on 2026-09-07 that Sleep
+  // asks the same way Close does, since both stop the running server. The difference
+  // is only that Wake brings it back, which the sleep wording is what says so. `kind`
+  // is what picks the text, the danger styling and which action the confirm runs.
+  const [pendingConfirm, setPendingConfirm] =
+    useState<{ kind: 'close' | 'sleep'; tabId: string; port: number } | null>(null);
   // Which tab a project page opens on. Everything that opens a project page shows
   // Live; only the palette's history results open it on History.
   const [projectPageTab, setProjectPageTab] = useState<'live' | 'asleep' | 'history'>('live');
@@ -560,7 +565,7 @@ export function App() {
   const closeThread = useCallback((tabId: string) => {
     const tab = stateRef.current.tabs.find(t => t.id === tabId);
     if (tab && tab.port !== undefined && needsCloseConfirm(tab)) {
-      setCloseConfirm({ tabId, port: tab.port });
+      setPendingConfirm({ kind: 'close', tabId, port: tab.port });
       return;
     }
     closeThreadNow(tabId);
@@ -583,13 +588,27 @@ export function App() {
   // Sleep, wake and resume, the three things Phase 4 adds. Sleeping is a record
   // change here; the terminal layer sees `asleep` turn true and does the rest
   // (capture the tail, unhook the listeners, kill the process tree).
-  const sleepThread = useCallback((tabId: string) => {
+  const sleepThreadNow = useCallback((tabId: string) => {
     stateRef.current.sleepTab(tabId);
     // Nothing left to time: the spinner's silence clock belongs to a running
     // process, and a stale entry would survive into the next wake.
     timingRef.current.delete(tabId);
     window.afterterm.notify.dismissTab(tabId);
   }, []);
+
+  // Every sleep the user asks for comes through here, and a running server asks
+  // first, exactly as closing one does: sleeping kills the process tree, so the
+  // server stops either way. Only the wording differs, since Wake brings this one
+  // back. The quit flush (sleepAllForShutdown) is not a user sleep and deliberately
+  // does not come through here.
+  const sleepThread = useCallback((tabId: string) => {
+    const tab = stateRef.current.tabs.find(t => t.id === tabId);
+    if (tab && tab.port !== undefined && needsSleepConfirm(tab)) {
+      setPendingConfirm({ kind: 'sleep', tabId, port: tab.port });
+      return;
+    }
+    sleepThreadNow(tabId);
+  }, [sleepThreadNow]);
 
   // No screen switch and no activation: Wake from a background thread's menu wakes
   // it where it is, and the pane's own Wake button is on the active thread anyway.
@@ -968,23 +987,29 @@ export function App() {
         );
       })()}
 
-      {closeConfirm && (() => {
-        const text = closeConfirmText(closeConfirm.port);
+      {pendingConfirm && (() => {
+        const tab = state.tabs.find(t => t.id === pendingConfirm.tabId);
+        const text = pendingConfirm.kind === 'close'
+          ? closeConfirmText(pendingConfirm.port)
+          : sleepConfirmText(pendingConfirm.port, tab?.lastCommand);
         return (
           <ConfirmDialog
             title={text.title}
             body={text.body}
             confirmLabel={text.confirm}
             cancelLabel={text.cancel}
-            danger
+            // Only closing is destructive: a slept thread is still there, and Wake
+            // brings its server back.
+            danger={pendingConfirm.kind === 'close'}
             onConfirm={() => {
               // The thread may have been slept or closed by other means while the
-              // dialog stood; closeThreadNow on an id that is no longer there is a
-              // no-op (closeTab finds no tab, filters nothing out).
-              closeThreadNow(closeConfirm.tabId);
-              setCloseConfirm(null);
+              // dialog stood; either action on an id that is no longer there is a
+              // no-op (closeTab and sleepTab both find no tab and change nothing).
+              if (pendingConfirm.kind === 'close') closeThreadNow(pendingConfirm.tabId);
+              else sleepThreadNow(pendingConfirm.tabId);
+              setPendingConfirm(null);
             }}
-            onCancel={() => setCloseConfirm(null)}
+            onCancel={() => setPendingConfirm(null)}
           />
         );
       })()}

@@ -6,7 +6,7 @@
 import {
   threadKind, threadState, stateLabel, stateBreathes, displayTitle,
   threadName, modelLabel, kindWord, runningLabel, localhostUrl, openLocalhostLabel,
-  needsCloseConfirm, closeConfirmText,
+  needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText,
   foldThreads, projectCounts, sidebarSections, toastMessage,
   initialScreen, nextActiveTabAfterArchive,
 } from './threadView.ts';
@@ -133,6 +133,27 @@ console.log('\nthreadView: threadName\n');
 
   check('a shell tab with a hook-style title (should not normally happen) still just strips the glyph',
     threadName({ title: '\u2705 afterterm - done', claudeSessionId: undefined }) === 'afterterm - done');
+
+  check('a shell with a port and a command is named by the command, not the live title',
+    threadName({ title: 'npm start', claudeSessionId: undefined, port: 48766, lastCommand: 'npm start' }) === 'npm start');
+
+  check('a shell with a port and a command is named by the command even when the live title differs',
+    threadName({ title: 'cmd.exe - node server.js', claudeSessionId: undefined, port: 48766, lastCommand: 'node server.js 48766' }) === 'node server.js 48766');
+
+  check('asleep makes no difference: the port persists through sleep and still names the thread by the command',
+    threadName({ title: 'cmd.exe', claudeSessionId: undefined, port: 48766, lastCommand: 'npm start' }) === 'npm start');
+
+  check('a shell with a port but no command keeps the live title',
+    threadName({ title: 'cmd.exe', claudeSessionId: undefined, port: 48766 }) === 'cmd.exe');
+
+  check('a shell with a command but no port keeps the live title',
+    threadName({ title: 'cmd.exe', claudeSessionId: undefined, lastCommand: 'npm start' }) === 'cmd.exe');
+
+  check('a chat with a port and a command keeps its Claude name, not the command',
+    threadName({ title: 'cmd.exe', claudeSessionId: CHAT, claudeTitle: 'Fix the spinner', port: 48766, lastCommand: 'npm start' }) === 'Fix the spinner');
+
+  check('a whitespace-only command falls back to the live title',
+    threadName({ title: 'cmd.exe', claudeSessionId: undefined, port: 48766, lastCommand: '   ' }) === 'cmd.exe');
 }
 
 console.log('\nthreadView: modelLabel\n');
@@ -176,6 +197,44 @@ console.log('\nthreadView: closeConfirmText\n');
   check('body', t.body === 'This thread is listening on :5173. Closing it stops the server.');
   check('confirm label', t.confirm === 'Close thread');
   check('cancel label', t.cancel === 'Cancel');
+}
+
+console.log('\nthreadView: needsSleepConfirm\n');
+{
+  check('awake with a port needs confirm', needsSleepConfirm({ asleep: false, port: 5173 }) === true);
+  check('awake with no port needs no confirm', needsSleepConfirm({ asleep: false, port: undefined }) === false);
+  check('asleep with a port needs no confirm (nothing running to lose)', needsSleepConfirm({ asleep: true, port: 5173 }) === false);
+  check('asleep with no port needs no confirm', needsSleepConfirm({ asleep: true, port: undefined }) === false);
+  check('needsSleepConfirm agrees with needsCloseConfirm on every combination',
+    [[false, 5173], [false, undefined], [true, 5173], [true, undefined]].every(
+      ([asleep, port]) => needsSleepConfirm({ asleep: asleep as boolean, port: port as number | undefined })
+        === needsCloseConfirm({ asleep: asleep as boolean, port: port as number | undefined })));
+}
+
+console.log('\nthreadView: sleepConfirmText\n');
+{
+  const withCommand = sleepConfirmText(48765, 'npm start');
+  check('title', withCommand.title === 'Sleep the server on :48765?', withCommand.title);
+  check('body names the command Wake re-runs',
+    withCommand.body === 'This thread is listening on :48765. Sleeping it stops the server; Wake runs npm start again.',
+    withCommand.body);
+  check('confirm label', withCommand.confirm === 'Sleep thread');
+  check('cancel label', withCommand.cancel === 'Cancel');
+
+  const noCommand = sleepConfirmText(48765);
+  check('body falls back to "opens a fresh prompt" with no captured command',
+    noCommand.body === 'This thread is listening on :48765. Sleeping it stops the server; Wake opens a fresh prompt.',
+    noCommand.body);
+
+  const whitespaceCommand = sleepConfirmText(48765, '   ');
+  check('a whitespace-only command is treated as no command',
+    whitespaceCommand.body === 'This thread is listening on :48765. Sleeping it stops the server; Wake opens a fresh prompt.',
+    whitespaceCommand.body);
+
+  const emptyCommand = sleepConfirmText(48765, '');
+  check('an empty-string command is treated as no command',
+    emptyCommand.body === 'This thread is listening on :48765. Sleeping it stops the server; Wake opens a fresh prompt.',
+    emptyCommand.body);
 }
 
 console.log('\nthreadView: foldThreads\n');

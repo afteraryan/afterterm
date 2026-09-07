@@ -20,6 +20,12 @@
 // it is the same one scripts/agent-harness/lib.mjs uses: a child that existed before
 // its parent did is not that parent's child.
 //
+// A tree can hold more than one listening port, so one of them has to be chosen. The
+// rule (Aryan, 2026-09-07) is: show the port that started latest. The most recent
+// listener is the one the user just started, which is the one they are looking for.
+// That needs a memory of when each listener was first seen, which main.ts keeps in a
+// map and hands to portForTree; trackFirstSeen below is what maintains that map.
+//
 // Everything here is pure text and set work, no Electron and no child_process, so it
 // runs under plain Node for the tests and main.ts only has to orchestrate: run the two
 // commands, feed the output in, send the ports that changed.
@@ -172,22 +178,69 @@ export function descendantPids(procs: Proc[], rootPid: number): Set<number> {
 }
 
 /**
- * The port to show for a process tree: the lowest listening port owned by anything in
- * it, or null when nothing in it listens.
+ * The port to show for a process tree, or null when nothing in it listens.
  *
- * Lowest wins because a thread gets one port in the UI and a dev server's main port is
- * almost always the lowest of the ones it opens: Vite serves on 5173 and opens a higher
- * ephemeral port for HMR, Next serves on 3000 and its watcher takes a random high one.
- * Picking the lowest gives the address a person would actually type.
+ * A thread gets one port in the UI, so when its tree listens on several the latest one
+ * to start wins: the most recent listener is the one the user just started, and that is
+ * the one they are looking for. `firstSeen` supplies that ordering, mapping a listener
+ * key ("pid:port", the same shape listenerKey uses) to the poll time it was first seen.
+ *
+ * Ties fall back to the lowest port, and a tie is the common case: a dev server that
+ * opens its main port and a helper port in the same second is seen for the first time
+ * on one poll, so both carry the same time. The lowest of them is then almost always
+ * the main one (Vite serves on 5173 and opens a higher ephemeral port for HMR, Next
+ * serves on 3000 and its watcher takes a random high one), which is the address a
+ * person would actually type. A helper port that opens on a later poll than the main
+ * one does win, which is the cost of the rule: only a listener that genuinely started
+ * later can outrank the main port.
+ *
+ * With no map given (or a listener missing from it) every listener ties, so the whole
+ * function degrades to the lowest port.
  */
-export function portForTree(listeners: Listener[], tree: Set<number>): number | null {
+export function portForTree(
+  listeners: Listener[],
+  tree: Set<number>,
+  firstSeen?: Map<string, number>,
+): number | null {
   if (!Array.isArray(listeners) || !tree || tree.size === 0) return null;
-  let best: number | null = null;
+  let bestPort: number | null = null;
+  let bestTime = -Infinity;
   for (const l of listeners) {
     if (!tree.has(l.pid)) continue;
-    if (best === null || l.port < best) best = l.port;
+    const seen = firstSeen?.get(`${l.pid}:${l.port}`) ?? -Infinity;
+    if (bestPort === null || seen > bestTime || (seen === bestTime && l.port < bestPort)) {
+      bestPort = l.port;
+      bestTime = seen;
+    }
   }
-  return best;
+  return bestPort;
+}
+
+/**
+ * Keep a "when was this listener first seen" map in step with the current listeners:
+ * add a key for anything new at `now`, drop a key for anything that has stopped
+ * listening. Mutates the map it is given, so main.ts can hold one across polls.
+ *
+ * Dropping keys is what makes a restarted server count as new: a port that goes away
+ * and comes back is first seen again at the poll it reappeared on, which is what puts
+ * a just-restarted server ahead of one that has been up all along. It also stops the
+ * map growing without bound as processes come and go.
+ */
+export function trackFirstSeen(
+  firstSeen: Map<string, number>,
+  listeners: Listener[],
+  now: number,
+): void {
+  if (!firstSeen) return;
+  const live = new Set<string>();
+  for (const l of listeners ?? []) {
+    const key = `${l.pid}:${l.port}`;
+    live.add(key);
+    if (!firstSeen.has(key)) firstSeen.set(key, now);
+  }
+  for (const key of [...firstSeen.keys()]) {
+    if (!live.has(key)) firstSeen.delete(key);
+  }
 }
 
 /**
@@ -208,18 +261,22 @@ export function listenerKey(listeners: Listener[]): string {
 
 /**
  * The port for every tab, given each tab's shell pid: expand the shell into its tree,
- * then take the lowest listening port in it. A tab with no server gets null, which the
- * caller sends so the renderer can clear a port that has gone away.
+ * then pick that tree's port with portForTree. A tab with no server gets null, which
+ * the caller sends so the renderer can clear a port that has gone away.
+ *
+ * `firstSeen` is passed straight through to portForTree, so leaving it out gives the
+ * lowest port per tree.
  */
 export function tabPorts(
   shellPids: Map<string, number>,
   procs: Proc[],
   listeners: Listener[],
+  firstSeen?: Map<string, number>,
 ): Map<string, number | null> {
   const out = new Map<string, number | null>();
   if (!shellPids) return out;
   for (const [tabId, pid] of shellPids) {
-    out.set(tabId, portForTree(listeners, descendantPids(procs, pid)));
+    out.set(tabId, portForTree(listeners, descendantPids(procs, pid), firstSeen));
   }
   return out;
 }

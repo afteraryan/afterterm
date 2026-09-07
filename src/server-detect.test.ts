@@ -15,6 +15,7 @@ import {
   parseProcessList,
   portForTree,
   tabPorts,
+  trackFirstSeen,
 } from './server-detect.ts';
 import type { Listener, Proc } from './server-detect.ts';
 
@@ -193,7 +194,7 @@ console.log('\nserver-detect: portForTree\n');
     { port: 5173, pid: 300, address: '[::]' },
     { port: 8080, pid: 999, address: '0.0.0.0' },
   ];
-  check('the lowest port in the tree wins',
+  check('with no first-seen map the lowest port in the tree wins',
     portForTree(listeners, new Set([100, 200, 300])) === 5173,
     show(portForTree(listeners, new Set([300]))));
   check('a listener outside the tree is ignored',
@@ -209,6 +210,75 @@ console.log('\nserver-detect: portForTree\n');
       { port: 9000, pid: 1, address: '0.0.0.0' },
       { port: 3000, pid: 2, address: '0.0.0.0' },
     ], new Set([1, 2])) === 3000);
+
+  // The latest listener to start is the one the user just started, so it wins even
+  // when a lower port has been up longer.
+  const two: Listener[] = [
+    { port: 3000, pid: 300, address: '0.0.0.0' },
+    { port: 5173, pid: 300, address: '0.0.0.0' },
+  ];
+  check('the latest listener wins over a lower, older port',
+    portForTree(two, new Set([300]), new Map([['300:3000', 1000], ['300:5173', 2000]])) === 5173,
+    show(portForTree(two, new Set([300]), new Map([['300:3000', 1000], ['300:5173', 2000]]))));
+  check('the latest listener wins when it is the lower port',
+    portForTree(two, new Set([300]), new Map([['300:3000', 2000], ['300:5173', 1000]])) === 3000);
+  check('ports first seen on the same poll fall back to the lowest',
+    portForTree(two, new Set([300]), new Map([['300:3000', 1000], ['300:5173', 1000]])) === 3000);
+  check('an empty first-seen map falls back to the lowest',
+    portForTree(two, new Set([300]), new Map()) === 3000);
+  check('a port missing from the map loses to one that is in it',
+    portForTree(two, new Set([300]), new Map([['300:5173', 1000]])) === 5173);
+  check('a dual-stack duplicate does not change the winner',
+    portForTree([...two, { port: 5173, pid: 300, address: '[::]' }], new Set([300]),
+      new Map([['300:3000', 2000], ['300:5173', 1000]])) === 3000);
+  check('a listener outside the tree is ignored even when it is the latest',
+    portForTree([...two, { port: 8080, pid: 999, address: '0.0.0.0' }], new Set([300]),
+      new Map([['300:3000', 1000], ['300:5173', 1000], ['999:8080', 5000]])) === 3000);
+}
+
+console.log('\nserver-detect: trackFirstSeen\n');
+{
+  const firstSeen = new Map<string, number>();
+  trackFirstSeen(firstSeen, [{ port: 3000, pid: 300, address: '0.0.0.0' }], 1000);
+  check('a new listener is stamped with now', firstSeen.get('300:3000') === 1000, show([...firstSeen]));
+
+  trackFirstSeen(firstSeen, [
+    { port: 3000, pid: 300, address: '0.0.0.0' },
+    { port: 5173, pid: 300, address: '0.0.0.0' },
+  ], 2000);
+  check('a listener already known keeps its first time', firstSeen.get('300:3000') === 1000);
+  check('a second listener is stamped with the later time', firstSeen.get('300:5173') === 2000);
+
+  trackFirstSeen(firstSeen, [{ port: 5173, pid: 300, address: '0.0.0.0' }], 3000);
+  check('a listener that stopped is pruned', !firstSeen.has('300:3000'), show([...firstSeen]));
+  check('a listener that is still up survives the prune', firstSeen.get('300:5173') === 2000);
+
+  // A restarted server has to count as new, otherwise it could never overtake a
+  // server that has been up all along.
+  trackFirstSeen(firstSeen, [
+    { port: 3000, pid: 300, address: '0.0.0.0' },
+    { port: 5173, pid: 300, address: '0.0.0.0' },
+  ], 4000);
+  check('a listener that comes back is stamped as new', firstSeen.get('300:3000') === 4000);
+  check('a disappeared-and-back listener now wins the port',
+    portForTree([
+      { port: 3000, pid: 300, address: '0.0.0.0' },
+      { port: 5173, pid: 300, address: '0.0.0.0' },
+    ], new Set([300]), firstSeen) === 3000);
+
+  const dual = new Map<string, number>();
+  trackFirstSeen(dual, [
+    { port: 5173, pid: 300, address: '0.0.0.0' },
+    { port: 5173, pid: 300, address: '[::]' },
+  ], 1000);
+  check('a dual-stack listener makes one entry', dual.size === 1 && dual.get('300:5173') === 1000, show([...dual]));
+
+  trackFirstSeen(dual, [], 2000);
+  check('no listeners at all empties the map', dual.size === 0, show([...dual]));
+
+  const safe = new Map<string, number>([['300:3000', 1]]);
+  trackFirstSeen(safe, undefined as unknown as Listener[], 2000);
+  check('a missing listener list prunes rather than throwing', safe.size === 0);
 }
 
 console.log('\nserver-detect: listenerKey\n');
@@ -262,6 +332,12 @@ console.log('\nserver-detect: tabPorts\n');
     tabPorts(new Map([['tab-1', 300]]), [], listeners).get('tab-1') === 5173);
   check('no listeners gives null for every tab',
     [...tabPorts(shellPids, procs, []).values()].every(v => v === null));
+
+  check('a first-seen map is forwarded, so the latest port wins per tab',
+    tabPorts(shellPids, procs, listeners,
+      new Map([['300:5173', 1000], ['300:60123', 2000]])).get('tab-1') === 60123,
+    show(tabPorts(shellPids, procs, listeners,
+      new Map([['300:5173', 1000], ['300:60123', 2000]])).get('tab-1')));
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

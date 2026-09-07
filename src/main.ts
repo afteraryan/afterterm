@@ -13,7 +13,7 @@ import { readPrefs, updatePrefs } from './prefs.ts';
 import { readTranscriptMeta, isSessionId } from './claude-transcript.ts';
 import { gitInfo } from './git-info.ts';
 import { isThreadId, parseTail, serializeTail, tailFilePath, trimTail } from './thread-tail.ts';
-import { listenerKey, parseNetstatListeners, parseProcessList, tabPorts } from './server-detect.ts';
+import { listenerKey, parseNetstatListeners, parseProcessList, tabPorts, trackFirstSeen } from './server-detect.ts';
 import type { Proc as ServerProc } from './server-detect.ts';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
@@ -181,6 +181,10 @@ const PROC_LIST_COMMAND =
 
 const shellPids = new Map<string, number>();
 const lastPortSent = new Map<string, number | null>();
+// When each listening socket ("pid:port") was first seen, so a tree listening on
+// several ports can show the one that started latest, which is the one the user just
+// started. trackFirstSeen adds and prunes entries; portForTree reads them.
+const listenerFirstSeen = new Map<string, number>();
 
 let cachedProcs: ServerProc[] = [];
 let cachedProcsAt = 0;
@@ -221,6 +225,9 @@ async function pollServers(reason: string): Promise<void> {
       cachedProcs = [];
       cachedProcsAt = 0;
       lastListenerKey = null;
+      // No shells means no trees to match, and any listener still up belongs to
+      // something else. Keeping stale times would date the next shell's server wrong.
+      listenerFirstSeen.clear();
       return;
     }
 
@@ -236,6 +243,8 @@ async function pollServers(reason: string): Promise<void> {
       }
       return;
     }
+
+    trackFirstSeen(listenerFirstSeen, listeners, Date.now());
 
     const key = listenerKey(listeners);
     const stale = Date.now() - cachedProcsAt > SERVER_PROC_MAX_AGE_MS;
@@ -260,7 +269,7 @@ async function pollServers(reason: string): Promise<void> {
     }
     lastListenerKey = key;
 
-    for (const [tabId, port] of tabPorts(shellPids, cachedProcs, listeners)) {
+    for (const [tabId, port] of tabPorts(shellPids, cachedProcs, listeners, listenerFirstSeen)) {
       if (lastPortSent.get(tabId) === port) continue;
       lastPortSent.set(tabId, port);
       sendPort(tabId, port);

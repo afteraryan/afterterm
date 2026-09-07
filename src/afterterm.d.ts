@@ -152,9 +152,10 @@ interface PtyActivity {
   at: number;
 }
 
-// The port a tab's server is listening on, as found by main's server watcher: the
-// lowest listening TCP port owned by anything in that shell's process tree. null
-// means nothing in the tree listens any more, so the UI should drop the port.
+// The port a tab's server is listening on, as found by main's server watcher: of the
+// listening TCP ports owned by that shell's process tree, the one that started latest
+// (ties go to the lowest). null means nothing in the tree listens any more, so the UI
+// should drop the port.
 interface PtyPort {
   tabId: string;
   port: number | null;

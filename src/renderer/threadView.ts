@@ -106,9 +106,17 @@ export function openLocalhostLabel(port: number): string {
 
 // A running server's process is worth confirming before it is torn down: an
 // asleep server has no process to lose, so only an awake one with a captured
-// port needs the confirm.
+// port needs the confirm. Sleep tears down the same process tree a close does,
+// so it needs the exact same confirm rule; the two are kept as one function so
+// a future change to the rule cannot drift between them.
 export function needsCloseConfirm(tab: Pick<Tab, 'asleep' | 'port'>): boolean {
   return !tab.asleep && tab.port !== undefined;
+}
+
+// Sleep is not different from Close here: both kill the process tree, so both
+// need the confirm exactly when the thread is awake with a captured port.
+export function needsSleepConfirm(tab: Pick<Tab, 'asleep' | 'port'>): boolean {
+  return needsCloseConfirm(tab);
 }
 
 // The close-confirm dialog's text for a running server. Headings are plain and
@@ -119,6 +127,27 @@ export function closeConfirmText(port: number): { title: string; body: string; c
     title: `Close the server on :${port}?`,
     body: `This thread is listening on :${port}. Closing it stops the server.`,
     confirm: 'Close thread',
+    cancel: 'Cancel',
+  };
+}
+
+// The sleep-confirm dialog's text for a running server. Sleeping still stops
+// the process, so the body says so plainly; it differs from the close body
+// only in naming what Wake does next, since that is the one thing sleeping
+// promises that closing does not. A captured lastCommand means Wake re-runs
+// that exact command; with none, Wake just opens a fresh prompt in the same
+// folder.
+export function sleepConfirmText(
+  port: number,
+  lastCommand?: string,
+): { title: string; body: string; confirm: string; cancel: string } {
+  const wake = lastCommand && lastCommand.trim().length > 0
+    ? `Wake runs ${lastCommand} again.`
+    : 'Wake opens a fresh prompt.';
+  return {
+    title: `Sleep the server on :${port}?`,
+    body: `This thread is listening on :${port}. Sleeping it stops the server; ${wake}`,
+    confirm: 'Sleep thread',
     cancel: 'Cancel',
   };
 }
@@ -151,15 +180,26 @@ export function displayTitle(title: string): string {
 // and a restored chat's shell can briefly show a plain title like "cmd.exe"
 // before Claude sets one again. Neither of those is the thread's name, so a
 // chat only falls back to the live title (via displayTitle) once nothing
-// better has ever been captured for it. A shell has no conversation to name
-// itself after, so it always reads the live title.
-export function threadName(tab: Pick<Tab, 'title' | 'claudeSessionId' | 'claudeTitle' | 'firstPrompt'>): string {
+// better has ever been captured for it. A shell keeps that chain unchanged,
+// except for a server: a shell running a server has no conversation to name
+// itself after, and its live title is the shell's own, not the server's ("npm
+// start" or "cmd.exe - node server.js") - the command is what identifies the
+// server, so a shell with a captured port and a non-empty lastCommand is named
+// by that command instead. Whether the thread is asleep or awake makes no
+// difference, since the port persists through sleep and is itself what marks
+// the shell as a server. Decided by Aryan on 2026-09-07.
+export function threadName(
+  tab: Pick<Tab, 'title' | 'claudeSessionId' | 'claudeTitle' | 'firstPrompt' | 'port' | 'lastCommand'>,
+): string {
   if (tab.claudeSessionId) {
     if (tab.claudeTitle) return tab.claudeTitle;
     const summary = claudeSummaryTitle(tab.title);
     if (summary) return summary;
     if (tab.firstPrompt) return tab.firstPrompt;
     return displayTitle(tab.title);
+  }
+  if (tab.port !== undefined && tab.lastCommand && tab.lastCommand.trim().length > 0) {
+    return tab.lastCommand;
   }
   return displayTitle(tab.title);
 }
