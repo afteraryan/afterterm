@@ -3,10 +3,12 @@
 // screen, so it works even while the dev window is pushed behind other windows.
 //
 //   node scripts/agent-harness/record.mjs --out <file.mp4> [--port <n> | --data-dir <dir>]
-//                                          [--max-width 1280] [--fps 12] [--quality 80]
+//                                          [--work-dir <dir>] [--max-width 1280] [--fps 12] [--quality 80]
 //
-// Runs until <out>.stop appears (polled every 100ms) or on SIGTERM/SIGINT, then
+// Runs until <work-dir>/stop appears (polled every 100ms) or on SIGTERM/SIGINT, then
 // stops the screencast and stitches the captured frames into an mp4 with ffmpeg.
+// Frames, the stop file and record.log live in --work-dir (default <out>.work), so
+// nothing but the mp4 lands beside the screenshots.
 // Normally started detached by `drive.mjs record start`, not run by hand.
 
 import fs from 'node:fs';
@@ -21,9 +23,13 @@ const { opts } = parseArgs(process.argv.slice(2));
 if (!opts.out) fail('record.mjs needs --out <file.mp4>');
 
 const outFile = path.resolve(String(opts.out));
-const framesDir = `${outFile}.frames`;
-const stopFile = `${outFile}.stop`;
-const logFile = `${outFile}.log`;
+// Frames, the stop file and the log are bookkeeping, not captures, so they live in
+// a work folder (drive.mjs passes one under the run's data dir) rather than next to
+// the mp4, which sits in docs/screenshots/<phase>/ and is committed.
+const workDir = path.resolve(String(opts['work-dir'] ?? `${outFile}.work`));
+const framesDir = path.join(workDir, 'frames');
+const stopFile = path.join(workDir, 'stop');
+const logFile = path.join(workDir, 'record.log');
 const maxWidth = Number(opts['max-width'] ?? 1280);
 const fps = Number(opts.fps ?? 12);
 const quality = Number(opts.quality ?? 80);

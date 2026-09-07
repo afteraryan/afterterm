@@ -206,10 +206,13 @@ lines of its log and the final path.
 Chromium only sends a frame when the page actually changes, so a recording plays back in real
 time by frame timestamp, not at a fixed rate: `record.mjs` stitches with ffmpeg's concat
 demuxer and a computed per-frame duration, so a long quiet stretch between two clicks does not
-bloat the file and a burst of frames does not vanish. `record.mjs` needs `ffmpeg` on `PATH`; if
-it is missing, the captured frames are kept next to the output path (`<out>.frames\`) along
-with the exact ffmpeg command to stitch them by hand, and recording still reports success
-rather than failing the test run.
+bloat the file, and frames that arrive faster than the target rate (a screen transition, a
+terminal printing) are dropped so a burst does not stretch the timeline. Only the mp4 lands at
+`--out`; the frames, the stop file, the logs and the pid record live under
+`<data-dir>\recordings\<name>\` (the run record's data dir), so nothing but the video sits
+beside the screenshots. `record.mjs` needs `ffmpeg` on `PATH`; if it is missing, the captured
+frames are kept in that work folder along with the exact ffmpeg command to stitch them by hand,
+and recording still reports success rather than failing the test run.
 
 Recordings for a phase go in `docs/screenshots/<phase>/` next to that phase's screenshots,
 numbered the same way, and are kept forever like the screenshots (see

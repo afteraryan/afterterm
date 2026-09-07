@@ -878,8 +878,13 @@ async function cmdRecordStart() {
   if (!opts.out) fail('record start needs --out <file.mp4>');
   const outFile = path.resolve(String(opts.out));
   fs.mkdirSync(path.dirname(outFile), { recursive: true });
-  const framesDir = `${outFile}.frames`;
-  const spawnLog = `${outFile}.spawn.log`;
+  // Everything but the mp4 (frames, stop file, logs, the pid record) is bookkeeping
+  // and goes under the run's data dir, never beside the mp4: the mp4 lands in
+  // docs/screenshots/<phase>/, which is committed.
+  const workDir = recordingWorkDir(outFile);
+  fs.mkdirSync(workDir, { recursive: true });
+  const framesDir = path.join(workDir, 'frames');
+  const spawnLog = path.join(workDir, 'spawn.log');
   const recordScript = path.join(REPO_ROOT, 'scripts', 'agent-harness', 'record.mjs');
 
   const passthrough = [];
@@ -887,12 +892,12 @@ async function cmdRecordStart() {
     if (opts[k] !== undefined && opts[k] !== true) passthrough.push(`--${k} ${opts[k]}`);
   }
   const quote = s => `"${s}"`;
-  const commandLine = `cmd.exe /d /s /c "${quote(process.execPath)} ${quote(recordScript)} --out ${quote(outFile)} --port ${port} ${passthrough.join(' ')} >> ${quote(spawnLog)} 2>&1"`;
+  const commandLine = `cmd.exe /d /s /c "${quote(process.execPath)} ${quote(recordScript)} --out ${quote(outFile)} --work-dir ${quote(workDir)} --port ${port} ${passthrough.join(' ')} >> ${quote(spawnLog)} 2>&1"`;
 
-  const pid = spawnViaWmi({ commandLine, cwd: REPO_ROOT, env: process.env, dataDir: path.dirname(outFile) });
+  const pid = spawnViaWmi({ commandLine, cwd: REPO_ROOT, env: process.env, dataDir: workDir });
   const startedAt = new Date().toISOString();
-  const entry = { pid, out: outFile, port, startedAt };
-  writeJson(`${outFile}.recording.json`, entry);
+  const entry = { pid, out: outFile, workDir, port, startedAt };
+  writeJson(path.join(workDir, 'recording.json'), entry);
   addRecordingToRun(entry);
 
   // Wait for the first frame so a caller knows recording has actually begun
@@ -900,7 +905,7 @@ async function cmdRecordStart() {
   const deadline = Date.now() + 10000;
   let sawFrame = false;
   while (Date.now() < deadline) {
-    if (!pidExists(pid)) fail(`recorder exited before capturing a frame; see ${spawnLog} and ${outFile}.log`);
+    if (!pidExists(pid)) fail(`recorder exited before capturing a frame; see ${spawnLog} and ${path.join(workDir, 'record.log')}`);
     if (fs.existsSync(framesDir) && fs.readdirSync(framesDir).some(f => f.startsWith('frame-'))) { sawFrame = true; break; }
     await sleep(200);
   }
@@ -911,17 +916,18 @@ async function cmdRecordStart() {
 async function cmdRecordStop() {
   const outFile = opts.out ? path.resolve(String(opts.out)) : latestRecordingOut();
   if (!outFile) fail('record stop found no recording to stop; pass --out <file.mp4>');
-  const infoFile = `${outFile}.recording.json`;
+  const workDir = recordingWorkDir(outFile);
+  const infoFile = path.join(workDir, 'recording.json');
   if (!fs.existsSync(infoFile)) fail(`no ${infoFile}; was this recording started with 'record start'?`);
   const info = readJson(infoFile);
-  fs.writeFileSync(`${outFile}.stop`, '');
+  fs.writeFileSync(path.join(workDir, 'stop'), '');
   console.log(`stopping ${outFile} (pid ${info.pid})...`);
 
   const deadline = Date.now() + 60000;
   while (Date.now() < deadline && pidExists(info.pid)) await sleep(500);
   if (pidExists(info.pid)) console.error(`drive: recorder pid ${info.pid} still alive after 60s`);
 
-  const logFile = `${outFile}.log`;
+  const logFile = path.join(workDir, 'record.log');
   if (fs.existsSync(logFile)) {
     const lines = fs.readFileSync(logFile, 'utf8').split(/\r?\n/).filter(Boolean);
     for (const l of lines.slice(-10)) console.log(l);
@@ -933,6 +939,13 @@ async function cmdRecordStatus() {
   const recordings = run?.recordings ?? [];
   if (!recordings.length) { console.log('(no recordings)'); return; }
   for (const r of recordings) console.log(`${pidExists(r.pid) ? 'alive ' : 'gone  '} pid=${r.pid}  ${r.out}`);
+}
+
+// Where a recording's frames, stop file, logs and pid record live: under the run's
+// data dir when there is a run record, else beside the mp4 (a manual --port run).
+function recordingWorkDir(outFile) {
+  const base = path.basename(outFile, path.extname(outFile));
+  return run?.dataDir ? path.join(run.dataDir, 'recordings', base) : `${outFile}.work`;
 }
 
 function latestRecordingOut() {
