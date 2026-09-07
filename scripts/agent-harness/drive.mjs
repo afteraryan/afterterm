@@ -5,14 +5,29 @@
 // Commands:
 //   targets                       list DevTools targets
 //   bounds                        main window bounds (JSON) and which display holds it
-//   screenshot <out.png>          PNG of the main window's web content
+//   screenshot <out.png> [--window]    PNG of the main window's web content; --window
+//                                  captures the whole OS window instead, through PrintWindow,
+//                                  so it still works while the window is occluded
 //   eval "<js expression>"        Runtime.evaluate, promises awaited, JSON result
 //   dom "<css selector>" [--html] matches: count plus trimmed innerText (or outerHTML)
 //   click "<css selector>" [index]     real mouse click on the element's centre
 //   rightclick "<css selector>" [index]
+//   hover "<css selector>" [index]     move the pointer onto the element's centre and hold it there
+//   unhover                       move the pointer to (2, 2) of the viewport, off every hover target
+//   drag "<from selector>" [fromIndex] "<to selector>" [toIndex] [--steps N] [--hold-ms N]
+//                                  press at the source centre, step to the target centre
+//                                  (default 12 steps), optional dwell (--hold-ms), then release
+//   emulate-media reduce|no-preference|off   set or clear prefers-reduced-motion
 //   type "<text>"                 insert text at the focused element
 //   key <Enter|Escape|Tab|...> [--ctrl] [--shift] [--alt]
 //   sidebar                       the rendered sidebar as a tree
+//   screen                        which screen is showing plus overlay flags, as JSON
+//   home                          the rendered Home screen as a tree
+//   project                       the rendered project page as a tree
+//   chooser                       the new-thread chooser's rows
+//   palette                       the search palette's rows
+//   window bottom|restore|close-dialogs   OS-level window z-order, un-minimise, and
+//                                  closing stray native dialogs (e.g. a file picker)
 //
 // Every command reads latest.json (written by launch.mjs) for the port unless
 // --port or --data-dir is given.
@@ -22,6 +37,7 @@ import path from 'node:path';
 import {
   parseArgs, loadRun, resolvePort, listTargets, pickMainPage, Cdp, evaluate,
   listDisplays, displayContaining, listWindows, pidListeningOn, sleep,
+  powershell, DPI_AWARE_PRELUDE,
 } from './lib.mjs';
 
 // ─── Sidebar selectors (keep in one place; later phases update them here) ─────
@@ -47,6 +63,65 @@ const SEL = {
   stateIcon: '[data-state]',
   showMore: '.thmore',
   rail: '.rail',
+
+  // Home screen (src/renderer/components/Home/index.tsx, Home.css).
+  home: {
+    root: '.home',
+    dateHeading: 'h1.home-date',
+    totNeed: '.home .tot .sig.need',
+    totRun: '.home .tot .sig.run',
+    pinnedCard: '.cards .cd',
+    name: '.n',
+    pillNeed: '.sig.need',
+    pillRun: '.sig.run',
+    ago: '.ago',
+    pinButton: '[data-pin]',
+    pinButtonOnClass: 'on',
+    projectRow: '.list .pr',
+    projectTime: '.t',
+    moreProjects: '.more[data-more]',
+    archivedToggle: '.more[data-archived]',
+    archivedRow: '.pr.archived',
+    restoreButton: '[data-restore]',
+    nothing: '.home .nothing',
+  },
+
+  // Project page (src/renderer/components/ProjectPage/index.tsx, ProjectPage.css).
+  project: {
+    root: '.proj',
+    title: '.ph h1',
+    folderLine: '.ph .f',
+    action: '.ph .acts [data-action]',
+    tab: '.tabs .seg button',
+    search: '.srch input',
+    row: '.tl[data-tab-id]',
+    rowName: '.n',
+    rowTime: '.t',
+    stateIcon: '[data-state]',
+    nothing: '.nothing',
+  },
+
+  // New-thread chooser (src/renderer/components/NewThreadChooser/index.tsx).
+  chooser: {
+    root: '.nt',
+    input: '.nt input',
+    opt: '.nt .opt',
+    optName: '.n',
+    optTag: '.r',
+    hiClass: 'hi',
+    shellButton: '.nt .shb',
+  },
+
+  // Search palette (src/renderer/components/SearchPalette/index.tsx).
+  palette: {
+    root: '.pal',
+    input: '.pal input',
+    item: '.pi',
+    itemName: '.n',
+    itemMeta: '.m',
+    hiClass: 'hi',
+    nothing: '.nothing',
+  },
 };
 
 // Windows virtual-key codes for the keys an agent is likely to press.
@@ -72,7 +147,7 @@ const { opts, positional } = parseArgs(process.argv.slice(2));
 const [command, ...args] = positional;
 
 if (!command || opts.help) {
-  console.log(fs.readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(0, 19).map(l => l.replace(/^\/\/ ?/, '')).join('\n'));
+  console.log(fs.readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(0, 33).map(l => l.replace(/^\/\/ ?/, '')).join('\n'));
   process.exit(command ? 0 : 1);
 }
 
@@ -105,9 +180,19 @@ try {
       case 'dom': await cmdDom(args[0]); break;
       case 'click': await cmdClick(args[0], args[1], 'left'); break;
       case 'rightclick': await cmdClick(args[0], args[1], 'right'); break;
+      case 'hover': await cmdHover(args[0], args[1]); break;
+      case 'unhover': await cmdUnhover(); break;
+      case 'drag': await cmdDrag(args); break;
+      case 'emulate-media': await cmdEmulateMedia(args[0]); break;
       case 'type': await cmdType(args.join(' ')); break;
       case 'key': await cmdKey(args[0]); break;
       case 'sidebar': await cmdSidebar(); break;
+      case 'screen': await cmdScreen(); break;
+      case 'home': await cmdHome(); break;
+      case 'project': await cmdProject(); break;
+      case 'chooser': await cmdChooser(); break;
+      case 'palette': await cmdPalette(); break;
+      case 'window': await cmdWindow(args[0]); break;
       default: throw new DriveError(`unknown command: ${command}`);
     }
   }
@@ -153,6 +238,11 @@ async function cmdScreenshot(out) {
   if (!out) fail('screenshot needs an output path');
   const file = path.resolve(out);
   fs.mkdirSync(path.dirname(file), { recursive: true });
+  if (opts.window) {
+    screenshotWholeWindow(file);
+    console.log(file);
+    return;
+  }
   const shot = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
   fs.writeFileSync(file, Buffer.from(shot.data, 'base64'));
   console.log(file);
@@ -183,8 +273,10 @@ async function cmdDom(selector) {
   });
 }
 
-async function cmdClick(selector, indexArg, button) {
-  if (!selector) fail(`${button === 'right' ? 'rightclick' : 'click'} needs a selector`);
+// Scrolls the match at `index` into view and returns its centre in page
+// coordinates, shared by click, hover and drag so all three land on exactly
+// what a user would see and touch.
+async function elementCentre(selector, indexArg) {
   const index = Number(indexArg ?? 0);
   const rect = await evaluate(cdp, `(() => {
     const els = document.querySelectorAll(${JSON.stringify(selector)});
@@ -196,8 +288,12 @@ async function cmdClick(selector, indexArg, button) {
   })()`);
   if (rect.x === undefined) fail(`no element at index ${index} for ${selector} (${rect.count} match(es))`);
   if (rect.width === 0 || rect.height === 0) fail(`element ${index} for ${selector} has no size (hidden?)`);
-  const x = Math.round(rect.x);
-  const y = Math.round(rect.y);
+  return { x: Math.round(rect.x), y: Math.round(rect.y), count: rect.count, index };
+}
+
+async function cmdClick(selector, indexArg, button) {
+  if (!selector) fail(`${button === 'right' ? 'rightclick' : 'click'} needs a selector`);
+  const { x, y, count, index } = await elementCentre(selector, indexArg);
   // Real input events through Chromium's input pipeline, so React's synthetic
   // handlers, dnd-kit's pointer sensor and context-menu logic all see what a
   // user's mouse would produce.
@@ -205,7 +301,80 @@ async function cmdClick(selector, indexArg, button) {
   await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button, clickCount: 1 });
   await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button, clickCount: 1 });
   await sleep(50);
-  console.log(`${button === 'right' ? 'right-clicked' : 'clicked'} ${selector}[${index}] at (${x}, ${y}) of ${rect.count} match(es)`);
+  console.log(`${button === 'right' ? 'right-clicked' : 'clicked'} ${selector}[${index}] at (${x}, ${y}) of ${count} match(es)`);
+}
+
+async function cmdHover(selector, indexArg) {
+  if (!selector) fail('hover needs a selector');
+  const { x, y, count, index } = await elementCentre(selector, indexArg);
+  // Two intermediate moves from just outside the element, so both CSS :hover
+  // and React's onMouseEnter see a real enter transition rather than a single
+  // teleporting mouseMoved (which some handlers coalesce away).
+  const start = { x: Math.max(0, x - 24), y: Math.max(0, y - 24) };
+  const steps = 3;
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps;
+    const mx = Math.round(start.x + (x - start.x) * t);
+    const my = Math.round(start.y + (y - start.y) * t);
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: mx, y: my, button: 'none' });
+    await sleep(16);
+  }
+  console.log(`hovered ${selector}[${index}] at (${x}, ${y}) of ${count} match(es)`);
+}
+
+async function cmdUnhover() {
+  // (2, 2) sits in the title bar strip, which has no hover targets.
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 2, y: 2, button: 'none' });
+  console.log('moved pointer to (2, 2), off every hover target');
+}
+
+// Parses "<selector> [index] <selector> [index]" where an index is a bare
+// integer immediately following its selector, so `drag ".a" ".b" 1` (no
+// fromIndex) and `drag ".a" 2 ".b"` (no toIndex) are both unambiguous.
+function parseSelectorIndexPair(args) {
+  let i = 0;
+  const fromSelector = args[i++];
+  let fromIndex = 0;
+  if (args[i] !== undefined && /^\d+$/.test(args[i])) { fromIndex = Number(args[i]); i++; }
+  const toSelector = args[i++];
+  let toIndex = 0;
+  if (args[i] !== undefined && /^\d+$/.test(args[i])) { toIndex = Number(args[i]); i++; }
+  return { fromSelector, fromIndex, toSelector, toIndex };
+}
+
+async function cmdDrag(args) {
+  const { fromSelector, fromIndex, toSelector, toIndex } = parseSelectorIndexPair(args);
+  if (!fromSelector) fail('drag needs a from-selector');
+  if (!toSelector) fail('drag needs a to-selector');
+  const steps = Number(opts.steps ?? 12);
+  const holdMs = Number(opts['hold-ms'] ?? 0);
+  const from = await elementCentre(fromSelector, fromIndex);
+  const to = await elementCentre(toSelector, toIndex);
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: from.x, y: from.y, button: 'none' });
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: from.x, y: from.y, button: 'left', clickCount: 1 });
+  // dnd-kit's PointerSensor has a 6px activation distance, so this first move
+  // must clear it before dnd-kit will treat the gesture as a drag at all.
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps;
+    const mx = Math.round(from.x + (to.x - from.x) * t);
+    const my = Math.round(from.y + (to.y - from.y) * t);
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: mx, y: my, button: 'left' });
+    await sleep(16);
+  }
+  if (holdMs > 0) await sleep(holdMs);
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: to.x, y: to.y, button: 'left', clickCount: 1 });
+  console.log(`dragged ${fromSelector}[${fromIndex}] (${from.x}, ${from.y}) to ${toSelector}[${toIndex}] (${to.x}, ${to.y}) in ${steps} steps${holdMs ? `, held ${holdMs}ms` : ''}`);
+}
+
+async function cmdEmulateMedia(mode) {
+  if (!mode) fail('emulate-media needs reduce, no-preference or off');
+  let features;
+  if (mode === 'off') features = [];
+  else if (mode === 'reduce') features = [{ name: 'prefers-reduced-motion', value: 'reduce' }];
+  else if (mode === 'no-preference') features = [{ name: 'prefers-reduced-motion', value: 'no-preference' }];
+  else fail(`unknown mode ${mode}; known: reduce, no-preference, off`);
+  await cdp.send('Emulation.setEmulatedMedia', { features });
+  console.log(`set prefers-reduced-motion: ${mode === 'off' ? '(cleared)' : mode}`);
 }
 
 async function cmdType(text) {
@@ -300,6 +469,282 @@ async function cmdSidebar() {
       if (p.more) console.log(`      (${p.more})`);
     }
   }
+}
+
+async function cmdScreen() {
+  const info = await evaluate(cdp, `(() => {
+    const app = document.querySelector('.app');
+    const entranceClasses = ['enter-home', 'enter-project', 'enter-workspace'];
+    return {
+      screen: app ? (app.dataset.screen || null) : null,
+      entrance: app ? (entranceClasses.find(c => app.classList.contains(c)) || null) : null,
+      palette: !!document.querySelector('.palbg'),
+      chooser: !!document.querySelector('.nt'),
+      menu: !!document.querySelector('.menu'),
+      dialog: !!document.querySelector('.modal-overlay'),
+      toast: !!document.querySelector('.app-toast'),
+    };
+  })()`);
+  console.log(JSON.stringify(info, null, 2));
+}
+
+async function cmdHome() {
+  const S = SEL.home;
+  const data = await evaluate(cdp, `((S) => {
+    const text = el => (el ? (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim() : '');
+    const home = document.querySelector(S.root);
+    if (!home) return { present: false };
+    const pinned = Array.from(document.querySelectorAll(S.pinnedCard)).map(cd => {
+      const pinBtn = cd.querySelector(S.pinButton);
+      return {
+        group: cd.dataset.group || null,
+        name: text(cd.querySelector(S.name)),
+        need: text(cd.querySelector(S.pillNeed)) || null,
+        run: text(cd.querySelector(S.pillRun)) || null,
+        ago: text(cd.querySelector(S.ago)) || null,
+        pinnedOn: !!(pinBtn && pinBtn.classList.contains(S.pinButtonOnClass)),
+      };
+    });
+    const projects = Array.from(document.querySelectorAll(S.projectRow))
+      .filter(pr => !pr.classList.contains('archived'))
+      .map(pr => ({
+        group: pr.dataset.group || null,
+        name: text(pr.querySelector(S.name)),
+        need: text(pr.querySelector(S.pillNeed)) || null,
+        run: text(pr.querySelector(S.pillRun)) || null,
+        time: text(pr.querySelector(S.projectTime)) || null,
+      }));
+    const archivedRows = Array.from(document.querySelectorAll(S.archivedRow)).map(pr => ({
+      group: pr.dataset.group || null,
+      name: text(pr.querySelector(S.name)),
+      time: text(pr.querySelector(S.projectTime)) || null,
+    }));
+    return {
+      present: true,
+      dateHeading: text(document.querySelector(S.dateHeading)),
+      totNeed: text(document.querySelector(S.totNeed)) || null,
+      totRun: text(document.querySelector(S.totRun)) || null,
+      pinned,
+      nothingPinned: text(document.querySelector(S.nothing)) || null,
+      projects,
+      more: text(document.querySelector(S.moreProjects)) || null,
+      archivedToggle: text(document.querySelector(S.archivedToggle)) || null,
+      archivedRows,
+    };
+  })(${JSON.stringify(S)})`);
+
+  if (!data.present) { console.log('(not on Home)'); return; }
+  console.log(data.dateHeading || '(no date heading)');
+  console.log(`  totals: need=${data.totNeed ?? 'none'} run=${data.totRun ?? 'none'}`);
+  const pills = p => [p.need ? `need=${p.need}` : null, p.run ? `run=${p.run}` : null].filter(Boolean).join(' ');
+  console.log('  Pinned:');
+  if (!data.pinned.length) console.log(`    ${data.nothingPinned || '(none)'}`);
+  for (const p of data.pinned) {
+    console.log(`    [${p.group}] ${p.name}${pills(p) ? '  ' + pills(p) : ''}${p.ago ? '  ' + p.ago : ''}  pin=${p.pinnedOn ? 'on' : 'off'}`);
+  }
+  console.log('  Projects:');
+  for (const p of data.projects) {
+    console.log(`    [${p.group}] ${p.name}${pills(p) ? '  ' + pills(p) : ''}${p.time ? '  ' + p.time : ''}`);
+  }
+  if (data.more) console.log(`    (${data.more})`);
+  console.log('  Archived:');
+  if (data.archivedToggle) console.log(`    (${data.archivedToggle})`);
+  for (const p of data.archivedRows) console.log(`    [${p.group}] ${p.name}${p.time ? '  ' + p.time : ''}`);
+}
+
+async function cmdProject() {
+  const S = SEL.project;
+  const data = await evaluate(cdp, `((S) => {
+    const text = el => (el ? (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim() : '');
+    const proj = document.querySelector(S.root);
+    if (!proj) return { present: false };
+    const actions = Array.from(document.querySelectorAll(S.action)).map(b => ({
+      action: b.dataset.action || null,
+      disabled: b.getAttribute('aria-disabled') === 'true' || b.classList.contains('disabled') || b.disabled === true,
+    }));
+    const tabs = Array.from(document.querySelectorAll(S.tab)).map(b => ({
+      label: text(b),
+      selected: b.getAttribute('aria-selected') === 'true',
+    }));
+    const rows = Array.from(document.querySelectorAll(S.row)).map(row => {
+      const icon = row.querySelector(S.stateIcon);
+      return {
+        tabId: row.dataset.tabId || null,
+        name: text(row.querySelector(S.rowName)),
+        state: icon ? icon.getAttribute('data-state') : 'quiet',
+        time: text(row.querySelector(S.rowTime)) || null,
+      };
+    });
+    const search = document.querySelector(S.search);
+    return {
+      present: true,
+      title: text(document.querySelector(S.title)),
+      folderLine: text(document.querySelector(S.folderLine)),
+      actions,
+      tabs,
+      search: search ? search.value : '',
+      rows,
+      nothing: text(document.querySelector(S.nothing)) || null,
+    };
+  })(${JSON.stringify(S)})`);
+
+  if (!data.present) { console.log('(not on a project page)'); return; }
+  console.log(data.title || '(no title)');
+  console.log(`  folder: ${data.folderLine || '(none)'}`);
+  console.log(`  actions: ${data.actions.map(a => `${a.action}${a.disabled ? ' (disabled)' : ''}`).join(', ') || '(none)'}`);
+  const selected = data.tabs.find(t => t.selected);
+  const others = data.tabs.filter(t => !t.selected).map(t => t.label);
+  console.log(`  tab: ${selected ? selected.label : '(none selected)'}  other tabs: ${others.join(', ') || '(none)'}`);
+  console.log(`  search: ${JSON.stringify(data.search)}`);
+  if (!data.rows.length) {
+    console.log(`  ${data.nothing || '(no rows)'}`);
+  } else {
+    for (const r of data.rows) console.log(`  - "${r.name}" [${r.state || 'quiet'}]${r.time ? '  ' + r.time : ''}`);
+  }
+}
+
+async function cmdChooser() {
+  const S = SEL.chooser;
+  const data = await evaluate(cdp, `((S) => {
+    const text = el => (el ? (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim() : '');
+    const root = document.querySelector(S.root);
+    if (!root) return { present: false };
+    const input = document.querySelector(S.input);
+    const opts = Array.from(document.querySelectorAll(S.opt)).map(o => ({
+      group: o.dataset.group || null,
+      name: text(o.querySelector(S.optName)),
+      tag: text(o.querySelector(S.optTag)) || null,
+      hi: o.classList.contains(S.hiClass),
+    }));
+    return { present: true, input: input ? input.value : '', opts, shell: text(document.querySelector(S.shellButton)) || null };
+  })(${JSON.stringify(S)})`);
+
+  if (!data.present) { console.log('(no chooser open)'); return; }
+  console.log(`input: ${JSON.stringify(data.input)}`);
+  for (const o of data.opts) console.log(`  ${o.hi ? '*' : ' '} [${o.group}] ${o.name}${o.tag ? '  (' + o.tag + ')' : ''}`);
+  console.log(`shell: ${data.shell || '(none)'}`);
+}
+
+async function cmdPalette() {
+  const S = SEL.palette;
+  const data = await evaluate(cdp, `((S) => {
+    const text = el => (el ? (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim() : '');
+    const root = document.querySelector(S.root);
+    if (!root) return { present: false };
+    const input = document.querySelector(S.input);
+    const items = Array.from(document.querySelectorAll(S.item)).map(i => ({
+      kind: i.dataset.kind || null,
+      id: i.dataset.id || null,
+      name: text(i.querySelector(S.itemName)),
+      meta: text(i.querySelector(S.itemMeta)) || null,
+      hi: i.classList.contains(S.hiClass),
+    }));
+    return { present: true, input: input ? input.value : '', items, nothing: text(document.querySelector(S.nothing)) || null };
+  })(${JSON.stringify(S)})`);
+
+  if (!data.present) { console.log('(no palette open)'); return; }
+  console.log(`input: ${JSON.stringify(data.input)}`);
+  if (!data.items.length) console.log(`  ${data.nothing || '(no results)'}`);
+  for (const i of data.items) console.log(`  ${i.hi ? '*' : ' '} [${i.kind}/${i.id}] ${i.name}${i.meta ? '  ' + i.meta : ''}`);
+}
+
+// The electron browser process id, re-resolved from the listening DevTools
+// socket first (a main-process edit restarts electron under a new pid; see
+// cmdBounds), falling back to the recorded run.
+function resolveElectronPid() {
+  return pidListeningOn(port) ?? run?.electronPid ?? null;
+}
+
+// Among the electron process's visible windows, the main window is the
+// largest by area: the notifier overlay is a small toast strip and any native
+// dialog is smaller still, so area alone tells them apart without depending on
+// window title text (which is the page's own document.title and changes with
+// the active tab).
+function pickMainWindow(windows) {
+  const sized = windows.filter(w => !w.error && w.width > 0 && w.height > 0);
+  if (!sized.length) return null;
+  return sized.reduce((a, b) => (a.width * a.height >= b.width * b.height ? a : b));
+}
+
+// Captures the whole OS window, native title bar and all, through PrintWindow
+// with PW_RENDERFULLCONTENT (2). Unlike Page.captureScreenshot this works even
+// while another window covers afterterm's, because PrintWindow asks the target
+// window to paint into a device context we hand it, rather than reading back
+// what is currently on screen.
+function screenshotWholeWindow(file) {
+  const electronPid = resolveElectronPid();
+  if (!electronPid) fail('could not resolve the electron process id');
+  const win = pickMainWindow(listWindows(electronPid));
+  if (!win) fail(`no visible top-level window found for pid ${electronPid}`);
+  const escapedPath = file.replace(/'/g, "''");
+  const script = DPI_AWARE_PRELUDE + `
+Add-Type -AssemblyName System.Drawing
+Add-Type -Namespace Harness -Name Shot -MemberDefinition @'
+[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool GetWindowRect(System.IntPtr hWnd, out RECT lpRect);
+[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern int PrintWindow(System.IntPtr hwnd, System.IntPtr hdcBlt, uint nFlags);
+public struct RECT { public int Left, Top, Right, Bottom; }
+'@
+$hwnd = [IntPtr]${win.hwnd}
+$rect = New-Object Harness.Shot+RECT
+[void][Harness.Shot]::GetWindowRect($hwnd, [ref]$rect)
+$w = $rect.Right - $rect.Left
+$h = $rect.Bottom - $rect.Top
+$bmp = New-Object System.Drawing.Bitmap $w, $h
+$gfx = [System.Drawing.Graphics]::FromImage($bmp)
+$hdc = $gfx.GetHdc()
+[void][Harness.Shot]::PrintWindow($hwnd, $hdc, 2)
+$gfx.ReleaseHdc($hdc)
+$gfx.Dispose()
+$bmp.Save('${escapedPath}', [System.Drawing.Imaging.ImageFormat]::Png)
+$bmp.Dispose()
+`;
+  powershell(script);
+}
+
+async function cmdWindow(sub) {
+  if (!sub) fail('window needs bottom, restore or close-dialogs');
+  const electronPid = resolveElectronPid();
+  if (!electronPid) fail('could not resolve the electron process id');
+  const windows = listWindows(electronPid);
+
+  if (sub === 'bottom' || sub === 'restore') {
+    const win = pickMainWindow(windows);
+    if (!win) fail(`no visible top-level window found for pid ${electronPid}`);
+    // bottom: SetWindowPos(HWND_BOTTOM=1, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE=0x13)
+    // restore: ShowWindow(SW_SHOWNOACTIVATE=4)
+    const call = sub === 'bottom'
+      ? '$r = [Harness.Pos]::SetWindowPos($hwnd, [IntPtr]1, 0, 0, 0, 0, 19)'
+      : '$r = [Harness.Pos]::ShowWindow($hwnd, 4)';
+    const script = `
+Add-Type -Namespace Harness -Name Pos -MemberDefinition @'
+[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool SetWindowPos(System.IntPtr hWnd, System.IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool ShowWindow(System.IntPtr hWnd, int nCmdShow);
+'@
+$hwnd = [IntPtr]${win.hwnd}
+${call}
+"$r"`;
+    const out = powershell(script).trim();
+    console.log(`hwnd=${win.hwnd} ${sub} -> ${out}`);
+    return;
+  }
+
+  if (sub === 'close-dialogs') {
+    // Native common dialogs (file pickers, message boxes) run in-process under
+    // the electron browser pid and carry the stock Windows dialog class.
+    const dialogs = windows.filter(w => w.className === '#32770');
+    if (!dialogs.length) { console.log('no native dialogs found'); return; }
+    const script = `
+Add-Type -Namespace Harness -Name Close -MemberDefinition @'
+[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern System.IntPtr PostMessage(System.IntPtr hWnd, uint Msg, System.IntPtr wParam, System.IntPtr lParam);
+'@
+foreach ($h in @(${dialogs.map(d => d.hwnd).join(',')})) { [void][Harness.Close]::PostMessage([IntPtr]$h, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero) }
+"closed ${dialogs.length}"`;
+    const out = powershell(script).trim();
+    console.log(`${out}: ${dialogs.map(d => `${d.hwnd} "${d.title}"`).join(', ')}`);
+    return;
+  }
+
+  fail(`unknown window subcommand: ${sub}; known: bottom, restore, close-dialogs`);
 }
 
 function fail(msg) {

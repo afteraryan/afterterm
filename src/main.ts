@@ -1,10 +1,14 @@
 import { app, BrowserWindow, ipcMain, dialog, screen, shell } from 'electron';
 import path from 'path';
 import fs from 'fs';
-import { execFile, execSync } from 'child_process';
+import { execFile, execFileSync, execSync, spawn } from 'child_process';
 import * as pty from 'node-pty';
 import { runNotifierSelfTest, runNotifierDemo } from './notifier-selftest';
 import { reconcileClaudeHook, HOOK_SCRIPT_NAME } from './claude-hook-install';
+import { detectEditors } from './editor-detect.ts';
+import type { DetectDeps } from './editor-detect.ts';
+import type { EditorInfo } from './editors.ts';
+import { readPrefs, updatePrefs } from './prefs.ts';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -102,6 +106,26 @@ function getShellById(id?: string): ShellProfile {
 const ptys = new Map<string, pty.IPty>();
 let mainWindow: BrowserWindow | null = null;
 let notifierWindow: BrowserWindow | null = null;
+
+// ─── PTY activity stamping ────────────────────────────────────────────────────
+
+// A thread's lastActiveAt is stamped whenever its terminal has input or output.
+// A busy shell produces output many times a second, so the renderer is told at
+// most once per tab per 15 seconds: the first activity after a quiet period is
+// sent straight away, then everything is suppressed until the window passes.
+// The cost per chunk is one Map lookup and a Date.now(), nothing allocated.
+const ACTIVITY_INTERVAL_MS = 15_000;
+const lastActivitySent = new Map<string, number>();
+
+function noteActivity(tabId: string): void {
+  const now = Date.now();
+  const last = lastActivitySent.get(tabId);
+  if (last !== undefined && now - last < ACTIVITY_INTERVAL_MS) return;
+  lastActivitySent.set(tabId, now);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('pty:activity', { tabId, at: now });
+  }
+}
 
 // ─── Window creation ──────────────────────────────────────────────────────────
 
@@ -323,6 +347,11 @@ function createWindow() {
     } else if (ctrl && shift && key === 'b') {
       mainWindow.webContents.send('shortcut', 'toggle-panel');
       event.preventDefault();
+    } else if (ctrl && shift && key === 'p') {
+      // Search palette over projects and threads. Ctrl+K stays with the terminal,
+      // where shells and Claude Code both use it.
+      mainWindow.webContents.send('shortcut', 'search');
+      event.preventDefault();
     }
   });
 }
@@ -404,6 +433,266 @@ ipcMain.handle('shells:list', () => {
 // app.getVersion() reads package.json "version".
 ipcMain.on('app:version', (event) => { event.returnValue = app.getVersion(); });
 
+// ─── prefs.json ──────────────────────────────────────────────────────────────
+
+function getPrefsPath() {
+  return path.join(app.getPath('userData'), 'prefs.json');
+}
+
+// ─── Last opened time ────────────────────────────────────────────────────────
+
+// Home shows how long you were away, so the app records when it was opened and
+// reads that back one launch later. Held in a module variable because prefs.json
+// is rewritten with the current time during startup: by the time the renderer
+// asks, the file no longer holds the previous value.
+let previousLastOpenedAt: number | null = null;
+
+function initLastOpenedAt(): void {
+  const prefsPath = getPrefsPath();
+  const { prefs, usable } = readPrefs(prefsPath);
+  const stored = prefs.lastOpenedAt;
+  previousLastOpenedAt = typeof stored === 'number' && Number.isFinite(stored) ? stored : null;
+  // An unparseable prefs.json is left exactly as it is, same rule as the Claude
+  // hook opt-out flag: updatePrefs refuses the write and returns false.
+  if (usable) updatePrefs(prefsPath, { lastOpenedAt: Date.now() });
+}
+
+// Sync, like app:version, so the renderer has it at preload time and Home can
+// render its first frame without a second pass. null on the very first launch.
+ipcMain.on('app:last-opened-at', (event) => { event.returnValue = previousLastOpenedAt; });
+
+// ─── Project folders: File Explorer and existence checks ─────────────────────
+
+// A WSL path is served by a network provider, not the local filesystem. A stat
+// on one can hang or fail while the path is perfectly good, so afterterm never
+// checks those: File Explorer and VS Code both handle them themselves.
+function isWslPath(folder: string): boolean {
+  return /^\\\\wsl(\$|\.localhost)\\/i.test(folder);
+}
+
+function isUsableFolder(folder: string): boolean {
+  if (isWslPath(folder)) return true;
+  try {
+    return fs.existsSync(folder) && fs.statSync(folder).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+// Launch a program with one argument, as an argument, never through a shell
+// string, so spaces and non-ASCII in a folder path pass through untouched.
+// Resolves as soon as the process exists: explorer.exe exits with code 1 even
+// when it opened the window, so an exit code says nothing about success.
+function spawnDetached(command: string, args: string[]): Promise<{ ok: boolean; error?: string }> {
+  return new Promise(resolve => {
+    let child;
+    try {
+      child = execFile(command, args, { windowsHide: false }, () => { /* exit code is not a result */ });
+    } catch (err) {
+      resolve({ ok: false, error: String(err) });
+      return;
+    }
+    child.once('spawn', () => {
+      try { child.unref(); } catch {}
+      resolve({ ok: true });
+    });
+    child.once('error', (err) => resolve({ ok: false, error: String(err) }));
+  });
+}
+
+ipcMain.handle('projects:openInExplorer', async (_event, folder: unknown) => {
+  if (typeof folder !== 'string' || folder.trim() === '') {
+    return { ok: false, error: 'Folder not found' };
+  }
+  if (!isUsableFolder(folder)) return { ok: false, error: 'Folder not found' };
+  const result = await spawnDetached('explorer.exe', [folder]);
+  if (result.ok) return { ok: true };
+  console.error('[explorer] could not open', folder, result.error);
+  return { ok: false, error: 'Could not open File Explorer' };
+});
+
+// One round trip for a whole list of project folders, so Home can grey out the
+// ones that are gone without a call per project.
+const MAX_FOLDER_CHECKS = 500;
+
+ipcMain.handle('projects:checkFolders', (_event, folders: unknown) => {
+  const result: Record<string, boolean> = {};
+  if (!Array.isArray(folders)) return result;
+  for (const folder of folders.slice(0, MAX_FOLDER_CHECKS)) {
+    if (typeof folder !== 'string' || folder === '') continue;
+    if (folder in result) continue;
+    result[folder] = isUsableFolder(folder);
+  }
+  return result;
+});
+
+// ─── Editor detection and launch ─────────────────────────────────────────────
+
+// The real, Windows-only side of editor-detect.ts. Every call is wrapped so a
+// permission error or a missing tool degrades to "not found" rather than
+// throwing during startup.
+const realDetectDeps: DetectDeps = {
+  env: process.env as Record<string, string | undefined>,
+  exists: (p) => { try { return fs.existsSync(p); } catch { return false; } },
+  isFile: (p) => { try { return fs.statSync(p).isFile(); } catch { return false; } },
+  listDir: (p) => { try { return fs.readdirSync(p); } catch { return []; } },
+  readText: (p) => { try { return fs.readFileSync(p, 'utf-8'); } catch { return null; } },
+  whereCode: () => {
+    try {
+      const out = execFileSync('where', ['code'], {
+        encoding: 'utf-8', timeout: 4000, windowsHide: true,
+      });
+      return out.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    } catch {
+      return [];
+    }
+  },
+  registryEditors: () => readUninstallEditors(),
+};
+
+const UNINSTALL_KEYS = [
+  'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall',
+  'HKCU\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall',
+  'HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall',
+  'HKLM\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall',
+];
+
+// Walk the uninstall registry and pull out the three values detection needs.
+// `reg query ... /s` prints one blank-line-separated block per subkey, with
+// values as "    Name    REG_SZ    value".
+function readUninstallEditors(): { displayName: string; installLocation?: string; displayIcon?: string }[] {
+  const entries: { displayName: string; installLocation?: string; displayIcon?: string }[] = [];
+  for (const key of UNINSTALL_KEYS) {
+    let out = '';
+    try {
+      out = execFileSync('reg', ['query', key, '/s'], {
+        encoding: 'utf-8', timeout: 8000, windowsHide: true, maxBuffer: 32 * 1024 * 1024,
+      });
+    } catch {
+      continue; // key absent on this machine, or reg refused it
+    }
+    let current: { displayName?: string; installLocation?: string; displayIcon?: string } = {};
+    const flush = () => {
+      if (current.displayName) {
+        entries.push({
+          displayName: current.displayName,
+          installLocation: current.installLocation,
+          displayIcon: current.displayIcon,
+        });
+      }
+      current = {};
+    };
+    for (const rawLine of out.split(/\r?\n/)) {
+      const line = rawLine.trimEnd();
+      if (/^HKEY_/i.test(line.trim())) { flush(); continue; }
+      const match = /^\s+(DisplayName|InstallLocation|DisplayIcon)\s+REG_[A-Z_]+\s+(.*)$/i.exec(line);
+      if (!match) continue;
+      const name = match[1].toLowerCase();
+      const value = match[2].trim();
+      if (name === 'displayname') current.displayName = value;
+      else if (name === 'installlocation') current.installLocation = value;
+      else current.displayIcon = value;
+    }
+    flush();
+  }
+  return entries;
+}
+
+// Detection runs once, after the window is up, and is cached for the session. It
+// re-runs when a launch fails or the user picks an editor by hand.
+let cachedEditors: EditorInfo[] = [];
+let editorPrefsPathInvalid = false;
+let editorDetectionRan = false;
+
+function runEditorDetection(reason: string): void {
+  editorDetectionRan = true;
+  try {
+    const started = Date.now();
+    const editorPath = readPrefs(getPrefsPath()).prefs.editorPath;
+    const result = detectEditors(typeof editorPath === 'string' ? editorPath : undefined, realDetectDeps);
+    cachedEditors = result.editors;
+    editorPrefsPathInvalid = result.invalidPrefsPath;
+    const found = result.editors.length
+      ? result.editors.map(e => `${e.name} (${e.source})`).join(', ')
+      : 'none found';
+    console.log(`[editors] ${reason}: ${found}${result.invalidPrefsPath ? ', editorPath in prefs.json is not an editor' : ''} in ${Date.now() - started}ms`);
+  } catch (err) {
+    cachedEditors = [];
+    editorPrefsPathInvalid = false;
+    console.error('[editors] detection failed:', err);
+  }
+}
+
+// If the renderer asks before the deferred startup run, detect now rather than
+// answering with an empty list and hiding a button the user does have.
+ipcMain.handle('editors:list', () => {
+  if (!editorDetectionRan) runEditorDetection('first request from the renderer');
+  return cachedEditors;
+});
+
+// True only when prefs.json holds an editorPath that exists and is not an
+// editor. The renderer shows the "Editor path not valid" toast for this alone.
+ipcMain.handle('editors:prefsPathInvalid', () => {
+  if (!editorDetectionRan) runEditorDetection('first request from the renderer');
+  return editorPrefsPathInvalid;
+});
+
+ipcMain.handle('editors:open', async (_event, folder: unknown, editorId?: unknown) => {
+  if (typeof folder !== 'string' || folder.trim() === '' || !isUsableFolder(folder)) {
+    return { ok: false, error: 'Folder not found', editors: cachedEditors };
+  }
+  const editor = (typeof editorId === 'string' ? cachedEditors.find(e => e.id === editorId) : undefined)
+    ?? cachedEditors[0];
+  if (!editor) return { ok: false, error: 'No editor found', editors: cachedEditors };
+
+  const result = await new Promise<{ ok: boolean; error?: string }>(resolve => {
+    let child;
+    try {
+      // spawn, not execFile: the editor outlives afterterm, so it is detached
+      // with no pipes held open. The folder is still one argument in an argv
+      // array, never a shell string.
+      child = spawn(editor.path, [folder], { detached: true, stdio: 'ignore', windowsHide: false });
+    } catch (err) {
+      resolve({ ok: false, error: String(err) });
+      return;
+    }
+    child.once('spawn', () => {
+      try { child.unref(); } catch {}
+      resolve({ ok: true });
+    });
+    child.once('error', (err) => resolve({ ok: false, error: String(err) }));
+  });
+
+  if (result.ok) return { ok: true, editors: cachedEditors };
+  // The editor was there at startup and is not now (uninstalled, moved, blocked).
+  // Re-detect so the UI can drop a button that no longer opens anything.
+  console.error(`[editors] launch failed for ${editor.path}:`, result.error);
+  runEditorDetection('re-detect after a failed launch');
+  return { ok: false, error: `Couldn't open ${editor.name}`, editors: cachedEditors };
+});
+
+// File picker for the editor executable. Windows cannot offer files and folders
+// in one dialog, so this picks a file; a folder can still be set by hand in
+// prefs.json and detection accepts it when it holds a known editor exe.
+ipcMain.handle('editors:choose', async () => {
+  if (!mainWindow) return null;
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Choose editor',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Executables', extensions: ['exe'] },
+      { name: 'All files', extensions: ['*'] },
+    ],
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  const picked = result.filePaths[0];
+  // A hand-picked path wins, whatever the exe is called: an unknown one becomes
+  // product 'other' and is named after its file.
+  updatePrefs(getPrefsPath(), { editorPath: picked });
+  runEditorDetection('re-detect after the user chose an editor');
+  return { editors: cachedEditors, invalid: editorPrefsPathInvalid };
+});
+
 // ─── IPC: create PTY ─────────────────────────────────────────────────────────
 
 ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: string) => {
@@ -460,6 +749,7 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
         }
         buffer = '';
         flushTimer = null;
+        noteActivity(tabId);
       }, 16);
     }
   });
@@ -475,6 +765,7 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
       mainWindow.webContents.send(`pty:exit:${tabId}`, exitCode);
     }
     ptys.delete(tabId);
+    lastActivitySent.delete(tabId);
   });
 
   return { pid: p.pid };
@@ -483,7 +774,10 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
 // ─── IPC: write to PTY ───────────────────────────────────────────────────────
 
 ipcMain.on('pty:input', (_event, tabId: string, data: string) => {
-  ptys.get(tabId)?.write(data);
+  const p = ptys.get(tabId);
+  if (!p) return;
+  p.write(data);
+  noteActivity(tabId);
 });
 
 // ─── IPC: resize PTY ─────────────────────────────────────────────────────────
@@ -502,6 +796,7 @@ ipcMain.handle('pty:destroy', async (_event, tabId: string) => {
   if (!p) return;
   const pid = p.pid;
   ptys.delete(tabId);
+  lastActivitySent.delete(tabId);
 
   await new Promise<void>(resolve => {
     execFile('taskkill', ['/PID', String(pid), '/T', '/F'], () => resolve());
@@ -613,6 +908,7 @@ async function destroyAllPtys() {
   });
   await Promise.all(kills);
   ptys.clear();
+  lastActivitySent.clear();
 }
 
 app.on('before-quit', async (e) => {
@@ -627,6 +923,8 @@ app.on('before-quit', async (e) => {
 // ─── App lifecycle ────────────────────────────────────────────────────────────
 
 app.whenReady().then(() => {
+  // Before any window loads: the preload reads app:last-opened-at synchronously.
+  initLastOpenedAt();
   createNotifierWindow();
   // Headless geometry self-test: drive the overlay through a toast sequence and
   // assert the window resizes to fit (no dead zone) and stays bottom-anchored.
@@ -641,6 +939,11 @@ app.whenReady().then(() => {
   createWindow();
   reconcileNotifierHook();
   startClaudeSessionWatch();
+  // Editor detection reads the registry through `reg query`, which is synchronous
+  // and can take a second. Deferred so the window paints and the first terminal
+  // spawns before the main process is busy. The renderer asks for the list after
+  // this; if it asks sooner, editors:list runs detection itself.
+  setTimeout(() => { if (!editorDetectionRan) runEditorDetection('startup'); }, 1200);
 });
 
 app.on('window-all-closed', () => {

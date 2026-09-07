@@ -4,6 +4,7 @@
 // Each icon is a plain inline SVG using currentColor so it inherits the caller's color.
 import React from 'react';
 import { GroupColor, GROUP_COLORS } from './TabBar/types';
+import type { EditorProduct } from '../../editors';
 
 export interface IconProps {
   size?: number;
@@ -266,6 +267,67 @@ export function IconCompact(props: IconProps) {
   );
 }
 
+// The Windows Explorer folder mark: copied verbatim from the mock's i-explorer
+// symbol. Real product colours, so it reads at a glance next to a plain
+// project folder icon.
+export function IconExplorer(props: IconProps) {
+  return (
+    <svg {...svgProps(props)}>
+      <path d="M2 6.5A2 2 0 0 1 4 4.5h5.2l2 2H20a2 2 0 0 1 2 2V10H2z" fill="#D99A00" />
+      <path d="M2 10h20v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z" fill="#FFCA3A" />
+      <path d="M2 10h20v1.5H2z" fill="#FFE08A" />
+    </svg>
+  );
+}
+
+// VS Code's mark: copied verbatim from the mock's i-vscode symbol (its own
+// 100x100 viewBox, not the shared 24x24 one the rest of this file uses).
+export function IconVSCode({ size = 16, className, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden="true" className={className} style={style}>
+      <path d="M96.46 10.8 75.86.88c-2.39-1.15-5.24-.67-7.11 1.21L1.3 63.6c-1.82 1.65-1.81 4.51.01 6.15l5.51 5.01c1.49 1.35 3.73 1.45 5.33.24L93.38 13.38C96.1 11.31 100 13.26 100 16.68v-.24c0-2.41-1.38-4.6-3.54-5.64z" fill="#0065A9" />
+      <path d="M96.46 89.2 75.86 99.12c-2.39 1.15-5.24.67-7.11-1.21L1.3 36.4c-1.82-1.65-1.81-4.51.01-6.15l5.51-5.01c1.49-1.35 3.73-1.45 5.33-.24l81.23 61.62C96.1 88.69 100 86.74 100 83.32v.24c0 2.41-1.38 4.6-3.54 5.64z" fill="#007ACC" />
+      <path d="M75.86 99.13c-2.4 1.14-5.24.66-7.11-1.22 2.3 2.3 6.25.67 6.25-2.58V4.67c0-3.25-3.95-4.88-6.25-2.58 1.87-1.88 4.71-2.36 7.11-1.22l20.6 9.91C98.62 11.82 100 14.02 100 16.42v67.16c0 2.4-1.38 4.6-3.54 5.64l-20.6 9.91z" fill="#1F9CF0" />
+    </svg>
+  );
+}
+
+// VS Code Insiders: the same silhouette as VS Code, in the green palette
+// Microsoft uses to tell the Insiders build apart from the stable one.
+export function IconInsiders({ size = 16, className, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden="true" className={className} style={style}>
+      <path d="M96.46 10.8 75.86.88c-2.39-1.15-5.24-.67-7.11 1.21L1.3 63.6c-1.82 1.65-1.81 4.51.01 6.15l5.51 5.01c1.49 1.35 3.73 1.45 5.33.24L93.38 13.38C96.1 11.31 100 13.26 100 16.68v-.24c0-2.41-1.38-4.6-3.54-5.64z" fill="#0A5C36" />
+      <path d="M96.46 89.2 75.86 99.12c-2.39 1.15-5.24.67-7.11-1.21L1.3 36.4c-1.82-1.65-1.81-4.51.01-6.15l5.51-5.01c1.49-1.35 3.73-1.45 5.33-.24l81.23 61.62C96.1 88.69 100 86.74 100 83.32v.24c0 2.41-1.38 4.6-3.54 5.64z" fill="#12854C" />
+      <path d="M75.86 99.13c-2.4 1.14-5.24.66-7.11-1.22 2.3 2.3 6.25.67 6.25-2.58V4.67c0-3.25-3.95-4.88-6.25-2.58 1.87-1.88 4.71-2.36 7.11-1.22l20.6 9.91C98.62 11.82 100 14.02 100 16.42v67.16c0 2.4-1.38 4.6-3.54 5.64l-20.6 9.91z" fill="#34D399" />
+    </svg>
+  );
+}
+
+// Cursor: a faceted diamond mark on a black tile, echoing Cursor's monochrome
+// cube logo (not a pixel copy, no official asset was available to trace).
+export function IconCursor({ size = 16, className, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden="true" className={className} style={style}>
+      <rect width="100" height="100" rx="22" fill="#0d0d0d" />
+      <path d="M50 12 86 32 50 52 14 32z" fill="#ffffff" />
+      <path d="M14 32 50 52v36L14 68z" fill="#b7b7b7" />
+      <path d="M86 32 50 52v36l36-20z" fill="#7a7a7a" />
+    </svg>
+  );
+}
+
+// Windsurf: a white sail on the product's teal-blue, echoing Windsurf's wave
+// mark (not a pixel copy, no official asset was available to trace).
+export function IconWindsurf({ size = 16, className, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden="true" className={className} style={style}>
+      <rect width="100" height="100" rx="22" fill="#0EA5E9" />
+      <path d="M20 66c14-4 22-14 30-30 6 14 18 22 30 26-10 10-22 16-32 16-12 0-22-5-28-12z" fill="#ffffff" fillOpacity=".92" />
+    </svg>
+  );
+}
+
 // ─── Composed icon widgets ──────────────────────────────────────────────────
 
 export interface FolderIconProps {
@@ -283,6 +345,24 @@ export function FolderIcon({ color, open, size = 18 }: FolderIconProps) {
       {open ? <IconFolderOpen size={size} /> : <IconFolder size={size} />}
     </span>
   );
+}
+
+export interface EditorLogoProps {
+  product: EditorProduct;
+  size?: number;
+}
+
+// Picks the right real-colour editor logo for a detected EditorInfo.product.
+// 'other' (a hand-picked editorPath afterterm could not identify) falls back
+// to the plain terminal icon rather than guessing at a logo.
+export function EditorLogo({ product, size = 16 }: EditorLogoProps) {
+  switch (product) {
+    case 'vscode': return <IconVSCode size={size} />;
+    case 'vscode-insiders': return <IconInsiders size={size} />;
+    case 'cursor': return <IconCursor size={size} />;
+    case 'windsurf': return <IconWindsurf size={size} />;
+    case 'other': return <IconTerm size={size} />;
+  }
 }
 
 export interface SpinnerProps {

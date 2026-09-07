@@ -1,0 +1,204 @@
+/* Home screen (mock #view-home, .home, .lbl, .cards, .cd, .pr, .more,
+   .nothing), against the tokens in theme.css. `.screen-home` is the
+   scrollable viewport; `.home` is the centred column of sections that
+   index.css staggers in on entry (.app.enter-home .home > *). */
+
+.screen-home {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+.home {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 28px 24px 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+}
+
+.home-date {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -.01em;
+}
+
+.home .sub {
+  margin: 6px 0 0;
+  color: var(--text3);
+}
+
+.home .tot {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.home .lblrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-right: 8px;
+}
+
+/* Unlike the sidebar's lblrow (hidden until the section is hovered), Home's +
+   is always visible: there is no ambient hover surface to reveal it with. */
+.home .lblrow .ib {
+  opacity: 1;
+}
+
+/* ── Pinned cards ──────────────────────────────────────────────────────── */
+
+.home .cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.home .cd {
+  background: var(--raise);
+  border-radius: var(--radius-surface);
+  padding: 16px 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 92px;
+  cursor: pointer;
+  transition: background var(--fast);
+}
+
+.home .cd:hover {
+  background: var(--hover2);
+}
+
+.home .cd .hd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.home .cd .n {
+  font-weight: 500;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home .cd .f {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text3);
+  font-size: 13px;
+  margin-top: auto;
+}
+
+.home .cd .f .ago {
+  margin-left: auto;
+}
+
+.home .cd .go {
+  opacity: 0;
+}
+
+.home .cd:hover .go {
+  opacity: 1;
+}
+
+/* ── Project and archived rows ────────────────────────────────────────── */
+
+.home .list {
+  display: flex;
+  flex-direction: column;
+}
+
+.home .pr {
+  margin: 1px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border-radius: var(--radius-row);
+  min-width: 0;
+  width: 100%;
+  cursor: pointer;
+  transition: background var(--fast);
+}
+
+.home .pr:hover {
+  background: var(--hover);
+}
+
+.home .pr .sig {
+  background: var(--hover);
+}
+
+.home .pr:hover .sig {
+  background: var(--hover2);
+}
+
+.home .pr .tx {
+  flex: 1;
+  min-width: 0;
+}
+
+.home .pr .n {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home .pr .t {
+  color: var(--text3);
+  font-size: 13px;
+  flex: none;
+}
+
+.home .pr .ib {
+  opacity: 0;
+}
+
+.home .pr:hover .ib,
+.home .pr .ib.on {
+  opacity: 1;
+}
+
+.home .more {
+  color: var(--text3);
+  padding: 9px 12px;
+  border-radius: var(--radius-row);
+  font-size: 13px;
+  width: 100%;
+  text-align: left;
+  transition: background var(--fast), color var(--fast);
+}
+
+.home .more:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.home .nothing {
+  color: var(--text3);
+  padding: 28px 12px;
+  text-align: center;
+}
+
+@media (max-width: 860px) {
+  .home {
+    padding: 16px 16px 96px;
+  }
+  .home .cards {
+    grid-template-columns: 1fr;
+  }
+  .home .cd .go,
+  .home .pr .ib {
+    opacity: 1;
+  }
+}

@@ -109,18 +109,57 @@ node scripts/agent-harness/drive.mjs <command> ...
 |---|---|---|
 | `targets` | `drive targets` | Lists DevTools targets (the main window is the page whose URL has no `?notifier=1`). |
 | `bounds` | `drive bounds` | JSON: the electron process's visible top-level windows in physical pixels with the display each is on (`os`), the page's own view (`page`, Chromium DIP layout) and the displays. |
-| `screenshot` | `drive screenshot out.png` | PNG of the main window's web content via `Page.captureScreenshot`. |
+| `screenshot` | `drive screenshot out.png`, `drive screenshot out.png --window` | PNG of the main window's web content via `Page.captureScreenshot`. With `--window`, captures the whole OS window instead (see "Capturing an occluded window" below). |
 | `eval` | `drive eval "document.title"` | `Runtime.evaluate`, promises awaited, result printed as JSON. |
 | `dom` | `drive dom ".tab-row"`, add `--html` for outerHTML | Match count plus tag, classes and trimmed innerText per match. |
 | `click` | `drive click ".tab-row" 2` | Scrolls the element into view and dispatches a real `mousePressed` and `mouseReleased` at its centre through `Input.dispatchMouseEvent`, so React handlers and dnd-kit see a user-like click. Index defaults to 0. |
 | `rightclick` | `drive rightclick ".group-header" 0` | Same with the right button (opens context menus). |
+| `hover` | `drive hover ".pr" 0` | Scrolls the element into view, then steps the pointer onto its centre in a couple of `mouseMoved` events (so CSS `:hover` and React's `onMouseEnter` both see a real enter, not a teleport) and leaves it there. Prints the centre. |
+| `unhover` | `drive unhover` | Moves the pointer to (2, 2) of the viewport, the title bar strip, which has no hover targets. |
+| `drag` | `drive drag ".tab-row" 0 ".tab-row" 2 --hold-ms 600` | Presses at the source element's centre, steps to the target element's centre (`--steps`, default 12, 16ms apart), an optional dwell at the target (`--hold-ms`, default 0; dnd-kit's dwell-to-group needs 600), then releases. An index is a bare integer right after its selector, so the two selector/index pairs never need extra flags to disambiguate. |
+| `emulate-media` | `drive emulate-media reduce` | `Emulation.setEmulatedMedia` for `prefers-reduced-motion`: `reduce`, `no-preference`, or `off` to clear every emulated feature. |
 | `type` | `drive type "hello"` | `Input.insertText` into the focused element. |
 | `key` | `drive key Enter`, `drive key b --ctrl --shift` | `Input.dispatchKeyEvent` down and up. Known names: Enter, Escape, Tab, Backspace, Delete, Space, Arrow keys, Home, End, PageUp, PageDown, F5, or any single character. Modifiers: `--ctrl`, `--shift`, `--alt`. |
 | `sidebar` | `drive sidebar` | The rendered sidebar as a tree: one block per section (General, Pinned, Projects); project rows with label, thread count, collapsed state and the counter pills (`need=`, `run=`); thread rows with title, `*` for active, `[kind/state]` from the row's kind icon and state icon, `[x]` when the row's close button is present, `[restorable]`; a `(Show N more)` line where a list is folded. Collapsed, the panel reports `(collapsed, rail only)` and lists nothing. |
+| `screen` | `drive screen` | One JSON object: `screen` (`home`, `workspace` or `project`, from `.app`'s `data-screen`), `entrance` (the `enter-home` / `enter-project` / `enter-workspace` class while it's still on `.app`, or `null`), and whether the search palette, new-thread chooser, a menu, a dialog, or a toast is present. |
+| `home` | `drive home` | The rendered Home screen as a tree: the date heading, the `need`/`run` totals, one line per pinned card (name, pills, relative time, pin state), one line per project row, the "Show more" line when present, and the archived section (its toggle line, then its rows once expanded). `(not on Home)` when `.home` is absent. |
+| `project` | `drive project` | The rendered project page: title, folder line, the action buttons under `.ph .acts` with their disabled state, the selected tab plus the other tab labels, the search box value, and one line per thread row (name, state, time), or the empty-state text. `(not on a project page)` when `.proj` is absent. |
+| `chooser` | `drive chooser` | The new-thread chooser's input value, one line per option (project id, name, tag, `*` when highlighted), and the shell label. `(no chooser open)` when absent. |
+| `palette` | `drive palette` | The search palette's input value and one line per result (kind, id, name, meta text, `*` when highlighted), or the empty-state text. `(no palette open)` when absent. |
+| `window` | `drive window bottom`, `drive window restore`, `drive window close-dialogs` | OS-level window control (see "Capturing an occluded window" below). |
 
 The sidebar selectors live in the `SEL` object at the top of `drive.mjs`,
 read from `src/renderer/components/SidePanel/index.tsx` and `SidePanel.css`.
-When a phase renames classes, update that one object.
+When a phase renames classes, update that one object. `SEL.home`, `SEL.project`,
+`SEL.chooser` and `SEL.palette` hold the same kind of selector map for the
+Phase 2 screens; they read from the DOM hooks each screen's component is
+supposed to keep (`docs/design-02-projects-and-threads.md` and the components
+themselves), not from `SidePanel`.
+
+### Hover, drag and reduced motion
+
+`hover` and `drag` use `Input.dispatchMouseEvent` the same way `click` does,
+just with more than one event: `hover` steps the pointer onto the element over
+a couple of moves so React's `onMouseEnter` fires on an actual enter rather
+than a single teleport, and `drag` presses, steps toward the target (clearing
+dnd-kit's 6px activation distance on the very first move), optionally dwells,
+then releases. Neither command remembers where the pointer was from an earlier
+invocation, since each `drive.mjs` call is a separate process: `hover` starts
+its steps a little above and to the left of the element, `drag` starts exactly
+at the source element's centre.
+
+`emulate-media reduce` turns off CSS transitions and animations gated on
+`prefers-reduced-motion`, which is useful for a screenshot that should not
+land mid-animation; `emulate-media off` clears it back to the OS setting.
+
+### Screens
+
+`screen`, `home`, `project`, `chooser` and `palette` read the Phase 2 UI the
+way `sidebar` reads the side panel: DOM lookups through the `SEL` object,
+printed as a plain tree (or JSON for `screen`, since it is a small flag set
+rather than a list). Each one reports its own "not open" or "not on this
+screen" line instead of throwing, so a command can be used to check whether a
+screen or overlay is showing at all.
 
 ## Prove the window is on the secondary display
 
@@ -135,6 +174,38 @@ When a phase renames classes, update that one object.
 
 The dev build's notifier overlay follows `AFTERTERM_DISPLAY` too, so its toasts
 land on the same display; `screenshot-display.ps1` is the only way to see them.
+
+## Capturing an occluded window
+
+CDP's `Page.captureScreenshot` only ever sees the web content, and it needs the
+page actually painted: it hangs if the window is minimised and misses whatever
+another window is covering. Two commands work around both:
+
+- `drive screenshot out.png --window` captures the whole OS window (native title
+  bar included) through `PrintWindow` with `PW_RENDERFULLCONTENT`, which asks the
+  window to paint into a bitmap directly rather than reading back the screen, so
+  it still works while another window sits on top. It writes and runs a small
+  inline PowerShell script (`Add-Type` for `GetWindowRect` and `PrintWindow`,
+  a `System.Drawing.Bitmap`, saved as PNG), the same way `bounds`'s window query
+  does.
+- `drive window bottom` pushes the main window to the bottom of the z-order
+  without activating it (`SetWindowPos` with `HWND_BOTTOM`,
+  `SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE`), so a screenshot of "whatever the
+  user is actually looking at instead" can be taken without ever giving the
+  harness window focus. `drive window restore` shows it again without
+  activating it (`ShowWindow` with `SW_SHOWNOACTIVATE`) so later CDP
+  screenshots stop hanging. Both print the window handle and the raw Win32
+  result.
+- `drive window close-dialogs` closes any stray native dialog (a file picker
+  opened by mistake, a message box) by posting `WM_CLOSE` to every visible
+  window of class `#32770` under the electron process; prints "no native
+  dialogs found" when there are none.
+
+The window these three act on is picked by area: among the electron process's
+visible top-level windows, the main window is the largest one, which tells it
+apart from the small notifier-overlay toast strip without depending on window
+title text (the main window's title is the page's own `document.title`, which
+changes with the active tab).
 
 ## Stop
 
@@ -178,7 +249,16 @@ port, and `stop` walks the tree, so both keep working, but any in-page state is 
 
 - CDP screenshots show only the web content of the main window: no native title
   bar, no notifier overlay, no context menus that are separate windows (there are
-  none today; the app's menus are DOM). Use `screenshot-display.ps1` for those.
+  none today; the app's menus are DOM). Use `screenshot-display.ps1`, or
+  `screenshot --window`, for those.
+- CDP screenshots hang while the window is minimised (Chromium does not paint a
+  minimised window). Restore it first with `drive window restore` rather than
+  clicking it (clicking would activate it, which is what `window restore`
+  deliberately avoids).
+- A native file dialog opened by mistake (a stray `dialog.showOpenDialog` click)
+  blocks the app until someone closes it by hand. `drive window close-dialogs`
+  closes any such dialog by posting `WM_CLOSE` to it, cheaper than reaching for
+  the mouse.
 - `Browser.getWindowForTarget` is not implemented by Electron's DevTools endpoint,
   which is why `bounds` uses an OS query for the window rectangle.
 - `key` goes through Chromium's input pipeline; the app's global shortcuts are

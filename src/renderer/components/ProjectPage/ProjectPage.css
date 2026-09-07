@@ -1,0 +1,244 @@
+/* Project page (mock #view-project, .proj, .back, .ph, .tabs, .seg, .srch,
+   .tl, .ic.lg, .nothing), against the tokens in theme.css. `.screen-project`
+   is the scrollable viewport; `.proj` is the column index.css animates in on
+   entry (.app.enter-project .proj). */
+
+.screen-project {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+.proj {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px 24px 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+/* ── Back link ─────────────────────────────────────────────────────────── */
+
+.proj .back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text3);
+  align-self: flex-start;
+  padding: 6px 10px;
+  margin-left: -10px;
+  border-radius: 999px;
+  transition: background var(--fast), color var(--fast);
+}
+
+.proj .back:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+/* ── Header: folder, name, path, shell, actions ───────────────────────── */
+
+.proj .ph h1 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  letter-spacing: -.01em;
+}
+
+.proj .ph .f {
+  color: var(--text3);
+  margin: 6px 0 0;
+  font-size: 13px;
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.proj .ph .acts {
+  display: flex;
+  gap: 6px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+  align-items: center;
+  width: 100%;
+}
+
+.proj .ph .acts .push {
+  margin-left: auto;
+}
+
+.proj .ic.lg {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: var(--hover);
+  transition: background var(--fast);
+}
+
+.proj .ic.lg:hover {
+  background: var(--hover2);
+}
+
+.proj .ic.lg.disabled {
+  opacity: .4;
+  cursor: default;
+}
+
+.proj .ic.lg.disabled:hover {
+  background: var(--hover);
+}
+
+/* ── Tabs and search ───────────────────────────────────────────────────── */
+
+.proj .tabs {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.proj .seg {
+  display: flex;
+  background: var(--side);
+  border-radius: 999px;
+  padding: 3px;
+}
+
+.proj .seg button {
+  padding: 5px 14px;
+  border-radius: 999px;
+  color: var(--text3);
+  font-weight: 500;
+  font-size: 14px;
+  transition: background var(--fast), color var(--fast);
+}
+
+.proj .seg button[aria-selected="true"] {
+  background: var(--hover2);
+  color: var(--text);
+}
+
+.proj .srch {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--side);
+  border-radius: 999px;
+  padding: 6px 14px;
+  color: var(--text3);
+}
+
+.proj .srch input {
+  background: transparent;
+  border: 0;
+  width: 160px;
+  outline: none;
+  color: var(--text);
+}
+
+.proj .srch input::placeholder {
+  color: var(--text3);
+}
+
+/* ── Thread list ───────────────────────────────────────────────────────── */
+
+.proj .list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+}
+
+.proj .tl {
+  margin: 1px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-row);
+  width: 100%;
+  min-width: 0;
+  cursor: pointer;
+  transition: background var(--fast);
+}
+
+.proj .tl:hover {
+  background: var(--hover);
+}
+
+/* The thread that is open right now, marked whether or not it happens to be
+   in view: the mock doesn't need this (it has no separate open state on this
+   page's rows), but it's a useful "you are here" cue once you can be here. */
+.proj .tl.cur {
+  background: var(--hover2);
+}
+
+.proj .tl .tx {
+  flex: 1;
+  min-width: 0;
+}
+
+.proj .tl .n {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.proj .tl .d {
+  color: var(--text3);
+  font-size: 13px;
+}
+
+.proj .tl .t {
+  color: var(--text3);
+  font-size: 13px;
+  flex: none;
+}
+
+.proj .tl .acts {
+  display: none;
+  flex: none;
+}
+
+.proj .tl:hover .acts {
+  display: flex;
+}
+
+.proj .tl:hover .t {
+  display: none;
+}
+
+.proj .nothing {
+  color: var(--text3);
+  padding: 28px 12px;
+  text-align: center;
+}
+
+@media (max-width: 860px) {
+  .proj {
+    padding: 8px 16px 96px;
+  }
+  .proj .ph .acts .push {
+    margin-left: 0;
+  }
+  .proj .tabs {
+    flex-wrap: wrap;
+  }
+  .proj .srch {
+    margin-left: 0;
+    width: 100%;
+  }
+  .proj .srch input {
+    width: 100%;
+  }
+  .proj .tl .acts {
+    display: none !important;
+  }
+  .proj .tl:hover .t {
+    display: block;
+  }
+}

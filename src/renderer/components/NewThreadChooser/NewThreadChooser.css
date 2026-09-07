@@ -1,0 +1,117 @@
+/* New thread chooser popover (NewThreadChooser/index.tsx). Values copied from
+   docs/mockups/afterterm-next.html's .nt rules. Relies on theme.css tokens:
+   --hover, --hover2, --side, --text, --text3, --med, --ease and keyframe popin. */
+
+.nt {
+  position: fixed;
+  background: var(--hover);
+  border-radius: 14px;
+  padding: 8px;
+  width: 280px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .5);
+  z-index: 60;
+  transform-origin: top left;
+}
+
+.nt.show {
+  animation: popin var(--med) var(--ease);
+}
+
+.nt .hd {
+  padding: 6px 10px 6px;
+  font-size: 12px;
+  color: var(--text3);
+  font-weight: 500;
+}
+
+.nt input {
+  width: 100%;
+  background: var(--side);
+  border: 0;
+  border-radius: 8px;
+  padding: 7px 10px;
+  outline: none;
+  margin-bottom: 6px;
+}
+
+.nt input::placeholder {
+  color: var(--text3);
+}
+
+.nt .opts {
+  max-height: 240px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  padding-right: 4px;
+  margin-right: -4px;
+}
+
+.nt .opt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 8px;
+  color: var(--text);
+}
+
+.nt .opt:hover,
+.nt .opt.hi {
+  background: var(--hover2);
+}
+
+.nt .opt .n {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nt .opt .r {
+  font-size: 11.5px;
+  color: var(--text3);
+}
+
+.nt .nothing {
+  padding: 10px;
+  font-size: 13px;
+  color: var(--text3);
+}
+
+.nt .foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px 4px;
+  border-top: 1px solid #3a3a3a;
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--text3);
+}
+
+.nt .shb {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--hover2);
+  color: var(--text);
+  font-size: 12.5px;
+}
+
+.nt .shb .ch {
+  color: var(--text3);
+  display: inline-grid;
+  place-items: center;
+  margin-left: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nt.show {
+    animation: none;
+  }
+}

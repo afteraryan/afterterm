@@ -70,7 +70,10 @@ export function resolvePort(opts, run) {
 
 // ─── Processes (Windows) ──────────────────────────────────────────────────────
 
-function powershell(script) {
+// Exported so drive.mjs can run its own small inline scripts (window placement,
+// PrintWindow screenshots, native-dialog cleanup) without re-implementing the
+// execFileSync call.
+export function powershell(script) {
   return execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
     encoding: 'utf8',
     windowsHide: true,
@@ -194,7 +197,10 @@ export function isDevElectron(proc) {
 // rectangle, the same space screenshot-display.ps1 captures in. (Electron's own
 // DIP space differs: it re-lays displays out by scale factor, which is why the
 // page witness in drive bounds shows different numbers for the same window.)
-const DPI_AWARE_PRELUDE = `
+// Exported so drive.mjs's own inline scripts (PrintWindow screenshots, window
+// placement) measure and act in the same physical-pixel space as listWindows
+// and listDisplays below.
+export const DPI_AWARE_PRELUDE = `
 Add-Type -Namespace Harness -Name Dpi -MemberDefinition @'
 [System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(System.IntPtr value);
 [System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
@@ -213,9 +219,12 @@ export function listDisplays() {
 }
 
 // Visible top-level windows owned by a process, with their native rectangles in
-// physical pixels. Electron's DevTools endpoint does not implement
-// Browser.getWindowForTarget, so this OS-level view (same coordinate space as
-// listDisplays) is how an agent proves where a window really is.
+// physical pixels, their handle (decimal, castable to [IntPtr] in a later
+// script) and their window class (e.g. "#32770" for a native common dialog).
+// Electron's DevTools endpoint does not implement Browser.getWindowForTarget,
+// so this OS-level view (same coordinate space as listDisplays) is how an agent
+// proves where a window really is, or acts on it directly with SetWindowPos,
+// PrintWindow or PostMessage.
 export function listWindows(pid) {
   const script = DPI_AWARE_PRELUDE + `
 Add-Type -Namespace Harness -Name Win -MemberDefinition @'
@@ -225,6 +234,7 @@ public delegate bool EnumProc(System.IntPtr h, System.IntPtr l);
 [System.Runtime.InteropServices.DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(System.IntPtr h, out uint pid);
 [System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool GetWindowRect(System.IntPtr h, out RECT r);
 [System.Runtime.InteropServices.DllImport("user32.dll", CharSet=System.Runtime.InteropServices.CharSet.Unicode)] public static extern int GetWindowText(System.IntPtr h, System.Text.StringBuilder s, int n);
+[System.Runtime.InteropServices.DllImport("user32.dll", CharSet=System.Runtime.InteropServices.CharSet.Unicode)] public static extern int GetClassName(System.IntPtr h, System.Text.StringBuilder s, int n);
 public struct RECT { public int Left, Top, Right, Bottom; }
 public static System.Collections.Generic.List<string> Find(uint want) {
   var found = new System.Collections.Generic.List<string>();
@@ -232,8 +242,9 @@ public static System.Collections.Generic.List<string> Find(uint want) {
     uint pid; GetWindowThreadProcessId(h, out pid);
     if (pid != want || !IsWindowVisible(h)) return true;
     RECT r; GetWindowRect(h, out r);
-    var sb = new System.Text.StringBuilder(512); GetWindowText(h, sb, 512);
-    found.Add(string.Format("{0}|{1}|{2}|{3}|{4}", r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top, sb.ToString()));
+    var title = new System.Text.StringBuilder(512); GetWindowText(h, title, 512);
+    var cls = new System.Text.StringBuilder(256); GetClassName(h, cls, 256);
+    found.Add(string.Format("{0}|{1}|{2}|{3}|{4}|{5}|{6}", r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top, h.ToInt64(), cls.ToString(), title.ToString()));
     return true;
   }, System.IntPtr.Zero);
   return found;
@@ -242,8 +253,8 @@ public static System.Collections.Generic.List<string> Find(uint want) {
 [Harness.Win]::Find(${pid}) | ForEach-Object { $_ }`;
   const out = powershell(script);
   return out.split(/\r?\n/).filter(Boolean).map(line => {
-    const [x, y, width, height, ...title] = line.split('|');
-    return { x: Number(x), y: Number(y), width: Number(width), height: Number(height), title: title.join('|') };
+    const [x, y, width, height, hwnd, className, ...title] = line.split('|');
+    return { x: Number(x), y: Number(y), width: Number(width), height: Number(height), hwnd, className, title: title.join('|') };
   });
 }
 

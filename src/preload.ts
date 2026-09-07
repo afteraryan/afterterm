@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent, webUtils } from 'electron';
+import type { EditorInfo } from './editors.ts';
 
 const dataListeners = new Map<string, (event: IpcRendererEvent, data: string) => void>();
 
@@ -10,6 +11,33 @@ contextBridge.exposeInMainWorld('afterterm', {
 
   env: {
     userProfile: process.env.USERPROFILE || '',
+  },
+
+  app: {
+    // When the app was opened the time before this one, in ms since epoch, or
+    // null on the first launch. Resolved synchronously at preload time so Home
+    // can use it on its first render.
+    lastOpenedAt: ipcRenderer.sendSync('app:last-opened-at') as number | null,
+  },
+
+  projects: {
+    openInExplorer: (folder: string): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke('projects:openInExplorer', folder),
+    // One round trip for a whole list: true when the folder exists and is a
+    // directory. WSL paths are reported true without being checked.
+    checkFolders: (folders: string[]): Promise<Record<string, boolean>> =>
+      ipcRenderer.invoke('projects:checkFolders', folders),
+  },
+
+  editors: {
+    list: (): Promise<EditorInfo[]> =>
+      ipcRenderer.invoke('editors:list'),
+    prefsPathInvalid: (): Promise<boolean> =>
+      ipcRenderer.invoke('editors:prefsPathInvalid'),
+    open: (folder: string, editorId?: string): Promise<{ ok: boolean; error?: string; editors: EditorInfo[] }> =>
+      ipcRenderer.invoke('editors:open', folder, editorId),
+    choose: (): Promise<{ editors: EditorInfo[]; invalid?: boolean } | null> =>
+      ipcRenderer.invoke('editors:choose'),
   },
 
   dialog: {
@@ -117,6 +145,13 @@ contextBridge.exposeInMainWorld('afterterm', {
 
     onExit: (tabId: string, callback: (exitCode: number) => void): void => {
       ipcRenderer.once(`pty:exit:${tabId}`, (_event, code) => callback(code));
+    },
+
+    // Throttled activity stamps from main: at most one per tab per 15 seconds
+    // while the terminal has input or output. `at` is ms since epoch. One
+    // listener for every tab, registered once.
+    onActivity: (callback: (data: { tabId: string; at: number }) => void): void => {
+      ipcRenderer.on('pty:activity', (_event, data) => callback(data));
     },
   },
 });
