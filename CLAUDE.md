@@ -53,10 +53,14 @@ src/
     NotifierApp.tsx                    ← The floating overlay window's React root: toast cards, hide-when-empty logic
     NotifierApp.css                    ← Toast card styles (state icon in a tinted circle, thread name headline, project line with coloured folder)
     hooks/
-      useTabState.ts                   ← All tab/group state, session restore, group contiguity enforcement
+      useTabState.ts                   ← All tab/group state, session restore, group contiguity enforcement, pin, archive, activity, openProject
     components/
+      ScreenNav.tsx                    ← The screen navigation type and initial-screen logic. Styles in ScreenNav.css
+      ScreenNav.css                    ← Screen types and entry-class styles
+      Toast.tsx                        ← In-app toast pill (pin, archive, restore, editor errors). Styles in Toast.css
+      Toast.css                        ← Toast styles (centre bottom, auto-hide)
       SidePanel/
-        index.tsx                      ← Icon row (Home, Workspace, collapse toggle), Search and New thread rows, General, Pinned and Projects sections, project and thread rows with the close x, five-row fold, rail when collapsed, DnD, right-click menus
+        index.tsx                      ← Icon row (Home, Workspace, collapse toggle), Search and New thread rows, General, Pinned and Projects sections, project and thread rows with the close x, five-row fold, rail when collapsed, DnD, right-click menus, Home and Search wired, pin and project page buttons, shared project menu
         SidePanel.css                  ← Sidebar styles on the theme tokens, breath keyframes for needs-you and done rows, expand and collapse animation
       Header/
         index.tsx                      ← Main pane header: kind icon, name, project line, state chip, dots menu
@@ -64,11 +68,23 @@ src/
       TitleBar/
         index.tsx                      ← The 32px title bar strip: name and version on the left, the OS caption buttons on the right, the window's drag region
         TitleBar.css                     ← Strip styles (sidebar grey)
+      Home/
+        index.tsx                      ← Home screen render, date heading, totals, pinned cards, projects list, archived section, Show more toggle
+        Home.css                       ← Home layout and typography
+      ProjectPage/
+        index.tsx                      ← Project page header, folder and shell line, action buttons (Open, New thread, Pin, Edit, Archive or Restore), Explorer and editor buttons, tabs (Live, Asleep, History), search box, thread list or empty state
+        ProjectPage.css                ← Project page layout
+      NewThreadChooser/
+        index.tsx                      ← Overlay modal: current project first, then No project, then others by pin and activity; shell dropdown
+        NewThreadChooser.css           ← Chooser modal styles (optional if styles are in components)
+      SearchPalette/
+        index.tsx                      ← Palette modal: projects and threads by prefix match, Ctrl+Shift+P to open
+        SearchPalette.css              ← Palette modal styles (optional if styles are in components)
       GroupModal/
-        index.tsx                      ← New/Edit project group dialog: name, folder picker, colour, shell, "open a terminal now"
+        index.tsx                      ← New/Edit project dialog: name, folder picker, colour, shell, "open a terminal now"
         GroupModal.css                 ← Modal overlay + form styles
       Terminal/
-        index.tsx                      ← xterm.js lifecycle, PTY wiring, title intelligence, OSC 9;9 cwd capture, clipboard, links, find bar, font zoom, drag-drop
+        index.tsx                      ← xterm.js lifecycle, PTY wiring, title intelligence, OSC 9;9 cwd capture, clipboard, links, find bar, font zoom, drag-drop, refit and focus when workspace comes back
       Icons.tsx                        ← SVG icon set from the mock plus FolderIcon, StateIcon, KindIcon, Spinner
       Menu.tsx                         ← Positioned menu with submenu and back chevron
       Menu.css                         ← Menu styles
@@ -96,10 +112,10 @@ scripts/
 
 A group is a project: a name, a folder, a colour and a default shell. Two ways to make one:
 
-- **New project group…** (from the + beside the Projects label in the sidebar, or from "Edit project" in the project row's right-click menu) opens a
+- **New project group…** (from the + beside the Projects label in the sidebar, or from the + on Home, or from any project's right-click menu) opens a
   modal that collects all four at once and opens the first terminal in the folder. Picking
   the folder auto-fills the name with its last segment (`D:\…\aftertales` → `aftertales`),
-  until you type a name yourself. The same modal is "Edit project…" in the project's context menu.
+  until you type a name yourself. "Edit project" from any project menu or the project page's Edit button opens the same modal in edit mode.
 - **Dragging one tab onto another** stays instant, no dialog: the project is created with
   defaults and its name field opens focused and selected.
 
@@ -107,7 +123,7 @@ A group is a project: a name, a folder, a colour and a default shell. Two ways t
 
 Since Phase 1 of the projects-and-threads work the sidebar is built from projects first (src/renderer/sidebarWalk.ts), so a project with no threads is an ordinary row in the Projects section and the old bottom shelf is gone. Clicking the + on the row, or "New thread here" in its right-click menu, opens a terminal in its folder.
 
-## Title bar, sidebar and header (Phase 1 and 1.1 visual system)
+## Title bar, sidebar, header, Home and project page (Phases 1 to 2)
 
 The palette and Inter are bundled in assets/fonts, loaded by theme.css. The renderer's CSP allows only same-origin assets, so the app works offline.
 
@@ -117,13 +133,31 @@ The sidebar structure, top to bottom: an icon row (56px) with the Home and Works
 
 The main pane header shows the kind icon, name, project on line 2, branch and worktree slots empty until Phase 3, state chip and dots menu.
 
-Screen entry: when the workspace appears (today, once the session has loaded; Phase 2 on every switch) the sidebar body slides in from the left (18px, 260ms) and the main pane from the right (14px, 260ms, 40ms later); the title bar and the icon row never move. Home and project keyframes (`homein`, `stagger`) are in theme.css for Phase 2. All off under reduced motion. `app.tsx` sets the class `enter-workspace` on the root for 400ms.
+Screen entry, on every switch: into the workspace the sidebar body slides in from the left (18px, 260ms) and the main pane from the right (14px, 260ms, 40ms later); into Home the page rises (`homein`, 280ms) and its sections stagger at 40ms steps; into a project page the same rise. The title bar and the icon row never move. All off under reduced motion. `app.tsx` sets `enter-workspace`, `enter-home` or `enter-project` on the root for 400ms after each switch and `data-screen` for the screen showing.
 
-Menus: Open, Move to project with a submenu and a back chevron, Open project page, Close on threads; New thread here, New thread with shell, Edit project, Open project page, Delete project on projects; the New thread row's right-click lists the shells.
+Menus: the one thread menu (`threadMenu.tsx`, right-click on a thread row, the header dots button and the project page rows) has Open, Move to project with a submenu and a back chevron, Open project page, Close. The one project menu (`projectMenu.tsx`, right-click on a Home card or row, a sidebar project row, the project page header) has Open, New thread here, Pin or Unpin, Open project page, Open in File Explorer, Open in <editor> for each detected editor or Choose editor..., Edit project, Archive, Delete project; an archived project gets Restore and Delete project; the Explorer and editor entries are disabled with the tip "Folder not found" when the folder is missing and hidden when the project has no folder; the sidebar splices its "New thread with shell" submenu after New thread here; the New thread row's right-click lists the shells.
 
 State today maps to notification and icon: attention is needs you, amber bell, row breathes amber (5% to 16% of the colour over 2.4s); working is spinner; done is green check, row breathes green until viewed; compacting and background are spinner; asleep is moon (nothing sets it until Phase 4); running is green play (Phase 5).
 
-Placeholders for later phases: Home, Search, the pin icon and the project page icon render as in the mock but are disabled with a tooltip naming their phase. Nothing pins, archives, sleeps or searches yet.
+### Home, project page, chooser and palette (Phase 2)
+
+Three screens under the title bar: Home, the workspace and the project page. Home and the project page render in place of the workspace, and the workspace stays mounted and hidden (`.workspace.hidden`, display none) so terminals keep running and the active tab's lazy Claude resume still fires; when the workspace comes back the active terminal is refit and focused unless something else holds the keyboard (`Terminal/index.tsx`, the `visible` prop). The app opens on Home when the restored session has at least one project and on the workspace when it has none (`initialScreen` in threadView.ts).
+
+Home (`components/Home/`, pure logic in `homeView.ts`): the date heading ("Sunday, 6 September"), under it the counter pills totalled across every live project and General (bell for needs you, play for working), rendered only when a count is non-zero; Pinned cards (folder, name, pills, time since last activity, the project page icon on hover, the filled pin); Projects rows for unpinned projects sorted by lastActiveAt with Show more after four; an "Archived · N" link that expands to rows with Restore; a + on the Projects label that opens the New project modal. Clicking a card or row opens the workspace on that project (its first thread, or a new one when it has none); the project page opens only from the folder-with-chevron icon or the menu.
+
+Pin and archive are explicit user actions only: nothing pins or archives on its own. Archiving clears the pin and takes the project out of the sidebar; its threads stay alive and its project page still lists them. Restoring leaves it unpinned. Opening an archived project from Home restores it first. Both show a short toast.
+
+The project page (`components/ProjectPage/`): back link to Home, folder icon and name, the folder path and default shell, then Open, New thread, Pin or Unpin, Edit, Archive or Restore, and at the right the Open in File Explorer and Open in <editor> logo buttons (disabled with "Folder not found" when the folder is missing, hidden when the project has no folder); Live, Asleep and History tabs (History is empty until Phase 4) with a search box over the list; rows open the thread in the workspace and right-click gives the thread menu.
+
+The new thread chooser (`components/NewThreadChooser/`, logic in `chooserView.ts`) opens from the New thread row, the rail + and Ctrl+Shift+T (from Home or a project page the app switches to the workspace first and anchors the popover under the New thread control). It lists the current project first, then No project, then the others pinned first and by last activity, filtered by the input; a shell dropdown at the bottom defaults to the chosen project's shell; Enter takes the highlighted row. The + on a project row still creates a thread directly.
+
+The search palette (`components/SearchPalette/`, logic in `paletteView.ts`) opens from Ctrl+Shift+P and the Search row: projects and threads, substring matches with prefix matches first, archived projects and their threads excluded; a project opens the workspace on it, a thread selects it.
+
+The in-app toast (`components/Toast.tsx`, `.app-toast`) is a pill at the bottom centre for pin, archive, restore and editor errors, with an optional action ("Choose editor..."). It is separate from the overlay notifier window.
+
+Activity stamping: main sends `pty:activity` for a tab at most once per 15s while it has input or output, ignoring the first 5s of a PTY's life so a shell banner or the app's own `claude --resume` does not read as activity; the renderer raises the thread's and its project's lastActiveAt. Activating a thread still stamps as before. The last-opened time is written to `prefs.json` as `lastOpenedAt` at startup and the previous value is exposed as `window.afterterm.app.lastOpenedAt` (not shown anywhere yet).
+
+Editor detection (`editor-detect.ts`, pure and unit-tested, wired in main.ts) runs once after the window opens and is cached: `editorPath` in prefs.json first, then what the `code` command resolves to (the shim's exe, product read from the exe name so a `code` that opens Cursor is labelled Cursor), then the standard install folders, then the uninstall registry. The first hit is the primary editor (its name and logo on the button); extra editors are menu entries only. It re-runs after a failed launch and after Choose editor... (a file picker that writes `editorPath`). An unknown editor id at launch time is an error, never a fallback. `prefs.json` keys: `claudeNotifications`, `claudeHookToastShown`, `lastOpenedAt`, `editorPath`.
 
 ## Default Shell
 
@@ -240,7 +274,8 @@ Registered via Electron `before-input-event` — work even when xterm.js has foc
 
 | Shortcut | Action |
 |---|---|
-| Ctrl+Shift+T | New tab (default shell), no project |
+| Ctrl+Shift+T | New thread chooser (project and shell) |
+| Ctrl+Shift+P | Search palette over projects and threads |
 | Ctrl+Shift+W | Close current tab |
 | Ctrl+Tab | Next tab |
 | Ctrl+Shift+Tab | Previous tab |
@@ -268,7 +303,7 @@ Registered via Electron `before-input-event` — work even when xterm.js has foc
 npm start
 ```
 
-Unit tests (plain Node 24+, no framework): `npm test` runs `src/claude-hook-install.test.ts`, `src/renderer/spinnerState.test.ts`, `src/renderer/sessionMigration.test.ts`, `src/renderer/sidebarWalk.test.ts` and `src/renderer/threadView.test.ts`. To drive the dev build itself, use the agent harness (see "Agent test harness"), never a bare `npm start` while someone is working on the primary monitor.
+Unit tests (plain Node 24+, no framework): `npm test` runs `src/editor-detect.test.ts`, `src/claude-hook-install.test.ts`, `src/renderer/spinnerState.test.ts`, `src/renderer/sessionMigration.test.ts`, `src/renderer/sidebarWalk.test.ts`, `src/renderer/threadView.test.ts`, `src/renderer/homeView.test.ts`, `src/renderer/chooserView.test.ts` and `src/renderer/paletteView.test.ts`. To drive the dev build itself, use the agent harness (see "Agent test harness"), never a bare `npm start` while someone is working on the primary monitor.
 
 > If your network intercepts TLS (corporate proxy / some antivirus), `npm install`
 > or the build may fail with certificate errors. Prefer pointing npm/Node at your
@@ -329,7 +364,7 @@ release from the **main repo checkout** so output lands in the standard `out\` f
 a chosen display and drives it over the Chrome DevTools Protocol, so an agent can
 exercise and screenshot every screen of a phase without touching the running app or
 the monitor a person is using. `npm run harness -- --session <copy of session.json>`,
-`npm run harness:drive -- bounds | sidebar | screenshot <png> | click "<selector>"`,
+`npm run harness:drive -- <command>` with commands including bounds, sidebar, screenshot, click, hover, unhover, drag, emulate-media (with --click, --eval, --screenshot), screen, home, project, chooser, palette, and window bottom/restore/close-dialogs,
 `npm run harness:stop`. Main-process support: `AFTERTERM_DISPLAY`
 (`primary` | `secondary` | index; moves the main window and the notifier overlay) and
 `AFTERTERM_REMOTE_DEBUG_PORT` (opt-in Chromium remote debugging). Safety rules, every

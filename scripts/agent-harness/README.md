@@ -148,9 +148,20 @@ invocation, since each `drive.mjs` call is a separate process: `hover` starts
 its steps a little above and to the left of the element, `drag` starts exactly
 at the source element's centre.
 
-`emulate-media reduce` turns off CSS transitions and animations gated on
-`prefers-reduced-motion`, which is useful for a screenshot that should not
-land mid-animation; `emulate-media off` clears it back to the OS setting.
+`emulate-media reduce|no-preference|off` sets `Emulation.setEmulatedMedia` for this one DevTools
+session. The emulation lives only for the session that set it. Every `drive` command opens
+its own session, so the bare command has no lasting effect. To observe the emulation, pair
+it with `--click "<selector>"`, `--wait <ms>`, `--eval "<js>"` and `--screenshot <png>` in
+the same call (example: `drive emulate-media reduce --click ".side-panel .brand .ic[data-go='home']"
+--wait 60 --eval "getComputedStyle(document.querySelector('.home')).animationName"`).
+`off` clears every emulated feature back to the OS setting.
+
+### Hover-only controls
+
+The sidebar project row's +, project page action buttons, and pin buttons have no width
+until the row is hovered. To click these, `hover` the same row first, then `click` the button
+(click scrolls but does not move the pointer). Home's card and row buttons fade in but keep
+their size, so a plain `click` works there.
 
 ### Screens
 
@@ -207,6 +218,10 @@ apart from the small notifier-overlay toast strip without depending on window
 title text (the main window's title is the page's own `document.title`, which
 changes with the active tab).
 
+The dev window can be pushed behind other windows with `window bottom` and still
+captured with `screenshot <png>` (CDP renders an occluded window) or
+`screenshot <png> --window` (PrintWindow also works through occlusion).
+
 ## Stop
 
 ```powershell
@@ -238,15 +253,30 @@ npm run harness:drive -- screenshot "$env:TEMP\shots\before.png"
 npm run harness:drive -- click ".group-header" 0
 npm run harness:drive -- screenshot "$env:TEMP\shots\after.png"
 npm run harness:stop
+
+# Phase 2 flow: Home, project page, new-thread chooser, and search palette
+Copy-Item "$env:APPDATA\afterterm\session.json" "$env:TEMP\session-copy.json"
+npm run harness -- --session "$env:TEMP\session-copy.json"
+npm run harness:drive -- home                         # Home screen
+npm run harness:drive -- click ".home .pr[data-group='<id>'] [data-pin]"
+npm run harness:drive -- project                      # Project page
+npm run harness:drive -- key t --ctrl --shift
+npm run harness:drive -- chooser                      # New-thread chooser
+npm run harness:drive -- key p --ctrl --shift
+npm run harness:drive -- palette                      # Search palette
+npm run harness:stop
 ```
 
 Renderer edits (`src/renderer/**`) show up live in the running harness app through
-Vite HMR; no relaunch needed. A `src/main.ts` or `src/preload.ts` edit makes forge
-restart Electron under a new pid: `drive` re-resolves the electron pid from the
-port, and `stop` walks the tree, so both keep working, but any in-page state is lost.
+Vite HMR; no relaunch needed. A `src/main.ts` or `src/preload.ts` edit does NOT restart
+Electron: the bundle is rebuilt but the running process keeps its old code. To pick up
+a main-process change, `npm run harness:stop` and launch again.
 
 ## Known limitations
 
+- An HMR update of `src/renderer/components/Terminal/index.tsx` remounts every
+  terminal at once. On 2026-09-07, this took the whole dev build down (the DevTools
+  endpoint vanished). After editing that file, expect to relaunch the harness.
 - CDP screenshots show only the web content of the main window: no native title
   bar, no notifier overlay, no context menus that are separate windows (there are
   none today; the app's menus are DOM). Use `screenshot-display.ps1`, or
