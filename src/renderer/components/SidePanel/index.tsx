@@ -106,6 +106,7 @@ function ThreadRow({
     >
       <KindIcon kind={threadKind(tab)} />
       <span className="n">{threadName(tab)}</span>
+      {state === 'running' && <span className="prt">:{tab.port}</span>}
       <StateIcon state={state} />
       {!overlay && !inert && (
         <button
@@ -269,6 +270,9 @@ export interface SidePanelProps {
   onClose: (tabId: string) => void;
   onSleep: (tabId: string) => void;
   onWake: (tabId: string) => void;
+  // Opens the running server's port in the browser (threadMenu's "Open
+  // localhost:port"); only ever offered on an awake thread with a captured port.
+  onOpenLocalhost: (tabId: string) => void;
   onNewTab: (groupId?: string, shellId?: string) => void;
   // Screens the sidebar can send you to, and the popovers it opens. The chooser is
   // anchored under whichever New thread control was used, so the caller is handed
@@ -301,7 +305,7 @@ export interface SidePanelProps {
 export function SidePanel(props: SidePanelProps) {
   const {
     tabs, groups, activeTabId, collapsed, shells, onToggleCollapse,
-    onActivate, onClose, onSleep, onWake, onNewTab,
+    onActivate, onClose, onSleep, onWake, onOpenLocalhost, onNewTab,
     onGoHome, onSearch, onOpenChooser, onOpenProjectPage, onTogglePin,
     onNewProject, editors, folderExists, projectActions,
     onCreateGroup, onAddToGroup, onRemoveFromGroup,
@@ -520,6 +524,7 @@ export function SidePanel(props: SidePanelProps) {
         sleep: () => onSleep(tab.id),
         wake: () => onWake(tab.id),
         openProjectPage: tab.groupId ? () => onOpenProjectPage(tab.groupId!) : undefined,
+        openLocalhost: () => onOpenLocalhost(tab.id),
       }),
     });
   };

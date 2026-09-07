@@ -302,6 +302,17 @@
   flex: none;
 }
 
+/* A running server's port, between the name and the state icon. Plain text,
+   not a pill: the row already has an icon at the right end for state, this is
+   just the number that icon doesn't carry. */
+.side-panel .th .prt {
+  font-size: 11px;
+  color: var(--text3);
+  flex: none;
+  margin-left: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
 .side-panel .th.sel .ki {
   color: var(--text2);
 }

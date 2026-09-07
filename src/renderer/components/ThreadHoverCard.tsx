@@ -6,7 +6,7 @@
 import React from 'react';
 import { Tab, Group } from './TabBar/types';
 import { FolderIcon } from './Icons';
-import { threadKind, threadName, threadState, stateLabel, modelLabel } from '../threadView';
+import { threadName, threadState, stateLabel, modelLabel, runningLabel, kindWord } from '../threadView';
 import { relativeTime } from '../homeView';
 import { asleepLabel } from '../sleepWake';
 import './ThreadHoverCard.css';
@@ -19,16 +19,20 @@ export interface ThreadHoverCardProps {
 }
 
 export function ThreadHoverCard({ tab, group, anchor, now }: ThreadHoverCardProps): React.JSX.Element {
-  const kind = threadKind(tab);
   const state = threadState(tab);
-  const kindWord = kind === 'chat' ? 'Chat' : 'Shell';
-  // Asleep reads "Chat · Asleep · 2d" rather than the plain "Asleep" stateLabel
-  // wording other rows use, since this card has room to say how long ago.
+  const kind = kindWord(tab);
+  // Asleep reads "Server · Asleep · 2d" rather than the plain "Asleep" stateLabel
+  // wording other rows use, since this card has room to say how long ago. A
+  // running server gets its port ("Server · Running on :5173") the same way the
+  // header chip does; everything else (needs-you, working, done, quiet) still
+  // reads the bare stateLabel word.
   const typeText = state === 'quiet'
-    ? kindWord
+    ? kind
     : state === 'asleep'
-      ? `${kindWord} · ${asleepLabel(tab.sleptAt, now)}`
-      : `${kindWord} · ${stateLabel(state)}`;
+      ? `${kind} · ${asleepLabel(tab.sleptAt, now)}`
+      : state === 'running' && tab.port !== undefined
+        ? `${kind} · ${runningLabel(tab.port)}`
+        : `${kind} · ${stateLabel(state)}`;
   const model = modelLabel(tab.model);
   const active = relativeTime(tab.lastActiveAt, now);
   const activeText = active === 'now' ? 'now' : `${active} ago`;
@@ -75,6 +79,13 @@ export function ThreadHoverCard({ tab, group, anchor, now }: ThreadHoverCardProp
           <>
             <dt>Worktree</dt>
             <dd data-row="worktree">{tab.worktree}</dd>
+          </>
+        )}
+
+        {tab.lastCommand && (
+          <>
+            <dt>Last ran</dt>
+            <dd data-row="last-ran">{tab.lastCommand}</dd>
           </>
         )}
 

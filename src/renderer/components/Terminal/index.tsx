@@ -7,6 +7,10 @@ import { SearchAddon, ISearchOptions } from '@xterm/addon-search';
 import '@xterm/xterm/css/xterm.css';
 import { TabNotification } from '../TabBar/types';
 import { wakePlan } from '../../sleepWake';
+import {
+  parseOsc133, initialCommandMarkState, onMark, onEnter,
+  type CommandMarkState,
+} from '../../commandMarks';
 import { TAIL_MAX_LINES, renderTailForTerminal } from '../../../thread-tail';
 
 interface TermInfo {
@@ -30,6 +34,12 @@ interface TabInfo {
   // Set for one render when a thread wakes (or comes back from history), which is
   // the cue to replay its saved scrollback tail above a "Woke just now" divider.
   wokeAt?: number;
+  // The port the thread's process tree was last seen listening on, and the last
+  // command entered at its prompt. Both are read on a wake: together they are what
+  // tells wakePlan this thread is a server whose command should be re-run
+  // (sleepWake.ts).
+  port?: number;
+  lastCommand?: string;
 }
 
 // What the app can ask this layer for at quit time: the on-screen tail of one
@@ -63,6 +73,10 @@ interface TerminalAreaProps {
   // The app decides what happens to them: a sleeping thread's tail is written to
   // disk, a closed thread's only if it went to a project's history.
   onTail: (tabId: string, lines: string[], reason: 'sleep' | 'close') => void;
+  // A command line the user just entered at a shell prompt, read out of the buffer
+  // between the OSC 133;B mark and the cursor (commandMarks.ts). cmd only until
+  // Phase 6, since only cmd's PROMPT emits the marks.
+  onCommand: (tabId: string, command: string) => void;
 }
 
 // SECURITY: claudeSessionId is read from persisted session.json (a plain file that
@@ -82,6 +96,12 @@ const NOTIF_PREFIXES: [string, TabNotification][] = [
 // cmd.exe's clear and banner arrive well inside this, and the resume command is
 // typed at 700 ms, after it.
 const REPLAY_SCROLL_MS = 450;
+
+// How long a freshly spawned shell gets before anything is typed into it. cmd
+// prints its banner and its first prompt inside that window, and input sent before
+// the prompt is there is lost. Both things a wake can type share it: a chat's
+// `claude --resume`, and a server's last command re-run.
+const SHELL_READY_MS = 700;
 
 const DEFAULT_FONT_SIZE = 14;
 const MIN_FONT_SIZE = 6;
@@ -150,6 +170,28 @@ function captureTail(term: Terminal, max: number = TAIL_MAX_LINES): string[] {
   return lines.slice(-max);
 }
 
+// The command line sitting between the prompt's end (the OSC 133;B mark) and the
+// cursor. It reads the xterm buffer, which is why it lives here and not in
+// commandMarks.ts: that module stays pure and knows nothing about xterm.
+//
+// The first row starts at the mark's column (the prompt text itself is to its
+// left); every later row is taken whole and joined with no separator. A long
+// command wraps, and xterm stores a wrapped line as several rows of one logical
+// line, so plain concatenation is the correct rejoin. A row that is not wrapped is
+// still included: cmd never draws a second prompt line between B and Enter, so
+// every row in this range belongs to the command.
+function readCommandText(term: Terminal, from: { row: number; col: number }): string {
+  const buffer = term.buffer.active;
+  const endRow = buffer.baseY + buffer.cursorY;
+  let text = '';
+  for (let row = from.row; row <= endRow; row++) {
+    const line = buffer.getLine(row);
+    if (!line) continue;
+    text += row === from.row ? line.translateToString(true, from.col) : line.translateToString(true);
+  }
+  return text;
+}
+
 const THEME = {
   background: '#191919',
   foreground: '#e0e0e0',
@@ -175,7 +217,7 @@ const THEME = {
 };
 
 export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(function TerminalArea(
-  { tabs: tabInfos, activeTabId, visible, hidden, onTitleChange, onCwdChange, onNotification, onUserInput, onOutput, onFontSizeChange, onExit, onTail },
+  { tabs: tabInfos, activeTabId, visible, hidden, onTitleChange, onCwdChange, onNotification, onUserInput, onOutput, onFontSizeChange, onExit, onTail, onCommand },
   ref,
 ) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -199,6 +241,13 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
   onExitRef.current = onExit;
   const onTailRef = useRef(onTail);
   onTailRef.current = onTail;
+  const onCommandRef = useRef(onCommand);
+  onCommandRef.current = onCommand;
+
+  // OSC 133 prompt-mark state per terminal, kept beside the terminals rather than
+  // inside TermInfo so the OSC handler and the onData handler (both closures made
+  // during createTerminal) read and write the same record by tab id.
+  const marksRef = useRef(new Map<string, CommandMarkState>());
 
   // ── Find bar state (operates on the active tab only) ──────────────────────
   const [findOpen, setFindOpen] = useState(false);
@@ -257,7 +306,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
     if (resumedRef.current.has(tabId) || !UUID_RE.test(sessionId)) return;
     resumedRef.current.add(tabId);
     // Short delay lets the freshly-spawned shell print its first prompt before we type.
-    setTimeout(() => window.afterterm.pty.write(tabId, `claude --resume ${sessionId}\r`), 700);
+    setTimeout(() => window.afterterm.pty.write(tabId, `claude --resume ${sessionId}\r`), SHELL_READY_MS);
   }, []);
 
   // Sleep and close are the same routine with a different reason: hand the tail over,
@@ -280,6 +329,9 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
     // A woken thread should resume its session again, so this tab stops counting as
     // already resumed the moment its terminal goes.
     resumedRef.current.delete(tabId);
+    // The prompt marks describe a buffer that is about to be disposed; a fresh
+    // terminal starts again from no prompt seen at all.
+    marksRef.current.delete(tabId);
 
     const destroy = api.pty.destroy(tabId).finally(() => {
       if (pendingDestroyRef.current.get(tabId) === destroy) pendingDestroyRef.current.delete(tabId);
@@ -441,6 +493,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       });
 
       termsRef.current.set(tabId, { term, fitAddon, search, container, scheduleFit });
+      marksRef.current.set(tabId, initialCommandMarkState());
 
       // Only fit visible tabs, fitAddon on a hidden container returns 0 dimensions
       if (tabId === activeRef.current) {
@@ -503,7 +556,31 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       // hand-editable, and this becomes a typed shell command).
       if (plan.resumeSessionId) resumeTab(tabId, plan.resumeSessionId);
 
+      // Waking a server means re-running what it was running (design-02, "Asleep":
+      // "the last command re-run for a server"). wakePlan has already checked the
+      // command is one safe line, so it only has to be typed here, after the same
+      // wait resumeTab uses for the shell's first prompt.
+      const runCommand = plan.runCommand;
+      if (runCommand) {
+        setTimeout(() => {
+          if (!termsRef.current.has(tabId)) return;
+          window.afterterm.pty.write(tabId, runCommand + '\r');
+        }, SHELL_READY_MS);
+      }
+
       term.onData((data) => {
+        // Enter closes the command line, so it is read out of the buffer here,
+        // before the write: this runs synchronously, so nothing the shell echoes
+        // back can have landed in the range between the prompt mark and the cursor
+        // yet. The Enter itself is always still written through, unchanged.
+        if (data === '\r' || data === '\r\n') {
+          const marks = marksRef.current.get(tabId);
+          if (marks) {
+            const result = onEnter(marks, from => readCommandText(term, from));
+            marksRef.current.set(tabId, result.state);
+            if (result.command) onCommandRef.current(tabId, result.command);
+          }
+        }
         api.pty.write(tabId, data);
         // Clear the working spinner only on a REAL interrupt, a bare Esc ('\x1b') or
         // Ctrl+C ('\x03'). Must NOT fire on the focus-report sequences xterm emits via
@@ -541,6 +618,21 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
           }
         }
         return false;
+      });
+
+      // OSC 133;A/B/C/D, the de facto shell-integration marks. cmd's injected PROMPT
+      // (main.ts) emits A before the prompt and B after it, which is what makes the
+      // typed command line locatable in the buffer (commandMarks.ts).
+      term.parser.registerOscHandler(133, (payload) => {
+        const mark = parseOsc133(payload);
+        if (!mark) return false;
+        const buffer = term.buffer.active;
+        const state = marksRef.current.get(tabId) ?? initialCommandMarkState();
+        marksRef.current.set(tabId, onMark(state, mark, {
+          row: buffer.baseY + buffer.cursorY,
+          col: buffer.cursorX,
+        }));
+        return true;
       });
 
       api.pty.onExit(tabId, () => onExitRef.current(tabId));
@@ -659,14 +751,21 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       const info = termsRef.current.get(tabId);
       return info ? captureTail(info.term, n) : null;
     };
-    (window as unknown as {
+    const win = window as unknown as {
       __afterterm?: {
         tail(tabId: string, n?: number): string[] | null;
         activeTail(n?: number): string[] | null;
+        commandState(tabId: string): CommandMarkState | null;
       };
-    }).__afterterm = {
+    };
+    // Extended, never replaced: app.tsx hangs its own harness value
+    // (lastOpenExternal) on the same object, and this effect can run after it has.
+    win.__afterterm = {
+      ...(win.__afterterm ?? {}),
       tail: (tabId, n = 30) => readTail(tabId, n),
       activeTail: (n = 30) => readTail(activeRef.current, n),
+      // Lets the harness check the OSC 133 marks landed without reading the buffer.
+      commandState: (tabId) => marksRef.current.get(tabId) ?? null,
     };
   }, []);
 

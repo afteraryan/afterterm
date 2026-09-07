@@ -203,6 +203,43 @@ export function useTabState() {
     });
   }, []);
 
+  // The listening port main found in the thread's process tree, pushed on every
+  // watcher pass. null means the listener has gone, which deletes the key rather
+  // than storing undefined, so a thread that never served anything and one that
+  // stopped serving look the same in session.json. An unchanged port writes
+  // nothing: the watcher polls, and a render (plus a session save) per poll would
+  // be a steady cost for no new information.
+  const setPort = useCallback((tabId: string, port: number | null) => {
+    setTabs(prev => {
+      let changed = false;
+      const next = prev.map(t => {
+        if (t.id !== tabId) return t;
+        const value = port ?? undefined;
+        if (value === t.port) return t;
+        changed = true;
+        const updated = { ...t, port: value };
+        if (value === undefined) delete updated.port;
+        return updated;
+      });
+      return changed ? next : prev;
+    });
+  }, []);
+
+  // The last command line entered at this thread's prompt (captured from the OSC
+  // 133 marks in the terminal layer). Same no-op-when-unchanged rule as setPort:
+  // re-running the same command should not churn state.
+  const setLastCommand = useCallback((tabId: string, command: string) => {
+    setTabs(prev => {
+      let changed = false;
+      const next = prev.map(t => {
+        if (t.id !== tabId || t.lastCommand === command) return t;
+        changed = true;
+        return { ...t, lastCommand: command };
+      });
+      return changed ? next : prev;
+    });
+  }, []);
+
   const setTabNotification = useCallback((tabId: string, notification: TabNotification | undefined) => {
     setTabs(prev => prev.map(t => t.id === tabId ? { ...t, notification } : t));
   }, []);
@@ -466,7 +503,7 @@ export function useTabState() {
     setActiveTabId, activateTab,
     addTab, closeTab, renameTab, updateTabCwd, setClaudeSession, setTabNotification, setTabFontSize,
     sleepTab, wakeTab, resumeFromHistory,
-    setClaudeMeta, setGitInfo,
+    setClaudeMeta, setGitInfo, setPort, setLastCommand,
     createGroup, createConfiguredGroup, addToGroup, removeFromGroup,
     renameGroup, setGroupColor, updateGroup, toggleGroupCollapse, deleteGroup,
     togglePin, setGroupArchived, touchActivity, openProject,

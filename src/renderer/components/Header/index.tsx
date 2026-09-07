@@ -7,7 +7,7 @@ import { Tab, Group } from '../TabBar/types';
 import { FolderIcon, IconBranch, IconModel, IconMore, IconTerm, IconWorktree, KindIcon, StateIcon } from '../Icons';
 import { Menu } from '../Menu';
 import { buildThreadMenu, ThreadMenuActions } from '../../threadMenu';
-import { threadKind, threadName, threadState, stateLabel, modelLabel } from '../../threadView';
+import { threadKind, threadName, threadState, stateLabel, modelLabel, runningLabel } from '../../threadView';
 import { asleepLabel } from '../../sleepWake';
 import './Header.css';
 
@@ -86,7 +86,11 @@ export function Header({ tab, group, groups, actions, now }: HeaderProps) {
         {state !== 'quiet' && (
           <span className="chip header-chip">
             <StateIcon state={state} />
-            {state === 'asleep' ? asleepLabel(tab.sleptAt, now) : stateLabel(state)}
+            {state === 'asleep'
+              ? asleepLabel(tab.sleptAt, now)
+              : state === 'running' && tab.port !== undefined
+                ? runningLabel(tab.port)
+                : stateLabel(state)}
           </span>
         )}
         {actions && (

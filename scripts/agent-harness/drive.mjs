@@ -38,6 +38,12 @@
 //   tail [n]                      last n lines (default 30) of the active tab's xterm
 //                                  buffer via window.__afterterm; add --tab <id> for a
 //                                  specific tab instead of the active one
+//   confirm                       the close confirm dialog as a tree (title, body,
+//                                  confirm and cancel button text), or "(no confirm dialog)"
+//   opened                        the URL the last "Open localhost:port" click reached
+//                                  (window.__afterterm.lastOpenExternal), or "(nothing opened)"
+//   marks [--tab <id>]            window.__afterterm.commandState(id): at-prompt flag
+//                                  and prompt-end row/col, or "(no marks)"
 //   window bottom|restore|quit|close-dialogs   OS-level window z-order, un-minimise,
 //                                  a graceful quit (WM_CLOSE, so the quit flush runs), and
 //                                  closing stray native dialogs (e.g. a file picker)
@@ -78,6 +84,7 @@ const SEL = {
   threadSelectedClass: 'sel',
   threadAsleepClass: 'sleep', // Phase 4: replaces threadRestorableClass ('restorable' no longer exists)
   threadClose: '.xb',
+  threadPort: '.prt', // Phase 5: the ":5173" span a running thread's row gains
   stateIcon: '[data-state]',
   showMore: '.thmore',
   rail: '.rail',
@@ -122,6 +129,9 @@ const SEL = {
     // Phase 4: History tab rows (closed threads; no state icon, an optional Resume button).
     historyRow: '.tl[data-history-id]',
     resumeButton: '.acts [data-resume]',
+    // Phase 5: the ":5173" span a Live or Asleep row's detail line gains while the
+    // thread owns a listening port.
+    rowPort: '[data-meta="port"]',
   },
 
   // New-thread chooser (src/renderer/components/NewThreadChooser/index.tsx).
@@ -156,7 +166,9 @@ const SEL = {
     empty: '.header-empty',
   },
 
-  // Thread hover card (Phase 3).
+  // Thread hover card (Phase 3). The row reader is already generic (any
+  // dd[data-row]), so Phase 5's new data-row="last-ran" row needs no addition
+  // here: it just shows up as another line under whatever text it holds.
   hoverCard: {
     root: '.hover-card',
     title: '.hn',
@@ -173,6 +185,19 @@ const SEL = {
   },
   // Phase 4: the terminal host carries this class while the asleep pane covers it.
   terminalHidden: '.terminal-instances.asleep-hidden',
+
+  // Phase 5: the close confirm shown when closing a thread that owns a listening
+  // port (src/renderer/components/ConfirmDialog/index.tsx). Read from a `.modal-overlay`
+  // the same way GroupModal uses that class, with its own `[data-confirm-dialog]` root
+  // so `confirm` never mistakes GroupModal's overlay for this one.
+  confirm: {
+    overlay: '.modal-overlay',
+    root: '[data-confirm-dialog]',
+    title: '.modal-title',
+    body: '.confirm-body',
+    confirmButton: '[data-confirm]',
+    cancelButton: '[data-cancel]',
+  },
 };
 
 // Windows virtual-key codes for the keys an agent is likely to press.
@@ -198,7 +223,7 @@ const { opts, positional } = parseArgs(process.argv.slice(2));
 const [command, ...args] = positional;
 
 if (!command || opts.help) {
-  console.log(fs.readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(0, 50).map(l => l.replace(/^\/\/ ?/, '')).join('\n'));
+  console.log(fs.readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(0, 58).map(l => l.replace(/^\/\/ ?/, '')).join('\n'));
   process.exit(command ? 0 : 1);
 }
 
@@ -251,6 +276,9 @@ try {
       case 'hover-card': await cmdHoverCard(); break;
       case 'pane': await cmdPane(); break;
       case 'tail': await cmdTail(args[0]); break;
+      case 'confirm': await cmdConfirm(); break;
+      case 'opened': await cmdOpened(); break;
+      case 'marks': await cmdMarks(); break;
       case 'window': await cmdWindow(args[0]); break;
       default: throw new DriveError(`unknown command: ${command}`);
     }
@@ -495,6 +523,9 @@ async function cmdSidebar() {
         state: icon ? icon.getAttribute('data-state') : 'quiet',
         asleep: row.classList.contains(S.threadAsleepClass),
         close: !!row.querySelector(S.threadClose),
+        // Phase 5: only present while the thread owns a listening port; already
+        // carries its own leading colon (e.g. ":5173").
+        port: text(row.querySelector(S.threadPort)) || null,
       };
     };
 
@@ -536,7 +567,7 @@ async function cmdSidebar() {
 
   if (!tree.present) { console.log(`(no ${SEL.panel} in the DOM)`); return; }
   console.log(`side-panel${tree.collapsed ? ' (collapsed, rail only)' : ''}`);
-  const threadLine = (t, indent) => `${indent}- ${t.active ? '* ' : ''}"${t.title}" [${t.kind || '?'}/${t.state || 'quiet'}]${t.asleep ? ' [asleep]' : ''}${t.close ? ' [x]' : ''}`;
+  const threadLine = (t, indent) => `${indent}- ${t.active ? '* ' : ''}"${t.title}" [${t.kind || '?'}/${t.state || 'quiet'}]${t.port ? ' ' + t.port : ''}${t.asleep ? ' [asleep]' : ''}${t.close ? ' [x]' : ''}`;
   for (const sec of tree.sections) {
     console.log(`  ${sec.label}`);
     for (const t of sec.loose) console.log(threadLine(t, '    '));
@@ -655,6 +686,9 @@ async function cmdProject() {
         detail: text(row.querySelector(S.rowDetail)) || null,
         state: icon ? icon.getAttribute('data-state') : 'quiet',
         time: text(row.querySelector(S.rowTime)) || null,
+        // Phase 5: only present on a Live or Asleep row whose thread owns a
+        // listening port; already carries its own leading colon.
+        port: text(row.querySelector(S.rowPort)) || null,
       };
     });
     // Phase 4: History tab rows. No state icon (the thread is closed); an
@@ -691,7 +725,7 @@ async function cmdProject() {
   console.log(`  tab: ${selected ? selected.label : '(none selected)'}  other tabs: ${others.join(', ') || '(none)'}`);
   console.log(`  search: ${JSON.stringify(data.search)}`);
   if (data.rows.length) {
-    for (const r of data.rows) console.log(`  - "${r.name}" [${r.detail || ''}] [${r.state || 'quiet'}]${r.time ? '  ' + r.time : ''}`);
+    for (const r of data.rows) console.log(`  - "${r.name}" [${r.detail || ''}] [${r.state || 'quiet'}]${r.port ? ' ' + r.port : ''}${r.time ? '  ' + r.time : ''}`);
   } else if (data.historyRows.length) {
     for (const r of data.historyRows) {
       const kind = (r.detail || '').toLowerCase() === 'chat' ? 'chat' : 'shell';
@@ -859,6 +893,61 @@ async function cmdTail(nArg) {
   const lines = await evaluate(cdp, expr);
   if (!lines) { console.log('(no terminal)'); return; }
   for (const l of lines) console.log(l);
+}
+
+// Phase 5: the close confirm shown when closing a thread that owns a listening
+// port (src/renderer/components/ConfirmDialog/index.tsx). Presence is judged by
+// the dialog's own root, `[data-confirm-dialog]`, so this never fires on
+// GroupModal's unrelated `.modal-overlay`.
+async function cmdConfirm() {
+  const S = SEL.confirm;
+  const data = await evaluate(cdp, `((S) => {
+    const text = el => (el ? (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim() : '');
+    const root = document.querySelector(S.root);
+    if (!root) return { present: false };
+    return {
+      present: true,
+      title: text(root.querySelector(S.title)),
+      body: text(root.querySelector(S.body)),
+      confirmText: text(root.querySelector(S.confirmButton)),
+      cancelText: text(root.querySelector(S.cancelButton)),
+    };
+  })(${JSON.stringify(S)})`);
+
+  if (!data.present) { console.log('(no confirm dialog)'); return; }
+  console.log('confirm dialog');
+  console.log(`  title: ${data.title || '(none)'}`);
+  console.log(`  body: ${data.body || '(none)'}`);
+  console.log(`  confirm: ${data.confirmText || '(none)'}`);
+  console.log(`  cancel: ${data.cancelText || '(none)'}`);
+}
+
+// Phase 5: proves a "Open localhost:port" click reached shell:openExternal
+// without any browser window ever appearing on the person's display. main.ts
+// logs `[harness] shell:openExternal <url>` to the harness log (--log, default
+// <data-dir>\harness.log) under AFTERTERM_HARNESS=1 instead of opening a
+// browser; app.tsx also stashes the same url on window.__afterterm.lastOpenExternal,
+// which is what this command reads. Check the log line and this command together.
+async function cmdOpened() {
+  const url = await evaluate(cdp, `window.__afterterm && window.__afterterm.lastOpenExternal`);
+  console.log(url ? url : '(nothing opened)');
+}
+
+// Phase 5: window.__afterterm.commandState(tabId) (Terminal/index.tsx), the OSC
+// 133-style prompt marks used to decide whether a thread is sitting at a prompt
+// and where the prompt ends, e.g. so waking a server thread knows it is safe to
+// re-type its last command. There is no window.__afterterm.activeTabId hook as
+// of this writing, so --tab <id> is required unless one shows up later.
+async function cmdMarks() {
+  let tabId = opts.tab ? String(opts.tab) : null;
+  if (!tabId) {
+    tabId = await evaluate(cdp, `(window.__afterterm && window.__afterterm.activeTabId) || null`);
+  }
+  if (!tabId) fail('marks needs --tab <id>: window.__afterterm has no active-tab hook to fall back on');
+  const data = await evaluate(cdp, `window.__afterterm && window.__afterterm.commandState(${JSON.stringify(tabId)})`);
+  if (!data) { console.log('(no marks)'); return; }
+  console.log(`at prompt: ${data.atPrompt ? 'yes' : 'no'}`);
+  console.log(`prompt end: ${data.promptEnd ? `row ${data.promptEnd.row} col ${data.promptEnd.col}` : '(none)'}`);
 }
 
 // The electron browser process id, re-resolved from the listening DevTools

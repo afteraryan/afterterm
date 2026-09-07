@@ -10,7 +10,7 @@ import {
   FolderIcon, IconChevL, IconSearch, IconExplorer, EditorLogo, KindIcon, StateIcon,
   IconBranch, IconWorktree,
 } from '../Icons';
-import { threadKind, threadState, threadName } from '../../threadView';
+import { threadKind, threadState, threadName, kindWord } from '../../threadView';
 import { relativeTime, filterThreads, splitLiveAsleep } from '../../homeView';
 import { isResumable, historyTitleMatches } from '../../history';
 import { buildProjectMenu, ProjectActions } from '../../projectMenu';
@@ -233,7 +233,7 @@ export function ProjectPage({
                     <div className="tx">
                       <div className="n">{threadName(t)}</div>
                       <div className="d">
-                        {KIND_WORD[threadKind(t)]}
+                        {kindWord(t)}
                         {t.branch && (
                           <>
                             {' · '}
@@ -244,6 +244,12 @@ export function ProjectPage({
                           <>
                             {' · '}
                             <span data-meta="worktree"><IconWorktree size={13} />{t.worktree}</span>
+                          </>
+                        )}
+                        {state === 'running' && t.port !== undefined && (
+                          <>
+                            {' · '}
+                            <span data-meta="port">:{t.port}</span>
                           </>
                         )}
                       </div>

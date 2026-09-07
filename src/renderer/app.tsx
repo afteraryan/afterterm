@@ -12,13 +12,14 @@ import { NewThreadChooser } from './components/NewThreadChooser';
 import { SearchPalette } from './components/SearchPalette';
 import { GroupModal, GroupDraft } from './components/GroupModal';
 import { Toast } from './components/Toast';
+import { ConfirmDialog } from './components/ConfirmDialog';
 import type { Screen } from './components/ScreenNav';
 import { useTabState, threadGitCwd } from './hooks/useTabState';
 import { TabNotification, GROUP_COLORS, nextGroupColor } from './components/TabBar/types';
 import { onTitle, onOutput, onTick, onInterrupt, initTiming, TabTiming } from './spinnerState';
 import { migrateSession, serializeSession } from './sessionMigration';
 import { sleepAllForShutdown } from './sleepWake';
-import { toastMessage, initialScreen, threadName } from './threadView';
+import { toastMessage, initialScreen, threadName, needsCloseConfirm, closeConfirmText, localhostUrl } from './threadView';
 import { ProjectActions } from './projectMenu';
 import { buildThreadMenu } from './threadMenu';
 import type { EditorInfo } from '../editors';
@@ -87,6 +88,10 @@ export function App() {
   // on the way out) and, for a thread restored from disk, read from its tail file
   // the first time its pane shows.
   const [tails, setTails] = useState<Record<string, string[]>>({});
+  // The running server whose close is waiting on a confirm, or null. Closing a
+  // thread that owns a listening port stops that server, which is worth asking
+  // about once; every other close still goes straight through.
+  const [closeConfirm, setCloseConfirm] = useState<{ tabId: string; port: number } | null>(null);
   // Which tab a project page opens on. Everything that opens a project page shows
   // Live; only the palette's history results open it on History.
   const [projectPageTab, setProjectPageTab] = useState<'live' | 'asleep' | 'history'>('live');
@@ -522,14 +527,14 @@ export function App() {
   const handlePtyExit = useCallback((tabId: string) => {
     const tab = stateRef.current.tabs.find(t => t.id === tabId);
     if (!tab || tab.asleep) return;
-    closeThread(tabId);
+    closeThreadNow(tabId);
   }, []);
 
   // Closing a thread inside a project files it in that project's history; a thread
   // in General is simply gone. Neither says anything: a "Moved to history" toast was
   // tried and Aryan dropped it at the Phase 4 handoff (2026-09-07), closing is too
   // frequent an action to announce.
-  const closeThread = useCallback((tabId: string) => {
+  const closeThreadNow = useCallback((tabId: string) => {
     const wasAsleep = !!stateRef.current.tabs.find(t => t.id === tabId)?.asleep;
     const toHistory = stateRef.current.closeTab(tabId);
     if (!toHistory && wasAsleep) {
@@ -545,6 +550,34 @@ export function App() {
         return next;
       });
     }
+  }, []);
+
+  // Every close the user asks for comes through here. A running server is the one
+  // case that stops something the user cannot get back by reopening the thread, so
+  // it asks first; everything else closes immediately. A PTY that exited on its own
+  // goes straight to closeThreadNow: the process is already gone, there is nothing
+  // left to confirm.
+  const closeThread = useCallback((tabId: string) => {
+    const tab = stateRef.current.tabs.find(t => t.id === tabId);
+    if (tab && tab.port !== undefined && needsCloseConfirm(tab)) {
+      setCloseConfirm({ tabId, port: tab.port });
+      return;
+    }
+    closeThreadNow(tabId);
+  }, [closeThreadNow]);
+
+  // Open a running server's page in the default browser, through the same
+  // safelisted shell:openExternal the terminal's links use.
+  const openLocalhost = useCallback((tabId: string) => {
+    const tab = stateRef.current.tabs.find(t => t.id === tabId);
+    if (!tab || tab.port === undefined) return;
+    const url = localhostUrl(tab.port);
+    // The harness cannot see a browser open, so the URL is recorded on the same
+    // window object the terminal layer already publishes for it. Extended, not
+    // replaced: Terminal/index.tsx owns tail/activeTail/commandState on it.
+    const win = window as unknown as { __afterterm?: Record<string, unknown> };
+    win.__afterterm = { ...(win.__afterterm ?? {}), lastOpenExternal: url };
+    window.afterterm.shell.openExternal(url);
   }, []);
 
   // Sleep, wake and resume, the three things Phase 4 adds. Sleeping is a record
@@ -699,6 +732,16 @@ export function App() {
     });
   }, []);
 
+  // Main watches each awake thread's process tree for a listening socket and
+  // pushes the port it found (or null when it has gone). Nothing here wakes or
+  // activates anything: a port appearing on a background thread only changes its
+  // row and its project's pills.
+  useEffect(() => {
+    window.afterterm.pty.onPort(({ tabId, port }) => {
+      stateRef.current.setPort(tabId, port);
+    });
+  }, []);
+
   // A project page whose project was deleted (from its own menu, say) has nothing
   // left to show, so it falls back to Home.
   useEffect(() => {
@@ -706,7 +749,13 @@ export function App() {
     if (!projectPageId || !state.groups.some(g => g.id === projectPageId)) goScreen('home');
   }, [initialized, screen, projectPageId, state.groups, goScreen]);
 
-  const tabInfos = state.tabs.map(t => ({ id: t.id, shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize, claudeSessionId: t.claudeSessionId, claudeCwd: t.claudeCwd, asleep: t.asleep, wokeAt: t.wokeAt }));
+  // The command line a thread's user just entered, captured from the OSC 133 marks
+  // (commandMarks.ts). It is what a sleeping server re-runs on wake.
+  const handleCommand = useCallback((tabId: string, command: string) => {
+    stateRef.current.setLastCommand(tabId, command);
+  }, []);
+
+  const tabInfos = state.tabs.map(t => ({ id: t.id, shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize, claudeSessionId: t.claudeSessionId, claudeCwd: t.claudeCwd, asleep: t.asleep, wokeAt: t.wokeAt, port: t.port, lastCommand: t.lastCommand }));
 
   const activeTab = state.tabs.find(t => t.id === state.activeTabId);
   const activeGroup = activeTab?.groupId ? state.groups.find(g => g.id === activeTab.groupId) : undefined;
@@ -748,6 +797,7 @@ export function App() {
             close: () => closeThread(tab.id),
             sleep: () => sleepThread(tab.id),
             wake: () => wakeThread(tab.id),
+            openLocalhost: () => openLocalhost(tab.id),
             openProjectPage: tab.groupId ? () => goScreen('project', tab.groupId) : undefined,
           })}
           onBack={() => goScreen('home')}
@@ -769,6 +819,7 @@ export function App() {
           onClose={closeThread}
           onSleep={sleepThread}
           onWake={wakeThread}
+          onOpenLocalhost={openLocalhost}
           onNewTab={state.addTab}
           onGoHome={() => goScreen('home')}
           onSearch={() => setPaletteOpen(open => !open)}
@@ -802,6 +853,7 @@ export function App() {
               close: () => closeThread(activeTab.id),
               sleep: () => sleepThread(activeTab.id),
               wake: () => wakeThread(activeTab.id),
+              openLocalhost: () => openLocalhost(activeTab.id),
               openProjectPage: activeTab.groupId ? () => goScreen('project', activeTab.groupId) : undefined,
             } : undefined}
           />
@@ -830,6 +882,7 @@ export function App() {
               onFontSizeChange={state.setTabFontSize}
               onExit={handlePtyExit}
               onTail={handleTail}
+              onCommand={handleCommand}
             />
           )}
         </div>
@@ -892,6 +945,27 @@ export function App() {
               }
               setProjectModal(null);
             }}
+          />
+        );
+      })()}
+
+      {closeConfirm && (() => {
+        const text = closeConfirmText(closeConfirm.port);
+        return (
+          <ConfirmDialog
+            title={text.title}
+            body={text.body}
+            confirmLabel={text.confirm}
+            cancelLabel={text.cancel}
+            danger
+            onConfirm={() => {
+              // The thread may have been slept or closed by other means while the
+              // dialog stood; closeThreadNow on an id that is no longer there is a
+              // no-op (closeTab finds no tab, filters nothing out).
+              closeThreadNow(closeConfirm.tabId);
+              setCloseConfirm(null);
+            }}
+            onCancel={() => setCloseConfirm(null)}
           />
         );
       })()}

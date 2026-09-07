@@ -12,7 +12,7 @@
 // test the loading state (tail === null) without a real file.
 import React, { useEffect, useRef } from 'react';
 import { Tab } from '../TabBar/types';
-import { threadKind } from '../../threadView';
+import { kindWord } from '../../threadView';
 import { asleepSinceText } from '../../sleepWake';
 import './AsleepPane.css';
 
@@ -42,7 +42,7 @@ export function AsleepPane({ tab, tail, now, onWake }: AsleepPaneProps) {
         <button type="button" className="b p big" data-wake ref={wakeRef} onClick={onWake}>
           Wake
         </button>
-        <span className="w">{asleepSinceText(threadKind(tab), tab.sleptAt, now)}</span>
+        <span className="w">{asleepSinceText(kindWord(tab), tab.sleptAt, now, tab.lastCommand)}</span>
       </div>
       {tail !== null && tail.length > 0 && (
         <pre className="past">{tail.join('\n')}</pre>

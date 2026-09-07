@@ -1,0 +1,39 @@
+/* ── Confirm dialog ───────────────────────────────────────────────── */
+/* Reuses GroupModal.css's .modal-overlay and .modal-card look (overlay dim,
+   card background, radius, shadow, entrance animation); this file only adds
+   what a plain yes/no confirm needs on top of that shared card. */
+
+.confirm-card {
+  width: min(380px, 100%);
+}
+
+/* .modal-title is a bare div in GroupModal; here it is an h2, so its own
+   margin needs resetting to leave spacing to the card's own gap. */
+.confirm-card .modal-title {
+  margin: 0;
+}
+
+.confirm-card .confirm-body {
+  margin: 0;
+  color: var(--text2);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.confirm-card .confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* Filled danger button, the .b.p treatment but in the menu's danger red
+   (Menu.css .menu-item.danger) instead of the theme's white primary. */
+.confirm-card .b.danger {
+  background: #f87171;
+  color: #2a0d0d;
+}
+
+.confirm-card .b.danger:hover {
+  background: #fca5a5;
+}

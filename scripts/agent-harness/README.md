@@ -41,7 +41,7 @@ Plain Node (24+) and PowerShell. No new dependencies: Node's global `fetch` and
 | File | Role |
 |---|---|
 | `launch.mjs` | Seeds a throwaway `AFTERTERM_USER_DATA_DIR`, starts `electron-forge start` with the placement and debug-port env vars, waits for the DevTools endpoint, records pids. |
-| `drive.mjs` | CDP client with subcommands: `targets`, `bounds`, `screenshot`, `eval`, `dom`, `click`, `rightclick`, `hover`, `unhover`, `drag`, `emulate-media`, `type`, `key`, `sidebar`, `screen`, `home`, `project`, `chooser`, `palette`, `header`, `hover-card`, `pane`, `tail`, `window`, `record`. |
+| `drive.mjs` | CDP client with subcommands: `targets`, `bounds`, `screenshot`, `eval`, `dom`, `click`, `rightclick`, `hover`, `unhover`, `drag`, `emulate-media`, `type`, `key`, `sidebar`, `screen`, `home`, `project`, `chooser`, `palette`, `header`, `hover-card`, `pane`, `tail`, `confirm`, `opened`, `marks`, `window`, `record`. |
 | `stop.mjs` | Kills exactly the recorded process tree and verifies it is gone. |
 | `screenshot-display.ps1` | Captures a whole physical display to PNG (shows native title bars and the notifier toasts, which CDP cannot). |
 | `record.mjs` | Long-running recorder: CDP screencast of the page content, stitched to mp4 with ffmpeg. Normally started detached by `drive.mjs record start`, not run by hand. See "Recording a test session" below. |
@@ -131,16 +131,19 @@ node scripts/agent-harness/drive.mjs <command> ...
 | `emulate-media` | `drive emulate-media reduce` | `Emulation.setEmulatedMedia` for `prefers-reduced-motion`: `reduce`, `no-preference`, or `off` to clear every emulated feature. |
 | `type` | `drive type "hello"` | `Input.insertText` into the focused element. |
 | `key` | `drive key Enter`, `drive key b --ctrl --shift` | `Input.dispatchKeyEvent` down and up. Known names: Enter, Escape, Tab, Backspace, Delete, Space, Arrow keys, Home, End, PageUp, PageDown, F5, or any single character. Modifiers: `--ctrl`, `--shift`, `--alt`. |
-| `sidebar` | `drive sidebar` | The rendered sidebar as a tree: one block per section (General, Pinned, Projects); project rows with label, thread count, collapsed state and the counter pills (`need=`, `run=`); thread rows with title, `*` for active, `[kind/state]` from the row's kind icon and state icon, `[asleep]` when the row carries the `sleep` class, `[x]` when the row's close button is present; a `(Show N more)` line where a list is folded. Collapsed, the panel reports `(collapsed, rail only)` and lists nothing. Phase 4 removed the `restorable` class and its `[restorable]` marker; asleep is the only sleep-state marker now. |
+| `sidebar` | `drive sidebar` | The rendered sidebar as a tree: one block per section (General, Pinned, Projects); project rows with label, thread count, collapsed state and the counter pills (`need=`, `run=`); thread rows with title, `*` for active, `[kind/state]` from the row's kind icon and state icon, a ` :5173` port right after the state when the row carries a `.prt` span (Phase 5, only while the thread owns a listening port), `[asleep]` when the row carries the `sleep` class, `[x]` when the row's close button is present; a `(Show N more)` line where a list is folded. Collapsed, the panel reports `(collapsed, rail only)` and lists nothing. Phase 4 removed the `restorable` class and its `[restorable]` marker; asleep is the only sleep-state marker now. |
 | `screen` | `drive screen` | One JSON object: `screen` (`home`, `workspace` or `project`, from `.app`'s `data-screen`), `entrance` (the `enter-home` / `enter-project` / `enter-workspace` class while it's still on `.app`, or `null`), and whether the search palette, new-thread chooser, a menu, a dialog, or a toast is present. |
 | `home` | `drive home` | The rendered Home screen as a tree: the date heading, the `need`/`run` totals, one line per pinned card (name, pills, relative time, pin state), one line per project row, the "Show more" line when present, and the archived section (its toggle line, then its rows once expanded). `(not on Home)` when `.home` is absent. |
-| `project` | `drive project` | The rendered project page: title, folder line, the action buttons under `.ph .acts` with their disabled state, the selected tab plus the other tab labels (printed first, so a reader always knows which list the rows below belong to), the search box value, then one line per row. Live and Asleep rows (`.tl[data-tab-id]`) print name, state and time as before. History rows (`.tl[data-history-id]`, Phase 4) have no state icon, so they print as `- "title" [chat|shell] <time> [resume]`, kind read from the row's `.d` text and `[resume]` shown only when the row carries a `[data-resume]` button. `(not on a project page)` when `.proj` is absent. |
+| `project` | `drive project` | The rendered project page: title, folder line, the action buttons under `.ph .acts` with their disabled state, the selected tab plus the other tab labels (printed first, so a reader always knows which list the rows below belong to), the search box value, then one line per row. Live and Asleep rows (`.tl[data-tab-id]`) print name, state and time as before, with a ` :5173` port right after the state when the row's detail line carries a `[data-meta="port"]` span (Phase 5, only while the thread owns a listening port). History rows (`.tl[data-history-id]`, Phase 4) have no state icon, so they print as `- "title" [chat|shell] <time> [resume]`, kind read from the row's `.d` text and `[resume]` shown only when the row carries a `[data-resume]` button. `(not on a project page)` when `.proj` is absent. |
 | `chooser` | `drive chooser` | The new-thread chooser's input value, one line per option (project id, name, tag, `*` when highlighted), and the shell label. `(no chooser open)` when absent. |
 | `palette` | `drive palette` | The search palette's input value, then each group header (`.gl`, e.g. Projects, Threads and Phase 4's History) followed by its rows (kind, id, name, meta text, `*` when highlighted), or the empty-state text. History rows carry `data-kind="history"` and a meta like "project · 3d", read the same generic way as project and thread rows. `(no palette open)` when absent. |
 | `header` | `drive header` | The main pane header as a tree: the name line, the kind (when the name line carries a `data-kind` attribute), one `<data-meta>=<text>` line per header meta item, the state chip text or `(quiet)` (Phase 4: an asleep thread's chip reads "Asleep · 2d"). `(no thread)` when the header shows its empty state. `(no .header in the DOM)` when the header itself is absent. |
 | `hover-card` | `drive hover ".th" 0 --wait 400` then `drive hover-card` | The thread hover card: the title, then one `<data-row>: <text>` line per `dl` row. `(no hover card)` when absent. The card appears 350ms after the pointer enters a thread row, so hover first with `--wait` (see the `hover` row above) before reading it. |
 | `pane` | `drive pane` | Phase 4: the asleep pane (`.asleep-pane`) that covers the terminal card while the active thread is asleep, as a tree: `asleep pane for <tab id>`, `wake button: yes\|no`, `since: <text>`, `past lines: <N>` and the last 5 saved tail lines indented (or `past: (none)` while the tail is loading or empty). When no thread is asleep, prints `(terminal)` and `terminal: shown\|hidden` (whether `.terminal-instances` carries `asleep-hidden`). |
 | `tail` | `drive tail`, `drive tail 10`, `drive tail 10 --tab <id>` | Phase 4: the last n lines (default 30) of an xterm buffer, read through `window.__afterterm.activeTail(n)` for the active tab or `window.__afterterm.tail(id, n)` for `--tab <id>`. One line per entry; `(no terminal)` when the hook is missing or the tab has no live terminal (e.g. it is asleep). |
+| `confirm` | `drive confirm` | Phase 5: the close confirm shown when closing a thread that owns a listening port (`src/renderer/components/ConfirmDialog/index.tsx`), as a tree: `confirm dialog`, then `title:`, `body:`, `confirm:` and `cancel:` lines reading the dialog's `.modal-title`, `.confirm-body`, `[data-confirm]` and `[data-cancel]` text. `(no confirm dialog)` when it is not open. Click its buttons with `drive click "[data-confirm]"` (close anyway) and `drive click "[data-cancel]"` (keep the thread running). |
+| `opened` | `drive opened` | Phase 5: the URL the last "Open localhost:port" click reached, from `window.__afterterm.lastOpenExternal` (set by `app.tsx`), or `(nothing opened)`. A harness run never actually opens a browser: with `AFTERTERM_HARNESS=1`, main.ts logs `[harness] shell:openExternal <url>` to the harness log instead of calling `shell.openExternal`. The log line plus this command are how a test proves the click reached the safelisted open-external path without any browser window ever appearing on the person's display. |
+| `marks [--tab id]` | `drive marks --tab <id>` | Phase 5: `window.__afterterm.commandState(id)` (`src/renderer/components/Terminal/index.tsx`), the OSC 133-style prompt marks used to tell whether a thread is sitting at a shell prompt and where it ends, printed as `at prompt: yes\|no` and `prompt end: row R col C` (or `(none)`). `(no marks)` when the hook returns null. There is no `window.__afterterm.activeTabId` hook as of this writing, so `--tab <id>` is required; `marks` falls back to that hook automatically if a later phase adds one, but until then omitting `--tab` fails with a message saying so. |
 | `window` | `drive window bottom`, `drive window restore`, `drive window quit`, `drive window close-dialogs` | OS-level window control (see "Capturing an occluded window" below). `quit` posts WM_CLOSE to the main window and waits for the process to exit: a graceful quit, so the renderer's quit flush runs (session.json with every thread stamped asleep, and every live terminal's tail file), which `stop.mjs`'s hard kill skips. The dev build answers its own "terminals still running" confirm when `AFTERTERM_HARNESS=1` (`src/main.ts`), so nothing waits on a dialog. |
 | `record` | `drive record start --out out.mp4`, `drive record stop`, `drive record status` | Starts, stops and lists screen recordings of the page content (see "Recording a test session" below). |
 
@@ -152,7 +155,12 @@ Phase 2 screens; they read from the DOM hooks each screen's component is
 supposed to keep (`docs/design-02-projects-and-threads.md` and the components
 themselves), not from `SidePanel`. `SEL.header` (Phase 3, `src/renderer/components/Header/index.tsx`
 and `Header.css`) and `SEL.hoverCard` (Phase 3, the thread hover card) follow the
-same pattern, as does `SEL.asleepPane` (Phase 4, `src/renderer/components/AsleepPane/index.tsx`).
+same pattern, as does `SEL.asleepPane` (Phase 4, `src/renderer/components/AsleepPane/index.tsx`)
+and `SEL.confirm` (Phase 5, `src/renderer/components/ConfirmDialog/index.tsx`). `SEL.header`
+and `SEL.hoverCard` needed no Phase 5 additions: the header's meta items and chip, and the
+hover card's `dd[data-row]` rows, are already read generically by attribute rather than by a
+fixed list, so a new meta item, a "Running on :5173" chip, or a new `data-row="last-ran"` row
+all show up on their own.
 
 ### Hover, drag and reduced motion
 
@@ -340,6 +348,40 @@ npm run harness:drive -- click ".ctx-menu-item" <n>      # Open project page
 npm run harness:drive -- click ".tabs .seg button" 2     # the History tab (check the index with `drive project` first)
 npm run harness:drive -- project                         # History rows: "title" [chat|shell] time [resume]
 npm run harness:drive -- click "[data-resume]"
+npm run harness:stop
+
+# Phase 5 flow: a server thread's port, the close confirm, "Open localhost", and
+# the port surviving a relaunch (seed a small project whose folder holds a tiny
+# Node http server, e.g. `node -e "require('http').createServer((q,r)=>r.end('hi')).listen(48765)"`
+# wired up as its `npm start`)
+Copy-Item "$env:APPDATA\afterterm\session.json" "$env:TEMP\session-copy.json"
+npm run harness -- --session "$env:TEMP\session-copy.json"
+npm run harness:drive -- click ".th" 0                  # wake or open the server thread
+npm run harness:drive -- click ".terminal-host"          # focus the terminal so typed keys reach the shell
+npm run harness:drive -- type "npm start"
+npm run harness:drive -- key Enter
+# wait about 3 seconds for the server to bind its port and the sidebar to notice
+npm run harness:drive -- sidebar                         # the row now reads [shell/running] :48765
+npm run harness:drive -- header                          # the chip now reads "Running on :48765"
+npm run harness:drive -- rightclick ".th" 0
+npm run harness:drive -- dom ".ctx-menu-item"             # find "Open localhost:48765"'s index
+npm run harness:drive -- click ".ctx-menu-item" <n>
+npm run harness:drive -- opened                           # prints the URL; check the harness log too:
+#   Select-String "\[harness\] shell:openExternal" $env:TEMP\afterterm-agent-harness\run-*\harness.log
+npm run harness:drive -- click ".th .xb" 0                # close button on a thread with a listening port
+npm run harness:drive -- confirm                           # the close confirm: title, body, confirm/cancel text
+npm run harness:drive -- click "[data-cancel]"             # keep the thread running
+npm run harness:drive -- rightclick ".th" 0
+npm run harness:drive -- dom ".ctx-menu-item"             # find Sleep's index
+npm run harness:drive -- click ".ctx-menu-item" <n>       # Sleep
+npm run harness:drive -- pane                              # "Server asleep since just now · runs npm start"
+npm run harness:drive -- click "[data-wake]"               # re-runs npm start
+npm run harness:drive -- tail 10                           # shows the command re-typed and its output
+npm run harness:drive -- window quit                       # graceful quit; session.json keeps the last-run command
+npm run harness -- --data-dir "$env:TEMP\afterterm-run"     # relaunch against the same data dir
+npm run harness:drive -- pane                              # still "runs npm start", the thread comes back asleep
+npm run harness:drive -- click "[data-wake]"                # brings the server back
+npm run harness:drive -- sidebar                            # [shell/running] :48765 again
 npm run harness:stop
 ```
 

@@ -4,6 +4,7 @@
 import { Tab, Group } from './components/TabBar/types';
 import { MenuItem } from './components/Menu';
 import { FolderIcon, IconTerm } from './components/Icons';
+import { openLocalhostLabel } from './threadView';
 
 export interface ThreadMenuActions {
   open: () => void;
@@ -14,6 +15,10 @@ export interface ThreadMenuActions {
   // Only passed where there is a screen to go to. A thread with no project has no
   // page to open, so the item stays out of the menu in that case either way.
   openProjectPage?: () => void;
+  // Only offered for an awake server (design-02 "Right-click on a thread": "Open
+  // localhost:port (servers)"). Absent for a chat, a plain shell, or an asleep
+  // server, same conditions buildThreadMenu checks before inserting the item.
+  openLocalhost?: () => void;
 }
 
 export function buildThreadMenu(tab: Tab, groups: Group[], actions: ThreadMenuActions): MenuItem[] {
@@ -38,6 +43,10 @@ export function buildThreadMenu(tab: Tab, groups: Group[], actions: ThreadMenuAc
     tab.asleep ? { label: 'Wake', onSelect: actions.wake } : { label: 'Sleep', onSelect: actions.sleep },
     { label: 'Move to project', submenu: { title: 'Move to', items: moveItems } },
   ];
+
+  if (!tab.asleep && tab.port !== undefined && actions.openLocalhost) {
+    items.push({ label: openLocalhostLabel(tab.port), onSelect: actions.openLocalhost });
+  }
 
   if (tab.groupId) {
     const openPage = actions.openProjectPage;
