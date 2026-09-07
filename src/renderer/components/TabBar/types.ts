@@ -14,19 +14,27 @@ export interface Tab {
   // <claudeSessionId>`. Persisted in session.json.
   claudeSessionId?: string;
   claudeCwd?: string;
-  // Transient (NOT persisted): true for a restored tab whose saved Claude session
-  // hasn't been resumed yet this launch. Drives the muted ✳ "click to restore"
-  // marker in the sidebar; cleared once the tab is activated/resumed.
-  claudeRestorable?: boolean;
   // Last time the user activated this tab (ms since epoch). Required, not optional,
   // so every creation site has to set it: a missing timestamp would sort a thread
   // as "never used" and hide it behind "Show more". Persisted in session.json.
   // Phase 2 will also stamp it on PTY input and output.
   lastActiveAt: number;
-  // Persisted, but nothing sets it true yet: sleep and wake arrive in Phase 4. It
-  // is in the model now so a session.json written today already carries the flag
-  // and Phase 4 needs no second migration.
+  // True while the thread's PTY is not running: its record (project, cwd, session
+  // id, shell) is kept, just nothing is spawned for it. Persisted in session.json.
+  // Phase 4 replaces the old "restorable" ✳ marker with this: every restored tab
+  // starts asleep rather than half-alive.
   asleep: boolean;
+  // Ms since epoch when the thread went to sleep. Present only while asleep;
+  // drives the "Asleep · 2d" chip (sleepWake.ts, asleepLabel). Persisted in
+  // session.json so the chip reads correctly the moment a restored session loads,
+  // before anything in this launch has touched the thread.
+  sleptAt?: number;
+  // Transient (NOT persisted): set the moment a thread wakes, or is recreated from
+  // history by Resume. Read once by the terminal layer to know it must replay the
+  // saved scrollback tail above a "Woke just now" divider, then it has done its
+  // job; a brand new thread never has it, so it never shows a divider it doesn't
+  // need.
+  wokeAt?: number;
   // Claude Code model id of the latest assistant turn, read from the session
   // transcript in main ("claude-opus-5[1m]"); the renderer maps it to a display
   // name (threadView.ts, modelLabel). Chats only. Persisted in session.json.
@@ -69,6 +77,26 @@ export interface Group {
   // Last time one of this group's tabs was activated (ms since epoch). Orders the
   // Projects list on Home and in the sidebar. Persisted in session.json.
   lastActiveAt: number;
+  // Closed threads of this project, newest first, capped (history.ts,
+  // HISTORY_MAX). Required so a creation site cannot forget it (it starts empty,
+  // the migration fills an old file's groups with []). General has no history:
+  // it names no group, so there is nowhere to append to, and a closed General
+  // thread is simply gone (an open design decision, see design-02, revisit if it
+  // hurts).
+  history: HistoryEntry[];
+}
+
+// A closed thread kept for Resume. `id` is deliberately the closed tab's own id:
+// its scrollback tail file is `threads/<id>.txt`, and Resume recreates the tab
+// with that same id (history.ts, tabFromHistory) so the tail is still found by
+// the id it was written under, instead of needing a second lookup table.
+export interface HistoryEntry {
+  id: string;
+  title: string;
+  kind: 'chat' | 'shell';
+  sessionId?: string;
+  cwd?: string;
+  closedAt: number;
 }
 
 export type GroupColor =

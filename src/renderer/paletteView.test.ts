@@ -4,7 +4,7 @@
 // Exits 0 if all pass, 1 on any failure.
 
 import { paletteResults, rankMatch } from './paletteView.ts';
-import type { Group, Tab } from './components/TabBar/types.ts';
+import type { Group, Tab, HistoryEntry } from './components/TabBar/types.ts';
 
 let pass = 0, fail = 0;
 function check(name: string, cond: boolean, detail = '') {
@@ -16,11 +16,14 @@ const show = (v: unknown) => JSON.stringify(v);
 function group(id: string, extra: Partial<Group> = {}): Group {
   return {
     id, label: id, color: 'teal', collapsed: false,
-    pinned: false, archived: false, lastActiveAt: 0, ...extra,
+    pinned: false, archived: false, lastActiveAt: 0, history: [], ...extra,
   } as Group;
 }
 function tab(id: string, extra: Partial<Tab> = {}): Tab {
   return { id, title: id, lastActiveAt: 0, asleep: false, ...extra } as Tab;
+}
+function historyEntry(id: string, extra: Partial<HistoryEntry> = {}): HistoryEntry {
+  return { id, title: id, kind: 'shell', closedAt: 0, ...extra };
 }
 
 console.log('\npaletteView: rankMatch\n');
@@ -123,6 +126,59 @@ console.log('\npaletteView: paletteResults, no results\n');
   const r = paletteResults([group('A', { label: 'afterterm' })], [tab('t1', { title: 'afterterm' })], 'zzzzz');
   check('no results gives an empty projects array', r.projects.length === 0, show(r.projects));
   check('no results gives an empty threads array', r.threads.length === 0, show(r.threads));
+  check('no results gives an empty history array', r.history.length === 0, show(r.history));
+}
+
+console.log('\npaletteView: paletteResults, history\n');
+{
+  const groups = [
+    group('A', { label: 'afterterm', history: [
+      historyEntry('h1', { title: 'Fix the spinner', closedAt: 100 }),
+      historyEntry('h2', { title: 'unrelated shell', closedAt: 200 }),
+    ] }),
+  ];
+  const r = paletteResults(groups, [], 'spinner');
+  check('a query matching a history title returns it', r.history.map(h => h.entry.id).join(',') === 'h1', show(r.history));
+  check('the returned history row carries its owning group', r.history[0]?.group.id === 'A', show(r.history));
+  check('existing project and thread results are unchanged by the new field',
+    r.projects.length === 0 && r.threads.length === 0);
+}
+{
+  // Archived projects' history is excluded, same as their projects and threads.
+  const groups = [group('A', { archived: true, label: 'afterterm', history: [historyEntry('h1', { title: 'afterterm thread' })] })];
+  const r = paletteResults(groups, [], '');
+  check('archived project history excluded', r.history.length === 0, show(r.history));
+}
+{
+  // Ranked by prefix match first, then newest closedAt.
+  const groups = [
+    group('A', { label: 'A', history: [
+      historyEntry('h1', { title: 'go afterterm', closedAt: 999 }),
+      historyEntry('h2', { title: 'afterterm', closedAt: 1 }),
+    ] }),
+  ];
+  const r = paletteResults(groups, [], 'after');
+  check('prefix match (h2) ranks above substring match (h1) despite an older closedAt',
+    r.history.map(h => h.entry.id).join(',') === 'h2,h1', show(r.history.map(h => h.entry.id)));
+}
+{
+  const groups = [
+    group('A', { label: 'A', history: [
+      historyEntry('h1', { title: 'thread', closedAt: 300 }),
+      historyEntry('h2', { title: 'thread', closedAt: 100 }),
+      historyEntry('h3', { title: 'thread', closedAt: 200 }),
+    ] }),
+  ];
+  const r = paletteResults(groups, [], 'thread');
+  check('same rank, ordered by closedAt descending', r.history.map(h => h.entry.id).join(',') === 'h1,h3,h2', show(r.history));
+}
+{
+  // Cap at 8 across all projects combined.
+  const entries = Array.from({ length: 12 }, (_, i) => historyEntry(`h${i}`, { title: 'closed thread', closedAt: i }));
+  const groups = [group('A', { label: 'A', history: entries })];
+  const r = paletteResults(groups, [], 'closed');
+  check('history results capped at 8', r.history.length === 8, show(r.history.length));
+  check('the 8 kept are the newest by closedAt', r.history.map(h => h.entry.id).join(',') === 'h11,h10,h9,h8,h7,h6,h5,h4', show(r.history.map(h => h.entry.id)));
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

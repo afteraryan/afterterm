@@ -4,18 +4,34 @@
 // one that merely contains it. No React, no DOM: importable from plain Node so
 // the unit tests can run with `node src/renderer/paletteView.test.ts`.
 
-import type { Group, Tab } from './components/TabBar/types.ts';
+import type { Group, Tab, HistoryEntry } from './components/TabBar/types.ts';
 import { threadName } from './threadView.ts';
+import { historyTitleMatches } from './history.ts';
 
 export interface PaletteThreadResult {
   tab: Tab;
   group?: Group;
 }
 
+// A closed thread found through search: the palette opens the project page's
+// History tab on click (Search, design-02), which needs the owning group as
+// much as the entry itself.
+export interface PaletteHistoryResult {
+  entry: HistoryEntry;
+  group: Group;
+}
+
 export interface PaletteResults {
   projects: Group[];
   threads: PaletteThreadResult[];
+  history: PaletteHistoryResult[];
 }
+
+// The mock shows at most 8 history rows in the palette: unlike projects and
+// threads, which the workspace already keeps to a handful, history can grow to
+// HISTORY_MAX per project across many projects, so it needs its own cap to
+// keep the palette a quick list rather than a second project page.
+const HISTORY_RESULT_LIMIT = 8;
 
 // 0 when the label starts with the query, 1 otherwise. Query and label are
 // compared case-insensitively; an empty query ranks everything equally (0), so
@@ -55,5 +71,19 @@ export function paletteResults(groups: Group[], tabs: Tab[], query: string): Pal
       return b.tab.lastActiveAt - a.tab.lastActiveAt;
     });
 
-  return { projects, threads };
+  // Every non-archived group's history, filtered by title, ranked the same way
+  // as threads and projects (prefix match first) but tiebroken by closedAt
+  // rather than lastActiveAt: a history row has no activity of its own once
+  // closed, only when it was closed.
+  const history = groups
+    .filter(g => !g.archived)
+    .flatMap(g => g.history.filter(e => historyTitleMatches(e, q)).map(entry => ({ entry, group: g })))
+    .sort((a, b) => {
+      const byRank = rankMatch(a.entry.title, q) - rankMatch(b.entry.title, q);
+      if (byRank !== 0) return byRank;
+      return b.entry.closedAt - a.entry.closedAt;
+    })
+    .slice(0, HISTORY_RESULT_LIMIT);
+
+  return { projects, threads, history };
 }

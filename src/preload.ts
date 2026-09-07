@@ -2,6 +2,10 @@ import { contextBridge, ipcRenderer, IpcRendererEvent, webUtils } from 'electron
 import type { EditorInfo } from './editors.ts';
 
 const dataListeners = new Map<string, (event: IpcRendererEvent, data: string) => void>();
+// Exit handlers are kept the same way so offExit can take one off again. Putting a
+// thread to sleep destroys its PTY but keeps the tab, and the exit event that follows
+// must not reach the app's "PTY exited, close the tab" handler.
+const exitListeners = new Map<string, (event: IpcRendererEvent, code: number) => void>();
 
 contextBridge.exposeInMainWorld('afterterm', {
   version: process.versions.electron,
@@ -85,6 +89,22 @@ contextBridge.exposeInMainWorld('afterterm', {
     },
   },
 
+  // The last lines of a thread's scrollback, kept on disk so sleep and quit do not
+  // lose the screen. Main trims and formats them (src/thread-tail.ts).
+  threads: {
+    saveTail: (tabId: string, lines: string[]): Promise<void> =>
+      ipcRenderer.invoke('threads:saveTail', tabId, lines),
+    // Blocking, for the beforeunload flush at quit: every awake thread in one call.
+    saveTailsSync: (tails: Record<string, string[]>): void =>
+      ipcRenderer.sendSync('threads:saveTailsSync', tails),
+    readTail: (tabId: string): Promise<string[] | null> =>
+      ipcRenderer.invoke('threads:readTail', tabId),
+    deleteTail: (tabId: string): Promise<void> =>
+      ipcRenderer.invoke('threads:deleteTail', tabId),
+    prune: (keepIds: string[]): Promise<number> =>
+      ipcRenderer.invoke('threads:prune', keepIds),
+  },
+
   // Branch and worktree for a folder, read straight from .git (no git process).
   git: {
     info: (cwd: string) => ipcRenderer.invoke('git:info', cwd),
@@ -156,7 +176,26 @@ contextBridge.exposeInMainWorld('afterterm', {
     },
 
     onExit: (tabId: string, callback: (exitCode: number) => void): void => {
-      ipcRenderer.once(`pty:exit:${tabId}`, (_event, code) => callback(code));
+      const channel = `pty:exit:${tabId}`;
+      const handler = (_event: IpcRendererEvent, code: number) => {
+        // `once` has already removed the listener by the time this runs, so drop the
+        // map entry too. Otherwise a later offExit would try to remove a dead handler
+        // and, worse, a re-registered listener for the same tab would be shadowed.
+        exitListeners.delete(tabId);
+        callback(code);
+      };
+      exitListeners.set(tabId, handler);
+      ipcRenderer.once(channel, handler);
+    },
+
+    // Unregister before destroying a PTY the tab is meant to outlive (sleep).
+    offExit: (tabId: string): void => {
+      const channel = `pty:exit:${tabId}`;
+      const handler = exitListeners.get(tabId);
+      if (handler) {
+        ipcRenderer.removeListener(channel, handler);
+        exitListeners.delete(tabId);
+      }
     },
 
     // Throttled activity stamps from main: at most one per tab per 15 seconds

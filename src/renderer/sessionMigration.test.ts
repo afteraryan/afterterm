@@ -50,6 +50,8 @@ console.log('\nsessionMigration: a 0.8.1 file loads with defaults\n');
   check('every group gets pinned/archived = false and lastActiveAt = now',
     s.groups.every(g => g.pinned === false && g.archived === false && g.lastActiveAt === NOW));
   check('activeTabId is kept', s.activeTabId === 'tab-5');
+  check('every group gets history = [] (Phase 4)', s.groups.every(g => isDeepStrictEqual(g.history, [])));
+  check('no tab gets a sleptAt out of nowhere (Phase 4)', s.tabs.every(t => t.sleptAt === undefined));
 }
 
 console.log('\nsessionMigration: SESSION_FORMAT_VERSION stays 2 (Phase 3 is a fill-defaults pass)\n');
@@ -104,6 +106,59 @@ console.log('\nsessionMigration: model, branch, worktree (Phase 3)\n');
   const written = serializeSession(s.tabs as unknown as Tab[], s.groups, s.activeTabId);
   check('claudeTitle is written back', written.tabs[1].claudeTitle === 'Fix the spinner');
   check('firstPrompt is never written', !('firstPrompt' in written.tabs[1]));
+}
+
+console.log('\nsessionMigration: sleptAt and history (Phase 4)\n');
+{
+  // A version-2 file with asleep tabs and a sleptAt keeps both.
+  const raw = fixture081() as any;
+  raw.tabs[1].asleep = true;
+  raw.tabs[1].sleptAt = 1_756_000_000_000;
+  raw.groups[0].history = [
+    { id: 'tab-9', title: 'Old chat', kind: 'chat', sessionId: '3d71b0f2-26cb-4ad3-8371-6504ab2e37e2', cwd: 'D:\\Work\\afterterm', closedAt: 1_755_000_000_000 },
+  ];
+  const s = migrateSession(raw, NOW)!;
+  const chat = s.tabs.find(t => t.id === 'tab-5')!;
+  check('asleep kept true', chat.asleep === true);
+  check('sleptAt kept', chat.sleptAt === 1_756_000_000_000);
+  check('a good history entry survives', s.groups[0].history.length === 1);
+  check('history entry fields kept', isDeepStrictEqual(s.groups[0].history[0], {
+    id: 'tab-9', title: 'Old chat', kind: 'chat', sessionId: '3d71b0f2-26cb-4ad3-8371-6504ab2e37e2', cwd: 'D:\\Work\\afterterm', closedAt: 1_755_000_000_000,
+  }));
+}
+{
+  // A wrongly typed sleptAt is dropped, not coerced.
+  const raw = fixture081() as any;
+  raw.tabs[0].sleptAt = 'yesterday';
+  raw.tabs[1].sleptAt = Infinity;
+  raw.tabs[2].sleptAt = NaN;
+  const s = migrateSession(raw, NOW)!;
+  check('a string sleptAt is dropped', s.tabs[0].sleptAt === undefined);
+  check('an Infinity sleptAt is dropped', s.tabs[1].sleptAt === undefined);
+  check('a NaN sleptAt is dropped', s.tabs[2].sleptAt === undefined);
+}
+{
+  // A wrongly typed history (a string, an object) becomes [].
+  const raw = fixture081() as any;
+  raw.groups[0].history = 'nope';
+  raw.groups[1].history = { title: 'not an array' };
+  const s = migrateSession(raw, NOW)!;
+  check('a string history becomes []', isDeepStrictEqual(s.groups[0].history, []));
+  check('an object history becomes []', isDeepStrictEqual(s.groups[1].history, []));
+}
+{
+  // One good entry and two bad ones: only the good one survives.
+  const raw = fixture081() as any;
+  raw.groups[0].history = [
+    { id: 'tab-9', title: 'Old chat', kind: 'chat', closedAt: 1_755_000_000_000 },
+    { title: 'no id', kind: 'chat', closedAt: 1_755_000_000_000 },
+    { id: 'tab-10', title: 'bad kind', kind: 'nope', closedAt: 1_755_000_000_000 },
+    null,
+    'not even an object',
+  ];
+  const s = migrateSession(raw, NOW)!;
+  check('only the one good entry is kept', s.groups[0].history.length === 1, show(s.groups[0].history));
+  check('the surviving entry is the good one', s.groups[0].history[0].id === 'tab-9');
 }
 
 console.log('\nsessionMigration: existing values are preserved\n');
@@ -195,13 +250,17 @@ console.log('\nsessionMigration: transient fields stripped, unknown keys kept, i
   raw.tabs[0].notification = 'working';
   raw.tabs[0].claudeRestorable = true;
   raw.tabs[1].futureField = { from: 'a newer build' };
-  raw.groups[0].history = [{ title: 'old thread' }];
+  // history is now a validated field (Phase 4), not a passthrough unknown key,
+  // so a genuinely unknown group key is used here instead to exercise "unknown
+  // keys survive". A history entry with no id/kind/closedAt is invalid and
+  // dropped, which the sleptAt-and-history block above already covers.
+  raw.groups[0].futureGroupField = { from: 'a newer build' };
   raw.version = 99;
   const s = migrateSession(raw, NOW)!;
   check('notification and claudeRestorable are stripped',
     !('notification' in s.tabs[0]) && !('claudeRestorable' in s.tabs[0]));
   check('unknown tab key survives', isDeepStrictEqual((s.tabs[1] as any).futureField, { from: 'a newer build' }));
-  check('unknown group key survives', isDeepStrictEqual((s.groups[0] as any).history, [{ title: 'old thread' }]));
+  check('unknown group key survives', isDeepStrictEqual((s.groups[0] as any).futureGroupField, { from: 'a newer build' }));
   check('version is normalised to the current format', s.version === SESSION_FORMAT_VERSION);
 }
 {
@@ -213,28 +272,40 @@ console.log('\nsessionMigration: transient fields stripped, unknown keys kept, i
   check('migration does not mutate its input',
     !('lastActiveAt' in raw.tabs[0]) && !('pinned' in raw.groups[0]));
 }
+{
+  // Idempotent with sleptAt and a non-empty history present (Phase 4).
+  const raw = fixture081() as any;
+  raw.tabs[1].asleep = true;
+  raw.tabs[1].sleptAt = 1_756_000_000_000;
+  raw.groups[0].history = [
+    { id: 'tab-9', title: 'Old chat', kind: 'chat', sessionId: '3d71b0f2-26cb-4ad3-8371-6504ab2e37e2', cwd: 'D:\\Work\\afterterm', closedAt: 1_755_000_000_000 },
+  ];
+  const once = migrateSession(raw, NOW)!;
+  const twice = migrateSession(once, NOW + 5_000_000)!;
+  check('sleptAt and history survive a second migration unchanged', isDeepStrictEqual(once, twice), show(twice));
+}
 
 console.log('\nserializeSession: persisted keys only, 0.8.1 compatible\n');
 {
   const tabs: Tab[] = [
     {
       id: 'tab-1', title: 'cmd.exe', groupId: 'group-1', shellId: 'cmd', cwd: 'D:\\Work', fontSize: 14,
-      claudeSessionId: 'abc', claudeCwd: 'D:\\Work', lastActiveAt: 111, asleep: false,
-      notification: 'working', claudeRestorable: true,
+      claudeSessionId: 'abc', claudeCwd: 'D:\\Work', lastActiveAt: 111, asleep: true, sleptAt: 444,
+      wokeAt: 555, notification: 'working',
       ...({ futureField: 'x' } as object),
     },
     { id: 'tab-2', title: 'Terminal', lastActiveAt: 222, asleep: false },
   ];
   const groups: Group[] = [
     { id: 'group-1', label: 'work', color: 'teal', collapsed: false, cwd: 'D:\\Work', shellId: 'cmd',
-      pinned: true, archived: false, lastActiveAt: 333 },
+      pinned: true, archived: false, lastActiveAt: 333, history: [] },
   ];
   const out = serializeSession(tabs, groups, 'tab-1');
-  const PERSISTED = ['id', 'title', 'groupId', 'shellId', 'cwd', 'fontSize', 'claudeSessionId', 'claudeCwd', 'lastActiveAt', 'asleep', 'model', 'branch', 'worktree', 'claudeTitle'];
+  const PERSISTED = ['id', 'title', 'groupId', 'shellId', 'cwd', 'fontSize', 'claudeSessionId', 'claudeCwd', 'lastActiveAt', 'asleep', 'sleptAt', 'model', 'branch', 'worktree', 'claudeTitle'];
   check('includes version', out.version === SESSION_FORMAT_VERSION);
   check('top-level shape is still {tabs, groups, activeTabId} plus version',
     isDeepStrictEqual(Object.keys(out).sort(), ['activeTabId', 'groups', 'tabs', 'version']));
-  check('tab emits only the persisted keys (no notification, claudeRestorable or unknown keys)',
+  check('tab emits only the persisted keys (no notification, claudeRestorable, wokeAt or unknown keys)',
     isDeepStrictEqual(Object.keys(out.tabs[0]).sort(), [...PERSISTED].sort()), show(Object.keys(out.tabs[0])));
   const KEYS_081 = ['id', 'title', 'groupId', 'shellId', 'cwd', 'fontSize', 'claudeSessionId', 'claudeCwd'];
   check('every 0.8.1 tab key is present with the same value',
@@ -244,11 +315,16 @@ console.log('\nserializeSession: persisted keys only, 0.8.1 compatible\n');
     && out.groups[0].cwd === 'D:\\Work' && out.groups[0].shellId === 'cmd'
     && out.groups[0].pinned === true && out.groups[0].archived === false && out.groups[0].lastActiveAt === 333);
   check('activeTabId written as given', out.activeTabId === 'tab-1');
+  check('sleptAt is written when set', out.tabs[0].sleptAt === 444);
+  check('wokeAt is never written, even when set on the in-memory tab', !('wokeAt' in out.tabs[0]));
   // JSON.stringify is what actually hits disk: optional keys that are undefined
   // vanish, exactly as 0.8.1 behaved, so an ungrouped tab has no "groupId" key.
   const onDisk = JSON.parse(JSON.stringify(out));
   check('undefined optionals are absent on disk', !('groupId' in onDisk.tabs[1]) && !('cwd' in onDisk.tabs[1]));
+  check('sleptAt is absent on disk for a tab that never slept', !('sleptAt' in onDisk.tabs[1]));
   check('groups are copied, not shared with state', out.groups[0] !== groups[0] && isDeepStrictEqual(out.groups[0], groups[0]));
+  check('a group without history serializes with history: [] (defensive)',
+    isDeepStrictEqual(serializeSession([], [{ ...groups[0], history: undefined as any }], '').groups[0].history, []));
 }
 
 console.log('\nround trip: serialize then migrate is stable\n');

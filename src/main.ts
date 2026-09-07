@@ -12,6 +12,7 @@ import type { EditorInfo } from './editors.ts';
 import { readPrefs, updatePrefs } from './prefs.ts';
 import { readTranscriptMeta, isSessionId } from './claude-transcript.ts';
 import { gitInfo } from './git-info.ts';
+import { isThreadId, parseTail, serializeTail, tailFilePath, trimTail } from './thread-tail.ts';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -925,6 +926,85 @@ ipcMain.handle('claude-session:meta', (_event, sessionId: unknown, cwd: unknown)
     return { firstPrompt: null, model: null, exists: false };
   }
   return readClaudeMeta(sessionId, cwd);
+});
+
+// ─── Thread tails (scrollback that survives sleep and quit) ──────────────────
+
+// ConPTY dies with its process, so a thread that goes to sleep, or an app that quits,
+// loses its screen. The renderer hands us the last lines of each thread's buffer and
+// we keep them as <userData>/threads/<tabId>.txt, so waking can replay them dimmed
+// above a "Woke just now" divider instead of showing a blank terminal. Format and
+// trimming live in src/thread-tail.ts (pure, unit-tested).
+function getThreadsDir() {
+  const dir = path.join(app.getPath('userData'), 'threads');
+  try { fs.mkdirSync(dir, { recursive: true }); } catch {}
+  return dir;
+}
+
+// The tab id comes from the renderer and becomes a file name, so isThreadId is the
+// path-traversal guard on every one of these handlers.
+ipcMain.handle('threads:saveTail', (_event, tabId: unknown, lines: unknown) => {
+  if (!isThreadId(tabId) || !Array.isArray(lines)) return;
+  try {
+    const file = tailFilePath(getThreadsDir(), tabId);
+    const tmp = `${file}.tmp`;
+    // Write then rename: a tail saved while the app is being torn down must never
+    // leave a half-written file that the next launch replays as garbage.
+    fs.writeFileSync(tmp, serializeTail(trimTail(lines as string[])), 'utf-8');
+    fs.renameSync(tmp, file);
+  } catch { /* a lost tail is cosmetic, never let it break sleep or close */ }
+});
+
+// The renderer's beforeunload flush at quit: every awake thread's tail in one blocking
+// call, so nothing is lost to the race between the window closing and async writes
+// landing. At most a few dozen files of 64 KB, so plain writeFileSync is fast enough
+// and the rename dance is not worth the extra syscalls here.
+ipcMain.on('threads:saveTailsSync', (event, tails: unknown) => {
+  try {
+    const dir = getThreadsDir();
+    for (const [tabId, lines] of Object.entries((tails ?? {}) as Record<string, unknown>)) {
+      if (!isThreadId(tabId) || !Array.isArray(lines)) continue;
+      try {
+        fs.writeFileSync(tailFilePath(dir, tabId), serializeTail(trimTail(lines as string[])), 'utf-8');
+      } catch { /* skip this one, keep flushing the rest */ }
+    }
+  } catch {}
+  event.returnValue = true;
+});
+
+ipcMain.handle('threads:readTail', (_event, tabId: unknown): string[] | null => {
+  if (!isThreadId(tabId)) return null;
+  try {
+    return parseTail(fs.readFileSync(tailFilePath(getThreadsDir(), tabId), 'utf-8'));
+  } catch {
+    return null; // no tail saved, or unreadable: the thread just wakes blank
+  }
+});
+
+ipcMain.handle('threads:deleteTail', (_event, tabId: unknown) => {
+  if (!isThreadId(tabId)) return;
+  try { fs.unlinkSync(tailFilePath(getThreadsDir(), tabId)); } catch {}
+});
+
+// Called once after session restore with every live tab id plus every history entry
+// id. Without it a tail whose thread and history entry are both gone would sit on
+// disk forever. Returns how many files were removed.
+const THREAD_PRUNE_KEEP_MAX = 5000;
+ipcMain.handle('threads:prune', (_event, keepIds: unknown): number => {
+  const keep = new Set(
+    (Array.isArray(keepIds) ? keepIds : []).slice(0, THREAD_PRUNE_KEEP_MAX).filter(isThreadId)
+  );
+  let deleted = 0;
+  try {
+    const dir = getThreadsDir();
+    for (const name of fs.readdirSync(dir)) {
+      if (!name.endsWith('.txt')) continue; // leaves any .tmp from an interrupted write alone
+      const id = name.slice(0, -'.txt'.length);
+      if (!isThreadId(id) || keep.has(id)) continue;
+      try { fs.unlinkSync(path.join(dir, name)); deleted++; } catch {}
+    }
+  } catch {}
+  return deleted;
 });
 
 // ─── Branch and worktree ─────────────────────────────────────────────────────

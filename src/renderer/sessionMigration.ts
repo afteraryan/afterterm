@@ -9,15 +9,17 @@
 // in 0.8.1 (it ignores keys it does not know), so the top-level shape and every
 // 0.8.1 key keep their name and meaning.
 
-import type { Tab, Group } from './components/TabBar/types';
+import type { Tab, Group, HistoryEntry } from './components/TabBar/types';
 
 // Bump when a saved file needs a shape change a plain "fill defaults" pass cannot
 // express. A file with no version field is treated as version 1 (release 0.8.1).
+// Phase 4 (sleptAt, history) is still a fill-defaults pass, same as Phase 2 and 3
+// before it, so the version stays 2.
 export const SESSION_FORMAT_VERSION = 2;
 
 // A tab as written to disk: the in-memory Tab minus the fields that describe a
 // live process, which are meaningless after a relaunch (each tab is a fresh shell).
-export type SavedTab = Omit<Tab, 'notification' | 'claudeRestorable' | 'firstPrompt'>;
+export type SavedTab = Omit<Tab, 'notification' | 'firstPrompt' | 'wokeAt'>;
 
 export interface SavedSession {
   version?: number;
@@ -29,7 +31,7 @@ export interface SavedSession {
 // The only tab keys that ever reach disk. Anything else on a Tab is transient.
 const PERSISTED_TAB_KEYS = [
   'id', 'title', 'groupId', 'shellId', 'cwd', 'fontSize',
-  'claudeSessionId', 'claudeCwd', 'lastActiveAt', 'asleep',
+  'claudeSessionId', 'claudeCwd', 'lastActiveAt', 'asleep', 'sleptAt',
   'model', 'branch', 'worktree', 'claudeTitle',
 ] as const;
 
@@ -40,7 +42,12 @@ const PERSISTED_TAB_KEYS = [
 // shell overwrites the raw title with its own ("cmd.exe") within seconds of a
 // launch, so the raw title cannot carry a chat's name across a relaunch; the
 // captured Claude title is saved on its own (see PERSISTED_TAB_KEYS).
-const TRANSIENT_TAB_KEYS = ['notification', 'claudeRestorable', 'firstPrompt'] as const;
+// claudeRestorable is no longer a field on Tab (Phase 4 replaced it with
+// asleep/sleptAt), but it stays in this list: an old file that somehow still
+// carries it (a stray write from a pre-Phase-4 build) must still be stripped on
+// load rather than kept around as dead data. wokeAt is Phase 4's own transient
+// field, alongside it for the same reason as notification and firstPrompt.
+const TRANSIENT_TAB_KEYS = ['notification', 'claudeRestorable', 'firstPrompt', 'wokeAt'] as const;
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -66,10 +73,44 @@ function setOptionalString(tab: Record<string, unknown>, key: string, v: unknown
   else delete tab[key];
 }
 
+// sleptAt is optional the same way: present only while a thread is asleep, and a
+// wrongly typed value (a string like "yesterday", Infinity, NaN) is dropped
+// rather than coerced, so a corrupt or hand-edited file can never produce a
+// bogus "Asleep · NaNd" chip.
+function setOptionalNumber(tab: Record<string, unknown>, key: string, v: unknown): void {
+  if (typeof v === 'number' && Number.isFinite(v)) tab[key] = v;
+  else delete tab[key];
+}
+
 // Entries without a usable id cannot be addressed by anything (activation,
 // grouping, restore), so they are dropped rather than repaired.
 function hasStringId(v: unknown): v is Record<string, unknown> & { id: string } {
   return isRecord(v) && typeof v.id === 'string' && v.id.length > 0;
+}
+
+// A single history entry, validated field by field. An entry that fails any
+// check is dropped outright rather than partially repaired: a history row with
+// a missing id can never be resumed (tabFromHistory has nothing to name the new
+// tab), so a half-valid entry is as useless as no entry. Order is left exactly
+// as stored; history.ts, not this migration, owns "newest first".
+function asHistoryEntry(v: unknown): HistoryEntry | null {
+  if (!isRecord(v)) return null;
+  if (typeof v.id !== 'string' || v.id.length === 0) return null;
+  if (typeof v.title !== 'string') return null;
+  if (v.kind !== 'chat' && v.kind !== 'shell') return null;
+  if (typeof v.closedAt !== 'number' || !Number.isFinite(v.closedAt)) return null;
+  const entry: HistoryEntry = { id: v.id, title: v.title, kind: v.kind, closedAt: v.closedAt };
+  if (typeof v.sessionId === 'string') entry.sessionId = v.sessionId;
+  if (typeof v.cwd === 'string') entry.cwd = v.cwd;
+  return entry;
+}
+
+// A missing or wrongly typed history is an empty list, the same "drop rather
+// than coerce" rule as every other field here: a string or an object where an
+// array was expected carries no entries worth trying to recover one at a time.
+function asHistory(v: unknown): HistoryEntry[] {
+  if (!Array.isArray(v)) return [];
+  return v.map(asHistoryEntry).filter((e): e is HistoryEntry => e !== null);
 }
 
 /**
@@ -87,6 +128,7 @@ export function migrateSession(raw: unknown, now: number): SavedSession | null {
     for (const key of TRANSIENT_TAB_KEYS) delete tab[key];
     tab.lastActiveAt = asTimestamp(t.lastActiveAt, now);
     tab.asleep = asFlag(t.asleep, false);
+    setOptionalNumber(tab, 'sleptAt', t.sleptAt);
     setOptionalString(tab, 'model', t.model);
     setOptionalString(tab, 'branch', t.branch);
     setOptionalString(tab, 'worktree', t.worktree);
@@ -101,6 +143,7 @@ export function migrateSession(raw: unknown, now: number): SavedSession | null {
     group.pinned = asFlag(g.pinned, false);
     group.archived = asFlag(g.archived, false);
     group.lastActiveAt = asTimestamp(g.lastActiveAt, now);
+    group.history = asHistory(g.history);
     return group as unknown as Group;
   });
 
@@ -125,7 +168,12 @@ export function serializeSession(tabs: Tab[], groups: Group[], activeTabId: stri
       for (const key of PERSISTED_TAB_KEYS) saved[key] = t[key];
       return saved as unknown as SavedTab;
     }),
-    groups: groups.map(g => ({ ...g })),
+    // history defensively defaults to [] here too: migration guarantees every
+    // Group in state has one, but a caller could in principle hand this function
+    // a Group built by hand (a test, a future code path) that skipped it, and an
+    // absent array would write "history" missing rather than empty, which
+    // history.ts and the project page's History tab are not built to expect.
+    groups: groups.map(g => ({ ...g, history: g.history ?? [] })),
     activeTabId,
   };
 }

@@ -79,6 +79,22 @@ interface AftertermGitAPI {
   infoMany(cwds: string[]): Promise<GitInfo[]>;
 }
 
+// The last lines of a thread's scrollback, kept on disk so sleep and quit do not lose
+// the screen. Main trims to 200 lines / 64 KB and never throws (see src/thread-tail.ts).
+interface AftertermThreadsAPI {
+  // Save one thread's tail, on sleep or on close.
+  saveTail(tabId: string, lines: string[]): Promise<void>;
+  // Blocking flush for beforeunload at quit: every awake thread in one call, keyed
+  // by tab id, so a relaunch still shows the output that was on screen.
+  saveTailsSync(tails: Record<string, string[]>): void;
+  // The saved lines, or null when there is no tail (or it cannot be read).
+  readTail(tabId: string): Promise<string[] | null>;
+  deleteTail(tabId: string): Promise<void>;
+  // Delete every saved tail whose id is not in keepIds (live tabs plus history
+  // entries). Called once after session restore. Returns how many were removed.
+  prune(keepIds: string[]): Promise<number>;
+}
+
 interface AftertermShortcutsAPI {
   onShortcut(callback: (action: string) => void): void;
 }
@@ -144,6 +160,9 @@ interface AftertermPtyAPI {
   onData(tabId: string, callback: (data: string) => void): void;
   offData(tabId: string): void;
   onExit(tabId: string, callback: (exitCode: number) => void): void;
+  // Take the exit handler off again. Sleep destroys the PTY but keeps the tab, so
+  // the exit that follows must not reach the "PTY exited, close the tab" path.
+  offExit(tabId: string): void;
   // Throttled activity stamps from main: at most one per tab per 15 seconds while
   // the terminal has input or output. Registered once, for every tab.
   onActivity(callback: (data: PtyActivity) => void): void;
@@ -166,6 +185,7 @@ interface AftertermAPI {
   files: AftertermFilesAPI;
   session: AftertermSessionAPI;
   claudeSession: AftertermClaudeSessionAPI;
+  threads: AftertermThreadsAPI;
   git: AftertermGitAPI;
   shortcuts: AftertermShortcutsAPI;
   notify: AftertermNotifyAPI;
