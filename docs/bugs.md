@@ -4,6 +4,8 @@ Running list of observed bugs that are **not yet fixed**. Fixed bugs get removed
 
 Format per bug: a short title, the date observed, what happens, repro if known, and any hypothesis about the cause.
 
+This one file is where every bug goes, and `docs/screenshots/manual-testing/` is where every screenshot that comes with a bug goes (numbered, named for what it shows, committed, never deleted). A bug found during Aryan's manual testing after the projects-and-threads phases also carries the phase it belongs to and a link to its screenshot. Agreed with Aryan on 2026-09-08.
+
 ---
 
 ## Notification overlay appears on the wrong monitor in a multi-monitor setup

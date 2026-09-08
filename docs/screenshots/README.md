@@ -15,3 +15,8 @@ asked for it on 2026-09-07 so a test run can be watched, not only read).
 Those show every window on that monitor, including personal ones, so that subfolder is
 ignored by git and only lives on this machine. Everything else in here is committed with
 the phase so a reader of PHASES.md can see what was verified.
+
+`manual-testing/` holds every screenshot Aryan sends with a bug during his manual testing,
+numbered and named for what it shows, committed and never deleted, the same rule as the phase
+folders. The bug itself is an entry in `docs/bugs.md` that links the screenshot. Agreed on
+2026-09-08.
