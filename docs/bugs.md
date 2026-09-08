@@ -72,3 +72,19 @@ In the sidebar the Pinned section and the Projects section run together visually
 3. There is no control anywhere to collapse the Projects section.
 
 **Cause:** `src/renderer/components/SidePanel/index.tsx` renders General, Pinned and Projects as three plain `.sec` blocks with identical markup and an `.lbl` heading each, and `renderProject(entry, true)` differs from the unpinned call only in hiding the pin button. `.side-panel .scroll` in `SidePanel.css` separates the sections with a single `gap: 18px` and `.sec .lbl` carries no divider, background or weight difference, so nothing marks where Pinned ends and Projects begins. No section has any collapsed state: only the whole sidebar collapses (`Ctrl+Shift+B`, the rail). Fix direction: settle the visual design with Aryan first (a divider, a different row treatment for pinned rows, or both), then add a per-section collapsed flag on the Projects `.sec` with a chevron on its `.lblrow`, persisted the way the sidebar's own collapsed state is.
+
+---
+
+## The sidebar has no button to collapse or expand every project at once
+
+**Observed:** 2026-09-08 by Aryan during manual testing · **Phase:** 1 (the sidebar) · **Status:** open · **Severity:** low (missing affordance) · **Screenshot:** none attached
+
+**What happens:**
+Each project row in the sidebar can be collapsed on its own, but there is no way to collapse or expand them all together. Aryan wants a single toggle button at the top of the sidebar that collapses everything, and expands everything again when pressed a second time. This is the companion request to the pinned-versus-unpinned separation logged above, and the visual placement still needs to be agreed with him.
+
+**Repro:**
+1. Open the sidebar with several projects, some expanded.
+2. Look at the top of the sidebar: the icon row has Home, Workspace and the sidebar close toggle, and below it are the Search and New thread rows. None of them collapses the project list.
+3. The only way to collapse projects is to click each project row in turn.
+
+**Cause:** collapsed state is per project (`Group.collapsed`, read as `const expanded = !group.collapsed` in `src/renderer/components/SidePanel/index.tsx` and toggled through `onToggleGroupCollapse`); there is no state or control that spans every group. The sidebar's own `collapsed` prop is a different thing, the full-width versus rail toggle behind the `IconPanel` button in the `.brand` row and `Ctrl+Shift+B`. Fix direction: agree the button's look and placement with Aryan (the `.brand` icon row or a new control on the Projects section label), then have it call `onToggleGroupCollapse` across every group, deriving its own collapse-all versus expand-all state from whether any group is currently expanded.
