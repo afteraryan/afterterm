@@ -28,7 +28,7 @@ The `notifierWindow` `BrowserWindow` in `src/main.ts` is positioned without refe
 
 ## Hover card heading overflows the card for a long unbroken title
 
-**Observed:** 2026-09-08 by Aryan during manual testing of the projects-and-threads build · **Phase:** 3 (the thread hover card) · **Status:** open · **Severity:** low (cosmetic)
+**Observed:** 2026-09-08 by Aryan during manual testing of the projects-and-threads build · **Phase:** 3 (the thread hover card) · **Status:** open · **Severity:** low (cosmetic) · **Screenshot:** `docs/screenshots/manual-testing/01-hover-card-heading-overflows-card-long-url-title.png`
 
 **What happens:**
 Hovering a sidebar thread row whose name is one long unbroken string (a chat titled with a URL, `https://engineering.atspotify.com/2026/3/inside-the-archive-2025-wrapped`) shows the hover card with the heading running past the card's right edge. The card is 280px wide; the heading has no rule for breaking a word that is wider than that, so the text spills out instead of wrapping.
