@@ -56,3 +56,19 @@ The shadow around a notification toast spreads wide beyond the card and is cut o
 2. Look at the toast's surroundings: a lighter rectangle with a hard edge sits around the card.
 
 **Cause:** `.notif-card` in `src/renderer/NotifierApp.css` uses `box-shadow: 0 12px 40px rgba(0, 0, 0, .45)`, a 40px blur that reaches well past the toast container's 12px padding, and the overlay is a separate transparent window sized to the toasts, so whatever the shadow paints past its bounds is clipped straight. Fix direction: a small drop shadow that fits inside the container's padding (a few pixels of blur and offset), or padding large enough to hold the blur, so nothing reaches the window edge.
+
+---
+
+## Pinned and unpinned projects read as one block in the sidebar, and the unpinned list cannot be collapsed
+
+**Observed:** 2026-09-08 by Aryan during manual testing · **Phase:** 1 (the sidebar sections) · **Status:** open · **Severity:** low (visual separation and a missing affordance) · **Screenshot:** none attached
+
+**What happens:**
+In the sidebar the Pinned section and the Projects section run together visually, so all the projects read as one continuous list. The pinning behaviour itself already works, but a pinned project does not look different enough from an unpinned one for the two groups to separate at a glance. Aryan wants pinned projects to look distinct, and on top of that he wants to be able to collapse the whole rest of the projects list, so the sidebar can show just the pinned ones. How this looks needs to be designed and agreed with him first, it is not settled yet.
+
+**Repro:**
+1. Have at least one pinned project and several unpinned ones.
+2. Look at the sidebar: the Pinned rows and the Projects rows sit in the same visual treatment, separated only by a small label and gap.
+3. There is no control anywhere to collapse the Projects section.
+
+**Cause:** `src/renderer/components/SidePanel/index.tsx` renders General, Pinned and Projects as three plain `.sec` blocks with identical markup and an `.lbl` heading each, and `renderProject(entry, true)` differs from the unpinned call only in hiding the pin button. `.side-panel .scroll` in `SidePanel.css` separates the sections with a single `gap: 18px` and `.sec .lbl` carries no divider, background or weight difference, so nothing marks where Pinned ends and Projects begins. No section has any collapsed state: only the whole sidebar collapses (`Ctrl+Shift+B`, the rail). Fix direction: settle the visual design with Aryan first (a divider, a different row treatment for pinned rows, or both), then add a per-section collapsed flag on the Projects `.sec` with a chevron on its `.lblrow`, persisted the way the sidebar's own collapsed state is.
