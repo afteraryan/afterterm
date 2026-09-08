@@ -41,3 +41,18 @@ Hovering a sidebar thread row whose name is one long unbroken string (a chat tit
 3. The heading overflows the card; the `dl` rows below it stay inside (they ellipsise).
 
 **Cause:** `.hover-card .hn` in `src/renderer/components/ThreadHoverCard.css` sets only weight and margin. Fix direction: let the heading wrap inside the card (`overflow-wrap: anywhere` or `word-break: break-word`), or clamp it to two lines with an ellipsis, matching how the sidebar row and the header truncate the same name.
+
+---
+
+## Toast shadow spreads far past the card and is clipped at the overlay window's edge
+
+**Observed:** 2026-09-08 by Aryan during manual testing · **Phase:** 1 (the overlay toast cards) · **Status:** open · **Severity:** low (cosmetic) · **Screenshot:** `docs/screenshots/manual-testing/02-toast-shadow-spread-too-wide-and-clipped-at-window-edge.png`
+
+**What happens:**
+The shadow around a notification toast spreads wide beyond the card and is cut off hard at the edge of the overlay window, so a grey rectangle shows around the card instead of a soft edge. Aryan expects a plain drop shadow that stays within the card's own container, without the wide spread.
+
+**Repro:**
+1. Let a Claude Code turn finish in a background thread so a "Done" toast appears.
+2. Look at the toast's surroundings: a lighter rectangle with a hard edge sits around the card.
+
+**Cause:** `.notif-card` in `src/renderer/NotifierApp.css` uses `box-shadow: 0 12px 40px rgba(0, 0, 0, .45)`, a 40px blur that reaches well past the toast container's 12px padding, and the overlay is a separate transparent window sized to the toasts, so whatever the shadow paints past its bounds is clipped straight. Fix direction: a small drop shadow that fits inside the container's padding (a few pixels of blur and offset), or padding large enough to hold the blur, so nothing reaches the window edge.

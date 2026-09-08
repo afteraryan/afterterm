@@ -5,7 +5,8 @@ releases/
 *.log
 
 # Local agent / tooling state (not part of the project)
-.claude/
+.claude/*
+!.claude/commands/
 .jetro/
 AGENTS.md
 docs/session-snapshots/
