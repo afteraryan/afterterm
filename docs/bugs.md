@@ -88,3 +88,35 @@ Each project row in the sidebar can be collapsed on its own, but there is no way
 3. The only way to collapse projects is to click each project row in turn.
 
 **Cause:** collapsed state is per project (`Group.collapsed`, read as `const expanded = !group.collapsed` in `src/renderer/components/SidePanel/index.tsx` and toggled through `onToggleGroupCollapse`); there is no state or control that spans every group. The sidebar's own `collapsed` prop is a different thing, the full-width versus rail toggle behind the `IconPanel` button in the `.brand` row and `Ctrl+Shift+B`. Fix direction: agree the button's look and placement with Aryan (the `.brand` icon row or a new control on the Projects section label), then have it call `onToggleGroupCollapse` across every group, deriving its own collapse-all versus expand-all state from whether any group is currently expanded.
+
+---
+
+## The saved snapshot on the asleep pane opens scrolled to the top instead of the bottom
+
+**Observed:** 2026-09-09 by Aryan during manual testing · **Phase:** 4 (sleep, wake and the scrollback tail) · **Status:** open · **Severity:** low (the newest lines are off screen until you scroll) · **Screenshot:** none attached
+
+**What happens:**
+A sleeping thread keeps a snapshot of its last lines, which Aryan can scroll through to see what was going on in that thread. The pane opens with the scroll position at the top of that snapshot, so the oldest saved lines show first. He expects the scroll bar to always be at the bottom, the way a terminal sits, so the most recent output is what he sees when he opens a sleeping thread.
+
+**Repro:**
+1. Sleep a thread that has more saved output than fits the pane (the tail keeps up to 200 lines).
+2. Select that thread so the asleep pane shows.
+3. The pane is scrolled to the top of the snapshot; the last lines before it slept need a manual scroll down.
+
+**Cause:** `.asleep-pane` in `src/renderer/components/AsleepPane/AsleepPane.css` is an `overflow-y: auto` scroller, and `AsleepPane/index.tsx` never sets its scroll position, so the browser leaves it at 0. Fix direction: on mount and whenever the `tail` prop lands, set the pane's `scrollTop` to `scrollHeight` in the same effect that focuses the Wake button; the Wake box is `position: sticky` at `top: 20%`, so it stays in view when the pane is scrolled to the end.
+
+---
+
+## The dimmed snapshot replayed on wake stays on screen after the terminal comes back
+
+**Observed:** 2026-09-09 by Aryan during manual testing · **Phase:** 4 (sleep, wake and the scrollback tail) · **Status:** open · **Severity:** low (cosmetic clutter after a wake) · **Screenshot:** none attached
+
+**What happens:**
+Waking a thread replays its greyed-out snapshot above a "Woke just now" divider and then scrolls the viewport back up so the old output, the divider and the fresh prompt sit together. Aryan expects the opposite: once the terminal is resumed, the greyed-out snapshot that was there before waking should clear away, leaving a clean terminal.
+
+**Repro:**
+1. Sleep a thread that has output in its scrollback.
+2. Wake it from the pane's Wake button.
+3. The dimmed replay of the old output sits above the divider and stays there, with the viewport scrolled up to show it, instead of the terminal starting clean at the new prompt.
+
+**Cause:** deliberate current behaviour, not an accident: `createTerminal` in `src/renderer/components/Terminal/index.tsx` writes `renderTailForTerminal(lines, 'Woke just now', term.cols)` plus a screenful of newlines before the spawn, then scrolls back by `replayLines` once the first paint settles, exactly so the tail stays visible. Fix direction: decide with Aryan what "clean" means here, either dropping the replay altogether on wake (the snapshot is still readable on the asleep pane before waking) or keeping it in scrollback but leaving the viewport at the bottom, which is a one-line change to the `replayLines > 0` scroll-back block.
