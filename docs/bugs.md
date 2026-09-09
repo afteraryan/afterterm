@@ -120,3 +120,23 @@ Waking a thread replays its greyed-out snapshot above a "Woke just now" divider 
 3. The dimmed replay of the old output sits above the divider and stays there, with the viewport scrolled up to show it, instead of the terminal starting clean at the new prompt.
 
 **Cause:** deliberate current behaviour, not an accident: `createTerminal` in `src/renderer/components/Terminal/index.tsx` writes `renderTailForTerminal(lines, 'Woke just now', term.cols)` plus a screenful of newlines before the spawn, then scrolls back by `replayLines` once the first paint settles, exactly so the tail stays visible. Fix direction: decide with Aryan what "clean" means here, either dropping the replay altogether on wake (the snapshot is still readable on the asleep pane before waking) or keeping it in scrollback but leaving the viewport at the bottom, which is a one-line change to the `replayLines > 0` scroll-back block.
+
+---
+
+## There is no jump to top or jump to bottom button while scrolling long output
+
+**Observed:** 2026-09-09 by Aryan during manual testing · **Phase:** pre-existing (the terminal scrollback), and it applies to Phase 4's asleep pane snapshot as well · **Status:** open · **Severity:** low (missing affordance) · **Screenshot:** none attached
+
+**What happens:**
+Scrolling through a long scrollback means dragging all the way back by hand. Aryan wants a floating button to appear while he keeps scrolling: scrolling up should offer an up arrow with a "Go to top" style label, and scrolling down should offer a down arrow with a "go all the way down" style label. He has not settled the wording yet, so that needs deciding with him.
+
+Edge cases he asked to be covered:
+1. If the scroll position is already at the bottom and he keeps scrolling down, the button must not appear.
+2. If he was only a little way from the bottom and scrolling down reaches it, the button must not appear.
+
+**Repro:**
+1. Fill a terminal with enough output to scroll, or open a sleeping thread whose snapshot runs past the pane.
+2. Scroll up through it, then scroll back down.
+3. Nothing appears at any point offering to jump to either end.
+
+**Cause:** nothing like this exists anywhere in the renderer: the only scroll handler in `src/renderer` is `onScroll={hideHover}` on the sidebar's `.scroll` div in `src/renderer/components/SidePanel/index.tsx`, and neither `Terminal/index.tsx` nor `AsleepPane/index.tsx` tracks scroll position at all. Fix direction: agree the wording and look with Aryan, then add one small overlay button per scroller, driven by scroll direction plus distance from the end (xterm exposes `viewportY` and `baseY` on `term.buffer.active` and `scrollToTop`/`scrollToBottom` on the terminal; the asleep pane is a plain div with `scrollTop`/`scrollHeight`), hidden whenever the remaining distance in the scroll direction is under a small threshold.
