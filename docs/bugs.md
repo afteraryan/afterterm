@@ -140,3 +140,19 @@ Edge cases he asked to be covered:
 3. Nothing appears at any point offering to jump to either end.
 
 **Cause:** nothing like this exists anywhere in the renderer: the only scroll handler in `src/renderer` is `onScroll={hideHover}` on the sidebar's `.scroll` div in `src/renderer/components/SidePanel/index.tsx`, and neither `Terminal/index.tsx` nor `AsleepPane/index.tsx` tracks scroll position at all. Fix direction: agree the wording and look with Aryan, then add one small overlay button per scroller, driven by scroll direction plus distance from the end (xterm exposes `viewportY` and `baseY` on `term.buffer.active` and `scrollToTop`/`scrollToBottom` on the terminal; the asleep pane is a plain div with `scrollTop`/`scrollHeight`), hidden whenever the remaining distance in the scroll direction is under a small threshold.
+
+---
+
+## Threads that are mid-turn are hard to find and switch between in the sidebar
+
+**Observed:** 2026-09-13 by Aryan during manual testing · **Phase:** 1 (the sidebar and its state icons) · **Status:** open · **Severity:** medium (the threads that need attention are the hardest ones to get to) · **Screenshot:** none attached
+
+**What happens:**
+When several threads are working at once, Aryan wants an easier way to reach them. With only the sidebar it is hard to tell at a glance which threads are working, and moving between them is awkward. His rough idea is a Chrome-style row of tabs along the top bar showing just the working threads, though he does not know yet what the right solution is, so this needs designing with him. By "working" he means the thread is mid-turn (Claude is running a request), not that a server or process is literally running.
+
+**Repro:**
+1. Have several threads across projects, some of them mid-turn.
+2. Look at the sidebar: each working row carries a small spinner at the right end of the row, spread across whichever project sections they sit in, some possibly behind a collapsed project or the five-row fold.
+3. Switching between them means finding each row again in the list.
+
+**Cause:** nothing aggregates working threads anywhere. `threadState` in `src/renderer/threadView.ts` returns `'working'` per thread and the sidebar renders that as a spinner on the row (`SidePanel/index.tsx`); `projectCounts` totals working and running threads into a project's play pill, but there is no list, no ordering and no navigation built on that state, and the top bar today is only `TitleBar/index.tsx`, the 32px strip with the app name and the OS caption buttons. Fix direction: agree the shape with Aryan (a working-threads strip in the title bar row, a filter at the top of the sidebar, or a keyboard cycle through working threads), then build it on the existing `threadState` values rather than a new notion of working.
