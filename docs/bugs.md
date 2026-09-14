@@ -156,3 +156,20 @@ When several threads are working at once, Aryan wants an easier way to reach the
 3. Switching between them means finding each row again in the list.
 
 **Cause:** nothing aggregates working threads anywhere. `threadState` in `src/renderer/threadView.ts` returns `'working'` per thread and the sidebar renders that as a spinner on the row (`SidePanel/index.tsx`); `projectCounts` totals working and running threads into a project's play pill, but there is no list, no ordering and no navigation built on that state, and the top bar today is only `TitleBar/index.tsx`, the 32px strip with the app name and the OS caption buttons. Fix direction: agree the shape with Aryan (a working-threads strip in the title bar row, a filter at the top of the sidebar, or a keyboard cycle through working threads), then build it on the existing `threadState` values rather than a new notion of working.
+
+---
+
+## An unpinned project that just became active does not move to the top of the sidebar's Projects section
+
+**Observed:** 2026-09-14 by Aryan during manual testing · **Phase:** 1 (the sidebar sections) · **Status:** open · **Severity:** medium (the section does not reflect what is active) · **Screenshot:** none attached
+
+**What happens:**
+The sidebar has two areas for projects, Pinned and Projects. With three projects pinned and a fourth sitting in the Projects area, Aryan worked in that fourth project, left an agent running there and went back to threads in the pinned section. He expected the project he had just been working in to rise to the top of the Projects area, since it is now the active one and the rest of that area is inactive. It stayed where it was.
+
+**Repro:**
+1. Pin three projects; leave at least two more unpinned, with the one to test not first in the Projects section.
+2. Open a thread in that unpinned project and start a Claude turn there.
+3. Switch to a thread in a pinned project.
+4. Look at the Projects section: the project with the running agent is still in its old position, not at the top.
+
+**Cause:** the Projects section keeps session order, not activity order. `sidebarSections` in `src/renderer/threadView.ts` pushes groups into `pinned` and `projects` in the order the walk hands them, and that walk (`computeSegments` in `src/renderer/sidebarWalk.ts`) is defined to preserve the saved tab and group order exactly, with no sort by `lastActiveAt`. Home already sorts unpinned projects by `lastActiveAt` (`homeView.ts`), so the data is there. Fix direction: sort the `projects` list in `sidebarSections` by `lastActiveAt` descending, the way Home does, leaving Pinned in its saved order, and agree with Aryan whether "active" means the most recent activity stamp or any thread currently working.
