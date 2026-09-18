@@ -173,3 +173,18 @@ The sidebar has two areas for projects, Pinned and Projects. With three projects
 4. Look at the Projects section: the project with the running agent is still in its old position, not at the top.
 
 **Cause:** the Projects section keeps session order, not activity order. `sidebarSections` in `src/renderer/threadView.ts` pushes groups into `pinned` and `projects` in the order the walk hands them, and that walk (`computeSegments` in `src/renderer/sidebarWalk.ts`) is defined to preserve the saved tab and group order exactly, with no sort by `lastActiveAt`. Home already sorts unpinned projects by `lastActiveAt` (`homeView.ts`), so the data is there. Fix direction: sort the `projects` list in `sidebarSections` by `lastActiveAt` descending, the way Home does, leaving Pinned in its saved order, and agree with Aryan whether "active" means the most recent activity stamp or any thread currently working.
+
+---
+
+## The header's project, model and branch line is too faint to read at a glance
+
+**Observed:** 2026-09-18 by Aryan during manual testing · **Phase:** 3 (thread identity, the header's line 2) · **Status:** open · **Severity:** low (legibility) · **Screenshot:** `docs/screenshots/manual-testing/03-header-project-model-branch-line-too-faint.png`
+
+**What happens:**
+At the top of a conversation the header shows the chat name, and under it a subheading with the folder name, the model name and the branch name ("aftertern · Opus 5 · manual-testing-fixes" in the screenshot). Aryan says this line is definitely not visible enough and wants the visibility of these three things improved.
+
+**Repro:**
+1. Open any chat thread in the workspace.
+2. Look at the header under the thread name: the project, model and branch sit in small grey text on the dark pane background.
+
+**Cause:** `.header-meta` in `src/renderer/components/Header/Header.css` renders line 2 at `font-size: 12.5px` in `var(--text3)` (`#8e8e8e` in `theme.css`), the palette's dimmest text token, on the `#191919` pane, while `.header-name` above it is 15px in `var(--text)` (`#ececec`). Fix direction: agree the treatment with Aryan, for example `var(--text2)` or brighter for the values with only the icons and separators left in text3, a size closer to 13.5px, or a chip-style treatment for each item, keeping the same three `data-meta` items.
