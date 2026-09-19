@@ -17,10 +17,12 @@ import type { Tab, Group, TabNotification } from './components/TabBar/types.ts';
 import type { Segment } from './sidebarWalk.ts';
 import { CLAUDE_TITLE_GLYPH, HOOK_TITLE_GLYPH, claudeSummaryTitle } from './chatTitle.ts';
 import { modelDisplayName } from '../claude-transcript.ts';
+import { countStates } from './attention.ts';
 
 export type ThreadKind = 'chat' | 'shell';
 
 export type ThreadState =
+  | 'unread'
   | 'needs-you'
   | 'working'
   | 'running'
@@ -48,13 +50,19 @@ export function kindWord(tab: Pick<Tab, 'claudeSessionId' | 'port'>): 'Chat' | '
   return 'Shell';
 }
 
-// Asleep wins over everything: a thread with no process has no notification worth
-// showing. Otherwise today's notification maps one for one onto a state, and a
+// Precedence (design-03 "The attention model, stated once"): unread, asleep,
+// needs-you, working, done, compacting, background, running, quiet. Unread
+// wins over everything, asleep included: a chat the user marked stays marked
+// even with no process running, so it still shows the bell on its dimmed row
+// rather than reading as a plain "Asleep · 2d". Asleep wins over what remains,
+// since a thread with no process has no notification worth showing beyond
+// that. Otherwise today's notification maps one for one onto a state, and a
 // notification wins over running: it asks something of the user (a permission, a
 // look at what finished) and running does not. Only once neither applies does a
 // captured port make the thread 'running' (Phase 5); with no port at all it is
 // 'quiet'.
-export function threadState(tab: Pick<Tab, 'asleep' | 'notification' | 'port'>): ThreadState {
+export function threadState(tab: Pick<Tab, 'asleep' | 'notification' | 'port' | 'unread'>): ThreadState {
+  if (tab.unread) return 'unread';
   if (tab.asleep) return 'asleep';
   switch (tab.notification) {
     case 'attention': return 'needs-you';
@@ -70,6 +78,7 @@ export function threadState(tab: Pick<Tab, 'asleep' | 'notification' | 'port'>):
 // the empty string, not a placeholder word.
 export function stateLabel(state: ThreadState): string {
   switch (state) {
+    case 'unread': return 'Unread';
     case 'needs-you': return 'Needs you';
     case 'working': return 'Working';
     case 'running': return 'Running';
@@ -81,10 +90,11 @@ export function stateLabel(state: ThreadState): string {
   }
 }
 
-// Only needs-you and done breathe (a slow row-background cycle) until the thread is
-// viewed. Every other state, including working and running, holds steady.
+// Needs-you, unread and done breathe (a slow row-background cycle) until the
+// thread is viewed or the mark is cleared. Every other state, including
+// working and running, holds steady.
 export function stateBreathes(state: ThreadState): boolean {
-  return state === 'needs-you' || state === 'done';
+  return state === 'needs-you' || state === 'unread' || state === 'done';
 }
 
 // The header chip and hover-card wording for a running server ("Running on
@@ -236,18 +246,16 @@ export function foldThreads<T extends { id: string }>(
   return { shown, hiddenCount, showMore, forcedOpen };
 }
 
-// Counter pills for a project row: how many of its threads need you, and how many
-// are actively doing something (working or running). Both zero means the caller
-// renders no pills at all; this function just reports the counts, the "no pills"
-// choice is the caller's.
+// Counter pills for a project row: how many of its threads need you (needs-you
+// plus unread, "waiting for you" everywhere in the UI), and how many are
+// actively doing something (working or running). Both zero means the caller
+// renders no pills at all; this function just reports the counts, the "no
+// pills" choice is the caller's. Built on attention.ts's countStates, the one
+// aggregate every count in the app reads from, so this can never disagree with
+// the rail or Home's totals.
 export function projectCounts(states: ThreadState[]): { needsYou: number; running: number } {
-  let needsYou = 0;
-  let running = 0;
-  for (const state of states) {
-    if (state === 'needs-you') needsYou++;
-    if (state === 'running' || state === 'working') running++;
-  }
-  return { needsYou, running };
+  const counts = countStates(states);
+  return { needsYou: counts.waiting, running: counts.working + counts.running };
 }
 
 // The sidebar's three sections, built from the groups-first walk. `general` is the

@@ -249,6 +249,61 @@ console.log('\nsessionMigration: port and lastCommand (Phase 5)\n');
   check('lastCommand survives serialize -> migrate', chat.lastCommand === 'npm start');
 }
 
+console.log('\nsessionMigration: unread (Phase 7)\n');
+{
+  // A file with no unread key loads with it absent.
+  const s = migrateSession(fixture081(), NOW)!;
+  check('unread is absent, not false', s.tabs.every(t => t.unread === undefined));
+}
+{
+  // A literal true is kept.
+  const raw = fixture081() as any;
+  raw.tabs[1].unread = true;
+  const s = migrateSession(raw, NOW)!;
+  const chat = s.tabs.find(t => t.id === 'tab-5')!;
+  check('true is kept', chat.unread === true);
+}
+{
+  // A literal false is dropped, not stored as false: a never-marked thread
+  // and one explicitly marked read must look identical on disk.
+  const raw = fixture081() as any;
+  raw.tabs[0].unread = false;
+  const s = migrateSession(raw, NOW)!;
+  check('false is dropped, absent rather than stored', s.tabs[0].unread === undefined);
+}
+{
+  // A wrongly typed value ("true" the string, a number, an object) is dropped,
+  // the same "never coerce" rule every other flag in this file follows.
+  const raw = fixture081() as any;
+  raw.tabs[0].unread = 'true';
+  raw.tabs[1].unread = 1;
+  raw.tabs[2].unread = { value: true };
+  const s = migrateSession(raw, NOW)!;
+  check('the string "true" is dropped', s.tabs[0].unread === undefined);
+  check('a numeric 1 is dropped', s.tabs[1].unread === undefined);
+  check('an object is dropped', s.tabs[2].unread === undefined);
+}
+{
+  // Absent stays absent: no default is invented for a key that was never
+  // there at all, same as every other optional flag.
+  const s = migrateSession(fixture081(), NOW)!;
+  check('a tab that never had the key stays absent', 'unread' in s.tabs[0] === false || s.tabs[0].unread === undefined);
+}
+{
+  // A round trip keeps a literal true.
+  const raw = fixture081() as any;
+  raw.tabs[1].unread = true;
+  const migrated = migrateSession(raw, NOW)!;
+  const written = JSON.parse(JSON.stringify(serializeSession(migrated.tabs as unknown as Tab[], migrated.groups, migrated.activeTabId)));
+  const chat = written.tabs.find((t: any) => t.id === 'tab-5')!;
+  check('true is written to disk', chat.unread === true);
+  const reloaded = migrateSession(written, NOW + 1)!;
+  const reloadedChat = reloaded.tabs.find(t => t.id === 'tab-5')!;
+  check('true survives serialize -> migrate', reloadedChat.unread === true);
+  const plainOnDisk = written.tabs.find((t: any) => t.id === 'tab-3')!;
+  check('a tab that was never marked has no unread key on disk at all', !('unread' in plainOnDisk));
+}
+
 console.log('\nsessionMigration: existing values are preserved\n');
 {
   const s = migrateSession(fixture081(), NOW)!;
@@ -389,7 +444,7 @@ console.log('\nserializeSession: persisted keys only, 0.8.1 compatible\n');
       pinned: true, archived: false, lastActiveAt: 333, history: [] },
   ];
   const out = serializeSession(tabs, groups, 'tab-1');
-  const PERSISTED = ['id', 'title', 'groupId', 'shellId', 'cwd', 'fontSize', 'claudeSessionId', 'claudeCwd', 'lastActiveAt', 'asleep', 'sleptAt', 'model', 'branch', 'worktree', 'claudeTitle', 'port', 'lastCommand'];
+  const PERSISTED = ['id', 'title', 'groupId', 'shellId', 'cwd', 'fontSize', 'claudeSessionId', 'claudeCwd', 'lastActiveAt', 'asleep', 'sleptAt', 'model', 'branch', 'worktree', 'claudeTitle', 'port', 'lastCommand', 'unread'];
   check('includes version', out.version === SESSION_FORMAT_VERSION);
   check('top-level shape is still {tabs, groups, activeTabId} plus version',
     isDeepStrictEqual(Object.keys(out).sort(), ['activeTabId', 'groups', 'tabs', 'version']));

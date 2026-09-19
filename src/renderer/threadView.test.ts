@@ -59,10 +59,25 @@ console.log('\nthreadView: threadState\n');
   check('compacting beats a captured port', threadState({ asleep: false, notification: 'compacting', port: 5173 }) === 'compacting');
   check('background beats a captured port', threadState({ asleep: false, notification: 'background', port: 5173 }) === 'background');
   check('no port and no notification is quiet', threadState({ asleep: false, port: undefined }) === 'quiet');
+
+  console.log('\nthreadView: threadState, unread precedence (Phase 7)\n');
+  check('unread wins over asleep', threadState({ asleep: true, unread: true }) === 'unread');
+  check('unread wins over a pending attention notification',
+    threadState({ asleep: false, notification: 'attention', unread: true }) === 'unread');
+  check('unread wins over working', threadState({ asleep: false, notification: 'working', unread: true }) === 'unread');
+  check('unread wins over done', threadState({ asleep: false, notification: 'done', unread: true }) === 'unread');
+  check('unread wins over a captured port', threadState({ asleep: false, port: 5173, unread: true }) === 'unread');
+  check('unread wins over asleep with a captured port too',
+    threadState({ asleep: true, port: 5173, unread: true }) === 'unread');
+  check('unread false is the same as absent: falls through to the ordinary rules',
+    threadState({ asleep: false, unread: false }) === 'quiet');
+  check('no unread field at all falls through to the ordinary rules',
+    threadState({ asleep: true }) === 'asleep');
 }
 
 console.log('\nthreadView: stateLabel\n');
 {
+  check('unread label', stateLabel('unread') === 'Unread');
   check('needs-you label', stateLabel('needs-you') === 'Needs you');
   check('working label', stateLabel('working') === 'Working');
   check('running label', stateLabel('running') === 'Running');
@@ -75,11 +90,12 @@ console.log('\nthreadView: stateLabel\n');
 
 console.log('\nthreadView: stateBreathes\n');
 {
-  const all: ThreadState[] = ['needs-you', 'working', 'running', 'done', 'quiet', 'asleep', 'compacting', 'background'];
+  const all: ThreadState[] = ['unread', 'needs-you', 'working', 'running', 'done', 'quiet', 'asleep', 'compacting', 'background'];
   check('needs-you breathes', stateBreathes('needs-you') === true);
+  check('unread breathes', stateBreathes('unread') === true);
   check('done breathes', stateBreathes('done') === true);
-  check('exactly needs-you and done breathe, nothing else',
-    all.filter(stateBreathes).sort().join(',') === ['done', 'needs-you'].sort().join(','),
+  check('exactly unread, needs-you and done breathe, nothing else',
+    all.filter(stateBreathes).sort().join(',') === ['done', 'needs-you', 'unread'].sort().join(','),
     show(all.filter(stateBreathes)));
 }
 
@@ -313,6 +329,12 @@ console.log('\nthreadView: projectCounts\n');
   const none = projectCounts(['quiet', 'done', 'asleep']);
   check('both zero when nothing needs-you/working/running', none.needsYou === 0 && none.running === 0, show(none));
   check('empty list is zero and zero', projectCounts([]).needsYou === 0 && projectCounts([]).running === 0);
+
+  const withUnread = projectCounts(['unread', 'needs-you', 'working']);
+  check('needsYou counts unread alongside needs-you (Phase 7, "waiting for you")',
+    withUnread.needsYou === 2, show(withUnread));
+  check('an asleep unread thread still counts as needsYou (via threadState, since asleep never wins over unread)',
+    projectCounts([threadState({ asleep: true, unread: true })]).needsYou === 1);
 }
 
 console.log('\nthreadView: sidebarSections\n');

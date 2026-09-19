@@ -390,6 +390,10 @@ export interface StateIconProps {
 export function StateIcon({ state, size = 15 }: StateIconProps) {
   switch (state) {
     case 'needs-you':
+    case 'unread':
+      // Mark as unread reads with the same amber bell and breath as needs-you
+      // (design-03 decision 5); data-state keeps its own value so the harness
+      // and CSS can still tell the two apart.
       return (
         <span className="si need" data-state={state}>
           <IconBell size={size} />

@@ -16,12 +16,13 @@ import { ConfirmDialog } from './components/ConfirmDialog';
 import type { Screen } from './components/ScreenNav';
 import { useTabState, threadGitCwd } from './hooks/useTabState';
 import { TabNotification, GROUP_COLORS, nextGroupColor } from './components/TabBar/types';
-import { onTitle, onOutput, onTick, onInterrupt, initTiming, TabTiming } from './spinnerState';
+import { onTitle, onOutput, onTick, onInterrupt, onAnswer, initTiming, TabTiming } from './spinnerState';
 import { migrateSession, serializeSession } from './sessionMigration';
 import { sleepAllForShutdown } from './sleepWake';
 import { toastMessage, initialScreen, threadName, needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText, localhostUrl } from './threadView';
 import { ProjectActions } from './projectMenu';
 import { buildThreadMenu } from './threadMenu';
+import { projectAttention, totalAttention, railProjects } from './attention';
 import type { EditorInfo } from '../editors';
 
 let toastCounter = 0;
@@ -426,12 +427,18 @@ export function App() {
     refreshGit(tabId, tab?.claudeCwd ?? cwd);
   }, []);
 
-  // Opening a thread clears what it was waiting to tell you: the pending
-  // notification badge and any overlay toast for it. 'working' is ongoing-turn
-  // state, not an unseen badge, so it keeps spinning.
+  // Opening a thread clears what it had finished telling you: a 'done' or
+  // 'background' badge, the unread mark, and any overlay toast for it. It does
+  // not clear needs-you (Phase 7, design-03 decision 4): a permission prompt is
+  // still waiting after you look at it, and only answering it (Enter), cancelling
+  // it (Esc or Ctrl+C) or the hook's next title ends it, all in spinnerState.ts.
+  // 'working' and 'compacting' are ongoing-turn state, not unseen badges, so they
+  // keep spinning.
   const clearThreadBadges = useCallback((tabId: string) => {
-    const current = stateRef.current.tabs.find(t => t.id === tabId)?.notification;
-    if (current !== 'working') stateRef.current.setTabNotification(tabId, undefined);
+    const tab = stateRef.current.tabs.find(t => t.id === tabId);
+    const current = tab?.notification;
+    if (current === 'done' || current === 'background') stateRef.current.setTabNotification(tabId, undefined);
+    if (tab?.unread) stateRef.current.setUnread(tabId, false);
     window.afterterm.notify.dismissTab(tabId);
   }, []);
 
@@ -489,16 +496,28 @@ export function App() {
     });
   }, [state.setTabNotification]);
 
-  // Typing into a terminal (e.g. interrupting Claude with Esc / Ctrl+C) ends the
-  // working turn from afterterm's view, clear the spinner. Leaves other notifs alone.
+  // Esc or Ctrl+C in a terminal ends the working turn from afterterm's view and
+  // cancels a permission prompt, so both the spinner and needs-you clear. Leaves
+  // other notifs alone.
   const handleUserInput = useCallback((tabId: string) => {
     const cur = stateRef.current.tabs.find(t => t.id === tabId)?.notification;
     applyNotif(tabId, cur, onInterrupt(cur));
   }, [state.setTabNotification]);
 
+  // Enter in a terminal. At a permission prompt this is the answer, so needs-you
+  // becomes working (and the silence clear drops it again if Claude does not
+  // resume). In every other state it is a no-op (spinnerState.ts, onAnswer).
+  const handleAnswer = useCallback((tabId: string) => {
+    const now = Date.now();
+    const timing = getTiming(tabId, now);
+    const cur = stateRef.current.tabs.find(t => t.id === tabId)?.notification;
+    applyNotif(tabId, cur, onAnswer(cur, timing, now));
+  }, [state.setTabNotification]);
+
   // Every PTY output chunk. Refreshes the tab's silence clock and, if the tab was
-  // paused at a permission prompt / compaction, re-arms `working` once Claude's
-  // output resumes (see spinnerState.ts). Must stay cheap, no render unless the
+  // paused at a compaction, re-arms `working` once Claude's output resumes (see
+  // spinnerState.ts; a permission prompt no longer re-arms from output, since
+  // arrowing through its options echoes output too). Must stay cheap, no render unless the
   // notif actually changes (only on a rare re-arm), so normal output is free.
   const handleOutput = useCallback((tabId: string, byteLen: number) => {
     const now = Date.now();
@@ -777,6 +796,20 @@ export function App() {
     win.__afterterm = {
       ...(win.__afterterm ?? {}),
       tab: (tabId: string) => stateRef.current.tabs.find(t => t.id === tabId) ?? null,
+      // Phase 7: the aggregate every count reads from (attention.ts), per project
+      // and in total, for the harness's `counts` command. Keyed by project label
+      // as well as id so a test can name the project it seeded.
+      counts: () => {
+        const s = stateRef.current;
+        const perProject = projectAttention(s.groups, s.tabs);
+        return {
+          total: totalAttention(s.groups, s.tabs),
+          projects: s.groups
+            .filter(g => !g.archived)
+            .map(g => ({ id: g.id, label: g.label, pinned: g.pinned, ...(perProject.get(g.id) ?? { waiting: 0, working: 0, running: 0, finished: 0 }) })),
+          rail: railProjects(s.groups, s.tabs).map(g => g.label),
+        };
+      },
     };
   }, []);
 
@@ -835,6 +868,7 @@ export function App() {
             close: () => closeThread(tab.id),
             sleep: () => sleepThread(tab.id),
             wake: () => wakeThread(tab.id),
+            setUnread: unread => state.setUnread(tab.id, unread),
             openLocalhost: () => openLocalhost(tab.id),
             openProjectPage: tab.groupId ? () => goScreen('project', tab.groupId) : undefined,
           })}
@@ -856,6 +890,7 @@ export function App() {
           onActivate={handleActivate}
           onClose={closeThread}
           onSleep={sleepThread}
+          onSetUnread={state.setUnread}
           onWake={wakeThread}
           onOpenLocalhost={openLocalhost}
           onNewTab={state.addTab}
@@ -891,6 +926,7 @@ export function App() {
               close: () => closeThread(activeTab.id),
               sleep: () => sleepThread(activeTab.id),
               wake: () => wakeThread(activeTab.id),
+              setUnread: unread => state.setUnread(activeTab.id, unread),
               openLocalhost: () => openLocalhost(activeTab.id),
               openProjectPage: activeTab.groupId ? () => goScreen('project', activeTab.groupId) : undefined,
             } : undefined}
@@ -916,6 +952,7 @@ export function App() {
               onCwdChange={handleCwdChange}
               onNotification={handleNotification}
               onUserInput={handleUserInput}
+              onAnswer={handleAnswer}
               onOutput={handleOutput}
               onFontSizeChange={state.setTabFontSize}
               onExit={handlePtyExit}

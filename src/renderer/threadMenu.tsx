@@ -1,6 +1,8 @@
 // The one thread menu, shared by the sidebar right-click and the main pane
 // header's dots button. Sleep and wake are here now (Phase 4); still no
-// rename, `/rename` in Claude Code is the only rename.
+// rename, `/rename` in Claude Code is the only rename. Mark as unread/read
+// (Phase 7) is chats only, since a shell has no conversation to flag as
+// unlooked-at.
 import { Tab, Group } from './components/TabBar/types';
 import { MenuItem } from './components/Menu';
 import { FolderIcon, IconTerm } from './components/Icons';
@@ -12,6 +14,9 @@ export interface ThreadMenuActions {
   close: () => void;
   sleep: () => void;
   wake: () => void;
+  // Mark as unread / Mark as read (chats only; buildThreadMenu decides which
+  // label to show and whether to show either at all).
+  setUnread: (unread: boolean) => void;
   // Only passed where there is a screen to go to. A thread with no project has no
   // page to open, so the item stays out of the menu in that case either way.
   openProjectPage?: () => void;
@@ -41,8 +46,15 @@ export function buildThreadMenu(tab: Tab, groups: Group[], actions: ThreadMenuAc
   const items: MenuItem[] = [
     { label: 'Open', onSelect: actions.open },
     tab.asleep ? { label: 'Wake', onSelect: actions.wake } : { label: 'Sleep', onSelect: actions.sleep },
-    { label: 'Move to project', submenu: { title: 'Move to', items: moveItems } },
   ];
+
+  if (tab.claudeSessionId) {
+    items.push(tab.unread
+      ? { label: 'Mark as read', onSelect: () => actions.setUnread(false) }
+      : { label: 'Mark as unread', onSelect: () => actions.setUnread(true) });
+  }
+
+  items.push({ label: 'Move to project', submenu: { title: 'Move to', items: moveItems } });
 
   if (!tab.asleep && tab.port !== undefined && actions.openLocalhost) {
     items.push({ label: openLocalhostLabel(tab.port), onSelect: actions.openLocalhost });

@@ -65,6 +65,10 @@ interface TerminalAreaProps {
   onCwdChange: (tabId: string, cwd: string) => void;
   onNotification: (tabId: string, type: TabNotification | undefined, projectName: string) => void;
   onUserInput: (tabId: string) => void;
+  // Fires on Enter in the terminal. At a Claude Code permission prompt that is the
+  // answer, so it is what ends needs-you (spinnerState.ts, onAnswer). Fired for
+  // every Enter; the state machine ignores it outside a prompt.
+  onAnswer: (tabId: string) => void;
   // Fires on every PTY output chunk (byteLen = chunk size), drives the working-
   // spinner's silence-clear and resume-based re-arm (see spinnerState.ts).
   onOutput: (tabId: string, byteLen: number) => void;
@@ -220,7 +224,7 @@ const THEME = {
 };
 
 export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(function TerminalArea(
-  { tabs: tabInfos, activeTabId, visible, hidden, onTitleChange, onCwdChange, onNotification, onUserInput, onOutput, onFontSizeChange, onExit, onTail, onCommand },
+  { tabs: tabInfos, activeTabId, visible, hidden, onTitleChange, onCwdChange, onNotification, onUserInput, onAnswer, onOutput, onFontSizeChange, onExit, onTail, onCommand },
   ref,
 ) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -236,6 +240,8 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
   onNotificationRef.current = onNotification;
   const onUserInputRef = useRef(onUserInput);
   onUserInputRef.current = onUserInput;
+  const onAnswerRef = useRef(onAnswer);
+  onAnswerRef.current = onAnswer;
   const onOutputRef = useRef(onOutput);
   onOutputRef.current = onOutput;
   const onFontSizeChangeRef = useRef(onFontSizeChange);

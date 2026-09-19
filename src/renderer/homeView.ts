@@ -13,7 +13,8 @@
 // can run with `node src/renderer/homeView.test.ts`.
 
 import type { Tab, Group } from './components/TabBar/types.ts';
-import { threadState, projectCounts, threadName } from './threadView.ts';
+import { threadName } from './threadView.ts';
+import { totalAttention } from './attention.ts';
 
 // "Sunday, 6 September": en-GB weekday and day-month order, no year. The
 // caller passes ms since epoch (Date.now() in the app, a fixed value in tests).
@@ -86,15 +87,16 @@ export function homeSections(
   return { pinned, projects, shownProjects, hiddenCount, archived };
 }
 
-// Totals for the pills under the Home date heading: how many tabs need you,
-// and how many are working or running, across every non-archived project plus
-// General (a tab with no groupId, or a groupId that names no group). A
-// project's own threads stop counting the moment it is archived, since
-// archiving is meant to take a project off the board entirely.
+// Totals for the pills under the Home date heading: how many tabs are
+// waiting for you (needs-you plus unread), and how many are working or
+// running, across every non-archived project plus General (a tab with no
+// groupId, or a groupId that names no group). A project's own threads stop
+// counting the moment it is archived, since archiving is meant to take a
+// project off the board entirely. Built on attention.ts's totalAttention, the
+// one aggregate every count in the app reads from.
 export function homeTotals(groups: Group[], tabs: Tab[]): { needsYou: number; running: number } {
-  const archivedIds = new Set(groups.filter(g => g.archived).map(g => g.id));
-  const counted = tabs.filter(t => !t.groupId || !archivedIds.has(t.groupId));
-  return projectCounts(counted.map(threadState));
+  const counts = totalAttention(groups, tabs);
+  return { needsYou: counts.waiting, running: counts.working + counts.running };
 }
 
 // Case-insensitive substring match on the thread's name (threadName: the

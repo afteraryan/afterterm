@@ -134,6 +134,14 @@ console.log('\nhomeView: homeTotals\n');
 
   const zero = homeTotals([], []);
   check('no tabs: both totals are zero', zero.needsYou === 0 && zero.running === 0);
+
+  const withUnread = homeTotals(groups, [
+    ...tabs,
+    tab('t8', { groupId: 'live1', unread: true }),
+    tab('t9', { unread: true }), // General
+  ]);
+  check('an unread thread counts under needsYou, same as needs-you (Phase 7, "waiting for you")',
+    withUnread.needsYou === totals.needsYou + 2, show(withUnread));
 }
 
 console.log('\nhomeView: filterThreads\n');

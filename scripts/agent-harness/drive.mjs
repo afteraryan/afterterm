@@ -44,6 +44,10 @@
 //                                  (window.__afterterm.lastOpenExternal), or "(nothing opened)"
 //   marks [--tab <id>]            window.__afterterm.commandState(id): at-prompt flag
 //                                  and prompt-end row/col, or "(no marks)"
+//   counts [--project <label>]    window.__afterterm.counts(): the attention aggregate
+//                                  (attention.ts): waiting, working, running and finished
+//                                  in total and per project, plus the rail list; --project
+//                                  prints one project's line only
 //   window bottom|restore|quit|close-dialogs   OS-level window z-order, un-minimise,
 //                                  a graceful quit (WM_CLOSE, so the quit flush runs), and
 //                                  closing stray native dialogs (e.g. a file picker)
@@ -279,6 +283,7 @@ try {
       case 'confirm': await cmdConfirm(); break;
       case 'opened': await cmdOpened(); break;
       case 'marks': await cmdMarks(); break;
+      case 'counts': await cmdCounts(); break;
       case 'window': await cmdWindow(args[0]); break;
       default: throw new DriveError(`unknown command: ${command}`);
     }
@@ -522,6 +527,9 @@ async function cmdSidebar() {
         kind: row.dataset.kind || null,
         state: icon ? icon.getAttribute('data-state') : 'quiet',
         asleep: row.classList.contains(S.threadAsleepClass),
+        // Phase 7: a chat marked unread carries the bell with data-state="unread";
+        // reported as its own flag too so a reader does not have to know that.
+        unread: !!(icon && icon.getAttribute('data-state') === 'unread'),
         close: !!row.querySelector(S.threadClose),
         // Phase 5: only present while the thread owns a listening port; already
         // carries its own leading colon (e.g. ":5173").
@@ -567,7 +575,7 @@ async function cmdSidebar() {
 
   if (!tree.present) { console.log(`(no ${SEL.panel} in the DOM)`); return; }
   console.log(`side-panel${tree.collapsed ? ' (collapsed, rail only)' : ''}`);
-  const threadLine = (t, indent) => `${indent}- ${t.active ? '* ' : ''}"${t.title}" [${t.kind || '?'}/${t.state || 'quiet'}]${t.port ? ' ' + t.port : ''}${t.asleep ? ' [asleep]' : ''}${t.close ? ' [x]' : ''}`;
+  const threadLine = (t, indent) => `${indent}- ${t.active ? '* ' : ''}"${t.title}" [${t.kind || '?'}/${t.state || 'quiet'}]${t.port ? ' ' + t.port : ''}${t.unread ? ' [unread]' : ''}${t.asleep ? ' [asleep]' : ''}${t.close ? ' [x]' : ''}`;
   for (const sec of tree.sections) {
     console.log(`  ${sec.label}`);
     for (const t of sec.loose) console.log(threadLine(t, '    '));
@@ -948,6 +956,28 @@ async function cmdMarks() {
   if (!data) { console.log('(no marks)'); return; }
   console.log(`at prompt: ${data.atPrompt ? 'yes' : 'no'}`);
   console.log(`prompt end: ${data.promptEnd ? `row ${data.promptEnd.row} col ${data.promptEnd.col}` : '(none)'}`);
+}
+
+// Phase 7: window.__afterterm.counts() (app.tsx), the one attention aggregate
+// (src/renderer/attention.ts) every count in the app reads from: waiting for you
+// (needs-you plus unread), working, running and finished, in total and per
+// non-archived project, plus the rail list (projects with a thread waiting or
+// finished). Read straight from state, so it does not wait on the session file's
+// two second debounce.
+async function cmdCounts() {
+  const data = await evaluate(cdp, `window.__afterterm && window.__afterterm.counts ? window.__afterterm.counts() : null`);
+  if (!data) { console.log('(no counts hook: is the app still loading?)'); return; }
+  const line = c => `waiting=${c.waiting} working=${c.working} running=${c.running} finished=${c.finished}`;
+  if (opts.project) {
+    const wanted = String(opts.project);
+    const p = data.projects.find(x => x.label === wanted) || data.projects.find(x => x.id === wanted);
+    if (!p) fail(`counts: no project named "${wanted}" (have: ${data.projects.map(x => x.label).join(', ')})`);
+    console.log(`${p.label}  ${line(p)}`);
+    return;
+  }
+  console.log(`total  ${line(data.total)}`);
+  for (const p of data.projects) console.log(`  ${p.pinned ? '[pinned] ' : ''}${p.label}  ${line(p)}`);
+  console.log(`rail: ${data.rail.length ? data.rail.join(', ') : '(empty)'}`);
 }
 
 // The electron browser process id, re-resolved from the listening DevTools

@@ -71,6 +71,12 @@ export interface Tab {
   // Terminal/index.tsx). cmd only until Phase 6. Persisted. A server wakes by
   // re-running it.
   lastCommand?: string;
+  // Set by "Mark as unread" in the thread menu (chats only). Persisted; absent
+  // means false, never stored as false (sessionMigration.ts keeps only a
+  // literal true). Cleared when the thread is opened. Kept while asleep: an
+  // asleep chat still carries the mark and shows the bell (threadState gives
+  // it precedence over asleep). Phase 7.
+  unread?: boolean;
 }
 
 export interface Group {

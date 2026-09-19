@@ -33,7 +33,7 @@ export interface SavedSession {
 const PERSISTED_TAB_KEYS = [
   'id', 'title', 'groupId', 'shellId', 'cwd', 'fontSize',
   'claudeSessionId', 'claudeCwd', 'lastActiveAt', 'asleep', 'sleptAt',
-  'model', 'branch', 'worktree', 'claudeTitle', 'port', 'lastCommand',
+  'model', 'branch', 'worktree', 'claudeTitle', 'port', 'lastCommand', 'unread',
 ] as const;
 
 // Fields that describe a running process or a value re-derived on every launch,
@@ -94,6 +94,16 @@ function setOptionalPort(tab: Record<string, unknown>, key: string, v: unknown):
   else delete tab[key];
 }
 
+// unread keeps only a literal true; false or anything else is dropped rather
+// than stored as false, so a never-marked thread and one explicitly marked
+// read look identical on disk (a 0.8.1 file, which never had this key, reads
+// the same way). setUnread(false) in useTabState.ts deletes the key for the
+// same reason on the write side.
+function setUnreadFlag(tab: Record<string, unknown>, v: unknown): void {
+  if (v === true) tab.unread = true;
+  else delete tab.unread;
+}
+
 // Entries without a usable id cannot be addressed by anything (activation,
 // grouping, restore), so they are dropped rather than repaired.
 function hasStringId(v: unknown): v is Record<string, unknown> & { id: string } {
@@ -147,6 +157,7 @@ export function migrateSession(raw: unknown, now: number): SavedSession | null {
     setOptionalString(tab, 'claudeTitle', t.claudeTitle);
     setOptionalPort(tab, 'port', t.port);
     setOptionalString(tab, 'lastCommand', t.lastCommand);
+    setUnreadFlag(tab, t.unread);
     return tab as unknown as SavedTab;
   });
 

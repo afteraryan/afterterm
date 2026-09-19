@@ -75,7 +75,7 @@ function ThreadRow({
 
   const state = threadState(tab);
   const breathe = !isActive && stateBreathes(state)
-    ? (state === 'needs-you' ? 'breathe-need' : 'breathe-done')
+    ? (state === 'needs-you' || state === 'unread' ? 'breathe-need' : 'breathe-done')
     : '';
 
   // No transform on the in-list row: the DragOverlay renders the moving copy.
@@ -89,7 +89,10 @@ function ThreadRow({
     isOver && !isDragging ? 'drop-target' : '',
     isGroupPreview ? 'group-preview' : '',
     overlay ? 'drag-overlay' : '',
-    state === 'asleep' ? 'sleep' : '',
+    // Dims on tab.asleep itself, not on state === 'asleep': an asleep thread
+    // marked unread reads as 'unread' (it wins precedence), but it is still
+    // asleep and still dims, with the bell shown on top of the dimmed row.
+    tab.asleep ? 'sleep' : '',
     breathe,
   ].filter(Boolean).join(' ');
 
@@ -270,6 +273,8 @@ export interface SidePanelProps {
   onClose: (tabId: string) => void;
   onSleep: (tabId: string) => void;
   onWake: (tabId: string) => void;
+  // Mark as unread / Mark as read (threadMenu's setUnread), chats only.
+  onSetUnread: (tabId: string, unread: boolean) => void;
   // Opens the running server's port in the browser (threadMenu's "Open
   // localhost:port"); only ever offered on an awake thread with a captured port.
   onOpenLocalhost: (tabId: string) => void;
@@ -305,7 +310,7 @@ export interface SidePanelProps {
 export function SidePanel(props: SidePanelProps) {
   const {
     tabs, groups, activeTabId, collapsed, shells, onToggleCollapse,
-    onActivate, onClose, onSleep, onWake, onOpenLocalhost, onNewTab,
+    onActivate, onClose, onSleep, onWake, onSetUnread, onOpenLocalhost, onNewTab,
     onGoHome, onSearch, onOpenChooser, onOpenProjectPage, onTogglePin,
     onNewProject, editors, folderExists, projectActions,
     onCreateGroup, onAddToGroup, onRemoveFromGroup,
@@ -523,6 +528,7 @@ export function SidePanel(props: SidePanelProps) {
         close: () => onClose(tab.id),
         sleep: () => onSleep(tab.id),
         wake: () => onWake(tab.id),
+        setUnread: unread => onSetUnread(tab.id, unread),
         openProjectPage: tab.groupId ? () => onOpenProjectPage(tab.groupId!) : undefined,
         openLocalhost: () => onOpenLocalhost(tab.id),
       }),

@@ -240,6 +240,29 @@ export function useTabState() {
     });
   }, []);
 
+  // Mark as unread / Mark as read (threadMenu.tsx, chats only). Same no-op-when-
+  // unchanged rule as setPort; false deletes the key rather than storing it, so
+  // a never-marked thread and one explicitly marked read serialize identically
+  // (sessionMigration.ts keeps only a literal true).
+  const setUnread = useCallback((tabId: string, unread: boolean) => {
+    setTabs(prev => {
+      let changed = false;
+      const next = prev.map(t => {
+        if (t.id !== tabId) return t;
+        const current = !!t.unread;
+        if (current === unread) return t;
+        changed = true;
+        if (!unread) {
+          const updated = { ...t };
+          delete updated.unread;
+          return updated;
+        }
+        return { ...t, unread: true };
+      });
+      return changed ? next : prev;
+    });
+  }, []);
+
   const setTabNotification = useCallback((tabId: string, notification: TabNotification | undefined) => {
     setTabs(prev => prev.map(t => t.id === tabId ? { ...t, notification } : t));
   }, []);
@@ -503,7 +526,7 @@ export function useTabState() {
     setActiveTabId, activateTab,
     addTab, closeTab, renameTab, updateTabCwd, setClaudeSession, setTabNotification, setTabFontSize,
     sleepTab, wakeTab, resumeFromHistory,
-    setClaudeMeta, setGitInfo, setPort, setLastCommand,
+    setClaudeMeta, setGitInfo, setPort, setLastCommand, setUnread,
     createGroup, createConfiguredGroup, addToGroup, removeFromGroup,
     renameGroup, setGroupColor, updateGroup, toggleGroupCollapse, deleteGroup,
     togglePin, setGroupArchived, touchActivity, openProject,
