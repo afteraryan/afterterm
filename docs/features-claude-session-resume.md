@@ -34,6 +34,23 @@ happen there). Two reasons this matters:
 - **Rename-proof.** `claude --name` only sets a *display label*; it does not change the
   UUID, the `<uuid>.jsonl` filename, or the `sessionId` inside it. So a renamed session still
   resumes by its UUID.
+
+## The folder can move: a session that entered a worktree
+
+`claudeCwd` is what the hook last reported, and the hook only fires on `UserPromptSubmit` and
+`Stop`. A session that enters another worktree (Claude Code's `EnterWorktree`) keeps running
+there across a resume, and Claude Code moves its whole transcript to the new worktree's
+project dir under `~/.claude/projects`, so after a relaunch the hook-recorded folder is stale
+until the next prompt, and the transcript is no longer under it at all (found by Aryan on
+2026-09-19). Since 2026-09-20 the transcript reader (`src/claude-transcript.ts`) covers both:
+`findTranscript` looks for `<uuid>.jsonl` across every project dir when it is not under the
+recorded folder (the UUID is unique, so one listing settles it), and `latestCwd` returns the
+newest entry's `cwd` (Claude Code stamps every entry with it). `applyClaudeMeta` in
+`app.tsx` moves the tab's `claudeCwd` to that folder whenever a read reports a different one:
+on the launch pass over restored chats (so the header's branch and worktree are right before
+the thread is woken), on the once-a-turn meta push, and inside `wakeThread`, which reads the
+transcript before `wakeTab` so `claude --resume` is typed in the folder the session is really
+in. The hook's own report still wins on every turn, through the same `setClaudeSession`.
 - **Title drift is irrelevant.** The tab title (OSC-0) is rewritten constantly — by Claude
   Code (by context) and by the notify hook (`▶ working`, `✅ done`, …). It is never used for
   resume.
@@ -107,7 +124,8 @@ The captured `sessionId` is later typed into a shell as `claude --resume <id>`, 
 | `assets/hooks/test-afterterm-notify.ps1` | Hook tests incl. the file-channel cases |
 | `src/main.ts` | Sets `AFTERTERM_TAB_ID`/`AFTERTERM_SESSION_DIR`; watches + validates the dir; pushes `claude-session:update` |
 | `src/preload.ts`, `src/afterterm.d.ts` | `claudeSession.onUpdate` bridge |
-| `src/renderer/app.tsx` | Subscribes → `setClaudeSession` |
+| `src/claude-transcript.ts` | `findTranscript` (by UUID across project dirs) and `latestCwd` (the transcript's newest folder) |
+| `src/renderer/app.tsx` | Subscribes → `setClaudeSession`; `applyClaudeMeta` moves `claudeCwd` to the transcript's folder; `wakeThread` reads the transcript before the wake |
 | `src/renderer/hooks/useTabState.ts` | `setClaudeSession`; persists `claudeSessionId`/`claudeCwd`; `restoreSession` marks every restored tab asleep (`restoredTab`) |
 | `src/renderer/components/Terminal/index.tsx` | Injects `claude --resume <uuid>` on wake (UUID-validated), not on restore |
 
