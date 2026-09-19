@@ -24,7 +24,20 @@
 //                                  in the same session (the override ends when the command exits)
 //   type "<text>"                 insert text at the focused element
 //   key <Enter|Escape|Tab|...> [--ctrl] [--shift] [--alt]
-//   sidebar                       the rendered sidebar as a tree
+//   sidebar                       the rendered sidebar as a tree (Phase 8: side-panel
+//                                  reports hidden, not collapsed; each section prints its
+//                                  data-sec key and whether it has a collapse button; the
+//                                  docked Other row is printed after the sections)
+//   rail                          the always-on rail as a tree: which screen it thinks it
+//                                  is on, whether its two closable blocks are open, which
+//                                  nav pill is selected, the persisted panelHidden flag,
+//                                  then one line per tile naming it and its non-zero badges
+//   dock                          the panel's docked "Other projects" row: its count, open
+//                                  or closed, and its rows when open, or "(no dock)"
+//   search [text] [--clear]       with text, sets the panel's search box (Phase 8) so it
+//                                  filters in place; with no text, reports the box's value,
+//                                  filtering or empty, and whether the new-thread row and
+//                                  the dock are shown; --clear clicks the box's clear button
 //   screen                        which screen is showing plus overlay flags, as JSON
 //   home                          the rendered Home screen as a tree
 //   project                       the rendered project page as a tree
@@ -45,9 +58,9 @@
 //   marks [--tab <id>]            window.__afterterm.commandState(id): at-prompt flag
 //                                  and prompt-end row/col, or "(no marks)"
 //   counts [--project <label>]    window.__afterterm.counts(): the attention aggregate
-//                                  (attention.ts): waiting, working, running and finished
-//                                  in total and per project, plus the rail list; --project
-//                                  prints one project's line only
+//                                  (attention.ts): waiting, working, compacting, running
+//                                  and finished in total and per project, plus the rail
+//                                  list; --project prints one project's line only
 //   window bottom|restore|quit|close-dialogs   OS-level window z-order, un-minimise,
 //                                  a graceful quit (WM_CLOSE, so the quit flush runs), and
 //                                  closing stray native dialogs (e.g. a file picker)
@@ -72,7 +85,7 @@ import {
 // Read from src/renderer/components/SidePanel/index.tsx and SidePanel.css.
 const SEL = {
   panel: '.side-panel',
-  panelCollapsedClass: 'collapsed',
+  panelHiddenClass: 'hidden', // Phase 8: replaces panelCollapsedClass ('collapsed' no longer exists)
   section: '.sec',
   sectionLabel: '.lbl',
   projectWrap: '.pjw',
@@ -91,7 +104,44 @@ const SEL = {
   threadPort: '.prt', // Phase 5: the ":5173" span a running thread's row gains
   stateIcon: '[data-state]',
   showMore: '.thmore',
-  rail: '.rail',
+  collapseSecButton: '[data-collapse-sec]',
+  nomatch: '.nomatch',
+
+  // Phase 8: the panel's search box (src/renderer/components/SidePanel/index.tsx, `.srch`).
+  search: {
+    box: '.srch',
+    hasClass: 'has',
+    input: 'input.srch-input',
+    clear: '[data-clear]',
+    newThreadRow: '.srow[data-new-thread]',
+  },
+
+  // Phase 8: the panel's docked "Other projects" row (`.dock[data-dock]`).
+  dock: {
+    root: '.dock[data-dock]',
+    list: '.dlist',
+    openClass: 'open',
+    toggle: '[data-dock-toggle]',
+    count: '.c',
+    row: '.pj[data-other]',
+    name: '.n',
+    ago: '.c',
+  },
+
+  // Phase 8: the always-on rail, its own component left of the panel on every
+  // screen (src/renderer/components/Rail/index.tsx, Rail.css).
+  rail: {
+    root: '.rail-bar',
+    block: '.railblk',
+    blockOpenClass: 'open',
+    togglePanel: '[data-toggle-panel]',
+    goHome: '[data-go="home"]',
+    goWork: '[data-go="work"]',
+    newThread: '[data-new-thread]',
+    tile: '.tiles .l1',
+    tileButton: '.tile',
+    badge: '.bd[data-badge]',
+  },
 
   // Home screen (src/renderer/components/Home/index.tsx, Home.css).
   home: {
@@ -271,6 +321,9 @@ try {
       case 'type': await cmdType(args.join(' ')); break;
       case 'key': await cmdKey(args[0]); break;
       case 'sidebar': await cmdSidebar(); break;
+      case 'rail': await cmdRail(); break;
+      case 'dock': await cmdDock(); break;
+      case 'search': await cmdSearch(args.join(' ')); break;
       case 'screen': await cmdScreen(); break;
       case 'home': await cmdHome(); break;
       case 'project': await cmdProject(); break;
@@ -562,22 +615,47 @@ async function cmdSidebar() {
         .filter(c => c.matches && c.matches(S.threadRow))
         .map(threadInfo);
       const looseMore = sec.querySelector(':scope > ' + S.showMore);
-      return { label, projects, loose, looseMore: text(looseMore) || null };
+      return {
+        label,
+        key: sec.dataset.sec || null,
+        hasCollapseButton: !!sec.querySelector(S.collapseSecButton),
+        projects,
+        loose,
+        looseMore: text(looseMore) || null,
+      };
     });
+
+    // Phase 8: the docked "Other projects" row, read the same way the dock command reads it.
+    const dockRoot = panel.querySelector(S.dock.root);
+    let dock = null;
+    if (dockRoot) {
+      const list = dockRoot.querySelector(S.dock.list);
+      const open = !!(list && list.classList.contains(S.dock.openClass));
+      const toggle = dockRoot.querySelector(S.dock.toggle);
+      dock = {
+        count: toggle ? text(toggle.querySelector(S.dock.count)) : null,
+        open,
+        rows: open ? Array.from(dockRoot.querySelectorAll(S.dock.row)).map(r => ({
+          name: text(r.querySelector(S.dock.name)),
+          ago: text(r.querySelector(S.dock.ago)),
+        })) : [],
+      };
+    }
 
     return {
       present: true,
-      collapsed: panel.classList.contains(S.panelCollapsedClass),
-      rail: !!panel.querySelector(S.rail),
+      hidden: panel.classList.contains(S.panelHiddenClass),
       sections,
+      nomatch: !!panel.querySelector(S.nomatch),
+      dock,
     };
   })(${JSON.stringify(SEL)})`);
 
   if (!tree.present) { console.log(`(no ${SEL.panel} in the DOM)`); return; }
-  console.log(`side-panel${tree.collapsed ? ' (collapsed, rail only)' : ''}`);
+  console.log(`side-panel${tree.hidden ? ' (hidden)' : ''}`);
   const threadLine = (t, indent) => `${indent}- ${t.active ? '* ' : ''}"${t.title}" [${t.kind || '?'}/${t.state || 'quiet'}]${t.port ? ' ' + t.port : ''}${t.unread ? ' [unread]' : ''}${t.asleep ? ' [asleep]' : ''}${t.close ? ' [x]' : ''}`;
   for (const sec of tree.sections) {
-    console.log(`  ${sec.label}`);
+    console.log(`  ${sec.label}${sec.key ? ` [${sec.key}]` : ''}${sec.hasCollapseButton ? ' [collapse]' : ''}`);
     for (const t of sec.loose) console.log(threadLine(t, '    '));
     if (sec.looseMore) console.log(`    (${sec.looseMore})`);
     for (const p of sec.projects) {
@@ -587,6 +665,116 @@ async function cmdSidebar() {
       if (p.more) console.log(`      (${p.more})`);
     }
   }
+  if (tree.nomatch) console.log('  (No matches)');
+  if (tree.dock) {
+    console.log(`  Other projects · ${tree.dock.count || '0'} (${tree.dock.open ? 'open' : 'closed'})`);
+    if (tree.dock.open) {
+      for (const r of tree.dock.rows) console.log(`    - ${r.name} (${r.ago})`);
+    }
+  }
+}
+
+// Phase 8: the always-on rail (src/renderer/components/Rail/index.tsx, Rail.css),
+// its own component left of the panel on every screen.
+async function cmdRail() {
+  const S = SEL.rail;
+  const data = await evaluate(cdp, `((S) => {
+    const text = el => (el ? (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim() : '');
+    const root = document.querySelector(S.root);
+    if (!root) return { present: false };
+    const blocksOpen = Array.from(root.querySelectorAll(S.block)).some(b => b.classList.contains(S.blockOpenClass));
+    const goHome = root.querySelector(S.goHome);
+    const goWork = root.querySelector(S.goWork);
+    const nav = goHome && goHome.getAttribute('aria-selected') === 'true' ? 'home'
+      : goWork && goWork.getAttribute('aria-selected') === 'true' ? 'work' : null;
+    const tiles = Array.from(root.querySelectorAll(S.tile)).map(l1 => {
+      const btn = l1.querySelector(S.tileButton);
+      const badges = Array.from(l1.querySelectorAll(S.badge)).map(b => ({
+        badge: b.getAttribute('data-badge'),
+        count: text(b),
+      }));
+      return { name: btn ? btn.getAttribute('data-tip') : null, badges };
+    });
+    return { present: true, screen: root.dataset.screen || null, blocksOpen, nav, tiles };
+  })(${JSON.stringify(S)})`);
+
+  if (!data.present) { console.log(`(no ${S.root} in the DOM)`); return; }
+  const panelHidden = await evaluate(cdp, `window.__afterterm && window.__afterterm.panelHidden ? window.__afterterm.panelHidden() : null`);
+  console.log(`rail screen=${data.screen || '?'} blocks=${data.blocksOpen ? 'open' : 'closed'} nav=${data.nav || '?'} panelHidden=${panelHidden === null ? '?' : panelHidden}`);
+  if (!data.tiles.length) { console.log('  (no tiles)'); return; }
+  for (const t of data.tiles) {
+    const badges = t.badges.map(b => `${b.badge}=${b.count}`).join(' ');
+    console.log(`  - ${t.name || '(unnamed)'}  ${badges || '(no badges)'}`);
+  }
+}
+
+// Phase 8: the panel's docked "Other projects" row on its own (also printed as
+// part of `sidebar`, for a command that only cares about the dock).
+async function cmdDock() {
+  const S = SEL.dock;
+  const data = await evaluate(cdp, `((S) => {
+    const text = el => (el ? (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim() : '');
+    const root = document.querySelector(S.root);
+    if (!root) return { present: false };
+    const list = root.querySelector(S.list);
+    const open = !!(list && list.classList.contains(S.openClass));
+    const toggle = root.querySelector(S.toggle);
+    const rows = open ? Array.from(root.querySelectorAll(S.row)).map(r => ({
+      name: text(r.querySelector(S.name)),
+      ago: text(r.querySelector(S.ago)),
+    })) : [];
+    return { present: true, count: toggle ? text(toggle.querySelector(S.count)) : null, open, rows };
+  })(${JSON.stringify(S)})`);
+
+  if (!data.present) { console.log('(no dock)'); return; }
+  console.log(`Other projects · ${data.count || '0'} (${data.open ? 'open' : 'closed'})`);
+  for (const r of data.rows) console.log(`  - ${r.name} (${r.ago})`);
+}
+
+// Phase 8: the panel's in-place search box (src/renderer/components/SidePanel/
+// index.tsx, `.srch`). With text, clicks the box to focus it, then sets the
+// value the React-friendly way (the native input value setter, then an
+// 'input' event so React 19's onChange sees it). With no text, reports what
+// the box and its two dependents (the new-thread row, the dock) currently show.
+async function cmdSearch(text) {
+  const S = SEL.search;
+  if (opts.clear) {
+    await cmdClick(S.clear, 0, 'left');
+    return;
+  }
+  if (text) {
+    const { x, y } = await elementCentre(S.input, 0);
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'none' });
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+    const ok = await evaluate(cdp, `(() => {
+      const el = document.querySelector(${JSON.stringify(S.input)});
+      if (!el) return false;
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+      setter.call(el, ${JSON.stringify(text)});
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
+    })()`);
+    if (!ok) fail(`no ${S.input} in the DOM`);
+    console.log(`search box set to ${JSON.stringify(text)}`);
+    return;
+  }
+  const data = await evaluate(cdp, `((S) => {
+    const el = document.querySelector(S.input);
+    if (!el) return { present: false };
+    const box = document.querySelector(S.box);
+    return {
+      present: true,
+      value: el.value,
+      filtering: !!(box && box.classList.contains(S.hasClass)),
+      newThreadShown: !!document.querySelector(S.newThreadRow),
+      dockShown: !!document.querySelector(S.dockRoot),
+    };
+  })(${JSON.stringify({ ...S, dockRoot: SEL.dock.root })})`);
+  if (!data.present) { console.log(`(no ${S.input} in the DOM)`); return; }
+  console.log(`search ${JSON.stringify(data.value)} (${data.filtering ? 'filtering' : 'empty'})`);
+  console.log(`new-thread row: ${data.newThreadShown ? 'shown' : 'hidden'}`);
+  console.log(`dock: ${data.dockShown ? 'shown' : 'hidden'}`);
 }
 
 async function cmdScreen() {
@@ -960,14 +1148,14 @@ async function cmdMarks() {
 
 // Phase 7: window.__afterterm.counts() (app.tsx), the one attention aggregate
 // (src/renderer/attention.ts) every count in the app reads from: waiting for you
-// (needs-you plus unread), working, running and finished, in total and per
-// non-archived project, plus the rail list (projects with a thread waiting or
-// finished). Read straight from state, so it does not wait on the session file's
-// two second debounce.
+// (needs-you plus unread), working, compacting (Phase 8), running and finished,
+// in total and per non-archived project, plus the rail list (projects with a
+// thread waiting, finished or compacting). Read straight from state, so it does
+// not wait on the session file's two second debounce.
 async function cmdCounts() {
   const data = await evaluate(cdp, `window.__afterterm && window.__afterterm.counts ? window.__afterterm.counts() : null`);
   if (!data) { console.log('(no counts hook: is the app still loading?)'); return; }
-  const line = c => `waiting=${c.waiting} working=${c.working} running=${c.running} finished=${c.finished}`;
+  const line = c => `waiting=${c.waiting} working=${c.working} compacting=${c.compacting} running=${c.running} finished=${c.finished}`;
   if (opts.project) {
     const wanted = String(opts.project);
     const p = data.projects.find(x => x.label === wanted) || data.projects.find(x => x.id === wanted);
