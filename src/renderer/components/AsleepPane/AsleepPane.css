@@ -48,27 +48,26 @@
   gap: 10px;
   font-family: var(--sans);
   /* The pane opens at the end of its tail (Phase 9), so this sticky box sits
-     over dimmed text. Aryan's rule (2026-09-20), one answer for a dark or a
-     light surface: the white Wake button carries a thin dark border, and the
-     "asleep since" line sits in a solid dark pill. Fixed colours on purpose,
-     not tokens: both pieces are dark-on-white or white-on-dark whatever the
-     surface is. (A radial clearing and then a frosted card were tried first
-     and rejected.) */
+     over dimmed text. Aryan's rule (2026-09-20): the white Wake button
+     carries a thin border in the pane's colour, and the "asleep since" line
+     sits in a solid pill of the pane's colour, both on the palette tokens
+     like everything else in the app. (A radial clearing and then a frosted
+     card were tried first and rejected.) */
   width: fit-content;
   margin: -40px auto 0;
   z-index: 1;
 }
 
 .asleep-pane .wakebox .b.big {
-  border: 1px solid #191919;
+  border: 1px solid var(--pane);
 }
 
 .asleep-pane .wakebox .w {
-  color: #b4b4b4;
+  color: var(--text2);
   font-size: 13px;
   padding: 6px 14px;
   border-radius: 999px;
-  background: #191919;
+  background: var(--pane);
 }
 
 /* The dimmed scrollback tail: same mono, size and line-height as the live
