@@ -2,46 +2,70 @@
 
 [![vibe coded](https://img.shields.io/badge/vibe_coded-100%25-blueviolet)](https://github.com/afteraryan/afterterm)
 
-A terminal emulator for Windows with **Chrome-style tab groups**, built for running **multiple Claude Code sessions** side by side. Named, color-coded, collapsible groups of terminal tabs — plus first-class Claude Code notifications and session resume. No other terminal has this.
+A terminal emulator for Windows built around **projects and threads**, not tabs: a Home screen of the projects you're working on, and inside each one, chats (Claude Code sessions) and shells that keep their name, their last output and their state even after you close the app. Built for running several Claude Code sessions side by side.
 
 > ⚡ afterterm is **vibe coded** — built almost entirely through AI pair-programming
 > (Claude Code). Expect that character: fast-moving, pragmatic, occasionally rough.
 
 <!--
   Screenshot: drop an image at docs/screenshot.png (and optionally a docs/tab-groups.gif).
-  A shot showing a few colored, named, collapsed tab groups in the sidebar sells the feature best.
+  A shot showing Home with a few pinned project cards, or the workspace with the rail and
+  a chat thread's header (model, branch, worktree), sells the feature best.
 -->
 ![afterterm](docs/screenshot.png)
 
 ## Why
 
-Every terminal lets you open a dozen tabs. None of them let you *organize* those tabs the way Chrome lets you organize browser tabs — into named, colored, collapsible groups you can drag around. afterterm does exactly that: drag one tab onto another to form a group, click the label to collapse it, drag the label to reorder. Your "frontend", "backend", and "infra" shells stay visually separate instead of becoming an undifferentiated wall of tabs.
+Every terminal lets you open a dozen tabs. Almost none of them know what a "project" is, and none of them treat a Claude Code session as anything more than a process with a title. afterterm starts from projects instead: give one a folder, a colour and an icon, and every thread inside it, a chat or a plain shell, belongs there. A chat is named after the Claude Code conversation itself, and its header shows the model, the git branch and the worktree it's running in, so you can tell threads apart without opening them.
 
-A group is effectively a **project**: name it, color it, and point it at a folder — every new tab you open inside that group starts in that directory. So "frontend", "backend", and "infra" aren't just labels; each spawns its shells in the right repo automatically.
-
-That layout matters most when you run **several Claude Code sessions at once** — one per project or task. afterterm treats Claude Code as a first-class citizen: it knows when a background session needs your attention, surfaces it without stealing focus, shows you which tabs are still working, and brings your sessions back after a restart.
+Closing afterterm, or putting a thread down, no longer costs you anything: every thread restored from a previous launch starts asleep, showing the last output it produced, and wakes only when you ask it to, a chat resuming its Claude Code session (`claude --resume`) in the right folder. A shell running a dev server is detected by its listening port, named by the command that started it, and offered "Open localhost" and a re-run of that same command on wake.
 
 ## Features
 
-- **Chrome-style tab groups** — drag to group, name + color them, collapse, reorder
-- **Groups as projects** — give a group a working directory; new tabs in it open in that folder
-- **Built for Claude Code** — notifications, live "working" indicators, and auto-resume for your sessions (see below)
-- **Multiple shells** — auto-detects Command Prompt, PowerShell 7, Windows PowerShell, Git Bash, and WSL; pick which to open from the shell dropdown
-- **Session restore** — reopens your tabs, groups, and working directories on relaunch
+- **Home screen**: a date heading, pinned project cards, and the rest of your projects sorted by recent activity, with an archived section tucked away
+- **Projects**: a folder, a colour, one of ten icons and a default shell; a project page lists its live, asleep and closed (history) threads
+- **Threads: chats and shells**: a chat is named from the Claude Code conversation (its title, its summary, or the first prompt before that); the header and the sidebar hover card show the model, the git branch and the worktree
+- **Sleep and wake**: every thread restored from a previous launch starts asleep with its last output shown on an asleep pane; nothing respawns until you wake it, and a chat resumes its Claude Code session on wake
+- **Jump button**: a round button appears when you've scrolled away from the newest or oldest output, on both a live terminal and an asleep pane's saved output, and jumps you back with an eased animation
+- **Servers**: a thread running a dev server is detected by its listening port, shown on its row and header, offered "Open localhost:port", and re-runs its last command when woken; closing or sleeping a thread that's still listening asks first
+- **Shell integration**: working-directory and prompt-mark capture for Command Prompt, PowerShell 7, Windows PowerShell, Git Bash and WSL, wrapping any custom prompt (oh-my-posh, starship, a hand-written one) instead of replacing it, with a per-shell opt-out
+- **The always-on rail and panel**: a rail shows only the projects that need you, with badges for what's waiting, working, finished or compacting; the panel lists pinned and recently active projects, with everything else docked at the bottom; needs-you stays until a thread is actually answered, not just glanced at, and a chat can be marked unread
+- **Keyboard-driven**: cycle every visible thread across projects with Ctrl+Shift+Up/Down, filter the panel with an in-place search box, and more (see below)
+- **Claude Code notifications**: an always-on-top overlay shows toasts on the display holding the main window when a background thread needs you, backed by a self-installed, additive Claude Code hook that's a complete no-op outside afterterm
+- **Open in File Explorer and Open in your editor**: for a project's folder and for a single thread's own folder (a chat's Claude Code folder, or a shell's working directory)
+- **Multiple shells**: auto-detects Command Prompt, PowerShell 7, Windows PowerShell, Git Bash and WSL; pick which to open from the shell dropdown
+- **Session restore**: reopens your projects, threads and their working directories on relaunch, every thread asleep until you act on it
 - **GPU-accelerated rendering** — xterm.js with a WebGL renderer (canvas fallback) stays smooth under heavy output
-- **Keyboard-driven** — shortcuts for tabs, panel, find, and more — registered so they work even inside Claude Code, with an in-app cheatsheet
 - **Terminal niceties** — clickable links (incl. OSC 8), find-in-scrollback, right-click copy/paste, per-tab font zoom, file drag-and-drop
 
 ## Built for Claude Code
 
 afterterm is designed for the workflow of running many [Claude Code](https://www.claude.com/product/claude-code) sessions in parallel:
 
-- **Notifications when a session needs you** — when a background tab finishes, asks for permission, or hits an error, afterterm shows an always-on-top overlay toast (even when the window is behind other apps) plus a pulsing indicator on the tab. Click the toast to jump straight to that session.
-- **Live "working" indicator** — a spinner on a tab while Claude is mid-turn, so you can see at a glance which sessions are busy and which are waiting on you. Groups show a badge counting how many members need attention.
-- **Session auto-resume** — tabs running a Claude Code session reopen it (`claude --resume`) in the right directory after an app restart.
+- **A chat knows what it's called and where it's working**: its name comes from the Claude Code conversation, and the header shows the model, the git branch and the worktree, read without ever running `git`.
+- **Notifications when a session needs you**: when a background thread finishes, asks for permission, or hits an error, afterterm shows an always-on-top overlay toast on the display holding the window (even when afterterm is behind other apps), plus a bell on the thread's row that stays until the thread is actually answered, not just looked at.
+- **A chat resumes where it left off**: waking an asleep chat thread runs `claude --resume` in its own working directory, whether that's the project's folder or a worktree the session moved into since.
 - **Zero setup, no surprises** — afterterm ships its own Claude Code hook and self-installs it for you. The install is additive and idempotent: it never touches or overwrites your existing hooks, it shows a one-time toast the first time it edits your config (no silent dotfile changes), and a single prefs flag opts out — and *stays* opted out. Outside afterterm the hook is a complete no-op: zero output, zero latency, nothing in your other terminals.
 
 > None of this requires Claude Code — afterterm is a perfectly good general-purpose terminal — but it's where the design effort went.
+
+## Keyboard shortcuts
+
+| Shortcut | Action |
+|---|---|
+| Ctrl+Shift+T | New thread chooser (project and shell) |
+| Ctrl+Shift+P | Search palette over projects and threads |
+| Ctrl+Shift+W | Close current tab |
+| Ctrl+Tab | Next tab |
+| Ctrl+Shift+Tab | Previous tab |
+| Ctrl+Shift+Down / Ctrl+Shift+Up | Next and previous thread in sidebar order, crossing projects |
+| Ctrl+Shift+B | Toggle the sidebar between full width and the icon rail |
+| Ctrl+V | Paste (bracketed paste) |
+| Ctrl+C | Copy selection (SIGINT when no selection) |
+| Ctrl+Shift+A | Select all scrollback |
+| Ctrl+Shift+F | Find in current tab's scrollback |
+| Ctrl+scroll | Zoom font size (per-tab) |
+| Right-click | Copy selection if any, else paste (Windows QuickEdit style) |
 
 ## Install
 

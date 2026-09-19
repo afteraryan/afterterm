@@ -21,6 +21,8 @@ Each group/project gets a "Notes" tab as its first tab — not a terminal, but a
 
 ## Tab Attention / Notification System
 
+Built: the sidebar and header state icons, the overlay toasts and the project counter pills shipped in Phases 1 and 2, and the aggregate that keeps needs-you honest until it is actually answered, plus mark-as-unread, shipped in Phase 7 (`src/renderer/attention.ts`, `spinnerState.ts`'s answered signal). See "Notification System" and "Attention state" in `CLAUDE.md`. The shell-side detection ideas below it (BEL character, a long command finishing, a process erroring) were not built; only the Claude Code hook's own signals are used.
+
 When a terminal needs the user's attention, the tab should change visually — like how browser tabs show a dot or flash when a background tab has activity.
 
 **Use cases:**
@@ -47,11 +49,15 @@ When a terminal needs the user's attention, the tab should change visually — l
 
 *See [research-01-claude-session-resume.md](research-01-claude-session-resume.md) for detailed findings.*
 
+Built, and changed since this was written: `claude --resume <sessionId>` runs, but not automatically on relaunch. Phase 4 of the projects-and-threads redesign made every restored thread start asleep, so nothing resumes in bulk; a chat resumes only when its thread is woken by the user. See "Sleep, wake, history and the scrollback tail (Phase 4)" and "Session Restore" in `CLAUDE.md`, and `docs/features-claude-session-resume.md` for the session id capture this idea's research covers.
+
 When afterterm closes and reopens, automatically resume Claude Code sessions using `claude --resume "<session-name>"`. Session names are stored in Claude Code's JSONL files at `~/.claude/projects/<hash>/`. Branch: `feature/claude-session-resume`.
 
 ---
 
 ## Arrow Key Tab Navigation
+
+Built: in Phase 8, as Ctrl+Shift+Down and Ctrl+Shift+Up. Scope beyond the original idea: the cycle crosses project boundaries (from one project's last shown thread to the next project's first) rather than staying inside one project's tabs, and it wraps at the ends; a collapsed project's threads and rows hidden by the five-row fold are skipped, matching this idea's "only land on visible tabs" ask. See "Phase 8: the rail and the panel" in `CLAUDE.md`.
 
 Move between tabs using arrow keys with a modifier. Faster than Ctrl+Tab cycling when you know which direction you want to go.
 
@@ -75,13 +81,15 @@ Open multiple afterterm windows simultaneously — each is an independent Electr
 
 ## Notification Pop-up UI
 
+Built: the overlay toast card was restyled in Phase 1 (thread name as headline, the project with its coloured folder icon on line 2, the state icon in a tinted circle) and placed on whichever display holds the main window in Phase 9. See "Notification System" in `CLAUDE.md`.
+
 Improve UI of notification pop-ups. Need more context and better information hierarchy.
 
 ---
 
 ## Scrollback Snapshot
 
-Built in Phase 4, as the scrollback tail. See "Sleep, wake, history and the scrollback tail (Phase 4)" in `CLAUDE.md` for what shipped: a tail is written on sleep and on close, and replayed dimmed above a "Woke just now" divider on wake.
+Built: in Phase 4, as the scrollback tail. Changed since: Phase 4 replayed the tail dimmed above a "Woke just now" divider on wake; Phase 9 dropped that replay, so the tail is shown on the asleep pane only, scrolled to its newest lines, and a woken thread now opens with a clean prompt. See "Sleep, wake, history and the scrollback tail (Phase 4)" in `CLAUDE.md` and Phase 9's entry in `PHASES.md` for what changed.
 
 ---
 

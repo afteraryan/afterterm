@@ -2,7 +2,7 @@
 
 Execution plan for [`docs/design-02-projects-and-threads.md`](docs/design-02-projects-and-threads.md). One phase is finished and polished before the next goes deep. Each phase ships as its own release so the app is usable throughout.
 
-Status values: `pending`, `in progress`, `implemented, untested by Aryan` (self-tested through the harness, not yet used by Aryan; Phase 7 onward, at his request on 2026-09-19), `done`. Dates are absolute. This file is the shared state for every session and agent working on the redesign: update the status table and the checklist as work happens, and add a dated line to the log at the bottom when a phase starts, finishes, or is handed to Aryan for testing.
+Status values: `pending`, `in progress`, `implemented, untested by Aryan` (self-tested through the harness, not yet used by Aryan; Phase 7 onward, at his request on 2026-09-19), `implemented, in Aryan's daily use` (merged to main and in the build he runs, with fixes from his use landing as they come; not yet called done by him), `done`. Dates are absolute. This file is the shared state for every session and agent working on the redesign: update the status table and the checklist as work happens, and add a dated line to the log at the bottom when a phase starts, finishes, or is handed to Aryan for testing.
 
 ## How this work is done
 
@@ -94,9 +94,9 @@ Never close the running afterterm. A dev build runs beside it. A copied `session
 | 4 | Sleep, wake, history, scrollback tail | medium | done |
 | 5 | Servers: running state, port, open localhost | medium to large | done |
 | 6 | Shell integration for PowerShell, Git Bash, WSL | large | done |
-| 7 | Attention state: needs-you until answered, mark as unread, the shared aggregate | none | implemented, untested by Aryan |
-| 8 | The always-on rail, the Pinned and Recent panel, project icons, search box, keyboard cycle | small | implemented, untested by Aryan |
-| 9 | Long output opens at the newest lines and can be jumped through; the visual and placement fix sweep (Clusters 2 and 3 of plan-01); Open in File Explorer for a thread's own folder; the project icon everywhere | small | implemented, untested by Aryan |
+| 7 | Attention state: needs-you until answered, mark as unread, the shared aggregate | none | implemented, in Aryan's daily use since 2026-09-19 (merged to main, no release yet) |
+| 8 | The always-on rail, the Pinned and Recent panel, project icons, search box, keyboard cycle | small | implemented, in Aryan's daily use since 2026-09-19 (merged to main, no release yet) |
+| 9 | Long output opens at the newest lines and can be jumped through; the visual and placement fix sweep (Clusters 2 and 3 of plan-01); Open in File Explorer for a thread's own folder; the project icon everywhere; the notifier white bar; and, from Aryan's first days on the build, the last-worked thread on opening a project, the jump button showing only for the user's own scrolling, the header following a session that moved worktree, the scrollbar corners and the Wake box treatment | small | implemented, in Aryan's daily use since 2026-09-19 (merged to main, no release yet) |
 
 ## Phase 0: Data model and naming
 

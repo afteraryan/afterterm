@@ -44,7 +44,7 @@ stranger." Mnemonic: **break it → X, add to it → Y, fix it → Z.**
 # 2. From the MAIN repo checkout (so output lands in the standard out\ folder):
 npm run release           # builds portable folder + out\afterterm-<version>-setup.exe, tags vX.Y.Z
 git push origin vX.Y.Z    # publish the tag
-gh release create vX.Y.Z out\afterterm-<version>-setup.exe --title "afterterm X.Y.Z" --notes "..."
+gh release create vX.Y.Z out\afterterm-<version>-setup.exe --title "afterterm X.Y.Z" --notes "..."   # the notes come from CHANGELOG.md: rename its Unreleased section to the version first
 ```
 
 `npm run release` (`scripts/release.js`) **refuses** to run if the version is already
