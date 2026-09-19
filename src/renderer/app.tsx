@@ -1096,6 +1096,10 @@ export function App() {
             group={activeGroup}
             groups={state.groups}
             now={now}
+            projectExplorer={activeGroup?.cwd ? {
+              missing: folderMissing(activeGroup),
+              open: () => openFolderInExplorer(activeGroup.cwd!),
+            } : undefined}
             actions={activeTab ? {
               open: () => state.activateTab(activeTab.id),
               moveToGroup: (id) => id ? state.addToGroup(activeTab.id, id) : state.removeFromGroup(activeTab.id),

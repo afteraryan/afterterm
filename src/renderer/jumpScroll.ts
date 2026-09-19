@@ -36,6 +36,37 @@ export const JUMP_THRESHOLD_LINES = 3;
 // Pixels for the asleep pane's plain div scroller.
 export const JUMP_THRESHOLD_PX = 48;
 
+// How long a terminal jump takes, in milliseconds: a short base plus a little
+// per line, capped so a 10,000-line scrollback still arrives well under half a
+// second. The asleep pane uses the browser's own smooth scrolling instead.
+export const JUMP_MIN_MS = 180;
+export const JUMP_MAX_MS = 450;
+export const JUMP_MS_PER_LINE = 2;
+
+export function jumpDurationMs(distanceLines: number): number {
+  const d = Math.abs(distanceLines);
+  if (!Number.isFinite(d) || d === 0) return 0;
+  return Math.min(JUMP_MAX_MS, JUMP_MIN_MS + d * JUMP_MS_PER_LINE);
+}
+
+// Where the viewport should be `elapsed` ms into a jump from `from` to `to`:
+// ease-out cubic, so the scroll starts fast and settles, and always exactly
+// `to` once the duration is up (or when there is no duration at all).
+export function jumpLineAt(from: number, to: number, elapsed: number, durationMs: number): number {
+  if (durationMs <= 0 || elapsed >= durationMs) return to;
+  const p = Math.max(0, elapsed) / durationMs;
+  const eased = 1 - Math.pow(1 - p, 3);
+  return Math.round(from + (to - from) * eased);
+}
+
+// The one place both hosts ask whether a jump should animate at all. Guarded so
+// the pure tests (plain Node, no window) can import this module.
+export function prefersReducedMotion(): boolean {
+  return typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
 export function initialJumpState(position = 0): JumpState {
   return { target: null, position };
 }

@@ -21,13 +21,17 @@ export interface HeaderProps {
   groups: Group[];
   // Undefined only when there is no active tab (nothing to act on).
   actions?: ThreadMenuActions;
+  // "Open in File Explorer" for the project's own folder, behind the project item
+  // on line 2 (Phase 9, Aryan: the project item should open the project folder).
+  // Undefined when the thread has no project or the project has no folder.
+  projectExplorer?: { missing: boolean; open: () => void };
   // Clock reading for the asleep chip's "Asleep · 2d" wording (asleepLabel).
   // Required, not read from Date.now() here, so the chip updates on the same
   // tick as the rest of the app instead of drifting on its own render timing.
   now: number;
 }
 
-export function Header({ tab, group, groups, actions, now }: HeaderProps) {
+export function Header({ tab, group, groups, actions, projectExplorer, now }: HeaderProps) {
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -64,10 +68,24 @@ export function Header({ tab, group, groups, actions, now }: HeaderProps) {
           <span>{threadName(tab)}</span>
         </div>
         <div className="header-meta">
-          <span className="header-meta-item" data-meta="project">
-            {group ? <FolderIcon color={group.color} open size={14} icon={group.icon} /> : <IconTerm size={14} />}
-            {group ? group.label : 'General'}
-          </span>
+          {group && projectExplorer ? (
+            <button
+              type="button"
+              className="header-meta-item header-meta-link"
+              data-meta="project"
+              data-tip={projectExplorer.missing ? 'Folder not found' : 'Open in File Explorer'}
+              disabled={projectExplorer.missing}
+              onClick={projectExplorer.open}
+            >
+              <FolderIcon color={group.color} open size={14} icon={group.icon} />
+              {group.label}
+            </button>
+          ) : (
+            <span className="header-meta-item" data-meta="project">
+              {group ? <FolderIcon color={group.color} open size={14} icon={group.icon} /> : <IconTerm size={14} />}
+              {group ? group.label : 'General'}
+            </span>
+          )}
           {model && (
             <span className="header-meta-item" data-meta="model">
               <IconModel size={14} />

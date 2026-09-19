@@ -17,6 +17,7 @@ import { asleepSinceText } from '../../sleepWake';
 import { initialJumpState, onScrollSample, JUMP_THRESHOLD_PX } from '../../jumpScroll';
 import type { JumpState } from '../../jumpScroll';
 import { JumpButton } from '../JumpButton';
+import { prefersReducedMotion } from '../../jumpScroll';
 import './AsleepPane.css';
 
 export interface AsleepPaneProps {
@@ -83,10 +84,13 @@ export function AsleepPane({ tab, tail, now, onWake }: AsleepPaneProps) {
     setJump((prev) => onScrollSample(prev, el.scrollTop, el.scrollHeight - el.clientHeight, JUMP_THRESHOLD_PX));
   };
 
+  // A jump scrolls, it does not teleport (Aryan, 2026-09-19): the browser's own
+  // smooth scrolling, instant under reduced motion. Every scroll event on the way
+  // resamples the button, which hides on arrival like any other scroll to an end.
   const onJump = (target: 'top' | 'bottom') => {
     const el = scrollRef.current;
     if (!el) return;
-    el.scrollTop = target === 'top' ? 0 : el.scrollHeight;
+    el.scrollTo({ top: target === 'top' ? 0 : el.scrollHeight, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
   };
 
   return (

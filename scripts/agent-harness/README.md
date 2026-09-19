@@ -42,6 +42,7 @@ Plain Node (24+) and PowerShell. No new dependencies: Node's global `fetch` and
 |---|---|
 | `launch.mjs` | Seeds a throwaway `AFTERTERM_USER_DATA_DIR`, starts `electron-forge start` with the placement and debug-port env vars, waits for the DevTools endpoint, records pids. |
 | `drive.mjs` | CDP client with subcommands: `targets`, `bounds`, `screenshot`, `eval`, `dom`, `click`, `rightclick`, `hover`, `unhover`, `drag`, `emulate-media`, `type`, `key`, `sidebar`, `rail`, `dock`, `search`, `screen`, `home`, `project`, `chooser`, `palette`, `header`, `hover-card`, `pane`, `tail`, `confirm`, `opened`, `marks`, `scroll`, `jump`, `pane-scroll`, `counts`, `reload`, `window`, `record`. |
+| `watch-jump.mjs` | Phase 9: clicks the jump button and samples `window.__afterterm.viewport()` (the active terminal's `viewportY` and `baseY`) every 50ms for `--ms` (default 700), one line per sample, so a test can see a terminal jump move along its eased curve rather than teleport. Only the orchestrator drives a harness instance. |
 | `stop.mjs` | Kills exactly the recorded process tree and verifies it is gone. |
 | `screenshot-display.ps1` | Captures a whole physical display to PNG (shows native title bars and the notifier toasts, which CDP cannot). |
 | `record.mjs` | Long-running recorder: CDP screencast of the page content, stitched to mp4 with ffmpeg. Normally started detached by `drive.mjs record start`, not run by hand. See "Recording a test session" below. |
@@ -88,6 +89,14 @@ Options:
   what runs `claude --resume`; see the safety rule above). `all` seeds the copy
   unchanged (the active tab's session is live at launch, since it was live when
   the source `session.json` was copied).
+- `--open-external`: lets "Open localhost:port" and "Open in File Explorer" really
+  open a browser or an Explorer window (sets `AFTERTERM_OPEN_EXTERNAL=1`, read by
+  `harnessOnlyLogsExternal()` in `main.ts`). Off by default: a harness run only logs
+  `[harness] shell:openExternal <url>` and `[harness] projects:openInExplorer <folder>`,
+  so nothing can land on the person's screen. Use it only for the replica dev build
+  left running for Aryan to use himself (Phase 9, after his replica's Explorer
+  entries did nothing); never for an automated self-test. Recorded in the run
+  record as `openExternal`.
 - `--env KEY=VALUE` (repeatable): an extra environment variable for the dev
   build. Pass it more than once, or put several pairs in one `--env` separated
   by `;`. The value may be empty (`--env FOO=`) and may itself contain `=` or

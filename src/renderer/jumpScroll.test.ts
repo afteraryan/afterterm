@@ -4,6 +4,7 @@
 
 import {
   initialJumpState, onScrollSample, JUMP_THRESHOLD_LINES, JUMP_THRESHOLD_PX,
+  jumpDurationMs, jumpLineAt, prefersReducedMotion, JUMP_MIN_MS, JUMP_MAX_MS,
 } from './jumpScroll.ts';
 import type { JumpState } from './jumpScroll.ts';
 
@@ -172,6 +173,26 @@ console.log('\njumpScroll: position is always clamped to 0..max\n');
   check('a negative sampled position clamps to 0', s.position === 0, show(s));
   const s2 = onScrollSample(initialJumpState(0), 9999, 500, JUMP_THRESHOLD_PX);
   check('a sampled position beyond max clamps to max', s2.position === 500, show(s2));
+}
+
+console.log('\njumpScroll: the animated terminal jump (jumpDurationMs, jumpLineAt)\n');
+{
+  check('no distance means no duration', jumpDurationMs(0) === 0);
+  check('a short jump takes at least the base', jumpDurationMs(1) === JUMP_MIN_MS + 2, show(jumpDurationMs(1)));
+  check('distance is unsigned', jumpDurationMs(-50) === jumpDurationMs(50));
+  check('a long jump is capped', jumpDurationMs(10000) === JUMP_MAX_MS, show(jumpDurationMs(10000)));
+  check('a non-finite distance gives no duration', jumpDurationMs(NaN) === 0);
+  check('at time zero the viewport is still at the start', jumpLineAt(400, 0, 0, 300) === 400);
+  check('once the duration is up the viewport is exactly at the end', jumpLineAt(400, 0, 300, 300) === 0);
+  check('past the duration it stays at the end', jumpLineAt(400, 0, 900, 300) === 0);
+  check('with no duration it is at the end at once', jumpLineAt(400, 0, 0, 0) === 0);
+  const half = jumpLineAt(0, 1000, 150, 300);
+  check('ease-out: past the midpoint of the distance at half the time', half > 500 && half < 1000, show(half));
+  const early = jumpLineAt(0, 1000, 30, 300), late = jumpLineAt(0, 1000, 270, 300);
+  check('progress only ever moves toward the end', early < half && half < late, show([early, half, late]));
+  check('a negative elapsed time is treated as the start', jumpLineAt(400, 0, -20, 300) === 400);
+  check('the line is an integer', Number.isInteger(jumpLineAt(0, 333, 100, 300)));
+  check('reduced motion reads false without a window (plain Node)', prefersReducedMotion() === false);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

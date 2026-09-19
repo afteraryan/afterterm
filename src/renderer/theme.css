@@ -194,6 +194,13 @@ svg {
 }
 .ib:hover { background: var(--hover2); color: var(--text); }
 .ib.on { color: var(--text); }
+/* A button already "on" (a pinned project's pin) is at full colour, and on a
+   hovered Home card the card itself is already --hover2, so the plain hover
+   above changed nothing visible there (Aryan, 2026-09-19). It gets a lighter
+   fill and a small lift of its own; the lift is off under reduced motion
+   through the global rule below. */
+.ib.on:hover { background: rgba(255, 255, 255, .14); transform: translateY(-1px) scale(1.08); }
+.ib.on { transition: opacity var(--fast), background var(--fast), transform var(--fast); }
 
 /* .si: inline state icon */
 .si {
@@ -314,4 +321,6 @@ svg {
     animation: none !important;
     transition: none !important;
   }
+  /* The pinned pin's hover lift (.ib.on:hover above) is movement too. */
+  .ib.on:hover { transform: none; }
 }

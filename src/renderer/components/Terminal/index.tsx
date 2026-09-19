@@ -12,7 +12,7 @@ import {
   type CommandMarkState,
 } from '../../commandMarks';
 import { TAIL_MAX_LINES } from '../../../thread-tail';
-import { JUMP_THRESHOLD_LINES, JumpState, JumpTarget, initialJumpState, onScrollSample } from '../../jumpScroll';
+import { JUMP_THRESHOLD_LINES, JumpState, JumpTarget, initialJumpState, onScrollSample, jumpDurationMs, jumpLineAt, prefersReducedMotion } from '../../jumpScroll';
 import { JumpButton } from '../JumpButton';
 import { isWindowsDrivePath, osc7ToWindowsPath } from '../../../shell-paths';
 
@@ -748,12 +748,36 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
     setJump(null);
   }, [activeTabId]);
 
+  // A jump scrolls, it does not teleport (Aryan, 2026-09-19). xterm has no smooth
+  // scrolling of its own, so the viewport is moved line by line on animation
+  // frames along an ease-out curve (jumpLineAt), instant under reduced motion. A
+  // second click, or a jump on another thread, cancels the one in flight; the
+  // scroll events fired along the way resample the button, which hides on arrival.
+  const jumpFrameRef = useRef<number | null>(null);
   const jumpTo = useCallback((target: 'top' | 'bottom') => {
     const info = termsRef.current.get(activeRef.current);
     if (!info) return;
-    if (target === 'top') info.term.scrollToTop();
-    else info.term.scrollToBottom();
-    // The scroll event that follows samples the new position and hides the button.
+    const term = info.term;
+    if (jumpFrameRef.current !== null) cancelAnimationFrame(jumpFrameRef.current);
+    const from = term.buffer.active.viewportY;
+    const to = target === 'top' ? 0 : term.buffer.active.baseY;
+    const duration = prefersReducedMotion() ? 0 : jumpDurationMs(to - from);
+    if (duration === 0) {
+      if (target === 'top') term.scrollToTop(); else term.scrollToBottom();
+      return;
+    }
+    const started = performance.now();
+    const step = (now: number) => {
+      // The terminal may have been torn down mid-jump (sleep, close).
+      if (!termsRef.current.has(activeRef.current) || termsRef.current.get(activeRef.current)?.term !== term) return;
+      const elapsed = now - started;
+      // Output arriving during a jump to the bottom moves the bottom; re-read it.
+      const end = target === 'top' ? 0 : term.buffer.active.baseY;
+      term.scrollToLine(jumpLineAt(from, end, elapsed, duration));
+      if (elapsed < duration) jumpFrameRef.current = requestAnimationFrame(step);
+      else jumpFrameRef.current = null;
+    };
+    jumpFrameRef.current = requestAnimationFrame(step);
   }, []);
 
   // Coming back from another screen. The workspace is hidden with display: none
@@ -820,6 +844,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         tail(tabId: string, n?: number): string[] | null;
         activeTail(n?: number): string[] | null;
         commandState(tabId: string): CommandMarkState | null;
+        viewport(tabId?: string): { viewportY: number; baseY: number } | null;
       };
     };
     // Extended, never replaced: app.tsx hangs its own harness value
@@ -830,6 +855,14 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       activeTail: (n = 30) => readTail(activeRef.current, n),
       // Lets the harness check the OSC 133 marks landed without reading the buffer.
       commandState: (tabId) => marksRef.current.get(tabId) ?? null,
+      // Phase 9: where a terminal's viewport sits (the jump button's own inputs),
+      // since xterm 6 no longer mirrors it on .xterm-viewport's scrollTop.
+      viewport: (tabId = activeRef.current) => {
+        const info = termsRef.current.get(tabId);
+        if (!info) return null;
+        const buffer = info.term.buffer.active;
+        return { viewportY: buffer.viewportY, baseY: buffer.baseY };
+      },
     };
   }, []);
 

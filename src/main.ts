@@ -786,6 +786,16 @@ ipcMain.on('notifier:resize', (_event, height: number) => {
   positionNotifier(height);
 });
 
+// Under the agent harness (AFTERTERM_HARNESS=1) a browser window or an Explorer
+// window must never land on the person's screen, so "Open localhost:port" and
+// "Open in File Explorer" only log what they would have opened. The one
+// exception is a replica dev build left running for Aryan to use himself
+// (launch.mjs --open-external, AFTERTERM_OPEN_EXTERNAL=1), where the real launch
+// is the point; an automated self-test never sets it.
+function harnessOnlyLogsExternal(): boolean {
+  return process.env.AFTERTERM_HARNESS === '1' && process.env.AFTERTERM_OPEN_EXTERNAL !== '1';
+}
+
 // ─── IPC: open a link in the user's default browser ──────────────────────────
 
 // Clicked URLs / OSC 8 hyperlinks from the terminal. Safelist protocols so a
@@ -801,7 +811,7 @@ ipcMain.handle('shell:openExternal', (_event, url: string) => {
       // line is how a test asserts that "Open localhost:5173" really would have
       // opened. The safelist check stays above this, so the line only appears for a
       // URL that would genuinely have opened.
-      if (process.env.AFTERTERM_HARNESS === '1') {
+      if (harnessOnlyLogsExternal()) {
         console.log(`[harness] shell:openExternal ${url}`);
         return;
       }
@@ -908,7 +918,7 @@ ipcMain.handle('projects:openInExplorer', async (_event, folder: unknown) => {
   // Explorer window must never land on the person's screen, so the launch is
   // logged instead, the same way shell:openExternal is; the checks above still
   // ran, so the line only appears for a folder that would genuinely have opened.
-  if (process.env.AFTERTERM_HARNESS === '1') {
+  if (harnessOnlyLogsExternal()) {
     console.log(`[harness] projects:openInExplorer ${folder}`);
     return { ok: true };
   }
