@@ -599,13 +599,19 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
           if (marks) marksRef.current.set(tabId, onInput(marks, data));
         }
         api.pty.write(tabId, data);
-        // Clear the working spinner only on a REAL interrupt, a bare Esc ('\x1b') or
+        // Clear the working spinner, and since Phase 7 cancel a permission prompt
+        // (needs-you), only on a REAL interrupt, a bare Esc ('\x1b') or
         // Ctrl+C ('\x03'). Must NOT fire on the focus-report sequences xterm emits via
         // onData when the terminal blurs on tab switch (focus-out is 'ESC [ O', focus-in
         // 'ESC [ I'), those were stopping the spinner the moment you left the tab.
         // Arrow keys etc. ('ESC [ A'…) are also multi-char and correctly excluded.
         if (data === '\x1b' || data === '\x03') {
           onUserInputRef.current(tabId);
+        } else if (data === '\r' || data === '\r\n') {
+          // Phase 7: Enter answers a permission prompt (spinnerState.ts, onAnswer);
+          // needs-you ends only when it is answered, never on viewing. A pasted
+          // block ending in a newline is not an Enter keypress and does not match.
+          onAnswerRef.current(tabId);
         }
       });
 
