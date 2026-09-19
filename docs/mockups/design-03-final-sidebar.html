@@ -25,7 +25,10 @@
 .dock .pj .ib{display:none}
 /* The badges fan out like cards from the top-right corner: the first at the
    corner, the second tucked to its left, the third just below it. */
-.rail2 .tiles{gap:12px}
+/* The rail is 76px wide for layout 1: the tile, then its badges beside it. */
+.rail2{width:76px;min-width:76px}
+.rail2 .tiles{gap:12px;align-items:flex-start;padding-left:10px}
+.railcard{left:84px}
 .tile .bd{font-weight:700;font-size:11.5px}
 .tile .bd.fan0{top:-6px;right:-7px;z-index:3}
 .tile .bd.fan1{top:-4px;right:9px;z-index:2}
@@ -145,12 +148,13 @@ document.body.insertAdjacentHTML('afterbegin', `<svg width="0" height="0" style=
 // corner as it did before.
 function railTile(p) {
   const c = counts(p.id);
+  // Layout 1: the badges in a column beside the tile, in the tile's own row.
   const badges = [
-    c.needsYou ? `<span class="bd">${c.needsYou}</span>` : '',
-    c.working ? `<span class="bd grey">${c.working}</span>` : '',
-    c.done ? `<span class="bd ok">${c.done}</span>` : '',
-  ].filter(Boolean).map((b, i) => b.replace('class="bd', `class="bd fan${i}`)).join('');
-  return `<button class="tile folder" style="--tc:${COLORS[p.color]}" data-tile="${p.id}" data-card="${p.id}">${svg(PROJECT_ICONS[p.id] || 'i-folder', 20)}${badges}</button>`;
+    c.needsYou ? `<span class="bd2 w">${c.needsYou}</span>` : '',
+    c.working ? `<span class="bd2 k">${c.working}</span>` : '',
+    c.done ? `<span class="bd2 d">${c.done}</span>` : '',
+  ].join('');
+  return `<div class="l1"><button class="tile folder" style="--tc:${COLORS[p.color]}" data-tile="${p.id}" data-card="${p.id}">${svg(PROJECT_ICONS[p.id] || 'i-folder', 20)}</button><span class="col">${badges}</span></div>`;
 }
 // The hover card for a tile: the name, then one line per number, each only
 // when non-zero, in the order finished, working, waiting for you.
