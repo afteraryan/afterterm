@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sidebar rail variants: which projects get a tile on the always-on rail</title>
+<link rel="stylesheet" href="design-03-shared.css">
+</head>
+<body>
+<script src="design-03-shared.js"></script>
+<script>
+// Decision 1 of design-03: the rail rule. Three answers to "which projects get
+// a tile on the always-on rail", each shown against the same data. In every
+// variant the rail is a 56px column at the left edge that never goes away; the
+// panel beside it is today's sidebar and can still be hidden with Ctrl+Shift+B
+// (the panel toggle), which is what the "Hide the panel" option shows.
+//
+// The current project is the project of the selected thread. The sheet starts
+// on a quiet shell in afterthought (unpinned, one working thread, nothing
+// pending) so the "where does the current project show" question is visible.
+
+S.selected = S.selected === 't4' ? 't15' : S.selected;
+
+const currentProject = () => { const t = T(S.selected); return t.p; };
+const pending = p => { const c = counts(p.id); return c.needsYou > 0 || c.done > 0; };
+
+function tilesFor(rule, opts) {
+  const cur = currentProject();
+  const style = opts.letterTiles ? 'letter' : 'folder';
+  const mk = (p, extra = {}) => tile(p, { current: p.id === cur, style, countDone: opts.countDone, ...extra });
+  if (rule === 'pending') {
+    // Pending projects in sidebar order, plus the current one (marked) even when
+    // it has nothing pending, so the project you are in always has a tile.
+    const list = PROJECTS.filter(p => pending(p) || p.id === cur);
+    return list.map(p => mk(p)).join('');
+  }
+  if (rule === 'all') {
+    const list = [...pinnedList(), ...unpinnedList()];
+    return list.map(p => mk(p)).join('');
+  }
+  // 'pinned-plus': pinned always, in pinned order; then a separator; then
+  // unpinned projects only while pending or current.
+  const rest = unpinnedList().filter(p => pending(p) || p.id === cur);
+  return pinnedList().map(p => mk(p)).join('') + (rest.length ? `<span class="sep"></span>` + rest.map(p => mk(p)).join('') : '');
+}
+
+function render(rule) {
+  return (frame, opts) => {
+    const rail = newRail(tilesFor(rule, opts), { panelHidden: opts.panelHidden, onHome: opts.home });
+    const body = opts.home
+      ? homeScreen({ railNav: true })
+      : panel(defaultSections(), { hidden: opts.panelHidden, brand: { noNav: true } }) + mainPane();
+    frame.innerHTML = titleBar() + `<div class="work">${rail}${body}</div>`;
+    frame.querySelectorAll('[data-toggle-panel]').forEach(b => b.onclick = () => { opts.panelHidden = !opts.panelHidden; window.__redraw(); });
+  };
+}
+
+initVariants({
+  title: 'Page 1 of 6: the rail',
+  question: 'The rail is the thin strip at the far left with a small folder per project. Which projects should show up there?',
+  options: [
+    { key: 'home', label: 'Show the Home screen instead, to see the rail stay there too', default: false },
+  ],
+  variants: [
+    {
+      id: 'pending',
+      name: 'A. Only projects that need me',
+      note: 'A project gets a folder on the rail only while a thread in it is waiting for you or has just finished. The project you are currently in stays there too (the ringed one). Everything else is gone from the rail.',
+      look: 'the left strip: three folders with badges, plus the ringed one you are in.',
+      render: render('pending'),
+    },
+    {
+      id: 'all',
+      name: 'B. All projects',
+      note: 'Every project gets a folder on the rail, pinned ones first. The amber number says how many threads need you; the small spinner says something is working.',
+      look: 'the left strip: all eight folders, badges only where something is pending.',
+      render: render('all'),
+    },
+    {
+      id: 'pinned-plus',
+      name: 'C. Pinned always, others only while they need me',
+      note: 'Your pinned projects are always on the rail, in your order. Below a small gap, any other project appears only while it needs you or while you are in it, and disappears again after.',
+      look: 'the left strip: three pinned folders, a gap, then only afterthought because you are in it.',
+      render: render('pinned-plus'),
+    },
+  ],
+});
+</script>
+</body>
+</html>

@@ -117,7 +117,7 @@ export function SearchPalette({ groups, tabs, onOpenProject, onOpenThread, onOpe
                     onClick={() => open(index)}
                     onMouseEnter={() => setHi(index)}
                   >
-                    <FolderIcon color={group.color} open size={16} />
+                    <FolderIcon color={group.color} open size={16} icon={group.icon} />
                     <span className="n">{group.label}</span>
                     <span className="m"></span>
                   </button>

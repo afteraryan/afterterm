@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sidebar pinned split variants: how pinned rows differ from unpinned rows</title>
+<link rel="stylesheet" href="design-03-shared.css">
+<style>
+/* This sheet's own additions only; nothing here touches the shared files. */
+
+/* The Projects label row needs the same right-edge New-project button the
+   shared sectionLabel() draws, but the label itself is now a clickable
+   fold control with a chevron, so the row is built by hand rather than
+   through sectionLabel(). */
+.lbl.clickable{padding:2px 4px 2px 2px}
+</style>
+</head>
+<body>
+<script src="design-03-shared.js"></script>
+<script>
+// Decision 10 of design-03: how a pinned project's row differs from an
+// unpinned one, and where the line between the two sections goes. All three
+// variants keep the Projects section (unpinned, sorted by activity) foldable
+// as a whole, since a long unpinned list with nothing pending in it is the
+// same "read as one block" problem this decision is about.
+//
+// Fold state lives on window.__splitState.projectsClosed rather than the
+// sheet's own S object, because a future build reads this exact flag name
+// for "is the Projects section collapsed", separate from S.collapsed (which
+// folds one project's own thread list, not the whole section).
+
+window.__splitState = window.__splitState || { projectsClosed: false };
+
+function projectsLabelRow(closed) {
+  const chev = `<span class="chev${closed ? ' closed' : ''}">${svg('i-chev-d', 14)}</span>`;
+  return `<div class="lbl lblrow">
+    <span class="lbl clickable" data-fold="projects">${chev}Projects</span>
+    <button class="ib" data-tip="New project">${svg('i-plus', 14)}</button>
+  </div>`;
+}
+
+function projectsSection(variant, closed) {
+  const list = unpinnedList(true).map(p => projectBlock(p, {})).join('');
+  const secClass = variant === 'block' ? 'sec plain' : 'sec';
+  return `<div class="${secClass}">${projectsLabelRow(closed)}<div class="secbody${closed ? ' closed' : ''}"><div>${list}</div></div></div>`;
+}
+
+function pinnedSection(variant) {
+  if (variant === 'block') {
+    return `<div class="sec pinned-block"><div class="lbl">Pinned</div>${pinnedList().map(p => projectBlock(p, { pinned: true })).join('')}</div>`;
+  }
+  const pinmark = variant === 'pinmark';
+  return `<div class="sec"><div class="lbl">Pinned</div>${pinnedList().map(p => projectBlock(p, { pinned: true, pinmark })).join('')}</div>`;
+}
+
+function buildBody(variant, closed) {
+  const gen = generalList();
+  const genHtml = gen.length ? `<div class="sec"><div class="lbl">General</div>${threadList(null)}</div>` : '';
+  const divider = variant === 'block' ? '' : '<div class="divider"></div>';
+  return genHtml + pinnedSection(variant) + divider + projectsSection(variant, closed);
+}
+
+function render(variant) {
+  return (frame, opts) => {
+    window.__splitState.projectsClosed = !!opts.projectsClosed;
+    const closed = window.__splitState.projectsClosed;
+    const body = buildBody(variant, closed);
+    frame.innerHTML = titleBar() + `<div class="work">${panel(body)}${mainPane()}</div>`;
+    frame.querySelectorAll('[data-fold]').forEach(el => el.onclick = e => {
+      e.stopPropagation();
+      opts.projectsClosed = !window.__splitState.projectsClosed;
+      window.__splitState.projectsClosed = opts.projectsClosed;
+      window.__redraw();
+    });
+  };
+}
+
+// This sheet is about the boundary between Pinned and Projects, so afterterm's
+// seven-thread list starts folded to keep that boundary on screen without a scroll.
+if (S.collapsed.afterterm === undefined) S.collapsed.afterterm = true;
+
+initVariants({
+  title: 'Page 4 of 6: pinned versus unpinned',
+  question: 'How should pinned projects look different from the rest in the sidebar?',
+  variants: [
+    {
+      id: 'divider',
+      name: 'A. A line between them',
+      note: 'A thin line between the Pinned group and the Projects group. The rows themselves do not change. In all three choices, clicking the "Projects" label folds the unpinned ones away.',
+      look: 'the line above "Projects" in the sidebar.',
+      render: render('divider'),
+    },
+    {
+      id: 'pinmark',
+      name: 'B. A line plus a pin icon on pinned rows',
+      note: 'The same line, and every pinned project row shows a small pin at its right end.',
+      look: 'the small pin at the right of afterterm, aftertales and answer-machine.',
+      render: render('pinmark'),
+    },
+    {
+      id: 'block',
+      name: 'C. Pinned rows in a lighter box',
+      note: 'The pinned projects sit inside a slightly lighter box, the way pinned cards look on Home. Unpinned rows sit plainly below it.',
+      look: 'the lighter box around the three pinned projects.',
+      render: render('block'),
+    },
+  ],
+});
+</script>
+</body>
+</html>

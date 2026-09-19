@@ -30,10 +30,10 @@ export interface Tab {
   // before anything in this launch has touched the thread.
   sleptAt?: number;
   // Transient (NOT persisted): set the moment a thread wakes, or is recreated from
-  // history by Resume. Read once by the terminal layer to know it must replay the
-  // saved scrollback tail above a "Woke just now" divider, then it has done its
-  // job; a brand new thread never has it, so it never shows a divider it doesn't
-  // need.
+  // history by Resume, and cleared again on sleep. It marks "woken this launch";
+  // a brand new thread never has it. Until Phase 9 the terminal layer read it as
+  // the cue to replay the saved tail above a "Woke just now" divider, which Aryan
+  // dropped on 2026-09-19 (the asleep pane already shows the tail).
   wokeAt?: number;
   // Claude Code model id of the latest assistant turn, read from the session
   // transcript in main ("claude-opus-5[1m]"); the renderer maps it to a display
@@ -71,6 +71,12 @@ export interface Tab {
   // Terminal/index.tsx). cmd only until Phase 6. Persisted. A server wakes by
   // re-running it.
   lastCommand?: string;
+  // Set by "Mark as unread" in the thread menu (chats only). Persisted; absent
+  // means false, never stored as false (sessionMigration.ts keeps only a
+  // literal true). Cleared when the thread is opened. Kept while asleep: an
+  // asleep chat still carries the mark and shows the bell (threadState gives
+  // it precedence over asleep). Phase 7.
+  unread?: boolean;
 }
 
 export interface Group {
@@ -97,6 +103,25 @@ export interface Group {
   // thread is simply gone (an open design decision, see design-02, revisit if it
   // hurts).
   history: HistoryEntry[];
+  // The project's chosen icon (Phase 8, design-03 decision 12): one of the ten
+  // ids in PROJECT_ICON_IDS, picked in the New/Edit project dialog. Shown on
+  // the rail tile in place of the folder; absent means the folder. Persisted in
+  // session.json, validated on load (sessionMigration.ts drops anything not in
+  // the list).
+  icon?: ProjectIconId;
+}
+
+// The ten solid glyphs a project can carry (design-03 decision 12). The order
+// here is the order the picker shows them in. The terminal glyph is deliberately
+// not offered: it is the Workspace icon.
+export const PROJECT_ICON_IDS = [
+  'book', 'robot', 'bulb', 'globe', 'pen', 'film', 'house', 'music', 'bell', 'rocket',
+] as const;
+
+export type ProjectIconId = typeof PROJECT_ICON_IDS[number];
+
+export function isProjectIconId(v: unknown): v is ProjectIconId {
+  return typeof v === 'string' && (PROJECT_ICON_IDS as readonly string[]).includes(v);
 }
 
 // A closed thread kept for Resume. `id` is deliberately the closed tab's own id:

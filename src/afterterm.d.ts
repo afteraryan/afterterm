@@ -12,6 +12,9 @@ interface NotifierToast {
   primaryLabel: string;
   secondaryLabel?: string;
   projectColor?: string;
+  // The project's chosen icon id (Phase 8), so the toast draws the same icon
+  // the sidebar and Home do; absent means the plain folder.
+  projectIcon?: string;
   message: string;
 }
 

@@ -4,7 +4,7 @@
 //
 // Everything here is pure string work, so there is no file system and no Electron:
 // the cases are the format contract between the main process (which writes the file)
-// and the renderer (which replays it into a fresh xterm).
+// and the renderer (which shows it dimmed on the asleep pane).
 
 import path from 'node:path';
 import {
@@ -12,7 +12,6 @@ import {
   TAIL_MAX_LINES,
   isThreadId,
   parseTail,
-  renderTailForTerminal,
   serializeTail,
   tailFilePath,
   trimTail,
@@ -24,9 +23,6 @@ function check(name: string, cond: boolean, detail = '') {
   else { console.log(`  FAIL  ${name}${detail ? '  (' + detail + ')' : ''}`); fail++; }
 }
 const show = (v: unknown) => JSON.stringify(v);
-
-const DIM = '\x1b[2;90m';
-const RESET = '\x1b[0m';
 
 console.log('\nthread-tail: constants and paths\n');
 {
@@ -129,49 +125,6 @@ console.log('\nthread-tail: serialize and parse\n');
   check('a non-string gives no lines', parseTail(null as unknown as string).length === 0);
   check('a file with no final newline keeps its last line',
     JSON.stringify(parseTail('a\nb')) === JSON.stringify(['a', 'b']), show(parseTail('a\nb')));
-}
-
-console.log('\nthread-tail: renderTailForTerminal\n');
-{
-  const out = renderTailForTerminal(['one', 'two'], 'Woke just now', 80);
-  check('the output ends with a blank line under the divider',
-    out.endsWith('\r\n\r\n'), show(out.slice(-8)));
-
-  const rows = out.slice(0, -4).split('\r\n');
-  check('two content lines plus a divider', rows.length === 3, show(rows.length));
-  check('the first content line is wrapped in dim grey',
-    rows[0] === `${DIM}one${RESET}`, show(rows[0]));
-  check('the second content line is wrapped in dim grey',
-    rows[1] === `${DIM}two${RESET}`, show(rows[1]));
-  check('the divider carries the label', rows[2].includes('Woke just now'), show(rows[2]));
-  check('the divider is dim grey too',
-    rows[2].startsWith(DIM) && rows[2].endsWith(RESET), show(rows[2]));
-
-  const divider = rows[2].slice(DIM.length, rows[2].length - RESET.length);
-  check('the divider is exactly cols wide', divider.length === 80, show(divider.length));
-  check('the divider is made of box-drawing dashes',
-    divider.startsWith('───') && divider.endsWith('───'), show(divider.slice(0, 5)));
-
-  const wide = renderTailForTerminal([], 'Woke just now', 120);
-  const wideDivider = wide.slice(DIM.length, wide.indexOf(RESET));
-  check('a wider terminal gives a wider divider', wideDivider.length === 120, show(wideDivider.length));
-
-  check('an empty tail renders only the divider block',
-    wide.split('\r\n').filter(r => r.length > 0).length === 1, show(wide.split('\r\n').length));
-  check('an empty tail still ends with the blank line', wide.endsWith('\r\n\r\n'));
-
-  // A narrow terminal must not eat the label; it overflows instead.
-  const narrow = renderTailForTerminal([], 'Woke just now', 10);
-  check('a narrow terminal keeps the whole label', narrow.includes('Woke just now'), show(narrow));
-  const narrowDivider = narrow.slice(DIM.length, narrow.indexOf(RESET));
-  check('a narrow divider keeps three dashes each side',
-    narrowDivider.startsWith('─── ') && narrowDivider.endsWith(' ───'), show(narrowDivider));
-
-  const custom = renderTailForTerminal(['x'], 'Asleep since Tuesday', 80);
-  check('a custom label is used', custom.includes('Asleep since Tuesday'), show(custom));
-
-  check('the defaults are the wake case',
-    renderTailForTerminal([]).includes('Woke just now'), show(renderTailForTerminal([])));
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

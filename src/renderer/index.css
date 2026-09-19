@@ -18,14 +18,35 @@ html, body, #root {
   overflow: hidden;
 }
 
-/* Everything under the title bar strip (TitleBar.tsx): the sidebar and the
-   terminal area, side by side, exactly as .app laid them out before the
-   title bar existed. */
+/* Everything under the title bar strip (TitleBar.tsx), Phase 8: the always-on
+   rail at the left edge (Rail/), then whichever screen is showing. The rail
+   grey continues under every screen, so each screen's rounded top-left corner
+   shows that grey through the curve. */
+.app-body {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  min-height: 0;
+  background: var(--side);
+}
+
+/* The screen area to the rail's right: Home, the project page or the
+   workspace, one at a time. */
+.app-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* The workspace: the panel and the terminal area, side by side. */
 .workspace {
   flex: 1;
   display: flex;
   flex-direction: row;
   min-height: 0;
+  min-width: 0;
   /* The sidebar grey continues behind the main pane, so the pane's rounded
      top-left corner (below) shows that grey through the curve. */
   background: var(--side);
@@ -45,9 +66,9 @@ html, body, #root {
    lingers and a later switch can re-trigger it. The title bar and the
    sidebar's icon row (outside .side-body) never animate. */
 
-.app.enter-workspace .side-panel .side-body {
-  animation: sidein 260ms var(--ease) both;
-}
+/* The sidebar itself no longer animates on entry: Phase 8 slides the whole
+   panel open from zero width instead (SidePanel.css, .side-panel.hidden), so a
+   second slide on its body would double up. */
 
 .app.enter-workspace .terminal-area {
   animation: mainin 260ms var(--ease) 40ms both;

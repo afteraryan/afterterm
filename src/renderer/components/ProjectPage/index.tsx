@@ -4,7 +4,6 @@
 // row, and the project's threads split into Live, Asleep and History.
 import React, { useEffect, useState } from 'react';
 import { Tab, Group, HistoryEntry } from '../TabBar/types';
-import { ScreenNav } from '../ScreenNav';
 import { Menu, MenuItem } from '../Menu';
 import {
   FolderIcon, IconChevL, IconSearch, IconExplorer, EditorLogo, KindIcon, StateIcon,
@@ -29,9 +28,6 @@ export interface ProjectPageProps {
   onResume: (entryId: string) => void; // recreate a history entry and open it
   threadMenu: (tab: Tab) => MenuItem[]; // the one thread menu, built by the caller
   onBack: () => void; // "Home" link at the top
-  // Not in the original contract: ScreenNav needs somewhere to send a click
-  // on the Workspace icon (its Home icon reuses onBack).
-  onGoWorkspace: () => void;
   // Which tab to open on: the palette's History rows and a future "resume"
   // link land here directly instead of always opening on Live. Read once into
   // state; a later change is followed by the effect below so a second click
@@ -60,7 +56,7 @@ const KIND_WORD: Record<'chat' | 'shell', string> = { chat: 'Chat', shell: 'Shel
 
 export function ProjectPage({
   group, tabs, activeTabId, now, editors, folderMissing, actions,
-  onOpenThread, onResume, threadMenu, onBack, onGoWorkspace, initialTab,
+  onOpenThread, onResume, threadMenu, onBack, initialTab,
 }: ProjectPageProps) {
   const [tab, setTab] = useState<ProjectTab>(initialTab ?? 'live');
   const [query, setQuery] = useState('');
@@ -96,10 +92,6 @@ export function ProjectPage({
 
   return (
     <div className="screen-project">
-      <ScreenNav
-        screen="project"
-        onGo={s => (s === 'workspace' ? onGoWorkspace() : onBack())}
-      />
       <div className="proj">
         <button type="button" className="back" onClick={onBack}>
           <IconChevL size={16} />
@@ -108,7 +100,7 @@ export function ProjectPage({
 
         <div className="ph" onContextMenu={openHeaderMenu}>
           <h1>
-            <FolderIcon color={group.color} open size={26} />
+            <FolderIcon color={group.color} open size={26} icon={group.icon} />
             {group.label}
           </h1>
           <p className="f">

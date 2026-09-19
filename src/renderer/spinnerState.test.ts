@@ -9,7 +9,7 @@
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import {
-  onTitle, onOutput, onTick, onInterrupt, initTiming,
+  onTitle, onOutput, onTick, onInterrupt, onAnswer, initTiming,
   SILENCE_CLEAR_MS, REARM_AFTER_QUIET_MS,
 } from './spinnerState.ts';
 import type { Notif } from './spinnerState.ts';
@@ -57,17 +57,27 @@ console.log('\nspinnerState — unit rules\n');
     onTick('working', t, 2000 + SILENCE_CLEAR_MS) === 'working');
 }
 {
-  // Re-arm: attention + output resuming after a long quiet → working (Idea 1).
+  // Phase 7: attention never re-arms from output. Arrow keys at a permission prompt
+  // move the highlight, which echoes output after any amount of quiet, and that
+  // answers nothing. Before Phase 7 this same case re-armed to working.
   const t = initTiming(10000);
   const afterQuiet = 10000 + REARM_AFTER_QUIET_MS + 500;
-  check('attention re-arms to working when output resumes after quiet',
-    onOutput('attention', t, afterQuiet, 400) === 'working');
+  check('arrow keys at a permission prompt leave it needs-you (no re-arm after quiet)',
+    onOutput('attention', t, afterQuiet, 400) === 'attention');
+  check('output at a permission prompt still refreshes the clock', t.lastOutputAt === afterQuiet);
 }
 {
-  // The prompt's own render burst (small gap right after ⚠) must NOT re-arm.
+  // The prompt's own render burst (small gap right after ⚠) does not re-arm either.
   const t = initTiming(10000);
   check('attention does NOT re-arm on the immediate render burst',
     onOutput('attention', t, 10000 + 200, 400) === 'attention');
+}
+{
+  // Nor does a long burst of output at the prompt (scrolling a diff in the prompt).
+  const t = initTiming(10000);
+  let n: Notif = 'attention';
+  for (let i = 0; i < 20; i++) n = onOutput(n, t, 10000 + REARM_AFTER_QUIET_MS * (i + 1), 2000);
+  check('repeated output bursts at a permission prompt keep it needs-you', n === 'attention');
 }
 {
   const t = initTiming(10000);
@@ -88,8 +98,81 @@ console.log('\nspinnerState — unit rules\n');
 
 // ── onInterrupt ─────────────────────────────────────────────────────────────
 check('interrupt clears working', onInterrupt('working') === undefined);
-check('interrupt leaves attention alone', onInterrupt('attention') === 'attention');
+// Phase 7: Esc or Ctrl+C at a permission prompt cancels it, so the bell goes.
+check('interrupt clears attention (Esc or Ctrl+C at a prompt cancels it)', onInterrupt('attention') === undefined);
 check('interrupt leaves undefined alone', onInterrupt(undefined) === undefined);
+check('interrupt leaves done alone', onInterrupt('done') === 'done');
+check('interrupt leaves compacting alone', onInterrupt('compacting') === 'compacting');
+check('interrupt leaves background alone', onInterrupt('background') === 'background');
+
+// ── onAnswer (Phase 7) ──────────────────────────────────────────────────────
+{
+  // Enter at a permission prompt is the answer: needs-you becomes working.
+  const t = initTiming(0);
+  check('Enter at a permission prompt moves attention to working', onAnswer('attention', t, 5000) === 'working');
+  check('Enter refreshes the silence clock to the answer time', t.lastOutputAt === 5000);
+}
+{
+  // Enter, then Claude resumes: output keeps working alive past the silence window.
+  const t = initTiming(0);
+  let n: Notif = onAnswer('attention', t, 5000);
+  n = onOutput(n, t, 5300, 800);
+  n = onOutput(n, t, 5700, 800);
+  n = onTick(n, t, 5700 + SILENCE_CLEAR_MS);
+  check('Enter then output keeps working', n === 'working');
+}
+{
+  // Enter, then silence: the answer was a "no" and the turn ended, so working
+  // drops again once the silence window passes, exactly as a stuck spinner would.
+  const t = initTiming(0);
+  let n: Notif = onAnswer('attention', t, 5000);
+  n = onTick(n, t, 5000 + SILENCE_CLEAR_MS);
+  check('Enter then silence holds working inside the window', n === 'working');
+  n = onTick(n, t, 5000 + SILENCE_CLEAR_MS + 1);
+  check('Enter then silence ends working past the window', n === undefined);
+}
+{
+  // Enter, then the hook's ✅: done wins as usual.
+  const t = initTiming(0);
+  let n: Notif = onAnswer('attention', t, 5000);
+  n = onTitle(n, 'done', t, 6000);
+  check('Enter then ✅ ends in done', n === 'done');
+}
+{
+  // Enter in any other state changes nothing here and leaves the clock alone: a
+  // plain prompt submission is announced by the hook's ▶, not by this signal.
+  const t = initTiming(0);
+  check('Enter while working stays working', onAnswer('working', t, 5000) === 'working');
+  check('Enter while done stays done', onAnswer('done', t, 5000) === 'done');
+  check('Enter while compacting stays compacting', onAnswer('compacting', t, 5000) === 'compacting');
+  check('Enter while background stays background', onAnswer('background', t, 5000) === 'background');
+  check('Enter while quiet stays quiet', onAnswer(undefined, t, 5000) === undefined);
+  check('Enter outside attention leaves the clock alone', t.lastOutputAt === 0);
+}
+{
+  // The full permission-prompt story, end to end: ⚠, a look and some arrowing,
+  // then Enter, then Claude resumes, then ✅.
+  const t = initTiming(0);
+  let n: Notif = onTitle('working', 'attention', t, 1000);
+  n = onOutput(n, t, 1400, 3000);                 // the prompt renders
+  n = onOutput(n, t, 9000, 60);                    // arrow key echo, long after
+  n = onTick(n, t, 30000);                         // minutes of looking at it
+  check('prompt story: still needs-you after render, arrows and a long look', n === 'attention');
+  n = onAnswer(n, t, 31000);
+  check('prompt story: Enter answers it (working)', n === 'working');
+  n = onOutput(n, t, 31200, 900);
+  n = onTitle(n, 'done', t, 40000);
+  check('prompt story: ends in done', n === 'done');
+}
+{
+  // Esc at the prompt: the thread goes quiet, and later output does not revive it.
+  const t = initTiming(0);
+  let n: Notif = onTitle('working', 'attention', t, 1000);
+  n = onInterrupt(n);
+  check('Esc at a prompt goes quiet', n === undefined);
+  n = onOutput(n, t, 1000 + REARM_AFTER_QUIET_MS + 100, 500);
+  check('output after Esc stays quiet', n === undefined);
+}
 
 // ── Replay real captured traces ─────────────────────────────────────────────
 // Each fixture is a live `claude` turn: every line is a PTY chunk {at, gap, len,

@@ -1,0 +1,41 @@
+/* JumpButton (JumpButton/index.tsx): a 32px round button floating at the
+   exact centre of whichever scroller mounts it, horizontally and vertically
+   (Aryan, 2026-09-19: the wheel is used in the middle of the pane, so the
+   button belongs where the pointer already is, not at an edge). Both hosts
+   (.terminal-instances, .asleep-pane) are position: relative; overflow: hidden.
+   It comes and goes by scaling only, no fade (Aryan, 2026-09-19): scale(0) to
+   scale(1) on --med with the app's ease, and visibility flips after the exit
+   transition so a hidden button is never hoverable or clickable. Relies on
+   theme.css tokens (--hover2, --text, --text2, --med, --ease) and its global
+   reduced-motion rule, which turns the transition off (the visibility flip
+   then lands at once). */
+
+.jump-btn {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  visibility: hidden;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--hover2);
+  color: var(--text2);
+  border: 1px solid #333;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .35);
+  transition: transform var(--med) var(--ease), visibility 0s linear var(--med), background var(--fast), color var(--fast);
+}
+
+.jump-btn[data-shown="true"] {
+  transform: translate(-50%, -50%) scale(1);
+  visibility: visible;
+  transition: transform var(--med) var(--ease), visibility 0s, background var(--fast), color var(--fast);
+}
+
+.jump-btn:hover {
+  color: var(--text);
+}

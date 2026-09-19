@@ -40,17 +40,37 @@ export function Tooltip() {
       tip.textContent = text;
 
       const rect = target.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const top = rect.bottom + 8;
+      // The rail sits at the window edge, so its tiles and badges show the
+      // tip to their right, vertically centred, instead of underneath.
+      const side = target.getAttribute('data-tip-side') === 'right';
+      tip.classList.toggle('side', side);
 
-      // Measure after the text is set so tip.offsetWidth reflects the new content.
-      const half = tip.offsetWidth / 2;
-      const minX = VIEWPORT_MARGIN_PX + half;
-      const maxX = window.innerWidth - VIEWPORT_MARGIN_PX - half;
-      const clampedX = Math.min(Math.max(centerX, minX), maxX);
+      if (side) {
+        const left = rect.right + 8;
+        const centerY = rect.top + rect.height / 2;
 
-      tip.style.left = `${clampedX}px`;
-      tip.style.top = `${top}px`;
+        // Measure after the text is set so tip.offsetHeight reflects the new content.
+        const half = tip.offsetHeight / 2;
+        const minY = VIEWPORT_MARGIN_PX + half;
+        const maxY = window.innerHeight - VIEWPORT_MARGIN_PX - half;
+        const clampedY = Math.min(Math.max(centerY, minY), maxY);
+
+        tip.style.left = `${left}px`;
+        tip.style.top = `${clampedY}px`;
+      } else {
+        const centerX = rect.left + rect.width / 2;
+        const top = rect.bottom + 8;
+
+        // Measure after the text is set so tip.offsetWidth reflects the new content.
+        const half = tip.offsetWidth / 2;
+        const minX = VIEWPORT_MARGIN_PX + half;
+        const maxX = window.innerWidth - VIEWPORT_MARGIN_PX - half;
+        const clampedX = Math.min(Math.max(centerX, minX), maxX);
+
+        tip.style.left = `${clampedX}px`;
+        tip.style.top = `${top}px`;
+      }
+
       tip.classList.add('show');
     };
 

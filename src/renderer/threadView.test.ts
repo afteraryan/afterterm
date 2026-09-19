@@ -4,14 +4,13 @@
 // Exits 0 if all pass, 1 on any failure.
 
 import {
-  threadKind, threadState, stateLabel, stateBreathes, displayTitle,
+  threadFolder, threadKind, threadState, stateLabel, stateBreathes, displayTitle,
   threadName, modelLabel, kindWord, runningLabel, localhostUrl, openLocalhostLabel,
   needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText,
-  foldThreads, projectCounts, sidebarSections, toastMessage,
+  foldThreads, projectCounts, toastMessage,
   initialScreen, nextActiveTabAfterArchive,
 } from './threadView.ts';
 import type { ThreadState } from './threadView.ts';
-import { computeSegments } from './sidebarWalk.ts';
 import type { Tab, Group, TabNotification } from './components/TabBar/types.ts';
 
 let pass = 0, fail = 0;
@@ -30,6 +29,14 @@ function group(id: string, extra: Partial<Group> = {}): Group {
     id, label: id, color: 'teal', collapsed: false,
     pinned: false, archived: false, lastActiveAt: 0, ...extra,
   } as Group;
+}
+
+console.log('\nthreadView: threadFolder\n');
+{
+  check('a chat with claudeCwd opens its Claude folder, not the shell cwd',
+    threadFolder({ cwd: 'D:\\repo', claudeCwd: 'D:\\repo\\.claude\\worktrees\\phase-9' }) === 'D:\\repo\\.claude\\worktrees\\phase-9');
+  check('a shell with only a cwd opens that cwd', threadFolder({ cwd: 'D:\\repo' }) === 'D:\\repo');
+  check('no folder at all is undefined', threadFolder({}) === undefined);
 }
 
 console.log('\nthreadView: threadKind\n');
@@ -59,10 +66,25 @@ console.log('\nthreadView: threadState\n');
   check('compacting beats a captured port', threadState({ asleep: false, notification: 'compacting', port: 5173 }) === 'compacting');
   check('background beats a captured port', threadState({ asleep: false, notification: 'background', port: 5173 }) === 'background');
   check('no port and no notification is quiet', threadState({ asleep: false, port: undefined }) === 'quiet');
+
+  console.log('\nthreadView: threadState, unread precedence (Phase 7)\n');
+  check('unread wins over asleep', threadState({ asleep: true, unread: true }) === 'unread');
+  check('unread wins over a pending attention notification',
+    threadState({ asleep: false, notification: 'attention', unread: true }) === 'unread');
+  check('unread wins over working', threadState({ asleep: false, notification: 'working', unread: true }) === 'unread');
+  check('unread wins over done', threadState({ asleep: false, notification: 'done', unread: true }) === 'unread');
+  check('unread wins over a captured port', threadState({ asleep: false, port: 5173, unread: true }) === 'unread');
+  check('unread wins over asleep with a captured port too',
+    threadState({ asleep: true, port: 5173, unread: true }) === 'unread');
+  check('unread false is the same as absent: falls through to the ordinary rules',
+    threadState({ asleep: false, unread: false }) === 'quiet');
+  check('no unread field at all falls through to the ordinary rules',
+    threadState({ asleep: true }) === 'asleep');
 }
 
 console.log('\nthreadView: stateLabel\n');
 {
+  check('unread label', stateLabel('unread') === 'Unread');
   check('needs-you label', stateLabel('needs-you') === 'Needs you');
   check('working label', stateLabel('working') === 'Working');
   check('running label', stateLabel('running') === 'Running');
@@ -75,11 +97,12 @@ console.log('\nthreadView: stateLabel\n');
 
 console.log('\nthreadView: stateBreathes\n');
 {
-  const all: ThreadState[] = ['needs-you', 'working', 'running', 'done', 'quiet', 'asleep', 'compacting', 'background'];
+  const all: ThreadState[] = ['unread', 'needs-you', 'working', 'running', 'done', 'quiet', 'asleep', 'compacting', 'background'];
   check('needs-you breathes', stateBreathes('needs-you') === true);
+  check('unread breathes', stateBreathes('unread') === true);
   check('done breathes', stateBreathes('done') === true);
-  check('exactly needs-you and done breathe, nothing else',
-    all.filter(stateBreathes).sort().join(',') === ['done', 'needs-you'].sort().join(','),
+  check('exactly unread, needs-you and done breathe, nothing else',
+    all.filter(stateBreathes).sort().join(',') === ['done', 'needs-you', 'unread'].sort().join(','),
     show(all.filter(stateBreathes)));
 }
 
@@ -302,6 +325,28 @@ console.log('\nthreadView: foldThreads\n');
     const r = foldThreads(threads, 'missing', false);
     check('active id not present in the list: treated as not beyond the fold', r.forcedOpen === false);
   }
+  {
+    // Phase 7 handoff: a hidden row waiting for you forces the fold open too.
+    const threads = t(7);
+    const isWaiting = (x: { id: string }) => x.id === 't6';
+    const r = foldThreads(threads, 't1', false, 5, isWaiting);
+    check('a waiting thread beyond the fold (index 6) forces the list open',
+      r.forcedOpen === true && r.shown.length === 7, show(r));
+  }
+  {
+    // A waiting thread already inside the fold changes nothing: it is not hidden.
+    const threads = t(7);
+    const isWaiting = (x: { id: string }) => x.id === 't2';
+    const r = foldThreads(threads, 't1', false, 5, isWaiting);
+    check('a waiting thread at index 2, already inside the fold, does not force it open',
+      r.forcedOpen === false && r.shown.length === 5, show(r));
+  }
+  {
+    // No predicate given at all: behaviour is exactly as before this phase.
+    const threads = t(7);
+    const r = foldThreads(threads, 't1', false, 5);
+    check('no isWaiting predicate keeps the old behaviour (not forced open)', r.forcedOpen === false);
+  }
 }
 
 console.log('\nthreadView: projectCounts\n');
@@ -313,50 +358,17 @@ console.log('\nthreadView: projectCounts\n');
   const none = projectCounts(['quiet', 'done', 'asleep']);
   check('both zero when nothing needs-you/working/running', none.needsYou === 0 && none.running === 0, show(none));
   check('empty list is zero and zero', projectCounts([]).needsYou === 0 && projectCounts([]).running === 0);
-}
 
-console.log('\nthreadView: sidebarSections\n');
-{
-  const tabs: Tab[] = [
-    tab('t1'),
-    tab('t2', { groupId: 'A' }),
-    tab('t3', { groupId: 'A' }),
-    tab('t4', { groupId: 'B' }),
-    tab('t6'),
-    tab('t5', { groupId: 'C' }),
-  ];
-  const groups: Group[] = [
-    group('E', { pinned: true }),                     // pinned, zero tabs
-    group('A', { pinned: true }),                      // pinned, has tabs
-    group('B', { pinned: false }),                      // unpinned, has tabs
-    group('C', { pinned: true, archived: true }),       // archived: dropped even though pinned
-    group('D', { pinned: false }),                       // unpinned, zero tabs
-  ];
-  const segments = computeSegments(tabs, groups);
-  const sections = sidebarSections(segments);
+  const withCompacting = projectCounts(['compacting', 'compacting', 'working']);
+  check('compacting is its own count, not in running (Phase 8 handoff, Aryan)',
+    withCompacting.compacting === 2 && withCompacting.running === 1, show(withCompacting));
+  check('compacting is zero when none', c.compacting === 0);
 
-  check('general is the ungrouped tabs in walk order',
-    sections.general.map(t => t.id).join(',') === 't1,t6', show(sections.general.map(t => t.id)));
-
-  check('pinned holds A and E, in walk order, archived C excluded',
-    sections.pinned.map(p => p.group.id).join(',') === 'A,E', show(sections.pinned.map(p => p.group.id)));
-  check('pinned A carries its tabs',
-    sections.pinned.find(p => p.group.id === 'A')?.tabs.map(t => t.id).join(',') === 't2,t3');
-  check('pinned E (zero tabs) carries an empty list',
-    sections.pinned.find(p => p.group.id === 'E')?.tabs.length === 0);
-
-  check('projects holds B and D, in walk order',
-    sections.projects.map(p => p.group.id).join(',') === 'B,D', show(sections.projects.map(p => p.group.id)));
-  check('projects B carries its tabs',
-    sections.projects.find(p => p.group.id === 'B')?.tabs.map(t => t.id).join(',') === 't4');
-  check('projects D (zero tabs) carries an empty list',
-    sections.projects.find(p => p.group.id === 'D')?.tabs.length === 0);
-
-  check('archived group C appears in neither pinned nor projects',
-    !sections.pinned.some(p => p.group.id === 'C') && !sections.projects.some(p => p.group.id === 'C'));
-
-  const noUngrouped = sidebarSections(computeSegments([tab('t1', { groupId: 'A' })], [group('A')]));
-  check('general is empty when there are no ungrouped tabs', noUngrouped.general.length === 0);
+  const withUnread = projectCounts(['unread', 'needs-you', 'working']);
+  check('needsYou counts unread alongside needs-you (Phase 7, "waiting for you")',
+    withUnread.needsYou === 2, show(withUnread));
+  check('an asleep unread thread still counts as needsYou (via threadState, since asleep never wins over unread)',
+    projectCounts([threadState({ asleep: true, unread: true })]).needsYou === 1);
 }
 
 console.log('\nthreadView: toastMessage\n');

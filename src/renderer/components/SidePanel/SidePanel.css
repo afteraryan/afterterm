@@ -1,10 +1,16 @@
 /* ── Side panel ────────────────────────────────────────────────────────────
-   The workspace sidebar of docs/mockups/afterterm-next.html (.side, .brand,
-   .srow, .scroll, .sec, .pj, .th, .tlw, .thmore, .rail), against the tokens in
-   theme.css. No borders anywhere: the panel separates from the terminal by
-   tone. .brand and .rail are direct children of .side-panel; everything else
-   (Search, New thread, the scrolling section list) lives in .side-body.
-   Collapsed, the panel narrows to the rail and only .rail is shown. */
+   The workspace sidebar of docs/mockups/design-03-final-sidebar.html (.side,
+   .brand, .srch, .srow, .scroll, .sec, .pj, .th, .tlw, .thmore, .dock),
+   against the tokens in theme.css. No borders anywhere: the panel separates
+   from the terminal by tone. .brand is a direct child of .side-panel;
+   everything else (the Search box, New thread, the scrolling section list and
+   the docked Other projects row) lives in .side-body. The always-on rail is
+   its own component to the panel's left (Rail/), on every screen.
+
+   Hiding (Ctrl+Shift+B, the toggle, or the slide-shut on the way to Home):
+   the width closes to zero over 320ms while the contents fade (design-03
+   decision 1). The panel stays mounted so the slide can animate both ways;
+   app.tsx marks it inert while hidden. */
 
 .side-panel {
   display: flex;
@@ -16,23 +22,28 @@
   padding: 0 8px 8px;
   flex-shrink: 0;
   user-select: none;
-  transition: width var(--med) var(--ease), min-width var(--med) var(--ease);
+  transition: width 320ms var(--ease), min-width 320ms var(--ease), padding 320ms var(--ease);
 }
 
-.side-panel.collapsed {
-  width: var(--rail);
-  min-width: var(--rail);
+.side-panel > * {
+  transition: opacity 160ms var(--ease);
+}
+
+.side-panel.hidden {
+  width: 0;
+  min-width: 0;
   padding: 0;
 }
 
-.side-panel.collapsed > *:not(.rail) {
-  display: none;
+.side-panel.hidden > * {
+  opacity: 0;
 }
 
 /* ── Brand row ─────────────────────────────────────────────────────────── */
 /* The name and version badge moved to the title bar strip above the whole
-   app, and that strip is now the only drag region. This row just holds the
-   Home and Workspace icons and the collapse toggle. */
+   app, and that strip is now the only drag region; the Home and Workspace
+   icons moved to the rail (Phase 8). This row holds the collapse toggle only,
+   at the right end. */
 
 .side-panel .brand {
   height: var(--toprow);
@@ -59,7 +70,80 @@
   min-height: 0;
 }
 
-/* ── Search and New thread rows ────────────────────────────────────────── */
+/* ── Search box ────────────────────────────────────────────────────────── */
+/* Design-03 decision 13: a text box, not a button. Typing filters the panel
+   in place; the shortcut hint gives way to the clear button once there is
+   text (.has). */
+
+.side-panel .srch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 6px 0 12px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--hover);
+  color: var(--text);
+  flex: none;
+  margin: 0 0 2px;
+  transition: background var(--fast);
+}
+
+.side-panel .srch:focus-within {
+  background: var(--hover2);
+}
+
+.side-panel .srch .g {
+  width: 18px;
+  display: grid;
+  place-items: center;
+  color: var(--text3);
+  flex: none;
+}
+
+.side-panel .srch .srch-input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: 0;
+  outline: none;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.side-panel .srch .srch-input::placeholder {
+  color: var(--text3);
+}
+
+.side-panel .srch .k {
+  font-size: 11px;
+  color: var(--text4);
+  flex: none;
+  margin-right: 6px;
+}
+
+.side-panel .srch .clr {
+  display: none;
+  width: 24px;
+  height: 24px;
+  color: var(--text3);
+}
+
+.side-panel .srch.has .clr {
+  display: grid;
+}
+
+.side-panel .srch.has .k {
+  display: none;
+}
+
+.side-panel .nomatch {
+  color: var(--text3);
+  font-size: 13px;
+  padding: 8px 12px;
+}
+
+/* ── New thread row ────────────────────────────────────────────────────── */
 
 .side-panel .srow {
   display: flex;
@@ -135,6 +219,27 @@
   margin-right: 6px;
 }
 
+.side-panel .lblrow .hd {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* The pin glyph in the Pinned heading (design-03 decision 10). */
+.side-panel .lblrow .pin {
+  display: inline-grid;
+  place-items: center;
+  color: var(--text3);
+}
+
+.side-panel .lblrow .acts {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* The heading's buttons (collapse all, New project) only appear while the
+   section is hovered, so a heading reads as a label until you reach for it. */
 .side-panel .lblrow .ib {
   width: 24px;
   height: 24px;
@@ -144,6 +249,108 @@
 
 .side-panel .sec:hover .lblrow .ib {
   opacity: 1;
+}
+
+/* The thin line under the Pinned group (design-03 decision 10). The scroll's
+   own 18px gap sits either side of it. */
+.side-panel .divider {
+  height: 1px;
+  background: #2e2e2e;
+  margin: -9px 12px;
+  flex: none;
+}
+
+/* ── Other projects, docked ────────────────────────────────────────────── */
+/* Design-03 decision 2: the unpinned projects outside the 3-day window sit
+   under the scroll in one collapsed row, "Other projects · N". Opening it
+   grows the list upward (the 0fr to 1fr grid trick the thread lists use) as
+   dim rows with no thread lists. Closed, the row sits under a thin line;
+   open, the whole thing becomes a tray: a darker inset block with its own
+   corners, the same #101010 the rail's pill uses, so the list reads as a
+   drawer that slid out rather than more of the same panel (Aryan,
+   2026-09-19). */
+
+.side-panel .dock {
+  flex: none;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid #2e2e2e;
+  border-radius: 12px;
+  transition: background var(--med) var(--ease), padding var(--med) var(--ease), border-color var(--med) var(--ease);
+}
+
+.side-panel .dock.open {
+  background: #101010;
+  border-top-color: transparent;
+  padding: 6px;
+  margin-top: 8px;
+}
+
+.side-panel .dock.open .drow {
+  color: var(--text);
+}
+
+.side-panel .dock .drow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  color: var(--text2);
+  width: 100%;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background var(--fast);
+}
+
+.side-panel .dock .drow:hover {
+  background: var(--hover);
+}
+
+.side-panel .dock .drow .chev {
+  display: inline-grid;
+  place-items: center;
+  color: var(--text3);
+  transition: transform var(--med) var(--ease);
+}
+
+.side-panel .dock .drow .chev.up {
+  transform: rotate(180deg);
+}
+
+.side-panel .dock .drow .c {
+  margin-left: auto;
+  color: var(--text3);
+  font-size: 12px;
+}
+
+.side-panel .dock .dlist {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--med) var(--ease);
+}
+
+.side-panel .dock .dlist.open {
+  grid-template-rows: 1fr;
+}
+
+.side-panel .dock .dlist > div {
+  overflow: hidden;
+  min-height: 0;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.side-panel .dock .pj {
+  padding-left: 12px;
+}
+
+.side-panel .dock .pj:hover {
+  background: var(--hover);
+}
+
+.side-panel .dock .pj .c {
+  margin-left: auto;
 }
 
 /* ── Project row ───────────────────────────────────────────────────────── */
@@ -198,6 +405,11 @@
 .side-panel .pj:hover .c,
 .side-panel .pj:hover .sig {
   display: none;
+}
+
+/* The compacting pill's own colour, beside the amber bell and green play pills. */
+.side-panel .pj .sig.compact .si {
+  color: var(--compact);
 }
 
 .side-panel .pj .n {
@@ -435,18 +647,4 @@
 
 .side-panel .th.drag-overlay {
   padding-left: 12px;
-}
-
-/* ── Collapsed rail ────────────────────────────────────────────────────── */
-
-.side-panel .rail {
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 11px 0;
-}
-
-.side-panel.collapsed .rail {
-  display: flex;
 }

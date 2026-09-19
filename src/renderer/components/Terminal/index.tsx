@@ -11,7 +11,9 @@ import {
   parseOsc133, initialCommandMarkState, onMark, onEnter, onInput,
   type CommandMarkState,
 } from '../../commandMarks';
-import { TAIL_MAX_LINES, renderTailForTerminal } from '../../../thread-tail';
+import { TAIL_MAX_LINES } from '../../../thread-tail';
+import { JUMP_THRESHOLD_LINES, JumpState, JumpTarget, initialJumpState, onScrollSample, jumpDurationMs, jumpLineAt, prefersReducedMotion, wheelToLines } from '../../jumpScroll';
+import { JumpButton } from '../JumpButton';
 import { isWindowsDrivePath, osc7ToWindowsPath } from '../../../shell-paths';
 
 interface TermInfo {
@@ -32,8 +34,9 @@ interface TabInfo {
   // The source of truth this whole layer reconciles to: an asleep thread has no
   // xterm instance and no PTY, an awake one has both.
   asleep: boolean;
-  // Set for one render when a thread wakes (or comes back from history), which is
-  // the cue to replay its saved scrollback tail above a "Woke just now" divider.
+  // Set when a thread wakes (or comes back from history). Until Phase 9 this was
+  // the cue to replay its saved tail above a "Woke just now" divider; the terminal
+  // no longer reads it, it is kept in the props for the record only.
   wokeAt?: number;
   // The port the thread's process tree was last seen listening on, and the last
   // command entered at its prompt. Both are read on a wake: together they are what
@@ -65,6 +68,15 @@ interface TerminalAreaProps {
   onCwdChange: (tabId: string, cwd: string) => void;
   onNotification: (tabId: string, type: TabNotification | undefined, projectName: string) => void;
   onUserInput: (tabId: string) => void;
+  // Fires on Enter in the terminal. At a Claude Code permission prompt that is the
+  // answer, so it is what ends needs-you (spinnerState.ts, onAnswer). Fired for
+  // every Enter; the state machine ignores it outside a prompt.
+  onAnswer: (tabId: string) => void;
+  // Fires on a real keystroke or paste in the terminal (anything xterm hands to
+  // onData that is not an escape sequence). Typing in a chat is what clears its
+  // unread mark (Aryan, 2026-09-19); the focus reports xterm emits on a tab switch
+  // start with ESC and are excluded, so merely focusing a thread does not count.
+  onTyped: (tabId: string) => void;
   // Fires on every PTY output chunk (byteLen = chunk size), drives the working-
   // spinner's silence-clear and resume-based re-arm (see spinnerState.ts).
   onOutput: (tabId: string, byteLen: number) => void;
@@ -94,11 +106,6 @@ const NOTIF_PREFIXES: [string, TabNotification][] = [
   ['⚙', 'compacting'], // ⚙
   ['▶', 'working'],    // ▶ emitted by UserPromptSubmit hook
 ];
-
-// How long after the spawn the viewport is scrolled back to a woken thread's replay:
-// cmd.exe's clear and banner arrive well inside this, and the resume command is
-// typed at 700 ms, after it.
-const REPLAY_SCROLL_MS = 450;
 
 // How long a freshly spawned shell gets before anything is typed into it. cmd
 // prints its banner and its first prompt inside that window, and input sent before
@@ -220,7 +227,7 @@ const THEME = {
 };
 
 export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(function TerminalArea(
-  { tabs: tabInfos, activeTabId, visible, hidden, onTitleChange, onCwdChange, onNotification, onUserInput, onOutput, onFontSizeChange, onExit, onTail, onCommand },
+  { tabs: tabInfos, activeTabId, visible, hidden, onTitleChange, onCwdChange, onNotification, onUserInput, onAnswer, onTyped, onOutput, onFontSizeChange, onExit, onTail, onCommand },
   ref,
 ) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -236,6 +243,10 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
   onNotificationRef.current = onNotification;
   const onUserInputRef = useRef(onUserInput);
   onUserInputRef.current = onUserInput;
+  const onAnswerRef = useRef(onAnswer);
+  onAnswerRef.current = onAnswer;
+  const onTypedRef = useRef(onTyped);
+  onTypedRef.current = onTyped;
   const onOutputRef = useRef(onOutput);
   onOutputRef.current = onOutput;
   const onFontSizeChangeRef = useRef(onFontSizeChange);
@@ -251,6 +262,16 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
   // inside TermInfo so the OSC handler and the onData handler (both closures made
   // during createTerminal) read and write the same record by tab id.
   const marksRef = useRef(new Map<string, CommandMarkState>());
+
+  // The jump button (Phase 9): where each terminal's viewport was on its last scroll
+  // sample and which end, if any, the button offers, per tab. Only the active
+  // terminal's target is rendered (`jump`), but every terminal keeps its own state
+  // so switching back to a thread does not read its next scroll against a
+  // stranger's position. jumpScroll.ts holds the rule; this side only samples
+  // viewportY (how far from the top) and baseY (how far it can go) on xterm's own
+  // scroll event, which fires for the user's scrolling and for output arriving alike.
+  const jumpRef = useRef(new Map<string, JumpState>());
+  const [jump, setJump] = useState<JumpTarget>(null);
 
   // ── Find bar state (operates on the active tab only) ──────────────────────
   const [findOpen, setFindOpen] = useState(false);
@@ -335,6 +356,8 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
     // The prompt marks describe a buffer that is about to be disposed; a fresh
     // terminal starts again from no prompt seen at all.
     marksRef.current.delete(tabId);
+    jumpRef.current.delete(tabId);
+    if (tabId === activeRef.current) setJump(null);
 
     const destroy = api.pty.destroy(tabId).finally(() => {
       if (pendingDestroyRef.current.get(tabId) === destroy) pendingDestroyRef.current.delete(tabId);
@@ -513,29 +536,13 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         onOutputRef.current(tabId, data.length);
       });
 
-      // A woken thread replays what was on its screen when it went to sleep, dimmed,
-      // with a divider under it, so waking looks like coming back to the same desk
-      // rather than opening a blank terminal. Written before the shell spawns so the
-      // fresh prompt lands under the divider.
-      //
-      // ConPTY does not append to whatever the terminal already shows: it paints its
-      // own viewport with absolute cursor positions and clears the screen when the
-      // shell starts, so a tail left in the viewport would be wiped by the first
-      // paint (seen in the Phase 4 test: only the cmd banner survived). The replay is
-      // therefore pushed into scrollback with a screenful of newlines before the
-      // spawn (ConPTY's clear is a viewport erase, which leaves scrollback alone), and
-      // once the first paint has settled the viewport is scrolled back up so the
-      // tail, the divider and the fresh prompt are on screen together.
-      let replayLines = 0;
-      if (tab.wokeAt) {
-        const tail = await window.afterterm.threads.readTail(tabId);
-        // Slept again while the file was being read: the teardown has already run,
-        // so there must be no PTY left behind for it.
-        if (!termsRef.current.has(tabId)) return;
-        const lines = tail ?? [];
-        replayLines = lines.length + 2;
-        term.write(renderTailForTerminal(lines, 'Woke just now', term.cols) + '\r\n'.repeat(term.rows));
-      }
+      // A woken thread starts with a clean terminal. Until Phase 9 the saved tail was
+      // replayed here, dimmed, above a "Woke just now" divider, and the viewport was
+      // scrolled back to it once ConPTY's first paint had settled; Aryan chose on
+      // 2026-09-19 to drop that, since the asleep pane has already shown the same
+      // tail and the replay stayed on screen after the terminal came back (the
+      // Phase 9 log in PHASES.md). tab.wokeAt still marks "woken this launch" for
+      // the rest of the app; nothing here reads it any more.
 
       // Waking respawns where the thread was: claudeCwd over cwd, because
       // `claude --resume <id>` resolves the session against the *current* cwd's
@@ -543,16 +550,6 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       // hook-reported dir, authoritative across all shells.
       const plan = wakePlan(tab);
       await api.pty.create(tabId, plan.shellId, plan.cwd);
-
-      // Bring the replay back into view once ConPTY's first paint (the clear and the
-      // shell banner) has landed. Only for the thread on screen: a background wake is
-      // scrolled to the bottom like any terminal, and the user finds the tail above.
-      if (replayLines > 0) {
-        setTimeout(() => {
-          if (tabId !== activeRef.current || !termsRef.current.has(tabId)) return;
-          term.scrollLines(-replayLines);
-        }, REPLAY_SCROLL_MS);
-      }
 
       // A chat picks its session back up; a shell just gets a fresh prompt. The id is
       // re-validated as a UUID inside resumeTab as well (session.json is
@@ -593,17 +590,35 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
           if (marks) marksRef.current.set(tabId, onInput(marks, data));
         }
         api.pty.write(tabId, data);
-        // Clear the working spinner only on a REAL interrupt, a bare Esc ('\x1b') or
+        // Clear the working spinner, and since Phase 7 cancel a permission prompt
+        // (needs-you), only on a REAL interrupt, a bare Esc ('\x1b') or
         // Ctrl+C ('\x03'). Must NOT fire on the focus-report sequences xterm emits via
         // onData when the terminal blurs on tab switch (focus-out is 'ESC [ O', focus-in
         // 'ESC [ I'), those were stopping the spinner the moment you left the tab.
         // Arrow keys etc. ('ESC [ A'…) are also multi-char and correctly excluded.
         if (data === '\x1b' || data === '\x03') {
           onUserInputRef.current(tabId);
+        } else if (data === '\r' || data === '\r\n') {
+          // Phase 7: Enter answers a permission prompt (spinnerState.ts, onAnswer);
+          // needs-you ends only when it is answered, never on viewing. A pasted
+          // block ending in a newline is not an Enter keypress and does not match.
+          onAnswerRef.current(tabId);
         }
+        // Any real keystroke (not an escape sequence: arrows, focus reports) is
+        // the user working in this thread, which clears its unread mark.
+        if (data.length > 0 && !data.startsWith('\x1b')) onTypedRef.current(tabId);
       });
 
       term.onResize(({ cols, rows }) => api.pty.resize(tabId, cols, rows));
+
+      jumpRef.current.set(tabId, initialJumpState(term.buffer.active.viewportY));
+      term.onScroll(() => {
+        const buffer = term.buffer.active;
+        const prev = jumpRef.current.get(tabId) ?? initialJumpState(buffer.viewportY);
+        const next = onScrollSample(prev, buffer.viewportY, buffer.baseY, JUMP_THRESHOLD_LINES);
+        jumpRef.current.set(tabId, next);
+        if (tabId === activeRef.current && next.target !== prev.target) setJump(next.target);
+      });
 
       term.onTitleChange((rawTitle) => {
         const notifType = detectNotification(rawTitle);
@@ -724,6 +739,65 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
     }
   }, [activeTabId]);
 
+  // The jump button follows the active terminal. Switching threads re-bases the
+  // new one's sample on where its viewport is now and starts it hidden: the next
+  // scroll decides the direction, not the last one made before switching away.
+  useEffect(() => {
+    const info = termsRef.current.get(activeTabId);
+    if (info) jumpRef.current.set(activeTabId, initialJumpState(info.term.buffer.active.viewportY));
+    setJump(null);
+  }, [activeTabId]);
+
+  // A jump scrolls, it does not teleport (Aryan, 2026-09-19). xterm has no smooth
+  // scrolling of its own, so the viewport is moved line by line on animation
+  // frames along an ease-out curve (jumpLineAt), instant under reduced motion. A
+  // second click, or a jump on another thread, cancels the one in flight; the
+  // scroll events fired along the way resample the button, which hides on arrival.
+  const jumpFrameRef = useRef<number | null>(null);
+  const jumpTo = useCallback((target: 'top' | 'bottom') => {
+    const info = termsRef.current.get(activeRef.current);
+    if (!info) return;
+    const term = info.term;
+    if (jumpFrameRef.current !== null) cancelAnimationFrame(jumpFrameRef.current);
+    const from = term.buffer.active.viewportY;
+    const to = target === 'top' ? 0 : term.buffer.active.baseY;
+    const duration = prefersReducedMotion() ? 0 : jumpDurationMs(to - from);
+    if (duration === 0) {
+      if (target === 'top') term.scrollToTop(); else term.scrollToBottom();
+      return;
+    }
+    const started = performance.now();
+    const step = (now: number) => {
+      // The terminal may have been torn down mid-jump (sleep, close).
+      if (!termsRef.current.has(activeRef.current) || termsRef.current.get(activeRef.current)?.term !== term) return;
+      const elapsed = now - started;
+      // Output arriving during a jump to the bottom moves the bottom; re-read it.
+      const end = target === 'top' ? 0 : term.buffer.active.baseY;
+      term.scrollToLine(jumpLineAt(from, end, elapsed, duration));
+      if (elapsed < duration) jumpFrameRef.current = requestAnimationFrame(step);
+      else jumpFrameRef.current = null;
+    };
+    jumpFrameRef.current = requestAnimationFrame(step);
+  }, []);
+
+  // A wheel event over the jump button scrolls the active terminal as if the
+  // button were not there, so it never interrupts scrolling. The native event
+  // never reaches xterm (the button is a sibling of the terminal host, not a
+  // child of it), and replaying a constructed WheelEvent onto xterm does nothing
+  // (see wheelToLines), so the lines are computed with xterm's own maths and
+  // applied through scrollLines. The cell height is the screen's height over
+  // the row count, which holds for the WebGL renderer too.
+  const wheelCarryRef = useRef(0);
+  const wheelToTerminal = useCallback((deltaY: number, _deltaX: number, deltaMode: number) => {
+    const info = termsRef.current.get(activeRef.current);
+    if (!info) return;
+    const screen = info.container.querySelector('.xterm-screen');
+    const cellHeight = screen ? screen.clientHeight / Math.max(1, info.term.rows) : 0;
+    const { lines, carry } = wheelToLines(deltaY, deltaMode, cellHeight, info.term.rows, wheelCarryRef.current);
+    wheelCarryRef.current = carry;
+    if (lines !== 0) info.term.scrollLines(lines);
+  }, []);
+
   // Coming back from another screen. The workspace is hidden with display: none
   // while Home or a project page shows, and FitAddon on a hidden container
   // measures 0, so the active terminal is left at the size it had. Refit it once
@@ -788,6 +862,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         tail(tabId: string, n?: number): string[] | null;
         activeTail(n?: number): string[] | null;
         commandState(tabId: string): CommandMarkState | null;
+        viewport(tabId?: string): { viewportY: number; baseY: number } | null;
       };
     };
     // Extended, never replaced: app.tsx hangs its own harness value
@@ -798,6 +873,14 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       activeTail: (n = 30) => readTail(activeRef.current, n),
       // Lets the harness check the OSC 133 marks landed without reading the buffer.
       commandState: (tabId) => marksRef.current.get(tabId) ?? null,
+      // Phase 9: where a terminal's viewport sits (the jump button's own inputs),
+      // since xterm 6 no longer mirrors it on .xterm-viewport's scrollTop.
+      viewport: (tabId = activeRef.current) => {
+        const info = termsRef.current.get(tabId);
+        if (!info) return null;
+        const buffer = info.term.buffer.active;
+        return { viewportY: buffer.viewportY, baseY: buffer.baseY };
+      },
     };
   }, []);
 
@@ -820,6 +903,8 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       {/* React never touches this node's children, terminal containers are appended
           imperatively. The find bar lives as a sibling so React can manage it freely. */}
       <div ref={hostRef} className="terminal-host" />
+
+      <JumpButton target={jump} onJump={jumpTo} onWheel={wheelToTerminal} />
 
       {findOpen && (
         <div className="find-bar">

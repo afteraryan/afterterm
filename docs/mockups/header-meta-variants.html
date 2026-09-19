@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Header line variants</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap">
+<style>
+:root{--bg:#212121;--side:#171717;--hover:#2f2f2f;--hover2:#383838;--text:#ececec;--text2:#b4b4b4;--text3:#8e8e8e;--text4:#5c5c5c;--live:#4ade80;--sleep:#a78bfa}
+*{box-sizing:border-box}
+body{margin:0;background:var(--side);color:var(--text);font-family:'Inter',system-ui,sans-serif;font-size:14px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1040px;margin:0 auto;padding:40px 24px 80px;display:flex;flex-direction:column;gap:28px}
+h1{font-size:22px;font-weight:500;margin:0 0 6px}
+.lead{color:var(--text3);margin:0;line-height:1.5}
+svg{display:block;flex:none}
+
+.card{display:flex;flex-direction:column;gap:10px}
+.card h2{font-size:15px;font-weight:500;margin:0}
+.card p{margin:0;color:var(--text3);line-height:1.5;max-width:720px}
+
+/* The main pane, exactly as the app draws it: the pane sits on the sidebar grey with a rounded top-left corner, the header is the 56px row at the top. */
+.pane{background:var(--bg);border-radius:16px 0 0 0;overflow:hidden}
+.header{height:56px;display:flex;align-items:center;gap:14px;padding:0 20px}
+.header-title{min-width:0;flex:1;display:flex;flex-direction:column;gap:2px}
+.header-name{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:500;line-height:1.35;color:var(--text);white-space:nowrap;overflow:hidden}
+.header-name span{overflow:hidden;text-overflow:ellipsis}
+.header-name .ki{color:var(--text3)}
+.header-meta{min-width:0;display:flex;align-items:center;flex-wrap:wrap;gap:14px;color:var(--text3);font-size:12.5px;line-height:1.4}
+.header-meta-item{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.header-meta-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.header-meta-worktree{min-width:0;flex-shrink:1;overflow:hidden}
+.fo{color:#60a5fa;display:inline-flex}
+.header-actions{display:flex;align-items:center;gap:4px;flex:none}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:var(--hover);color:var(--text2);font-size:13px;white-space:nowrap}
+.chip .si{color:var(--live)}
+.ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:var(--text3)}
+.term{height:64px;margin:0 20px 20px;background:#191919;border-radius:12px;border:1px solid #262626;font-family:Consolas,'Cascadia Code',monospace;font-size:13px;color:var(--text2);padding:10px 14px}
+
+/* Brighter text, same size */
+.v-bright .header-meta{color:var(--text2)}
+.v-bright .header-meta svg,.v-bright .header-meta .fo{color:var(--text3)}
+.v-bright .header-meta .fo{color:#60a5fa}
+
+/* Brighter, slightly larger */
+.v-larger .header-meta{color:var(--text2);font-size:13.5px}
+.v-larger .header-meta svg{color:var(--text3)}
+.v-larger .header-meta .fo svg{color:#60a5fa}
+
+/* Each item as a small chip */
+.v-chips .header-meta{gap:6px;color:var(--text2);font-size:12.5px}
+.v-chips .header-meta-item{padding:2px 8px 2px 6px;border-radius:999px;background:var(--hover)}
+.v-chips .header-meta svg{color:var(--text3)}
+.v-chips .header-meta .fo svg{color:#60a5fa}
+
+.swatch{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:-1px;margin-right:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <h1>Which header line is easiest to read at a glance?</h1>
+    <p class="lead">The same thread header four times. The first is what the app shows today. The line under the thread name is the project, the model, the branch and the worktree. Only that line changes between the four; the name, the chip and the dots stay as they are.</p>
+  </div>
+
+  <div class="card">
+    <h2>Today: dim grey text at 12.5px</h2>
+    <p>Line 2 uses the palette's dimmest text colour (<span class="swatch" style="background:#8e8e8e"></span>#8e8e8e) at 12.5px. This is the line you said is too faint.</p>
+    <div class="pane">
+      <div class="header" id="h0"></div>
+      <div class="term">&gt; Running tests in src/renderer...</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Brighter text, same size</h2>
+    <p>Only the colour changes: the values move to the second-brightest text colour (<span class="swatch" style="background:#b4b4b4"></span>#b4b4b4). The icons stay dim so the words lead. Nothing moves.</p>
+    <div class="pane v-bright">
+      <div class="header" id="h1"></div>
+      <div class="term">&gt; Running tests in src/renderer...</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Brighter text, slightly larger</h2>
+    <p>The same brighter colour, and the size goes from 12.5px to 13.5px. The header row stays 56px tall, so the two lines sit a touch closer together.</p>
+    <div class="pane v-larger">
+      <div class="header" id="h2"></div>
+      <div class="term">&gt; Running tests in src/renderer...</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Each item as a small chip</h2>
+    <p>Project, model, branch and worktree each sit in a small rounded chip with the same faint background as the state chip on the right. Text colour is the brighter one, size stays 12.5px.</p>
+    <div class="pane v-chips">
+      <div class="header" id="h3"></div>
+      <div class="term">&gt; Running tests in src/renderer...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const S = (path, extra = '') => `<svg width="14" height="14" viewBox="0 0 24 24" ${extra}>${path}</svg>`;
+const icChat = `<svg width="18" height="18" viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 3.5V17H6.5A2.5 2.5 0 0 1 4 14.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>`;
+const icFolder = S(`<path d="M2.5 7A2 2 0 0 1 4.5 5h4.6l2 2h7.4a2 2 0 0 1 2 2v1.5H6.6a2 2 0 0 0-1.9 1.4L2.5 17z" fill="currentColor" fill-opacity=".72"/><path d="M2.6 18.2 5 11.9a1.5 1.5 0 0 1 1.4-1H22l-2.7 7.1a2 2 0 0 1-1.9 1.3H4.3a1.8 1.8 0 0 1-1.7-2.1z" fill="currentColor"/>`);
+const icModel = S(`<path d="M12 3.5c.6 3.8 2.7 5.9 6.5 6.5-3.8.6-5.9 2.7-6.5 6.5-.6-3.8-2.7-5.9-6.5-6.5 3.8-.6 5.9-2.7 6.5-6.5zM18.5 14.5c.3 1.7 1.2 2.6 2.9 2.9-1.7.3-2.6 1.2-2.9 2.9-.3-1.7-1.2-2.6-2.9-2.9 1.7-.3 2.6-1.2 2.9-2.9z" fill="currentColor"/>`);
+const icBranch = S(`<circle cx="6" cy="5" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="6" cy="19" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="18" cy="8" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M6 7.2v9.6M18 10.2c0 3.3-3 4.3-6 4.8-2.6.4-6 1-6 1.8" fill="none" stroke="currentColor" stroke-width="1.6"/>`);
+const icWorktree = S(`<path d="M3 7.5A1.5 1.5 0 0 1 4.5 6H9l2 2h8.5A1.5 1.5 0 0 1 21 9.5v8A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 11.5v5M9 11.5c0 2.5 2.5 2.5 5.5 2.5M14.5 12v4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="9" cy="11.5" r="1.1" fill="currentColor"/><circle cx="14.5" cy="12" r="1.1" fill="currentColor"/>`);
+const icPlay = `<svg width="14" height="14" viewBox="0 0 24 24"><path d="M8 5.5v13l10-6.5z" fill="currentColor"/></svg>`;
+const icMore = `<svg width="18" height="18" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="18" cy="12" r="1.6" fill="currentColor"/></svg>`;
+const html = `
+  <div class="header-title">
+    <div class="header-name"><span class="ki">${icChat}</span><span>Fix the flaky sidebar hover test</span></div>
+    <div class="header-meta">
+      <span class="header-meta-item"><span class="fo">${icFolder}</span>afterterm</span>
+      <span class="header-meta-item">${icModel}Opus 5</span>
+      <span class="header-meta-item">${icBranch}phase-9-output-and-visual-fixes</span>
+      <span class="header-meta-item header-meta-worktree">${icWorktree}<span class="header-meta-text">.claude\\worktrees\\phase-9-output-and-visual-fixes</span></span>
+    </div>
+  </div>
+  <div class="header-actions">
+    <span class="chip"><span class="si">${icPlay}</span>Running on :5173</span>
+    <span class="ic">${icMore}</span>
+  </div>`;
+for (const id of ['h0','h1','h2','h3']) document.getElementById(id).innerHTML = html;
+</script>
+</body>
+</html>

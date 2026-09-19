@@ -24,7 +24,20 @@
 //                                  in the same session (the override ends when the command exits)
 //   type "<text>"                 insert text at the focused element
 //   key <Enter|Escape|Tab|...> [--ctrl] [--shift] [--alt]
-//   sidebar                       the rendered sidebar as a tree
+//   sidebar                       the rendered sidebar as a tree (Phase 8: side-panel
+//                                  reports hidden, not collapsed; each section prints its
+//                                  data-sec key and whether it has a collapse button; the
+//                                  docked Other row is printed after the sections)
+//   rail                          the always-on rail as a tree: which screen it thinks it
+//                                  is on, whether its two closable blocks are open, which
+//                                  nav pill is selected, the persisted panelHidden flag,
+//                                  then one line per tile naming it and its non-zero badges
+//   dock                          the panel's docked "Other projects" row: its count, open
+//                                  or closed, and its rows when open, or "(no dock)"
+//   search [text] [--clear]       with text, sets the panel's search box (Phase 8) so it
+//                                  filters in place; with no text, reports the box's value,
+//                                  filtering or empty, and whether the new-thread row and
+//                                  the dock are shown; --clear clicks the box's clear button
 //   screen                        which screen is showing plus overlay flags, as JSON
 //   home                          the rendered Home screen as a tree
 //   project                       the rendered project page as a tree
@@ -41,9 +54,30 @@
 //   confirm                       the close confirm dialog as a tree (title, body,
 //                                  confirm and cancel button text), or "(no confirm dialog)"
 //   opened                        the URL the last "Open localhost:port" click reached
-//                                  (window.__afterterm.lastOpenExternal), or "(nothing opened)"
+//                                  (window.__afterterm.lastOpenExternal), or "(nothing opened)",
+//                                  then the folder the last "Open in File Explorer" reached
+//                                  (window.__afterterm.lastOpenFolder), or "folder: (none opened)"
+//   scroll <sel> <deltaY> [i]     a mouse wheel over the element, deltaY in pixels, negative = up
+//   wheel-on-jump [deltaY]        a wheel over the shown jump button itself; prints the scroller
+//                                  position before and after (default deltaY -300)
 //   marks [--tab <id>]            window.__afterterm.commandState(id): at-prompt flag
 //                                  and prompt-end row/col, or "(no marks)"
+//   jump                           the jump-to-top/bottom button (.jump-btn): "jump: hidden"
+//                                  or "jump: shown target=<top|bottom>" (no tooltip since Aryan's
+//                                  first use; shown means data-shown="true", the button stays mounted
+//                                  while it shrinks away)
+//   pane-scroll                    the asleep pane's scroller position: "pane scroll:
+//                                  top=<n> max=<n> atEnd=<bool>", or "(no asleep pane)"
+//   reload                        reload the renderer page (location.reload). Vite's Fast
+//                                  Refresh keeps an edited component's state and does not
+//                                  re-run its mount-only effects, so a listener registered
+//                                  once (the shortcut dispatch in app.tsx) can go on calling
+//                                  the old code after an edit; a reload is the way to be sure
+//                                  a renderer edit is what the page is running
+//   counts [--project <label>]    window.__afterterm.counts(): the attention aggregate
+//                                  (attention.ts): waiting, working, compacting, running
+//                                  and finished in total and per project, plus the rail
+//                                  list; --project prints one project's line only
 //   window bottom|restore|quit|close-dialogs   OS-level window z-order, un-minimise,
 //                                  a graceful quit (WM_CLOSE, so the quit flush runs), and
 //                                  closing stray native dialogs (e.g. a file picker)
@@ -68,7 +102,7 @@ import {
 // Read from src/renderer/components/SidePanel/index.tsx and SidePanel.css.
 const SEL = {
   panel: '.side-panel',
-  panelCollapsedClass: 'collapsed',
+  panelHiddenClass: 'hidden', // Phase 8: replaces panelCollapsedClass ('collapsed' no longer exists)
   section: '.sec',
   sectionLabel: '.lbl',
   projectWrap: '.pjw',
@@ -77,6 +111,7 @@ const SEL = {
   projectRename: '.pj-rename',
   pillNeed: '.sig.need',
   pillRun: '.sig.run',
+  pillCompact: '.sig.compact', // Phase 8: compacting's own pill, separate from the play pill
   threadListWrap: '.tlw',
   threadListClosedClass: 'closed',
   threadRow: '.th',
@@ -87,7 +122,45 @@ const SEL = {
   threadPort: '.prt', // Phase 5: the ":5173" span a running thread's row gains
   stateIcon: '[data-state]',
   showMore: '.thmore',
-  rail: '.rail',
+  collapseSecButton: '[data-collapse-sec]',
+  nomatch: '.nomatch',
+
+  // Phase 8: the panel's search box (src/renderer/components/SidePanel/index.tsx, `.srch`).
+  search: {
+    box: '.srch',
+    hasClass: 'has',
+    input: 'input.srch-input',
+    clear: '[data-clear]',
+    newThreadRow: '.srow[data-new-thread]',
+  },
+
+  // Phase 8: the panel's docked "Other projects" row (`.dock[data-dock]`).
+  dock: {
+    root: '.dock[data-dock]',
+    list: '.dlist',
+    openClass: 'open',
+    toggle: '[data-dock-toggle]',
+    count: '.c',
+    row: '.pj[data-other]',
+    name: '.n',
+    ago: '.c',
+  },
+
+  // Phase 8: the always-on rail, its own component left of the panel on every
+  // screen (src/renderer/components/Rail/index.tsx, Rail.css).
+  rail: {
+    root: '.rail-bar',
+    block: '.railblk',
+    blockOpenClass: 'open',
+    togglePanel: '[data-toggle-panel]',
+    goHome: '[data-go="home"]',
+    goWork: '[data-go="work"]',
+    newThread: '[data-new-thread]',
+    tile: '.tiles .l1',
+    tileButton: '.tile',
+    badge: '.bd[data-badge]',
+    corner: '[data-corner="compacting"]', // Phase 8: compacting is a corner icon, not a count
+  },
 
   // Home screen (src/renderer/components/Home/index.tsx, Home.css).
   home: {
@@ -182,9 +255,18 @@ const SEL = {
     wake: '[data-wake]',
     since: '.wakebox .w',
     past: 'pre.past',
+    // Phase 9: the inner scroller AsleepPane restructured onto, so the
+    // JumpButton can sit as a plain sibling of it and stay put at the pane's
+    // bottom-right instead of scrolling away with the content.
+    scroll: '.asleep-scroll',
   },
   // Phase 4: the terminal host carries this class while the asleep pane covers it.
   terminalHidden: '.terminal-instances.asleep-hidden',
+
+  // Phase 9: the jump-to-top / jump-to-bottom button (src/renderer/components/
+  // JumpButton/index.tsx), floated over either scroller it is mounted in
+  // (the live terminal's .terminal-instances, or the asleep pane's .asleep-scroll).
+  jumpButton: '.jump-btn',
 
   // Phase 5: the close confirm shown when closing a thread that owns a listening
   // port (src/renderer/components/ConfirmDialog/index.tsx). Read from a `.modal-overlay`
@@ -261,12 +343,17 @@ try {
       case 'click': await cmdClick(args[0], args[1], 'left'); break;
       case 'rightclick': await cmdClick(args[0], args[1], 'right'); break;
       case 'hover': await cmdHover(args[0], args[1]); break;
+      case 'scroll': await cmdScroll(args[0], args[1], args[2]); break;
+      case 'wheel-on-jump': await cmdWheelOnJump(args[0]); break;
       case 'unhover': await cmdUnhover(); break;
       case 'drag': await cmdDrag(args); break;
       case 'emulate-media': await cmdEmulateMedia(args[0]); break;
       case 'type': await cmdType(args.join(' ')); break;
       case 'key': await cmdKey(args[0]); break;
       case 'sidebar': await cmdSidebar(); break;
+      case 'rail': await cmdRail(); break;
+      case 'dock': await cmdDock(); break;
+      case 'search': await cmdSearch(args.join(' ')); break;
       case 'screen': await cmdScreen(); break;
       case 'home': await cmdHome(); break;
       case 'project': await cmdProject(); break;
@@ -279,6 +366,10 @@ try {
       case 'confirm': await cmdConfirm(); break;
       case 'opened': await cmdOpened(); break;
       case 'marks': await cmdMarks(); break;
+      case 'jump': await cmdJump(); break;
+      case 'pane-scroll': await cmdPaneScroll(); break;
+      case 'counts': await cmdCounts(); break;
+      case 'reload': await cmdReload(); break;
       case 'window': await cmdWindow(args[0]); break;
       default: throw new DriveError(`unknown command: ${command}`);
     }
@@ -389,6 +480,42 @@ async function cmdClick(selector, indexArg, button) {
   await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button, clickCount: 1 });
   await sleep(50);
   console.log(`${button === 'right' ? 'right-clicked' : 'clicked'} ${selector}[${index}] at (${x}, ${y}) of ${count} match(es)`);
+}
+
+// Phase 9: a mouse wheel over an element, the way a user scrolls a terminal or
+// the asleep pane. deltaY in pixels, positive scrolls down (toward the end),
+// negative up. Sent as one wheel event through Chromium's input pipeline so
+// xterm's own wheel handler and a div's native scrolling both see it; a large
+// delta is split into 100px steps, since xterm turns each event into a line
+// count and one huge event would otherwise jump further than a wheel can.
+async function cmdScroll(selector, deltaArg, indexArg) {
+  if (!selector) fail('scroll needs a selector and a deltaY (pixels, negative = up)');
+  const deltaY = Number(deltaArg);
+  if (!Number.isFinite(deltaY) || deltaY === 0) fail('scroll needs a non-zero deltaY');
+  const { x, y, count, index } = await elementCentre(selector, indexArg);
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'none' });
+  const step = 100;
+  let left = Math.abs(deltaY);
+  const sign = Math.sign(deltaY);
+  while (left > 0) {
+    const d = Math.min(step, left);
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX: 0, deltaY: sign * d });
+    await sleep(16);
+    left -= d;
+  }
+  await sleep(80);
+  console.log(`scrolled ${selector}[${index}] by ${deltaY}px at (${x}, ${y}) of ${count} match(es)`);
+}
+
+// Phase 9: a wheel over the jump button itself (the button appears under the
+// pointer mid-scroll), to prove it hands the wheel on to the scroller instead
+// of swallowing it. Prints the scroller position before and after.
+async function cmdWheelOnJump(deltaArg) {
+  const deltaY = Number(deltaArg ?? -300);
+  const read = `(() => { const v = window.__afterterm.viewport && window.__afterterm.viewport(); if (v) return 'terminal viewportY=' + v.viewportY; const s = document.querySelector('.asleep-scroll'); return s ? 'pane top=' + s.scrollTop : '(no scroller)'; })()`;
+  console.log(`before: ${await evaluate(cdp, read)}`);
+  await cmdScroll('.jump-btn[data-shown="true"]', String(deltaY), '0');
+  console.log(`after:  ${await evaluate(cdp, read)}`);
 }
 
 async function cmdHover(selector, indexArg) {
@@ -522,6 +649,9 @@ async function cmdSidebar() {
         kind: row.dataset.kind || null,
         state: icon ? icon.getAttribute('data-state') : 'quiet',
         asleep: row.classList.contains(S.threadAsleepClass),
+        // Phase 7: a chat marked unread carries the bell with data-state="unread";
+        // reported as its own flag too so a reader does not have to know that.
+        unread: !!(icon && icon.getAttribute('data-state') === 'unread'),
         close: !!row.querySelector(S.threadClose),
         // Phase 5: only present while the thread owns a listening port; already
         // carries its own leading colon (e.g. ":5173").
@@ -545,6 +675,7 @@ async function cmdSidebar() {
           threads: row ? Number(row.dataset.threads || 0) : 0,
           need: text(row && row.querySelector(S.pillNeed)) || null,
           run: text(row && row.querySelector(S.pillRun)) || null,
+          compact: text(row && row.querySelector(S.pillCompact)) || null,
           more: text(more) || null,
           rows: list && !list.classList.contains(S.threadListClosedClass) ? threadsUnder(list) : [],
         };
@@ -554,31 +685,166 @@ async function cmdSidebar() {
         .filter(c => c.matches && c.matches(S.threadRow))
         .map(threadInfo);
       const looseMore = sec.querySelector(':scope > ' + S.showMore);
-      return { label, projects, loose, looseMore: text(looseMore) || null };
+      return {
+        label,
+        key: sec.dataset.sec || null,
+        hasCollapseButton: !!sec.querySelector(S.collapseSecButton),
+        projects,
+        loose,
+        looseMore: text(looseMore) || null,
+      };
     });
+
+    // Phase 8: the docked "Other projects" row, read the same way the dock command reads it.
+    const dockRoot = panel.querySelector(S.dock.root);
+    let dock = null;
+    if (dockRoot) {
+      const list = dockRoot.querySelector(S.dock.list);
+      const open = !!(list && list.classList.contains(S.dock.openClass));
+      const toggle = dockRoot.querySelector(S.dock.toggle);
+      dock = {
+        count: toggle ? text(toggle.querySelector(S.dock.count)) : null,
+        open,
+        rows: open ? Array.from(dockRoot.querySelectorAll(S.dock.row)).map(r => ({
+          name: text(r.querySelector(S.dock.name)),
+          ago: text(r.querySelector(S.dock.ago)),
+        })) : [],
+      };
+    }
 
     return {
       present: true,
-      collapsed: panel.classList.contains(S.panelCollapsedClass),
-      rail: !!panel.querySelector(S.rail),
+      hidden: panel.classList.contains(S.panelHiddenClass),
       sections,
+      nomatch: !!panel.querySelector(S.nomatch),
+      dock,
     };
   })(${JSON.stringify(SEL)})`);
 
   if (!tree.present) { console.log(`(no ${SEL.panel} in the DOM)`); return; }
-  console.log(`side-panel${tree.collapsed ? ' (collapsed, rail only)' : ''}`);
-  const threadLine = (t, indent) => `${indent}- ${t.active ? '* ' : ''}"${t.title}" [${t.kind || '?'}/${t.state || 'quiet'}]${t.port ? ' ' + t.port : ''}${t.asleep ? ' [asleep]' : ''}${t.close ? ' [x]' : ''}`;
+  console.log(`side-panel${tree.hidden ? ' (hidden)' : ''}`);
+  const threadLine = (t, indent) => `${indent}- ${t.active ? '* ' : ''}"${t.title}" [${t.kind || '?'}/${t.state || 'quiet'}]${t.port ? ' ' + t.port : ''}${t.unread ? ' [unread]' : ''}${t.asleep ? ' [asleep]' : ''}${t.close ? ' [x]' : ''}`;
   for (const sec of tree.sections) {
-    console.log(`  ${sec.label}`);
+    console.log(`  ${sec.label}${sec.key ? ` [${sec.key}]` : ''}${sec.hasCollapseButton ? ' [collapse]' : ''}`);
     for (const t of sec.loose) console.log(threadLine(t, '    '));
     if (sec.looseMore) console.log(`    (${sec.looseMore})`);
     for (const p of sec.projects) {
-      const pills = [p.need ? `need=${p.need}` : null, p.run ? `run=${p.run}` : null].filter(Boolean).join(' ');
+      const pills = [p.need ? `need=${p.need}` : null, p.run ? `run=${p.run}` : null, p.compact ? `compact=${p.compact}` : null].filter(Boolean).join(' ');
       console.log(`    [project] ${p.label}  threads=${p.threads}${p.collapsed ? ' collapsed' : ''}${pills ? '  ' + pills : ''}`);
       for (const t of p.rows) console.log(threadLine(t, '      '));
       if (p.more) console.log(`      (${p.more})`);
     }
   }
+  if (tree.nomatch) console.log('  (No matches)');
+  if (tree.dock) {
+    console.log(`  Other projects · ${tree.dock.count || '0'} (${tree.dock.open ? 'open' : 'closed'})`);
+    if (tree.dock.open) {
+      for (const r of tree.dock.rows) console.log(`    - ${r.name} (${r.ago})`);
+    }
+  }
+}
+
+// Phase 8: the always-on rail (src/renderer/components/Rail/index.tsx, Rail.css),
+// its own component left of the panel on every screen.
+async function cmdRail() {
+  const S = SEL.rail;
+  const data = await evaluate(cdp, `((S) => {
+    const text = el => (el ? (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim() : '');
+    const root = document.querySelector(S.root);
+    if (!root) return { present: false };
+    const blocksOpen = Array.from(root.querySelectorAll(S.block)).some(b => b.classList.contains(S.blockOpenClass));
+    const goHome = root.querySelector(S.goHome);
+    const goWork = root.querySelector(S.goWork);
+    const nav = goHome && goHome.getAttribute('aria-selected') === 'true' ? 'home'
+      : goWork && goWork.getAttribute('aria-selected') === 'true' ? 'work' : null;
+    const tiles = Array.from(root.querySelectorAll(S.tile)).map(l1 => {
+      const btn = l1.querySelector(S.tileButton);
+      const badges = Array.from(l1.querySelectorAll(S.badge)).map(b => ({
+        badge: b.getAttribute('data-badge'),
+        count: text(b),
+      }));
+      return { name: btn ? btn.getAttribute('data-tip') : null, badges, compacting: !!l1.querySelector(S.corner) };
+    });
+    return { present: true, screen: root.dataset.screen || null, blocksOpen, nav, tiles };
+  })(${JSON.stringify(S)})`);
+
+  if (!data.present) { console.log(`(no ${S.root} in the DOM)`); return; }
+  const panelHidden = await evaluate(cdp, `window.__afterterm && window.__afterterm.panelHidden ? window.__afterterm.panelHidden() : null`);
+  console.log(`rail screen=${data.screen || '?'} blocks=${data.blocksOpen ? 'open' : 'closed'} nav=${data.nav || '?'} panelHidden=${panelHidden === null ? '?' : panelHidden}`);
+  if (!data.tiles.length) { console.log('  (no tiles)'); return; }
+  for (const t of data.tiles) {
+    const badges = t.badges.map(b => `${b.badge}=${b.count}`).concat(t.compacting ? ['compacting'] : []).join(' ');
+    console.log(`  - ${t.name || '(unnamed)'}  ${badges || '(no badges)'}`);
+  }
+}
+
+// Phase 8: the panel's docked "Other projects" row on its own (also printed as
+// part of `sidebar`, for a command that only cares about the dock).
+async function cmdDock() {
+  const S = SEL.dock;
+  const data = await evaluate(cdp, `((S) => {
+    const text = el => (el ? (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim() : '');
+    const root = document.querySelector(S.root);
+    if (!root) return { present: false };
+    const list = root.querySelector(S.list);
+    const open = !!(list && list.classList.contains(S.openClass));
+    const toggle = root.querySelector(S.toggle);
+    const rows = open ? Array.from(root.querySelectorAll(S.row)).map(r => ({
+      name: text(r.querySelector(S.name)),
+      ago: text(r.querySelector(S.ago)),
+    })) : [];
+    return { present: true, count: toggle ? text(toggle.querySelector(S.count)) : null, open, rows };
+  })(${JSON.stringify(S)})`);
+
+  if (!data.present) { console.log('(no dock)'); return; }
+  console.log(`Other projects · ${data.count || '0'} (${data.open ? 'open' : 'closed'})`);
+  for (const r of data.rows) console.log(`  - ${r.name} (${r.ago})`);
+}
+
+// Phase 8: the panel's in-place search box (src/renderer/components/SidePanel/
+// index.tsx, `.srch`). With text, clicks the box to focus it, then sets the
+// value the React-friendly way (the native input value setter, then an
+// 'input' event so React 19's onChange sees it). With no text, reports what
+// the box and its two dependents (the new-thread row, the dock) currently show.
+async function cmdSearch(text) {
+  const S = SEL.search;
+  if (opts.clear) {
+    await cmdClick(S.clear, 0, 'left');
+    return;
+  }
+  if (text) {
+    const { x, y } = await elementCentre(S.input, 0);
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'none' });
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+    const ok = await evaluate(cdp, `(() => {
+      const el = document.querySelector(${JSON.stringify(S.input)});
+      if (!el) return false;
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+      setter.call(el, ${JSON.stringify(text)});
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
+    })()`);
+    if (!ok) fail(`no ${S.input} in the DOM`);
+    console.log(`search box set to ${JSON.stringify(text)}`);
+    return;
+  }
+  const data = await evaluate(cdp, `((S) => {
+    const el = document.querySelector(S.input);
+    if (!el) return { present: false };
+    const box = document.querySelector(S.box);
+    return {
+      present: true,
+      value: el.value,
+      filtering: !!(box && box.classList.contains(S.hasClass)),
+      newThreadShown: !!document.querySelector(S.newThreadRow),
+      dockShown: !!document.querySelector(S.dockRoot),
+    };
+  })(${JSON.stringify({ ...S, dockRoot: SEL.dock.root })})`);
+  if (!data.present) { console.log(`(no ${S.input} in the DOM)`); return; }
+  console.log(`search ${JSON.stringify(data.value)} (${data.filtering ? 'filtering' : 'empty'})`);
+  console.log(`new-thread row: ${data.newThreadShown ? 'shown' : 'hidden'}`);
+  console.log(`dock: ${data.dockShown ? 'shown' : 'hidden'}`);
 }
 
 async function cmdScreen() {
@@ -856,12 +1122,21 @@ async function cmdPane() {
     // Absent while the tail is still loading or once loaded empty (AsleepPane
     // only renders <pre class="past"> when tail !== null && tail.length > 0).
     const pastLines = pastEl ? (pastEl.innerText || pastEl.textContent || '').replace(/\\r\\n/g, '\\n').split('\\n') : null;
+    // Phase 9: the inner scroller AsleepPane restructured onto (.asleep-scroll),
+    // read the same way pane-scroll reads it, so one call shows both.
+    const scrollEl = root.querySelector(S.scroll);
+    const scroll = scrollEl ? {
+      top: scrollEl.scrollTop,
+      max: scrollEl.scrollHeight - scrollEl.clientHeight,
+      atEnd: (scrollEl.scrollHeight - scrollEl.clientHeight - scrollEl.scrollTop) <= 2,
+    } : null;
     return {
       present: true,
       tabId: root.dataset.tabId || null,
       wake: !!root.querySelector(S.wake),
       since: text(root.querySelector(S.since)),
       pastLines,
+      scroll,
     };
   })(${JSON.stringify(S)}, ${JSON.stringify(SEL.terminalHidden)})`);
 
@@ -879,6 +1154,41 @@ async function cmdPane() {
     console.log(`past lines: ${data.pastLines.length}`);
     for (const l of data.pastLines.slice(-5)) console.log(`  ${l}`);
   }
+  console.log(data.scroll
+    ? `scroll: top=${data.scroll.top} max=${data.scroll.max} atEnd=${data.scroll.atEnd}`
+    : 'scroll: (no scroller)');
+}
+
+// Phase 9: the jump-to-top / jump-to-bottom button (src/renderer/components/
+// JumpButton/index.tsx), read on its own (also folded into `pane` above's
+// scroller reading is a separate concern; this reads the button itself,
+// wherever it is mounted: the live terminal or the asleep pane).
+async function cmdJump() {
+  const rows = await evaluate(cdp, `((sel) => {
+    const els = Array.from(document.querySelectorAll(sel));
+    // The button stays mounted while it shrinks away (scale-only exit), so
+    // data-shown, not presence, is what says whether it is offered right now.
+    return els.filter(el => el.getAttribute('data-shown') === 'true')
+      .map(el => ({ target: el.getAttribute('data-jump') }));
+  })(${JSON.stringify(SEL.jumpButton)})`);
+  if (!rows.length) { console.log('jump: hidden'); return; }
+  for (const r of rows) console.log(`jump: shown target=${r.target}`);
+}
+
+// Phase 9: the asleep pane's own scroller position, on its own (`pane` above
+// folds the same reading into its output so one call can show both).
+async function cmdPaneScroll() {
+  const S = SEL.asleepPane;
+  const data = await evaluate(cdp, `((S) => {
+    const root = document.querySelector(S.root);
+    if (!root) return { present: false };
+    const el = root.querySelector(S.scroll);
+    if (!el) return { present: false };
+    const max = el.scrollHeight - el.clientHeight;
+    return { present: true, top: el.scrollTop, max, atEnd: (max - el.scrollTop) <= 2 };
+  })(${JSON.stringify(S)})`);
+  if (!data.present) { console.log('(no asleep pane)'); return; }
+  console.log(`pane scroll: top=${data.top} max=${data.max} atEnd=${data.atEnd}`);
 }
 
 // Phase 4: reads an xterm buffer through window.__afterterm, the hook Terminal/
@@ -928,9 +1238,15 @@ async function cmdConfirm() {
 // <data-dir>\harness.log) under AFTERTERM_HARNESS=1 instead of opening a
 // browser; app.tsx also stashes the same url on window.__afterterm.lastOpenExternal,
 // which is what this command reads. Check the log line and this command together.
+// Phase 9: the same for "Open in File Explorer" (a project's folder, or a
+// thread's own folder from the thread menu and the header's worktree item):
+// app.tsx records the folder on window.__afterterm.lastOpenFolder and main logs
+// `[harness] projects:openInExplorer <folder>` instead of launching Explorer.
 async function cmdOpened() {
   const url = await evaluate(cdp, `window.__afterterm && window.__afterterm.lastOpenExternal`);
+  const folder = await evaluate(cdp, `window.__afterterm && window.__afterterm.lastOpenFolder`);
   console.log(url ? url : '(nothing opened)');
+  console.log(folder ? `folder: ${folder}` : 'folder: (none opened)');
 }
 
 // Phase 5: window.__afterterm.commandState(tabId) (Terminal/index.tsx), the OSC
@@ -948,6 +1264,33 @@ async function cmdMarks() {
   if (!data) { console.log('(no marks)'); return; }
   console.log(`at prompt: ${data.atPrompt ? 'yes' : 'no'}`);
   console.log(`prompt end: ${data.promptEnd ? `row ${data.promptEnd.row} col ${data.promptEnd.col}` : '(none)'}`);
+}
+
+// Phase 7: window.__afterterm.counts() (app.tsx), the one attention aggregate
+// (src/renderer/attention.ts) every count in the app reads from: waiting for you
+// (needs-you plus unread), working, compacting (Phase 8), running and finished,
+// in total and per non-archived project, plus the rail list (projects with a
+// thread waiting, finished or compacting). Read straight from state, so it does
+// not wait on the session file's two second debounce.
+async function cmdReload() {
+  await evaluate(cdp, 'setTimeout(() => location.reload(), 0); "ok"');
+  console.log('reloading the page');
+}
+
+async function cmdCounts() {
+  const data = await evaluate(cdp, `window.__afterterm && window.__afterterm.counts ? window.__afterterm.counts() : null`);
+  if (!data) { console.log('(no counts hook: is the app still loading?)'); return; }
+  const line = c => `waiting=${c.waiting} working=${c.working} compacting=${c.compacting} running=${c.running} finished=${c.finished}`;
+  if (opts.project) {
+    const wanted = String(opts.project);
+    const p = data.projects.find(x => x.label === wanted) || data.projects.find(x => x.id === wanted);
+    if (!p) fail(`counts: no project named "${wanted}" (have: ${data.projects.map(x => x.label).join(', ')})`);
+    console.log(`${p.label}  ${line(p)}`);
+    return;
+  }
+  console.log(`total  ${line(data.total)}`);
+  for (const p of data.projects) console.log(`  ${p.pinned ? '[pinned] ' : ''}${p.label}  ${line(p)}`);
+  console.log(`rail: ${data.rail.length ? data.rail.join(', ') : '(empty)'}`);
 }
 
 // The electron browser process id, re-resolved from the listening DevTools

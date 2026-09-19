@@ -4,7 +4,6 @@ import fs from 'fs';
 import os from 'os';
 import { execFile, execFileSync, execSync, spawn } from 'child_process';
 import * as pty from 'node-pty';
-import { runNotifierSelfTest, runNotifierDemo } from './notifier-selftest';
 import { reconcileClaudeHook, HOOK_SCRIPT_NAME } from './claude-hook-install';
 import { detectEditors } from './editor-detect.ts';
 import type { DetectDeps } from './editor-detect.ts';
@@ -49,8 +48,8 @@ if (process.env.AFTERTERM_REMOTE_DEBUG_PORT) {
 // person is working on. Values: "primary" (default), "secondary" (the first
 // non-primary display, falling back to primary when there is only one) or an
 // integer index into screen.getAllDisplays(). Unset means the behaviour normal
-// users get, which is unchanged. This does not fix the "toasts on the wrong monitor"
-// bug in docs/bugs.md (that one is about following the main window at runtime).
+// users get, which is unchanged. The notifier overlay follows the main window
+// instead (notifierDisplay below) and only reads this before that window exists.
 function getTargetDisplay(): Electron.Display {
   const want = (process.env.AFTERTERM_DISPLAY ?? 'primary').trim().toLowerCase();
   const primary = screen.getPrimaryDisplay();
@@ -527,14 +526,45 @@ function pushSetupToast() {
 const NOTIFIER_WIDTH = 340;   // fixed column width; height is content-driven
 const NOTIFIER_MARGIN = 12;   // gap from the screen's bottom-right corner
 
+// The last toast-stack height the renderer reported, so the overlay can be
+// re-placed (a toast pushed after the main window moved to another monitor, a
+// display plugged in or out) without waiting for the renderer to measure again.
+let notifierHeight = 80;
+
+// The display the overlay belongs on: the one holding the main window, so a
+// toast lands beside the app rather than on the primary monitor while afterterm
+// sits on another one (the multi-monitor bug logged on 2026-06-30). Read fresh
+// on every placement, never cached, since the window can be dragged between
+// monitors at any time. Before the main window exists (the overlay is created
+// right after it, but a guard costs nothing) the harness's AFTERTERM_DISPLAY
+// pick applies, which is the primary display when the override is unset. Under
+// the harness the main window sits on the override's display anyway
+// (harnessWindowPlacement), so following it keeps every window off the monitor
+// a person is using while still exercising this exact path.
+function notifierDisplay(): Electron.Display {
+  if (mainWindow && !mainWindow.isDestroyed()) return screen.getDisplayMatching(mainWindow.getBounds());
+  return getTargetDisplay();
+}
+
 // Resize/reposition the overlay so it's anchored to the bottom-right of the work
 // area and exactly as tall as the rendered toast stack (the renderer measures and
 // reports `contentHeight`). Because the window is never larger than its visible
 // content, there is no invisible dead zone swallowing clicks, and nothing for DWM
 // to paint a white bar over above the toasts.
-function positionNotifier(contentHeight: number) {
+// A full repaint of the overlay, the white-bar cure (see createNotifierWindow).
+// Deferred a tick so it lands after the frame paint it is there to overwrite.
+function repaintNotifier() {
+  setTimeout(() => {
+    if (notifierWindow && !notifierWindow.isDestroyed() && notifierWindow.isVisible()) {
+      notifierWindow.webContents.invalidate();
+    }
+  }, 0);
+}
+
+function positionNotifier(contentHeight: number = notifierHeight) {
   if (!notifierWindow || notifierWindow.isDestroyed()) return;
-  const wa = getTargetDisplay().workArea;
+  notifierHeight = contentHeight;
+  const wa = notifierDisplay().workArea;
   const h = Math.max(1, Math.ceil(contentHeight));
   const x = wa.x + wa.width - NOTIFIER_WIDTH - NOTIFIER_MARGIN;
   const y = wa.y + wa.height - h - NOTIFIER_MARGIN;
@@ -542,7 +572,7 @@ function positionNotifier(contentHeight: number) {
 }
 
 function createNotifierWindow() {
-  const wa = getTargetDisplay().workArea;
+  const wa = notifierDisplay().workArea;
   notifierWindow = new BrowserWindow({
     x: wa.x + wa.width - NOTIFIER_WIDTH - NOTIFIER_MARGIN,
     y: wa.y + wa.height - 80 - NOTIFIER_MARGIN,
@@ -583,6 +613,29 @@ function createNotifierWindow() {
 
   notifierWindow.loadURL(notifierUrl);
   notifierWindow.on('closed', () => { notifierWindow = null; });
+
+  // The white bar. The overlay is a transparent layered window, and DWM briefly
+  // turns its non-client (caption) rendering on around a show and around a
+  // foreground change (WM_DWMNCRENDERINGCHANGED 1 then 0, three milliseconds
+  // apart in the harness log). In that gap DWM paints the caption strip, white,
+  // into the top of the window, and Chromium afterwards repaints only its own
+  // content, so the strip stays until a full repaint. It is a race, so it shows
+  // some of the time and not others (2026-09-19: Aryan's trigger was coming back
+  // to afterterm on another thread with a toast up). The cure is a full repaint
+  // right after each moment DWM can touch the frame: the show itself
+  // (notify:push below), the DWM rendering toggle, and the main window gaining
+  // focus. webContents.invalidate() is that repaint.
+  const WM_DWMNCRENDERINGCHANGED = 0x031f;
+  notifierWindow.hookWindowMessage(WM_DWMNCRENDERINGCHANGED, () => repaintNotifier());
+
+  // A monitor plugged in, unplugged or rescaled can leave the overlay on a display
+  // that no longer exists or no longer holds the main window; re-place it at once
+  // rather than on the next toast. Registered here, once, since the overlay is
+  // created once per app run.
+  const replace = () => positionNotifier();
+  screen.on('display-added', replace);
+  screen.on('display-removed', replace);
+  screen.on('display-metrics-changed', replace);
 }
 
 // Only when AFTERTERM_DISPLAY is set: size the main window to fit the target
@@ -635,6 +688,10 @@ function createWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
   }
+
+  // Coming back to afterterm with a toast up is when DWM revisits the overlay's
+  // frame and can leave the white bar (see createNotifierWindow); repaint it.
+  mainWindow.on('focus', () => repaintNotifier());
 
   mainWindow.on('close', (e) => {
     if (isQuitting || ptys.size === 0) return;
@@ -699,6 +756,16 @@ function createWindow() {
       // where shells and Claude Code both use it.
       mainWindow.webContents.send('shortcut', 'search');
       event.preventDefault();
+    } else if (ctrl && shift && key === 'arrowdown') {
+      // Phase 8: the next thread row the panel is showing, in panel order and
+      // across projects (design-03 decisions 6 and 7). Ctrl+Tab keeps its
+      // session-order cycle. Ctrl+Shift+Arrow is not a shell or Claude Code
+      // binding, so taking it here costs the terminal nothing.
+      mainWindow.webContents.send('shortcut', 'next-thread');
+      event.preventDefault();
+    } else if (ctrl && shift && key === 'arrowup') {
+      mainWindow.webContents.send('shortcut', 'prev-thread');
+      event.preventDefault();
     }
   });
 }
@@ -708,7 +775,11 @@ function createWindow() {
 // Main window → notifier: push a new toast — show the window first so it's visible above other apps
 ipcMain.on('notify:push', (_event, toast) => {
   if (notifierWindow && !notifierWindow.isDestroyed()) {
+    // Re-place before showing: the main window may have moved to another monitor
+    // since the last toast, and a hidden overlay is never re-measured meanwhile.
+    positionNotifier();
     notifierWindow.showInactive();
+    repaintNotifier();
     notifierWindow.webContents.send('notify:push', toast);
   }
 });
@@ -743,6 +814,16 @@ ipcMain.on('notifier:resize', (_event, height: number) => {
   positionNotifier(height);
 });
 
+// Under the agent harness (AFTERTERM_HARNESS=1) a browser window or an Explorer
+// window must never land on the person's screen, so "Open localhost:port" and
+// "Open in File Explorer" only log what they would have opened. The one
+// exception is a replica dev build left running for Aryan to use himself
+// (launch.mjs --open-external, AFTERTERM_OPEN_EXTERNAL=1), where the real launch
+// is the point; an automated self-test never sets it.
+function harnessOnlyLogsExternal(): boolean {
+  return process.env.AFTERTERM_HARNESS === '1' && process.env.AFTERTERM_OPEN_EXTERNAL !== '1';
+}
+
 // ─── IPC: open a link in the user's default browser ──────────────────────────
 
 // Clicked URLs / OSC 8 hyperlinks from the terminal. Safelist protocols so a
@@ -758,7 +839,7 @@ ipcMain.handle('shell:openExternal', (_event, url: string) => {
       // line is how a test asserts that "Open localhost:5173" really would have
       // opened. The safelist check stays above this, so the line only appears for a
       // URL that would genuinely have opened.
-      if (process.env.AFTERTERM_HARNESS === '1') {
+      if (harnessOnlyLogsExternal()) {
         console.log(`[harness] shell:openExternal ${url}`);
         return;
       }
@@ -861,6 +942,14 @@ ipcMain.handle('projects:openInExplorer', async (_event, folder: unknown) => {
     return { ok: false, error: 'Folder not found' };
   }
   if (!isUsableFolder(folder)) return { ok: false, error: 'Folder not found' };
+  // Under the agent harness (scripts/agent-harness, AFTERTERM_HARNESS=1) an
+  // Explorer window must never land on the person's screen, so the launch is
+  // logged instead, the same way shell:openExternal is; the checks above still
+  // ran, so the line only appears for a folder that would genuinely have opened.
+  if (harnessOnlyLogsExternal()) {
+    console.log(`[harness] projects:openInExplorer ${folder}`);
+    return { ok: true };
+  }
   const result = await spawnDetached('explorer.exe', [folder]);
   if (result.ok) return { ok: true };
   console.error('[explorer] could not open', folder, result.error);
@@ -1474,16 +1563,6 @@ app.whenReady().then(() => {
   // Before any window loads: the preload reads app:last-opened-at synchronously.
   initLastOpenedAt();
   createNotifierWindow();
-  // Headless geometry self-test: drive the overlay through a toast sequence and
-  // assert the window resizes to fit (no dead zone) and stays bottom-anchored.
-  if (process.env.AFTERTERM_NOTIFY_TEST === '1') {
-    runNotifierSelfTest(notifierWindow!);
-    return; // skip the main window — this run only exercises the overlay
-  }
-  if (process.env.AFTERTERM_NOTIFY_DEMO === '1') {
-    runNotifierDemo(notifierWindow!);
-    return; // leave toasts on screen for visual inspection
-  }
   createWindow();
   reconcileNotifierHook();
   startClaudeSessionWatch();

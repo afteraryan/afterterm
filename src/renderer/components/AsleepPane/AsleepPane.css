@@ -2,22 +2,34 @@
    docs/mockups/afterterm-next.html, .wakebox and .term .past). Mirrors
    index.css's .terminal-instances exactly (same flex, margin, background,
    radius) so it sits in the terminal card's spot without shifting the header
-   or the sidebar; it scrolls its own content instead of clipping it, since
-   the tail can run long. */
+   or the sidebar.
+
+   Phase 9: the outer element only sizes and clips the card; an inner
+   .asleep-scroll does the actual scrolling. This is what lets the JumpButton
+   sit as a plain sibling of .asleep-scroll and stay put at the pane's
+   bottom-right instead of scrolling away with the content, the same relative-
+   host/absolute-child shape .terminal-instances already uses for its find bar. */
 
 .asleep-pane {
   flex: 1;
   min-height: 0;
   position: relative;
-  overflow-y: auto;
+  overflow: hidden;
   margin: 0 12px 12px;
   border-radius: var(--radius-surface);
   background: #191919;
+}
+
+.asleep-pane .asleep-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
   padding: 18px 22px;
 }
 
-/* Sticky at the pane's own top-fifth, like the mock, so the Wake button stays
-   in view above a long scrolled-past tail instead of scrolling off with it. */
+/* Sticky at the scroller's own top-fifth, like the mock, so the Wake button
+   stays in view above a long scrolled-past tail instead of scrolling off
+   with it. */
 .asleep-pane .wakebox {
   position: sticky;
   top: 20%;
@@ -27,6 +39,20 @@
   gap: 10px;
   font-family: var(--sans);
   margin: -40px 0 0;
+  z-index: 1;
+}
+
+/* Phase 9: the pane opens at the end of its tail, so the sticky box now sits
+   over dimmed lines rather than above them. A soft backdrop behind the box
+   keeps the button and the "asleep since" line readable there; it is the
+   pane's own colour fading out, so it reads as a clearing, not a card. */
+.asleep-pane .wakebox::before {
+  content: "";
+  position: absolute;
+  inset: -22px -36px;
+  border-radius: 999px;
+  background: radial-gradient(closest-side, #191919 62%, rgba(25, 25, 25, 0));
+  z-index: -1;
 }
 
 .asleep-pane .wakebox .w {

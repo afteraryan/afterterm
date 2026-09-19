@@ -14,13 +14,14 @@
 // run with `node src/renderer/threadView.test.ts`.
 
 import type { Tab, Group, TabNotification } from './components/TabBar/types.ts';
-import type { Segment } from './sidebarWalk.ts';
 import { CLAUDE_TITLE_GLYPH, HOOK_TITLE_GLYPH, claudeSummaryTitle } from './chatTitle.ts';
 import { modelDisplayName } from '../claude-transcript.ts';
+import { countStates } from './attention.ts';
 
 export type ThreadKind = 'chat' | 'shell';
 
 export type ThreadState =
+  | 'unread'
   | 'needs-you'
   | 'working'
   | 'running'
@@ -38,6 +39,17 @@ export function threadKind(tab: Pick<Tab, 'claudeSessionId'>): ThreadKind {
   return tab.claudeSessionId ? 'chat' : 'shell';
 }
 
+// The folder a thread is actually working in: the hook-reported claudeCwd for a
+// chat (Claude usually runs where the work is, which for this project is often a
+// git worktree, while the shell that launched it still sits in the main
+// checkout), the shell's own cwd otherwise, undefined when neither was ever
+// captured. It is what the branch and worktree are read from (threadGitCwd in
+// useTabState.ts) and, since Phase 9, what "Open in File Explorer" on a thread
+// opens: the worktree for a worktree chat, not the project root.
+export function threadFolder(tab: Pick<Tab, 'cwd' | 'claudeCwd'>): string | undefined {
+  return tab.claudeCwd ?? tab.cwd;
+}
+
 // The word for a thread's kind, shown in the asleep pane ("Server asleep since
 // 2d ago") and anywhere else that needs "Chat"/"Server"/"Shell" rather than the
 // icon. Distinct from threadKind/ThreadKind, which stay chat/shell for the row
@@ -48,13 +60,19 @@ export function kindWord(tab: Pick<Tab, 'claudeSessionId' | 'port'>): 'Chat' | '
   return 'Shell';
 }
 
-// Asleep wins over everything: a thread with no process has no notification worth
-// showing. Otherwise today's notification maps one for one onto a state, and a
+// Precedence (design-03 "The attention model, stated once"): unread, asleep,
+// needs-you, working, done, compacting, background, running, quiet. Unread
+// wins over everything, asleep included: a chat the user marked stays marked
+// even with no process running, so it still shows the bell on its dimmed row
+// rather than reading as a plain "Asleep · 2d". Asleep wins over what remains,
+// since a thread with no process has no notification worth showing beyond
+// that. Otherwise today's notification maps one for one onto a state, and a
 // notification wins over running: it asks something of the user (a permission, a
 // look at what finished) and running does not. Only once neither applies does a
 // captured port make the thread 'running' (Phase 5); with no port at all it is
 // 'quiet'.
-export function threadState(tab: Pick<Tab, 'asleep' | 'notification' | 'port'>): ThreadState {
+export function threadState(tab: Pick<Tab, 'asleep' | 'notification' | 'port' | 'unread'>): ThreadState {
+  if (tab.unread) return 'unread';
   if (tab.asleep) return 'asleep';
   switch (tab.notification) {
     case 'attention': return 'needs-you';
@@ -70,6 +88,7 @@ export function threadState(tab: Pick<Tab, 'asleep' | 'notification' | 'port'>):
 // the empty string, not a placeholder word.
 export function stateLabel(state: ThreadState): string {
   switch (state) {
+    case 'unread': return 'Unread';
     case 'needs-you': return 'Needs you';
     case 'working': return 'Working';
     case 'running': return 'Running';
@@ -81,10 +100,11 @@ export function stateLabel(state: ThreadState): string {
   }
 }
 
-// Only needs-you and done breathe (a slow row-background cycle) until the thread is
-// viewed. Every other state, including working and running, holds steady.
+// Needs-you, unread and done breathe (a slow row-background cycle) until the
+// thread is viewed or the mark is cleared. Every other state, including
+// working and running, holds steady.
 export function stateBreathes(state: ThreadState): boolean {
-  return state === 'needs-you' || state === 'done';
+  return state === 'needs-you' || state === 'unread' || state === 'done';
 }
 
 // The header chip and hover-card wording for a running server ("Running on
@@ -220,15 +240,24 @@ export function modelLabel(model: string | undefined): string | null {
 // own project's fold, so if the active thread's position is at or past `limit`, the
 // list opens regardless of the `expanded` flag the user last chose (forcedOpen is
 // reported so the caller can tell "open because forced" from "open because the user
-// expanded it").
+// expanded it"). Since the Phase 7 handoff, the same is true of a thread waiting for
+// you: `isWaiting`, when given, is checked against every hidden row (index >= limit),
+// and any match forces the list open too, so a permission prompt or an unread chat
+// can never sit invisible behind "Show N more". Callers pass
+// `t => isWaitingState(threadState(t))` (attention.ts's own definition of
+// "waiting for you", kept in one place). Omitting `isWaiting` keeps the old
+// active-only behaviour, unchanged.
 export function foldThreads<T extends { id: string }>(
   threads: T[],
   activeId: string,
   expanded: boolean,
   limit = 5,
+  isWaiting?: (t: T) => boolean,
 ): { shown: T[]; hiddenCount: number; showMore: boolean; forcedOpen: boolean } {
   const activeIndex = threads.findIndex(t => t.id === activeId);
-  const forcedOpen = activeIndex >= limit;
+  const activeForcesOpen = activeIndex >= limit;
+  const waitingForcesOpen = !!isWaiting && threads.slice(limit).some(isWaiting);
+  const forcedOpen = activeForcesOpen || waitingForcesOpen;
   const open = expanded || forcedOpen;
   const shown = open ? threads : threads.slice(0, limit);
   const hiddenCount = open ? 0 : Math.max(0, threads.length - limit);
@@ -236,46 +265,19 @@ export function foldThreads<T extends { id: string }>(
   return { shown, hiddenCount, showMore, forcedOpen };
 }
 
-// Counter pills for a project row: how many of its threads need you, and how many
-// are actively doing something (working or running). Both zero means the caller
-// renders no pills at all; this function just reports the counts, the "no pills"
-// choice is the caller's.
-export function projectCounts(states: ThreadState[]): { needsYou: number; running: number } {
-  let needsYou = 0;
-  let running = 0;
-  for (const state of states) {
-    if (state === 'needs-you') needsYou++;
-    if (state === 'running' || state === 'working') running++;
-  }
-  return { needsYou, running };
-}
-
-// The sidebar's three sections, built from the groups-first walk. `general` is the
-// ungrouped tabs, in their walk order, and is an empty list when there are none (the
-// caller decides whether to render the section at all). `pinned` and `projects`
-// split the group segments by the `pinned` flag, each in walk order; a group with
-// `archived` true is left out of both, Home is where an archived project reappears.
-export function sidebarSections(segments: Segment[]): {
-  general: Tab[];
-  pinned: Array<{ group: Group; tabs: Tab[] }>;
-  projects: Array<{ group: Group; tabs: Tab[] }>;
-} {
-  const general: Tab[] = [];
-  const pinned: Array<{ group: Group; tabs: Tab[] }> = [];
-  const projects: Array<{ group: Group; tabs: Tab[] }> = [];
-
-  for (const segment of segments) {
-    if (segment.type === 'tab') {
-      general.push(segment.tab);
-      continue;
-    }
-    if (segment.group.archived) continue;
-    const entry = { group: segment.group, tabs: segment.tabs };
-    if (segment.group.pinned) pinned.push(entry);
-    else projects.push(entry);
-  }
-
-  return { general, pinned, projects };
+// Counter pills for a project row: how many of its threads need you (needs-you
+// plus unread, "waiting for you" everywhere in the UI), and how many are
+// actively doing something (working or running). Both zero means the caller
+// renders no pills at all; this function just reports the counts, the "no
+// pills" choice is the caller's. Built on attention.ts's countStates, the one
+// aggregate every count in the app reads from, so this can never disagree with
+// the rail or Home's totals. The play pill deliberately does not count
+// compacting (design-03's Phase 7 handoff): a compacting chat gets its own
+// state and its own rail badge, but is not "actively doing something" for the
+// purpose of this pill, only the rail separates it out.
+export function projectCounts(states: ThreadState[]): { needsYou: number; running: number; compacting: number } {
+  const counts = countStates(states);
+  return { needsYou: counts.waiting, running: counts.working + counts.running, compacting: counts.compacting };
 }
 
 // Toast wording per hook notification. Working never toasts (it is a silent,

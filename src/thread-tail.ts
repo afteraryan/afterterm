@@ -2,15 +2,17 @@
 //
 // Windows ConPTY dies with its process, so a thread that goes to sleep (or a whole
 // app that quits) loses its screen. What survives is a short tail of the last lines,
-// written to <userData>/threads/<tabId>.txt, replayed dimmed above a "Woke just now"
-// divider when the thread wakes. That is the entire point: waking should look like
-// coming back to the same desk, not like opening a blank terminal.
+// written to <userData>/threads/<tabId>.txt and shown dimmed on the asleep pane, so
+// a sleeping thread still tells you what it was doing. (Until Phase 9 the tail was
+// also replayed into the fresh terminal on wake; Aryan chose on 2026-09-19 to drop
+// that, since the pane had already shown it and the replay stayed on screen after
+// the terminal came back.)
 //
 // This module is pure (no Electron, no app state) so it can be unit-tested with plain
-// Node, and so both the main process (writing/reading files) and the renderer (turning
-// the tail back into escape sequences) share one definition of the format.
+// Node, and so both the main process (writing/reading files) and the renderer (slicing
+// the buffer, showing the tail on the asleep pane) share one definition of the format.
 
-// No node:path import: the renderer bundles this module too (for renderTailForTerminal),
+// No node:path import: the renderer bundles this module too (for TAIL_MAX_LINES),
 // and Vite warns on Node built-ins there. The join below is enough for a Windows-only app.
 
 /** How many lines of tail we keep. Enough to see the last command and its output. */
@@ -101,40 +103,4 @@ export function parseTail(text: string): string[] {
   const lines = body.split(/\r?\n/);
   if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
   return lines;
-}
-
-/** Dim grey, one reset per line so a line the shell wrote cannot leak its colour on. */
-const DIM = '\x1b[2;90m';
-const RESET = '\x1b[0m';
-const DASH = '─';
-
-/**
- * The exact string the renderer writes into a fresh xterm when a thread wakes: the
- * saved tail in dim grey, then a divider naming when this happened, then a blank line
- * so the shell's own prompt lands under the divider rather than glued to it.
- *
- * The divider is padded to the terminal width so it reads as a rule, but the label is
- * never truncated: a narrow terminal gets a longer-than-cols line rather than
- * "Woke ju…". Minimum three dashes each side keeps it looking deliberate.
- */
-export function renderTailForTerminal(
-  lines: string[],
-  dividerLabel = 'Woke just now',
-  cols = 80,
-): string {
-  const label = typeof dividerLabel === 'string' ? dividerLabel : '';
-  const width = Number.isFinite(cols) && cols > 0 ? Math.floor(cols) : 80;
-  const MIN_DASHES = 3;
-
-  // Total = left dashes + space + label + space + right dashes.
-  const spare = width - (label.length + 2);
-  const each = Math.max(MIN_DASHES, Math.floor(spare / 2));
-  // Give the odd column to the right side so the divider hits `cols` exactly.
-  const right = spare > MIN_DASHES * 2 ? spare - each : each;
-  const divider = `${DASH.repeat(each)} ${label} ${DASH.repeat(right)}`;
-
-  const body = (Array.isArray(lines) ? lines : [])
-    .map(l => `${DIM}${typeof l === 'string' ? l : String(l ?? '')}${RESET}`);
-  body.push(`${DIM}${divider}${RESET}`);
-  return body.join('\r\n') + '\r\n\r\n';
 }

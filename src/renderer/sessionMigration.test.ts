@@ -249,6 +249,138 @@ console.log('\nsessionMigration: port and lastCommand (Phase 5)\n');
   check('lastCommand survives serialize -> migrate', chat.lastCommand === 'npm start');
 }
 
+console.log('\nsessionMigration: unread (Phase 7)\n');
+{
+  // A file with no unread key loads with it absent.
+  const s = migrateSession(fixture081(), NOW)!;
+  check('unread is absent, not false', s.tabs.every(t => t.unread === undefined));
+}
+{
+  // A literal true is kept.
+  const raw = fixture081() as any;
+  raw.tabs[1].unread = true;
+  const s = migrateSession(raw, NOW)!;
+  const chat = s.tabs.find(t => t.id === 'tab-5')!;
+  check('true is kept', chat.unread === true);
+}
+{
+  // A literal false is dropped, not stored as false: a never-marked thread
+  // and one explicitly marked read must look identical on disk.
+  const raw = fixture081() as any;
+  raw.tabs[0].unread = false;
+  const s = migrateSession(raw, NOW)!;
+  check('false is dropped, absent rather than stored', s.tabs[0].unread === undefined);
+}
+{
+  // A wrongly typed value ("true" the string, a number, an object) is dropped,
+  // the same "never coerce" rule every other flag in this file follows.
+  const raw = fixture081() as any;
+  raw.tabs[0].unread = 'true';
+  raw.tabs[1].unread = 1;
+  raw.tabs[2].unread = { value: true };
+  const s = migrateSession(raw, NOW)!;
+  check('the string "true" is dropped', s.tabs[0].unread === undefined);
+  check('a numeric 1 is dropped', s.tabs[1].unread === undefined);
+  check('an object is dropped', s.tabs[2].unread === undefined);
+}
+{
+  // Absent stays absent: no default is invented for a key that was never
+  // there at all, same as every other optional flag.
+  const s = migrateSession(fixture081(), NOW)!;
+  check('a tab that never had the key stays absent', 'unread' in s.tabs[0] === false || s.tabs[0].unread === undefined);
+}
+{
+  // A round trip keeps a literal true.
+  const raw = fixture081() as any;
+  raw.tabs[1].unread = true;
+  const migrated = migrateSession(raw, NOW)!;
+  const written = JSON.parse(JSON.stringify(serializeSession(migrated.tabs as unknown as Tab[], migrated.groups, migrated.activeTabId)));
+  const chat = written.tabs.find((t: any) => t.id === 'tab-5')!;
+  check('true is written to disk', chat.unread === true);
+  const reloaded = migrateSession(written, NOW + 1)!;
+  const reloadedChat = reloaded.tabs.find(t => t.id === 'tab-5')!;
+  check('true survives serialize -> migrate', reloadedChat.unread === true);
+  const plainOnDisk = written.tabs.find((t: any) => t.id === 'tab-3')!;
+  check('a tab that was never marked has no unread key on disk at all', !('unread' in plainOnDisk));
+}
+
+console.log('\nsessionMigration: Group.icon (Phase 8)\n');
+{
+  // A good icon id is kept.
+  const raw = fixture081() as any;
+  raw.groups[0].icon = 'rocket';
+  const s = migrateSession(raw, NOW)!;
+  check('a valid icon id is kept', s.groups[0].icon === 'rocket');
+}
+{
+  // A bad icon (not one of the ten ids) is dropped rather than kept or coerced.
+  const raw = fixture081() as any;
+  raw.groups[0].icon = 'terminal'; // the one glyph deliberately not offered
+  raw.groups[1].icon = 42;
+  const s = migrateSession(raw, NOW)!;
+  check('an id not in the ten-icon list is dropped', s.groups[0].icon === undefined);
+  check('a non-string icon is dropped', s.groups[1].icon === undefined);
+}
+{
+  // A group that never had an icon loads with it absent, not a made-up default.
+  const s = migrateSession(fixture081(), NOW)!;
+  check('an absent icon stays absent', s.groups.every(g => g.icon === undefined));
+}
+{
+  // A round trip keeps a valid icon.
+  const raw = fixture081() as any;
+  raw.groups[0].icon = 'book';
+  const migrated = migrateSession(raw, NOW)!;
+  const written = JSON.parse(JSON.stringify(serializeSession(migrated.tabs as unknown as Tab[], migrated.groups, migrated.activeTabId)));
+  const reloaded = migrateSession(written, NOW + 1)!;
+  check('icon survives serialize -> migrate', reloaded.groups[0].icon === 'book');
+}
+
+console.log('\nsessionMigration: ui.panelHidden (Phase 8)\n');
+{
+  // No ui at all: becomes {}.
+  const s = migrateSession(fixture081(), NOW)!;
+  check('a file with no ui key loads with ui as {}', isDeepStrictEqual(s.ui, {}));
+}
+{
+  // A good boolean is kept, both ways.
+  const raw = fixture081() as any;
+  raw.ui = { panelHidden: true };
+  const s = migrateSession(raw, NOW)!;
+  check('ui.panelHidden true is kept', isDeepStrictEqual(s.ui, { panelHidden: true }));
+
+  const raw2 = fixture081() as any;
+  raw2.ui = { panelHidden: false };
+  const s2 = migrateSession(raw2, NOW)!;
+  check('ui.panelHidden false is kept (not coerced to absent)', isDeepStrictEqual(s2.ui, { panelHidden: false }));
+}
+{
+  // A wrongly typed panelHidden is dropped, not coerced.
+  const raw = fixture081() as any;
+  raw.ui = { panelHidden: 'true' };
+  const s = migrateSession(raw, NOW)!;
+  check('a string panelHidden is dropped, ui becomes {}', isDeepStrictEqual(s.ui, {}));
+}
+{
+  // A non-object ui becomes {}.
+  const raw = fixture081() as any;
+  raw.ui = 'nope';
+  const s = migrateSession(raw, NOW)!;
+  check('a non-object ui becomes {}', isDeepStrictEqual(s.ui, {}));
+}
+{
+  // A round trip keeps ui.panelHidden.
+  const raw = fixture081() as any;
+  raw.ui = { panelHidden: true };
+  const migrated = migrateSession(raw, NOW)!;
+  const written = JSON.parse(JSON.stringify(serializeSession(
+    migrated.tabs as unknown as Tab[], migrated.groups, migrated.activeTabId, migrated.ui,
+  )));
+  check('ui is written to disk', isDeepStrictEqual(written.ui, { panelHidden: true }));
+  const reloaded = migrateSession(written, NOW + 1)!;
+  check('ui.panelHidden survives serialize -> migrate', isDeepStrictEqual(reloaded.ui, { panelHidden: true }));
+}
+
 console.log('\nsessionMigration: existing values are preserved\n');
 {
   const s = migrateSession(fixture081(), NOW)!;
@@ -329,7 +461,7 @@ console.log('\nsessionMigration: bad entries are dropped, bad files rejected\n')
   check('an array returns null', migrateSession([], NOW) === null);
   check('tabs that is not an array returns null', migrateSession({ tabs: 'nope', groups: [] }, NOW) === null);
   check('empty tabs is a session with zero tabs, not null',
-    isDeepStrictEqual(migrateSession({ tabs: [] }, NOW), { version: SESSION_FORMAT_VERSION, tabs: [], groups: [], activeTabId: '' }));
+    isDeepStrictEqual(migrateSession({ tabs: [] }, NOW), { version: SESSION_FORMAT_VERSION, tabs: [], groups: [], activeTabId: '', ui: {} }));
 }
 
 console.log('\nsessionMigration: transient fields stripped, unknown keys kept, idempotent\n');
@@ -389,10 +521,12 @@ console.log('\nserializeSession: persisted keys only, 0.8.1 compatible\n');
       pinned: true, archived: false, lastActiveAt: 333, history: [] },
   ];
   const out = serializeSession(tabs, groups, 'tab-1');
-  const PERSISTED = ['id', 'title', 'groupId', 'shellId', 'cwd', 'fontSize', 'claudeSessionId', 'claudeCwd', 'lastActiveAt', 'asleep', 'sleptAt', 'model', 'branch', 'worktree', 'claudeTitle', 'port', 'lastCommand'];
+  const PERSISTED = ['id', 'title', 'groupId', 'shellId', 'cwd', 'fontSize', 'claudeSessionId', 'claudeCwd', 'lastActiveAt', 'asleep', 'sleptAt', 'model', 'branch', 'worktree', 'claudeTitle', 'port', 'lastCommand', 'unread'];
   check('includes version', out.version === SESSION_FORMAT_VERSION);
-  check('top-level shape is still {tabs, groups, activeTabId} plus version',
-    isDeepStrictEqual(Object.keys(out).sort(), ['activeTabId', 'groups', 'tabs', 'version']));
+  check('top-level shape is still {tabs, groups, activeTabId} plus version and ui (Phase 8)',
+    isDeepStrictEqual(Object.keys(out).sort(), ['activeTabId', 'groups', 'tabs', 'ui', 'version']));
+  check('ui defaults to {} when serializeSession is called without one (a pre-Phase-8 call site)',
+    isDeepStrictEqual(out.ui, {}));
   check('tab emits only the persisted keys (no notification, claudeRestorable, wokeAt or unknown keys)',
     isDeepStrictEqual(Object.keys(out.tabs[0]).sort(), [...PERSISTED].sort()), show(Object.keys(out.tabs[0])));
   const KEYS_081 = ['id', 'title', 'groupId', 'shellId', 'cwd', 'fontSize', 'claudeSessionId', 'claudeCwd'];

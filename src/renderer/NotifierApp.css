@@ -14,7 +14,8 @@ html, body, #root {
 .notifier-root {
   /* Anchored to the bottom of the (content-sized) window. Height is auto so its
      measured box equals the toast stack, that's what main resizes the window to.
-     Padding leaves room for each card's drop shadow without clipping. */
+     Padding leaves room for each card's drop shadow (kept well under 12px on
+     every side) so nothing reaches the window edge. */
   position: absolute;
   left: 0;
   right: 0;
@@ -32,7 +33,7 @@ html, body, #root {
   padding: 12px 12px 12px 14px;
   background: var(--hover);
   border-radius: 16px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, .45);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .35), 0 4px 7px rgba(0, 0, 0, .25);
   cursor: pointer;
   animation: notif-in 220ms var(--ease);
   font-family: var(--sans);

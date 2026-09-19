@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
-import { Tab, Group, GroupColor, nextGroupColor, TabNotification } from '../components/TabBar/types';
+import { Tab, Group, GroupColor, nextGroupColor, TabNotification, ProjectIconId } from '../components/TabBar/types';
 import type { SavedSession } from '../sessionMigration';
-import { nextActiveTabAfterArchive, threadName } from '../threadView';
+import { nextActiveTabAfterArchive, threadFolder, threadName } from '../threadView';
 import { claudeSummaryTitle } from '../chatTitle';
 // Named apart from the hook's own sleepTab/wakeTab callbacks below: these are the
 // pure record transforms, the callbacks are the state actions that apply them.
@@ -15,15 +15,24 @@ export interface GroupConfig {
   color: GroupColor;
   cwd?: string;
   shellId?: string;
+  // The project's chosen icon (Phase 8, design-03 decision 12). Undefined
+  // means "no icon chosen", not "clear the icon and use the folder": both
+  // createConfiguredGroup and updateGroup only ever store a real key here,
+  // never an explicit `icon: undefined`, since a Group's icon field is
+  // optional and its absence is what the rest of the app treats as "show the
+  // folder".
+  icon?: ProjectIconId;
 }
 
-// Which folder a thread's branch and worktree are read from. The hook-captured
-// claudeCwd wins over the shell's own cwd: Claude usually runs where the work is,
-// which for this project is often a git worktree, while the shell that launched it
-// still sits in the main checkout. Reading the shell's cwd there would show the
-// main branch for a thread that is working on a phase branch.
+// Which folder a thread's branch and worktree are read from: the thread's own
+// working folder (threadFolder in threadView.ts, the same rule "Open in File
+// Explorer" on a thread uses). The hook-captured claudeCwd wins over the shell's
+// own cwd: Claude usually runs where the work is, which for this project is
+// often a git worktree, while the shell that launched it still sits in the main
+// checkout. Reading the shell's cwd there would show the main branch for a
+// thread that is working on a phase branch.
 export function threadGitCwd(tab: Pick<Tab, 'cwd' | 'claudeCwd'>): string | undefined {
-  return tab.claudeCwd ?? tab.cwd;
+  return threadFolder(tab);
 }
 
 let tabCounter = 0;
@@ -122,9 +131,9 @@ export function useTabState() {
 
   // Resume a closed thread from a project's history. The recreated tab keeps the
   // closed thread's id (history.ts, tabFromHistory) so its saved tail file is found
-  // again, and comes back awake with wokeAt set, so the terminal layer replays that
-  // tail above a "Woke just now" divider the moment it mounts. Returns the new tab's
-  // id, or null when the project or the entry has gone.
+  // again, and comes back awake with wokeAt set, exactly like a freshly woken
+  // thread. Returns the new tab's id, or null when the project or the entry has
+  // gone.
   const resumeFromHistory = useCallback((groupId: string, entryId: string): string | null => {
     const group = groupsRef.current.find(g => g.id === groupId);
     const entry = group?.history.find(e => e.id === entryId);
@@ -240,6 +249,29 @@ export function useTabState() {
     });
   }, []);
 
+  // Mark as unread / Mark as read (threadMenu.tsx, chats only). Same no-op-when-
+  // unchanged rule as setPort; false deletes the key rather than storing it, so
+  // a never-marked thread and one explicitly marked read serialize identically
+  // (sessionMigration.ts keeps only a literal true).
+  const setUnread = useCallback((tabId: string, unread: boolean) => {
+    setTabs(prev => {
+      let changed = false;
+      const next = prev.map(t => {
+        if (t.id !== tabId) return t;
+        const current = !!t.unread;
+        if (current === unread) return t;
+        changed = true;
+        if (!unread) {
+          const updated = { ...t };
+          delete updated.unread;
+          return updated;
+        }
+        return { ...t, unread: true };
+      });
+      return changed ? next : prev;
+    });
+  }, []);
+
   const setTabNotification = useCallback((tabId: string, notification: TabNotification | undefined) => {
     setTabs(prev => prev.map(t => t.id === tabId ? { ...t, notification } : t));
   }, []);
@@ -270,9 +302,16 @@ export function useTabState() {
   const createConfiguredGroup = useCallback((config: GroupConfig, openTerminal: boolean): string => {
     const id = makeGroupId();
     const now = Date.now();
-    setGroups(prev => [...prev, {
+    const group: Group = {
       id, collapsed: false, pinned: false, archived: false, lastActiveAt: now, history: [], ...config,
-    }]);
+    };
+    // Only ever set the key when an icon was actually chosen: `...config`
+    // above would otherwise leave `icon: undefined` sitting on the group when
+    // the caller's config object carries the key unset, rather than the key
+    // being genuinely absent (sessionMigration.ts and everything downstream
+    // treat "absent" as "show the folder", not "set to undefined").
+    if (config.icon === undefined) delete group.icon;
+    setGroups(prev => [...prev, group]);
     if (openTerminal) {
       const tabId = makeTabId();
       setTabs(prev => [...prev, {
@@ -339,13 +378,31 @@ export function useTabState() {
     setGroups(prev => prev.map(g => g.id === groupId ? { ...g, color } : g));
   }, []);
 
-  // Whole-group edit from the modal (name, folder, colour, shell in one commit).
+  // Whole-group edit from the modal (name, folder, colour, shell, icon in one
+  // commit). config.icon undefined means "no icon chosen in this edit", which
+  // must delete any icon the group already carried, not leave it untouched as
+  // a stale value nor store it as an explicit `undefined`: `{ ...g, ...config
+  // }` alone would do neither correctly (a spread cannot remove a key), so
+  // the key is deleted by hand when the config did not set one.
   const updateGroup = useCallback((groupId: string, config: GroupConfig) => {
-    setGroups(prev => prev.map(g => g.id === groupId ? { ...g, ...config } : g));
+    setGroups(prev => prev.map(g => {
+      if (g.id !== groupId) return g;
+      const next: Group = { ...g, ...config };
+      if (config.icon === undefined) delete next.icon;
+      return next;
+    }));
   }, []);
 
   const toggleGroupCollapse = useCallback((groupId: string) => {
     setGroups(prev => prev.map(g => g.id === groupId ? { ...g, collapsed: !g.collapsed } : g));
+  }, []);
+
+  // Phase 8: the Pinned/Recent heading's collapse-all-or-expand-all button,
+  // one setGroups call for every project in that section rather than one call
+  // per project (which would otherwise re-render on every intermediate step).
+  const setGroupCollapsedMany = useCallback((groupIds: string[], collapsed: boolean) => {
+    const ids = new Set(groupIds);
+    setGroups(prev => prev.map(g => ids.has(g.id) ? { ...g, collapsed } : g));
   }, []);
 
   const deleteGroup = useCallback((groupId: string) => {
@@ -402,10 +459,16 @@ export function useTabState() {
   // User-driven activation: focus the tab and record the moment on it and on its
   // group. Only the user's own switching counts here; PTY input and output stamping
   // is Phase 2, so an unattended background process cannot look "recently used".
-  const activateTab = useCallback((tabId: string) => {
+  // `keepProjectOrder` (Phase 8) skips the group stamp: the panel's Recent list is
+  // ordered by that stamp, so the keyboard cycle (Ctrl+Shift+Down/Up) must not
+  // reorder the projects it is moving through, or two projects would trade
+  // places under the keys and the cycle would never reach a third. The thread
+  // itself is still stamped; the project rises when the user clicks or types.
+  const activateTab = useCallback((tabId: string, keepProjectOrder = false) => {
     const now = Date.now();
     setActiveTabId(tabId);
     setTabs(prev => prev.map(t => t.id === tabId ? { ...t, lastActiveAt: now } : t));
+    if (keepProjectOrder) return;
     const groupId = tabsRef.current.find(t => t.id === tabId)?.groupId;
     if (groupId) {
       setGroups(prev => prev.map(g => g.id === groupId ? { ...g, lastActiveAt: now } : g));
@@ -419,7 +482,7 @@ export function useTabState() {
     setGroups(prev => prev.map(g => g.id === groupId ? { ...g, pinned: !g.pinned } : g));
   }, []);
 
-  // Archive takes a project off the board: it leaves the sidebar (sidebarSections
+  // Archive takes a project off the board: it leaves the sidebar (panelSections in panelView.ts
   // drops archived groups) and moves to Home's Archived list. Its threads keep
   // running, they are just no longer reachable from the sidebar, so an active thread
   // inside the project hands over to the first thread outside every archived one.
@@ -466,6 +529,25 @@ export function useTabState() {
     return true;
   }, [activateTab]);
 
+  // Bringing a project in from the panel's docked "Other projects" row
+  // (design-03 decision 2): this is a view filter over activity, not a pin,
+  // so it only ever stamps lastActiveAt (never backwards, matching
+  // touchActivity's own rule) so the Recent 3-day window picks the project up,
+  // expands it, and activates its first tab in tab order through activateTab,
+  // the ordinary user-activation stamp. Nothing here wakes an asleep thread:
+  // bringing a project in is not the same as waking one of its threads.
+  // Returns the activated tab id, or null when the project has no threads at
+  // all (the caller decides what to do then, same as openProject's `false`).
+  const bringProjectIn = useCallback((groupId: string, now: number): string | null => {
+    setGroups(prev => prev.map(g => g.id === groupId
+      ? { ...g, lastActiveAt: Math.max(g.lastActiveAt, now), collapsed: false }
+      : g));
+    const first = tabsRef.current.find(t => t.groupId === groupId);
+    if (!first) return null;
+    activateTab(first.id);
+    return first.id;
+  }, [activateTab]);
+
   // `saved` has already been through migrateSession, so every field is present and
   // well typed; nothing here needs to guess at defaults.
   const restoreSession = useCallback((saved: SavedSession) => {
@@ -503,10 +585,10 @@ export function useTabState() {
     setActiveTabId, activateTab,
     addTab, closeTab, renameTab, updateTabCwd, setClaudeSession, setTabNotification, setTabFontSize,
     sleepTab, wakeTab, resumeFromHistory,
-    setClaudeMeta, setGitInfo, setPort, setLastCommand,
+    setClaudeMeta, setGitInfo, setPort, setLastCommand, setUnread,
     createGroup, createConfiguredGroup, addToGroup, removeFromGroup,
-    renameGroup, setGroupColor, updateGroup, toggleGroupCollapse, deleteGroup,
-    togglePin, setGroupArchived, touchActivity, openProject,
+    renameGroup, setGroupColor, updateGroup, toggleGroupCollapse, setGroupCollapsedMany, deleteGroup,
+    togglePin, setGroupArchived, touchActivity, openProject, bringProjectIn,
     moveTab, moveGroup, moveGroupAfterGroup,
     restoreSession,
   };

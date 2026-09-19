@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -18,8 +18,8 @@ import { buildProjectMenu, ProjectActions } from '../../projectMenu';
 import type { EditorInfo } from '../../../editors';
 import {
   FolderIcon, KindIcon, StateIcon,
-  IconHome, IconTerm, IconPanel, IconSearch, IconPlus, IconPage, IconPin,
-  IconBell, IconPlay, IconX,
+  IconPanel, IconSearch, IconPlus, IconPage, IconPin, IconPinOn, IconChevD,
+  IconCollapseAll, IconExpandAll, IconBell, IconPlay, IconCompact, IconX,
 } from '../Icons';
 // The row order is computed groups-first (see sidebarWalk.ts), so a group with no
 // terminals renders as a normal row instead of vanishing from the list. That walk
@@ -27,8 +27,15 @@ import {
 import { computeSegments } from '../../sidebarWalk';
 import {
   threadKind, threadState, stateBreathes, threadName, foldThreads,
-  projectCounts, sidebarSections,
+  projectCounts,
 } from '../../threadView';
+// Phase 8: the panel's groups (General, Pinned, Recent, Other), the in-place
+// search filter and the keyboard cycle's row order all come from panelView.ts,
+// pure and unit-tested; this component only renders what it returns.
+import { panelSections, filterPanel, visibleThreadIds, cycleThreadId } from '../../panelView';
+import type { PanelEntry, PanelSections } from '../../panelView';
+import { isWaitingState } from '../../attention';
+import { relativeTime } from '../../homeView';
 import { ThreadHoverCard } from '../ThreadHoverCard';
 import './SidePanel.css';
 
@@ -75,7 +82,7 @@ function ThreadRow({
 
   const state = threadState(tab);
   const breathe = !isActive && stateBreathes(state)
-    ? (state === 'needs-you' ? 'breathe-need' : 'breathe-done')
+    ? (state === 'needs-you' || state === 'unread' ? 'breathe-need' : 'breathe-done')
     : '';
 
   // No transform on the in-list row: the DragOverlay renders the moving copy.
@@ -89,7 +96,10 @@ function ThreadRow({
     isOver && !isDragging ? 'drop-target' : '',
     isGroupPreview ? 'group-preview' : '',
     overlay ? 'drag-overlay' : '',
-    state === 'asleep' ? 'sleep' : '',
+    // Dims on tab.asleep itself, not on state === 'asleep': an asleep thread
+    // marked unread reads as 'unread' (it wins precedence), but it is still
+    // asleep and still dims, with the bell shown on top of the dimmed row.
+    tab.asleep ? 'sleep' : '',
     breathe,
   ].filter(Boolean).join(' ');
 
@@ -129,7 +139,7 @@ function ThreadRow({
 interface ProjectRowProps {
   group: Group;
   threadCount: number;
-  counts: { needsYou: number; running: number };
+  counts: { needsYou: number; running: number; compacting: number };
   pinned: boolean;
   isDragging: boolean;
   overlay?: boolean;
@@ -189,7 +199,7 @@ function ProjectRow({
       data-threads={threadCount}
       {...(overlay ? {} : { ...attributes, ...listeners })}
     >
-      <FolderIcon color={group.color} open={expanded} size={18} />
+      <FolderIcon color={group.color} open={expanded} size={18} icon={group.icon} />
       {isRenaming ? (
         <input
           autoFocus
@@ -216,6 +226,14 @@ function ProjectRow({
         <span className="sig run">
           <span className="si run"><IconPlay size={13} /></span>
           {counts.running}
+        </span>
+      )}
+      {/* Compacting is its own state with its own count, never folded into the
+          play pill (Aryan, 2026-09-19). */}
+      {counts.compacting > 0 && (
+        <span className="sig compact">
+          <span className="si compact"><IconCompact size={13} /></span>
+          {counts.compacting}
         </span>
       )}
       {!overlay && (
@@ -259,26 +277,48 @@ function ProjectRow({
 
 // ─── Main SidePanel ────────────────────────────────────────────────────────────
 
+// What app.tsx reads off the panel for the keyboard cycle (Ctrl+Shift+Down and
+// Up): the fold state and the search text live here, so only the panel knows
+// which rows it is actually showing.
+export interface SidePanelHandle {
+  // The next (dir 1) or previous (dir -1) thread row the panel shows, in panel
+  // order, across projects, wrapping at the ends; null when nothing is shown.
+  cycleThread(activeTabId: string, dir: 1 | -1): string | null;
+  // Every thread row the panel is showing, in panel order (the list the cycle
+  // walks); the harness reads it as window.__afterterm.panelOrder().
+  visibleIds(): string[];
+  // Puts the caret in the search box.
+  focusSearch(): void;
+}
+
 export interface SidePanelProps {
   tabs: Tab[];
   groups: Group[];
   activeTabId: string;
-  collapsed: boolean;
+  // Phase 8: the panel is hidden by sliding its width to zero (design-03
+  // decision 1); it stays mounted so the slide can animate. `hidden` covers both
+  // the persisted Ctrl+Shift+B state and the transient slide-shut on the way to
+  // Home (app.tsx).
+  hidden: boolean;
+  // The clock the Recent rule (3 days) and the docked Other rows' "2d" read.
+  now: number;
   shells: { id: string; name: string }[];
   onToggleCollapse: () => void;
   onActivate: (tabId: string) => void;
   onClose: (tabId: string) => void;
   onSleep: (tabId: string) => void;
   onWake: (tabId: string) => void;
+  // Mark as unread / Mark as read (threadMenu's setUnread), chats only.
+  onSetUnread: (tabId: string, unread: boolean) => void;
   // Opens the running server's port in the browser (threadMenu's "Open
   // localhost:port"); only ever offered on an awake thread with a captured port.
   onOpenLocalhost: (tabId: string) => void;
+  // threadMenu's "Open in File Explorer" for the thread's own folder (Phase 9):
+  // the caller decides whether the thread has a folder and whether it exists.
+  threadExplorer: (tab: Tab) => { missing: boolean; open: () => void } | undefined;
   onNewTab: (groupId?: string, shellId?: string) => void;
-  // Screens the sidebar can send you to, and the popovers it opens. The chooser is
-  // anchored under whichever New thread control was used, so the caller is handed
-  // that control's bottom-left corner.
-  onGoHome: () => void;
-  onSearch: () => void;
+  // The chooser is anchored under whichever New thread control was used, so the
+  // caller is handed that control's bottom-left corner.
   onOpenChooser: (anchor: { x: number; y: number }) => void;
   onOpenProjectPage: (groupId: string) => void;
   onTogglePin: (groupId: string) => void;
@@ -297,19 +337,25 @@ export interface SidePanelProps {
   onRenameGroup: (groupId: string, label: string) => void;
   onSetGroupColor: (groupId: string, color: GroupColor) => void;
   onToggleGroupCollapse: (groupId: string) => void;
+  // The collapse button on the Pinned and Recent headings: every project in that
+  // group at once (design-03 decision 9).
+  onSetGroupsCollapsed: (groupIds: string[], collapsed: boolean) => void;
+  // A click on a project in the docked Other list: stamps its activity, expands
+  // it and selects its first thread, waking nothing (design-03 decision 2).
+  onBringIn: (groupId: string) => void;
   onMoveTab: (tabId: string, anchorTabId: string, position: 'before' | 'after') => void;
   onMoveGroup: (groupId: string, afterTabId: string | null) => void;
   onMoveGroupAfterGroup: (groupId: string, afterGroupId: string) => void;
 }
 
-export function SidePanel(props: SidePanelProps) {
+export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function SidePanel(props, ref) {
   const {
-    tabs, groups, activeTabId, collapsed, shells, onToggleCollapse,
-    onActivate, onClose, onSleep, onWake, onOpenLocalhost, onNewTab,
-    onGoHome, onSearch, onOpenChooser, onOpenProjectPage, onTogglePin,
+    tabs, groups, activeTabId, hidden, now, shells, onToggleCollapse,
+    onActivate, onClose, onSleep, onWake, onSetUnread, onOpenLocalhost, threadExplorer, onNewTab,
+    onOpenChooser, onOpenProjectPage, onTogglePin,
     onNewProject, editors, folderExists, projectActions,
     onCreateGroup, onAddToGroup, onRemoveFromGroup,
-    onRenameGroup, onToggleGroupCollapse,
+    onRenameGroup, onToggleGroupCollapse, onSetGroupsCollapsed, onBringIn,
     onMoveTab, onMoveGroup, onMoveGroupAfterGroup,
   } = props;
 
@@ -323,6 +369,12 @@ export function SidePanel(props: SidePanelProps) {
   // ('general' for the projectless list): a fold is a glance, not a preference, so
   // it is not persisted.
   const [expandedLists, setExpandedLists] = useState<Record<string, boolean>>({});
+  // The search box text (design-03 decision 13) and whether the docked Other
+  // projects list is open. Both transient: a filter and a peek at the overflow are
+  // things you do, not settings.
+  const [query, setQuery] = useState('');
+  const [dockOpen, setDockOpen] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
   // Which thread row the pointer is resting on, the rectangle the card points at,
   // and the clock reading it was opened with (the card shows relative times and
   // must not restart a timer of its own).
@@ -343,11 +395,11 @@ export function SidePanel(props: SidePanelProps) {
     }, HOVER_DELAY_MS);
   }, []);
 
-  // A collapsed sidebar has no rows to point at, and an unmount must not leave a
+  // A hidden sidebar has no rows to point at, and an unmount must not leave a
   // timer running that would open a card over whatever comes next.
   useEffect(() => {
-    if (collapsed) hideHover();
-  }, [collapsed, hideHover]);
+    if (hidden) hideHover();
+  }, [hidden, hideHover]);
   useEffect(() => () => {
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
   }, []);
@@ -496,8 +548,7 @@ export function SidePanel(props: SidePanelProps) {
 
   // ─── Menus ─────────────────────────────────────────────────────────────────
 
-  // The chooser opens just under whichever New thread control was clicked (the row
-  // when the sidebar is open, the rail button when it is collapsed).
+  // The chooser opens just under the New thread row.
   const openChooserUnder = (el: HTMLElement) => {
     const rect = el.getBoundingClientRect();
     onOpenChooser({ x: rect.left, y: rect.bottom + 6 });
@@ -523,8 +574,10 @@ export function SidePanel(props: SidePanelProps) {
         close: () => onClose(tab.id),
         sleep: () => onSleep(tab.id),
         wake: () => onWake(tab.id),
+        setUnread: unread => onSetUnread(tab.id, unread),
         openProjectPage: tab.groupId ? () => onOpenProjectPage(tab.groupId!) : undefined,
         openLocalhost: () => onOpenLocalhost(tab.id),
+        openInExplorer: threadExplorer(tab),
       }),
     });
   };
@@ -547,15 +600,40 @@ export function SidePanel(props: SidePanelProps) {
 
   // ─── Derived rows ──────────────────────────────────────────────────────────
 
-  const segments = computeSegments(tabs, groups);
-  const { general, pinned, projects } = sidebarSections(segments);
+  // Recomputed only when the data or the clock changes, not on every hover: the
+  // Recent split reads lastActiveAt against `now`, which app.tsx moves once a minute.
+  const sections: PanelSections = useMemo(
+    () => panelSections(computeSegments(tabs, groups), now),
+    [tabs, groups, now],
+  );
+  const view = useMemo(() => filterPanel(sections, query, threadName), [sections, query]);
+  const filtered = view.filtered;
   const groupMap = new Map(groups.map(g => [g.id, g]));
   const hoverTab = hover ? tabs.find(t => t.id === hover.tabId) : undefined;
   const draggingTab = draggingTabId ? tabs.find(t => t.id === draggingTabId) : null;
   const draggingGroup = draggingGroupId ? groups.find(g => g.id === draggingGroupId) : null;
+  // A hidden row that is waiting for you keeps the fold open (Aryan, 2026-09-19):
+  // the same definition attention.ts counts with.
+  const isWaiting = (t: Tab) => isWaitingState(threadState(t));
+
+  // The keyboard cycle reads the rows exactly as they are shown: after the filter,
+  // minus collapsed projects, minus fold-hidden rows.
+  useImperativeHandle(ref, (): SidePanelHandle => ({
+    cycleThread: (currentId, dir) => {
+      const ids = visibleThreadIds(view, { activeTabId: currentId, expandedLists, limit: THREAD_FOLD_LIMIT, isWaiting });
+      return cycleThreadId(ids, currentId, dir);
+    },
+    visibleIds: () => visibleThreadIds(view, { activeTabId, expandedLists, limit: THREAD_FOLD_LIMIT, isWaiting }),
+    focusSearch: () => searchRef.current?.focus(),
+  }), [view, expandedLists, activeTabId]);
+
+  const clearQuery = () => {
+    setQuery('');
+    searchRef.current?.focus();
+  };
 
   const renderThreadList = (threads: Tab[], key: string, inProject: boolean, inert: boolean) => {
-    const { shown, hiddenCount, showMore } = foldThreads(threads, activeTabId, !!expandedLists[key], THREAD_FOLD_LIMIT);
+    const { shown, hiddenCount, showMore } = foldThreads(threads, activeTabId, !!expandedLists[key], THREAD_FOLD_LIMIT, isWaiting);
     return (
       <>
         {shown.map(tab => (
@@ -586,7 +664,7 @@ export function SidePanel(props: SidePanelProps) {
     );
   };
 
-  const renderProject = (entry: { group: Group; tabs: Tab[] }, isPinned: boolean) => {
+  const renderProject = (entry: PanelEntry, isPinned: boolean) => {
     const { group, tabs: groupTabs } = entry;
     const expanded = !group.collapsed;
     const counts = projectCounts(groupTabs.map(threadState));
@@ -622,16 +700,34 @@ export function SidePanel(props: SidePanelProps) {
     );
   };
 
+  // The collapse button at the right end of the Pinned and Recent headings: one
+  // click collapses every project in the group, or expands every one when none is
+  // open (design-03 decision 9). Icon and tip follow which way the click goes.
+  const collapseButton = (key: 'pinned' | 'recent', entries: PanelEntry[]) => {
+    if (entries.length === 0) return null;
+    const anyOpen = entries.some(e => !e.group.collapsed);
+    return (
+      <button
+        className="ib"
+        data-collapse-sec={key}
+        data-tip={anyOpen ? 'Collapse all' : 'Expand all'}
+        onClick={e => { e.stopPropagation(); onSetGroupsCollapsed(entries.map(x => x.group.id), anyOpen); }}
+      >
+        {anyOpen ? <IconCollapseAll size={14} /> : <IconExpandAll size={14} />}
+      </button>
+    );
+  };
+
+  const showPinned = view.pinned.length > 0;
+  // The Recent heading is the panel's home for the New project plus, so it shows
+  // even with no recent project, unless a search is narrowing the list.
+  const showRecent = view.recent.length > 0 || !filtered;
+  const others = view.other;
+
   return (
     <>
-      <div className={`side-panel${collapsed ? ' collapsed' : ''}`}>
+      <div className={`side-panel${hidden ? ' hidden' : ''}`} inert={hidden}>
         <div className="brand">
-          <button className="ic" data-go="home" onClick={onGoHome} data-tip="Home">
-            <IconHome size={18} />
-          </button>
-          <span className="ic" data-go="work" aria-selected="true" data-tip="Workspace">
-            <IconTerm size={18} />
-          </span>
           <span className="sp" />
           <button className="ic" onClick={onToggleCollapse} data-tip="Close sidebar">
             <IconPanel size={18} />
@@ -639,22 +735,44 @@ export function SidePanel(props: SidePanelProps) {
         </div>
 
         <div className="side-body">
-          <button className="srow" onClick={onSearch}>
+          {/* The Search box (design-03 decision 13): typing filters the panel in
+              place; Ctrl+Shift+P still opens the palette, the only place closed
+              threads are searched. Escape empties the box; a second Escape
+              hands the keyboard back to the terminal. */}
+          <div className={`srch${filtered ? ' has' : ''}`}>
             <span className="g"><IconSearch size={16} /></span>
-            Search
+            <input
+              ref={searchRef}
+              className="srch-input"
+              placeholder="Search"
+              value={query}
+              spellCheck={false}
+              onChange={e => setQuery(e.target.value)}
+              onKeyDown={e => {
+                if (e.key !== 'Escape') return;
+                e.preventDefault();
+                if (query) setQuery('');
+                else searchRef.current?.blur();
+              }}
+            />
             <span className="k">Ctrl Shift P</span>
-          </button>
+            <button className="ib clr" data-tip="Clear" data-clear="" onClick={clearQuery} tabIndex={-1}>
+              <IconX size={14} />
+            </button>
+          </div>
 
-          <button
-            className="srow"
-            data-new-thread=""
-            onClick={e => openChooserUnder(e.currentTarget)}
-            onContextMenu={openNewThreadShellMenu}
-          >
-            <span className="g"><IconPlus size={16} /></span>
-            New thread
-            <span className="k">Ctrl Shift T</span>
-          </button>
+          {!filtered && (
+            <button
+              className="srow"
+              data-new-thread=""
+              onClick={e => openChooserUnder(e.currentTarget)}
+              onContextMenu={openNewThreadShellMenu}
+            >
+              <span className="g"><IconPlus size={16} /></span>
+              New thread
+              <span className="k">Ctrl Shift T</span>
+            </button>
+          )}
 
           <DndContext
             sensors={sensors}
@@ -673,33 +791,41 @@ export function SidePanel(props: SidePanelProps) {
             onDragCancel={handleDragCancel}
           >
             <div className="scroll" onScroll={hideHover}>
-              {general.length > 0 && (
-                <div className="sec">
+              {view.general.length > 0 && (
+                <div className="sec" data-sec="general">
                   <div className="lbl">General</div>
-                  {renderThreadList(general, 'general', false, false)}
+                  {renderThreadList(view.general, 'general', false, false)}
                 </div>
               )}
 
-              {pinned.length > 0 && (
-                <div className="sec">
-                  <div className="lbl">Pinned</div>
-                  {pinned.map(entry => renderProject(entry, true))}
+              {showPinned && (
+                <div className="sec pinned-sec" data-sec="pinned">
+                  <div className="lbl lblrow">
+                    <span className="hd"><span className="pin"><IconPinOn size={12} /></span>Pinned</span>
+                    <span className="acts">{collapseButton('pinned', view.pinned)}</span>
+                  </div>
+                  {view.pinned.map(entry => renderProject(entry, true))}
                 </div>
               )}
 
-              <div className="sec">
-                <div className="lbl lblrow">
-                  <span>Projects</span>
-                  <button
-                    className="ib"
-                    data-tip="New project"
-                    onClick={onNewProject}
-                  >
-                    <IconPlus size={14} />
-                  </button>
+              {showPinned && showRecent && <div className="divider" />}
+
+              {showRecent && (
+                <div className="sec" data-sec="recent">
+                  <div className="lbl lblrow">
+                    <span className="hd">Recent</span>
+                    <span className="acts">
+                      {collapseButton('recent', view.recent)}
+                      <button className="ib" data-tip="New project" data-new-project="" onClick={onNewProject}>
+                        <IconPlus size={14} />
+                      </button>
+                    </span>
+                  </div>
+                  {view.recent.map(entry => renderProject(entry, false))}
                 </div>
-                {projects.map(entry => renderProject(entry, false))}
-              </div>
+              )}
+
+              {view.noMatches && <div className="nomatch">No matches</div>}
             </div>
 
             <DragOverlay dropAnimation={null}>
@@ -719,7 +845,7 @@ export function SidePanel(props: SidePanelProps) {
                 <ProjectRow
                   group={draggingGroup}
                   threadCount={tabs.filter(t => t.groupId === draggingGroup.id).length}
-                  counts={{ needsYou: 0, running: 0 }}
+                  counts={{ needsYou: 0, running: 0, compacting: 0 }}
                   pinned={draggingGroup.pinned}
                   isDragging={false}
                   onToggle={() => {}}
@@ -737,29 +863,37 @@ export function SidePanel(props: SidePanelProps) {
               ) : null}
             </DragOverlay>
           </DndContext>
-        </div>
 
-        <div className="rail">
-          <button className="ic" onClick={onToggleCollapse} data-tip="Open sidebar">
-            <IconPanel size={18} />
-          </button>
-          <button className="ic" data-go="home" onClick={onGoHome} data-tip="Home">
-            <IconHome size={18} />
-          </button>
-          <span className="ic" data-go="work" aria-selected="true" data-tip="Workspace">
-            <IconTerm size={18} />
-          </span>
-          <button className="ic" onClick={onSearch} data-tip="Search">
-            <IconSearch size={18} />
-          </button>
-          <button
-            className="ic"
-            data-new-thread=""
-            onClick={e => openChooserUnder(e.currentTarget)}
-            data-tip="New thread"
-          >
-            <IconPlus size={18} />
-          </button>
+          {/* Other projects (design-03 decision 2): the unpinned projects outside the
+              3-day window, docked under the scroll, collapsed by default. Expanding
+              lists them as dim rows with no thread lists; clicking one brings it in.
+              Hidden while a search is narrowing the list. */}
+          {others.length > 0 && !filtered && (
+            <div className={`dock${dockOpen ? ' open' : ''}`} data-dock="">
+              <div className={`dlist${dockOpen ? ' open' : ''}`} inert={!dockOpen}>
+                <div>
+                  {others.map(entry => (
+                    <div
+                      key={entry.group.id}
+                      className="pj dim"
+                      data-other={entry.group.id}
+                      onClick={() => { setDockOpen(false); onBringIn(entry.group.id); }}
+                      onContextMenu={e => openProjectMenu(e, entry.group)}
+                    >
+                      <FolderIcon color={entry.group.color} open={false} size={18} icon={entry.group.icon} />
+                      <span className="n">{entry.group.label}</span>
+                      <span className="c">{relativeTime(entry.group.lastActiveAt, now)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <button className="drow" data-dock-toggle="" onClick={() => setDockOpen(o => !o)}>
+                <span className={`chev${dockOpen ? ' up' : ''}`}><IconChevD size={14} /></span>
+                Other projects
+                <span className="c">{others.length}</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -769,7 +903,7 @@ export function SidePanel(props: SidePanelProps) {
 
       {/* Mounted at the panel root, outside the scrolling list, so the card is not
           clipped by it. */}
-      {hoverTab && !collapsed && (
+      {hoverTab && !hidden && (
         <ThreadHoverCard
           tab={hoverTab}
           group={hoverTab.groupId ? groupMap.get(hoverTab.groupId) : undefined}
@@ -780,4 +914,4 @@ export function SidePanel(props: SidePanelProps) {
 
     </>
   );
-}
+});

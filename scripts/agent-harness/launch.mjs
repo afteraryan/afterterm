@@ -40,7 +40,13 @@ if (opts.help) {
   --env KEY=VALUE     extra environment variable for the dev build (repeatable, or one
                         --env with several pairs separated by ";"). Cannot override
                         AFTERTERM_USER_DATA_DIR, AFTERTERM_DISPLAY,
-                        AFTERTERM_REMOTE_DEBUG_PORT or AFTERTERM_HARNESS`);
+                        AFTERTERM_REMOTE_DEBUG_PORT, AFTERTERM_HARNESS or
+                        AFTERTERM_OPEN_EXTERNAL
+  --open-external     let "Open localhost:port" and "Open in File Explorer" really open
+                        a browser or an Explorer window (sets AFTERTERM_OPEN_EXTERNAL=1).
+                        Off by default: a harness run only logs them, so nothing lands on
+                        the person's screen. Use it for the replica left running for Aryan,
+                        never for an automated self-test`);
   process.exit(0);
 }
 
@@ -62,7 +68,7 @@ if (!/^(primary|secondary|\d+)$/.test(display)) fail(`bad --display ${display} (
 // a stray --env AFTERTERM_DISPLAY=primary would silently defeat the "stay off the
 // display a person is working on" safety rule, so it fails loudly instead.
 const RESERVED_ENV_KEYS = new Set([
-  'AFTERTERM_USER_DATA_DIR', 'AFTERTERM_DISPLAY', 'AFTERTERM_REMOTE_DEBUG_PORT', 'AFTERTERM_HARNESS',
+  'AFTERTERM_USER_DATA_DIR', 'AFTERTERM_DISPLAY', 'AFTERTERM_REMOTE_DEBUG_PORT', 'AFTERTERM_HARNESS', 'AFTERTERM_OPEN_EXTERNAL',
 ]);
 const extraEnv = {};
 const extraEnvKeys = [];
@@ -132,6 +138,7 @@ const env = {
   AFTERTERM_DISPLAY: display,
   AFTERTERM_REMOTE_DEBUG_PORT: String(port),
   AFTERTERM_HARNESS: '1',
+  ...(opts['open-external'] ? { AFTERTERM_OPEN_EXTERNAL: '1' } : {}),
 };
 
 fs.appendFileSync(logFile, `\n=== agent-harness launch ${new Date().toISOString()} ===\n`);
@@ -163,6 +170,7 @@ const record = {
   startedAt,
   sessionSource,
   claudeResume,
+  openExternal: !!opts['open-external'],
   extraEnv: extraEnvKeys,
   targets: [],
 };

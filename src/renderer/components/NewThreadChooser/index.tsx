@@ -131,7 +131,7 @@ export function NewThreadChooser({
             onClick={() => pick(i)}
             onMouseEnter={() => setHi(i)}
           >
-            {item.group ? <FolderIcon color={item.group.color} size={16} /> : <IconTerm size={16} />}
+            {item.group ? <FolderIcon color={item.group.color} size={16} icon={item.group.icon} /> : <IconTerm size={16} />}
             <span className="n">{item.group ? item.group.label : 'No project'}</span>
             {item.tag && <span className="r">{item.tag}</span>}
           </button>

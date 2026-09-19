@@ -41,7 +41,8 @@ Plain Node (24+) and PowerShell. No new dependencies: Node's global `fetch` and
 | File | Role |
 |---|---|
 | `launch.mjs` | Seeds a throwaway `AFTERTERM_USER_DATA_DIR`, starts `electron-forge start` with the placement and debug-port env vars, waits for the DevTools endpoint, records pids. |
-| `drive.mjs` | CDP client with subcommands: `targets`, `bounds`, `screenshot`, `eval`, `dom`, `click`, `rightclick`, `hover`, `unhover`, `drag`, `emulate-media`, `type`, `key`, `sidebar`, `screen`, `home`, `project`, `chooser`, `palette`, `header`, `hover-card`, `pane`, `tail`, `confirm`, `opened`, `marks`, `window`, `record`. |
+| `drive.mjs` | CDP client with subcommands: `targets`, `bounds`, `screenshot`, `eval`, `dom`, `click`, `rightclick`, `hover`, `unhover`, `drag`, `emulate-media`, `type`, `key`, `sidebar`, `rail`, `dock`, `search`, `screen`, `home`, `project`, `chooser`, `palette`, `header`, `hover-card`, `pane`, `tail`, `confirm`, `opened`, `marks`, `scroll`, `jump`, `pane-scroll`, `counts`, `reload`, `window`, `record`. |
+| `watch-jump.mjs` | Phase 9: clicks the jump button and samples `window.__afterterm.viewport()` (the active terminal's `viewportY` and `baseY`) every 50ms for `--ms` (default 700), one line per sample, so a test can see a terminal jump move along its eased curve rather than teleport. Only the orchestrator drives a harness instance. |
 | `stop.mjs` | Kills exactly the recorded process tree and verifies it is gone. |
 | `screenshot-display.ps1` | Captures a whole physical display to PNG (shows native title bars and the notifier toasts, which CDP cannot). |
 | `record.mjs` | Long-running recorder: CDP screencast of the page content, stitched to mp4 with ffmpeg. Normally started detached by `drive.mjs record start`, not run by hand. See "Recording a test session" below. |
@@ -88,6 +89,14 @@ Options:
   what runs `claude --resume`; see the safety rule above). `all` seeds the copy
   unchanged (the active tab's session is live at launch, since it was live when
   the source `session.json` was copied).
+- `--open-external`: lets "Open localhost:port" and "Open in File Explorer" really
+  open a browser or an Explorer window (sets `AFTERTERM_OPEN_EXTERNAL=1`, read by
+  `harnessOnlyLogsExternal()` in `main.ts`). Off by default: a harness run only logs
+  `[harness] shell:openExternal <url>` and `[harness] projects:openInExplorer <folder>`,
+  so nothing can land on the person's screen. Use it only for the replica dev build
+  left running for Aryan to use himself (Phase 9, after his replica's Explorer
+  entries did nothing); never for an automated self-test. Recorded in the run
+  record as `openExternal`.
 - `--env KEY=VALUE` (repeatable): an extra environment variable for the dev
   build. Pass it more than once, or put several pairs in one `--env` separated
   by `;`. The value may be empty (`--env FOO=`) and may itself contain `=` or
@@ -167,7 +176,10 @@ node scripts/agent-harness/drive.mjs <command> ...
 | `emulate-media` | `drive emulate-media reduce` | `Emulation.setEmulatedMedia` for `prefers-reduced-motion`: `reduce`, `no-preference`, or `off` to clear every emulated feature. |
 | `type` | `drive type "hello"` | `Input.insertText` into the focused element. |
 | `key` | `drive key Enter`, `drive key b --ctrl --shift` | `Input.dispatchKeyEvent` down and up. Known names: Enter, Escape, Tab, Backspace, Delete, Space, Arrow keys, Home, End, PageUp, PageDown, F5, or any single character. Modifiers: `--ctrl`, `--shift`, `--alt`. |
-| `sidebar` | `drive sidebar` | The rendered sidebar as a tree: one block per section (General, Pinned, Projects); project rows with label, thread count, collapsed state and the counter pills (`need=`, `run=`); thread rows with title, `*` for active, `[kind/state]` from the row's kind icon and state icon, a ` :5173` port right after the state when the row carries a `.prt` span (Phase 5, only while the thread owns a listening port), `[asleep]` when the row carries the `sleep` class, `[x]` when the row's close button is present; a `(Show N more)` line where a list is folded. Collapsed, the panel reports `(collapsed, rail only)` and lists nothing. Phase 4 removed the `restorable` class and its `[restorable]` marker; asleep is the only sleep-state marker now. |
+| `sidebar` | `drive sidebar` | The rendered side panel as a tree: one block per section (General, Pinned, Recent, each printed with its `data-sec` key in brackets and `[collapse]` when it carries a collapse-all button); project rows with label, thread count, collapsed state and the counter pills (`need=`, `run=`); thread rows with title, `*` for active, `[kind/state]` from the row's kind icon and state icon, a ` :5173` port right after the state when the row carries a `.prt` span (Phase 5, only while the thread owns a listening port), `[unread]` when the row's state icon carries `data-state="unread"` (Phase 7, a chat marked unread; the `[kind/state]` bracket reads `unread` too, the flag just saves a reader knowing that), `[asleep]` when the row carries the `sleep` class, `[x]` when the row's close button is present; a `(Show N more)` line where a list is folded, `(No matches)` when the search box's `.nomatch` is showing, and the docked Other projects row printed last (`Other projects · N (open\|closed)`, plus one `- name (ago)` line per row once it is open). Phase 8 replaced the old rail-only collapse with the always-on `Rail/` component and a panel that hides by sliding to zero width instead: the panel now reports `(hidden)`, not `(collapsed, rail only)`, and `rail` below is what reads the rail itself. Phase 4 removed the `restorable` class and its `[restorable]` marker; asleep is the only sleep-state marker now. |
+| `rail` | `drive rail` | Phase 8: the always-on rail (`src/renderer/components/Rail/index.tsx`, `Rail.css`), a 76px column at the left of every screen. Prints one line, `rail screen=<home\|workspace\|project> blocks=<open\|closed> nav=<home\|work> panelHidden=<true\|false>` (`blocks` is whether the rail's two closable blocks, the sidebar toggle and Search/New thread, are open, which only happens while the panel is hidden on the workspace; `nav` is which half of the Home/Workspace pill is selected; `panelHidden` reads `window.__afterterm.panelHidden()`, the persisted flag), then one line per tile: `- <project name>  waiting=N working=N compacting=N finished=N`, printing only the badges the tile actually shows (`(no badges)` if it shows none), or `(no tiles)` when the rail is empty. `(no .rail-bar in the DOM)` when the rail itself is absent. |
+| `dock` | `drive dock` | Phase 8: the panel's docked "Other projects" row (`.dock[data-dock]` in `SidePanel/index.tsx`), the unpinned projects outside the 3-day Recent window. Prints `Other projects · N (open\|closed)`, then one `- name (ago)` line per row once it is open (empty while closed, since the rows are not read until then). `(no dock)` when there is nothing to dock (every project is pinned or recent) or a search is narrowing the panel. |
+| `search [text] [--clear]` | `drive search "npm"`, `drive search`, `drive search --clear` | Phase 8: the panel's in-place search box (`.srch` in `SidePanel/index.tsx`). With text, clicks the box to focus it, then sets its value the React-friendly way (the native input value setter, then an `input` event, since `Input.insertText` alone does not always reach a freshly-focused React-controlled input) so the panel filters in place. With no text, reports the box's current state: `search "<value>" (filtering\|empty)`, then `new-thread row: shown\|hidden` and `dock: shown\|hidden` (both hide while a search is narrowing the list). `--clear` clicks the box's own `[data-clear]` button. `(no input.srch-input in the DOM)` when the panel is hidden or the box is otherwise absent. |
 | `screen` | `drive screen` | One JSON object: `screen` (`home`, `workspace` or `project`, from `.app`'s `data-screen`), `entrance` (the `enter-home` / `enter-project` / `enter-workspace` class while it's still on `.app`, or `null`), and whether the search palette, new-thread chooser, a menu, a dialog, or a toast is present. |
 | `home` | `drive home` | The rendered Home screen as a tree: the date heading, the `need`/`run` totals, one line per pinned card (name, pills, relative time, pin state), one line per project row, the "Show more" line when present, and the archived section (its toggle line, then its rows once expanded). `(not on Home)` when `.home` is absent. |
 | `project` | `drive project` | The rendered project page: title, folder line, the action buttons under `.ph .acts` with their disabled state, the selected tab plus the other tab labels (printed first, so a reader always knows which list the rows below belong to), the search box value, then one line per row. Live and Asleep rows (`.tl[data-tab-id]`) print name, state and time as before, with a ` :5173` port right after the state when the row's detail line carries a `[data-meta="port"]` span (Phase 5, only while the thread owns a listening port). History rows (`.tl[data-history-id]`, Phase 4) have no state icon, so they print as `- "title" [chat|shell] <time> [resume]`, kind read from the row's `.d` text and `[resume]` shown only when the row carries a `[data-resume]` button. `(not on a project page)` when `.proj` is absent. |
@@ -175,11 +187,17 @@ node scripts/agent-harness/drive.mjs <command> ...
 | `palette` | `drive palette` | The search palette's input value, then each group header (`.gl`, e.g. Projects, Threads and Phase 4's History) followed by its rows (kind, id, name, meta text, `*` when highlighted), or the empty-state text. History rows carry `data-kind="history"` and a meta like "project · 3d", read the same generic way as project and thread rows. `(no palette open)` when absent. |
 | `header` | `drive header` | The main pane header as a tree: the name line, the kind (when the name line carries a `data-kind` attribute), one `<data-meta>=<text>` line per header meta item, the state chip text or `(quiet)` (Phase 4: an asleep thread's chip reads "Asleep · 2d"). `(no thread)` when the header shows its empty state. `(no .header in the DOM)` when the header itself is absent. |
 | `hover-card` | `drive hover ".th" 0 --wait 400` then `drive hover-card` | The thread hover card: the title, then one `<data-row>: <text>` line per `dl` row. `(no hover card)` when absent. The card appears 350ms after the pointer enters a thread row, so hover first with `--wait` (see the `hover` row above) before reading it. |
-| `pane` | `drive pane` | Phase 4: the asleep pane (`.asleep-pane`) that covers the terminal card while the active thread is asleep, as a tree: `asleep pane for <tab id>`, `wake button: yes\|no`, `since: <text>`, `past lines: <N>` and the last 5 saved tail lines indented (or `past: (none)` while the tail is loading or empty). When no thread is asleep, prints `(terminal)` and `terminal: shown\|hidden` (whether `.terminal-instances` carries `asleep-hidden`). |
+| `pane` | `drive pane` | Phase 4: the asleep pane (`.asleep-pane`) that covers the terminal card while the active thread is asleep, as a tree: `asleep pane for <tab id>`, `wake button: yes\|no`, `since: <text>`, `past lines: <N>` and the last 5 saved tail lines indented (or `past: (none)` while the tail is loading or empty), and (Phase 9) a `scroll: top=<n> max=<n> atEnd=<bool>` line reading the pane's inner `.asleep-scroll` (`scroll: (no scroller)` if it is somehow missing). When no thread is asleep, prints `(terminal)` and `terminal: shown\|hidden` (whether `.terminal-instances` carries `asleep-hidden`). |
 | `tail` | `drive tail`, `drive tail 10`, `drive tail 10 --tab <id>` | Phase 4: the last n lines (default 30) of an xterm buffer, read through `window.__afterterm.activeTail(n)` for the active tab or `window.__afterterm.tail(id, n)` for `--tab <id>`. One line per entry; `(no terminal)` when the hook is missing or the tab has no live terminal (e.g. it is asleep). |
 | `confirm` | `drive confirm` | Phase 5: the confirm dialog shown when closing or sleeping a thread that owns a listening port (`src/renderer/components/ConfirmDialog/index.tsx`), as a tree: `confirm dialog`, then `title:`, `body:`, `confirm:` and `cancel:` lines reading the dialog's `.modal-title`, `.confirm-body`, `[data-confirm]` and `[data-cancel]` text. `(no confirm dialog)` when it is not open. Click its buttons with `drive click "[data-confirm]"` (close or sleep anyway) and `drive click "[data-cancel]"` (keep the thread running). |
-| `opened` | `drive opened` | Phase 5: the URL the last "Open localhost:port" click reached, from `window.__afterterm.lastOpenExternal` (set by `app.tsx`), or `(nothing opened)`. A harness run never actually opens a browser: with `AFTERTERM_HARNESS=1`, main.ts logs `[harness] shell:openExternal <url>` to the harness log instead of calling `shell.openExternal`. The log line plus this command are how a test proves the click reached the safelisted open-external path without any browser window ever appearing on the person's display. |
+| `opened` | `drive opened` | Phase 5: the URL the last "Open localhost:port" click reached, from `window.__afterterm.lastOpenExternal` (set by `app.tsx`), or `(nothing opened)`. A harness run never actually opens a browser: with `AFTERTERM_HARNESS=1`, main.ts logs `[harness] shell:openExternal <url>` to the harness log instead of calling `shell.openExternal`. The log line plus this command are how a test proves the click reached the safelisted open-external path without any browser window ever appearing on the person's display. Phase 9: a second line, `folder: <path>` or `folder: (none opened)`, the folder the last "Open in File Explorer" reached (a project's folder from the project menu, or a thread's own folder from the thread menu or the header's worktree item), from `window.__afterterm.lastOpenFolder`; main logs `[harness] projects:openInExplorer <folder>` instead of launching Explorer under `AFTERTERM_HARNESS=1`. |
 | `marks [--tab id]` | `drive marks --tab <id>` | Phase 5: `window.__afterterm.commandState(id)` (`src/renderer/components/Terminal/index.tsx`), the OSC 133-style prompt marks used to tell whether a thread is sitting at a shell prompt and where it ends, printed as `at prompt: yes\|no` and `prompt end: row R col C` (or `(none)`). `(no marks)` when the hook returns null. There is no `window.__afterterm.activeTabId` hook as of this writing, so `--tab <id>` is required; `marks` falls back to that hook automatically if a later phase adds one, but until then omitting `--tab` fails with a message saying so. Phase 6 extended the underlying marks to pwsh, Windows PowerShell, Git Bash and WSL, so `marks` reads the same "at prompt" state for any of them; "at prompt: no" forever on a thread that should be integrated usually means that shell's hook never installed (an rc file clobbered it, the bootstrap failed, or it is opted off in `prefs.json`). |
+| `jump` | `drive jump` | Phase 9: the jump-to-top / jump-to-bottom button (`.jump-btn`, `src/renderer/components/JumpButton/index.tsx`), one per scroller (the live terminal card, the asleep pane), at the scroller's centre. Prints `jump: hidden` or `jump: shown target=<top\|bottom>`. Shown means `data-shown="true"`: the button stays mounted while it shrinks away (a scale-only exit, no fade), so presence alone says nothing. There is no tooltip on it (Aryan, 2026-09-19). |
+| `pane-scroll` | `drive pane-scroll` | Phase 9: the asleep pane's own scroller position on its own (`pane` above folds the same reading in, so a single call can show both). Prints `pane scroll: top=<n> max=<n> atEnd=<bool>` (`atEnd` within 2px of `max`), or `(no asleep pane)` when no thread is asleep. |
+| `scroll <selector> <deltaY> [index]` | `drive scroll ".xterm-screen" -800`, `drive scroll ".asleep-scroll" 500` | Phase 9: a mouse wheel over an element through Chromium's input pipeline (`Input.dispatchMouseEvent` `mouseWheel`), the way a user scrolls a terminal or the asleep pane. `deltaY` is in pixels, positive toward the end, negative toward the top; a large delta is sent in 100px steps, since xterm turns each event into a line count and one huge event would jump further than a wheel can. Read the result with `jump`, `pane-scroll` or `pane`. |
+| `wheel-on-jump [deltaY]` | `drive wheel-on-jump -300` | Phase 9: a wheel over the shown jump button itself (it appears under the pointer mid-scroll, and must hand the wheel on to the scroller rather than swallow it). Prints the scroller position before and after (`terminal viewportY=N` through `window.__afterterm.viewport()`, or `pane top=N`). Default deltaY is -300. |
+| `reload` | `drive reload` | Phase 8: reloads the renderer page (`location.reload()`), which restores the session again and lands on Home. Use it after editing `app.tsx`, `useTabState.ts` or anything else whose code a mount-only effect holds on to: Vite's Fast Refresh keeps the edited component's state and does not re-run its `[]`-dependency effects, so the shortcut dispatch registered at mount can go on calling the previous version of a function (seen in the Phase 8 self-test: the keyboard cycle kept reordering Recent after the fix was in, until the page was reloaded). A main or preload edit still needs `harness:stop` and a relaunch. |
+| `counts [--project label]` | `drive counts`, `drive counts --project afterterm` | Phase 7: `window.__afterterm.counts()` (`app.tsx`), the one attention aggregate every count in the app reads from (`src/renderer/attention.ts`). Prints `total  waiting=N working=N compacting=N running=N finished=N` (every non-archived project plus General), then one line per non-archived project (`[pinned]` prefixed when pinned), then `rail: a, b` (the projects with a thread waiting, finished or compacting, the same list `rail` below shows, or `(empty)`). "Waiting" is needs-you plus unread; working counts `working` only; compacting (Phase 8) is its own bucket; running is a captured port; finished is `done`. With `--project <label>` (or a group id) only that project's line prints, and an unknown name fails listing the names it has. Read straight from state, so it never waits on the session file's two second debounce; it is the number the sidebar's `need=`/`run=` pills, the rail's badges and Home's totals are all built from, so a mismatch between this and `sidebar`, `rail` or `home` is a bug. |
 | `window` | `drive window bottom`, `drive window restore`, `drive window quit`, `drive window close-dialogs` | OS-level window control (see "Capturing an occluded window" below). `quit` posts WM_CLOSE to the main window and waits for the process to exit: a graceful quit, so the renderer's quit flush runs (session.json with every thread stamped asleep, and every live terminal's tail file), which `stop.mjs`'s hard kill skips. The dev build answers its own "terminals still running" confirm when `AFTERTERM_HARNESS=1` (`src/main.ts`), so nothing waits on a dialog. |
 | `record` | `drive record start --out out.mp4`, `drive record stop`, `drive record status` | Starts, stops and lists screen recordings of the page content (see "Recording a test session" below). |
 
@@ -199,6 +217,17 @@ and `SEL.hoverCard` needed no Phase 5 additions: the header's meta items and chi
 hover card's `dd[data-row]` rows, are already read generically by attribute rather than by a
 fixed list, so a new meta item, a "Running on :5173" chip, or a new `data-row="last-ran"` row
 all show up on their own.
+
+Phase 9 added `SEL.asleepPane.scroll` (`.asleep-scroll`, the inner scroller `AsleepPane`
+restructured onto so the jump button can sit as a plain sibling of it) and
+`SEL.jumpButton` (`.jump-btn`, `src/renderer/components/JumpButton/index.tsx`).
+
+Phase 8 added `SEL.rail` (`src/renderer/components/Rail/index.tsx`, `Rail.css`), `SEL.search`
+and `SEL.dock` (both read from `SidePanel/index.tsx`'s `.srch` and `.dock[data-dock]`), and
+renamed `SEL.panelCollapsedClass` to `SEL.panelHiddenClass` ('collapsed' does not exist any
+more; the panel hides by sliding its width to zero and carries the class `hidden` instead).
+`sidebar` reads `SEL.dock` a second time (inline, not by calling into `cmdDock`) so one
+`sidebar` call still shows the whole panel, dock included.
 
 ### Hover, drag and reduced motion
 
@@ -464,6 +493,55 @@ npm run harness -- --session "$env:TEMP\session-copy.json" --prefs "$env:TEMP\af
 npm run harness:drive -- marks --tab <pwsh-tab-id>                # "at prompt: no" forever: Windows PowerShell is opted off
 npm run harness:drive -- marks --tab <another-shell-tab-id>       # still "at prompt: yes" for a shell left on
 npm run harness:drive -- tail 10                                  # the scratch prompt ("scratch> ") is still visible, unwrapped-looking, in a pwsh thread left on
+npm run harness:stop
+```
+
+```powershell
+# Phase 7: needs-you persists until answered, Mark as unread, the counts aggregate.
+# A permission prompt is easiest to fake without Claude: the notify hook is title
+# driven, so any shell can print the hook's own "⚠" title with an OSC 0 sequence.
+npm run harness -- --session "$env:TEMP\session-copy.json"
+npm run harness:drive -- click ".side-panel .th" 0                         # open a shell thread
+npm run harness:drive -- type 'printf "\033]0;⚠ afterterm - needs permission\007"'   # in Git Bash; cmd: echo with the raw ESC
+npm run harness:drive -- key Enter
+npm run harness:drive -- click ".side-panel .th" 1                         # look at another thread (the bell stays)
+npm run harness:drive -- sidebar                                           # the first row reads [shell/needs-you]
+npm run harness:drive -- counts                                            # total waiting=1, and that project on the rail line
+npm run harness:drive -- click ".side-panel .th" 0                         # click back into it: still needs-you (Phase 7)
+npm run harness:drive -- key ArrowDown                                     # arrows echo output; still needs-you
+npm run harness:drive -- key Enter                                         # the answer: working, then quiet after 2.5s of silence
+npm run harness:drive -- rightclick ".side-panel .th" 2                    # a chat row: "Mark as unread" in the menu
+npm run harness:drive -- click ".ctx-menu-item" 2
+npm run harness:drive -- sidebar                                           # the row reads [chat/unread] [unread] and breathes amber
+npm run harness:drive -- window quit                                       # relaunch with the same data dir: still unread
+```
+
+After a right-click menu the terminal no longer has keyboard focus, so `type` and `key`
+go nowhere until something refocuses it: `drive click ".xterm-screen" 0` first. This cost
+the Phase 7 self-test twenty minutes on a "typing does not clear unread" that was not real.
+
+```powershell
+# Phase 8: the always-on rail on all three screens, a tile click, the search
+# box, the docked Other projects list, and the keyboard cycle.
+npm run harness -- --session "$env:TEMP\session-copy.json"
+npm run harness:drive -- rail                              # screen=workspace, nav=work
+npm run harness:drive -- click "[data-go='home']"
+npm run harness:drive -- rail                              # screen=home, nav=home
+npm run harness:drive -- rightclick ".tile" 0               # a tile's context menu is the shared project menu
+npm run harness:drive -- click ".ctx-menu-item" 3            # Open project page
+npm run harness:drive -- rail                              # screen=project (nav still reads home; the project page is a page you visit from Home)
+npm run harness:drive -- click "[data-go='work']"
+npm run harness:drive -- click ".tile" 0                     # opens the thread that most needs looking at (firstThreadToOpen)
+npm run harness:drive -- search "npm"                        # filters the panel in place
+npm run harness:drive -- sidebar                             # new-thread row and the dock both drop out while filtering
+npm run harness:drive -- search --clear
+npm run harness:drive -- dock                                # closed by default: count only, no rows
+npm run harness:drive -- click "[data-dock-toggle]"
+npm run harness:drive -- dock                                # open: one row per project outside the 3-day Recent window
+npm run harness:drive -- click "[data-other]" 0              # brings that project in (design-03 decision 2): no thread is woken
+npm run harness:drive -- click ".xterm-screen" 0             # the terminal needs focus before a keyboard shortcut reaches it
+npm run harness:drive -- key ArrowDown --ctrl --shift        # cycles to the next thread the panel shows
+npm run harness:drive -- sidebar
 npm run harness:stop
 ```
 

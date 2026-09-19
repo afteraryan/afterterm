@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Decisions 6 and 7: the attention filter, and how mid-turn threads are found</title>
+<link rel="stylesheet" href="design-03-shared.css">
+</head>
+<body>
+<script src="design-03-shared.js"></script>
+<script>
+// Decisions 6 and 7 of design-03: how a person finds "what needs me" and "what
+// is Claude mid-turn on right now" without opening every project one at a
+// time. Three shapes, same data: a filter control in the panel (A), an
+// always-there block above the sections (B), and a strip of chips under the
+// title bar, Chrome tab style (C).
+//
+// Working means a chat mid-turn, Aryan's definition. A running server is a
+// different thing: it shows its port right on its row and is not counted as
+// "working" unless a variant's option says otherwise.
+
+function projectOrderIndex() {
+  const order = [...pinnedList(), ...unpinnedList()];
+  const idx = {};
+  order.forEach((p, i) => idx[p.id] = i);
+  return idx;
+}
+function stateRank(t) {
+  switch (t.state) {
+    case 'needs-you': return 0;
+    case 'unread': return 1;
+    case 'working': return 2;
+    case 'running': return 3;
+    default: return 4;
+  }
+}
+function sortedFlat(ts) {
+  const idx = projectOrderIndex();
+  return [...ts].sort((a, b) => {
+    const ra = stateRank(a), rb = stateRank(b);
+    if (ra !== rb) return ra - rb;
+    return (idx[a.p] ?? 999) - (idx[b.p] ?? 999);
+  });
+}
+function attentionCounts(opts) {
+  const needs = THREADS.filter(t => t.state === 'needs-you' || t.state === 'unread').length;
+  const working = THREADS.filter(t => t.state === 'working').length
+    + (opts.workingCountsRunning ? THREADS.filter(t => t.state === 'running').length : 0);
+  return { needs, working };
+}
+
+/* ── Variant A: a segmented filter under the New thread row ─────────────── */
+function segControl(filter, c) {
+  return `<div class="seg">
+    <button data-filter="all" aria-selected="${filter === 'all'}">All</button>
+    <button data-filter="needs" aria-selected="${filter === 'needs'}">${svg('i-bell', 13)}Needs you<span class="n">${c.needs}</span></button>
+    <button data-filter="working" aria-selected="${filter === 'working'}">${svg('i-play', 12)}Working<span class="n">${c.working}</span></button>
+  </div>`;
+}
+function flatList(filter, opts) {
+  if (filter === 'needs') return sortedFlat(THREADS.filter(t => t.state === 'needs-you' || t.state === 'unread'));
+  return sortedFlat(THREADS.filter(t => t.state === 'working' || (opts.workingCountsRunning && t.state === 'running')));
+}
+function filterBody(filter, opts) {
+  const ts = flatList(filter, opts);
+  const label = filter === 'needs' ? `Needs you · ${ts.length}` : `Working · ${ts.length}`;
+  if (!ts.length) {
+    const msg = filter === 'needs' ? 'Nothing needs you' : 'Nothing is working right now';
+    return `<div class="sec"><div class="lbl">${label}</div><div class="nomatch">${msg}</div></div>`;
+  }
+  return `<div class="sec"><div class="lbl">${label}</div>${ts.map(t => threadRow(t, { flat: true })).join('')}</div>`;
+}
+function renderTabs(frame, opts) {
+  window.__filterState = window.__filterState || 'all';
+  const filter = window.__filterState;
+  const c = attentionCounts(opts);
+  const top = searchRow() + newThreadRow() + segControl(filter, c);
+  const body = filter === 'all' ? defaultSections() : filterBody(filter, opts);
+  frame.innerHTML = titleBar() + `<div class="work">${panel(body, { top })}${mainPane()}</div>`;
+  frame.querySelectorAll('[data-filter]').forEach(b => b.onclick = () => {
+    window.__filterState = b.dataset.filter;
+    window.__redraw();
+  });
+}
+
+/* ── Variant B: an always-there attention block above the sections ──────── */
+function attentionBlock() {
+  const needs = sortedFlat(THREADS.filter(t => t.state === 'needs-you' || t.state === 'unread'));
+  const working = sortedFlat(THREADS.filter(t => t.state === 'working'));
+  if (!needs.length && !working.length) return '';
+  const needsHtml = needs.length ? `<div class="lbl">Needs you <span class="cnt">· ${needs.length}</span></div>${needs.map(t => threadRow(t, { flat: true })).join('')}` : '';
+  const workingHtml = working.length ? `<div class="lbl">Working <span class="cnt">· ${working.length}</span></div>${working.map(t => threadRow(t, { flat: true })).join('')}` : '';
+  return `<div class="attn">${needsHtml}${workingHtml}</div><div class="divider"></div>`;
+}
+function renderBlock(frame) {
+  const body = attentionBlock() + defaultSections();
+  frame.innerHTML = titleBar() + `<div class="work">${panel(body)}${mainPane()}</div>`;
+}
+
+/* ── Variant C: a strip of working chips under the title bar ────────────── */
+function stripChip(t) {
+  const p = P(t.p);
+  const sel = t.id === S.selected ? ' sel' : '';
+  const icon = (t.state === 'needs-you' || t.state === 'unread')
+    ? `<span class="si need">${svg('i-bell', 13)}</span>`
+    : `<span class="spin"></span>`;
+  return `<button class="tab${sel}" data-th="${t.id}">${kindIcon(t, 13)}${p ? `<span class="pf">${folder(p, false, 12)}${esc(p.name)}</span>` : ''}<span class="n">${esc(t.name)}</span>${icon}</button>`;
+}
+function stripRow(opts) {
+  const needsChips = opts.stripShowsNeeds ? sortedFlat(THREADS.filter(t => t.state === 'needs-you' || t.state === 'unread')).map(stripChip).join('') : '';
+  const workingChips = sortedFlat(THREADS.filter(t => t.state === 'working')).map(stripChip).join('');
+  if (!needsChips && !workingChips) return '';
+  return `<div class="strip"><span class="sl">Working</span>${needsChips}${workingChips}</div>`;
+}
+function renderStrip(frame, opts) {
+  const strip = stripRow(opts);
+  frame.innerHTML = titleBar() + strip + `<div class="work">${panel(defaultSections())}${mainPane()}</div>`;
+}
+
+initVariants({
+  title: 'Page 3 of 6: finding the threads that need me',
+  question: 'Several threads across different projects need you or are working. How do you get to them quickly?',
+  variants: [
+    {
+      id: 'tabs',
+      name: 'A. Tabs at the top of the sidebar',
+      note: 'Three tabs under "New thread": All, Needs you, Working. All is today\'s list. Needs you or Working replaces the list with one short list of just those threads, from every project, each row showing which project it belongs to.',
+      look: 'the tabs under "New thread". Click "Needs you" or "Working".',
+      render: renderTabs,
+    },
+    {
+      id: 'block',
+      name: 'B. A block at the top that is always there',
+      note: 'No tabs, nothing to click. Whenever something needs you or is working, those threads are listed at the top of the sidebar, above everything else. The rest of the list is unchanged below.',
+      look: 'the top of the sidebar: "Needs you · 3" and "Working · 2" with their rows, then the normal list.',
+      render: renderBlock,
+    },
+    {
+      id: 'strip',
+      name: 'C. A row of chips along the top of the window',
+      note: 'A row under the title bar with one chip per working thread, like browser tabs. The sidebar stays as it is today. Costs a strip of height on every screen.',
+      look: 'the strip under the title bar with two chips. Click a chip to switch.',
+      render: renderStrip,
+    },
+  ],
+});
+</script>
+</body>
+</html>

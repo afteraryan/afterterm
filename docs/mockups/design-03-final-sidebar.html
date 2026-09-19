@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The sidebar with every pick applied</title>
+<link rel="stylesheet" href="design-03-shared.css">
+<style>
+/* Additions for the combined page only. */
+.side .lbl.hd{display:flex;align-items:center;gap:6px}
+.side .lbl.hd .pin{display:inline-grid;place-items:center;color:var(--text3)}
+.side .lblrow .acts{display:flex;align-items:center;gap:2px}
+.side .lblrow .acts .ib{opacity:0}
+.side .sec:hover .lblrow .acts .ib{opacity:1}
+/* Other projects, docked at the bottom of the panel, outside the scroll. */
+.dock{flex:none;margin-top:6px;padding-top:6px;border-top:1px solid #2e2e2e}
+.dock .drow{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;color:var(--text2);width:100%;cursor:pointer;font-size:13px}
+.dock .drow:hover{background:var(--hover)}
+.dock .drow .chev{display:inline-grid;place-items:center;color:var(--text3);transition:transform var(--med) var(--ease)}
+.dock .drow .chev.up{transform:rotate(180deg)}
+.dock .drow .c{margin-left:auto;color:var(--text3);font-size:12px}
+.dock .dlist{display:grid;grid-template-rows:0fr;transition:grid-template-rows var(--med) var(--ease)}
+.dock .dlist.open{grid-template-rows:1fr}
+.dock .dlist>div{overflow:hidden;min-height:0}
+.dock .pj{padding-left:12px}
+.dock .pj .ib{display:none}
+/* The badges fan out like cards from the top-right corner: the first at the
+   corner, the second tucked to its left, the third just below it. */
+/* The rail's tool block: closed (0fr) while the sidebar is open, opens to
+   its full height when the sidebar hides. The buttons fade and rise in a
+   beat after the block starts opening, and fade out first when it closes. */
+.railblk{display:grid;grid-template-rows:0fr;transition:grid-template-rows 320ms var(--ease);width:100%}
+.railblk>div{overflow:hidden;min-height:0;display:flex;flex-direction:column;align-items:center;gap:6px}
+.railblk .ic{opacity:0;transform:translateY(-6px);transition:opacity 180ms var(--ease),transform 240ms var(--ease),background var(--fast),color var(--fast)}
+.railblk.open{grid-template-rows:1fr}
+.railblk.open .ic{opacity:1;transform:none;transition-delay:120ms}
+.railblk.open .ic:nth-child(2){transition-delay:160ms}
+.railblk.open>div{padding-bottom:6px}
+.mainwrap{display:contents}
+/* Home and Workspace as one vertical toggle: a pill holding the two icons,
+   the current screen's icon raised. */
+.navseg{position:relative;display:flex;flex-direction:column;gap:2px;padding:3px;border-radius:12px;background:#101010}
+.navseg .thumb{position:absolute;left:3px;top:3px;width:32px;height:32px;border-radius:9px;background:#2a2a2a;transition:transform 150ms cubic-bezier(.3,1.2,.4,1);pointer-events:none}
+.navseg.at-work .thumb{transform:translateY(34px)}
+.navseg .ic{width:32px;height:32px;border-radius:9px;position:relative;transition:color 120ms var(--ease)}
+.navseg .ic:hover{background:rgba(255,255,255,.05)}
+.navseg .ic[aria-selected="true"]{background:none;color:var(--text)}
+.side{transition:width 320ms var(--ease),min-width 320ms var(--ease),padding 320ms var(--ease)}
+.side>*{transition:opacity 160ms var(--ease)}
+.side.hidden>*{opacity:0}
+/* The rail is 76px wide for layout 1: the tile, then its badges beside it. */
+.rail2{width:76px;min-width:76px}
+.rail2 .tiles{gap:12px;align-items:flex-start;padding-left:10px}
+.railcard{left:84px}
+.tile .bd{font-weight:700;font-size:11.5px}
+.tile .bd.fan0{top:-6px;right:-7px;z-index:3}
+.tile .bd.fan1{top:-4px;right:9px;z-index:2}
+.tile .bd.fan2{top:11px;right:-9px;z-index:1}
+/* The tile's hover card: name, then one line per number */
+.railcard{position:absolute;left:64px;background:#0d0d0d;border-radius:12px;padding:10px 14px;font-size:13px;color:var(--text2);box-shadow:0 8px 24px rgba(0,0,0,.5);display:none;z-index:30;min-width:160px;line-height:1.7}
+.railcard.show{display:block}
+.railcard .rc-name{display:flex;align-items:center;gap:7px;color:var(--text);font-weight:500;margin-bottom:2px}
+.railcard b{color:var(--text);font-weight:500}
+/* The seven layouts below the main picture */
+.layouts{width:1280px;max-width:100%;margin:36px auto 0;padding:0 18px 60px;color:var(--text2)}
+.layouts h2{font-size:20px;font-weight:500;color:var(--text);margin:0 0 6px}
+.layouts>p{margin:0 0 18px;color:var(--text3)}
+.lgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.lcard{display:flex;gap:14px;background:#161616;border:1px solid #242424;border-radius:14px;padding:14px}
+.lrail{width:76px;flex:none;background:var(--side);border-radius:10px;display:flex;flex-direction:column;align-items:center;gap:14px;padding:14px 0}
+.ltext{display:flex;flex-direction:column;gap:6px;font-size:13px;line-height:1.5}
+.ltext b{color:var(--text);font-weight:500}
+.ltext span{color:var(--text3)}
+.lrail .tile{cursor:default}
+.mini{font-size:10.5px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.mini.w{color:var(--need)}.mini.k{color:var(--text2)}.mini.d{color:var(--live)}
+/* 1: column beside */
+.l1{display:flex;align-items:center;gap:5px}
+.l1 .col{display:flex;flex-direction:column;gap:3px}
+.bd2{min-width:17px;height:17px;padding:0 4px;border-radius:999px;font-size:11px;font-weight:700;display:grid;place-items:center;color:#0d0d0d;font-variant-numeric:tabular-nums}
+.bd2.w{background:var(--need)}.bd2.k{background:var(--hover2);color:var(--text)}.bd2.d{background:var(--live)}
+/* 2: numbers under the icon inside a taller tile */
+.l2{width:40px;min-height:40px;border-radius:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px 0 5px;color:var(--tc);background:color-mix(in srgb,var(--tc) 12%,transparent)}
+.l2 .row{display:flex;gap:4px}
+/* 3: pills under the tile */
+.l3{display:flex;flex-direction:column;align-items:center;gap:4px}
+.l3 .row{display:flex;gap:2px}
+.pill{min-width:14px;height:14px;padding:0 3px;border-radius:999px;font-size:10px;font-weight:700;display:grid;place-items:center;color:#0d0d0d;font-variant-numeric:tabular-nums}
+.pill.w{background:var(--need)}.pill.k{background:var(--hover2);color:var(--text)}.pill.d{background:var(--live)}
+/* 4 and 5: one badge, coloured by urgency */
+.bd.one{font-weight:700;font-size:11.5px}
+.bd.one.w{background:var(--need)}.bd.one.k{background:var(--hover2);color:var(--text)}.bd.one.d{background:var(--live);color:#0d0d0d}
+.l5{position:relative}
+.l5::before{content:"";position:absolute;inset:-3px;border-radius:14px;background:var(--ring);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;padding:2.5px;pointer-events:none}
+/* 6: wide pill tile */
+.l6{width:64px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;gap:8px;color:var(--tc);background:color-mix(in srgb,var(--tc) 12%,transparent)}
+.l6 .col{display:flex;flex-direction:column;gap:2px;align-items:flex-start}
+/* 7: strip down the right edge */
+.l7{width:46px;height:36px;border-radius:11px;display:flex;overflow:hidden;color:var(--tc);background:color-mix(in srgb,var(--tc) 12%,transparent)}
+.l7 .ic7{width:32px;display:grid;place-items:center}
+.l7 .strip7{width:14px;display:flex;flex-direction:column}
+.cell{flex:1;display:grid;place-items:center;font-size:9.5px;font-weight:700;color:#0d0d0d;font-variant-numeric:tabular-nums}
+.cell.w{background:var(--need)}.cell.k{background:var(--hover2);color:var(--text)}.cell.d{background:var(--live)}
+/* 8 to 11: the sidebar's counter pills, small */
+.sig.xs{padding:1px 6px 1px 4px;font-size:11px;gap:3px;font-weight:600}
+.sig.xs .spin{width:9px;height:9px;border-width:1.5px}
+.sig.xs.one .gap{width:5px}
+.l8{display:flex;flex-direction:column;align-items:center;gap:4px}
+.l8 .col{display:flex;flex-direction:column;gap:2px;align-items:center}
+.l10{width:44px;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 0 6px;color:var(--tc);background:color-mix(in srgb,var(--tc) 12%,transparent)}
+.l10 .col{display:flex;flex-direction:column;gap:2px;align-items:center}
+.l11{display:flex;align-items:center;gap:4px}
+.l11 .col{display:flex;flex-direction:column;gap:2px;align-items:flex-start}
+.help{width:1280px;max-width:100%;display:flex;flex-wrap:wrap;gap:8px 22px;color:var(--text3);font-size:13px;margin-top:-4px}
+.help b{color:var(--text2);font-weight:500}
+</style>
+</head>
+<body>
+<script src="design-03-shared.js"></script>
+<script>
+// Every pick from 2026-09-19 on one page:
+//   rail: only projects that need you (waiting or finished-not-viewed)
+//   sidebar: General, Pinned (pin icon, line under it), Recent (awake or
+//     active in 3 days), Other projects docked at the bottom, collapsed
+//   collapse button per group heading, beside the plus
+//   search filters in place, New thread row hides while typing
+//   needs-you stays until answered; Mark as unread on chats
+//   Ctrl+Shift+Down/Up moves through every thread shown, across projects
+
+// Make canvas-agent recent so the Recent group has two rows.
+P('canvas-agent').lastActive = 2 * 24 * 60;
+// Give aftertales one working and one finished thread on top of its two
+// waiting ones, so one tile shows all three numbers at once.
+T('t9').state = 'working';
+THREADS.splice(THREADS.indexOf(T('t9')) + 1, 0, { id: 't20', p: 'aftertales', kind: 'chat', name: 'Tidy the tale detail page', state: 'done', model: 'Opus 5', branch: 'main', ago: '25m' });
+// afterterm's long list starts collapsed so Pinned, Recent and the docked
+// Other projects row are all on screen at once.
+if (S.collapsed.afterterm === undefined) S.collapsed.afterterm = true;
+
+const F = window.__final = window.__final || { q: '', dockOpen: false, home: false, panelHidden: false, opened: {}, secClosed: {} };
+// #collapsed in the address opens the page with the sidebar already hidden.
+if (location.hash === '#collapsed') F.panelHidden = true;
+const RECENT_DAYS = 3;
+
+const needsMe = p => { const c = counts(p.id); return c.needsYou > 0 || c.done > 0; };
+const isRecent = p => awake(p.id).length > 0 || p.lastActive <= RECENT_DAYS * 24 * 60 || F.opened[p.id];
+const recentList = () => unpinnedList().filter(isRecent);
+const otherList = () => unpinnedList().filter(p => !isRecent(p));
+// A project's icon: chosen when the project is made or edited, the folder when
+// none is chosen. Shown on the rail tile in place of the folder. Ten solid,
+// filled glyphs at the folder's weight, for the kinds of project Aryan has: a
+// book (tales), a robot (answer machine), a bulb (thoughts), a globe (website),
+// a pen (canvas), a film reel (transcripts), a house (Ghar), a music note, a
+// bell (notifications), a rocket. The terminal glyph is not offered: it is the
+// Workspace icon.
+const PROJECT_ICONS = { afterterm: 'i-rocket', aftertales: 'i-book', 'answer-machine': 'i-bot', afterthought: 'i-bulb', 'website-desk': 'i-globe', 'canvas-agent': 'i-pen', transcript: 'i-film', ghar: 'i-house' };
+document.body.insertAdjacentHTML('afterbegin', `<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M3 5a2 2 0 0 1 2-2h5.5A2.5 2.5 0 0 1 13 5.5V20a2 2 0 0 0-2-2H3zM21 5a2 2 0 0 0-2-2h-5.5A2.5 2.5 0 0 0 11 5.5V20a2 2 0 0 1 2-2h8z" fill="currentColor"/><path d="M12 6v13" stroke="rgba(0,0,0,.3)" stroke-width="1.4"/></symbol>
+  <symbol id="i-bot" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="4" fill="currentColor"/><path d="M12 7V4" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="3" r="1.6" fill="currentColor"/><circle cx="8.5" cy="13" r="1.7" fill="rgba(0,0,0,.35)"/><circle cx="15.5" cy="13" r="1.7" fill="rgba(0,0,0,.35)"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M12 2.5a6.5 6.5 0 0 0-4 11.6c.8.7 1.3 1.6 1.5 2.4h5c.2-.8.7-1.7 1.5-2.4A6.5 6.5 0 0 0 12 2.5z" fill="currentColor"/><path d="M9.5 18.5h5v1a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2z" fill="currentColor"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5" fill="currentColor"/><path d="M2.5 12h19M12 2.5c3 3 3 16 0 19M12 2.5c-3 3-3 16 0 19" fill="none" stroke="rgba(0,0,0,.3)" stroke-width="1.4"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24"><path d="M3 21l1.2-4.6L15.5 5.1l3.4 3.4L7.6 19.8z" fill="currentColor"/><path d="M16.9 3.7a2 2 0 0 1 2.8 0l.6.6a2 2 0 0 1 0 2.8l-1 1-3.4-3.4z" fill="currentColor"/></symbol>
+  <symbol id="i-film" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="16" rx="2.5" fill="currentColor"/><path d="M6 6.5v11M18 6.5v11" stroke="rgba(0,0,0,.35)" stroke-width="2" stroke-dasharray="2.2 2.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-house" viewBox="0 0 24 24"><path d="M12 3 2.5 11h2.7v9a1 1 0 0 0 1 1H10v-6h4v6h3.8a1 1 0 0 0 1-1v-9h2.7z" fill="currentColor"/></symbol>
+  <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 4.5 20 2.5v12.2a3.2 3.2 0 1 1-2-3V6.6l-7 1.3v9a3.2 3.2 0 1 1-2-3z" fill="currentColor"/></symbol>
+  <symbol id="i-rocket" viewBox="0 0 24 24"><path d="M14.5 3c3.5 0 6 2.5 6.5 6.5-2 4-5.5 7-9 8.5L8 14c1.5-3.5 4.5-9 6.5-11z" fill="currentColor"/><path d="M8 14 5 12.5c.8-2 2.4-3.2 4.5-3.5zM12 18l1.5 3c2-.3 3.2-1.9 3.5-4.5zM3.5 20.5c.4-2.2 1.4-3.6 3-4.2l1.7 1.7c-.6 1.6-2 2.6-4.7 2.5z" fill="currentColor"/></symbol>
+</svg>`);
+
+// The rail tile, exactly as before, with the chosen icon in place of the
+// folder. The badges keep their style and stack down the tile's right edge,
+// top to bottom: waiting for you (amber), working (grey), finished (green).
+// Only the non-zero ones show, and they close up, so one badge sits at the top
+// corner as it did before.
+function railTile(p) {
+  const c = counts(p.id);
+  // Layout 1: the badges in a column beside the tile, in the tile's own row.
+  // Hovering the tile shows the project name; hovering a badge says what the
+  // badge is (no number, the number is already on it).
+  const badges = [
+    c.needsYou ? `<span class="bd2 w" data-tip="Waiting for you">${c.needsYou}</span>` : '',
+    c.working ? `<span class="bd2 k" data-tip="Working">${c.working}</span>` : '',
+    c.done ? `<span class="bd2 d" data-tip="Finished">${c.done}</span>` : '',
+  ].join('');
+  return `<div class="l1"><button class="tile folder" style="--tc:${COLORS[p.color]}" data-tile="${p.id}" data-tip="${esc(p.name)}">${svg(PROJECT_ICONS[p.id] || 'i-folder', 20)}</button><span class="col">${badges}</span></div>`;
+}
+function rail() {
+  const tiles = PROJECTS.filter(needsMe).map(railTile).join('');
+  // While the sidebar is hidden on the workspace, its top controls live in the
+  // rail: the sidebar toggle at the very top, then the Home/Workspace toggle,
+  // then Search and New thread. Both blocks are always in the DOM so they can
+  // animate open and closed; everything below them moves with them. On Home
+  // both blocks are closed (Home has no sidebar and no Search row).
+  const open = F.panelHidden && !F.home ? ' open' : '';
+  const blk1 = `<div class="railblk${open}"><div><button class="ic" data-tip="Open sidebar" data-toggle-panel>${svg('i-panel', 18)}</button></div></div>`;
+  const nav = `<div class="navseg${F.home ? '' : ' at-work'}"><span class="thumb"></span><button class="ic" data-tip="Home" data-go="home"${F.home ? ' aria-selected="true"' : ''}>${svg('i-home', 18)}</button><button class="ic" data-tip="Workspace" data-go="work"${F.home ? '' : ' aria-selected="true"'}>${svg('i-term', 18)}</button></div>`;
+  const blk2 = `<div class="railblk${open}"><div><button class="ic" data-tip="Search">${svg('i-search', 18)}</button><button class="ic" data-tip="New thread">${svg('i-plus', 18)}</button></div></div>`;
+  return `<div class="rail2">${blk1}${nav}${blk2}<span class="sep"></span><div class="tiles">${tiles}</div><span class="grow"></span></div>`;
+}
+// The rail's blocks follow the current screen and sidebar state, animating in
+// place; nothing is rebuilt.
+function syncRail(frame) {
+  const open = F.panelHidden && !F.home;
+  frame.querySelectorAll('.railblk').forEach(b => b.classList.toggle('open', open));
+  frame.querySelectorAll('[data-go]').forEach(b => b.setAttribute('aria-selected', String((b.dataset.go === 'home') === F.home)));
+  frame.querySelector('.navseg')?.classList.toggle('at-work', !F.home);
+}
+
+// ── The panel ────────────────────────────────────────────────────────────
+const q = () => F.q.trim().toLowerCase();
+const match = s => !q() || s.toLowerCase().includes(q());
+
+function collapseBtn(key, ids) {
+  if (!ids.length) return '';
+  const anyOpen = ids.some(id => !S.collapsed[id]);
+  return `<button class="ib" data-tip="${anyOpen ? 'Collapse all' : 'Expand all'}" data-collapse-sec="${key}">${svg(anyOpen ? 'i-collapse-all' : 'i-expand-all', 14)}</button>`;
+}
+
+// A project block filtered by the search text: a matching project keeps every
+// thread; otherwise only its matching threads show; nothing matching, no block.
+function filteredBlock(p, opts) {
+  if (!q()) return projectBlock(p, opts);
+  const ts = projectThreads(p.id);
+  if (match(p.name)) return projectBlock(p, opts);
+  const hits = ts.filter(t => match(t.name));
+  if (!hits.length) return '';
+  const row = `<div class="pj ${opts.pinned ? '' : 'dim'}" data-pj="${p.id}">${folder(p, true)}<span class="n">${esc(p.name)}</span></div>`;
+  return `<div class="pjw">${row}<div class="tlw"><div class="tli">${hits.map(t => threadRow(t)).join('')}</div></div></div>`;
+}
+
+function group(label, key, projects, opts) {
+  const blocks = projects.map(p => filteredBlock(p, opts)).join('');
+  if (q() && !blocks) return '';
+  const ids = projects.map(p => p.id);
+  const head = label === 'Pinned'
+    ? `<span class="lbl hd"><span class="pin">${svg('i-pin-on', 12)}</span>Pinned</span>`
+    : `<span class="lbl hd">${label}</span>`;
+  const extra = label === 'Recent' ? `<button class="ib" data-tip="New project">${svg('i-plus', 14)}</button>` : '';
+  return `<div class="sec"><div class="lbl lblrow">${head}<span class="acts">${collapseBtn(key, ids)}${extra}</span></div>${blocks}</div>`;
+}
+
+function body() {
+  const gen = generalList().filter(t => match(t.name));
+  const parts = [];
+  if (gen.length) parts.push(`<div class="sec"><div class="lbl">General</div>${gen.map(t => threadRow(t)).join('')}</div>`);
+  const pinned = group('Pinned', 'pinned', pinnedList(), { pinned: true });
+  const recent = group('Recent', 'recent', recentList(), {});
+  if (pinned) parts.push(pinned);
+  if (pinned && recent) parts.push('<div class="divider"></div>');
+  if (recent) parts.push(recent);
+  if (!parts.length) parts.push('<div class="nomatch">No matches</div>');
+  return parts.join('');
+}
+
+function dock() {
+  const others = otherList();
+  if (!others.length || q()) return '';
+  const rows = others.map(p => `<div class="pj dim" data-open="${p.id}">${folder(p, false)}<span class="n">${esc(p.name)}</span><span class="c">${agoText(p.lastActive)}</span></div>`).join('');
+  return `<div class="dock"><div class="dlist${F.dockOpen ? ' open' : ''}"><div>${rows}</div></div><button class="drow" data-dock><span class="chev${F.dockOpen ? ' up' : ''}">${svg('i-chev-d', 14)}</span>Other projects<span class="c">${others.length}</span></button></div>`;
+}
+
+function topRows() {
+  const has = q() ? ' has' : '';
+  return `<div class="srch${has}"><span class="g">${svg('i-search', 16)}</span><input id="q" placeholder="Search" value="${esc(F.q)}"><span class="k">Ctrl Shift P</span><button class="ib clr" data-clear>${svg('i-x', 14)}</button></div>${q() ? '' : newThreadRow()}`;
+}
+
+function panelHtml() {
+  return `<aside class="side${F.panelHidden ? ' hidden' : ''}"><div class="brand"><span class="sp"></span><button class="ic" data-tip="Close sidebar" data-toggle-panel>${svg('i-panel', 18)}</button></div>${topRows()}<div class="scroll">${body()}</div>${dock()}</aside>`;
+}
+
+// ── The page ─────────────────────────────────────────────────────────────
+const mainHtml = () => F.home ? homeScreen({ railNav: true }) : panelHtml() + mainPane();
+
+function render(frame) {
+  frame.innerHTML = titleBar() + `<div class="work">${rail()}<div class="mainwrap">${mainHtml()}</div></div>`;
+  // Screen switches replace only the main area and let the rail animate in
+  // place: the tool blocks close on the way to Home and reopen on the way back.
+  frame.querySelectorAll('[data-go]').forEach(b => b.onclick = () => {
+    const home = b.dataset.go === 'home';
+    if (home === F.home) return;
+    F.home = home;
+    syncRail(frame);
+    const wrap = frame.querySelector('.mainwrap');
+    const swap = () => { wrap.innerHTML = mainHtml(); bindMain(frame); bindCommon(frame, window.__redraw); };
+    const side = frame.querySelector('.side');
+    if (home) {
+      // To Home: the sidebar slides shut first, then the screen changes.
+      if (side && !side.classList.contains('hidden')) {
+        side.classList.add('hidden');
+        setTimeout(swap, 320);
+      } else {
+        swap();
+      }
+    } else {
+      // Back to the workspace: the sidebar comes in closed and slides open,
+      // unless it was hidden before Home.
+      swap();
+      const s2 = frame.querySelector('.side');
+      if (s2 && !F.panelHidden) {
+        s2.classList.add('hidden');
+        requestAnimationFrame(() => requestAnimationFrame(() => s2.classList.remove('hidden')));
+      }
+    }
+  });
+  bindMain(frame);
+}
+
+function bindMain(frame) {
+  // The panel toggle animates in place rather than re-rendering: the panel's
+  // width closes and the rail's blocks open (or the reverse), so everything
+  // under them glides down or up.
+  frame.querySelectorAll('[data-toggle-panel]').forEach(b => b.onclick = () => {
+    F.panelHidden = !F.panelHidden;
+    frame.querySelector('.side')?.classList.toggle('hidden', F.panelHidden);
+    syncRail(frame);
+  });
+  frame.querySelectorAll('[data-collapse-sec]').forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    const ids = (b.dataset.collapseSec === 'pinned' ? pinnedList() : recentList()).map(p => p.id);
+    const anyOpen = ids.some(id => !S.collapsed[id]);
+    ids.forEach(id => { S.collapsed[id] = anyOpen; });
+    window.__redraw();
+  });
+  const dk = frame.querySelector('[data-dock]');
+  if (dk) dk.onclick = () => { F.dockOpen = !F.dockOpen; window.__redraw(); };
+  frame.querySelectorAll('[data-open]').forEach(r => r.onclick = () => {
+    const p = P(r.dataset.open);
+    F.opened[p.id] = true;
+    F.dockOpen = false;
+    const first = projectThreads(p.id)[0];
+    if (first) S.selected = first.id;
+    S.collapsed[p.id] = false;
+    window.__redraw();
+  });
+  const input = frame.querySelector('#q');
+  if (input) {
+    input.oninput = () => { F.q = input.value; window.__redraw(); const i2 = document.getElementById('q'); i2.focus(); i2.setSelectionRange(i2.value.length, i2.value.length); };
+    input.onkeydown = e => { if (e.key === 'Escape') { F.q = ''; window.__redraw(); document.getElementById('q').focus(); } };
+  }
+  const clr = frame.querySelector('[data-clear]');
+  if (clr) clr.onclick = () => { F.q = ''; window.__redraw(); };
+
+  // Mark as unread / read on a chat's right-click menu.
+  frame.querySelectorAll('[data-th]').forEach(r => r.oncontextmenu = e => {
+    e.preventDefault();
+    const t = T(r.dataset.th);
+    const items = [{ label: 'Open', onSelect: () => { S.selected = t.id; window.__redraw(); } }];
+    if (t.kind === 'chat' && t.state !== 'needs-you') {
+      items.push(t.state === 'unread'
+        ? { label: 'Mark as read', onSelect: () => { t.state = t._prev || 'quiet'; window.__redraw(); } }
+        : { label: 'Mark as unread', onSelect: () => { t._prev = t.state; t.state = 'unread'; window.__redraw(); } });
+    }
+    items.push('-', { label: t.state === 'asleep' ? 'Wake' : 'Sleep' }, { label: 'Close', danger: true });
+    showMenu(e.clientX, e.clientY, items);
+  });
+}
+
+// Ctrl+Shift+Down / Up: through every thread row the sidebar shows, in order,
+// across projects. Also Enter on a waiting thread answers it (it starts working).
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.shiftKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+    e.preventDefault();
+    const rows = [...document.querySelectorAll('.side .scroll [data-th]')].filter(r => !r.closest('.tlw.closed'));
+    if (!rows.length) return;
+    const i = rows.findIndex(r => r.dataset.th === S.selected);
+    const n = e.key === 'ArrowDown' ? (i + 1) % rows.length : (i - 1 + rows.length) % rows.length;
+    S.selected = rows[n].dataset.th;
+    window.__redraw();
+  }
+  // Ctrl+Shift+B hides or shows the sidebar, the same as the toggle button.
+  if (e.ctrlKey && e.shiftKey && (e.key === 'B' || e.key === 'b')) {
+    e.preventDefault();
+    const b = document.querySelector('.side:not(.hidden) [data-toggle-panel]') || document.querySelector('.railblk [data-toggle-panel]');
+    if (b) b.click();
+    return;
+  }
+  if (e.key === 'Enter' && !e.target.matches('input')) {
+    const t = T(S.selected);
+    if (t && t.state === 'needs-you') { t.state = 'working'; window.__redraw(); }
+  }
+});
+
+document.body.insertAdjacentHTML('afterbegin', ICONS);
+const sheet = document.createElement('div');
+sheet.className = 'sheet';
+sheet.innerHTML = `<div class="vbar"><div class="nav"><a href="design-03-index.html">All questions</a></div><h1>The sidebar with every pick applied</h1><p class="q">Three projects need you at once. The rail on the far left shows exactly those three; the sidebar itself is unchanged by it.</p></div>
+  <div class="help"><span><b>Rail:</b> click a folder to jump to the thread that needs you in that project. Hover the tile for the name, hover a badge for what it means.</span><span><b>Home icon:</b> the rail stays on Home too.</span><span><b>Sidebar toggle</b> (top right of the sidebar): the rail stays.</span><span><b>Other projects:</b> docked at the bottom; click to open, click a project to bring it into Recent.</span><span><b>Search:</b> type to filter; New thread hides while you type; Esc clears.</span><span><b>Right-click a chat:</b> Mark as unread.</span><span><b>Ctrl+Shift+Down / Up:</b> next or previous thread, across projects.</span><span><b>Enter</b> on a waiting thread answers it; clicking it does not.</span></div>
+  <div class="frame" id="frame"></div><div class="tip" id="tip"></div><div class="menu" id="menu"></div>`;
+document.body.appendChild(sheet);
+
+// ── Seven ways to put the three numbers on a rail tile ─────────────────────
+// Same three projects in each: afterterm (working 1, finished 1), aftertales
+// (waiting 2, working 1, finished 1), answer-machine (waiting 1). Two rules:
+// a number never overlaps another project's tile, and the icon stays visible.
+const LAY = [
+  { p: 'afterterm', w: 0, k: 1, d: 1 },
+  { p: 'aftertales', w: 2, k: 1, d: 1 },
+  { p: 'answer-machine', w: 1, k: 0, d: 0 },
+];
+const icon = p => svg(PROJECT_ICONS[p.id] || 'i-folder', 20);
+const tc = p => `--tc:${COLORS[p.color]}`;
+const nums = (x, cls = 'mini') => [x.w ? `<span class="${cls} w">${x.w}</span>` : '', x.k ? `<span class="${cls} k">${x.k}</span>` : '', x.d ? `<span class="${cls} d">${x.d}</span>` : ''].join('');
+const urgent = x => x.w ? 'w' : (x.k ? 'k' : 'd');
+const total = x => x.w + x.k + x.d;
+
+// The sidebar's own counter pills (bell, play, check with a count), reused
+// under or beside the tile. Every number sits in a pill; nothing overlaps.
+const pillOf = (kind, n) => {
+  if (!n) return '';
+  const ic = kind === 'w' ? `<span class="si need">${svg('i-bell', 11)}</span>` : (kind === 'k' ? `<span class="spin"></span>` : `<span class="si ok">${svg('i-check', 11)}</span>`);
+  return `<span class="sig xs">${ic}${n}</span>`;
+};
+const pills = x => pillOf('w', x.w) + pillOf('k', x.k) + pillOf('d', x.d);
+const combined = x => `<span class="sig xs one">${[x.w ? `<span class="si need">${svg('i-bell', 11)}</span>${x.w}` : '', x.k ? `<span class="spin"></span>${x.k}` : '', x.d ? `<span class="si ok">${svg('i-check', 11)}</span>${x.d}` : ''].filter(Boolean).join('<span class="gap"></span>')}</span>`;
+const OLD_LAYOUTS = [
+  { name: '1. Badges in a column beside the tile', why: 'The rail is a little wider (76px). The badges sit outside the tile, stacked to its right, in the tile\'s own row, so they never reach another tile and never cover the icon.',
+    html: x => { const p = P(x.p); return `<div class="l1"><span class="tile folder" style="${tc(p)}">${icon(p)}</span><span class="col">${nums(x, 'bd2')}</span></div>`; } },
+  { name: '2. Numbers under the icon, inside the tile', why: 'The tile grows taller (40 by 50). The icon stays on top, the numbers sit in a row beneath it, inside the tile. Nothing sticks out at all.',
+    html: x => { const p = P(x.p); return `<span class="l2" style="${tc(p)}">${icon(p)}<span class="row">${nums(x)}</span></span>`; } },
+  { name: '3. A row of small pills under the tile', why: 'The tile stays 36px. Three tiny pills sit in a row just under it, outside, in the tile\'s own row. The icon is fully clear.',
+    html: x => { const p = P(x.p); return `<div class="l3"><span class="tile folder" style="${tc(p)}">${icon(p)}</span><span class="row">${nums(x, 'pill')}</span></div>`; } },
+  { name: '4. One badge, the total, coloured by the most urgent state', why: 'Exactly the tile from before with one badge. The number is the total; its colour is amber if anything is waiting, grey if only working, green if only finished. The hover card gives the three numbers.',
+    html: x => { const p = P(x.p); return `<span class="tile folder" style="${tc(p)}">${icon(p)}<span class="bd one ${urgent(x)}">${total(x)}</span></span>`; } },
+  { name: '5. A coloured ring plus the total', why: 'The tile\'s border is a ring split into coloured arcs, one per state, sized by count. One badge at the corner with the total. The icon is untouched.',
+    html: x => { const p = P(x.p); const t = total(x); const a = 360 * x.w / t, b = 360 * (x.w + x.k) / t; return `<span class="tile folder l5" style="${tc(p)};--ring:conic-gradient(var(--need) 0 ${a}deg, var(--text2) ${a}deg ${b}deg, var(--live) ${b}deg 360deg)">${icon(p)}<span class="bd one ${urgent(x)}">${t}</span></span>`; } },
+  { name: '6. A wide tile: icon left, numbers stacked right', why: 'The rail is 76px and the tile is a 64 by 40 pill. The icon sits on the left half, the numbers stack in a tiny column on the right half, inside the tile.',
+    html: x => { const p = P(x.p); return `<span class="l6" style="${tc(p)}">${icon(p)}<span class="col">${nums(x)}</span></span>`; } },
+  { name: '7. A thin coloured strip down the tile\'s right edge', why: 'The tile is 46px wide: the icon in its left part, and a narrow strip on the right edge carrying the numbers stacked top to bottom, each on its own colour. Nothing outside the tile.',
+    html: x => { const p = P(x.p); return `<span class="l7" style="${tc(p)}"><span class="ic7">${icon(p)}</span><span class="strip7">${nums(x, 'cell')}</span></span>`; } },
+];
+const LAYOUTS = [
+  { name: '8. The sidebar\'s counter pills, stacked under the tile',
+    html: x => { const p = P(x.p); return `<div class="l8"><span class="tile folder" style="${tc(p)}">${icon(p)}</span><span class="col">${pills(x)}</span></div>`; } },
+  { name: '9. One combined pill under the tile',
+    html: x => { const p = P(x.p); return `<div class="l8"><span class="tile folder" style="${tc(p)}">${icon(p)}</span>${combined(x)}</div>`; } },
+  { name: '10. The pills inside a taller tile, under the icon',
+    html: x => { const p = P(x.p); return `<span class="l10" style="${tc(p)}">${icon(p)}<span class="col">${pills(x)}</span></span>`; } },
+  { name: '11. The pills beside the tile, stacked',
+    html: x => { const p = P(x.p); return `<div class="l11"><span class="tile folder" style="${tc(p)}">${icon(p)}</span><span class="col">${pills(x)}</span></div>`; } },
+];
+const lay = document.createElement('div');
+lay.className = 'layouts';
+const card = l => `<div class="lcard"><div class="lrail">${LAY.map(x => l.html(x)).join('')}</div><div class="ltext"><b>${esc(l.name)}</b></div></div>`;
+lay.innerHTML = `<h2>Eleven ways to show the three numbers on a tile</h2><div class="lgrid">${OLD_LAYOUTS.map(card).join('')}${LAYOUTS.map(card).join('')}</div>`;
+document.body.appendChild(lay);
+const frame = sheet.querySelector('#frame');
+const draw = () => { render(frame); bindCommon(frame, draw); };
+window.__redraw = draw;
+draw();
+</script>
+</body>
+</html>
