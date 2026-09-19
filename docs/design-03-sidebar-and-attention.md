@@ -21,7 +21,7 @@ The rail is a 76px column at the left edge, on every screen (workspace, Home, pr
 
 A tile is the project's icon (decision 12) on a faint tint of the project colour. Beside the tile, in the tile's own row, a column of badges, only the non-zero ones, top to bottom: waiting for you (amber), working (grey), finished (green). Nothing overlaps another tile and nothing covers the icon. This is layout 1 of the eleven compared; initials were rejected early because every one of Aryan's projects starts with "after"; corner badges, fanned badges and bare numbers were rejected as cluttered or unframed.
 
-Hovering a tile shows a card to its right: the project name, then one line per non-zero number, in this order: "Finished: N", "Working: N", "Waiting for you: N". Clicking a tile opens the workspace on that project: the first thread waiting for you, else the first finished one, else the most recently active awake thread; the project is expanded in the panel. Right-click gives the project menu.
+Hovering a tile shows the app tooltip with the project name, nothing else. Hovering a badge shows the tooltip for what it is, "Waiting for you", "Working" or "Finished", with no number (the number is on the badge). No hover card on the rail (decided 2026-09-19, replacing an earlier card with one line per number). Clicking a tile opens the workspace on that project: the first thread waiting for you, else the first finished one, else the most recently active awake thread; the project is expanded in the panel. Right-click gives the project menu.
 
 ### 2. The panel lists pinned and recent projects; everything else is docked at the bottom
 
@@ -45,7 +45,7 @@ Not clearing it: viewing the thread, arrow keys, output alone. `onOutput` in `sp
 
 ### 5. Mark as unread
 
-"Mark as unread" in the one thread menu (`threadMenu.tsx`), chats only; "Mark as read" while set. Sets `Tab.unread`, persisted. Shown with the same amber bell and breath as needs-you, counted in every waiting-for-you count (row, project pills, rail badge, hover card, Home totals). Clears when the thread is opened. No toast. An asleep thread keeps the mark and shows the bell on its dimmed row.
+"Mark as unread" in the one thread menu (`threadMenu.tsx`), chats only; "Mark as read" while set. Sets `Tab.unread`, persisted. Shown with the same amber bell and breath as needs-you, counted in every waiting-for-you count (row, project pills, rail badge, Home totals). Clears when the thread is opened. No toast. An asleep thread keeps the mark and shows the bell on its dimmed row.
 
 ### 6 and 7. Mid-turn threads are reached through the rail and a keyboard cycle
 
@@ -81,7 +81,7 @@ The Search row is a text box. Typing filters the panel in place, case-insensitiv
 - Ctrl+Shift+B keeps toggling the panel; the rail is never hidden.
 - `notification` stays transient (every thread restores asleep, with no prompt left to answer). `unread` persists.
 - The panel-hidden state persists in `session.json` under a new optional `ui` object. Per-project collapse is `Group.collapsed`, as today. The Other projects fold and the search text are transient.
-- All counts come from one pure module, `src/renderer/attention.ts`: per-project and total counts of waiting (needs-you plus unread), working, running, finished; the rail's project list; the panel's Recent and Other lists. `projectCounts` in `threadView.ts`, Home's totals, the rail and the hover card read the same numbers.
+- All counts come from one pure module, `src/renderer/attention.ts`: per-project and total counts of waiting (needs-you plus unread), working, running, finished; the rail's project list; the panel's Recent and Other lists. `projectCounts` in `threadView.ts`, Home's totals and the rail read the same numbers.
 - The project row's play pill keeps counting working and running together, as today; only the rail separates them.
 
 ## The attention model, stated once
@@ -122,7 +122,7 @@ Done when: a permission prompt in a background thread stays needs-you after it i
 
 Branch `phase-8-sidebar-rail-and-panel`, worktree `.claude/worktrees/phase-8-sidebar-rail-and-panel`, created from `phase-7-attention-state`.
 
-- [ ] The rail: a new `Rail` component on every screen, tiles from `attention.ts`, badges in a column beside the tile, the hover card, click and right-click; Home's and the project page's icon row removed; the panel's icon row keeps only the toggle.
+- [ ] The rail: a new `Rail` component on every screen, tiles from `attention.ts`, badges in a column beside the tile, tooltips on the tile (name) and on each badge (what it is), click and right-click; Home's and the project page's icon row removed; the panel's icon row keeps only the toggle.
 - [ ] Project icons: the ten solid glyphs in `Icons.tsx`, the picker in `GroupModal`, `Group.icon` persisted, the tile reads it.
 - [ ] The panel: Pinned (pin icon, line), Recent (3-day rule, activity order), Other projects docked at the bottom with bring-in; no Projects section.
 - [ ] Collapse buttons on the two headings beside the plus.

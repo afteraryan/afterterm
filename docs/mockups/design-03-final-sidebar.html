@@ -149,22 +149,14 @@ document.body.insertAdjacentHTML('afterbegin', `<svg width="0" height="0" style=
 function railTile(p) {
   const c = counts(p.id);
   // Layout 1: the badges in a column beside the tile, in the tile's own row.
+  // Hovering the tile shows the project name; hovering a badge says what the
+  // badge is (no number, the number is already on it).
   const badges = [
-    c.needsYou ? `<span class="bd2 w">${c.needsYou}</span>` : '',
-    c.working ? `<span class="bd2 k">${c.working}</span>` : '',
-    c.done ? `<span class="bd2 d">${c.done}</span>` : '',
+    c.needsYou ? `<span class="bd2 w" data-tip="Waiting for you">${c.needsYou}</span>` : '',
+    c.working ? `<span class="bd2 k" data-tip="Working">${c.working}</span>` : '',
+    c.done ? `<span class="bd2 d" data-tip="Finished">${c.done}</span>` : '',
   ].join('');
-  return `<div class="l1"><button class="tile folder" style="--tc:${COLORS[p.color]}" data-tile="${p.id}" data-card="${p.id}">${svg(PROJECT_ICONS[p.id] || 'i-folder', 20)}</button><span class="col">${badges}</span></div>`;
-}
-// The hover card for a tile: the name, then one line per number, each only
-// when non-zero, in the order finished, working, waiting for you.
-function railCard(p) {
-  const c = counts(p.id);
-  const lines = [];
-  if (c.done) lines.push(`<div>Finished: <b>${c.done}</b></div>`);
-  if (c.working) lines.push(`<div>Working: <b>${c.working}</b></div>`);
-  if (c.needsYou) lines.push(`<div>Waiting for you: <b>${c.needsYou}</b></div>`);
-  return `<div class="rc-name">${folder(p, false, 14)}${esc(p.name)}</div>${lines.join('')}`;
+  return `<div class="l1"><button class="tile folder" style="--tc:${COLORS[p.color]}" data-tile="${p.id}" data-tip="${esc(p.name)}">${svg(PROJECT_ICONS[p.id] || 'i-folder', 20)}</button><span class="col">${badges}</span></div>`;
 }
 function rail() {
   const tiles = PROJECTS.filter(needsMe).map(railTile).join('');
@@ -241,18 +233,6 @@ function render(frame) {
 
   frame.querySelectorAll('[data-toggle-panel]').forEach(b => b.onclick = () => { F.panelHidden = !F.panelHidden; window.__redraw(); });
   frame.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { F.home = b.dataset.go === 'home'; window.__redraw(); });
-  // The tile hover card, to the right of the tile it belongs to.
-  frame.insertAdjacentHTML('beforeend', '<div class="railcard" id="railcard"></div>');
-  const card = frame.querySelector('#railcard');
-  frame.querySelectorAll('[data-card]').forEach(b => {
-    b.onmouseenter = () => {
-      card.innerHTML = railCard(P(b.dataset.card));
-      const fr = frame.getBoundingClientRect(), r = b.getBoundingClientRect();
-      card.style.top = (r.top - fr.top) + 'px';
-      card.classList.add('show');
-    };
-    b.onmouseleave = () => card.classList.remove('show');
-  });
   frame.querySelectorAll('[data-collapse-sec]').forEach(b => b.onclick = e => {
     e.stopPropagation();
     const ids = (b.dataset.collapseSec === 'pinned' ? pinnedList() : recentList()).map(p => p.id);
@@ -316,7 +296,7 @@ document.body.insertAdjacentHTML('afterbegin', ICONS);
 const sheet = document.createElement('div');
 sheet.className = 'sheet';
 sheet.innerHTML = `<div class="vbar"><div class="nav"><a href="design-03-index.html">All questions</a></div><h1>The sidebar with every pick applied</h1><p class="q">Three projects need you at once. The rail on the far left shows exactly those three; the sidebar itself is unchanged by it.</p></div>
-  <div class="help"><span><b>Rail:</b> click a folder to jump to the thread that needs you in that project. Amber = waiting for you, green = finished, not yet viewed.</span><span><b>Home icon:</b> the rail stays on Home too.</span><span><b>Sidebar toggle</b> (top right of the sidebar): the rail stays.</span><span><b>Other projects:</b> docked at the bottom; click to open, click a project to bring it into Recent.</span><span><b>Search:</b> type to filter; New thread hides while you type; Esc clears.</span><span><b>Right-click a chat:</b> Mark as unread.</span><span><b>Ctrl+Shift+Down / Up:</b> next or previous thread, across projects.</span><span><b>Enter</b> on a waiting thread answers it; clicking it does not.</span></div>
+  <div class="help"><span><b>Rail:</b> click a folder to jump to the thread that needs you in that project. Hover the tile for the name, hover a badge for what it means.</span><span><b>Home icon:</b> the rail stays on Home too.</span><span><b>Sidebar toggle</b> (top right of the sidebar): the rail stays.</span><span><b>Other projects:</b> docked at the bottom; click to open, click a project to bring it into Recent.</span><span><b>Search:</b> type to filter; New thread hides while you type; Esc clears.</span><span><b>Right-click a chat:</b> Mark as unread.</span><span><b>Ctrl+Shift+Down / Up:</b> next or previous thread, across projects.</span><span><b>Enter</b> on a waiting thread answers it; clicking it does not.</span></div>
   <div class="frame" id="frame"></div><div class="tip" id="tip"></div><div class="menu" id="menu"></div>`;
 document.body.appendChild(sheet);
 
