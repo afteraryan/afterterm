@@ -1,22 +1,29 @@
 # Claude Code session resume
 
-Tabs that were running a Claude Code session **auto-resume it when afterterm reopens** —
+A thread that was running a Claude Code session resumes it when you **wake** it:
 afterterm relaunches the shell in the session's directory and runs
 `claude --resume <sessionId>`, so the conversation comes back where you left it.
 
-## Lazy resume — one at a time, not all at once
+## Resume is user-initiated: nothing happens on launch any more
 
-Resume is **lazy**: on launch only the **active tab** resumes immediately; every other
-Claude tab is deferred and resumes the **first time you switch to it**. Each tab keeps
-its session name in the sidebar in the meantime, so you see what's there before it loads.
+Every thread restored from `session.json` starts **asleep** (Phase 4, `restoredTab` in
+`src/renderer/sleepWake.ts`): no PTY at all, just the record, until the user acts on it.
+This replaces the earlier "lazy resume" scheme, where the active tab resumed
+automatically on launch and only background tabs waited for a click. Phase 4 removes
+that one automatic case too: a chat resumes only when its thread is woken (the asleep
+pane's Wake button or the thread menu's Wake), or when a closed chat is brought back
+through **Resume** on a project page's History tab or the search palette, both of which
+recreate the tab and run `claude --resume` the same way a wake does. Nothing ever
+resumes by itself, not even the tab you were looking at when the app closed.
 
-This is deliberate and important. Resuming every saved session at once cold-starts N
-`claude` processes *plus their MCP servers* simultaneously — on a loaded or
-lower-RAM machine that memory spike can OOM-crash the whole app (it did, with ~10
-sessions on a 16 GB box). Lazy resume means only the sessions you actually open are
-live, which is both safe and closer to how you work. Implementation: `resumeTab` +
-`pendingResumeRef` in `Terminal/index.tsx` (the active-tab effect drains the pending
-map on activation).
+This is deliberate and important, and the reason has not changed. Resuming every saved
+session at once cold-starts N `claude` processes *plus their MCP servers*
+simultaneously, and on a loaded or lower-RAM machine that memory spike can OOM-crash the
+whole app (it did, with ~10 sessions on a 16 GB box). Resume-on-wake means only the
+sessions you actually open are ever live, which is both safe and closer to how you
+work. Implementation: `wakeTab`/`wakePlan` in `src/renderer/sleepWake.ts`, and the
+reconcile effect's `createTerminal` in `src/renderer/components/Terminal/index.tsx`,
+which reads the plan and types the resume command after the shell's first prompt.
 
 ## The resume key is the UUID, never the title
 
@@ -101,8 +108,8 @@ The captured `sessionId` is later typed into a shell as `claude --resume <id>`, 
 | `src/main.ts` | Sets `AFTERTERM_TAB_ID`/`AFTERTERM_SESSION_DIR`; watches + validates the dir; pushes `claude-session:update` |
 | `src/preload.ts`, `src/afterterm.d.ts` | `claudeSession.onUpdate` bridge |
 | `src/renderer/app.tsx` | Subscribes → `setClaudeSession` |
-| `src/renderer/hooks/useTabState.ts` | `setClaudeSession`; persists `claudeSessionId`/`claudeCwd` |
-| `src/renderer/components/Terminal/index.tsx` | Injects `claude --resume <uuid>` on restore (UUID-validated) |
+| `src/renderer/hooks/useTabState.ts` | `setClaudeSession`; persists `claudeSessionId`/`claudeCwd`; `restoreSession` marks every restored tab asleep (`restoredTab`) |
+| `src/renderer/components/Terminal/index.tsx` | Injects `claude --resume <uuid>` on wake (UUID-validated), not on restore |
 
 ## Dev / test isolation
 

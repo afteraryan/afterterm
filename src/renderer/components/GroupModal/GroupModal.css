@@ -1,128 +1,152 @@
 /* ── Group modal ──────────────────────────────────────────────────── */
+/* Matches docs/mockups/afterterm-next.html: .mbg / .modal / .fld / .sw / .shl /
+   .chk / .foot. Button colour and shape (the pill look, primary/quiet variants)
+   come from the shared .b / .b.p / .b.q classes in theme.css; this file only
+   lays out the modal's own fields. */
 
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, .55);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 2000;
+  padding: 16px;
   -webkit-app-region: no-drag;
+  animation: fadein var(--fast) var(--ease);
 }
 
 .modal-card {
-  width: 380px;
-  max-width: calc(100vw - 32px);
-  max-height: calc(100vh - 32px);
+  width: min(520px, 100%);
+  max-height: 92vh;
   overflow-y: auto;
   box-sizing: border-box;
-  background: #202020;
-  border: 1px solid #383838;
-  border-radius: 10px;
-  padding: 18px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  color-scheme: dark;
+  background: var(--hover);
+  border-radius: var(--radius-surface);
+  padding: 22px 22px 18px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .55);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  animation: rise var(--med) var(--ease);
 }
 
 .modal-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #e8e8e8;
-  margin-bottom: 16px;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text);
 }
 
 .modal-field {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  margin-bottom: 14px;
+  gap: 6px;
 }
 
 .modal-label {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #666;
-}
-
-.modal-hint {
-  font-size: 10.5px;
-  color: #5c5c5c;
-}
-
-.modal-input,
-.modal-select {
-  background: #171717;
-  border: 1px solid #383838;
-  border-radius: 5px;
-  color: #e0e0e0;
   font-size: 12.5px;
+  color: var(--text3);
+}
+
+.modal-input {
+  background: var(--side);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 13px;
   font-family: inherit;
-  padding: 7px 9px;
+  padding: 9px 12px;
   outline: none;
   width: 100%;
   box-sizing: border-box;
 }
 
-.modal-input:focus,
-.modal-select:focus {
-  border-color: #5a9cf8;
+.modal-input:focus {
+  box-shadow: 0 0 0 2px rgba(236, 236, 236, .25);
 }
 
 .modal-input::placeholder {
-  color: #4a4a4a;
+  color: var(--text4);
 }
 
 .modal-folder-row {
   display: flex;
-  align-items: center;
   gap: 8px;
 }
 
 .modal-folder-path {
   flex: 1;
   min-width: 0;
-  background: #171717;
-  border: 1px solid #383838;
-  border-radius: 5px;
-  padding: 7px 9px;
-  font-size: 11.5px;
-  font-family: 'Cascadia Code', 'Consolas', monospace;
-  color: #d0d0d0;
+  font-family: var(--mono);
+  font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: default;
 }
 
 .modal-folder-path.empty {
-  color: #555;
-  font-family: inherit;
-  font-size: 11px;
+  color: var(--text3);
+  font-family: var(--sans);
 }
 
 .modal-swatches {
   display: flex;
-  gap: 8px;
-  padding: 2px 0;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.modal-swatches .color-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border-color var(--fast);
+}
+
+.modal-swatches .color-swatch.active-swatch {
+  border-color: var(--text);
+}
+
+.modal-shells {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.modal-shell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  color: var(--text2);
+  transition: background var(--fast), color var(--fast);
+}
+
+.modal-shell:hover {
+  background: var(--hover2);
+  color: var(--text);
+}
+
+.modal-shell[aria-pressed="true"] {
+  background: var(--hover2);
+  color: var(--text);
 }
 
 .modal-checkbox {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: #bbb;
-  margin: 2px 0 16px;
+  gap: 10px;
+  color: var(--text2);
   cursor: pointer;
 }
 
 .modal-checkbox input {
-  accent-color: #5a9cf8;
-  width: 14px;
-  height: 14px;
+  accent-color: var(--text);
+  width: 16px;
+  height: 16px;
   cursor: pointer;
 }
 
@@ -131,36 +155,4 @@
   justify-content: flex-end;
   gap: 8px;
   margin-top: 4px;
-}
-
-.modal-btn-primary,
-.modal-btn-secondary {
-  border-radius: 5px;
-  font-size: 12px;
-  font-family: inherit;
-  padding: 7px 14px;
-  cursor: pointer;
-  transition: background 0.1s, border-color 0.1s, color 0.1s;
-}
-
-.modal-btn-primary {
-  background: #3b6fc4;
-  border: 1px solid #4b7fd4;
-  color: #fff;
-}
-
-.modal-btn-primary:hover {
-  background: #4a80d8;
-}
-
-.modal-btn-secondary {
-  background: #2a2a2a;
-  border: 1px solid #3a3a3a;
-  color: #bbb;
-  white-space: nowrap;
-}
-
-.modal-btn-secondary:hover {
-  background: #333;
-  color: #e0e0e0;
 }

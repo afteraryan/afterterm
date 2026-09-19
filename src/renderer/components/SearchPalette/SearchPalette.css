@@ -1,0 +1,101 @@
+/* Search palette (SearchPalette/index.tsx). Values copied from
+   docs/mockups/afterterm-next.html's .palbg / .pal / .pi / .gl rules. Relies
+   on theme.css tokens: --hover, --hover2, --text3, --fast, --med, --ease and
+   keyframes fadein, rise. */
+
+.palbg {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .5);
+  z-index: 80;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 14vh;
+}
+
+.palbg.show {
+  animation: fadein var(--fast) var(--ease);
+}
+
+.pal {
+  width: min(600px, 92vw);
+  background: var(--hover);
+  border-radius: 20px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .55);
+  overflow: hidden;
+}
+
+.palbg.show .pal {
+  animation: rise var(--med) var(--ease);
+}
+
+.pal input {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  padding: 18px 22px;
+  font-size: 16px;
+  outline: none;
+}
+
+.pal input::placeholder {
+  color: var(--text3);
+}
+
+.pal .res {
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 6px 8px 10px;
+  border-top: 1px solid #3a3a3a;
+}
+
+.pal .gl {
+  padding: 10px 12px 4px;
+  font-size: 12px;
+  color: var(--text3);
+  font-weight: 500;
+}
+
+.pal .nothing {
+  padding: 14px 12px;
+  font-size: 13px;
+  color: var(--text3);
+}
+
+.pi {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  width: 100%;
+  min-width: 0;
+  color: var(--text);
+}
+
+.pi:hover,
+.pi.hi {
+  background: var(--hover2);
+}
+
+.pi .n {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pi .m {
+  color: var(--text3);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .palbg.show,
+  .palbg.show .pal {
+    animation: none;
+  }
+}

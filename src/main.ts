@@ -1,10 +1,30 @@
 import { app, BrowserWindow, ipcMain, dialog, screen, shell } from 'electron';
 import path from 'path';
 import fs from 'fs';
-import { execFile, execSync } from 'child_process';
+import os from 'os';
+import { execFile, execFileSync, execSync, spawn } from 'child_process';
 import * as pty from 'node-pty';
 import { runNotifierSelfTest, runNotifierDemo } from './notifier-selftest';
 import { reconcileClaudeHook, HOOK_SCRIPT_NAME } from './claude-hook-install';
+import { detectEditors } from './editor-detect.ts';
+import type { DetectDeps } from './editor-detect.ts';
+import type { EditorInfo } from './editors.ts';
+import { readPrefs, updatePrefs } from './prefs.ts';
+import { planSpawn } from './shell-integration.ts';
+import { readTranscriptMeta, isSessionId } from './claude-transcript.ts';
+import { gitInfo } from './git-info.ts';
+import { isThreadId, parseTail, serializeTail, tailFilePath, trimTail } from './thread-tail.ts';
+import {
+  applyMsysParents,
+  descendantPids,
+  listenerKey,
+  parseMsysPs,
+  parseNetstatListeners,
+  parseProcessList,
+  tabPorts,
+  trackFirstSeen,
+} from './server-detect.ts';
+import type { MsysProc, Proc as ServerProc } from './server-detect.ts';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -14,6 +34,33 @@ declare const MAIN_WINDOW_VITE_NAME: string;
 // before any app.getPath('userData') call. No-op in normal use.
 if (process.env.AFTERTERM_USER_DATA_DIR) {
   app.setPath('userData', process.env.AFTERTERM_USER_DATA_DIR);
+}
+
+// Agent harness: expose the Chrome DevTools Protocol so scripts/agent-harness can
+// drive and screenshot the renderer. Opt-in only: an open debugging port lets any
+// local process read and script the app, so it must never be on for normal users.
+// Chromium reads the switch at startup, hence module top level, before app ready.
+if (process.env.AFTERTERM_REMOTE_DEBUG_PORT) {
+  app.commandLine.appendSwitch('remote-debugging-port', process.env.AFTERTERM_REMOTE_DEBUG_PORT);
+}
+
+// Agent harness: AFTERTERM_DISPLAY picks the display every window (main and the
+// notifier overlay) is placed on, so an automated dev run stays off the monitor a
+// person is working on. Values: "primary" (default), "secondary" (the first
+// non-primary display, falling back to primary when there is only one) or an
+// integer index into screen.getAllDisplays(). Unset means the behaviour normal
+// users get, which is unchanged. This does not fix the "toasts on the wrong monitor"
+// bug in docs/bugs.md (that one is about following the main window at runtime).
+function getTargetDisplay(): Electron.Display {
+  const want = (process.env.AFTERTERM_DISPLAY ?? 'primary').trim().toLowerCase();
+  const primary = screen.getPrimaryDisplay();
+  if (want === '' || want === 'primary') return primary;
+  const all = screen.getAllDisplays();
+  if (want === 'secondary') return all.find(d => d.id !== primary.id) ?? primary;
+  const index = Number.parseInt(want, 10);
+  if (Number.isInteger(index) && index >= 0 && index < all.length) return all[index];
+  console.warn(`[afterterm] AFTERTERM_DISPLAY=${want} is not a display; using primary`);
+  return primary;
 }
 
 // ─── Shell profiles ───────────────────────────────────────────────────────────
@@ -75,6 +122,348 @@ function getShellById(id?: string): ShellProfile {
 const ptys = new Map<string, pty.IPty>();
 let mainWindow: BrowserWindow | null = null;
 let notifierWindow: BrowserWindow | null = null;
+
+// ─── PTY activity stamping ────────────────────────────────────────────────────
+
+// A thread's lastActiveAt is stamped whenever its terminal has input or output.
+// A busy shell produces output many times a second, so the renderer is told at
+// most once per tab per 15 seconds: the first activity after a quiet period is
+// sent straight away, then everything is suppressed until the window passes.
+// The cost per chunk is one Map lookup and a Date.now(), nothing allocated.
+const ACTIVITY_INTERVAL_MS = 15_000;
+// A shell prints its banner and prompt the moment it spawns, and a restored chat
+// gets `claude --resume` typed into it by the app. Neither is the user doing
+// anything, and on a relaunch every thread would otherwise read "now" at once and
+// Home's ordering would be lost. Activity in the first seconds of a PTY's life is
+// not stamped; activation already stamps the thread the user actually opened.
+const ACTIVITY_GRACE_MS = 5_000;
+const lastActivitySent = new Map<string, number>();
+const ptyCreatedAt = new Map<string, number>();
+
+function noteActivity(tabId: string): void {
+  const now = Date.now();
+  const created = ptyCreatedAt.get(tabId);
+  if (created !== undefined && now - created < ACTIVITY_GRACE_MS) return;
+  const last = lastActivitySent.get(tabId);
+  if (last !== undefined && now - last < ACTIVITY_INTERVAL_MS) return;
+  lastActivitySent.set(tabId, now);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('pty:activity', { tabId, at: now });
+  }
+}
+
+// ─── Server watcher: which thread is listening on which port ─────────────────
+
+// A thread running a dev server should say so, with its port, within a couple of
+// seconds of the server printing "ready". Getting there means joining two lists:
+// the listening TCP sockets with their owning pids, and every process with its
+// parent, so a tab's shell pid can be expanded into the tree of things it started
+// (`npm start` is cmd.exe, then npm's node, then the server's node). The pure
+// parsing and the tree walk live in server-detect.ts; this is only the plumbing.
+//
+// The two commands cost very different amounts on Windows, and that shapes the
+// whole design. Measured on this machine:
+//   netstat -ano                          about 45 ms
+//   powershell.exe ... Get-CimInstance    about 1 s (a fresh PowerShell start)
+//   Get-NetTCPConnection                  about 1.5 s, so it is not used
+//   wmic                                  not present on this Windows at all
+// So netstat runs on every poll, and the process list is only re-read when the set
+// of listening sockets actually changed, when a PTY has been created or destroyed
+// since the last read, or when the cache is over a minute old.
+//
+// Git Bash needs a third list. An MSYS program execs through a fork stub that exits
+// immediately, so anything a Git Bash thread starts is left with a Windows parent pid
+// that no longer exists: the walk from the shell pid stops at the interactive bash and
+// a server started there is neither matched to the thread nor killed with it. MSYS's
+// own process table still records the true parent, so for a live Git Bash tab the
+// bundled `<git root>\usr\bin\ps.exe -l` is read too (about 55 ms) and its edges are
+// folded into the Windows list by applyMsysParents. Native processes below the gap
+// (npm's node, cmd, the server) keep intact Windows links, so bridging the MSYS edges
+// is enough. ps.exe never runs when no Git Bash tab is live.
+
+const SERVER_POLL_MS = 10_000;
+// A server prints its banner and then goes quiet; polling shortly after the last
+// output chunk is what makes the port appear right after "ready".
+const SERVER_BURST_DELAY_MS = 700;
+// A chatty program (a build watcher, a test runner) must not turn that into a poll
+// loop, so burst polls are rate limited.
+const SERVER_BURST_MIN_GAP_MS = 2_000;
+// How long a cached process list may be reused when nothing looks like it changed.
+const SERVER_PROC_MAX_AGE_MS = 60_000;
+
+const PROC_LIST_COMMAND =
+  'Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,'
+  + "@{n='c';e={[DateTimeOffset]::new($_.CreationDate).ToUnixTimeMilliseconds()}}"
+  + ' | ConvertTo-Json -Compress';
+// Single quotes inside the command on purpose: the argument is passed through
+// execFile, and Node wraps an argument containing double quotes in a way PowerShell
+// does not always unpick. PowerShell treats 'c' and "c" the same here.
+
+/**
+ * What a live tab's shell is: its pid, which shell profile it came from, and the
+ * executable it was spawned with. The shell id and command are what the Git Bash
+ * repair needs (which tabs are MSYS, and where that install's ps.exe lives).
+ */
+interface ShellInfo {
+  pid: number;
+  shellId: string;
+  command: string;
+}
+
+const shellPids = new Map<string, ShellInfo>();
+const lastPortSent = new Map<string, number | null>();
+
+/** Just the pids, which is the shape tabPorts takes. */
+function shellPidMap(): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const [tabId, info] of shellPids) out.set(tabId, info.pid);
+  return out;
+}
+
+/**
+ * The MSYS `ps.exe` that ships beside a Git Bash: the profile command is
+ * `<git root>\bin\bash.exe`, so ps is `<git root>\usr\bin\ps.exe`. Null when it is
+ * not there, which is the signal to skip the repair entirely.
+ */
+function msysPsPath(shellCommand: string): string | null {
+  if (!shellCommand) return null;
+  try {
+    const candidate = path.join(path.dirname(path.dirname(shellCommand)), 'usr', 'bin', 'ps.exe');
+    return fs.existsSync(candidate) ? candidate : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The ps.exe of the first live Git Bash tab, or null when no such tab exists. */
+function liveMsysPsPath(): string | null {
+  for (const info of shellPids.values()) {
+    if (info.shellId !== 'gitbash') continue;
+    const ps = msysPsPath(info.command);
+    if (ps) return ps;
+  }
+  return null;
+}
+
+/** Read MSYS's process table. Returns an empty list on any failure, warning once. */
+async function readMsysProcs(psPath: string, reason: string): Promise<MsysProc[]> {
+  try {
+    return parseMsysPs(await runCommand(psPath, ['-l'], 4 * 1024 * 1024, 5_000));
+  } catch (err) {
+    if (!warnedMsysPs) {
+      warnedMsysPs = true;
+      console.warn(`[servers] MSYS ps failed (${reason}), Git Bash trees stay unbridged:`, err);
+    }
+    return [];
+  }
+}
+// When each listening socket ("pid:port") was first seen, so a tree listening on
+// several ports can show the one that started latest, which is the one the user just
+// started. trackFirstSeen adds and prunes entries; portForTree reads them.
+const listenerFirstSeen = new Map<string, number>();
+
+let cachedProcs: ServerProc[] = [];
+// MSYS's own parent links, read alongside cachedProcs and with the same lifetime.
+// Empty when no Git Bash tab is live, or when ps.exe could not be run.
+let cachedMsys: MsysProc[] = [];
+let cachedProcsAt = 0;
+let lastListenerKey: string | null = null;
+// Set whenever a PTY appears or disappears: the cached process list cannot describe
+// a tree that did not exist when it was taken.
+let treeDirty = true;
+
+let pollRunning = false;
+let pollAgain = false;
+let serverPollTimer: NodeJS.Timeout | null = null;
+let burstTimer: NodeJS.Timeout | null = null;
+let lastBurstPollAt = 0;
+// Warn once per failure kind: a machine without netstat would otherwise fill the log.
+let warnedNetstat = false;
+let warnedProcList = false;
+let warnedMsysPs = false;
+
+function runCommand(file: string, args: string[], maxBuffer: number, timeout: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    execFile(file, args, { windowsHide: true, maxBuffer, timeout }, (err, stdout) => {
+      if (err) reject(err);
+      else resolve(stdout);
+    });
+  });
+}
+
+function sendPort(tabId: string, port: number | null): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('pty:port', { tabId, port });
+  }
+}
+
+async function pollServers(reason: string): Promise<void> {
+  if (pollRunning) { pollAgain = true; return; }
+  pollRunning = true;
+  try {
+    if (ptys.size === 0) {
+      cachedProcs = [];
+      cachedMsys = [];
+      cachedProcsAt = 0;
+      lastListenerKey = null;
+      // No shells means no trees to match, and any listener still up belongs to
+      // something else. Keeping stale times would date the next shell's server wrong.
+      listenerFirstSeen.clear();
+      return;
+    }
+
+    let listeners: ReturnType<typeof parseNetstatListeners>;
+    try {
+      listeners = parseNetstatListeners(
+        await runCommand('netstat', ['-ano'], 8 * 1024 * 1024, 10_000),
+      );
+    } catch (err) {
+      if (!warnedNetstat) {
+        warnedNetstat = true;
+        console.warn(`[servers] netstat failed (${reason}), ports left as they were:`, err);
+      }
+      return;
+    }
+
+    trackFirstSeen(listenerFirstSeen, listeners, Date.now());
+
+    const key = listenerKey(listeners);
+    const stale = Date.now() - cachedProcsAt > SERVER_PROC_MAX_AGE_MS;
+    if (key !== lastListenerKey || treeDirty || stale || cachedProcs.length === 0) {
+      try {
+        const json = await runCommand(
+          'powershell.exe',
+          ['-NoProfile', '-NonInteractive', '-Command', PROC_LIST_COMMAND],
+          16 * 1024 * 1024,
+          15_000,
+        );
+        cachedProcs = parseProcessList(json);
+        // Only when a Git Bash tab is live, and only on the polls that actually
+        // re-read the process list, so the two lists never date apart.
+        const psPath = liveMsysPsPath();
+        cachedMsys = psPath ? await readMsysProcs(psPath, reason) : [];
+        cachedProcsAt = Date.now();
+        treeDirty = false;
+      } catch (err) {
+        if (!warnedProcList) {
+          warnedProcList = true;
+          console.warn(`[servers] process list failed (${reason}), ports left as they were:`, err);
+        }
+        return;
+      }
+    }
+    lastListenerKey = key;
+
+    // The Git Bash bridge: with no MSYS rows this is cachedProcs unchanged.
+    const procs = cachedMsys.length > 0 ? applyMsysParents(cachedProcs, cachedMsys) : cachedProcs;
+
+    if (process.env.AFTERTERM_HARNESS === '1' && cachedMsys.length > 0) {
+      for (const [tabId, info] of shellPids) {
+        if (info.shellId !== 'gitbash') continue;
+        const tree = descendantPids(procs, info.pid);
+        if (tree.size > 1) {
+          console.log(`[harness] msys tree ${tabId} pids=${[...tree].join(',')}`);
+        }
+      }
+    }
+
+    for (const [tabId, port] of tabPorts(shellPidMap(), procs, listeners, listenerFirstSeen)) {
+      if (lastPortSent.get(tabId) === port) continue;
+      lastPortSent.set(tabId, port);
+      sendPort(tabId, port);
+    }
+  } finally {
+    pollRunning = false;
+    if (pollAgain) {
+      pollAgain = false;
+      void pollServers('a poll was requested while one was running');
+    }
+  }
+}
+
+function startServerPolling(): void {
+  if (serverPollTimer) return;
+  serverPollTimer = setInterval(() => {
+    if (ptys.size === 0) { stopServerPolling(); return; }
+    void pollServers('the slow interval');
+  }, SERVER_POLL_MS);
+}
+
+function stopServerPolling(): void {
+  if (serverPollTimer) { clearInterval(serverPollTimer); serverPollTimer = null; }
+  if (burstTimer) { clearTimeout(burstTimer); burstTimer = null; }
+}
+
+/**
+ * Called from the 16 ms output flush. Schedules one poll for shortly after the last
+ * chunk of a burst, never more often than SERVER_BURST_MIN_GAP_MS. The cost per chunk
+ * is one Date.now() and one timer reschedule.
+ */
+function noteOutputForServers(): void {
+  const now = Date.now();
+  const sinceLast = now - lastBurstPollAt;
+  const delay = sinceLast >= SERVER_BURST_MIN_GAP_MS
+    ? SERVER_BURST_DELAY_MS
+    : Math.max(SERVER_BURST_DELAY_MS, SERVER_BURST_MIN_GAP_MS - sinceLast);
+  if (burstTimer) clearTimeout(burstTimer);
+  burstTimer = setTimeout(() => {
+    burstTimer = null;
+    lastBurstPollAt = Date.now();
+    void pollServers('an output burst settled');
+  }, delay);
+}
+
+/** A tab's PTY has gone: forget it, and clear its port in the UI straight away. */
+function forgetServerTab(tabId: string): void {
+  shellPids.delete(tabId);
+  treeDirty = true;
+  const last = lastPortSent.get(tabId);
+  lastPortSent.delete(tabId);
+  if (typeof last === 'number') sendPort(tabId, null);
+}
+
+/** taskkill a pid and its Windows subtree. Never rejects: a dead pid is normal. */
+function taskkillTree(pid: number): Promise<void> {
+  return new Promise<void>(resolve => {
+    execFile(
+      'taskkill',
+      ['/PID', String(pid), '/T', '/F'],
+      { windowsHide: true, timeout: 5_000 },
+      () => resolve(),
+    );
+  });
+}
+
+/**
+ * Kill a tab's shell and everything it started.
+ *
+ * `taskkill /T` walks the same Windows parent links the server watcher does, so for a
+ * Git Bash tab it stops at the interactive bash and leaves anything below the MSYS
+ * fork gap running (a dev server outliving the thread that started it, seen in the
+ * harness). So for a gitbash tab MSYS's table is read first, while the shell is still
+ * alive and its rows still exist, merged with the last process list, and every pid in
+ * the resulting tree is killed after the shell itself. The process list may be stale,
+ * which is fine: the MSYS rows are fresh and the Windows links below them rarely move.
+ *
+ * Nothing here throws and the whole thing is bounded, so a close is never held up by
+ * a hung kill. Non-gitbash tabs get exactly the single taskkill they always got.
+ */
+async function killTree(tabId: string, pid: number, info: ShellInfo | undefined): Promise<void> {
+  const isGitBash = info?.shellId === 'gitbash';
+  const psPath = isGitBash ? msysPsPath(info!.command) : null;
+  const rows = psPath ? await readMsysProcs(psPath, `closing ${tabId}`) : [];
+
+  await taskkillTree(pid);
+
+  if (rows.length === 0 || cachedProcs.length === 0) return;
+  const tree = descendantPids(applyMsysParents(cachedProcs, rows), pid);
+  const rest = [...tree].filter(p => p !== pid);
+  if (rest.length === 0) return;
+  if (process.env.AFTERTERM_HARNESS === '1') {
+    console.log(`[harness] msys tree ${tabId} pids=${[...tree].join(',')}`);
+  }
+  await Promise.all(rest.map(p => taskkillTree(p)));
+}
 
 // ─── Window creation ──────────────────────────────────────────────────────────
 
@@ -145,7 +534,7 @@ const NOTIFIER_MARGIN = 12;   // gap from the screen's bottom-right corner
 // to paint a white bar over above the toasts.
 function positionNotifier(contentHeight: number) {
   if (!notifierWindow || notifierWindow.isDestroyed()) return;
-  const wa = screen.getPrimaryDisplay().workArea;
+  const wa = getTargetDisplay().workArea;
   const h = Math.max(1, Math.ceil(contentHeight));
   const x = wa.x + wa.width - NOTIFIER_WIDTH - NOTIFIER_MARGIN;
   const y = wa.y + wa.height - h - NOTIFIER_MARGIN;
@@ -153,7 +542,7 @@ function positionNotifier(contentHeight: number) {
 }
 
 function createNotifierWindow() {
-  const wa = screen.getPrimaryDisplay().workArea;
+  const wa = getTargetDisplay().workArea;
   notifierWindow = new BrowserWindow({
     x: wa.x + wa.width - NOTIFIER_WIDTH - NOTIFIER_MARGIN,
     y: wa.y + wa.height - 80 - NOTIFIER_MARGIN,
@@ -196,26 +585,50 @@ function createNotifierWindow() {
   notifierWindow.on('closed', () => { notifierWindow = null; });
 }
 
+// Only when AFTERTERM_DISPLAY is set: size the main window to fit the target
+// display's work area and centre it there. Without the env var Electron's own
+// default placement is kept, so ordinary launches are untouched.
+function harnessWindowPlacement(): { x: number; y: number; width: number; height: number } | null {
+  if (!process.env.AFTERTERM_DISPLAY) return null;
+  const wa = getTargetDisplay().workArea;
+  const width = Math.min(1280, wa.width);
+  const height = Math.min(780, wa.height);
+  return {
+    x: wa.x + Math.floor((wa.width - width) / 2),
+    y: wa.y + Math.floor((wa.height - height) / 2),
+    width,
+    height,
+  };
+}
+
 function createWindow() {
+  const placement = harnessWindowPlacement();
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 780,
+    ...(placement ?? {}),
     minWidth: 800,
     minHeight: 500,
     icon: getIconPath(),
     titleBarStyle: 'hidden',
     titleBarOverlay: {
-      color: '#1a1a1a',
-      symbolColor: '#888',
-      height: 36,
+      color: '#171717',
+      symbolColor: '#8e8e8e',
+      height: 32,
     },
-    backgroundColor: '#141414',
+    backgroundColor: '#212121',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
+
+  // Re-apply the bounds once the window exists. Electron sizes a window created
+  // with explicit bounds on a display whose DPI differs from the primary's using
+  // the primary's scale (1280x780 came out as 1024x625 on a 100% monitor next to
+  // a 125% primary); setBounds on the existing window uses the right display.
+  if (placement) mainWindow.setBounds(placement);
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
@@ -225,6 +638,15 @@ function createWindow() {
 
   mainWindow.on('close', (e) => {
     if (isQuitting || ptys.size === 0) return;
+    // A harness run (scripts/agent-harness, AFTERTERM_HARNESS=1) quits through
+    // `drive window quit`, which posts WM_CLOSE to this window to exercise the
+    // renderer's quit flush (tails and the asleep stamps). Nobody is there to
+    // answer a confirm dialog, so the harness gets the "Close" answer straight away.
+    if (process.env.AFTERTERM_HARNESS === '1') {
+      isQuitting = true;
+      app.quit();
+      return;
+    }
     e.preventDefault();
     dialog.showMessageBox(mainWindow!, {
       type: 'question',
@@ -271,6 +693,11 @@ function createWindow() {
       event.preventDefault();
     } else if (ctrl && shift && key === 'b') {
       mainWindow.webContents.send('shortcut', 'toggle-panel');
+      event.preventDefault();
+    } else if (ctrl && shift && key === 'p') {
+      // Search palette over projects and threads. Ctrl+K stays with the terminal,
+      // where shells and Claude Code both use it.
+      mainWindow.webContents.send('shortcut', 'search');
       event.preventDefault();
     }
   });
@@ -326,6 +753,15 @@ const OPEN_EXTERNAL_PROTOCOLS = ['http:', 'https:', 'mailto:'];
 ipcMain.handle('shell:openExternal', (_event, url: string) => {
   try {
     if (OPEN_EXTERNAL_PROTOCOLS.includes(new URL(url).protocol)) {
+      // Under the agent harness, record the call instead of making it. An automated
+      // run must never throw a browser window onto the person's screen, and the log
+      // line is how a test asserts that "Open localhost:5173" really would have
+      // opened. The safelist check stays above this, so the line only appears for a
+      // URL that would genuinely have opened.
+      if (process.env.AFTERTERM_HARNESS === '1') {
+        console.log(`[harness] shell:openExternal ${url}`);
+        return;
+      }
       shell.openExternal(url);
     }
   } catch { /* not a valid URL — ignore */ }
@@ -353,16 +789,282 @@ ipcMain.handle('shells:list', () => {
 // app.getVersion() reads package.json "version".
 ipcMain.on('app:version', (event) => { event.returnValue = app.getVersion(); });
 
+// ─── prefs.json ──────────────────────────────────────────────────────────────
+
+function getPrefsPath() {
+  return path.join(app.getPath('userData'), 'prefs.json');
+}
+
+// ─── Last opened time ────────────────────────────────────────────────────────
+
+// Home shows how long you were away, so the app records when it was opened and
+// reads that back one launch later. Held in a module variable because prefs.json
+// is rewritten with the current time during startup: by the time the renderer
+// asks, the file no longer holds the previous value.
+let previousLastOpenedAt: number | null = null;
+
+function initLastOpenedAt(): void {
+  const prefsPath = getPrefsPath();
+  const { prefs, usable } = readPrefs(prefsPath);
+  const stored = prefs.lastOpenedAt;
+  previousLastOpenedAt = typeof stored === 'number' && Number.isFinite(stored) ? stored : null;
+  // An unparseable prefs.json is left exactly as it is, same rule as the Claude
+  // hook opt-out flag: updatePrefs refuses the write and returns false.
+  if (usable) updatePrefs(prefsPath, { lastOpenedAt: Date.now() });
+}
+
+// Sync, like app:version, so the renderer has it at preload time and Home can
+// render its first frame without a second pass. null on the very first launch.
+ipcMain.on('app:last-opened-at', (event) => { event.returnValue = previousLastOpenedAt; });
+
+// ─── Project folders: File Explorer and existence checks ─────────────────────
+
+// A WSL path is served by a network provider, not the local filesystem. A stat
+// on one can hang or fail while the path is perfectly good, so afterterm never
+// checks those: File Explorer and VS Code both handle them themselves.
+function isWslPath(folder: string): boolean {
+  return /^\\\\wsl(\$|\.localhost)\\/i.test(folder);
+}
+
+function isUsableFolder(folder: string): boolean {
+  if (isWslPath(folder)) return true;
+  try {
+    return fs.existsSync(folder) && fs.statSync(folder).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+// Launch a program with one argument, as an argument, never through a shell
+// string, so spaces and non-ASCII in a folder path pass through untouched.
+// Resolves as soon as the process exists: explorer.exe exits with code 1 even
+// when it opened the window, so an exit code says nothing about success.
+function spawnDetached(command: string, args: string[]): Promise<{ ok: boolean; error?: string }> {
+  return new Promise(resolve => {
+    let child;
+    try {
+      child = execFile(command, args, { windowsHide: false }, () => { /* exit code is not a result */ });
+    } catch (err) {
+      resolve({ ok: false, error: String(err) });
+      return;
+    }
+    child.once('spawn', () => {
+      try { child.unref(); } catch {}
+      resolve({ ok: true });
+    });
+    child.once('error', (err) => resolve({ ok: false, error: String(err) }));
+  });
+}
+
+ipcMain.handle('projects:openInExplorer', async (_event, folder: unknown) => {
+  if (typeof folder !== 'string' || folder.trim() === '') {
+    return { ok: false, error: 'Folder not found' };
+  }
+  if (!isUsableFolder(folder)) return { ok: false, error: 'Folder not found' };
+  const result = await spawnDetached('explorer.exe', [folder]);
+  if (result.ok) return { ok: true };
+  console.error('[explorer] could not open', folder, result.error);
+  return { ok: false, error: 'Could not open File Explorer' };
+});
+
+// One round trip for a whole list of project folders, so Home can grey out the
+// ones that are gone without a call per project.
+const MAX_FOLDER_CHECKS = 500;
+
+ipcMain.handle('projects:checkFolders', (_event, folders: unknown) => {
+  const result: Record<string, boolean> = {};
+  if (!Array.isArray(folders)) return result;
+  for (const folder of folders.slice(0, MAX_FOLDER_CHECKS)) {
+    if (typeof folder !== 'string' || folder === '') continue;
+    if (folder in result) continue;
+    result[folder] = isUsableFolder(folder);
+  }
+  return result;
+});
+
+// ─── Editor detection and launch ─────────────────────────────────────────────
+
+// The real, Windows-only side of editor-detect.ts. Every call is wrapped so a
+// permission error or a missing tool degrades to "not found" rather than
+// throwing during startup.
+const realDetectDeps: DetectDeps = {
+  env: process.env as Record<string, string | undefined>,
+  exists: (p) => { try { return fs.existsSync(p); } catch { return false; } },
+  isFile: (p) => { try { return fs.statSync(p).isFile(); } catch { return false; } },
+  listDir: (p) => { try { return fs.readdirSync(p); } catch { return []; } },
+  readText: (p) => { try { return fs.readFileSync(p, 'utf-8'); } catch { return null; } },
+  whereCode: () => {
+    try {
+      const out = execFileSync('where', ['code'], {
+        encoding: 'utf-8', timeout: 4000, windowsHide: true,
+      });
+      return out.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    } catch {
+      return [];
+    }
+  },
+  registryEditors: () => readUninstallEditors(),
+};
+
+const UNINSTALL_KEYS = [
+  'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall',
+  'HKCU\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall',
+  'HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall',
+  'HKLM\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall',
+];
+
+// Walk the uninstall registry and pull out the three values detection needs.
+// `reg query ... /s` prints one blank-line-separated block per subkey, with
+// values as "    Name    REG_SZ    value".
+function readUninstallEditors(): { displayName: string; installLocation?: string; displayIcon?: string }[] {
+  const entries: { displayName: string; installLocation?: string; displayIcon?: string }[] = [];
+  for (const key of UNINSTALL_KEYS) {
+    let out = '';
+    try {
+      out = execFileSync('reg', ['query', key, '/s'], {
+        encoding: 'utf-8', timeout: 8000, windowsHide: true, maxBuffer: 32 * 1024 * 1024,
+      });
+    } catch {
+      continue; // key absent on this machine, or reg refused it
+    }
+    let current: { displayName?: string; installLocation?: string; displayIcon?: string } = {};
+    const flush = () => {
+      if (current.displayName) {
+        entries.push({
+          displayName: current.displayName,
+          installLocation: current.installLocation,
+          displayIcon: current.displayIcon,
+        });
+      }
+      current = {};
+    };
+    for (const rawLine of out.split(/\r?\n/)) {
+      const line = rawLine.trimEnd();
+      if (/^HKEY_/i.test(line.trim())) { flush(); continue; }
+      const match = /^\s+(DisplayName|InstallLocation|DisplayIcon)\s+REG_[A-Z_]+\s+(.*)$/i.exec(line);
+      if (!match) continue;
+      const name = match[1].toLowerCase();
+      const value = match[2].trim();
+      if (name === 'displayname') current.displayName = value;
+      else if (name === 'installlocation') current.installLocation = value;
+      else current.displayIcon = value;
+    }
+    flush();
+  }
+  return entries;
+}
+
+// Detection runs once, after the window is up, and is cached for the session. It
+// re-runs when a launch fails or the user picks an editor by hand.
+let cachedEditors: EditorInfo[] = [];
+let editorPrefsPathInvalid = false;
+let editorDetectionRan = false;
+
+function runEditorDetection(reason: string): void {
+  editorDetectionRan = true;
+  try {
+    const started = Date.now();
+    const editorPath = readPrefs(getPrefsPath()).prefs.editorPath;
+    const result = detectEditors(typeof editorPath === 'string' ? editorPath : undefined, realDetectDeps);
+    cachedEditors = result.editors;
+    editorPrefsPathInvalid = result.invalidPrefsPath;
+    const found = result.editors.length
+      ? result.editors.map(e => `${e.name} (${e.source})`).join(', ')
+      : 'none found';
+    console.log(`[editors] ${reason}: ${found}${result.invalidPrefsPath ? ', editorPath in prefs.json is not an editor' : ''} in ${Date.now() - started}ms`);
+  } catch (err) {
+    cachedEditors = [];
+    editorPrefsPathInvalid = false;
+    console.error('[editors] detection failed:', err);
+  }
+}
+
+// If the renderer asks before the deferred startup run, detect now rather than
+// answering with an empty list and hiding a button the user does have.
+ipcMain.handle('editors:list', () => {
+  if (!editorDetectionRan) runEditorDetection('first request from the renderer');
+  return cachedEditors;
+});
+
+// True only when prefs.json holds an editorPath that exists and is not an
+// editor. The renderer shows the "Editor path not valid" toast for this alone.
+ipcMain.handle('editors:prefsPathInvalid', () => {
+  if (!editorDetectionRan) runEditorDetection('first request from the renderer');
+  return editorPrefsPathInvalid;
+});
+
+ipcMain.handle('editors:open', async (_event, folder: unknown, editorId?: unknown) => {
+  if (typeof folder !== 'string' || folder.trim() === '' || !isUsableFolder(folder)) {
+    return { ok: false, error: 'Folder not found', editors: cachedEditors };
+  }
+  // No id means the primary editor. An id that matches nothing is an error, not a
+  // silent fallback: the renderer's list can be stale, and opening a different
+  // editor than the one clicked would be a surprise.
+  let editor: EditorInfo | undefined;
+  if (typeof editorId === 'string' && editorId !== '') {
+    editor = cachedEditors.find(e => e.id === editorId);
+    if (!editor) {
+      runEditorDetection('unknown editor id from the renderer');
+      editor = cachedEditors.find(e => e.id === editorId);
+    }
+    if (!editor) return { ok: false, error: 'Editor not found', editors: cachedEditors };
+  } else {
+    editor = cachedEditors[0];
+  }
+  if (!editor) return { ok: false, error: 'No editor found', editors: cachedEditors };
+
+  const result = await new Promise<{ ok: boolean; error?: string }>(resolve => {
+    let child;
+    try {
+      // spawn, not execFile: the editor outlives afterterm, so it is detached
+      // with no pipes held open. The folder is still one argument in an argv
+      // array, never a shell string.
+      child = spawn(editor.path, [folder], { detached: true, stdio: 'ignore', windowsHide: false });
+    } catch (err) {
+      resolve({ ok: false, error: String(err) });
+      return;
+    }
+    child.once('spawn', () => {
+      try { child.unref(); } catch {}
+      resolve({ ok: true });
+    });
+    child.once('error', (err) => resolve({ ok: false, error: String(err) }));
+  });
+
+  if (result.ok) return { ok: true, editors: cachedEditors };
+  // The editor was there at startup and is not now (uninstalled, moved, blocked).
+  // Re-detect so the UI can drop a button that no longer opens anything.
+  console.error(`[editors] launch failed for ${editor.path}:`, result.error);
+  runEditorDetection('re-detect after a failed launch');
+  return { ok: false, error: `Couldn't open ${editor.name}`, editors: cachedEditors };
+});
+
+// File picker for the editor executable. Windows cannot offer files and folders
+// in one dialog, so this picks a file; a folder can still be set by hand in
+// prefs.json and detection accepts it when it holds a known editor exe.
+ipcMain.handle('editors:choose', async () => {
+  if (!mainWindow) return null;
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Choose editor',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Executables', extensions: ['exe'] },
+      { name: 'All files', extensions: ['*'] },
+    ],
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  const picked = result.filePaths[0];
+  // A hand-picked path wins, whatever the exe is called: an unknown one becomes
+  // product 'other' and is named after its file.
+  updatePrefs(getPrefsPath(), { editorPath: picked });
+  runEditorDetection('re-detect after the user chose an editor');
+  return { editors: cachedEditors, invalid: editorPrefsPathInvalid };
+});
+
 // ─── IPC: create PTY ─────────────────────────────────────────────────────────
 
 ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: string) => {
   const shell = getShellById(shellId);
-  let dir = process.env.USERPROFILE || 'C:\\';
-  if (cwd) {
-    try {
-      if (fs.existsSync(cwd) && fs.statSync(cwd).isDirectory()) dir = cwd;
-    } catch {}
-  }
 
   // Clean PATH: strip stray quotes that corrupt cmd.exe's command resolution.
   // AFTERTERM_TAB_ID + AFTERTERM_SESSION_DIR let the bundled notify hook write this
@@ -377,25 +1079,79 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
   if (cleanEnv.Path) cleanEnv.Path = cleanEnv.Path.replace(/"/g, '');
   if (cleanEnv.PATH) cleanEnv.PATH = cleanEnv.PATH.replace(/"/g, '');
 
-  // CWD reporting for session restore (cmd.exe only — see CLAUDE.md "Session Restore").
-  // cmd.exe doesn't announce its directory, so its tabs always restored to the home
-  // folder. Inject an OSC 9;9 (ConEmu-style) cwd report into the prompt: `$E` = ESC,
-  // `$P` = current path, `$E\` = ST. The renderer parses OSC 9;9 → updates tab cwd.
-  // Any existing custom PROMPT is preserved as the visible part.
-  if (shell.id === 'cmd') {
-    const visiblePrompt = cleanEnv.PROMPT || '$P$G';
-    cleanEnv.PROMPT = `$E]9;9;$P$E\\${visiblePrompt}`;
+  // CWD reporting and prompt marks, for every shell. The renderer only ever sees
+  // OSC 9;9 (a Windows path) and OSC 133;A/B (prompt start and prompt end), so it
+  // needs no per-shell knowledge: the 133 marks are what makes last-command capture
+  // possible (on Enter, the renderer reads the buffer between the B mark and the
+  // cursor), and the 9;9 report is what lets a tab restore to its last directory.
+  //
+  // planSpawn (src/shell-integration.ts, which holds the exact injected texts)
+  // decides all of it and returns the command, args, cwd and env to spawn with:
+  //   cmd                    PROMPT becomes `$E]133;A$E\` + `$E]9;9;$P$E\` + the
+  //                          visible prompt (any custom PROMPT is kept) + `$E]133;B$E\`
+  //   pwsh, Windows PowerShell  args become `-NoExit -EncodedCommand <bootstrap>`,
+  //                          which wraps the existing `prompt` function after the
+  //                          user's profile has run
+  //   Git Bash               PROMPT_COMMAND and AFTERTERM_BASH_HOOK in the env, args
+  //                          untouched
+  //   WSL                    the same two, plus WSLENV so they cross into the distro,
+  //                          where the hook emits OSC 7 `file://<distro>/<path>`
+  //
+  // Opt-out is per shell in prefs.json (`shellIntegration: { pwsh: "off" }`), read
+  // at every spawn so a change needs no restart. Failure mode: the shell always
+  // opens, a hook that does not take just means no cwd capture and no prompt marks.
+  //
+  // planSpawn also owns the cwd decision (a missing or stale directory falls back to
+  // home) and deliberately never stats a `\\wsl$\` path: for the wsl shell such a cwd
+  // becomes `wsl.exe -d <distro> --cd <linux path>`, for any other shell it falls
+  // back to home.
+  const plan = planSpawn({
+    shell,
+    cwd,
+    home: process.env.USERPROFILE || 'C:\\',
+    env: cleanEnv,
+    prefs: readPrefs(getPrefsPath()).prefs,
+    dirExists: (candidate) => {
+      try {
+        return fs.existsSync(candidate) && fs.statSync(candidate).isDirectory();
+      } catch {
+        return false;
+      }
+    },
+  });
+
+  if (process.env.AFTERTERM_HARNESS === '1') {
+    // Values only, never env contents (the bash hook is one very long line). This is
+    // how a harness run proves the opt-out and the WSL --cd mapping without a debugger.
+    const safeArgs = plan.args.map((a, i) =>
+      plan.args[i - 1] === '-EncodedCommand' ? '<encoded>' : a
+    );
+    console.log(
+      `[harness] pty:create ${tabId} shell=${shell.id} integration=${plan.integration ? 'on' : 'off'} ` +
+      `cwd=${plan.cwd} cwdFallback=${plan.cwdFallback} args=${JSON.stringify(safeArgs)}`
+    );
   }
 
-  const p = pty.spawn(shell.command, shell.args, {
+  const p = pty.spawn(plan.command, plan.args, {
     name: 'xterm-256color',
     cols: 80,
     rows: 24,
-    cwd: dir,
-    env: cleanEnv,
+    cwd: plan.cwd,
+    env: plan.env,
   });
 
   ptys.set(tabId, p);
+  ptyCreatedAt.set(tabId, Date.now());
+
+  // Server watching: remember this tab's shell pid, mark the cached process list as
+  // out of date, keep the slow poll running, and look once a second from now (a shell
+  // that was told to re-run a server has it listening by about then).
+  // shell.command, not plan.command: the profile's own executable is what locates the
+  // Git install (plan.command can be rewritten, as it is for WSL).
+  shellPids.set(tabId, { pid: p.pid, shellId: shell.id, command: shell.command });
+  treeDirty = true;
+  startServerPolling();
+  setTimeout(() => { void pollServers('a PTY was created'); }, 1000);
 
   let buffer = '';
   let flushTimer: NodeJS.Timeout | null = null;
@@ -409,6 +1165,8 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
         }
         buffer = '';
         flushTimer = null;
+        noteActivity(tabId);
+        noteOutputForServers();
       }, 16);
     }
   });
@@ -424,6 +1182,10 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
       mainWindow.webContents.send(`pty:exit:${tabId}`, exitCode);
     }
     ptys.delete(tabId);
+    lastActivitySent.delete(tabId);
+  ptyCreatedAt.delete(tabId);
+    forgetServerTab(tabId);
+    if (ptys.size === 0) stopServerPolling();
   });
 
   return { pid: p.pid };
@@ -432,7 +1194,10 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
 // ─── IPC: write to PTY ───────────────────────────────────────────────────────
 
 ipcMain.on('pty:input', (_event, tabId: string, data: string) => {
-  ptys.get(tabId)?.write(data);
+  const p = ptys.get(tabId);
+  if (!p) return;
+  p.write(data);
+  noteActivity(tabId);
 });
 
 // ─── IPC: resize PTY ─────────────────────────────────────────────────────────
@@ -450,11 +1215,15 @@ ipcMain.handle('pty:destroy', async (_event, tabId: string) => {
   const p = ptys.get(tabId);
   if (!p) return;
   const pid = p.pid;
+  // Read before forgetServerTab drops it: killTree needs the shell id and command.
+  const info = shellPids.get(tabId);
   ptys.delete(tabId);
+  lastActivitySent.delete(tabId);
+  ptyCreatedAt.delete(tabId);
+  forgetServerTab(tabId);
+  if (ptys.size === 0) stopServerPolling();
 
-  await new Promise<void>(resolve => {
-    execFile('taskkill', ['/PID', String(pid), '/T', '/F'], () => resolve());
-  });
+  await killTree(tabId, pid, info);
 
   await Promise.race([
     new Promise<void>(resolve => {
@@ -489,6 +1258,19 @@ function getClaudeSessionDir() {
 const CLAUDE_UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 const CLAUDE_CWD_RE = /^[A-Za-z]:\\[^\r\n;&|`$<>"'*?\t]*$/;
 
+// Where Claude Code keeps its session transcripts, one folder per cwd. Read-only:
+// afterterm never writes anything under it. AFTERTERM_CLAUDE_PROJECTS_DIR is the test
+// override, so a harness run can point at a fixture folder instead of the real one.
+function getClaudeProjectsDir() {
+  return process.env.AFTERTERM_CLAUDE_PROJECTS_DIR || path.join(os.homedir(), '.claude', 'projects');
+}
+
+// The first user prompt and the current model for one session, or the not-found
+// result. Never throws; the sessionId is validated inside readTranscriptMeta too.
+function readClaudeMeta(sessionId: string, cwd: string) {
+  return readTranscriptMeta(getClaudeProjectsDir(), cwd, sessionId, fs);
+}
+
 function readAndPushClaudeSession(tabId: string) {
   try {
     // The hook writes this file with `Set-Content -Encoding UTF8`, which under Windows
@@ -501,6 +1283,13 @@ function readAndPushClaudeSession(tabId: string) {
     if (!CLAUDE_UUID_RE.test(obj.sessionId) || !CLAUDE_CWD_RE.test(obj.cwd)) return;
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('claude-session:update', { tabId, sessionId: obj.sessionId, cwd: obj.cwd });
+      // The hook rewrites this file on UserPromptSubmit and Stop, so once a turn. Read
+      // the transcript on the same beat: that is what keeps the model current after a
+      // /model switch, and gives a nameless chat its first-prompt fallback.
+      const meta = readClaudeMeta(obj.sessionId, obj.cwd);
+      mainWindow.webContents.send('claude-session:meta', {
+        tabId, sessionId: obj.sessionId, firstPrompt: meta.firstPrompt, model: meta.model,
+      });
     }
   } catch { /* missing / mid-write / unparseable — ignore, next write retries */ }
 }
@@ -523,6 +1312,113 @@ function startClaudeSessionWatch() {
     });
   } catch { /* dir watch unsupported — capture silently degrades, resume still works off last save */ }
 }
+
+// On demand, for a thread the renderer already knows the session of (a restored tab,
+// or one whose hook file has not been rewritten this launch). Invalid input returns
+// the not-found result rather than throwing.
+ipcMain.handle('claude-session:meta', (_event, sessionId: unknown, cwd: unknown) => {
+  if (!isSessionId(sessionId) || typeof cwd !== 'string' || !cwd) {
+    return { firstPrompt: null, model: null, exists: false };
+  }
+  return readClaudeMeta(sessionId, cwd);
+});
+
+// ─── Thread tails (scrollback that survives sleep and quit) ──────────────────
+
+// ConPTY dies with its process, so a thread that goes to sleep, or an app that quits,
+// loses its screen. The renderer hands us the last lines of each thread's buffer and
+// we keep them as <userData>/threads/<tabId>.txt, so waking can replay them dimmed
+// above a "Woke just now" divider instead of showing a blank terminal. Format and
+// trimming live in src/thread-tail.ts (pure, unit-tested).
+function getThreadsDir() {
+  const dir = path.join(app.getPath('userData'), 'threads');
+  try { fs.mkdirSync(dir, { recursive: true }); } catch {}
+  return dir;
+}
+
+// The tab id comes from the renderer and becomes a file name, so isThreadId is the
+// path-traversal guard on every one of these handlers.
+ipcMain.handle('threads:saveTail', (_event, tabId: unknown, lines: unknown) => {
+  if (!isThreadId(tabId) || !Array.isArray(lines)) return;
+  try {
+    const file = tailFilePath(getThreadsDir(), tabId);
+    const tmp = `${file}.tmp`;
+    // Write then rename: a tail saved while the app is being torn down must never
+    // leave a half-written file that the next launch replays as garbage.
+    fs.writeFileSync(tmp, serializeTail(trimTail(lines as string[])), 'utf-8');
+    fs.renameSync(tmp, file);
+  } catch { /* a lost tail is cosmetic, never let it break sleep or close */ }
+});
+
+// The renderer's beforeunload flush at quit: every awake thread's tail in one blocking
+// call, so nothing is lost to the race between the window closing and async writes
+// landing. At most a few dozen files of 64 KB, so plain writeFileSync is fast enough
+// and the rename dance is not worth the extra syscalls here.
+ipcMain.on('threads:saveTailsSync', (event, tails: unknown) => {
+  try {
+    const dir = getThreadsDir();
+    for (const [tabId, lines] of Object.entries((tails ?? {}) as Record<string, unknown>)) {
+      if (!isThreadId(tabId) || !Array.isArray(lines)) continue;
+      try {
+        fs.writeFileSync(tailFilePath(dir, tabId), serializeTail(trimTail(lines as string[])), 'utf-8');
+      } catch { /* skip this one, keep flushing the rest */ }
+    }
+  } catch {}
+  event.returnValue = true;
+});
+
+ipcMain.handle('threads:readTail', (_event, tabId: unknown): string[] | null => {
+  if (!isThreadId(tabId)) return null;
+  try {
+    return parseTail(fs.readFileSync(tailFilePath(getThreadsDir(), tabId), 'utf-8'));
+  } catch {
+    return null; // no tail saved, or unreadable: the thread just wakes blank
+  }
+});
+
+ipcMain.handle('threads:deleteTail', (_event, tabId: unknown) => {
+  if (!isThreadId(tabId)) return;
+  try { fs.unlinkSync(tailFilePath(getThreadsDir(), tabId)); } catch {}
+});
+
+// Called once after session restore with every live tab id plus every history entry
+// id. Without it a tail whose thread and history entry are both gone would sit on
+// disk forever. Returns how many files were removed.
+const THREAD_PRUNE_KEEP_MAX = 5000;
+ipcMain.handle('threads:prune', (_event, keepIds: unknown): number => {
+  const keep = new Set(
+    (Array.isArray(keepIds) ? keepIds : []).slice(0, THREAD_PRUNE_KEEP_MAX).filter(isThreadId)
+  );
+  let deleted = 0;
+  try {
+    const dir = getThreadsDir();
+    for (const name of fs.readdirSync(dir)) {
+      if (!name.endsWith('.txt')) continue; // leaves any .tmp from an interrupted write alone
+      const id = name.slice(0, -'.txt'.length);
+      if (!isThreadId(id) || keep.has(id)) continue;
+      try { fs.unlinkSync(path.join(dir, name)); deleted++; } catch {}
+    }
+  } catch {}
+  return deleted;
+});
+
+// ─── Branch and worktree ─────────────────────────────────────────────────────
+
+// Reads .git/HEAD (and a worktree's .git file), never runs git. See src/git-info.ts.
+ipcMain.handle('git:info', (_event, cwd: unknown) => {
+  if (typeof cwd !== 'string' || !cwd) return { branch: null, worktree: null, repoRoot: null };
+  return gitInfo(cwd, fs);
+});
+
+// One round trip for the renderer's slow poll over every live thread. Capped so a
+// bad caller cannot ask for an unbounded number of file walks on the main thread.
+const GIT_INFO_MANY_MAX = 500;
+ipcMain.handle('git:infoMany', (_event, cwds: unknown) => {
+  if (!Array.isArray(cwds)) return [];
+  return cwds.slice(0, GIT_INFO_MANY_MAX).map(cwd =>
+    typeof cwd === 'string' && cwd ? gitInfo(cwd, fs) : { branch: null, worktree: null, repoRoot: null }
+  );
+});
 
 ipcMain.handle('session:save', (_event, data: string) => {
   try {
@@ -553,15 +1449,14 @@ let isQuitting = false;   // user has confirmed/initiated quit (suppresses close
 let ptysDrained = false;  // PTY teardown has run (separate so it always runs once)
 
 async function destroyAllPtys() {
-  const kills = [...ptys.entries()].map(async ([, p]) => {
-    const pid = p.pid;
-    await new Promise<void>(r =>
-      execFile('taskkill', ['/PID', String(pid), '/T', '/F'], () => r())
-    );
+  const kills = [...ptys.entries()].map(async ([tabId, p]) => {
+    await killTree(tabId, p.pid, shellPids.get(tabId));
     try { p.kill(); } catch {}
   });
   await Promise.all(kills);
   ptys.clear();
+  lastActivitySent.clear();
+  ptyCreatedAt.clear();
 }
 
 app.on('before-quit', async (e) => {
@@ -576,6 +1471,8 @@ app.on('before-quit', async (e) => {
 // ─── App lifecycle ────────────────────────────────────────────────────────────
 
 app.whenReady().then(() => {
+  // Before any window loads: the preload reads app:last-opened-at synchronously.
+  initLastOpenedAt();
   createNotifierWindow();
   // Headless geometry self-test: drive the overlay through a toast sequence and
   // assert the window resizes to fit (no dead zone) and stays bottom-anchored.
@@ -590,6 +1487,11 @@ app.whenReady().then(() => {
   createWindow();
   reconcileNotifierHook();
   startClaudeSessionWatch();
+  // Editor detection reads the registry through `reg query`, which is synchronous
+  // and can take a second. Deferred so the window paints and the first terminal
+  // spawns before the main process is busy. The renderer asks for the list after
+  // this; if it asks sooner, editors:list runs detection itself.
+  setTimeout(() => { if (!editorDetectionRan) runEditorDetection('startup'); }, 1200);
 });
 
 app.on('window-all-closed', () => {

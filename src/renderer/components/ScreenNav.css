@@ -1,0 +1,13 @@
+/* ScreenNav.tsx: the 56px icon row on Home and the project page (mock
+   .brand). SidePanel.css keeps its own scoped copy for the sidebar
+   (.side-panel .brand, with the collapse toggle and a different left
+   padding); this is the standalone version for screens with no sidebar. */
+
+.screen-nav {
+  height: var(--toprow);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px;
+  flex: none;
+}

@@ -1,0 +1,112 @@
+<title>Pill Breath Variants</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap">
+<style>
+:root{--bg:#212121;--hover:#2f2f2f;--hover2:#383838;--side:#171717;--text:#ececec;--text2:#b4b4b4;--text3:#8e8e8e;--text4:#5c5c5c;--need:#fbbf24;--live:#4ade80;--sleep:#a78bfa;--ease:cubic-bezier(.2,.8,.2,1)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;font-size:14px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:960px;margin:0 auto;padding:40px 24px 80px;display:flex;flex-direction:column;gap:24px}
+h1{font-size:22px;font-weight:500;margin:0 0 6px}
+p{color:var(--text3);margin:0}
+.seg{display:inline-flex;background:var(--side);border-radius:999px;padding:3px;align-self:flex-start}
+.seg button{font:inherit;padding:6px 16px;border-radius:999px;color:var(--text3);font-weight:500;background:none;border:0;cursor:pointer}
+.seg button[aria-selected="true"]{background:var(--hover2);color:var(--text)}
+.stage{display:grid;grid-template-columns:auto 1fr;gap:24px;align-items:start}
+.desc{background:var(--hover);border-radius:16px;padding:18px 20px;max-width:440px}
+.desc h2{margin:0 0 8px;font-size:15px;font-weight:500}
+.desc p{color:var(--text2);line-height:1.5}
+.desc ul{margin:10px 0 0;padding-left:18px;color:var(--text3);line-height:1.6}
+svg{display:block;flex:none}
+
+.panel{width:264px;background:var(--side);padding:8px;border-radius:14px}
+.lbl{font-size:13px;color:var(--text3);font-weight:500;margin:6px 0 4px 12px}
+.pj{display:flex;align-items:center;gap:8px;padding:6px 6px 6px 10px;border-radius:10px;font-weight:500;margin:1px 0}
+.pj .n{flex:1}
+.pj .c{color:var(--text3);font-weight:400;font-size:12px}
+.th{display:flex;align-items:center;gap:9px;padding:6px 12px 6px 32px;border-radius:10px;color:var(--text2);margin:1px 0;position:relative}
+.th.sel{background:var(--hover2);color:var(--text)}
+.th .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.th .prt{font-size:11px;color:var(--text3)}
+.ki{color:var(--text3)}
+.si{display:inline-grid;place-items:center;color:var(--text3);position:relative;border-radius:50%}
+.si.need{color:var(--need)}.si.run{color:var(--live)}.si.ok{color:var(--live)}
+.sig{display:inline-flex;align-items:center;gap:5px;padding:3px 9px 3px 7px;border-radius:999px;background:var(--hover2);font-size:12.5px;font-weight:500;color:var(--text2)}
+.spin{width:10px;height:10px;border-radius:50%;border:1.5px solid var(--text3);border-right-color:transparent;animation:rot 1s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+.th{--c:251,191,36}
+.th.ok{--c:74,222,128}
+
+/* 1 current */
+@keyframes b1{0%,100%{background:rgba(var(--c),.05)}50%{background:rgba(var(--c),.16)}}
+.v1 .th.need{animation:b1 2.4s ease-in-out infinite}.v1 .th.ok{animation:b1 2.8s ease-in-out infinite}
+/* 2 soft and slow */
+@keyframes b2{0%,100%{background:rgba(var(--c),.03)}50%{background:rgba(var(--c),.10)}}
+.v2 .th.need,.v2 .th.ok{animation:b2 3.4s ease-in-out infinite}
+/* 3 strong, text brightens with it */
+@keyframes b3{0%,100%{background:rgba(var(--c),.08);color:var(--text2)}50%{background:rgba(var(--c),.24);color:var(--text)}}
+.v3 .th.need,.v3 .th.ok{animation:b3 2.0s ease-in-out infinite}
+/* 4 gathers toward the icon */
+@keyframes b4{0%,100%{opacity:.35}50%{opacity:1}}
+.v4 .th.need,.v4 .th.ok{overflow:hidden}
+.v4 .th.need::before,.v4 .th.ok::before{content:"";position:absolute;inset:0;border-radius:10px;background:linear-gradient(90deg,rgba(var(--c),0) 20%,rgba(var(--c),.06) 60%,rgba(var(--c),.22));animation:b4 2.4s ease-in-out infinite;pointer-events:none}
+/* 5 fill and icon in step */
+@keyframes b5{0%,100%{background:rgba(var(--c),.05)}50%{background:rgba(var(--c),.16)}}
+@keyframes b5i{0%,100%{opacity:.55;transform:scale(.92)}50%{opacity:1;transform:scale(1.08)}}
+.v5 .th.need,.v5 .th.ok{animation:b5 2.4s ease-in-out infinite}
+.v5 .th.need .si,.v5 .th.ok .si{animation:b5i 2.4s ease-in-out infinite}
+/* 6 heartbeat: two quick breaths then rest */
+@keyframes b6{0%,45%,100%{background:rgba(var(--c),.04)}8%{background:rgba(var(--c),.18)}16%{background:rgba(var(--c),.06)}24%{background:rgba(var(--c),.16)}}
+.v6 .th.need,.v6 .th.ok{animation:b6 3.2s ease-in-out infinite}
+
+@media (max-width:700px){.stage{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="folder-open" viewBox="0 0 24 24"><path d="M2.5 7A2 2 0 0 1 4.5 5h4.6l2 2h7.4a2 2 0 0 1 2 2v1.5H6.6a2 2 0 0 0-1.9 1.4L2.5 17z" fill="currentColor" fill-opacity=".72"/><path d="M2.6 18.2 5 11.9a1.5 1.5 0 0 1 1.4-1H22l-2.7 7.1a2 2 0 0 1-1.9 1.3H4.3a1.8 1.8 0 0 1-1.7-2.1z" fill="currentColor"/></symbol>
+  <symbol id="folder" viewBox="0 0 24 24"><path d="M2.5 7A2 2 0 0 1 4.5 5h4.6l2 2h8.4a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2z" fill="currentColor"/><path d="M2.5 9.5h19" stroke="rgba(0,0,0,.28)" stroke-width="1.2"/></symbol>
+  <symbol id="chat" viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 3.5V17H6.5A2.5 2.5 0 0 1 4 14.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+  <symbol id="shell" viewBox="0 0 24 24"><path d="m5 7 5 5-5 5M12 17h7" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="bell" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0-6 6v3.6L4.4 15.5A1 1 0 0 0 5.2 17h13.6a1 1 0 0 0 .8-1.5L18 12.6V9a6 6 0 0 0-6-6z" fill="currentColor"/><path d="M9.5 19a2.5 2.5 0 0 0 5 0z" fill="currentColor"/></symbol>
+  <symbol id="play" viewBox="0 0 24 24"><path d="M8.5 5.9c0-1.1 1.2-1.8 2.1-1.2l8.4 5.9c.9.6.9 1.9 0 2.5l-8.4 5.9c-.9.6-2.1 0-2.1-1.2z" fill="currentColor"/></symbol>
+  <symbol id="check" viewBox="0 0 24 24"><path d="m5.5 12.5 4 4 9-9" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+<div class="wrap">
+  <div><h1>Pill breath variants</h1><p>Six ways the row can breathe, on the same rows. Amber is a thread that needs you, green one that just finished. All live.</p></div>
+  <div class="seg" role="tablist">
+    <button data-v="1" aria-selected="true">1 · Current</button>
+    <button data-v="2">2 · Soft</button>
+    <button data-v="3">3 · Strong</button>
+    <button data-v="4">4 · Toward the icon</button>
+    <button data-v="5">5 · Icon in step</button>
+    <button data-v="6">6 · Heartbeat</button>
+  </div>
+  <div class="stage">
+    <div class="panel v1" id="panel">
+      <div class="lbl">Pinned</div>
+      <div class="pj"><svg width="18" height="18" style="color:#2dd4bf"><use href="#folder-open"/></svg><span class="n">afterterm</span></div>
+      <div class="th sel"><svg class="ki" width="15" height="15"><use href="#chat"/></svg><span class="n">Reimagine the sidebar around threads</span><span class="spin"></span></div>
+      <div class="th"><svg class="ki" width="15" height="15"><use href="#shell"/></svg><span class="n">vite</span><span class="prt">:5173</span><span class="si run"><svg width="14" height="14"><use href="#play"/></svg></span></div>
+      <div class="th ok"><svg class="ki" width="15" height="15"><use href="#chat"/></svg><span class="n">Fix spinner sticking after compaction</span><span class="si ok"><svg width="15" height="15"><use href="#check"/></svg></span></div>
+      <div class="th"><svg class="ki" width="15" height="15"><use href="#shell"/></svg><span class="n">git</span></div>
+      <div class="pj"><svg width="18" height="18" style="color:#a78bfa"><use href="#folder-open"/></svg><span class="n">aftertales</span></div>
+      <div class="th need"><svg class="ki" width="15" height="15"><use href="#chat"/></svg><span class="n">Map view vs grid for browsing tales</span><span class="si need"><svg width="15" height="15"><use href="#bell"/></svg></span></div>
+      <div class="th"><svg class="ki" width="15" height="15"><use href="#shell"/></svg><span class="n">next</span><span class="prt">:3000</span><span class="si run"><svg width="14" height="14"><use href="#play"/></svg></span></div>
+      <div class="lbl">Projects</div>
+      <div class="pj" style="color:var(--text2);font-weight:400"><svg width="18" height="18" style="color:#60a5fa"><use href="#folder"/></svg><span class="n">job-hunt</span><span class="c">6</span><span class="sig"><span class="si need"><svg width="15" height="15"><use href="#bell"/></svg></span>1</span></div>
+    </div>
+    <div class="desc" id="desc"></div>
+  </div>
+</div>
+<script>
+const D={
+  1:['Current','5% to 16% of the state colour, 2.4s for needs you, 2.8s for done.',['What the mock has now','Even, unhurried','The baseline the others are measured against']],
+  2:['Soft','3% to 10%, 3.4s. Barely there at the low end.',['Calmest option; several glowing rows stay quiet together','Relies on the icon to be noticed','Could be missed on a bright monitor']],
+  3:['Strong','8% to 24% and the text brightens with the fill, 2.0s.',['Impossible to miss','Closest in energy to today’s pulse','Loud when three or four rows glow at once']],
+  4:['Toward the icon','A gradient that is transparent on the left and strongest at the right end, where the bell or check sits. The gradient breathes.',['Points at the state icon','Leaves the name area clean','Slightly more to draw']],
+  5:['Icon in step','The current fill, plus the icon itself swelling and fading in the same rhythm.',['Fill and icon read as one pulse','Adds a little life to the icon','Motion on the icon can feel busy next to the spinner']],
+  6:['Heartbeat','Two quick breaths, then a rest, every 3.2s.',['Reads as “alive” rather than “blinking”','Rest period keeps a long list calm','The rhythm draws the eye more than an even breath']],
+};
+const panel=document.getElementById('panel'),desc=document.getElementById('desc');
+function pick(v){panel.className='panel v'+v;document.querySelectorAll('[data-v]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.v===v)));const [t,p,l]=D[v];desc.innerHTML=`<h2>${v} · ${t}</h2><p>${p}</p><ul>${l.map(x=>`<li>${x}</li>`).join('')}</ul>`;try{localStorage.setItem('pill-variant',v)}catch(e){}}
+document.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>pick(b.dataset.v));
+let v='1';try{v=localStorage.getItem('pill-variant')||'1'}catch(e){}pick(D[v]?v:'1');
+</script>

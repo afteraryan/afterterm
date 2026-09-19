@@ -49,13 +49,23 @@ export function GroupModal({ mode, initial, shells, onCancel, onSubmit }: GroupM
     onSubmit({ label: finalLabel, color, cwd, shellId }, mode === 'create' && openTerminal);
   };
 
-  const shellName = shells.find(s => s.id === shellId)?.name;
-
   return (
     <div className="modal-overlay" onMouseDown={onCancel}>
       <div className="modal-card" onMouseDown={e => e.stopPropagation()}>
         <div className="modal-title">
-          {mode === 'create' ? 'New project group' : 'Edit project group'}
+          {mode === 'create' ? 'New project' : 'Edit project'}
+        </div>
+
+        <div className="modal-field">
+          <span className="modal-label">Folder</span>
+          <div className="modal-folder-row">
+            <span className={`modal-input modal-folder-path ${cwd ? '' : 'empty'}`} title={cwd}>
+              {cwd ?? 'Not set (opens in your home folder)'}
+            </span>
+            <button className="modal-btn-secondary b" onClick={chooseFolder}>
+              {cwd ? 'Change' : 'Browse'}
+            </button>
+          </div>
         </div>
 
         <label className="modal-field">
@@ -72,19 +82,6 @@ export function GroupModal({ mode, initial, shells, onCancel, onSubmit }: GroupM
         </label>
 
         <div className="modal-field">
-          <span className="modal-label">Folder</span>
-          <div className="modal-folder-row">
-            <span className={`modal-folder-path ${cwd ? '' : 'empty'}`} title={cwd}>
-              {cwd ?? 'Not set (opens in your home folder)'}
-            </span>
-            <button className="modal-btn-secondary" onClick={chooseFolder}>
-              {cwd ? 'Change' : 'Choose…'}
-            </button>
-          </div>
-          <span className="modal-hint">Every terminal opened in this group starts here.</span>
-        </div>
-
-        <div className="modal-field">
           <span className="modal-label">Colour</span>
           <div className="modal-swatches">
             {COLOR_CYCLE.map(c => (
@@ -98,20 +95,28 @@ export function GroupModal({ mode, initial, shells, onCancel, onSubmit }: GroupM
           </div>
         </div>
 
-        <label className="modal-field">
-          <span className="modal-label">Shell</span>
-          <select
-            className="modal-select"
-            value={shellId ?? ''}
-            onChange={e => setShellId(e.target.value || undefined)}
-          >
-            <option value="">Default shell</option>
+        <div className="modal-field">
+          <span className="modal-label">Default shell</span>
+          <div className="modal-shells">
+            <button
+              className="modal-shell"
+              aria-pressed={shellId === undefined}
+              onClick={() => setShellId(undefined)}
+            >
+              Default shell
+            </button>
             {shells.map(s => (
-              <option key={s.id} value={s.id}>{s.name}</option>
+              <button
+                key={s.id}
+                className="modal-shell"
+                aria-pressed={shellId === s.id}
+                onClick={() => setShellId(s.id)}
+              >
+                {s.name}
+              </button>
             ))}
-          </select>
-          {shellName && <span className="modal-hint">New terminals in this group open {shellName}.</span>}
-        </label>
+          </div>
+        </div>
 
         {mode === 'create' && (
           <label className="modal-checkbox">
@@ -120,14 +125,14 @@ export function GroupModal({ mode, initial, shells, onCancel, onSubmit }: GroupM
               checked={openTerminal}
               onChange={e => setOpenTerminal(e.target.checked)}
             />
-            <span>Open a terminal in this group now</span>
+            <span>Open a terminal in it now</span>
           </label>
         )}
 
         <div className="modal-actions">
-          <button className="modal-btn-secondary" onClick={onCancel}>Cancel</button>
-          <button className="modal-btn-primary" onClick={submit}>
-            {mode === 'create' ? 'Create group' : 'Save'}
+          <button className="modal-btn-secondary b q" onClick={onCancel}>Cancel</button>
+          <button className="modal-btn-primary b p" onClick={submit}>
+            {mode === 'create' ? 'Create' : 'Save'}
           </button>
         </div>
       </div>

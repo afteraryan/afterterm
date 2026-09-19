@@ -81,7 +81,7 @@ Improve UI of notification pop-ups. Need more context and better information hie
 
 ## Scrollback Snapshot
 
-On close, save each tab's visible buffer (last ~50 lines from xterm.js). On restore, write it into the fresh terminal before the user starts typing. Gives visual context about what was happening before the close — no scrollback lost.
+Built in Phase 4, as the scrollback tail. See "Sleep, wake, history and the scrollback tail (Phase 4)" in `CLAUDE.md` for what shipped: a tail is written on sleep and on close, and replayed dimmed above a "Woke just now" divider on wake.
 
 ---
 
@@ -131,3 +131,38 @@ silently.
 
 Not urgent — afterterm is fully usable without it; this just removes a "why
 aren't notifications working?" mystery.
+
+---
+
+## Zero-config Claude Code hooks through a bundled plugin and a PATH shim
+
+Noted 2026-09-18 while comparing notes with enjoy.dev. Not being worked on; interesting, parked.
+
+Today afterterm self-installs its notify hook into the user's `~/.claude/settings.json` (five
+event entries, all pointing at one copied script) plus an opt-out flag in prefs.json and a
+first-run toast, because at the time of `docs/research-01-claude-code-hooks.md` Claude Code had
+no way to load a hook for one session only. That is no longer true. Current Claude Code has two
+flags for it, both confirmed on this machine with `claude --help`:
+
+- `--plugin-dir <path>` loads a plugin from a folder for that session only, and a plugin can carry
+  its own hooks in `hooks/hooks.json`.
+- `--settings <file-or-json>` applies a settings file for that session only (enjoy.dev uses this
+  to switch hooks off in the sessions it drives).
+
+The idea: bundle the notify hook as a plugin folder inside afterterm, and prepend a folder to each
+PTY's PATH (afterterm already owns the PTY environment, that is how `AFTERTERM=1` gets in) holding
+a tiny `claude.cmd` shim, plus a `claude` shell script for Git Bash, that runs the real claude with
+`--plugin-dir <bundled plugin>`. Then nothing is ever written to `~/.claude`: no settings.json
+edit, no copied script, no reconcile on startup, no opt-out flag, no toast, and no `AFTERTERM=1`
+gate in the script, since the hooks only exist inside afterterm terminals in the first place. The
+whole of `src/claude-hook-install.ts` and its tests would go.
+
+The trade-off Aryan wants to think about: it only catches `claude` typed at the prompt through
+PATH. A thread that starts Claude by absolute path, through a personal alias, through `npx`, or
+where the user's own PATH already resolves `claude` ahead of the shim, gets no notifications in
+that thread, silently. So either afterterm has to start Claude with the exact command itself
+(which changes how a thread is opened) or the shim has to be reliable enough that plain `claude`
+always hits it. Still to verify: that `--plugin-dir` hooks fire for the interactive TUI, not only
+headless mode (ten minutes in the harness). A middle option, registering the plugin once so
+settings.json holds a single `"enabledPlugins"` line, only moves the clutter into
+`~/.claude/plugins`, so it is not worth doing.
