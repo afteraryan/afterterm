@@ -190,7 +190,9 @@
 }
 
 /* The compacting mark: its own small icon on the tile's top-left corner
-   (Aryan, 2026-09-19), on a purple disc so it reads over the tint. No number: one glance says "something here is compacting". */
+   (Aryan, 2026-09-19). Solid purple, the same treatment as the badges beside
+   the tile, ringed in the rail colour so it stands off the tile. No number:
+   one glance says "something here is compacting". */
 
 .tile .corner {
   position: absolute;
@@ -199,22 +201,21 @@
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  /* Two shades of purple, like Claude Code's own compacting mark (Aryan,
-     2026-09-19): a dark purple disc, ringed in the rail colour so it stands
-     off the tile, and the lighter purple glyph on it. */
-  background: var(--compact-disc, #3b2b5e);
+  background: var(--compact);
   box-shadow: 0 0 0 2px var(--side);
   display: grid;
   place-items: center;
-  color: var(--compact, #c084fc);
+  color: var(--compact-ink);
+  animation: glow-compact 2.4s ease-in-out infinite;
 }
 
 /* ── Badges, stacked beside the tile, only the non-zero ones ─────────────
    Order top to bottom: waiting (amber), working (grey), finished (green).
-   Quiet, not loud: a faint tint of the state colour as the disc and the
-   number in the colour itself, the same treatment the tile's own tint and
-   the compacting mark use. Solid amber and green discs with black numbers
-   were rejected by Aryan at the Phase 8 handoff (2026-09-19) as too bright. */
+   Solid colours a step deeper than the row icons' --need and --live, with
+   dark numbers (theme.css, --badge-*): the bright originals glared on the
+   rail (Aryan, 2026-09-19). The ones that want you, waiting and finished,
+   breathe a faint glow of their own colour on the same 2.4s cycle the
+   sidebar rows use; working asks nothing of you and holds still. */
 
 .bd {
   min-width: 18px;
@@ -230,18 +231,36 @@
 }
 
 .bd.w {
-  background: color-mix(in srgb, var(--need) 18%, transparent);
-  color: var(--need);
+  background: var(--badge-wait);
+  color: var(--badge-wait-ink);
+  animation: glow-wait 2.4s ease-in-out infinite;
 }
 
 .bd.k {
-  background: var(--hover2);
-  color: var(--text2);
+  background: var(--badge-work);
+  color: var(--badge-work-ink);
 }
 
 .bd.d {
-  background: color-mix(in srgb, var(--live) 16%, transparent);
-  color: var(--live);
+  background: var(--badge-done);
+  color: var(--badge-done-ink);
+  animation: glow-done 2.8s ease-in-out infinite;
+}
+
+@keyframes glow-wait {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(201, 143, 26, 0); }
+  50% { box-shadow: 0 0 8px 1px rgba(201, 143, 26, .45); }
+}
+
+@keyframes glow-done {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(63, 163, 92, 0); }
+  50% { box-shadow: 0 0 8px 1px rgba(63, 163, 92, .45); }
+}
+
+/* The compacting mark keeps its rail-colour ring under the glow. */
+@keyframes glow-compact {
+  0%, 100% { box-shadow: 0 0 0 2px var(--side), 0 0 0 0 rgba(169, 138, 232, 0); }
+  50% { box-shadow: 0 0 0 2px var(--side), 0 0 8px 2px rgba(169, 138, 232, .45); }
 }
 
 /* Reduced motion is handled globally in theme.css, which turns every

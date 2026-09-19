@@ -23,8 +23,16 @@
   --need: #fbbf24;
   --live: #4ade80;
   --sleep: #a78bfa;
-  --compact: #c084fc;
-  --compact-disc: #3b2b5e;
+  --compact: #a98ae8;
+  --compact-ink: #1a1030;
+  /* The rail's badge colours (Rail.css): solid, a step deeper than --need and
+     --live so they do not glare on the rail (Aryan, 2026-09-19). */
+  --badge-wait: #c98f1a;
+  --badge-wait-ink: #1c1200;
+  --badge-done: #3fa35c;
+  --badge-done-ink: #04150a;
+  --badge-work: #52525b;
+  --badge-work-ink: #fafafa;
 
   --bg: #212121;
   --side: #171717;
