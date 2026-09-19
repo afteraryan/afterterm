@@ -17,7 +17,7 @@
   overflow: hidden;
   margin: 0 12px 12px;
   border-radius: var(--radius-surface);
-  background: #191919;
+  background: var(--pane);
 }
 
 .asleep-pane .asleep-scroll {
@@ -47,21 +47,26 @@
   align-items: center;
   gap: 10px;
   font-family: var(--sans);
-  margin: -40px 0 0;
+  /* The pane opens at the end of its tail (Phase 9), so this sticky box sits
+     over dimmed text. It is a floating card of its own: shrunk to its content
+     and centred, a translucent fill of the surface colour with the text behind
+     it blurred, a hairline border and a soft shadow, the way a floating
+     control sits over content in macOS or Windows. Fill and border are mixed
+     from the theme tokens, so a light surface gets a light card with a dark
+     hairline by itself. (A radial "clearing" in the pane's colour was tried
+     first and rejected on 2026-09-20: it read as a smear.) */
+  width: fit-content;
+  margin: -40px auto 0;
+  padding: 18px 30px 16px;
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--pane) 72%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(1.15);
+  backdrop-filter: blur(16px) saturate(1.15);
+  border: 1px solid color-mix(in srgb, var(--text) 9%, transparent);
+  box-shadow:
+    0 12px 32px color-mix(in srgb, #000 35%, transparent),
+    0 1px 0 color-mix(in srgb, var(--text) 4%, transparent) inset;
   z-index: 1;
-}
-
-/* Phase 9: the pane opens at the end of its tail, so the sticky box now sits
-   over dimmed lines rather than above them. A soft backdrop behind the box
-   keeps the button and the "asleep since" line readable there; it is the
-   pane's own colour fading out, so it reads as a clearing, not a card. */
-.asleep-pane .wakebox::before {
-  content: "";
-  position: absolute;
-  inset: -22px -36px;
-  border-radius: 999px;
-  background: radial-gradient(closest-side, #191919 62%, rgba(25, 25, 25, 0));
-  z-index: -1;
 }
 
 .asleep-pane .wakebox .w {

@@ -65,14 +65,23 @@ export function AsleepPane({ tab, tail, now, onWake }: AsleepPaneProps) {
     setJump(initialJumpState(el.scrollTop));
     return true;
   };
+  // The pane keeps following its end until the user scrolls away from it: the
+  // sidebar's slide-in narrows the pane over 260ms after the scroll-to-end, the
+  // tail re-wraps taller, and the browser's scroll anchoring holds the top lines
+  // in place instead of the bottom ones, so a pane that had reached its end
+  // landed short of it (187px on a real tail, 2026-09-20). While followEndRef is
+  // set, every resize scrolls to the end again; a user scroll that leaves the
+  // end (onScroll below) clears it, and a new tail or tab sets it again.
+  const followEndRef = useRef(true);
   useEffect(() => {
+    followEndRef.current = true;
     needsEndRef.current = !scrollToEnd();
   }, [tab.id, tail]);
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const observer = new ResizeObserver(() => {
-      if (needsEndRef.current && scrollToEnd()) needsEndRef.current = false;
+      if ((needsEndRef.current || followEndRef.current) && scrollToEnd()) needsEndRef.current = false;
     });
     observer.observe(el);
     return () => observer.disconnect();
@@ -101,6 +110,7 @@ export function AsleepPane({ tab, tail, now, onWake }: AsleepPaneProps) {
     const el = scrollRef.current;
     if (!el) return;
     const userScroll = isUserScroll(lastInputRef.current, performance.now(), draggingRef.current);
+    if (userScroll && el.scrollTop < el.scrollHeight - el.clientHeight - 1) followEndRef.current = false;
     setJump((prev) => userScroll
       ? onScrollSample(prev, el.scrollTop, el.scrollHeight - el.clientHeight, JUMP_THRESHOLD_PX)
       : { target: prev.target, position: el.scrollTop });

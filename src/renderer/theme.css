@@ -35,6 +35,7 @@
   --badge-work-ink: #111111;
 
   --bg: #212121;
+  --pane: #191919; /* the terminal card and the asleep pane surface (index.css, AsleepPane.css) */
   --side: #171717;
   --hover: #2f2f2f;
   --hover2: #383838;
