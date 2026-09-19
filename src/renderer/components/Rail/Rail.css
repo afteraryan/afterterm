@@ -214,8 +214,9 @@
    Solid colours a step deeper than the row icons' --need and --live, with
    dark numbers (theme.css, --badge-*): the bright originals glared on the
    rail (Aryan, 2026-09-19). The ones that want you, waiting and finished,
-   breathe a faint glow of their own colour on the same 2.4s cycle the
-   sidebar rows use; working asks nothing of you and holds still. */
+   breathe on the same 2.4s cycle the sidebar rows use, the disc itself
+   brightening and swelling slightly; working asks nothing of you and holds
+   still. */
 
 .bd {
   min-width: 18px;
@@ -247,20 +248,21 @@
   animation: glow-done 2.8s ease-in-out infinite;
 }
 
+/* The movement is in the disc itself, not around it (Aryan, 2026-09-19: no
+   halo): it brightens a little and swells a little, then settles. */
 @keyframes glow-wait {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(201, 143, 26, 0); }
-  50% { box-shadow: 0 0 8px 1px rgba(201, 143, 26, .45); }
+  0%, 100% { filter: brightness(1); transform: scale(1); }
+  50% { filter: brightness(1.22); transform: scale(1.07); }
 }
 
 @keyframes glow-done {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(63, 163, 92, 0); }
-  50% { box-shadow: 0 0 8px 1px rgba(63, 163, 92, .45); }
+  0%, 100% { filter: brightness(1); transform: scale(1); }
+  50% { filter: brightness(1.22); transform: scale(1.07); }
 }
 
-/* The compacting mark keeps its rail-colour ring under the glow. */
 @keyframes glow-compact {
-  0%, 100% { box-shadow: 0 0 0 2px var(--side), 0 0 0 0 rgba(169, 138, 232, 0); }
-  50% { box-shadow: 0 0 0 2px var(--side), 0 0 8px 2px rgba(169, 138, 232, .45); }
+  0%, 100% { filter: brightness(1); transform: scale(1); }
+  50% { filter: brightness(1.2); transform: scale(1.07); }
 }
 
 /* Reduced motion is handled globally in theme.css, which turns every
