@@ -7,11 +7,10 @@ import {
   threadKind, threadState, stateLabel, stateBreathes, displayTitle,
   threadName, modelLabel, kindWord, runningLabel, localhostUrl, openLocalhostLabel,
   needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText,
-  foldThreads, projectCounts, sidebarSections, toastMessage,
+  foldThreads, projectCounts, toastMessage,
   initialScreen, nextActiveTabAfterArchive,
 } from './threadView.ts';
 import type { ThreadState } from './threadView.ts';
-import { computeSegments } from './sidebarWalk.ts';
 import type { Tab, Group, TabNotification } from './components/TabBar/types.ts';
 
 let pass = 0, fail = 0;
@@ -357,50 +356,6 @@ console.log('\nthreadView: projectCounts\n');
     withUnread.needsYou === 2, show(withUnread));
   check('an asleep unread thread still counts as needsYou (via threadState, since asleep never wins over unread)',
     projectCounts([threadState({ asleep: true, unread: true })]).needsYou === 1);
-}
-
-console.log('\nthreadView: sidebarSections\n');
-{
-  const tabs: Tab[] = [
-    tab('t1'),
-    tab('t2', { groupId: 'A' }),
-    tab('t3', { groupId: 'A' }),
-    tab('t4', { groupId: 'B' }),
-    tab('t6'),
-    tab('t5', { groupId: 'C' }),
-  ];
-  const groups: Group[] = [
-    group('E', { pinned: true }),                     // pinned, zero tabs
-    group('A', { pinned: true }),                      // pinned, has tabs
-    group('B', { pinned: false }),                      // unpinned, has tabs
-    group('C', { pinned: true, archived: true }),       // archived: dropped even though pinned
-    group('D', { pinned: false }),                       // unpinned, zero tabs
-  ];
-  const segments = computeSegments(tabs, groups);
-  const sections = sidebarSections(segments);
-
-  check('general is the ungrouped tabs in walk order',
-    sections.general.map(t => t.id).join(',') === 't1,t6', show(sections.general.map(t => t.id)));
-
-  check('pinned holds A and E, in walk order, archived C excluded',
-    sections.pinned.map(p => p.group.id).join(',') === 'A,E', show(sections.pinned.map(p => p.group.id)));
-  check('pinned A carries its tabs',
-    sections.pinned.find(p => p.group.id === 'A')?.tabs.map(t => t.id).join(',') === 't2,t3');
-  check('pinned E (zero tabs) carries an empty list',
-    sections.pinned.find(p => p.group.id === 'E')?.tabs.length === 0);
-
-  check('projects holds B and D, in walk order',
-    sections.projects.map(p => p.group.id).join(',') === 'B,D', show(sections.projects.map(p => p.group.id)));
-  check('projects B carries its tabs',
-    sections.projects.find(p => p.group.id === 'B')?.tabs.map(t => t.id).join(',') === 't4');
-  check('projects D (zero tabs) carries an empty list',
-    sections.projects.find(p => p.group.id === 'D')?.tabs.length === 0);
-
-  check('archived group C appears in neither pinned nor projects',
-    !sections.pinned.some(p => p.group.id === 'C') && !sections.projects.some(p => p.group.id === 'C'));
-
-  const noUngrouped = sidebarSections(computeSegments([tab('t1', { groupId: 'A' })], [group('A')]));
-  check('general is empty when there are no ungrouped tabs', noUngrouped.general.length === 0);
 }
 
 console.log('\nthreadView: toastMessage\n');

@@ -14,7 +14,6 @@
 // run with `node src/renderer/threadView.test.ts`.
 
 import type { Tab, Group, TabNotification } from './components/TabBar/types.ts';
-import type { Segment } from './sidebarWalk.ts';
 import { CLAUDE_TITLE_GLYPH, HOOK_TITLE_GLYPH, claudeSummaryTitle } from './chatTitle.ts';
 import { modelDisplayName } from '../claude-transcript.ts';
 import { countStates } from './attention.ts';
@@ -268,34 +267,6 @@ export function foldThreads<T extends { id: string }>(
 export function projectCounts(states: ThreadState[]): { needsYou: number; running: number } {
   const counts = countStates(states);
   return { needsYou: counts.waiting, running: counts.working + counts.running };
-}
-
-// The sidebar's three sections, built from the groups-first walk. `general` is the
-// ungrouped tabs, in their walk order, and is an empty list when there are none (the
-// caller decides whether to render the section at all). `pinned` and `projects`
-// split the group segments by the `pinned` flag, each in walk order; a group with
-// `archived` true is left out of both, Home is where an archived project reappears.
-export function sidebarSections(segments: Segment[]): {
-  general: Tab[];
-  pinned: Array<{ group: Group; tabs: Tab[] }>;
-  projects: Array<{ group: Group; tabs: Tab[] }>;
-} {
-  const general: Tab[] = [];
-  const pinned: Array<{ group: Group; tabs: Tab[] }> = [];
-  const projects: Array<{ group: Group; tabs: Tab[] }> = [];
-
-  for (const segment of segments) {
-    if (segment.type === 'tab') {
-      general.push(segment.tab);
-      continue;
-    }
-    if (segment.group.archived) continue;
-    const entry = { group: segment.group, tabs: segment.tabs };
-    if (segment.group.pinned) pinned.push(entry);
-    else projects.push(entry);
-  }
-
-  return { general, pinned, projects };
 }
 
 // Toast wording per hook notification. Working never toasts (it is a silent,

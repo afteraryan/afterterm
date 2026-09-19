@@ -480,7 +480,7 @@ export function useTabState() {
     setGroups(prev => prev.map(g => g.id === groupId ? { ...g, pinned: !g.pinned } : g));
   }, []);
 
-  // Archive takes a project off the board: it leaves the sidebar (sidebarSections
+  // Archive takes a project off the board: it leaves the sidebar (panelSections in panelView.ts
   // drops archived groups) and moves to Home's Archived list. Its threads keep
   // running, they are just no longer reachable from the sidebar, so an active thread
   // inside the project hands over to the first thread outside every archived one.

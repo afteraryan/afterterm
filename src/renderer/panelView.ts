@@ -29,8 +29,7 @@ export interface PanelSections {
 }
 
 // Builds the panel's four lists from the sidebar's own walk. General is the
-// loose tabs, in walk order, exactly as sidebarSections (threadView.ts)
-// builds it. Pinned is the pinned, non-archived groups in walk (dragged)
+// loose tabs, in walk order. Pinned is the pinned, non-archived groups in walk (dragged)
 // order, each carrying the tabs its own segment holds. Recent and Other come
 // from attention.ts's panelLists applied to every non-archived group (which
 // itself excludes pinned groups), each again carrying its segment's tabs.
