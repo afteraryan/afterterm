@@ -23,7 +23,7 @@ const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0
 // What sleeping does to a Tab: its process is gone, so asleep flips on and
 // sleptAt records when, notification is cleared (a sleeping thread has nothing
 // to notify about), and wokeAt is cleared (a thread that was woken and then put
-// back to sleep should not still carry a stale "replay the tail" flag).
+// back to sleep should not still carry a stale "woken this launch" stamp).
 // Everything else, session id, cwd, claudeTitle, model, branch, worktree,
 // fontSize, is left exactly as it was: sleep records a process going away, not
 // a thread losing its identity.
@@ -35,9 +35,10 @@ export function sleepTab(tab: Tab, now: number): Tab {
 }
 
 // The reverse: the process is back, so asleep clears, sleptAt is gone (it only
-// means something while asleep), wokeAt is stamped so the terminal layer knows
-// to replay the saved tail above a "Woke just now" divider, and lastActiveAt
-// moves to now since waking is itself an activation.
+// means something while asleep), wokeAt is stamped (the thread was woken this
+// launch; until Phase 9 the terminal layer also replayed the saved tail on this
+// cue, which Aryan dropped on 2026-09-19), and lastActiveAt moves to now since
+// waking is itself an activation.
 export function wakeTab(tab: Tab, now: number): Tab {
   const next: Tab = { ...tab, asleep: false, lastActiveAt: now, wokeAt: now };
   delete next.sleptAt;
@@ -53,7 +54,7 @@ export function wakeTab(tab: Tab, now: number): Tab {
 // saved without one (a crash, an older build) falls back to lastActiveAt, the
 // best guess of when the thread was last doing something. No notification
 // survives a relaunch (nothing to notify about, the process is gone) and no
-// wokeAt (a thread that has never run this launch has no tail to replay yet).
+// wokeAt (a thread that has never run this launch was not woken this launch).
 export function restoredTab(saved: SavedTab, now: number): Tab {
   const next: Tab = { ...(saved as Tab), asleep: true, sleptAt: saved.sleptAt ?? saved.lastActiveAt };
   delete next.notification;

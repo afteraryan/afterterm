@@ -124,6 +124,18 @@ export function IconChevD(props: IconProps) {
   );
 }
 
+// IconChevD flipped vertically: the up-pointing half of the JumpButton pair
+// (JumpButton/index.tsx), which needs an arrow drawn each way rather than one
+// rotated in CSS, since rotation would also have to survive a future icon-size
+// change untouched.
+export function IconChevU(props: IconProps) {
+  return (
+    <svg {...svgProps(props)}>
+      <path d="m6 15 6-6 6 6" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 // The two heading collapse buttons (design-03's Pinned/Recent headings, Phase
 // 8): a double chevron pointing in on IconCollapseAll, out on IconExpandAll.
 // Paths verbatim from docs/mockups/design-03-shared.js's i-collapse-all and

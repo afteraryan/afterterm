@@ -129,9 +129,9 @@ export function useTabState() {
 
   // Resume a closed thread from a project's history. The recreated tab keeps the
   // closed thread's id (history.ts, tabFromHistory) so its saved tail file is found
-  // again, and comes back awake with wokeAt set, so the terminal layer replays that
-  // tail above a "Woke just now" divider the moment it mounts. Returns the new tab's
-  // id, or null when the project or the entry has gone.
+  // again, and comes back awake with wokeAt set, exactly like a freshly woken
+  // thread. Returns the new tab's id, or null when the project or the entry has
+  // gone.
   const resumeFromHistory = useCallback((groupId: string, entryId: string): string | null => {
     const group = groupsRef.current.find(g => g.id === groupId);
     const entry = group?.history.find(e => e.id === entryId);

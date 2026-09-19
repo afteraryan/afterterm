@@ -42,7 +42,7 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 14px;
-  color: var(--text3);
+  color: var(--text2);
   font-size: 12.5px;
   line-height: 1.4;
 }
@@ -52,6 +52,13 @@
   align-items: center;
   gap: 6px;
   white-space: nowrap;
+}
+
+/* The words carry the brighter --text2 above; the icons stay dim (--text3)
+   so the words lead. The .fo folder icon is excluded, it sets its own
+   inline colour for the project's group colour (see FolderIcon). */
+.header-meta-item svg {
+  color: var(--text3);
 }
 
 /* The worktree path can run long. It shrinks and ellipsizes inside its own

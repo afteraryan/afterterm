@@ -30,10 +30,10 @@ export interface Tab {
   // before anything in this launch has touched the thread.
   sleptAt?: number;
   // Transient (NOT persisted): set the moment a thread wakes, or is recreated from
-  // history by Resume. Read once by the terminal layer to know it must replay the
-  // saved scrollback tail above a "Woke just now" divider, then it has done its
-  // job; a brand new thread never has it, so it never shows a divider it doesn't
-  // need.
+  // history by Resume, and cleared again on sleep. It marks "woken this launch";
+  // a brand new thread never has it. Until Phase 9 the terminal layer read it as
+  // the cue to replay the saved tail above a "Woke just now" divider, which Aryan
+  // dropped on 2026-09-19 (the asleep pane already shows the tail).
   wokeAt?: number;
   // Claude Code model id of the latest assistant turn, read from the session
   // transcript in main ("claude-opus-5[1m]"); the renderer maps it to a display

@@ -49,8 +49,8 @@ if (process.env.AFTERTERM_REMOTE_DEBUG_PORT) {
 // person is working on. Values: "primary" (default), "secondary" (the first
 // non-primary display, falling back to primary when there is only one) or an
 // integer index into screen.getAllDisplays(). Unset means the behaviour normal
-// users get, which is unchanged. This does not fix the "toasts on the wrong monitor"
-// bug in docs/bugs.md (that one is about following the main window at runtime).
+// users get, which is unchanged. The notifier overlay only uses this while the
+// override is set; otherwise it follows the main window (notifierDisplay below).
 function getTargetDisplay(): Electron.Display {
   const want = (process.env.AFTERTERM_DISPLAY ?? 'primary').trim().toLowerCase();
   const primary = screen.getPrimaryDisplay();
@@ -527,14 +527,33 @@ function pushSetupToast() {
 const NOTIFIER_WIDTH = 340;   // fixed column width; height is content-driven
 const NOTIFIER_MARGIN = 12;   // gap from the screen's bottom-right corner
 
+// The last toast-stack height the renderer reported, so the overlay can be
+// re-placed (a toast pushed after the main window moved to another monitor, a
+// display plugged in or out) without waiting for the renderer to measure again.
+let notifierHeight = 80;
+
+// The display the overlay belongs on: the one holding the main window, so a
+// toast lands beside the app rather than on the primary monitor while afterterm
+// sits on another one (the multi-monitor bug logged on 2026-06-30). Read fresh
+// on every placement, never cached, since the window can be dragged between
+// monitors at any time. The harness's AFTERTERM_DISPLAY override wins when set,
+// so an automated run keeps every window off the monitor a person is using; the
+// main window is placed on that same display anyway (harnessWindowPlacement).
+function notifierDisplay(): Electron.Display {
+  if (process.env.AFTERTERM_DISPLAY) return getTargetDisplay();
+  if (mainWindow && !mainWindow.isDestroyed()) return screen.getDisplayMatching(mainWindow.getBounds());
+  return screen.getPrimaryDisplay();
+}
+
 // Resize/reposition the overlay so it's anchored to the bottom-right of the work
 // area and exactly as tall as the rendered toast stack (the renderer measures and
 // reports `contentHeight`). Because the window is never larger than its visible
 // content, there is no invisible dead zone swallowing clicks, and nothing for DWM
 // to paint a white bar over above the toasts.
-function positionNotifier(contentHeight: number) {
+function positionNotifier(contentHeight: number = notifierHeight) {
   if (!notifierWindow || notifierWindow.isDestroyed()) return;
-  const wa = getTargetDisplay().workArea;
+  notifierHeight = contentHeight;
+  const wa = notifierDisplay().workArea;
   const h = Math.max(1, Math.ceil(contentHeight));
   const x = wa.x + wa.width - NOTIFIER_WIDTH - NOTIFIER_MARGIN;
   const y = wa.y + wa.height - h - NOTIFIER_MARGIN;
@@ -542,7 +561,7 @@ function positionNotifier(contentHeight: number) {
 }
 
 function createNotifierWindow() {
-  const wa = getTargetDisplay().workArea;
+  const wa = notifierDisplay().workArea;
   notifierWindow = new BrowserWindow({
     x: wa.x + wa.width - NOTIFIER_WIDTH - NOTIFIER_MARGIN,
     y: wa.y + wa.height - 80 - NOTIFIER_MARGIN,
@@ -583,6 +602,15 @@ function createNotifierWindow() {
 
   notifierWindow.loadURL(notifierUrl);
   notifierWindow.on('closed', () => { notifierWindow = null; });
+
+  // A monitor plugged in, unplugged or rescaled can leave the overlay on a display
+  // that no longer exists or no longer holds the main window; re-place it at once
+  // rather than on the next toast. Registered here, once, since the overlay is
+  // created once per app run.
+  const replace = () => positionNotifier();
+  screen.on('display-added', replace);
+  screen.on('display-removed', replace);
+  screen.on('display-metrics-changed', replace);
 }
 
 // Only when AFTERTERM_DISPLAY is set: size the main window to fit the target
@@ -718,6 +746,9 @@ function createWindow() {
 // Main window → notifier: push a new toast — show the window first so it's visible above other apps
 ipcMain.on('notify:push', (_event, toast) => {
   if (notifierWindow && !notifierWindow.isDestroyed()) {
+    // Re-place before showing: the main window may have moved to another monitor
+    // since the last toast, and a hidden overlay is never re-measured meanwhile.
+    positionNotifier();
     notifierWindow.showInactive();
     notifierWindow.webContents.send('notify:push', toast);
   }

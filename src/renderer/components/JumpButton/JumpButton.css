@@ -1,0 +1,29 @@
+/* JumpButton (JumpButton/index.tsx): a 32px round button floating at the
+   bottom-right of whichever scroller mounts it (.terminal-instances or
+   .asleep-pane's .asleep-scroll), both position: relative; overflow: hidden
+   hosts. Relies on theme.css tokens (--hover2, --text, --text2, --fast) and
+   its global reduced-motion rule (@media (prefers-reduced-motion: reduce),
+   theme.css), which already turns every animation off, this one included. */
+
+.jump-btn {
+  position: absolute;
+  right: 18px;
+  bottom: 14px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--hover2);
+  color: var(--text2);
+  border: 1px solid #333;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .35);
+  transition: background var(--fast), color var(--fast);
+  animation: fadein var(--fast);
+}
+
+.jump-btn:hover {
+  color: var(--text);
+}

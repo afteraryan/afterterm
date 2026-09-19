@@ -6,6 +6,7 @@
   position: fixed;
   z-index: 50;
   width: 280px;
+  max-width: 280px;
   background: var(--hover);
   border-radius: 14px;
   padding: 14px 16px;
@@ -15,9 +16,17 @@
   animation: popin var(--med) var(--ease);
 }
 
+/* Clamped to two lines so a long unbroken title (a URL, a long path) never
+   overflows the card; overflow-wrap: anywhere lets it break mid-word since
+   there may be no spaces to break on at all. */
 .hover-card .hn {
   font-weight: 500;
   margin-bottom: 10px;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
 }
 
 .hover-card dl {

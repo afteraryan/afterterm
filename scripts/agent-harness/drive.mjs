@@ -57,6 +57,10 @@
 //                                  (window.__afterterm.lastOpenExternal), or "(nothing opened)"
 //   marks [--tab <id>]            window.__afterterm.commandState(id): at-prompt flag
 //                                  and prompt-end row/col, or "(no marks)"
+//   jump                           the jump-to-top/bottom button (.jump-btn): "jump: hidden"
+//                                  or "jump: shown target=<top|bottom> tip=\"<text>\""
+//   pane-scroll                    the asleep pane's scroller position: "pane scroll:
+//                                  top=<n> max=<n> atEnd=<bool>", or "(no asleep pane)"
 //   reload                        reload the renderer page (location.reload). Vite's Fast
 //                                  Refresh keeps an edited component's state and does not
 //                                  re-run its mount-only effects, so a listener registered
@@ -244,9 +248,18 @@ const SEL = {
     wake: '[data-wake]',
     since: '.wakebox .w',
     past: 'pre.past',
+    // Phase 9: the inner scroller AsleepPane restructured onto, so the
+    // JumpButton can sit as a plain sibling of it and stay put at the pane's
+    // bottom-right instead of scrolling away with the content.
+    scroll: '.asleep-scroll',
   },
   // Phase 4: the terminal host carries this class while the asleep pane covers it.
   terminalHidden: '.terminal-instances.asleep-hidden',
+
+  // Phase 9: the jump-to-top / jump-to-bottom button (src/renderer/components/
+  // JumpButton/index.tsx), floated over either scroller it is mounted in
+  // (the live terminal's .terminal-instances, or the asleep pane's .asleep-scroll).
+  jumpButton: '.jump-btn',
 
   // Phase 5: the close confirm shown when closing a thread that owns a listening
   // port (src/renderer/components/ConfirmDialog/index.tsx). Read from a `.modal-overlay`
@@ -344,6 +357,8 @@ try {
       case 'confirm': await cmdConfirm(); break;
       case 'opened': await cmdOpened(); break;
       case 'marks': await cmdMarks(); break;
+      case 'jump': await cmdJump(); break;
+      case 'pane-scroll': await cmdPaneScroll(); break;
       case 'counts': await cmdCounts(); break;
       case 'reload': await cmdReload(); break;
       case 'window': await cmdWindow(args[0]); break;
@@ -1062,12 +1077,21 @@ async function cmdPane() {
     // Absent while the tail is still loading or once loaded empty (AsleepPane
     // only renders <pre class="past"> when tail !== null && tail.length > 0).
     const pastLines = pastEl ? (pastEl.innerText || pastEl.textContent || '').replace(/\\r\\n/g, '\\n').split('\\n') : null;
+    // Phase 9: the inner scroller AsleepPane restructured onto (.asleep-scroll),
+    // read the same way pane-scroll reads it, so one call shows both.
+    const scrollEl = root.querySelector(S.scroll);
+    const scroll = scrollEl ? {
+      top: scrollEl.scrollTop,
+      max: scrollEl.scrollHeight - scrollEl.clientHeight,
+      atEnd: (scrollEl.scrollHeight - scrollEl.clientHeight - scrollEl.scrollTop) <= 2,
+    } : null;
     return {
       present: true,
       tabId: root.dataset.tabId || null,
       wake: !!root.querySelector(S.wake),
       since: text(root.querySelector(S.since)),
       pastLines,
+      scroll,
     };
   })(${JSON.stringify(S)}, ${JSON.stringify(SEL.terminalHidden)})`);
 
@@ -1085,6 +1109,38 @@ async function cmdPane() {
     console.log(`past lines: ${data.pastLines.length}`);
     for (const l of data.pastLines.slice(-5)) console.log(`  ${l}`);
   }
+  console.log(data.scroll
+    ? `scroll: top=${data.scroll.top} max=${data.scroll.max} atEnd=${data.scroll.atEnd}`
+    : 'scroll: (no scroller)');
+}
+
+// Phase 9: the jump-to-top / jump-to-bottom button (src/renderer/components/
+// JumpButton/index.tsx), read on its own (also folded into `pane` above's
+// scroller reading is a separate concern; this reads the button itself,
+// wherever it is mounted: the live terminal or the asleep pane).
+async function cmdJump() {
+  const rows = await evaluate(cdp, `((sel) => {
+    const els = Array.from(document.querySelectorAll(sel));
+    return els.map(el => ({ target: el.getAttribute('data-jump'), tip: el.getAttribute('data-tip') }));
+  })(${JSON.stringify(SEL.jumpButton)})`);
+  if (!rows.length) { console.log('jump: hidden'); return; }
+  for (const r of rows) console.log(`jump: shown target=${r.target} tip="${r.tip}"`);
+}
+
+// Phase 9: the asleep pane's own scroller position, on its own (`pane` above
+// folds the same reading into its output so one call can show both).
+async function cmdPaneScroll() {
+  const S = SEL.asleepPane;
+  const data = await evaluate(cdp, `((S) => {
+    const root = document.querySelector(S.root);
+    if (!root) return { present: false };
+    const el = root.querySelector(S.scroll);
+    if (!el) return { present: false };
+    const max = el.scrollHeight - el.clientHeight;
+    return { present: true, top: el.scrollTop, max, atEnd: (max - el.scrollTop) <= 2 };
+  })(${JSON.stringify(S)})`);
+  if (!data.present) { console.log('(no asleep pane)'); return; }
+  console.log(`pane scroll: top=${data.top} max=${data.max} atEnd=${data.atEnd}`);
 }
 
 // Phase 4: reads an xterm buffer through window.__afterterm, the hook Terminal/

@@ -58,7 +58,7 @@ export function isResumable(entry: HistoryEntry): boolean {
 // What Resume recreates: the same tab id (so the tail file at
 // threads/<id>.txt is found), asleep already false and wokeAt already set,
 // since a resumed thread's terminal should behave exactly like a freshly woken
-// one, replaying its tail above a divider the moment it mounts. Only a chat
+// one the moment it mounts. Only a chat
 // gets claudeTitle/claudeSessionId/claudeCwd; a shell has nothing to resume, it
 // just starts a fresh prompt in its cwd (or the project's, if the entry itself
 // never captured one).
