@@ -94,6 +94,9 @@ export function Home({ groups, tabs, now, editors, folderExists, actions, onNewP
         {counts.running > 0 && (
           <span className="sig run"><StateIcon state="running" size={14} />{counts.running}</span>
         )}
+        {counts.compacting > 0 && (
+          <span className="sig compact"><StateIcon state="compacting" size={14} />{counts.compacting}</span>
+        )}
       </>
     );
   };
@@ -162,13 +165,16 @@ export function Home({ groups, tabs, now, editors, folderExists, actions, onNewP
       <div className="home">
         <div>
           <h1 className="home-date">{dateHeading(now)}</h1>
-          {(totals.needsYou > 0 || totals.running > 0) && (
+          {(totals.needsYou > 0 || totals.running > 0 || totals.compacting > 0) && (
             <div className="sub tot">
               {totals.needsYou > 0 && (
                 <span className="sig need"><StateIcon state="needs-you" size={14} />{totals.needsYou}</span>
               )}
               {totals.running > 0 && (
                 <span className="sig run"><StateIcon state="running" size={14} />{totals.running}</span>
+              )}
+              {totals.compacting > 0 && (
+                <span className="sig compact"><StateIcon state="compacting" size={14} />{totals.compacting}</span>
               )}
             </div>
           )}

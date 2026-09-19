@@ -100,6 +100,7 @@ const SEL = {
   projectRename: '.pj-rename',
   pillNeed: '.sig.need',
   pillRun: '.sig.run',
+  pillCompact: '.sig.compact', // Phase 8: compacting's own pill, separate from the play pill
   threadListWrap: '.tlw',
   threadListClosedClass: 'closed',
   threadRow: '.th',
@@ -614,6 +615,7 @@ async function cmdSidebar() {
           threads: row ? Number(row.dataset.threads || 0) : 0,
           need: text(row && row.querySelector(S.pillNeed)) || null,
           run: text(row && row.querySelector(S.pillRun)) || null,
+          compact: text(row && row.querySelector(S.pillCompact)) || null,
           more: text(more) || null,
           rows: list && !list.classList.contains(S.threadListClosedClass) ? threadsUnder(list) : [],
         };
@@ -667,7 +669,7 @@ async function cmdSidebar() {
     for (const t of sec.loose) console.log(threadLine(t, '    '));
     if (sec.looseMore) console.log(`    (${sec.looseMore})`);
     for (const p of sec.projects) {
-      const pills = [p.need ? `need=${p.need}` : null, p.run ? `run=${p.run}` : null].filter(Boolean).join(' ');
+      const pills = [p.need ? `need=${p.need}` : null, p.run ? `run=${p.run}` : null, p.compact ? `compact=${p.compact}` : null].filter(Boolean).join(' ');
       console.log(`    [project] ${p.label}  threads=${p.threads}${p.collapsed ? ' collapsed' : ''}${pills ? '  ' + pills : ''}`);
       for (const t of p.rows) console.log(threadLine(t, '      '));
       if (p.more) console.log(`      (${p.more})`);

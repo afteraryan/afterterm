@@ -133,7 +133,15 @@ console.log('\nhomeView: homeTotals\n');
     totals.running === 2, show(totals));
 
   const zero = homeTotals([], []);
-  check('no tabs: both totals are zero', zero.needsYou === 0 && zero.running === 0);
+  check('no tabs: every total is zero', zero.needsYou === 0 && zero.running === 0 && zero.compacting === 0);
+
+  const withCompacting = homeTotals(groups, [
+    ...tabs,
+    tab('t10', { groupId: 'live1', notification: 'compacting' }),
+    tab('t11', { groupId: 'archivedProj', notification: 'compacting' }), // excluded
+  ]);
+  check('compacting is its own total, not counted under running (Phase 8 handoff, Aryan)',
+    withCompacting.compacting === 1 && withCompacting.running === totals.running, show(withCompacting));
 
   const withUnread = homeTotals(groups, [
     ...tabs,

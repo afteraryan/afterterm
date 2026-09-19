@@ -354,15 +354,20 @@ export interface FolderIconProps {
   color?: GroupColor;
   open?: boolean;
   size?: number;
+  // The project's chosen icon (Group.icon). When set it replaces the folder
+  // glyph, in the same colour (Aryan, 2026-09-19: the sidebar shows the picked
+  // icon too, not only the rail tile). The open/closed state has no meaning
+  // for it and is ignored.
+  icon?: ProjectIconId;
 }
 
 // A project's folder glyph, coloured by its group colour, or var(--text3) for
 // projectless (General) rows.
-export function FolderIcon({ color, open, size = 18 }: FolderIconProps) {
+export function FolderIcon({ color, open, size = 18, icon }: FolderIconProps) {
   const tint = color ? GROUP_COLORS[color].border : 'var(--text3)';
   return (
-    <span className="fo" style={{ color: tint }}>
-      {open ? <IconFolderOpen size={size} /> : <IconFolder size={size} />}
+    <span className="fo" style={{ color: tint }} data-icon={icon ?? 'folder'}>
+      {icon ? <ProjectIcon icon={icon} size={size} /> : open ? <IconFolderOpen size={size} /> : <IconFolder size={size} />}
     </span>
   );
 }

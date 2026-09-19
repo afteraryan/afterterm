@@ -25,14 +25,14 @@
   --sleep: #a78bfa;
   --compact: #a98ae8;
   --compact-ink: #1a1030;
-  /* The rail's badge colours (Rail.css): solid, a step deeper than --need and
-     --live so they do not glare on the rail (Aryan, 2026-09-19). */
-  --badge-wait: #c98f1a;
-  --badge-wait-ink: #1c1200;
-  --badge-done: #3fa35c;
-  --badge-done-ink: #04150a;
-  --badge-work: #52525b;
-  --badge-work-ink: #fafafa;
+  /* The rail's badge colours (Rail.css): muted gold, soft green and grey with
+     dark numbers, set B of the four Aryan was shown on 2026-09-19. */
+  --badge-wait: #d4a24c;
+  --badge-wait-ink: #1a1206;
+  --badge-done: #5fb87a;
+  --badge-done-ink: #06170b;
+  --badge-work: #6b7280;
+  --badge-work-ink: #111111;
 
   --bg: #212121;
   --side: #171717;

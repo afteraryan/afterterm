@@ -81,7 +81,7 @@ Never close the running afterterm. A dev build runs beside it. A copied `session
 **Decisions taken on 2026-09-19 (Phase 8 handoff, with Aryan).**
 - Compacting on the rail is a separate icon on the tile's top-left corner, not a numbered badge in the column beside it (`.tile .corner` in `Rail.css`). The column keeps waiting, working and finished.
 - A project with a compacting chat alone does appear on the rail.
-- The rail's badges are solid discs a step deeper than the row icons' colours (`--badge-wait: #c98f1a`, `--badge-done: #3fa35c`, `--badge-work: #52525b` in theme.css, dark numbers), and the compacting mark is a solid purple disc (`--compact: #a98ae8`) with a dark glyph, the same treatment. Aryan found the bright originals too loud and a translucent tint worse ("opaque colour slop"); four solid sets were shown side by side (capture 40) and set D is in until he picks. No movement on the badges: a halo and then an in-place breath were tried at Aryan's request and both dropped the same day.
+- The rail's badges are solid discs in muted gold, soft green and grey (`--badge-wait: #d4a24c`, `--badge-done: #5fb87a`, `--badge-work: #6b7280` in theme.css, dark numbers), and the compacting mark is a solid purple disc (`--compact: #a98ae8`) with a dark glyph, the same treatment. Aryan found the bright originals too loud and a translucent tint worse ("opaque colour slop"); four solid sets were shown side by side (capture 40) and he chose set B. No movement on the badges: a halo and then an in-place breath were tried at Aryan's request and both dropped the same day.
 - The open Other projects drawer must look different from the rest of the panel, not just sit under a separator: it is now a darker inset tray (`#101010`, rounded, the line gone) while open (`.dock.open` in `SidePanel.css`).
 
 | Phase | What it delivers | Backend work | Status |
@@ -252,9 +252,10 @@ Goal: the sidebar of `docs/mockups/design-03-final-sidebar.html`.
 Done when: from Home, the rail shows exactly the projects with a thread waiting or finished, with the numbers beside each tile; clicking a tile lands on the thread that needs you; the panel shows Pinned and Recent only, with Other projects docked at the bottom; typing in Search narrows the list in place; Ctrl+Shift+Down crosses from one project's last thread to the next project's first.
 
 Open for Aryan at the handoff:
-- Whether sidebar rows, Home cards and the project page should also show the chosen project icon (today only the rail tile does; design-03 decision 12 left it open). Asked on 2026-09-19; the first wording was not clear to Aryan, re-asked.
-- Whether compacting should count in the project row's play pill (today it does not, the pill counts working and running). Not yet answered.
-- Whether the rail should list a project for a compacting chat alone: yes (Aryan, 2026-09-19).
+- The chosen project icon replaces the folder in the sidebar rows too (Aryan, 2026-09-19; `FolderIcon`'s `icon` prop, passed by the project rows and the docked Other rows). Home cards and rows and the project page still show the folder; Aryan was asked about the sidebar only.
+- Compacting never counts in the play pill; it is its own state with its own count (Aryan, 2026-09-19): a third pill on the project row, on Home's totals and on its cards and rows (`projectCounts` and `homeTotals` return `compacting`).
+- The rail lists a project for a compacting chat alone: yes (Aryan, 2026-09-19).
+- The badge colours are set B of capture 40 (Aryan, 2026-09-19).
 
 ## Unphased backlog
 

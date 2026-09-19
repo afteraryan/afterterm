@@ -19,7 +19,7 @@ import type { EditorInfo } from '../../../editors';
 import {
   FolderIcon, KindIcon, StateIcon,
   IconPanel, IconSearch, IconPlus, IconPage, IconPin, IconPinOn, IconChevD,
-  IconCollapseAll, IconExpandAll, IconBell, IconPlay, IconX,
+  IconCollapseAll, IconExpandAll, IconBell, IconPlay, IconCompact, IconX,
 } from '../Icons';
 // The row order is computed groups-first (see sidebarWalk.ts), so a group with no
 // terminals renders as a normal row instead of vanishing from the list. That walk
@@ -139,7 +139,7 @@ function ThreadRow({
 interface ProjectRowProps {
   group: Group;
   threadCount: number;
-  counts: { needsYou: number; running: number };
+  counts: { needsYou: number; running: number; compacting: number };
   pinned: boolean;
   isDragging: boolean;
   overlay?: boolean;
@@ -199,7 +199,7 @@ function ProjectRow({
       data-threads={threadCount}
       {...(overlay ? {} : { ...attributes, ...listeners })}
     >
-      <FolderIcon color={group.color} open={expanded} size={18} />
+      <FolderIcon color={group.color} open={expanded} size={18} icon={group.icon} />
       {isRenaming ? (
         <input
           autoFocus
@@ -226,6 +226,14 @@ function ProjectRow({
         <span className="sig run">
           <span className="si run"><IconPlay size={13} /></span>
           {counts.running}
+        </span>
+      )}
+      {/* Compacting is its own state with its own count, never folded into the
+          play pill (Aryan, 2026-09-19). */}
+      {counts.compacting > 0 && (
+        <span className="sig compact">
+          <span className="si compact"><IconCompact size={13} /></span>
+          {counts.compacting}
         </span>
       )}
       {!overlay && (
@@ -833,7 +841,7 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
                 <ProjectRow
                   group={draggingGroup}
                   threadCount={tabs.filter(t => t.groupId === draggingGroup.id).length}
-                  counts={{ needsYou: 0, running: 0 }}
+                  counts={{ needsYou: 0, running: 0, compacting: 0 }}
                   pinned={draggingGroup.pinned}
                   isDragging={false}
                   onToggle={() => {}}
@@ -868,7 +876,7 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
                       onClick={() => { setDockOpen(false); onBringIn(entry.group.id); }}
                       onContextMenu={e => openProjectMenu(e, entry.group)}
                     >
-                      <FolderIcon color={entry.group.color} open={false} size={18} />
+                      <FolderIcon color={entry.group.color} open={false} size={18} icon={entry.group.icon} />
                       <span className="n">{entry.group.label}</span>
                       <span className="c">{relativeTime(entry.group.lastActiveAt, now)}</span>
                     </div>

@@ -94,9 +94,9 @@ export function homeSections(
 // counting the moment it is archived, since archiving is meant to take a
 // project off the board entirely. Built on attention.ts's totalAttention, the
 // one aggregate every count in the app reads from.
-export function homeTotals(groups: Group[], tabs: Tab[]): { needsYou: number; running: number } {
+export function homeTotals(groups: Group[], tabs: Tab[]): { needsYou: number; running: number; compacting: number } {
   const counts = totalAttention(groups, tabs);
-  return { needsYou: counts.waiting, running: counts.working + counts.running };
+  return { needsYou: counts.waiting, running: counts.working + counts.running, compacting: counts.compacting };
 }
 
 // Case-insensitive substring match on the thread's name (threadName: the

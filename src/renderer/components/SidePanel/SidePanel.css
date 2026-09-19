@@ -407,6 +407,11 @@
   display: none;
 }
 
+/* The compacting pill's own colour, beside the amber bell and green play pills. */
+.side-panel .pj .sig.compact .si {
+  color: var(--compact);
+}
+
 .side-panel .pj .n {
   min-width: 40px;
 }

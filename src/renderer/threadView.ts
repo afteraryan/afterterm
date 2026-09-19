@@ -264,9 +264,9 @@ export function foldThreads<T extends { id: string }>(
 // compacting (design-03's Phase 7 handoff): a compacting chat gets its own
 // state and its own rail badge, but is not "actively doing something" for the
 // purpose of this pill, only the rail separates it out.
-export function projectCounts(states: ThreadState[]): { needsYou: number; running: number } {
+export function projectCounts(states: ThreadState[]): { needsYou: number; running: number; compacting: number } {
   const counts = countStates(states);
-  return { needsYou: counts.waiting, running: counts.working + counts.running };
+  return { needsYou: counts.waiting, running: counts.working + counts.running, compacting: counts.compacting };
 }
 
 // Toast wording per hook notification. Working never toasts (it is a silent,

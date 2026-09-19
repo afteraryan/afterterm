@@ -351,6 +351,11 @@ console.log('\nthreadView: projectCounts\n');
   check('both zero when nothing needs-you/working/running', none.needsYou === 0 && none.running === 0, show(none));
   check('empty list is zero and zero', projectCounts([]).needsYou === 0 && projectCounts([]).running === 0);
 
+  const withCompacting = projectCounts(['compacting', 'compacting', 'working']);
+  check('compacting is its own count, not in running (Phase 8 handoff, Aryan)',
+    withCompacting.compacting === 2 && withCompacting.running === 1, show(withCompacting));
+  check('compacting is zero when none', c.compacting === 0);
+
   const withUnread = projectCounts(['unread', 'needs-you', 'working']);
   check('needsYou counts unread alongside needs-you (Phase 7, "waiting for you")',
     withUnread.needsYou === 2, show(withUnread));
