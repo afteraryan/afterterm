@@ -109,6 +109,31 @@
   border-color: var(--text);
 }
 
+.modal-icons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.icon-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: var(--text3);
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--fast), color var(--fast);
+}
+
+/* The selected swatch's colour and tint come from an inline style (they
+   depend on the currently chosen project colour), which an inline style
+   always outranks, so this hover rule only ever shows on the unselected ones. */
+.icon-swatch:hover {
+  background: var(--hover2);
+}
+
 .modal-shells {
   display: flex;
   flex-direction: column;

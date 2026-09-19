@@ -5,7 +5,7 @@
 
 import {
   countStates, countTabs, projectAttention, totalAttention, railProjects,
-  panelLists, firstThreadToOpen, RECENT_WINDOW_MS,
+  panelLists, firstThreadToOpen, RECENT_WINDOW_MS, isWaitingState,
 } from './attention.ts';
 import type { AttentionCounts } from './attention.ts';
 import type { ThreadState } from './threadView.ts';
@@ -28,7 +28,7 @@ function group(id: string, extra: Partial<Group> = {}): Group {
     pinned: false, archived: false, lastActiveAt: 0, ...extra,
   } as Group;
 }
-const zero: AttentionCounts = { waiting: 0, working: 0, running: 0, finished: 0 };
+const zero: AttentionCounts = { waiting: 0, working: 0, running: 0, finished: 0, compacting: 0 };
 
 console.log('\nattention: countStates\n');
 {
@@ -41,21 +41,28 @@ console.log('\nattention: countStates\n');
   check('running counts as running, not working',
     countStates(['running']).running === 1 && countStates(['running']).working === 0);
   check('done counts as finished', countStates(['done']).finished === 1);
-  check('compacting counts as nothing (matches the play pill leaving it out today)',
-    isDeepStrictEqualCounts(countStates(['compacting']), zero));
+  check('compacting counts as its own bucket, not working (Phase 8)',
+    countStates(['compacting']).compacting === 1 && countStates(['compacting']).working === 0);
   check('background counts as nothing', isDeepStrictEqualCounts(countStates(['background']), zero));
   check('asleep counts as nothing', isDeepStrictEqualCounts(countStates(['asleep']), zero));
   check('quiet counts as nothing', isDeepStrictEqualCounts(countStates(['quiet']), zero));
   check('empty list is all zero', isDeepStrictEqualCounts(countStates([]), zero));
 
-  const mixed: ThreadState[] = ['needs-you', 'unread', 'working', 'working', 'running', 'done', 'done', 'quiet', 'asleep'];
+  const mixed: ThreadState[] = ['needs-you', 'unread', 'working', 'working', 'running', 'done', 'done', 'quiet', 'asleep', 'compacting'];
   const c = countStates(mixed);
   check('a mixed list tallies each bucket correctly',
-    c.waiting === 2 && c.working === 2 && c.running === 1 && c.finished === 2, show(c));
+    c.waiting === 2 && c.working === 2 && c.running === 1 && c.finished === 2 && c.compacting === 1, show(c));
+
+  check('isWaitingState is true for needs-you', isWaitingState('needs-you'));
+  check('isWaitingState is true for unread', isWaitingState('unread'));
+  check('isWaitingState is false for every other state',
+    (['working', 'running', 'done', 'quiet', 'asleep', 'compacting', 'background'] as ThreadState[])
+      .every(s => !isWaitingState(s)));
 }
 
 function isDeepStrictEqualCounts(a: AttentionCounts, b: AttentionCounts): boolean {
-  return a.waiting === b.waiting && a.working === b.working && a.running === b.running && a.finished === b.finished;
+  return a.waiting === b.waiting && a.working === b.working && a.running === b.running
+    && a.finished === b.finished && a.compacting === b.compacting;
 }
 
 console.log('\nattention: countTabs\n');
@@ -120,17 +127,20 @@ console.log('\nattention: railProjects\n');
     tab('t2', { groupId: 'B', notification: 'done' }),      // B: finished
     tab('t3', { groupId: 'C', notification: 'working' }),   // C: working only, not on the rail
     tab('t4', { groupId: 'D', notification: 'attention' }), // D archived: excluded regardless
+    tab('t5', { groupId: 'F', notification: 'compacting' }), // F: compacting only, on the rail (Phase 8)
   ];
-  const groups = [group('C'), group('A'), group('B'), group('D', { archived: true }), group('E')];
+  const groups = [group('C'), group('A'), group('B'), group('D', { archived: true }), group('E'), group('F')];
   const rail = railProjects(groups, tabs);
-  check('only projects with something waiting or finished are on the rail',
-    rail.map(g => g.id).join(',') === 'A,B', show(rail.map(g => g.id)));
+  check('only projects with something waiting, finished or compacting are on the rail',
+    rail.map(g => g.id).join(',') === 'A,B,F', show(rail.map(g => g.id)));
   check('an archived project with a needs-you thread never appears on the rail',
     !rail.some(g => g.id === 'D'));
   check('a project with only a working thread is not on the rail',
     !rail.some(g => g.id === 'C'));
   check('a project with nothing pending is not on the rail',
     !rail.some(g => g.id === 'E'));
+  check('a project with only a compacting thread is on the rail (Phase 8, Aryan 2026-09-19)',
+    rail.some(g => g.id === 'F'));
   check('caller order is kept among the ones shown (not resorted)',
     railProjects([group('B'), group('A')], tabs).map(g => g.id).join(',') === 'B,A');
 }

@@ -103,6 +103,25 @@ export interface Group {
   // thread is simply gone (an open design decision, see design-02, revisit if it
   // hurts).
   history: HistoryEntry[];
+  // The project's chosen icon (Phase 8, design-03 decision 12): one of the ten
+  // ids in PROJECT_ICON_IDS, picked in the New/Edit project dialog. Shown on
+  // the rail tile in place of the folder; absent means the folder. Persisted in
+  // session.json, validated on load (sessionMigration.ts drops anything not in
+  // the list).
+  icon?: ProjectIconId;
+}
+
+// The ten solid glyphs a project can carry (design-03 decision 12). The order
+// here is the order the picker shows them in. The terminal glyph is deliberately
+// not offered: it is the Workspace icon.
+export const PROJECT_ICON_IDS = [
+  'book', 'robot', 'bulb', 'globe', 'pen', 'film', 'house', 'music', 'bell', 'rocket',
+] as const;
+
+export type ProjectIconId = typeof PROJECT_ICON_IDS[number];
+
+export function isProjectIconId(v: unknown): v is ProjectIconId {
+  return typeof v === 'string' && (PROJECT_ICON_IDS as readonly string[]).includes(v);
 }
 
 // A closed thread kept for Resume. `id` is deliberately the closed tab's own id:

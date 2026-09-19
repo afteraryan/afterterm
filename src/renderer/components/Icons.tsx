@@ -3,7 +3,7 @@
 // (sheet A, "solid glyphs", final) and docs/mockups/toasts.html (hourglass, compacting, x).
 // Each icon is a plain inline SVG using currentColor so it inherits the caller's color.
 import React from 'react';
-import { GroupColor, GROUP_COLORS } from './TabBar/types';
+import { GroupColor, GROUP_COLORS, ProjectIconId } from './TabBar/types';
 import type { EditorProduct } from '../../editors';
 
 export interface IconProps {
@@ -120,6 +120,26 @@ export function IconChevD(props: IconProps) {
   return (
     <svg {...svgProps(props)}>
       <path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// The two heading collapse buttons (design-03's Pinned/Recent headings, Phase
+// 8): a double chevron pointing in on IconCollapseAll, out on IconExpandAll.
+// Paths verbatim from docs/mockups/design-03-shared.js's i-collapse-all and
+// i-expand-all symbols.
+export function IconCollapseAll(props: IconProps) {
+  return (
+    <svg {...svgProps(props)}>
+      <path d="m7 10 5-5 5 5M7 14l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function IconExpandAll(props: IconProps) {
+  return (
+    <svg {...svgProps(props)}>
+      <path d="m7 4 5 5 5-5M7 20l5-5 5 5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -347,6 +367,80 @@ export function FolderIcon({ color, open, size = 18 }: FolderIconProps) {
   );
 }
 
+export interface ProjectIconProps {
+  icon: ProjectIconId;
+  size?: number;
+}
+
+// A project's chosen glyph (design-03 decision 12): ten solid, filled icons at
+// the folder's weight, picked in the New/Edit project dialog and shown on the
+// rail tile in place of the folder. Paths copied verbatim from
+// docs/mockups/design-03-final-sidebar.html's symbol sheet (i-book, i-bot,
+// i-bulb, i-globe, i-pen, i-film, i-house, i-music, i-rocket); the mock's page
+// has no i-bell symbol, so the bell glyph below is drawn at the same weight
+// instead, matching IconBell's silhouette but filled solid like the rest of
+// this set.
+export function ProjectIcon({ icon, size = 20 }: ProjectIconProps) {
+  return (
+    <svg {...svgProps({ size })}>
+      {icon === 'book' && (
+        <>
+          <path d="M3 5a2 2 0 0 1 2-2h5.5A2.5 2.5 0 0 1 13 5.5V20a2 2 0 0 0-2-2H3zM21 5a2 2 0 0 0-2-2h-5.5A2.5 2.5 0 0 0 11 5.5V20a2 2 0 0 1 2-2h8z" fill="currentColor" />
+          <path d="M12 6v13" stroke="rgba(0,0,0,.3)" strokeWidth="1.4" />
+        </>
+      )}
+      {icon === 'robot' && (
+        <>
+          <rect x="3" y="7" width="18" height="13" rx="4" fill="currentColor" />
+          <path d="M12 7V4" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+          <circle cx="12" cy="3" r="1.6" fill="currentColor" />
+          <circle cx="8.5" cy="13" r="1.7" fill="rgba(0,0,0,.35)" />
+          <circle cx="15.5" cy="13" r="1.7" fill="rgba(0,0,0,.35)" />
+        </>
+      )}
+      {icon === 'bulb' && (
+        <>
+          <path d="M12 2.5a6.5 6.5 0 0 0-4 11.6c.8.7 1.3 1.6 1.5 2.4h5c.2-.8.7-1.7 1.5-2.4A6.5 6.5 0 0 0 12 2.5z" fill="currentColor" />
+          <path d="M9.5 18.5h5v1a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2z" fill="currentColor" />
+        </>
+      )}
+      {icon === 'globe' && (
+        <>
+          <circle cx="12" cy="12" r="9.5" fill="currentColor" />
+          <path d="M2.5 12h19M12 2.5c3 3 3 16 0 19M12 2.5c-3 3-3 16 0 19" fill="none" stroke="rgba(0,0,0,.3)" strokeWidth="1.4" />
+        </>
+      )}
+      {icon === 'pen' && (
+        <>
+          <path d="M3 21l1.2-4.6L15.5 5.1l3.4 3.4L7.6 19.8z" fill="currentColor" />
+          <path d="M16.9 3.7a2 2 0 0 1 2.8 0l.6.6a2 2 0 0 1 0 2.8l-1 1-3.4-3.4z" fill="currentColor" />
+        </>
+      )}
+      {icon === 'film' && (
+        <>
+          <rect x="2.5" y="4" width="19" height="16" rx="2.5" fill="currentColor" />
+          <path d="M6 6.5v11M18 6.5v11" stroke="rgba(0,0,0,.35)" strokeWidth="2" strokeDasharray="2.2 2.2" strokeLinecap="round" />
+        </>
+      )}
+      {icon === 'house' && (
+        <path d="M12 3 2.5 11h2.7v9a1 1 0 0 0 1 1H10v-6h4v6h3.8a1 1 0 0 0 1-1v-9h2.7z" fill="currentColor" />
+      )}
+      {icon === 'music' && (
+        <path d="M9 4.5 20 2.5v12.2a3.2 3.2 0 1 1-2-3V6.6l-7 1.3v9a3.2 3.2 0 1 1-2-3z" fill="currentColor" />
+      )}
+      {icon === 'bell' && (
+        <path d="M12 2.5a6 6 0 0 0-6 6v4.2L4.3 16a1 1 0 0 0 .8 1.6h13.8a1 1 0 0 0 .8-1.6L18 12.7V8.5a6 6 0 0 0-6-6zM9.6 19.5a2.5 2.5 0 0 0 4.8 0z" fill="currentColor" />
+      )}
+      {icon === 'rocket' && (
+        <>
+          <path d="M14.5 3c3.5 0 6 2.5 6.5 6.5-2 4-5.5 7-9 8.5L8 14c1.5-3.5 4.5-9 6.5-11z" fill="currentColor" />
+          <path d="M8 14 5 12.5c.8-2 2.4-3.2 4.5-3.5zM12 18l1.5 3c2-.3 3.2-1.9 3.5-4.5zM3.5 20.5c.4-2.2 1.4-3.6 3-4.2l1.7 1.7c-.6 1.6-2 2.6-4.7 2.5z" fill="currentColor" />
+        </>
+      )}
+    </svg>
+  );
+}
+
 export interface EditorLogoProps {
   product: EditorProduct;
   size?: number;
@@ -399,11 +493,18 @@ export function StateIcon({ state, size = 15 }: StateIconProps) {
           <IconBell size={size} />
         </span>
       );
-    case 'working':
     case 'compacting':
+      // Phase 8: compacting gets its own icon rather than sharing the working
+      // spinner, so a compacting chat reads apart from one still mid-turn.
+      return (
+        <span className="si compact" data-state="compacting">
+          <IconCompact size={size} />
+        </span>
+      );
+    case 'working':
     case 'background':
-      // Working, compacting and background all read as "something is
-      // happening but there is nothing to act on": the same grey spinner.
+      // Working and background both read as "something is happening but
+      // there is nothing to act on": the same grey spinner.
       return (
         <span data-state={state}>
           <Spinner size={size} />

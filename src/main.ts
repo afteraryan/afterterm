@@ -699,6 +699,16 @@ function createWindow() {
       // where shells and Claude Code both use it.
       mainWindow.webContents.send('shortcut', 'search');
       event.preventDefault();
+    } else if (ctrl && shift && key === 'arrowdown') {
+      // Phase 8: the next thread row the panel is showing, in panel order and
+      // across projects (design-03 decisions 6 and 7). Ctrl+Tab keeps its
+      // session-order cycle. Ctrl+Shift+Arrow is not a shell or Claude Code
+      // binding, so taking it here costs the terminal nothing.
+      mainWindow.webContents.send('shortcut', 'next-thread');
+      event.preventDefault();
+    } else if (ctrl && shift && key === 'arrowup') {
+      mainWindow.webContents.send('shortcut', 'prev-thread');
+      event.preventDefault();
     }
   });
 }

@@ -10,6 +10,7 @@
 // 0.8.1 key keep their name and meaning.
 
 import type { Tab, Group, HistoryEntry } from './components/TabBar/types';
+import { isProjectIconId } from './components/TabBar/types.ts';
 
 // Bump when a saved file needs a shape change a plain "fill defaults" pass cannot
 // express. A file with no version field is treated as version 1 (release 0.8.1).
@@ -27,6 +28,15 @@ export interface SavedSession {
   tabs: SavedTab[];
   groups: Group[];
   activeTabId: string;
+  // Phase 8, design-03: sidebar panel UI state that is genuinely worth saving
+  // across a relaunch, as opposed to per-project Group.collapsed (already its
+  // own field) or the Other-projects fold and the search text (both
+  // transient, cleared on every launch). Every 0.8.1 key keeps its name and
+  // meaning unchanged by this; 0.8.1 has never heard of `ui` and ignores it
+  // the same way it ignores every other field added after it. Optional so a
+  // hand-built object (a test, a future caller) need not supply it;
+  // migrateSession always fills it in as at least {}.
+  ui?: { panelHidden?: boolean };
 }
 
 // The only tab keys that ever reach disk. Anything else on a Tab is transient.
@@ -104,6 +114,18 @@ function setUnreadFlag(tab: Record<string, unknown>, v: unknown): void {
   else delete tab.unread;
 }
 
+// A missing or non-object `ui` becomes {} rather than undefined, so callers
+// never have to guard against the field itself being absent, only against
+// individual keys inside it being unset. A wrongly typed `panelHidden` (a
+// string, a number) is dropped rather than coerced, the same "never coerce a
+// flag" rule every other field in this file follows.
+function asUi(v: unknown): { panelHidden?: boolean } {
+  if (!isRecord(v)) return {};
+  const ui: { panelHidden?: boolean } = {};
+  if (typeof v.panelHidden === 'boolean') ui.panelHidden = v.panelHidden;
+  return ui;
+}
+
 // Entries without a usable id cannot be addressed by anything (activation,
 // grouping, restore), so they are dropped rather than repaired.
 function hasStringId(v: unknown): v is Record<string, unknown> & { id: string } {
@@ -169,6 +191,12 @@ export function migrateSession(raw: unknown, now: number): SavedSession | null {
     group.archived = asFlag(g.archived, false);
     group.lastActiveAt = asTimestamp(g.lastActiveAt, now);
     group.history = asHistory(g.history);
+    // Phase 8: icon is validated against the ten ids the picker offers, never
+    // coerced; anything else (an old id, a hand-edited string, a stray type)
+    // is dropped so the project falls back to the plain folder rather than
+    // rendering nothing or a bogus glyph.
+    if (isProjectIconId(g.icon)) group.icon = g.icon;
+    else delete group.icon;
     return group as unknown as Group;
   });
 
@@ -178,14 +206,21 @@ export function migrateSession(raw: unknown, now: number): SavedSession | null {
     ? raw.activeTabId
     : '';
 
-  return { version: SESSION_FORMAT_VERSION, tabs, groups, activeTabId };
+  return { version: SESSION_FORMAT_VERSION, tabs, groups, activeTabId, ui: asUi(raw.ui) };
 }
 
 /**
  * Exactly what gets written to session.json. Tabs are reduced to their persisted
- * keys; groups carry no transient state and are written whole.
+ * keys; groups carry no transient state and are written whole. `ui` defaults to
+ * {} so an existing call site (three arguments, from before Phase 8) still
+ * writes a valid, empty `ui` object rather than omitting the key.
  */
-export function serializeSession(tabs: Tab[], groups: Group[], activeTabId: string): SavedSession {
+export function serializeSession(
+  tabs: Tab[],
+  groups: Group[],
+  activeTabId: string,
+  ui: { panelHidden?: boolean } = {},
+): SavedSession {
   return {
     version: SESSION_FORMAT_VERSION,
     tabs: tabs.map(t => {
@@ -200,5 +235,6 @@ export function serializeSession(tabs: Tab[], groups: Group[], activeTabId: stri
     // history.ts and the project page's History tab are not built to expect.
     groups: groups.map(g => ({ ...g, history: g.history ?? [] })),
     activeTabId,
+    ui,
   };
 }

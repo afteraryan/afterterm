@@ -30,20 +30,30 @@ export interface AttentionCounts {
   working: number;
   running: number;
   finished: number;
+  compacting: number;
 }
 
 // "Waiting for you" everywhere in the UI means needs-you plus unread
-// (design-03's phrase, stated once here). Working counts only the plain
-// 'working' state, not compacting or background, matching the play pill's
-// existing behaviour; running counts a captured port with nothing else
-// pending; finished counts done.
+// (design-03's phrase, stated once here): the one definition foldThreads
+// (threadView.ts) also uses to decide whether a hidden row must force its
+// project's fold open.
+export function isWaitingState(state: ThreadState): boolean {
+  return state === 'needs-you' || state === 'unread';
+}
+
+// Working counts only the plain 'working' state, not compacting or
+// background, matching the play pill's existing behaviour; running counts a
+// captured port with nothing else pending; finished counts done; compacting
+// (Phase 8) is its own bucket, counted nowhere else (the play pill still
+// counts working and running only, per design-03's Phase 7 handoff).
 export function countStates(states: ThreadState[]): AttentionCounts {
-  const counts: AttentionCounts = { waiting: 0, working: 0, running: 0, finished: 0 };
+  const counts: AttentionCounts = { waiting: 0, working: 0, running: 0, finished: 0, compacting: 0 };
   for (const state of states) {
-    if (state === 'needs-you' || state === 'unread') counts.waiting++;
+    if (isWaitingState(state)) counts.waiting++;
     else if (state === 'working') counts.working++;
     else if (state === 'running') counts.running++;
     else if (state === 'done') counts.finished++;
+    else if (state === 'compacting') counts.compacting++;
   }
   return counts;
 }
@@ -76,15 +86,18 @@ export function totalAttention(groups: Group[], tabs: Tab[]): AttentionCounts {
 }
 
 // The rail (Phase 8) shows only projects with something pending: a thread
-// waiting for you, or one that finished and has not been viewed. Caller order
-// (the panel's own group order) is kept rather than re-sorted, since the rail
-// is a subset of that same list, not a ranking of its own.
+// waiting for you, one that finished and has not been viewed, or one that is
+// compacting (Aryan, 2026-09-19: a compacting chat gets its own rail badge, so
+// its project must be on the rail to show it, even with nothing else
+// pending). Caller order (the panel's own group order) is kept rather than
+// re-sorted, since the rail is a subset of that same list, not a ranking of
+// its own.
 export function railProjects(groups: Group[], tabs: Tab[]): Group[] {
   const counts = projectAttention(groups, tabs);
   return groups.filter(g => {
     if (g.archived) return false;
     const c = counts.get(g.id);
-    return !!c && (c.waiting > 0 || c.finished > 0);
+    return !!c && (c.waiting > 0 || c.finished > 0 || c.compacting > 0);
   });
 }
 

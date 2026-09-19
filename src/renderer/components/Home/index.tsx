@@ -1,9 +1,10 @@
 // The Home screen (mock #view-home / renderHome): "what am I working on right
 // now" as a date heading, pinned project cards, a compact list of the other
-// projects, and archived projects tucked behind one toggle. No sidebar.
+// projects, and archived projects tucked behind one toggle. No sidebar, and
+// since Phase 8 no icon row of its own either: the Home and Workspace icons
+// live on the always-on rail to the left (Rail/).
 import React, { useState } from 'react';
 import { Tab, Group } from '../TabBar/types';
-import { ScreenNav } from '../ScreenNav';
 import { Menu, MenuItem } from '../Menu';
 import { FolderIcon, IconPage, IconPin, IconPinOn, IconPlus, StateIcon } from '../Icons';
 import { threadState, projectCounts } from '../../threadView';
@@ -20,14 +21,11 @@ export interface HomeProps {
   folderExists: Record<string, boolean>; // keyed by folder path
   actions: ProjectActions;
   onNewProject: () => void;
-  // Not in the original contract: ScreenNav needs somewhere to send a click
-  // on the Workspace icon. The Home icon click is a no-op here (already home).
-  onGoWorkspace: () => void;
 }
 
 const PROJECT_LIMIT = 4;
 
-export function Home({ groups, tabs, now, editors, folderExists, actions, onNewProject, onGoWorkspace }: HomeProps) {
+export function Home({ groups, tabs, now, editors, folderExists, actions, onNewProject }: HomeProps) {
   const [showAll, setShowAll] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
@@ -161,7 +159,6 @@ export function Home({ groups, tabs, now, editors, folderExists, actions, onNewP
 
   return (
     <div className="screen-home">
-      <ScreenNav screen="home" onGo={s => { if (s === 'workspace') onGoWorkspace(); }} />
       <div className="home">
         <div>
           <h1 className="home-date">{dateHeading(now)}</h1>

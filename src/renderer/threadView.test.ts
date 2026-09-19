@@ -318,6 +318,28 @@ console.log('\nthreadView: foldThreads\n');
     const r = foldThreads(threads, 'missing', false);
     check('active id not present in the list: treated as not beyond the fold', r.forcedOpen === false);
   }
+  {
+    // Phase 7 handoff: a hidden row waiting for you forces the fold open too.
+    const threads = t(7);
+    const isWaiting = (x: { id: string }) => x.id === 't6';
+    const r = foldThreads(threads, 't1', false, 5, isWaiting);
+    check('a waiting thread beyond the fold (index 6) forces the list open',
+      r.forcedOpen === true && r.shown.length === 7, show(r));
+  }
+  {
+    // A waiting thread already inside the fold changes nothing: it is not hidden.
+    const threads = t(7);
+    const isWaiting = (x: { id: string }) => x.id === 't2';
+    const r = foldThreads(threads, 't1', false, 5, isWaiting);
+    check('a waiting thread at index 2, already inside the fold, does not force it open',
+      r.forcedOpen === false && r.shown.length === 5, show(r));
+  }
+  {
+    // No predicate given at all: behaviour is exactly as before this phase.
+    const threads = t(7);
+    const r = foldThreads(threads, 't1', false, 5);
+    check('no isWaiting predicate keeps the old behaviour (not forced open)', r.forcedOpen === false);
+  }
 }
 
 console.log('\nthreadView: projectCounts\n');

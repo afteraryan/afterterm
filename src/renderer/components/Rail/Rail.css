@@ -1,0 +1,226 @@
+/* ── Rail ──────────────────────────────────────────────────────────────────
+   The always-on 76px column at the left edge, on every screen. See
+   docs/design-03-sidebar-and-attention.md decision 1 and
+   docs/mockups/design-03-final-sidebar.html (.railblk, .navseg, .rail2, .l1,
+   .col, .bd2) plus docs/mockups/design-03-shared.css (.rail2, .sep, .tiles,
+   .tile), whose values this file copies. */
+
+.rail-bar {
+  width: 76px;
+  min-width: 76px;
+  flex: none;
+  background: var(--side);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 11px 0 8px;
+  user-select: none;
+}
+
+/* ── The two closable blocks (sidebar toggle, and Search/New thread) ──────
+   Only open while the panel is hidden on the workspace; everything else
+   moves with them as they open and close. */
+
+.railblk {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 320ms var(--ease);
+  width: 100%;
+}
+
+.railblk > div {
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.railblk .ic {
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 180ms var(--ease), transform 240ms var(--ease), background var(--fast), color var(--fast);
+}
+
+.railblk:not(.open) .ic {
+  pointer-events: none;
+}
+
+.railblk.open {
+  grid-template-rows: 1fr;
+}
+
+.railblk.open .ic {
+  opacity: 1;
+  transform: none;
+  transition-delay: 120ms;
+}
+
+.railblk.open .ic:nth-child(2) {
+  transition-delay: 160ms;
+}
+
+.railblk.open > div {
+  padding-bottom: 6px;
+}
+
+/* ── The shared icon button look, used by both blocks and the nav pill ───── */
+
+.rail-bar .ic {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  color: var(--text3);
+}
+
+.rail-bar .ic:hover {
+  color: var(--text);
+}
+
+/* ── The Home/Workspace pill ───────────────────────────────────────────── */
+
+.navseg {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 12px;
+  background: #101010;
+}
+
+.navseg .thumb {
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: #2a2a2a;
+  transition: transform 150ms cubic-bezier(.3, 1.2, .4, 1);
+  pointer-events: none;
+}
+
+.navseg.at-work .thumb {
+  transform: translateY(34px);
+}
+
+.navseg .ic {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  position: relative;
+  transition: color 120ms var(--ease);
+}
+
+.navseg .ic:hover {
+  background: rgba(255, 255, 255, .05);
+}
+
+.navseg .ic[aria-selected="true"] {
+  background: none;
+  color: var(--text);
+}
+
+/* ── Separator and the flexible gap that pushes nothing to the bottom ───── */
+
+.sep {
+  width: 24px;
+  height: 1px;
+  background: #2a2a2a;
+  margin: 4px 0;
+}
+
+.grow {
+  flex: 1;
+}
+
+/* ── Project tiles ─────────────────────────────────────────────────────── */
+
+.tiles {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  padding: 0 4px 0 10px;
+  width: 100%;
+}
+
+.tiles::-webkit-scrollbar {
+  width: 0;
+}
+
+.l1 {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tile {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  position: relative;
+  flex: none;
+  cursor: pointer;
+  color: var(--tc);
+  background: color-mix(in srgb, var(--tc) 9%, transparent);
+  transition: background var(--fast), transform var(--fast);
+}
+
+.tile:hover {
+  background: color-mix(in srgb, var(--tc) 20%, transparent);
+}
+
+/* ── Badges, stacked beside the tile, only the non-zero ones ─────────────
+   Order top to bottom: waiting (amber), working (grey), compacting (blue,
+   added with Phase 8's compacting state), finished (green). */
+
+.bd {
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  color: #0d0d0d;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.bd.w {
+  background: var(--need);
+}
+
+.bd.k {
+  background: var(--hover2);
+  color: var(--text);
+}
+
+.bd.c {
+  background: var(--compact, #60a5fa);
+}
+
+.bd.d {
+  background: var(--live);
+}
+
+/* Reduced motion is handled globally in theme.css, which turns every
+   transition off; nothing extra needed here. */

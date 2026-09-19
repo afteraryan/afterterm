@@ -8,6 +8,9 @@
   min-height: 0;
   overflow-y: auto;
   background: var(--bg);
+  /* Inset on the rail grey the same way the terminal area is (index.css):
+     the top-left corner curves where the title bar and the rail meet it. */
+  border-radius: var(--radius-surface) 0 0 0;
 }
 
 .proj {

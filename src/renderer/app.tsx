@@ -1,5 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { SidePanel } from './components/SidePanel';
+import type { SidePanelHandle } from './components/SidePanel';
+import { Rail } from './components/Rail';
 import { TerminalArea } from './components/Terminal';
 import type { TerminalAreaHandle } from './components/Terminal';
 import { AsleepPane } from './components/AsleepPane';
@@ -22,7 +24,7 @@ import { sleepAllForShutdown } from './sleepWake';
 import { toastMessage, initialScreen, threadName, needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText, localhostUrl } from './threadView';
 import { ProjectActions } from './projectMenu';
 import { buildThreadMenu } from './threadMenu';
-import { projectAttention, totalAttention, railProjects } from './attention';
+import { projectAttention, totalAttention, railProjects, firstThreadToOpen } from './attention';
 import type { EditorInfo } from '../editors';
 
 let toastCounter = 0;
@@ -40,6 +42,13 @@ const CHOOSER_FALLBACK = { x: 80, y: 120 };
 // branch switch is rare and nothing here is urgent, so this only has to be faster
 // than the user noticing a stale branch.
 const GIT_POLL_MS = 30_000;
+// How long the panel takes to slide shut (SidePanel.css, .side-panel.hidden).
+// Going to Home waits this long before the screen changes, so the slide is seen
+// (design-03 decision 1); under reduced motion there is nothing to see and the
+// switch is immediate.
+const PANEL_SLIDE_MS = 320;
+const reducedMotion = () =>
+  typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 interface AppToast {
   // Distinguishes one toast from the next even when the wording repeats, so the
@@ -54,7 +63,15 @@ let appToastCounter = 0;
 
 export function App() {
   const state = useTabState();
-  const [panelCollapsed, setPanelCollapsed] = useState(false);
+  // Whether the panel is hidden (Ctrl+Shift+B, the toggle). Persisted in
+  // session.json as ui.panelHidden (Phase 8); the rail is never hidden.
+  const [panelHidden, setPanelHidden] = useState(false);
+  // The transient slide: the panel is shut on the way to Home and slides open
+  // again on the way back (design-03 decision 1), without touching the
+  // persisted flag above. Never true while panelHidden already is.
+  const [panelShut, setPanelShut] = useState(false);
+  const slideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const panelRef = useRef<SidePanelHandle>(null);
   const [shells, setShells] = useState<{ id: string; name: string }[]>([]);
   const [initialized, setInitialized] = useState(false);
   // Which screen is showing. The workspace stays mounted behind Home and the
@@ -108,8 +125,8 @@ export function App() {
 
   const stateRef = useRef(state);
   stateRef.current = state;
-  const panelRef = useRef(panelCollapsed);
-  panelRef.current = panelCollapsed;
+  const panelHiddenRef = useRef(panelHidden);
+  panelHiddenRef.current = panelHidden;
   const screenRef = useRef(screen);
   screenRef.current = screen;
 
@@ -118,6 +135,11 @@ export function App() {
   const activeTabAsleep = !!state.tabs.find(t => t.id === state.activeTabId)?.asleep;
 
   // Every screen switch goes through here so the entrance class always replays.
+  // Phase 8 adds the panel's slide (design-03 decision 1): leaving the workspace
+  // slides the panel shut first and only then changes the screen; coming back
+  // changes the screen at once and the panel slides open from zero, unless it
+  // was hidden before, in which case it stays hidden. The slide is skipped
+  // outright under reduced motion.
   const goScreen = useCallback((next: Screen, groupId?: string) => {
     if (next === 'project') {
       if (!groupId) return;
@@ -126,8 +148,39 @@ export function App() {
       // History straight after calling this (see the palette's onOpenHistory).
       setProjectPageTab('live');
     }
-    setScreen(next);
-    setScreenSeq(n => n + 1);
+    if (slideTimerRef.current) { clearTimeout(slideTimerRef.current); slideTimerRef.current = null; }
+    const switchNow = () => {
+      setScreen(next);
+      setScreenSeq(n => n + 1);
+    };
+    const wasWorkspace = screenRef.current === 'workspace';
+    const canSlide = !panelHiddenRef.current && !reducedMotion();
+    if (next !== 'workspace' && wasWorkspace && canSlide) {
+      // A second switch (Home, then a project page) must not slide again: the
+      // panel is already shut once the first one has landed.
+      setPanelShut(true);
+      slideTimerRef.current = setTimeout(() => { slideTimerRef.current = null; switchNow(); }, PANEL_SLIDE_MS);
+      return;
+    }
+    if (next === 'workspace' && !wasWorkspace && canSlide) {
+      // Mount shut, then release on the next frames so the width transition
+      // runs from zero rather than the panel appearing at full width.
+      setPanelShut(true);
+      switchNow();
+      requestAnimationFrame(() => requestAnimationFrame(() => setPanelShut(false)));
+      return;
+    }
+    if (next === 'workspace') setPanelShut(false);
+    switchNow();
+  }, []);
+
+  useEffect(() => () => { if (slideTimerRef.current) clearTimeout(slideTimerRef.current); }, []);
+
+  // Ctrl+Shift+B and the two toggle buttons. Showing the panel again also ends any
+  // transient shut, so a toggle mid-slide always lands on "shown".
+  const togglePanel = useCallback(() => {
+    setPanelShut(false);
+    setPanelHidden(h => !h);
   }, []);
 
   // One toast at a time: a new one replaces whatever is showing, so the newest
@@ -257,6 +310,7 @@ export function App() {
       const session = migrateSession(saved, Date.now());
       if (session && session.tabs.length > 0) {
         state.restoreSession(session);
+        setPanelHidden(!!session.ui?.panelHidden);
         setScreen(initialScreen(session.groups));
       } else {
         state.addTab();
@@ -271,11 +325,11 @@ export function App() {
   useEffect(() => {
     if (!initialized || state.tabs.length === 0) return;
     const timer = setTimeout(() => {
-      const data = serializeSession(state.tabs, state.groups, state.activeTabId);
+      const data = serializeSession(state.tabs, state.groups, state.activeTabId, { panelHidden });
       window.afterterm.session.save(JSON.stringify(data));
     }, 2000);
     return () => clearTimeout(timer);
-  }, [initialized, state.tabs, state.groups, state.activeTabId]);
+  }, [initialized, state.tabs, state.groups, state.activeTabId, panelHidden]);
 
   // Keyboard shortcuts from main process
   useEffect(() => {
@@ -304,7 +358,13 @@ export function App() {
           break;
         }
         case 'toggle-panel':
-          setPanelCollapsed(p => !p);
+          togglePanel();
+          break;
+        case 'next-thread':
+          cycleThread(1);
+          break;
+        case 'prev-thread':
+          cycleThread(-1);
           break;
       }
     });
@@ -465,6 +525,42 @@ export function App() {
     handleActivate(tabId);
     goScreen('workspace');
   }, [handleActivate, goScreen]);
+
+  // Ctrl+Shift+Down and Up (design-03 decisions 6 and 7): the next or previous
+  // thread row the panel is showing, in panel order, across projects. The panel
+  // owns the fold state and the search text, so it is asked rather than
+  // recomputed here. From Home or a project page the workspace comes back too.
+  const cycleThread = useCallback((dir: 1 | -1) => {
+    const next = panelRef.current?.cycleThread(stateRef.current.activeTabId, dir);
+    if (!next) return;
+    handleActivate(next);
+    if (screenRef.current !== 'workspace') goScreen('workspace');
+  }, [handleActivate, goScreen]);
+
+  // A rail tile click (design-03 decision 1): the workspace on that project's
+  // first thread waiting for you, else its first finished one, else its most
+  // recently active awake thread; the project is expanded in the panel by the
+  // panel's own activation effect. A project with nothing to open (every thread
+  // asleep, nothing pending) opens the way a Home card does.
+  const openProjectFromRail = useCallback((groupId: string) => {
+    const s = stateRef.current;
+    const target = firstThreadToOpen(s.tabs.filter(t => t.groupId === groupId));
+    if (target) {
+      handleActivate(target.id);
+      goScreen('workspace');
+      return;
+    }
+    projectActions.open(groupId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handleActivate, goScreen]);
+
+  // A click on a project in the panel's docked Other list (design-03 decision
+  // 2): its activity is stamped to now so the Recent rule holds it for three
+  // days, it is expanded, and its first thread is selected, waking nothing.
+  const bringProjectIn = useCallback((groupId: string) => {
+    const tabId = stateRef.current.bringProjectIn(groupId, Date.now());
+    if (tabId) clearThreadBadges(tabId);
+  }, [clearThreadBadges]);
 
   const handleNotification = useCallback((tabId: string, type: TabNotification | undefined, projectName: string) => {
     // Route the title through the spinner state machine. An undecorated title (type
@@ -728,11 +824,12 @@ export function App() {
   }, [initialized, screen, screenSeq]);
 
   // The clock behind the relative times on Home and the project page, and behind
-  // the "Asleep · 2d" chip and the asleep pane's "asleep since" line, which are the
-  // only relative times in the workspace. It is set once on entry so a screen opened
-  // after a long spell elsewhere never shows a stale "5m".
+  // the "Asleep · 2d" chip and the asleep pane's "asleep since" line. It is set
+  // once on entry so a screen opened after a long spell elsewhere never shows a
+  // stale "5m".
+  // Since Phase 8 the panel reads it too (the Recent rule's 3-day window and the
+  // docked Other rows' "2d"), so it ticks on every screen.
   useEffect(() => {
-    if (screen === 'workspace' && !activeTabAsleep) return;
     setNow(Date.now());
     const id = setInterval(() => setNow(Date.now()), CLOCK_MS);
     return () => clearInterval(id);
@@ -823,10 +920,12 @@ export function App() {
           total: totalAttention(s.groups, s.tabs),
           projects: s.groups
             .filter(g => !g.archived)
-            .map(g => ({ id: g.id, label: g.label, pinned: g.pinned, ...(perProject.get(g.id) ?? { waiting: 0, working: 0, running: 0, finished: 0 }) })),
+            .map(g => ({ id: g.id, label: g.label, pinned: g.pinned, ...(perProject.get(g.id) ?? { waiting: 0, working: 0, running: 0, finished: 0, compacting: 0 }) })),
           rail: railProjects(s.groups, s.tabs).map(g => g.label),
         };
       },
+      // Phase 8: the persisted panel flag, read by the harness's `rail` command.
+      panelHidden: () => panelHiddenRef.current,
     };
   }, []);
 
@@ -854,6 +953,27 @@ export function App() {
     <div className={`app${enterClass ? ` ${enterClass}` : ''}`} data-screen={screen}>
       <TitleBar />
 
+      <div className="app-body">
+      {/* The always-on rail (Phase 8, design-03 decision 1): on every screen, never
+          hidden. Its Search and New thread buttons only open while the panel is
+          hidden on the workspace, so they stand in for the panel's own rows. */}
+      <Rail
+        screen={screen}
+        panelHidden={panelHidden}
+        groups={state.groups}
+        tabs={state.tabs}
+        editors={editors}
+        folderExists={folderExists}
+        projectActions={projectActions}
+        onGoHome={() => goScreen('home')}
+        onGoWorkspace={() => goScreen('workspace')}
+        onTogglePanel={togglePanel}
+        onSearch={() => setPaletteOpen(open => !open)}
+        onNewThread={setChooser}
+        onOpenProject={openProjectFromRail}
+      />
+
+      <div className="app-main">
       {screen === 'home' && (
         <Home
           groups={state.groups}
@@ -863,7 +983,6 @@ export function App() {
           folderExists={folderExists}
           actions={projectActions}
           onNewProject={() => setProjectModal({ mode: 'create' })}
-          onGoWorkspace={() => goScreen('workspace')}
         />
       )}
 
@@ -890,7 +1009,6 @@ export function App() {
             openProjectPage: tab.groupId ? () => goScreen('project', tab.groupId) : undefined,
           })}
           onBack={() => goScreen('home')}
-          onGoWorkspace={() => goScreen('workspace')}
         />
       )}
 
@@ -898,12 +1016,14 @@ export function App() {
           terminals keep running and the active tab's Claude resume still fires. */}
       <div className={`workspace${screen === 'workspace' ? '' : ' hidden'}`}>
         <SidePanel
+          ref={panelRef}
           tabs={state.tabs}
           groups={state.groups}
           activeTabId={state.activeTabId}
-          collapsed={panelCollapsed}
+          hidden={panelHidden || panelShut}
+          now={now}
           shells={shells}
-          onToggleCollapse={() => setPanelCollapsed(p => !p)}
+          onToggleCollapse={togglePanel}
           onActivate={handleActivate}
           onClose={closeThread}
           onSleep={sleepThread}
@@ -911,8 +1031,6 @@ export function App() {
           onWake={wakeThread}
           onOpenLocalhost={openLocalhost}
           onNewTab={state.addTab}
-          onGoHome={() => goScreen('home')}
-          onSearch={() => setPaletteOpen(open => !open)}
           onOpenChooser={setChooser}
           onOpenProjectPage={groupId => goScreen('project', groupId)}
           onTogglePin={projectActions.togglePin}
@@ -926,6 +1044,8 @@ export function App() {
           onRenameGroup={state.renameGroup}
           onSetGroupColor={state.setGroupColor}
           onToggleGroupCollapse={state.toggleGroupCollapse}
+          onSetGroupsCollapsed={state.setGroupCollapsedMany}
+          onBringIn={bringProjectIn}
           onMoveTab={state.moveTab}
           onMoveGroup={state.moveGroup}
           onMoveGroupAfterGroup={state.moveGroupAfterGroup}
@@ -980,6 +1100,8 @@ export function App() {
           )}
         </div>
       </div>
+      </div>
+      </div>
 
       {chooser && (
         <NewThreadChooser
@@ -1019,7 +1141,7 @@ export function App() {
         // An edit whose project vanished (deleted underneath the menu) has nothing to show.
         if (projectModal.mode === 'edit' && !editing) return null;
         const initial: GroupDraft = editing
-          ? { label: editing.label, color: editing.color, cwd: editing.cwd, shellId: editing.shellId }
+          ? { label: editing.label, color: editing.color, cwd: editing.cwd, shellId: editing.shellId, icon: editing.icon }
           : { label: '', color: nextGroupColor(state.groups) };
         return (
           <GroupModal

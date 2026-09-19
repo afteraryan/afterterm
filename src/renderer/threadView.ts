@@ -230,15 +230,24 @@ export function modelLabel(model: string | undefined): string | null {
 // own project's fold, so if the active thread's position is at or past `limit`, the
 // list opens regardless of the `expanded` flag the user last chose (forcedOpen is
 // reported so the caller can tell "open because forced" from "open because the user
-// expanded it").
+// expanded it"). Since the Phase 7 handoff, the same is true of a thread waiting for
+// you: `isWaiting`, when given, is checked against every hidden row (index >= limit),
+// and any match forces the list open too, so a permission prompt or an unread chat
+// can never sit invisible behind "Show N more". Callers pass
+// `t => isWaitingState(threadState(t))` (attention.ts's own definition of
+// "waiting for you", kept in one place). Omitting `isWaiting` keeps the old
+// active-only behaviour, unchanged.
 export function foldThreads<T extends { id: string }>(
   threads: T[],
   activeId: string,
   expanded: boolean,
   limit = 5,
+  isWaiting?: (t: T) => boolean,
 ): { shown: T[]; hiddenCount: number; showMore: boolean; forcedOpen: boolean } {
   const activeIndex = threads.findIndex(t => t.id === activeId);
-  const forcedOpen = activeIndex >= limit;
+  const activeForcesOpen = activeIndex >= limit;
+  const waitingForcesOpen = !!isWaiting && threads.slice(limit).some(isWaiting);
+  const forcedOpen = activeForcesOpen || waitingForcesOpen;
   const open = expanded || forcedOpen;
   const shown = open ? threads : threads.slice(0, limit);
   const hiddenCount = open ? 0 : Math.max(0, threads.length - limit);
@@ -252,7 +261,10 @@ export function foldThreads<T extends { id: string }>(
 // renders no pills at all; this function just reports the counts, the "no
 // pills" choice is the caller's. Built on attention.ts's countStates, the one
 // aggregate every count in the app reads from, so this can never disagree with
-// the rail or Home's totals.
+// the rail or Home's totals. The play pill deliberately does not count
+// compacting (design-03's Phase 7 handoff): a compacting chat gets its own
+// state and its own rail badge, but is not "actively doing something" for the
+// purpose of this pill, only the rail separates it out.
 export function projectCounts(states: ThreadState[]): { needsYou: number; running: number } {
   const counts = countStates(states);
   return { needsYou: counts.waiting, running: counts.working + counts.running };

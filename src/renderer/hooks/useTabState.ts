@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { Tab, Group, GroupColor, nextGroupColor, TabNotification } from '../components/TabBar/types';
+import { Tab, Group, GroupColor, nextGroupColor, TabNotification, ProjectIconId } from '../components/TabBar/types';
 import type { SavedSession } from '../sessionMigration';
 import { nextActiveTabAfterArchive, threadName } from '../threadView';
 import { claudeSummaryTitle } from '../chatTitle';
@@ -15,6 +15,13 @@ export interface GroupConfig {
   color: GroupColor;
   cwd?: string;
   shellId?: string;
+  // The project's chosen icon (Phase 8, design-03 decision 12). Undefined
+  // means "no icon chosen", not "clear the icon and use the folder": both
+  // createConfiguredGroup and updateGroup only ever store a real key here,
+  // never an explicit `icon: undefined`, since a Group's icon field is
+  // optional and its absence is what the rest of the app treats as "show the
+  // folder".
+  icon?: ProjectIconId;
 }
 
 // Which folder a thread's branch and worktree are read from. The hook-captured
@@ -293,9 +300,16 @@ export function useTabState() {
   const createConfiguredGroup = useCallback((config: GroupConfig, openTerminal: boolean): string => {
     const id = makeGroupId();
     const now = Date.now();
-    setGroups(prev => [...prev, {
+    const group: Group = {
       id, collapsed: false, pinned: false, archived: false, lastActiveAt: now, history: [], ...config,
-    }]);
+    };
+    // Only ever set the key when an icon was actually chosen: `...config`
+    // above would otherwise leave `icon: undefined` sitting on the group when
+    // the caller's config object carries the key unset, rather than the key
+    // being genuinely absent (sessionMigration.ts and everything downstream
+    // treat "absent" as "show the folder", not "set to undefined").
+    if (config.icon === undefined) delete group.icon;
+    setGroups(prev => [...prev, group]);
     if (openTerminal) {
       const tabId = makeTabId();
       setTabs(prev => [...prev, {
@@ -362,13 +376,31 @@ export function useTabState() {
     setGroups(prev => prev.map(g => g.id === groupId ? { ...g, color } : g));
   }, []);
 
-  // Whole-group edit from the modal (name, folder, colour, shell in one commit).
+  // Whole-group edit from the modal (name, folder, colour, shell, icon in one
+  // commit). config.icon undefined means "no icon chosen in this edit", which
+  // must delete any icon the group already carried, not leave it untouched as
+  // a stale value nor store it as an explicit `undefined`: `{ ...g, ...config
+  // }` alone would do neither correctly (a spread cannot remove a key), so
+  // the key is deleted by hand when the config did not set one.
   const updateGroup = useCallback((groupId: string, config: GroupConfig) => {
-    setGroups(prev => prev.map(g => g.id === groupId ? { ...g, ...config } : g));
+    setGroups(prev => prev.map(g => {
+      if (g.id !== groupId) return g;
+      const next: Group = { ...g, ...config };
+      if (config.icon === undefined) delete next.icon;
+      return next;
+    }));
   }, []);
 
   const toggleGroupCollapse = useCallback((groupId: string) => {
     setGroups(prev => prev.map(g => g.id === groupId ? { ...g, collapsed: !g.collapsed } : g));
+  }, []);
+
+  // Phase 8: the Pinned/Recent heading's collapse-all-or-expand-all button,
+  // one setGroups call for every project in that section rather than one call
+  // per project (which would otherwise re-render on every intermediate step).
+  const setGroupCollapsedMany = useCallback((groupIds: string[], collapsed: boolean) => {
+    const ids = new Set(groupIds);
+    setGroups(prev => prev.map(g => ids.has(g.id) ? { ...g, collapsed } : g));
   }, []);
 
   const deleteGroup = useCallback((groupId: string) => {
@@ -489,6 +521,25 @@ export function useTabState() {
     return true;
   }, [activateTab]);
 
+  // Bringing a project in from the panel's docked "Other projects" row
+  // (design-03 decision 2): this is a view filter over activity, not a pin,
+  // so it only ever stamps lastActiveAt (never backwards, matching
+  // touchActivity's own rule) so the Recent 3-day window picks the project up,
+  // expands it, and activates its first tab in tab order through activateTab,
+  // the ordinary user-activation stamp. Nothing here wakes an asleep thread:
+  // bringing a project in is not the same as waking one of its threads.
+  // Returns the activated tab id, or null when the project has no threads at
+  // all (the caller decides what to do then, same as openProject's `false`).
+  const bringProjectIn = useCallback((groupId: string, now: number): string | null => {
+    setGroups(prev => prev.map(g => g.id === groupId
+      ? { ...g, lastActiveAt: Math.max(g.lastActiveAt, now), collapsed: false }
+      : g));
+    const first = tabsRef.current.find(t => t.groupId === groupId);
+    if (!first) return null;
+    activateTab(first.id);
+    return first.id;
+  }, [activateTab]);
+
   // `saved` has already been through migrateSession, so every field is present and
   // well typed; nothing here needs to guess at defaults.
   const restoreSession = useCallback((saved: SavedSession) => {
@@ -528,8 +579,8 @@ export function useTabState() {
     sleepTab, wakeTab, resumeFromHistory,
     setClaudeMeta, setGitInfo, setPort, setLastCommand, setUnread,
     createGroup, createConfiguredGroup, addToGroup, removeFromGroup,
-    renameGroup, setGroupColor, updateGroup, toggleGroupCollapse, deleteGroup,
-    togglePin, setGroupArchived, touchActivity, openProject,
+    renameGroup, setGroupColor, updateGroup, toggleGroupCollapse, setGroupCollapsedMany, deleteGroup,
+    togglePin, setGroupArchived, touchActivity, openProject, bringProjectIn,
     moveTab, moveGroup, moveGroupAfterGroup,
     restoreSession,
   };

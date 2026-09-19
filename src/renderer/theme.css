@@ -23,6 +23,7 @@
   --need: #fbbf24;
   --live: #4ade80;
   --sleep: #a78bfa;
+  --compact: #60a5fa;
 
   --bg: #212121;
   --side: #171717;
@@ -196,6 +197,7 @@ svg {
 .si.run { color: var(--live); }
 .si.ok { color: var(--live); }
 .si.sleep { color: var(--sleep); }
+.si.compact { color: var(--compact); }
 
 /* .spin: small loading spinner */
 .spin {
@@ -290,6 +292,10 @@ svg {
   opacity: 1;
   transform: translate(-50%, 0);
 }
+/* A tooltip placed beside its target (the rail, at the window edge, has
+   nowhere to show one underneath), vertically centred instead of horizontally. */
+.tip.side { transform: translate(-4px, -50%); }
+.tip.side.show { transform: translate(0, -50%); }
 
 /* ── reduced motion ────────────────────────────────────────────────── */
 /* Broad rule so every animation and transition is off, including classes
