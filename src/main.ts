@@ -49,8 +49,8 @@ if (process.env.AFTERTERM_REMOTE_DEBUG_PORT) {
 // person is working on. Values: "primary" (default), "secondary" (the first
 // non-primary display, falling back to primary when there is only one) or an
 // integer index into screen.getAllDisplays(). Unset means the behaviour normal
-// users get, which is unchanged. The notifier overlay only uses this while the
-// override is set; otherwise it follows the main window (notifierDisplay below).
+// users get, which is unchanged. The notifier overlay follows the main window
+// instead (notifierDisplay below) and only reads this before that window exists.
 function getTargetDisplay(): Electron.Display {
   const want = (process.env.AFTERTERM_DISPLAY ?? 'primary').trim().toLowerCase();
   const primary = screen.getPrimaryDisplay();
@@ -536,13 +536,15 @@ let notifierHeight = 80;
 // toast lands beside the app rather than on the primary monitor while afterterm
 // sits on another one (the multi-monitor bug logged on 2026-06-30). Read fresh
 // on every placement, never cached, since the window can be dragged between
-// monitors at any time. The harness's AFTERTERM_DISPLAY override wins when set,
-// so an automated run keeps every window off the monitor a person is using; the
-// main window is placed on that same display anyway (harnessWindowPlacement).
+// monitors at any time. Before the main window exists (the overlay is created
+// right after it, but a guard costs nothing) the harness's AFTERTERM_DISPLAY
+// pick applies, which is the primary display when the override is unset. Under
+// the harness the main window sits on the override's display anyway
+// (harnessWindowPlacement), so following it keeps every window off the monitor
+// a person is using while still exercising this exact path.
 function notifierDisplay(): Electron.Display {
-  if (process.env.AFTERTERM_DISPLAY) return getTargetDisplay();
   if (mainWindow && !mainWindow.isDestroyed()) return screen.getDisplayMatching(mainWindow.getBounds());
-  return screen.getPrimaryDisplay();
+  return getTargetDisplay();
 }
 
 // Resize/reposition the overlay so it's anchored to the bottom-right of the work
@@ -902,6 +904,14 @@ ipcMain.handle('projects:openInExplorer', async (_event, folder: unknown) => {
     return { ok: false, error: 'Folder not found' };
   }
   if (!isUsableFolder(folder)) return { ok: false, error: 'Folder not found' };
+  // Under the agent harness (scripts/agent-harness, AFTERTERM_HARNESS=1) an
+  // Explorer window must never land on the person's screen, so the launch is
+  // logged instead, the same way shell:openExternal is; the checks above still
+  // ran, so the line only appears for a folder that would genuinely have opened.
+  if (process.env.AFTERTERM_HARNESS === '1') {
+    console.log(`[harness] projects:openInExplorer ${folder}`);
+    return { ok: true };
+  }
   const result = await spawnDetached('explorer.exe', [folder]);
   if (result.ok) return { ok: true };
   console.error('[explorer] could not open', folder, result.error);

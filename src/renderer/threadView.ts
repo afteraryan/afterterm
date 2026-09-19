@@ -39,6 +39,17 @@ export function threadKind(tab: Pick<Tab, 'claudeSessionId'>): ThreadKind {
   return tab.claudeSessionId ? 'chat' : 'shell';
 }
 
+// The folder a thread is actually working in: the hook-reported claudeCwd for a
+// chat (Claude usually runs where the work is, which for this project is often a
+// git worktree, while the shell that launched it still sits in the main
+// checkout), the shell's own cwd otherwise, undefined when neither was ever
+// captured. It is what the branch and worktree are read from (threadGitCwd in
+// useTabState.ts) and, since Phase 9, what "Open in File Explorer" on a thread
+// opens: the worktree for a worktree chat, not the project root.
+export function threadFolder(tab: Pick<Tab, 'cwd' | 'claudeCwd'>): string | undefined {
+  return tab.claudeCwd ?? tab.cwd;
+}
+
 // The word for a thread's kind, shown in the asleep pane ("Server asleep since
 // 2d ago") and anywhere else that needs "Chat"/"Server"/"Shell" rather than the
 // icon. Distinct from threadKind/ThreadKind, which stay chat/shell for the row

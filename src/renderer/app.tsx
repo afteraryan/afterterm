@@ -17,11 +17,11 @@ import { Toast } from './components/Toast';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import type { Screen } from './components/ScreenNav';
 import { useTabState, threadGitCwd } from './hooks/useTabState';
-import { TabNotification, GROUP_COLORS, nextGroupColor } from './components/TabBar/types';
+import { Tab, TabNotification, GROUP_COLORS, nextGroupColor } from './components/TabBar/types';
 import { onTitle, onOutput, onTick, onInterrupt, onAnswer, initTiming, TabTiming } from './spinnerState';
 import { migrateSession, serializeSession } from './sessionMigration';
 import { sleepAllForShutdown } from './sleepWake';
-import { toastMessage, initialScreen, threadName, needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText, localhostUrl } from './threadView';
+import { toastMessage, initialScreen, threadName, needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText, localhostUrl, threadFolder } from './threadView';
 import { ProjectActions } from './projectMenu';
 import { buildThreadMenu } from './threadMenu';
 import { projectAttention, totalAttention, railProjects, firstThreadToOpen } from './attention';
@@ -223,6 +223,30 @@ export function App() {
   // (see projectMenu.tsx).
   const findGroup = (groupId: string) => stateRef.current.groups.find(g => g.id === groupId);
 
+  // One Explorer launch for the project menu (its folder) and the thread menu
+  // (the thread's own folder, Phase 9): the same projects:openInExplorer IPC,
+  // the same toast when main reports a failure.
+  const openFolderInExplorer = (folder: string) => {
+    // Recorded for the harness (drive.mjs's `opened`), which cannot see an
+    // Explorer window open; main logs the same folder under AFTERTERM_HARNESS=1.
+    const win = window as unknown as { __afterterm?: Record<string, unknown> };
+    win.__afterterm = { ...(win.__afterterm ?? {}), lastOpenFolder: folder };
+    window.afterterm.projects.openInExplorer(folder).then(result => {
+      if (!result.ok) showToast({ message: result.error ?? 'Could not open the folder' });
+    });
+  };
+
+  // What the thread menu's "Open in File Explorer" gets for a thread: nothing
+  // when the thread has no folder (the item is then left out), otherwise the
+  // folder's checked existence and the launch. `folderExists` is only ever
+  // false for a folder main has actually checked and found missing; an
+  // unchecked one counts as present, so the item never starts out disabled.
+  const threadExplorer = (tab: Tab) => {
+    const folder = threadFolder(tab);
+    if (!folder) return undefined;
+    return { missing: folderExists[folder] === false, open: () => openFolderInExplorer(folder) };
+  };
+
   const projectActions: ProjectActions = {
     open: (groupId) => {
       const group = findGroup(groupId);
@@ -252,10 +276,7 @@ export function App() {
     openPage: (groupId) => goScreen('project', groupId),
     openInExplorer: (groupId) => {
       const folder = findGroup(groupId)?.cwd;
-      if (!folder) return;
-      window.afterterm.projects.openInExplorer(folder).then(result => {
-        if (!result.ok) showToast({ message: result.error ?? 'Could not open the folder' });
-      });
+      if (folder) openFolderInExplorer(folder);
     },
     openInEditor: (groupId, editorId) => {
       const folder = findGroup(groupId)?.cwd;
@@ -599,6 +620,7 @@ export function App() {
       primaryLabel: tab ? threadName(tab) : projectName,
       secondaryLabel: group?.label,
       projectColor: group ? GROUP_COLORS[group.color].border : undefined,
+      projectIcon: group?.icon,
       message: toastMessage(type),
     });
   }, [state.setTabNotification]);
@@ -855,20 +877,25 @@ export function App() {
     return () => { cancelled = true; };
   }, [state.activeTabId, activeTabAsleep, tails]);
 
-  // Folder existence for the screens that show it. One round trip per entry, so a
-  // folder deleted while you were in the workspace is caught on the way back.
+  // Folder existence for the screens that show it and, since Phase 9, for the
+  // thread menu's own Explorer entry. One round trip per screen entry, so a folder
+  // deleted while you were in the workspace is caught on the way back, plus one
+  // whenever the set of folders itself changes (a thread cd-ing somewhere new, a
+  // project added), which is what keeps the workspace's thread menus honest
+  // without polling. Project folders and thread folders go in one call.
+  const folderKey = [
+    ...state.groups.map(g => g.cwd),
+    ...state.tabs.map(t => threadFolder(t)),
+  ].filter((f): f is string => !!f).sort().join('\0');
   useEffect(() => {
-    if (screen === 'workspace') return;
-    const folders = stateRef.current.groups
-      .map(g => g.cwd)
-      .filter((cwd): cwd is string => !!cwd);
+    const folders = folderKey === '' ? [] : Array.from(new Set(folderKey.split('\0')));
     if (folders.length === 0) return;
     let cancelled = false;
     window.afterterm.projects.checkFolders(folders).then(result => {
       if (!cancelled) setFolderExists(result);
     });
     return () => { cancelled = true; };
-  }, [screen, screenSeq]);
+  }, [screen, screenSeq, folderKey]);
 
   // Editor detection runs in main at startup; the renderer just reads the result
   // once. A prefs.json editorPath that exists but is not an editor is the one
@@ -1016,6 +1043,7 @@ export function App() {
             wake: () => wakeThread(tab.id),
             setUnread: unread => state.setUnread(tab.id, unread),
             openLocalhost: () => openLocalhost(tab.id),
+            openInExplorer: threadExplorer(tab),
             openProjectPage: tab.groupId ? () => goScreen('project', tab.groupId) : undefined,
           })}
           onBack={() => goScreen('home')}
@@ -1040,6 +1068,7 @@ export function App() {
           onSetUnread={state.setUnread}
           onWake={wakeThread}
           onOpenLocalhost={openLocalhost}
+          threadExplorer={threadExplorer}
           onNewTab={state.addTab}
           onOpenChooser={setChooser}
           onOpenProjectPage={groupId => goScreen('project', groupId)}
@@ -1075,6 +1104,7 @@ export function App() {
               wake: () => wakeThread(activeTab.id),
               setUnread: unread => state.setUnread(activeTab.id, unread),
               openLocalhost: () => openLocalhost(activeTab.id),
+              openInExplorer: threadExplorer(activeTab),
               openProjectPage: activeTab.groupId ? () => goScreen('project', activeTab.groupId) : undefined,
             } : undefined}
           />

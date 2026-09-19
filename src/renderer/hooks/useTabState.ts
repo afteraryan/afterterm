@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { Tab, Group, GroupColor, nextGroupColor, TabNotification, ProjectIconId } from '../components/TabBar/types';
 import type { SavedSession } from '../sessionMigration';
-import { nextActiveTabAfterArchive, threadName } from '../threadView';
+import { nextActiveTabAfterArchive, threadFolder, threadName } from '../threadView';
 import { claudeSummaryTitle } from '../chatTitle';
 // Named apart from the hook's own sleepTab/wakeTab callbacks below: these are the
 // pure record transforms, the callbacks are the state actions that apply them.
@@ -24,13 +24,15 @@ export interface GroupConfig {
   icon?: ProjectIconId;
 }
 
-// Which folder a thread's branch and worktree are read from. The hook-captured
-// claudeCwd wins over the shell's own cwd: Claude usually runs where the work is,
-// which for this project is often a git worktree, while the shell that launched it
-// still sits in the main checkout. Reading the shell's cwd there would show the
-// main branch for a thread that is working on a phase branch.
+// Which folder a thread's branch and worktree are read from: the thread's own
+// working folder (threadFolder in threadView.ts, the same rule "Open in File
+// Explorer" on a thread uses). The hook-captured claudeCwd wins over the shell's
+// own cwd: Claude usually runs where the work is, which for this project is
+// often a git worktree, while the shell that launched it still sits in the main
+// checkout. Reading the shell's cwd there would show the main branch for a
+// thread that is working on a phase branch.
 export function threadGitCwd(tab: Pick<Tab, 'cwd' | 'claudeCwd'>): string | undefined {
-  return tab.claudeCwd ?? tab.cwd;
+  return threadFolder(tab);
 }
 
 let tabCounter = 0;

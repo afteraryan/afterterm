@@ -4,7 +4,7 @@
 // Exits 0 if all pass, 1 on any failure.
 
 import {
-  threadKind, threadState, stateLabel, stateBreathes, displayTitle,
+  threadFolder, threadKind, threadState, stateLabel, stateBreathes, displayTitle,
   threadName, modelLabel, kindWord, runningLabel, localhostUrl, openLocalhostLabel,
   needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText,
   foldThreads, projectCounts, toastMessage,
@@ -29,6 +29,14 @@ function group(id: string, extra: Partial<Group> = {}): Group {
     id, label: id, color: 'teal', collapsed: false,
     pinned: false, archived: false, lastActiveAt: 0, ...extra,
   } as Group;
+}
+
+console.log('\nthreadView: threadFolder\n');
+{
+  check('a chat with claudeCwd opens its Claude folder, not the shell cwd',
+    threadFolder({ cwd: 'D:\\repo', claudeCwd: 'D:\\repo\\.claude\\worktrees\\phase-9' }) === 'D:\\repo\\.claude\\worktrees\\phase-9');
+  check('a shell with only a cwd opens that cwd', threadFolder({ cwd: 'D:\\repo' }) === 'D:\\repo');
+  check('no folder at all is undefined', threadFolder({}) === undefined);
 }
 
 console.log('\nthreadView: threadKind\n');

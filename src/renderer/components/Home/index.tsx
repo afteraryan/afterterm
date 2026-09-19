@@ -113,7 +113,7 @@ export function Home({ groups, tabs, now, editors, folderExists, actions, onNewP
       onContextMenu={e => openProjectMenu(e, group)}
     >
       <div className="hd">
-        <FolderIcon color={group.color} open size={18} />
+        <FolderIcon color={group.color} open size={18} icon={group.icon} />
         <span className="n">{group.label}</span>
         {pageButton(group)}
         {pinButton(group)}
@@ -136,7 +136,7 @@ export function Home({ groups, tabs, now, editors, folderExists, actions, onNewP
       onKeyDown={activateOnEnter(group.id)}
       onContextMenu={e => openProjectMenu(e, group)}
     >
-      <FolderIcon color={group.color} open size={18} />
+      <FolderIcon color={group.color} open size={18} icon={group.icon} />
       <div className="tx">
         <div className="n">{group.label}</div>
       </div>

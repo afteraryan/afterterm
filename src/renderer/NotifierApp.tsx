@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './NotifierApp.css';
-import { IconBell, IconCheck, IconHourglass, IconCompact, IconX, IconFolder } from './components/Icons';
+import { IconBell, IconCheck, IconHourglass, IconCompact, IconX, IconFolder, ProjectIcon } from './components/Icons';
+import { isProjectIconId } from './components/TabBar/types';
 
 export type NotifType = 'done' | 'attention' | 'background' | 'compacting';
 
@@ -11,6 +12,7 @@ export interface NotifierToast {
   primaryLabel: string;
   secondaryLabel?: string;
   projectColor?: string;
+  projectIcon?: string;
   message: string;
 }
 
@@ -52,7 +54,9 @@ function ToastCard({ toast, onDismiss }: ToastCardProps) {
           {toast.secondaryLabel ? (
             <>
               <span className="notif-project">
-                <IconFolder size={13} style={{ color: toast.projectColor || 'var(--text3)' }} />
+                {isProjectIconId(toast.projectIcon)
+                  ? <span style={{ color: toast.projectColor || 'var(--text3)', display: 'inline-flex' }}><ProjectIcon icon={toast.projectIcon} size={13} /></span>
+                  : <IconFolder size={13} style={{ color: toast.projectColor || 'var(--text3)' }} />}
                 {toast.secondaryLabel}
               </span>
               {`· ${toast.message}`}

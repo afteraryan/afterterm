@@ -49,6 +49,12 @@ export function Header({ tab, group, groups, actions, now }: HeaderProps) {
   const kind = threadKind(tab);
   const state = threadState(tab);
   const model = kind === 'chat' ? modelLabel(tab.model) : null;
+  // The worktree item opens the thread's own folder in Explorer (Phase 9, the
+  // manual-testing ask: "clicking that worktree item should open the worktree
+  // folder"). It is a button only when the caller offers the action; the
+  // missing-folder case keeps the button but disables it with the same tip the
+  // menus use, so a dead path is explained rather than silently ignored.
+  const explorer = actions?.openInExplorer;
 
   return (
     <div className="header">
@@ -59,7 +65,7 @@ export function Header({ tab, group, groups, actions, now }: HeaderProps) {
         </div>
         <div className="header-meta">
           <span className="header-meta-item" data-meta="project">
-            {group ? <FolderIcon color={group.color} open size={14} /> : <IconTerm size={14} />}
+            {group ? <FolderIcon color={group.color} open size={14} icon={group.icon} /> : <IconTerm size={14} />}
             {group ? group.label : 'General'}
           </span>
           {model && (
@@ -74,12 +80,24 @@ export function Header({ tab, group, groups, actions, now }: HeaderProps) {
               {tab.branch}
             </span>
           )}
-          {tab.worktree && (
+          {tab.worktree && (explorer ? (
+            <button
+              type="button"
+              className="header-meta-item header-meta-worktree header-meta-link"
+              data-meta="worktree"
+              data-tip={explorer.missing ? 'Folder not found' : 'Open in File Explorer'}
+              disabled={explorer.missing}
+              onClick={explorer.open}
+            >
+              <IconWorktree size={14} />
+              <span className="header-meta-text">{tab.worktree}</span>
+            </button>
+          ) : (
             <span className="header-meta-item header-meta-worktree" data-meta="worktree">
               <IconWorktree size={14} />
               <span className="header-meta-text">{tab.worktree}</span>
             </span>
-          )}
+          ))}
         </div>
       </div>
       <div className="header-actions">

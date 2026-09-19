@@ -5,8 +5,9 @@
 // unlooked-at.
 import { Tab, Group } from './components/TabBar/types';
 import { MenuItem } from './components/Menu';
-import { FolderIcon, IconTerm } from './components/Icons';
+import { FolderIcon, IconExplorer, IconTerm } from './components/Icons';
 import { openLocalhostLabel } from './threadView';
+import { FOLDER_MISSING_TIP } from './projectMenu';
 
 export interface ThreadMenuActions {
   open: () => void;
@@ -24,6 +25,12 @@ export interface ThreadMenuActions {
   // localhost:port (servers)"). Absent for a chat, a plain shell, or an asleep
   // server, same conditions buildThreadMenu checks before inserting the item.
   openLocalhost?: () => void;
+  // "Open in File Explorer" for the thread's own folder (Phase 9): the folder
+  // its Claude session reports for a chat, often a worktree, the shell's cwd
+  // otherwise (threadFolder in threadView.ts). Absent when the thread has no
+  // folder at all, so the item stays out of the menu; `missing` disables it
+  // with the same "Folder not found" tip the project menu uses.
+  openInExplorer?: { missing: boolean; open: () => void };
 }
 
 export function buildThreadMenu(tab: Tab, groups: Group[], actions: ThreadMenuActions): MenuItem[] {
@@ -38,7 +45,7 @@ export function buildThreadMenu(tab: Tab, groups: Group[], actions: ThreadMenuAc
     },
     ...otherGroups.map(g => ({
       label: g.label,
-      icon: <FolderIcon color={g.color} size={16} />,
+      icon: <FolderIcon color={g.color} size={16} icon={g.icon} />,
       onSelect: () => actions.moveToGroup(g.id),
     })),
   ];
@@ -65,6 +72,17 @@ export function buildThreadMenu(tab: Tab, groups: Group[], actions: ThreadMenuAc
     items.push(openPage
       ? { label: 'Open project page', onSelect: openPage }
       : { label: 'Open project page', disabled: true });
+  }
+
+  if (actions.openInExplorer) {
+    const { missing, open } = actions.openInExplorer;
+    items.push({
+      label: 'Open in File Explorer',
+      right: <IconExplorer size={16} />,
+      disabled: missing,
+      tip: missing ? FOLDER_MISSING_TIP : undefined,
+      onSelect: open,
+    });
   }
 
   items.push({ label: 'Close', danger: true, onSelect: actions.close });

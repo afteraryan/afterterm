@@ -100,7 +100,7 @@ export function ProjectPage({
 
         <div className="ph" onContextMenu={openHeaderMenu}>
           <h1>
-            <FolderIcon color={group.color} open size={26} />
+            <FolderIcon color={group.color} open size={26} icon={group.icon} />
             {group.label}
           </h1>
           <p className="f">

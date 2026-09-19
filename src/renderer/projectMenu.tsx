@@ -9,7 +9,8 @@ import { MenuItem } from './components/Menu';
 import { IconExplorer, EditorLogo } from './components/Icons';
 import type { EditorInfo } from '../editors';
 
-const FOLDER_MISSING_TIP = 'Folder not found';
+// Shared with threadMenu.tsx, whose Explorer entry disables the same way.
+export const FOLDER_MISSING_TIP = 'Folder not found';
 
 export interface ProjectActions {
   open: (groupId: string) => void; // workspace on that project

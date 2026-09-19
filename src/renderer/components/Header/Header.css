@@ -55,10 +55,36 @@
 }
 
 /* The words carry the brighter --text2 above; the icons stay dim (--text3)
-   so the words lead. The .fo folder icon is excluded, it sets its own
-   inline colour for the project's group colour (see FolderIcon). */
-.header-meta-item svg {
+   so the words lead. The project icon inside .fo is left out of the rule: it
+   inherits the group colour FolderIcon sets inline on its span, and a rule on
+   the svg itself would win over that inheritance. */
+.header-meta-item > svg {
   color: var(--text3);
+}
+
+/* The worktree item as a button (Phase 9): the same text as the plain item,
+   with a hover to say it does something (Open in File Explorer) and the
+   disabled look for a folder that is gone. */
+.header-meta-link {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color var(--fast);
+}
+
+.header-meta-link:hover:not(:disabled) {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.header-meta-link:disabled {
+  cursor: default;
+  color: var(--text4);
 }
 
 /* The worktree path can run long. It shrinks and ellipsizes inside its own

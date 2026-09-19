@@ -53,7 +53,7 @@ export function ThreadHoverCard({ tab, group, anchor, now }: ThreadHoverCardProp
         <dd data-row="project" className="hc-project">
           {group ? (
             <>
-              <FolderIcon color={group.color} open size={14} />
+              <FolderIcon color={group.color} open size={14} icon={group.icon} />
               <span className="hc-project-name">{group.label}</span>
             </>
           ) : (

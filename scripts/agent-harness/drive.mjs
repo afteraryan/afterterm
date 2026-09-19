@@ -336,6 +336,7 @@ try {
       case 'click': await cmdClick(args[0], args[1], 'left'); break;
       case 'rightclick': await cmdClick(args[0], args[1], 'right'); break;
       case 'hover': await cmdHover(args[0], args[1]); break;
+      case 'scroll': await cmdScroll(args[0], args[1], args[2]); break;
       case 'unhover': await cmdUnhover(); break;
       case 'drag': await cmdDrag(args); break;
       case 'emulate-media': await cmdEmulateMedia(args[0]); break;
@@ -471,6 +472,31 @@ async function cmdClick(selector, indexArg, button) {
   await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button, clickCount: 1 });
   await sleep(50);
   console.log(`${button === 'right' ? 'right-clicked' : 'clicked'} ${selector}[${index}] at (${x}, ${y}) of ${count} match(es)`);
+}
+
+// Phase 9: a mouse wheel over an element, the way a user scrolls a terminal or
+// the asleep pane. deltaY in pixels, positive scrolls down (toward the end),
+// negative up. Sent as one wheel event through Chromium's input pipeline so
+// xterm's own wheel handler and a div's native scrolling both see it; a large
+// delta is split into 100px steps, since xterm turns each event into a line
+// count and one huge event would otherwise jump further than a wheel can.
+async function cmdScroll(selector, deltaArg, indexArg) {
+  if (!selector) fail('scroll needs a selector and a deltaY (pixels, negative = up)');
+  const deltaY = Number(deltaArg);
+  if (!Number.isFinite(deltaY) || deltaY === 0) fail('scroll needs a non-zero deltaY');
+  const { x, y, count, index } = await elementCentre(selector, indexArg);
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'none' });
+  const step = 100;
+  let left = Math.abs(deltaY);
+  const sign = Math.sign(deltaY);
+  while (left > 0) {
+    const d = Math.min(step, left);
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX: 0, deltaY: sign * d });
+    await sleep(16);
+    left -= d;
+  }
+  await sleep(80);
+  console.log(`scrolled ${selector}[${index}] by ${deltaY}px at (${x}, ${y}) of ${count} match(es)`);
 }
 
 async function cmdHover(selector, indexArg) {
@@ -1190,9 +1216,15 @@ async function cmdConfirm() {
 // <data-dir>\harness.log) under AFTERTERM_HARNESS=1 instead of opening a
 // browser; app.tsx also stashes the same url on window.__afterterm.lastOpenExternal,
 // which is what this command reads. Check the log line and this command together.
+// Phase 9: the same for "Open in File Explorer" (a project's folder, or a
+// thread's own folder from the thread menu and the header's worktree item):
+// app.tsx records the folder on window.__afterterm.lastOpenFolder and main logs
+// `[harness] projects:openInExplorer <folder>` instead of launching Explorer.
 async function cmdOpened() {
   const url = await evaluate(cdp, `window.__afterterm && window.__afterterm.lastOpenExternal`);
+  const folder = await evaluate(cdp, `window.__afterterm && window.__afterterm.lastOpenFolder`);
   console.log(url ? url : '(nothing opened)');
+  console.log(folder ? `folder: ${folder}` : 'folder: (none opened)');
 }
 
 // Phase 5: window.__afterterm.commandState(tabId) (Terminal/index.tsx), the OSC

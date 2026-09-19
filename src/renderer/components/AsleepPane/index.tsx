@@ -46,15 +46,36 @@ export function AsleepPane({ tab, tail, now, onWake }: AsleepPaneProps) {
   // last showing before it slept, which sits at the very end. Re-runs on tab
   // change too, so switching straight from one asleep thread to another does
   // not carry over the previous thread's scroll position.
-  useEffect(() => {
+  //
+  // The pane can mount while the workspace is hidden (Home or a project page
+  // showing over it, the workspace kept mounted with display: none), and a
+  // hidden scroller has no scrollHeight to scroll to, so the effect alone
+  // landed at 0 (found in the Phase 9 harness). The flag below keeps the
+  // intent, and a ResizeObserver on the scroller finishes the job the moment
+  // it gets a size, which is exactly when the workspace comes on screen.
+  const needsEndRef = useRef(false);
+  const scrollToEnd = () => {
     const el = scrollRef.current;
-    if (!el) return;
+    if (!el || el.clientHeight === 0) return false;
     el.scrollTop = el.scrollHeight;
     // Reset the jump button to hidden at the position this scroll-to-end
     // actually landed on, rather than assuming it reached the true bottom (a
     // pane too short to scroll at all lands at 0 either way).
     setJump(initialJumpState(el.scrollTop));
+    return true;
+  };
+  useEffect(() => {
+    needsEndRef.current = !scrollToEnd();
   }, [tab.id, tail]);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => {
+      if (needsEndRef.current && scrollToEnd()) needsEndRef.current = false;
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const onScroll = () => {
     const el = scrollRef.current;

@@ -39,6 +39,20 @@
   gap: 10px;
   font-family: var(--sans);
   margin: -40px 0 0;
+  z-index: 1;
+}
+
+/* Phase 9: the pane opens at the end of its tail, so the sticky box now sits
+   over dimmed lines rather than above them. A soft backdrop behind the box
+   keeps the button and the "asleep since" line readable there; it is the
+   pane's own colour fading out, so it reads as a clearing, not a card. */
+.asleep-pane .wakebox::before {
+  content: "";
+  position: absolute;
+  inset: -22px -36px;
+  border-radius: 999px;
+  background: radial-gradient(closest-side, #191919 62%, rgba(25, 25, 25, 0));
+  z-index: -1;
 }
 
 .asleep-pane .wakebox .w {
