@@ -17,7 +17,7 @@ import { asleepSinceText } from '../../sleepWake';
 import { initialJumpState, onScrollSample, JUMP_THRESHOLD_PX } from '../../jumpScroll';
 import type { JumpState } from '../../jumpScroll';
 import { JumpButton } from '../JumpButton';
-import { prefersReducedMotion } from '../../jumpScroll';
+import { prefersReducedMotion, isUserScroll } from '../../jumpScroll';
 import './AsleepPane.css';
 
 export interface AsleepPaneProps {
@@ -78,10 +78,32 @@ export function AsleepPane({ tab, tail, now, onWake }: AsleepPaneProps) {
     return () => observer.disconnect();
   }, []);
 
+  // Only the user's own scrolling counts (isUserScroll in jumpScroll.ts): a
+  // wheel or a key stamps lastInputRef, a scrollbar drag (a pointer down on
+  // the scroller itself, not on its content) holds draggingRef until the
+  // pointer is released anywhere. Every other scroll event, from the
+  // scroll-to-end, from re-wrapping as the pane changes width, from the
+  // animated jump, only updates the sampled position so the next real scroll
+  // reads its direction correctly.
+  const lastInputRef = useRef(0);
+  const draggingRef = useRef(false);
+  const markInput = () => { lastInputRef.current = performance.now(); };
+  useEffect(() => {
+    const release = () => { draggingRef.current = false; };
+    window.addEventListener('pointerup', release);
+    window.addEventListener('pointercancel', release);
+    return () => {
+      window.removeEventListener('pointerup', release);
+      window.removeEventListener('pointercancel', release);
+    };
+  }, []);
   const onScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
-    setJump((prev) => onScrollSample(prev, el.scrollTop, el.scrollHeight - el.clientHeight, JUMP_THRESHOLD_PX));
+    const userScroll = isUserScroll(lastInputRef.current, performance.now(), draggingRef.current);
+    setJump((prev) => userScroll
+      ? onScrollSample(prev, el.scrollTop, el.scrollHeight - el.clientHeight, JUMP_THRESHOLD_PX)
+      : { target: prev.target, position: el.scrollTop });
   };
 
   // A jump scrolls, it does not teleport (Aryan, 2026-09-19): the browser's own
@@ -90,12 +112,22 @@ export function AsleepPane({ tab, tail, now, onWake }: AsleepPaneProps) {
   const onJump = (target: 'top' | 'bottom') => {
     const el = scrollRef.current;
     if (!el) return;
+    // The button shrinks away as the scroll starts; the scroll events on the way
+    // are not the user's, so they only track the position (onScroll above).
+    setJump(initialJumpState(target === 'top' ? 0 : el.scrollHeight - el.clientHeight));
     el.scrollTo({ top: target === 'top' ? 0 : el.scrollHeight, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
   };
 
   return (
     <div className="asleep-pane" data-tab-id={tab.id}>
-      <div className="asleep-scroll" ref={scrollRef} onScroll={onScroll}>
+      <div
+        className="asleep-scroll"
+        ref={scrollRef}
+        onScroll={onScroll}
+        onWheel={markInput}
+        onKeyDown={markInput}
+        onPointerDown={(e) => { if (e.target === e.currentTarget) draggingRef.current = true; }}
+      >
         <div className="wakebox">
           <button type="button" className="b p big" data-wake ref={wakeRef} onClick={onWake}>
             Wake
@@ -110,7 +142,7 @@ export function AsleepPane({ tab, tail, now, onWake }: AsleepPaneProps) {
         target={jump.target}
         onJump={onJump}
         // A wheel over the button scrolls the pane exactly as one beside it would.
-        onWheel={(deltaY) => scrollRef.current?.scrollBy({ top: deltaY })}
+        onWheel={(deltaY) => { markInput(); scrollRef.current?.scrollBy({ top: deltaY }); }}
       />
     </div>
   );

@@ -12,7 +12,7 @@ import {
   type CommandMarkState,
 } from '../../commandMarks';
 import { TAIL_MAX_LINES } from '../../../thread-tail';
-import { JUMP_THRESHOLD_LINES, JumpState, JumpTarget, initialJumpState, onScrollSample, jumpDurationMs, jumpLineAt, prefersReducedMotion, wheelToLines } from '../../jumpScroll';
+import { JUMP_THRESHOLD_LINES, JumpState, JumpTarget, initialJumpState, onScrollSample, jumpDurationMs, jumpLineAt, prefersReducedMotion, wheelToLines, isUserScroll } from '../../jumpScroll';
 import { JumpButton } from '../JumpButton';
 import { isWindowsDrivePath, osc7ToWindowsPath } from '../../../shell-paths';
 
@@ -272,6 +272,22 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
   // scroll event, which fires for the user's scrolling and for output arriving alike.
   const jumpRef = useRef(new Map<string, JumpState>());
   const [jump, setJump] = useState<JumpTarget>(null);
+  // Only the user's own scrolling may show the button (isUserScroll in
+  // jumpScroll.ts): a wheel or a key over the terminal stamps jumpInputRef, a
+  // pointer down outside the screen (the scrollbar) holds jumpDragRef until
+  // release. Output arriving, a refit, the animated jump: those scroll events
+  // only update the sampled position.
+  const jumpInputRef = useRef(0);
+  const jumpDragRef = useRef(false);
+  useEffect(() => {
+    const release = () => { jumpDragRef.current = false; };
+    window.addEventListener('pointerup', release);
+    window.addEventListener('pointercancel', release);
+    return () => {
+      window.removeEventListener('pointerup', release);
+      window.removeEventListener('pointercancel', release);
+    };
+  }, []);
 
   // ── Find bar state (operates on the active tab only) ──────────────────────
   const [findOpen, setFindOpen] = useState(false);
@@ -615,10 +631,19 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       term.onScroll(() => {
         const buffer = term.buffer.active;
         const prev = jumpRef.current.get(tabId) ?? initialJumpState(buffer.viewportY);
-        const next = onScrollSample(prev, buffer.viewportY, buffer.baseY, JUMP_THRESHOLD_LINES);
+        const next = isUserScroll(jumpInputRef.current, performance.now(), jumpDragRef.current)
+          ? onScrollSample(prev, buffer.viewportY, buffer.baseY, JUMP_THRESHOLD_LINES)
+          : { target: prev.target, position: buffer.viewportY };
         jumpRef.current.set(tabId, next);
         if (tabId === activeRef.current && next.target !== prev.target) setJump(next.target);
       });
+      container.addEventListener('wheel', () => { jumpInputRef.current = performance.now(); }, { passive: true, capture: true });
+      container.addEventListener('keydown', () => { jumpInputRef.current = performance.now(); }, { capture: true });
+      container.addEventListener('pointerdown', (e) => {
+        // The screen takes clicks for selection and focus; anything else in the
+        // container is the scrollbar.
+        if (!(e.target instanceof Element) || !e.target.closest('.xterm-screen')) jumpDragRef.current = true;
+      }, { capture: true });
 
       term.onTitleChange((rawTitle) => {
         const notifType = detectNotification(rawTitle);
@@ -761,6 +786,10 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
     if (jumpFrameRef.current !== null) cancelAnimationFrame(jumpFrameRef.current);
     const from = term.buffer.active.viewportY;
     const to = target === 'top' ? 0 : term.buffer.active.baseY;
+    // The button shrinks away as the jump starts; the scroll events along the
+    // way are not the user's and only track the position.
+    jumpRef.current.set(activeRef.current, initialJumpState(from));
+    setJump(null);
     const duration = prefersReducedMotion() ? 0 : jumpDurationMs(to - from);
     if (duration === 0) {
       if (target === 'top') term.scrollToTop(); else term.scrollToBottom();
@@ -791,6 +820,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
   const wheelToTerminal = useCallback((deltaY: number, _deltaX: number, deltaMode: number) => {
     const info = termsRef.current.get(activeRef.current);
     if (!info) return;
+    jumpInputRef.current = performance.now();
     const screen = info.container.querySelector('.xterm-screen');
     const cellHeight = screen ? screen.clientHeight / Math.max(1, info.term.rows) : 0;
     const { lines, carry } = wheelToLines(deltaY, deltaMode, cellHeight, info.term.rows, wheelCarryRef.current);
