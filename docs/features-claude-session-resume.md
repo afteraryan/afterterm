@@ -154,3 +154,27 @@ before any `userData` path is read).
   small files; the data is also in `session.json`).
 - A tab that ran Claude once and was later used as a plain shell still carries its
   `claudeSessionId`, so it will resume Claude on next launch. Acceptable for v1.
+
+## The CLAUDE.md record (moved here 2026-09-20)
+
+## Session Restore
+
+Windows ConPTY cannot be reconnected after app restart — the kernel object dies with the process. (A future design to make shells *survive* an app restart lives in `docs/design-01-persistent-pty-host.md`.)
+
+What afterterm does:
+- Auto-saves every 2 seconds (debounced): tab order, group names/colors/collapsed state, shell type, CWD
+- On relaunch: restores the full layout and spawns fresh shells starting in the saved CWD
+- Limitation: scrollback, running processes, and command history are lost — each tab is a fresh shell
+
+Save location: `%APPDATA%\afterterm\session.json`
+
+Format: `{ version, tabs, groups, activeTabId }`. `version: 2` since the projects-and-threads work; 0.8.1 wrote no version field. Loading goes through `migrateSession` in `src/renderer/sessionMigration.ts`, which fills the fields a 0.8.1 file lacks (`Group.pinned`, `Group.archived`, `Group.lastActiveAt`, `Group.history`, `Tab.lastActiveAt`, `Tab.asleep`, `Tab.sleptAt`), drops entries without an id, strips transient fields and rejects anything that is not a session. Saving goes through `serializeSession` in the same module. Every 0.8.1 key keeps its name and meaning, so 0.8.1 still opens a file written by a newer build (it ignores the fields it does not know); a 0.8.1 build opening a Phase 4 file ignores `asleep`, `sleptAt` and `history` the same way and spawns every tab as before, since it has no notion of a thread starting asleep, and it ignores Phase 5's `port` and `lastCommand` the same way. Add new persisted fields in that module, not in `app.tsx`. Phase 3 adds `Tab.model`, `Tab.branch`, `Tab.worktree` and `Tab.claudeTitle` to the persisted keys, all optional strings; `Tab.firstPrompt` stays transient, re-read from the transcript on every launch. Phase 4 adds `Tab.sleptAt` (persisted, present only while asleep) and `Group.history` (persisted, `HistoryEntry[]`, defaults to `[]`); `Tab.wokeAt` is transient, set only for the one render after a wake or a history resume so the terminal layer knows to replay the saved tail, and is stripped on both load and save. Phase 5 adds `Tab.port` (persisted, optional, validated on load as an integer 1 to 65535, anything else dropped) and `Tab.lastCommand` (persisted, optional string). Phase 7 adds `Tab.unread` (persisted, optional, kept only when it is the literal `true`; false or a wrong type is dropped so a never-marked thread and one marked read look the same on disk). Phase 8 adds `Group.icon` (persisted, optional, validated against the ten `PROJECT_ICON_IDS`, anything else dropped so an old id or a hand-edited string falls back to the plain folder) and a top-level `ui: { panelHidden?: boolean }` object (persisted, defaults to `{}`); 0.8.1 ignores both the same way it ignores every field it does not know.
+
+Tabs that were running a **Claude Code session no longer auto-resume on relaunch**. Every thread restored from `session.json` starts asleep (`restoredTab` in `sleepWake.ts`), full stop: nothing is spawned at all until the user acts on it. A chat resumes when the user wakes it, from the asleep pane's Wake button or the thread menu's Wake, or when Resume is used on a history entry from the project page or the palette, both of which run `claude --resume <sessionId>` in the session's cwd the same way a plain wake does. The reason nothing used to resume in bulk is unchanged and is now also the reason nothing wakes in bulk: resuming every saved session at once cold-starts N `claude` processes plus their MCP servers simultaneously, which can OOM-crash the app on a loaded or lower-RAM machine (it did, with ~10 sessions on a 16 GB box); making every restore start asleep removes even the one exception the old lazy scheme carved out for the active tab. The
+session UUID is still captured per-tab via a file the notify
+hook writes — **not** the terminal/title channel — and persisted as `claudeSessionId` /
+`claudeCwd`. Capture only fires on `UserPromptSubmit` / `Stop`: Claude Code's shared background
+daemon inherits the tab env and pre-spawns throwaway `(spare)` sessions whose `SessionStart`
+used to hijack the mapping with an id that never gets a transcript. See [`docs/features-claude-session-resume.md`](docs/features-claude-session-resume.md)
+for the why and the wiring. (Dev isolation: `AFTERTERM_USER_DATA_DIR` redirects `session.json`
+to a throwaway dir.)
