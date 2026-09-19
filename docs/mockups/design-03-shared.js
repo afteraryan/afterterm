@@ -277,32 +277,84 @@ function agoText(min) {
   return `${Math.round(min / 43200)}mo`;
 }
 
-/* ── The sheet: variant buttons, note, options, frame ──────────────────── */
+/* ── The questionnaire: page order and the saved picks ─────────────────── */
+// The six pages in order. Each page saves the pick under its file name; the
+// index page lists the picks and copies them as text to paste into the chat.
+const PAGES = [
+  ['sidebar-rail-variants.html', 'Which projects show up on the rail'],
+  ['sidebar-panel-variants.html', 'Which projects are listed in the sidebar'],
+  ['sidebar-attention-filter-variants.html', 'How I get to the threads that need me'],
+  ['sidebar-pinned-split-variants.html', 'How pinned projects look different'],
+  ['sidebar-collapse-all-variants.html', 'Where the collapse-all button goes'],
+  ['sidebar-search-input-variants.html', 'What typing in the Search box does'],
+];
+const PICKS_KEY = 'design03-picks';
+function loadPicks() { try { return JSON.parse(localStorage.getItem(PICKS_KEY) || '{}'); } catch { return {}; } }
+function savePick(page, id, name) { const p = loadPicks(); p[page] = { id, name }; try { localStorage.setItem(PICKS_KEY, JSON.stringify(p)); } catch {} }
+function clearPicks() { try { localStorage.removeItem(PICKS_KEY); } catch {} }
+function thisPage() { return decodeURIComponent(location.pathname.split('/').pop()); }
+
+/* ── The sheet: question, choices, the pick button, the frame ──────────── */
 function initVariants(cfg) {
   document.body.insertAdjacentHTML('afterbegin', ICONS);
   const sheet = document.createElement('div');
   sheet.className = 'sheet';
+  const page = thisPage();
+  const idx = PAGES.findIndex(p => p[0] === page);
+  const saved = loadPicks()[page];
   const hash = location.hash.replace('#', '');
-  let current = cfg.variants.find(v => v.id === hash) ? hash : cfg.variants[0].id;
+  let current = cfg.variants.find(v => v.id === hash) ? hash : (saved && cfg.variants.find(v => v.id === saved.id) ? saved.id : cfg.variants[0].id);
   const opts = {};
   (cfg.options || []).forEach(o => { opts[o.key] = o.default; });
 
   const draw = () => {
     const v = cfg.variants.find(x => x.id === current);
     const visibleOpts = (cfg.options || []).filter(o => !o.only || o.only.includes(current));
-    sheet.innerHTML = `<div class="vbar"><h1>${esc(cfg.title)}</h1>${cfg.question ? `<p class="q">${cfg.question}</p>` : ''}<div class="row"><span class="pick">Pick one:</span>${cfg.variants.map(x => `<button class="vb" data-v="${x.id}" aria-selected="${x.id === current}">${esc(x.name)}</button>`).join('')}</div>
-      <div class="note"><b>${esc(v.name)}.</b> ${v.note}${v.look ? `<div class="look">Look at: ${v.look}</div>` : ''}${v.closes ? `<ul>${v.closes.map(c => `<li>${c}</li>`).join('')}</ul>` : ''}</div>
+    const pick = loadPicks()[page];
+    const picked = pick && pick.id === current;
+    const prev = idx > 0 ? PAGES[idx - 1][0] : null;
+    const next = idx >= 0 && idx < PAGES.length - 1 ? PAGES[idx + 1][0] : null;
+    const nav = `<div class="nav"><a href="design-03-index.html">All questions</a><span class="sp"></span>${prev ? `<a href="${prev}">Previous</a>` : '<span class="dis">Previous</span>'}<span class="pg">Question ${idx + 1} of ${PAGES.length}</span>${next ? `<a href="${next}">Next</a>` : `<a href="design-03-index.html">Finish</a>`}</div>`;
+    sheet.innerHTML = `<div class="vbar">${nav}<h1>${esc(cfg.title)}</h1>${cfg.question ? `<p class="q">${cfg.question}</p>` : ''}<div class="row"><span class="pick">Look at each:</span>${cfg.variants.map(x => `<button class="vb" data-v="${x.id}" aria-selected="${x.id === current}">${esc(x.name)}${pick && pick.id === x.id ? ' ✓' : ''}</button>`).join('')}</div>
+      <div class="note"><b>${esc(v.name)}.</b> ${v.note}${v.look ? `<div class="look">Look at: ${v.look}</div>` : ''}${v.closes ? `<ul>${v.closes.map(c => `<li>${c}</li>`).join('')}</ul>` : ''}
+        <div class="pickrow">${picked ? `<span class="picked">✓ This is your pick for this question.</span>` : `<button class="pb" data-pick>This is my pick</button>`}${pick && !picked ? `<span class="dis">Your current pick is ${esc(pick.name)}.</span>` : ''}${next && picked ? `<a class="pb ghost" href="${next}">Next question</a>` : ''}${!next && picked ? `<a class="pb ghost" href="design-03-index.html">See all your answers</a>` : ''}</div></div>
       ${visibleOpts.length ? `<div class="opts">${visibleOpts.map(o => `<label><input type="checkbox" data-opt="${o.key}" ${opts[o.key] ? 'checked' : ''}>${esc(o.label)}</label>`).join('')}</div>` : ''}</div>
       <div class="frame" id="frame"></div><div class="tip" id="tip"></div><div class="menu" id="menu"></div>`;
     const frame = sheet.querySelector('#frame');
     v.render(frame, opts);
     sheet.querySelectorAll('[data-v]').forEach(b => b.onclick = () => { current = b.dataset.v; location.hash = current; draw(); });
     sheet.querySelectorAll('[data-opt]').forEach(i => i.onchange = () => { opts[i.dataset.opt] = i.checked; draw(); });
+    const pb = sheet.querySelector('[data-pick]');
+    if (pb) pb.onclick = () => { savePick(page, v.id, v.name); draw(); };
     bindCommon(frame, () => draw());
   };
   document.body.appendChild(sheet);
   draw();
   window.__redraw = draw;
+}
+
+// The index page: the list of questions with the saved pick beside each, and
+// the answers as text to copy into the chat.
+function initIndex() {
+  const picks = loadPicks();
+  const list = document.getElementById('qlist');
+  const done = PAGES.filter(p => picks[p[0]]).length;
+  const lines = PAGES.map((p, i) => `${i + 1}. ${p[1]}: ${picks[p[0]] ? picks[p[0]].name : '(no pick yet)'}`);
+  const sum = document.getElementById('summary');
+  sum.innerHTML = `<div class="sumhead"><b>${done} of ${PAGES.length} answered.</b>${done ? ` <button class="pb" id="copy">Copy answers</button> <button class="pb ghost" id="reset">Start over</button>` : ''}</div>${done ? `<pre id="answers">${esc(lines.join('\n'))}</pre>` : '<p>Open each question, look at the answers, press "This is my pick", then come back here and copy the answers into the chat.</p>'}`;
+  list.querySelectorAll('[data-page]').forEach(a => {
+    const pk = picks[a.dataset.page];
+    a.querySelector('.state').textContent = pk ? `Your pick: ${pk.name}` : 'Not answered yet';
+    if (pk) a.classList.add('done');
+  });
+  const copy = document.getElementById('copy');
+  if (copy) copy.onclick = async () => {
+    const text = 'My design-03 picks:\n' + lines.join('\n');
+    try { await navigator.clipboard.writeText(text); copy.textContent = 'Copied. Paste it in the chat.'; }
+    catch { copy.textContent = 'Select the text below and copy it.'; }
+  };
+  const reset = document.getElementById('reset');
+  if (reset) reset.onclick = () => { clearPicks(); location.reload(); };
 }
 
 // Clicks every sheet shares: select a thread, fold a project, show more, the

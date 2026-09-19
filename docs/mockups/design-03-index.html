@@ -2,28 +2,39 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Design 03 variant sheets: the sidebar, the rail and the attention model</title>
+<title>Six questions about the sidebar</title>
 <link rel="stylesheet" href="design-03-shared.css">
 <style>
-  .idx{max-width:760px;margin:0 auto;padding:40px 24px 80px;display:flex;flex-direction:column;gap:18px}
+  .idx{max-width:760px;margin:0 auto;padding:40px 24px 80px;display:flex;flex-direction:column;gap:14px}
   .idx h1{font-size:22px;font-weight:500;margin:0}
   .idx p{color:var(--text2);margin:0;line-height:1.55}
   .idx a.card{display:flex;flex-direction:column;gap:4px;padding:16px 18px;border-radius:14px;background:#161616;border:1px solid #242424;color:var(--text);text-decoration:none}
   .idx a.card:hover{background:#1c1c1c}
+  .idx a.card.done{border-color:#2f4a36}
   .idx a.card b{font-weight:500}
   .idx a.card span{color:var(--text3);font-size:13px}
+  .idx a.card.done .state{color:var(--live)}
+  .summary{padding:16px 18px;border-radius:14px;background:#161616;border:1px solid #242424;display:flex;flex-direction:column;gap:10px}
+  .summary .sumhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .summary pre{margin:0;font:13px/1.6 var(--mono);color:var(--text2);white-space:pre-wrap;user-select:all}
+  .summary p{color:var(--text2);margin:0}
 </style>
 </head>
 <body>
+<script src="design-03-shared.js"></script>
 <div class="idx">
-  <h1>Six questions about the sidebar, each with pictures</h1>
-  <p>Each page asks one question and shows two or three answers. Click the answer buttons at the top to switch; the picture below changes. The picture is a mock of afterterm with made-up projects and threads; you can click rows and project names in it. Pick one answer per page.</p>
-  <a class="card" href="sidebar-rail-variants.html"><b>1. Which projects show up on the rail (the thin strip at the far left)?</b><span>Only the ones that need me, all of them, or pinned plus the ones that need me.</span></a>
-  <a class="card" href="sidebar-panel-variants.html"><b>2. Which projects are listed in the sidebar?</b><span>All of them, only recent ones, or only the ones I opened.</span></a>
-  <a class="card" href="sidebar-attention-filter-variants.html"><b>3. How do I get to the threads that need me or are working?</b><span>Tabs at the top, a block that is always there, or chips along the top of the window.</span></a>
-  <a class="card" href="sidebar-pinned-split-variants.html"><b>4. How do pinned projects look different from the rest?</b><span>A line, a line plus a pin icon, or a lighter box.</span></a>
-  <a class="card" href="sidebar-collapse-all-variants.html"><b>5. Where is the button that collapses every project?</b><span>Top of the sidebar, on the group labels, or both.</span></a>
-  <a class="card" href="sidebar-search-input-variants.html"><b>6. What happens when I type in the Search box?</b><span>The list shrinks, the palette opens, or keep today's button.</span></a>
+  <h1>Six questions about the sidebar</h1>
+  <p>Each question opens a page with two or three answers and a picture of each. Click the answers at the top of the page to compare them, press <b>This is my pick</b> on the one you want, then <b>Next</b>. Your picks are remembered on this computer. When all six are answered, come back here and press <b>Copy answers</b>, then paste the text into the chat.</p>
+  <div class="summary" id="summary"></div>
+  <div id="qlist" style="display:flex;flex-direction:column;gap:10px">
+    <a class="card" href="sidebar-rail-variants.html" data-page="sidebar-rail-variants.html"><b>1. Which projects show up on the rail (the thin strip at the far left)?</b><span>Only the ones that need me, all of them, or pinned plus the ones that need me.</span><span class="state"></span></a>
+    <a class="card" href="sidebar-panel-variants.html" data-page="sidebar-panel-variants.html"><b>2. Which projects are listed in the sidebar?</b><span>All of them, only recent ones, or only the ones I opened.</span><span class="state"></span></a>
+    <a class="card" href="sidebar-attention-filter-variants.html" data-page="sidebar-attention-filter-variants.html"><b>3. How do I get to the threads that need me or are working?</b><span>Tabs at the top, a block that is always there, or chips along the top of the window.</span><span class="state"></span></a>
+    <a class="card" href="sidebar-pinned-split-variants.html" data-page="sidebar-pinned-split-variants.html"><b>4. How do pinned projects look different from the rest?</b><span>A line, a line plus a pin icon, or a lighter box.</span><span class="state"></span></a>
+    <a class="card" href="sidebar-collapse-all-variants.html" data-page="sidebar-collapse-all-variants.html"><b>5. Where is the button that collapses every project?</b><span>Top of the sidebar, on the group labels, or both.</span><span class="state"></span></a>
+    <a class="card" href="sidebar-search-input-variants.html" data-page="sidebar-search-input-variants.html"><b>6. What happens when I type in the Search box?</b><span>The list shrinks, the palette opens, or keep today's button.</span><span class="state"></span></a>
+  </div>
 </div>
+<script>initIndex();</script>
 </body>
 </html>

@@ -39,6 +39,19 @@ svg{display:block;flex:none}
 .vbar .opts{display:flex;gap:14px;align-items:center;font-size:13px;color:var(--text3);flex-wrap:wrap}
 .vbar .opts label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
 .vbar .opts input{accent-color:#ececec}
+/* Questionnaire navigation and the pick button */
+.vbar .nav{display:flex;align-items:center;gap:16px;font-size:13px;color:var(--text3)}
+.vbar .nav a{color:var(--text2);text-decoration:none;padding:6px 12px;border-radius:999px;background:#1c1c1c;border:1px solid #2a2a2a}
+.vbar .nav a:hover{background:#262626;color:var(--text)}
+.vbar .nav .sp{flex:1}
+.vbar .nav .dis,.vbar .note .dis{opacity:.5}
+.vbar .nav .pg{color:var(--text3)}
+.pickrow{display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap}
+.pb{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:999px;background:var(--btn);color:var(--btn-text);font-weight:500;text-decoration:none;border:0;cursor:pointer}
+.pb:hover{background:#fff}
+.pb.ghost{background:transparent;color:var(--text2);border:1px solid #2a2a2a}
+.pb.ghost:hover{background:#262626;color:var(--text)}
+.picked{color:var(--live);font-weight:500}
 /* Plain-language sheet header: the question in one sentence, then the choices */
 .vbar h1{font-size:15px;color:var(--text3);font-weight:500}
 .vbar .q{margin:0;font-size:20px;font-weight:500;color:var(--text);line-height:1.35}
