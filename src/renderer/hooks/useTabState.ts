@@ -457,10 +457,16 @@ export function useTabState() {
   // User-driven activation: focus the tab and record the moment on it and on its
   // group. Only the user's own switching counts here; PTY input and output stamping
   // is Phase 2, so an unattended background process cannot look "recently used".
-  const activateTab = useCallback((tabId: string) => {
+  // `keepProjectOrder` (Phase 8) skips the group stamp: the panel's Recent list is
+  // ordered by that stamp, so the keyboard cycle (Ctrl+Shift+Down/Up) must not
+  // reorder the projects it is moving through, or two projects would trade
+  // places under the keys and the cycle would never reach a third. The thread
+  // itself is still stamped; the project rises when the user clicks or types.
+  const activateTab = useCallback((tabId: string, keepProjectOrder = false) => {
     const now = Date.now();
     setActiveTabId(tabId);
     setTabs(prev => prev.map(t => t.id === tabId ? { ...t, lastActiveAt: now } : t));
+    if (keepProjectOrder) return;
     const groupId = tabsRef.current.find(t => t.id === tabId)?.groupId;
     if (groupId) {
       setGroups(prev => prev.map(g => g.id === groupId ? { ...g, lastActiveAt: now } : g));

@@ -57,6 +57,12 @@
 //                                  (window.__afterterm.lastOpenExternal), or "(nothing opened)"
 //   marks [--tab <id>]            window.__afterterm.commandState(id): at-prompt flag
 //                                  and prompt-end row/col, or "(no marks)"
+//   reload                        reload the renderer page (location.reload). Vite's Fast
+//                                  Refresh keeps an edited component's state and does not
+//                                  re-run its mount-only effects, so a listener registered
+//                                  once (the shortcut dispatch in app.tsx) can go on calling
+//                                  the old code after an edit; a reload is the way to be sure
+//                                  a renderer edit is what the page is running
 //   counts [--project <label>]    window.__afterterm.counts(): the attention aggregate
 //                                  (attention.ts): waiting, working, compacting, running
 //                                  and finished in total and per project, plus the rail
@@ -337,6 +343,7 @@ try {
       case 'opened': await cmdOpened(); break;
       case 'marks': await cmdMarks(); break;
       case 'counts': await cmdCounts(); break;
+      case 'reload': await cmdReload(); break;
       case 'window': await cmdWindow(args[0]); break;
       default: throw new DriveError(`unknown command: ${command}`);
     }
@@ -1152,6 +1159,11 @@ async function cmdMarks() {
 // in total and per non-archived project, plus the rail list (projects with a
 // thread waiting, finished or compacting). Read straight from state, so it does
 // not wait on the session file's two second debounce.
+async function cmdReload() {
+  await evaluate(cdp, 'setTimeout(() => location.reload(), 0); "ok"');
+  console.log('reloading the page');
+}
+
 async function cmdCounts() {
   const data = await evaluate(cdp, `window.__afterterm && window.__afterterm.counts ? window.__afterterm.counts() : null`);
   if (!data) { console.log('(no counts hook: is the app still loading?)'); return; }

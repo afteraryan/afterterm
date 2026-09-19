@@ -276,6 +276,9 @@ export interface SidePanelHandle {
   // The next (dir 1) or previous (dir -1) thread row the panel shows, in panel
   // order, across projects, wrapping at the ends; null when nothing is shown.
   cycleThread(activeTabId: string, dir: 1 | -1): string | null;
+  // Every thread row the panel is showing, in panel order (the list the cycle
+  // walks); the harness reads it as window.__afterterm.panelOrder().
+  visibleIds(): string[];
   // Puts the caret in the search box.
   focusSearch(): void;
 }
@@ -608,8 +611,9 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
       const ids = visibleThreadIds(view, { activeTabId: currentId, expandedLists, limit: THREAD_FOLD_LIMIT, isWaiting });
       return cycleThreadId(ids, currentId, dir);
     },
+    visibleIds: () => visibleThreadIds(view, { activeTabId, expandedLists, limit: THREAD_FOLD_LIMIT, isWaiting }),
     focusSearch: () => searchRef.current?.focus(),
-  }), [view, expandedLists]);
+  }), [view, expandedLists, activeTabId]);
 
   const clearQuery = () => {
     setQuery('');

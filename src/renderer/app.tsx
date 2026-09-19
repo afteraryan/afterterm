@@ -502,7 +502,9 @@ export function App() {
     window.afterterm.notify.dismissTab(tabId);
   }, []);
 
-  const handleActivate = useCallback((tabId: string) => {
+  // `keepProjectOrder` is the keyboard cycle's flag (see activateTab in
+  // useTabState.ts): moving through the panel must not reorder its Recent list.
+  const handleActivate = useCallback((tabId: string, keepProjectOrder = false) => {
     // Ignore clicks for tabs that no longer exist (closed tab, or the one-time
     // setup toast's sentinel tabId), just dismiss it; don't blank the view.
     if (!stateRef.current.tabs.some(t => t.id === tabId)) {
@@ -512,7 +514,7 @@ export function App() {
     // activateTab (not setActiveTabId) so the tab and its group get a lastActiveAt
     // stamp: this is the user choosing the tab, which is the only thing that should
     // count as "used" until Phase 2 adds PTY activity.
-    state.activateTab(tabId);
+    state.activateTab(tabId, keepProjectOrder);
     // An asleep thread is only shown, never woken: opening it puts its pane on
     // screen with the old output and a Wake button, and nothing is spawned until
     // that button (or the menu's Wake) is used.
@@ -533,7 +535,9 @@ export function App() {
   const cycleThread = useCallback((dir: 1 | -1) => {
     const next = panelRef.current?.cycleThread(stateRef.current.activeTabId, dir);
     if (!next) return;
-    handleActivate(next);
+    // Without reordering Recent: a project rising to the top the moment the cycle
+    // lands in it would put the same two projects in front of the keys forever.
+    handleActivate(next, true);
     if (screenRef.current !== 'workspace') goScreen('workspace');
   }, [handleActivate, goScreen]);
 
@@ -799,7 +803,9 @@ export function App() {
       window.afterterm.threads.saveTailsSync(terminalRef.current?.readAllTails() ?? {});
       // Quitting puts every thread to sleep, stamped now, so the "Asleep · 2d" chip
       // on the next launch counts from when the app actually closed.
-      const data = serializeSession(sleepAllForShutdown(s.tabs, Date.now()), s.groups, s.activeTabId);
+      // The panel flag rides along here too, or a quit with the panel hidden
+      // would come back with it shown (found in the Phase 8 self-test).
+      const data = serializeSession(sleepAllForShutdown(s.tabs, Date.now()), s.groups, s.activeTabId, { panelHidden: panelHiddenRef.current });
       window.afterterm.session.saveSync(JSON.stringify(data));
     };
     window.addEventListener('beforeunload', flush);
@@ -910,6 +916,8 @@ export function App() {
     win.__afterterm = {
       ...(win.__afterterm ?? {}),
       tab: (tabId: string) => stateRef.current.tabs.find(t => t.id === tabId) ?? null,
+      // Phase 8: the same for a project (lastActiveAt, collapsed, icon, pinned).
+      group: (groupId: string) => stateRef.current.groups.find(g => g.id === groupId) ?? null,
       // Phase 7: the aggregate every count reads from (attention.ts), per project
       // and in total, for the harness's `counts` command. Keyed by project label
       // as well as id so a test can name the project it seeded.
@@ -924,8 +932,10 @@ export function App() {
           rail: railProjects(s.groups, s.tabs).map(g => g.label),
         };
       },
-      // Phase 8: the persisted panel flag, read by the harness's `rail` command.
+      // Phase 8: the persisted panel flag, read by the harness's `rail` command,
+      // and the panel's own row order, the list Ctrl+Shift+Down/Up walks.
       panelHidden: () => panelHiddenRef.current,
+      panelOrder: () => panelRef.current?.visibleIds() ?? [],
     };
   }, []);
 
