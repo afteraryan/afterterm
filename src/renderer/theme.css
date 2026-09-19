@@ -112,6 +112,12 @@ input:focus-visible,
   background: transparent;
 }
 
+/* Where a vertical and a horizontal bar meet Chromium paints a white square
+   unless told otherwise (Aryan, 2026-09-19, seen on the asleep pane). */
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 svg {
   display: block;
   flex: none;

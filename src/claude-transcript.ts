@@ -21,6 +21,11 @@ export interface TranscriptFs {
   fstatSync(fd: number): { size: number };
   readSync(fd: number, buffer: Uint8Array, offset: number, length: number, position: number): number;
   closeSync(fd: number): void;
+  // Optional: lets findTranscript look through every project dir for a session
+  // whose transcript has moved (see readTranscriptMeta). Without it the
+  // recorded cwd is the only place looked.
+  readdirSync?(path: string): string[];
+  existsSync?(path: string): boolean;
 }
 
 export interface ClaudeSessionMeta {
@@ -28,6 +33,15 @@ export interface ClaudeSessionMeta {
   firstPrompt: string | null;
   /** The model id of the latest assistant turn (may carry a "[1m]" suffix), or null. */
   model: string | null;
+  /**
+   * The folder the session was last working in, from the newest entry in the tail
+   * that carries a `cwd`, or null. Claude Code stamps every entry with its cwd, and
+   * a session that switched worktree (EnterWorktree) keeps running there across a
+   * resume, so this is what the header's branch and worktree should follow after a
+   * wake, not the folder the notify hook recorded before the switch (Aryan,
+   * 2026-09-19).
+   */
+  cwd: string | null;
   /** False when the transcript could not be opened or read at all. */
   exists: boolean;
 }
@@ -237,7 +251,49 @@ export function modelDisplayName(id: string): string {
 }
 
 const CHUNK_BYTES = 256 * 1024;
-const NOT_FOUND: ClaudeSessionMeta = { firstPrompt: null, model: null, exists: false };
+const NOT_FOUND: ClaudeSessionMeta = { firstPrompt: null, model: null, cwd: null, exists: false };
+
+/**
+ * The newest `cwd` in a stretch of transcript: the last line that parses and carries
+ * a non-empty string cwd, sidechains included (a sidechain runs in the same folder).
+ */
+export function latestCwd(text: string): string | null {
+  const lines = String(text ?? '').split('\n');
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const trimmed = lines[i].trim();
+    if (!trimmed) continue;
+    try {
+      const obj = JSON.parse(trimmed) as Record<string, unknown>;
+      if (typeof obj.cwd === 'string' && obj.cwd.trim() !== '') return obj.cwd;
+    } catch { /* a partial first line of the tail window, or not JSON */ }
+  }
+  return null;
+}
+
+/**
+ * Where a session's transcript is. The expected place is the project dir of `cwd`;
+ * when the file is not there (Claude Code moves the whole transcript to the new
+ * worktree's project dir when a session enters one), every project dir is checked
+ * for the same file name, since a session id is unique. Null when nowhere.
+ */
+export function findTranscript(
+  projectsDir: string,
+  cwd: string,
+  sessionId: string,
+  fsLike: TranscriptFs,
+): string | null {
+  if (!isSessionId(sessionId)) return null;
+  const expected = transcriptPath(projectsDir, cwd, sessionId);
+  if (!fsLike.existsSync || !fsLike.readdirSync) return expected;
+  if (fsLike.existsSync(expected)) return expected;
+  let dirs: string[];
+  try { dirs = fsLike.readdirSync(projectsDir); } catch { return null; }
+  for (const dir of dirs) {
+    const candidate = `${String(projectsDir).replace(/[\\/]+$/, '')}/${dir}/${sessionId}.jsonl`;
+    if (fsLike.existsSync(candidate)) return candidate;
+  }
+  return null;
+}
 
 function decode(bytes: Uint8Array): string {
   return new TextDecoder('utf-8').decode(bytes).replace(/^\uFEFF/, '');
@@ -261,7 +317,8 @@ export function readTranscriptMeta(
   if (typeof cwd !== 'string' || !cwd) return NOT_FOUND;
   if (!isSessionId(sessionId)) return NOT_FOUND;
 
-  const file = transcriptPath(projectsDir, cwd, sessionId);
+  const file = findTranscript(projectsDir, cwd, sessionId, fsLike);
+  if (!file) return NOT_FOUND;
   let fd: number | null = null;
   try {
     fd = fsLike.openSync(file, 'r');
@@ -286,6 +343,7 @@ export function readTranscriptMeta(
     return {
       firstPrompt: firstPrompt(head),
       model: latestModel(tail, latestModelAttachment(head)),
+      cwd: latestCwd(tail),
       exists: true,
     };
   } catch {

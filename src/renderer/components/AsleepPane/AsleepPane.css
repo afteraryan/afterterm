@@ -24,7 +24,16 @@
   position: absolute;
   inset: 0;
   overflow-y: auto;
+  /* The Wake box backdrop below reaches past the content width on purpose;
+     it must not turn into a horizontal scrollbar. */
+  overflow-x: hidden;
   padding: 18px 22px;
+}
+
+/* The track stops short of the card's rounded corners, like the terminal's
+   (index.css), so the thumb is never clipped by the curve. */
+.asleep-pane .asleep-scroll::-webkit-scrollbar-track {
+  margin: var(--radius-surface) 0;
 }
 
 /* Sticky at the scroller's own top-fifth, like the mock, so the Wake button
