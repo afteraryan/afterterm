@@ -600,6 +600,7 @@ Research and design documents live in `docs/`. Naming convention: `research-NN-<
 - `docs/plan-01-sidebar-attention-and-manual-testing-fixes.md`: the round of work after the projects-and-threads phases, ranked; design-03 is its Cluster 1.
 - `docs/guide-01-distributable-build.md` — shrink the portable build into a ~67 MB self-extracting `.exe` for sharing (7-Zip LZMA2 + pruning)
 - `docs/guide-02-releases.md` — versioning (semver) + how to cut a tagged, version-stamped release (`npm run release`)
+- `docs/guide-03-replica-and-build-swap.md`: leaving Aryan a replica dev build after a phase (the data copy, `--claude-resume all`, why `--open-external` is needed) and replacing his production build without a release (build in the worktree, swap after he closes afterterm)
 - `docs/ideas.md` — feature ideas backlog
 - `docs/bugs.md` — running list of known, unfixed bugs (distinct from the platform Known Limitations above)
 - `docs/note-01-duplicate-notifications-dispatcher.md` — why both the Windows popup and the overlay fired inside afterterm, and the settings.json dispatcher fix (incl. a TODO to make the self-install hook use the same approach)
