@@ -132,16 +132,16 @@ Done when: a permission prompt in a background thread stays needs-you after it i
 
 Branch `phase-8-sidebar-rail-and-panel`, worktree `.claude/worktrees/phase-8-sidebar-rail-and-panel`, created from `phase-7-attention-state`.
 
-- [ ] The rail: a new `Rail` component on every screen, in the order and with the motion of decision 1 (the two animated blocks, the Home/Workspace pill with its sliding highlight, the sidebar sliding shut on the way to Home and open on the way back), tiles from `attention.ts`, badges in a column beside the tile, tooltips beside the tile (name) and beside each badge (what it is), click and right-click; Home's and the project page's icon row removed; the panel's icon row keeps only the toggle.
-- [ ] Project icons: the ten solid glyphs in `Icons.tsx`, the picker in `GroupModal`, `Group.icon` persisted, the tile reads it.
-- [ ] The panel: Pinned (pin icon, line), Recent (3-day rule, activity order), Other projects docked at the bottom with bring-in; no Projects section.
-- [ ] Collapse buttons on the two headings beside the plus.
-- [ ] The Search box filtering in place, New thread and Other projects hidden while typing.
-- [ ] Ctrl+Shift+Down/Up through the shown rows (`main.ts` `before-input-event`, `app.tsx` dispatch, panel order from a pure helper).
-- [ ] `ui.panelHidden` persisted.
-- [ ] Compacting as its own state: icon on the row, chip and hover card, a compacting badge on the rail tile, a `compacting` count in `attention.ts` (added 2026-09-19).
-- [ ] The five-row fold stays open while a hidden row is waiting for you (added 2026-09-19, `docs/bugs.md`).
-- [ ] Harness: `rail`, `dock` and `search` readers in `drive.mjs`.
-- [ ] Self-test with screenshots and recordings in `docs/screenshots/phase-8/`; CLAUDE.md and PHASES.md updated.
+- [x] The rail: a new `Rail` component on every screen, in the order and with the motion of decision 1 (the two animated blocks, the Home/Workspace pill with its sliding highlight, the sidebar sliding shut on the way to Home and open on the way back), tiles from `attention.ts`, badges in a column beside the tile, tooltips beside the tile (name) and beside each badge (what it is), click and right-click; Home's and the project page's icon row removed; the panel's icon row keeps only the toggle.
+- [x] Project icons: the ten solid glyphs in `Icons.tsx`, the picker in `GroupModal`, `Group.icon` persisted, the tile reads it.
+- [x] The panel: Pinned (pin icon, line), Recent (3-day rule, activity order), Other projects docked at the bottom with bring-in; no Projects section.
+- [x] Collapse buttons on the two headings beside the plus.
+- [x] The Search box filtering in place, New thread and Other projects hidden while typing.
+- [x] Ctrl+Shift+Down/Up through the shown rows (`main.ts` `before-input-event`, `app.tsx` dispatch, panel order from a pure helper).
+- [x] `ui.panelHidden` persisted.
+- [x] Compacting as its own state: icon on the row, chip and hover card, a compacting badge on the rail tile, a `compacting` count in `attention.ts` (added 2026-09-19).
+- [x] The five-row fold stays open while a hidden row is waiting for you (added 2026-09-19, `docs/bugs.md`).
+- [x] Harness: `rail`, `dock` and `search` readers in `drive.mjs`.
+- [x] Self-test with screenshots and recordings in `docs/screenshots/phase-8/`; CLAUDE.md and PHASES.md updated.
 
 Done when: from Home, the rail shows exactly the projects with a thread waiting or finished, with the three numbers beside each tile; clicking a tile lands on the thread that needs you; the panel shows Pinned and Recent only, with Other projects docked at the bottom; typing in Search narrows the list in place; Ctrl+Shift+Down crosses from one project's last thread to the next project's first.
