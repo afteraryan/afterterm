@@ -213,7 +213,7 @@ Design: the same document. Branch `phase-8-sidebar-rail-and-panel`, worktree `.c
 
 Goal: the sidebar of `docs/mockups/design-03-final-sidebar.html`.
 
-- [ ] The rail on every screen: only projects with a thread waiting or finished, the project's icon on a tile, the three badges in a column beside it, the hover card, click to the thread that needs you. Home's and the project page's icon row removed.
+- [ ] The rail on every screen: the sidebar toggle, the Home/Workspace pill with its sliding highlight, Search and New thread (the last three only while the sidebar is hidden), then only projects with a thread waiting or finished, the project's icon on a tile, the three badges in a column beside it, tooltips beside the tile and the badges, click to the thread that needs you. Hiding the sidebar slides its controls into the rail and the tiles down; going to Home slides the sidebar shut first. Home's and the project page's icon row removed.
 - [ ] Project icons: ten solid glyphs, a picker in the project dialog, `Group.icon` persisted.
 - [ ] The panel: Pinned (pin icon, line), Recent (awake or active within 3 days, by activity), Other projects docked at the bottom with bring-in; no Projects section.
 - [ ] Collapse buttons on the Pinned and Recent headings beside the plus.
