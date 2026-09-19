@@ -25,6 +25,20 @@
 .dock .pj .ib{display:none}
 /* The badges fan out like cards from the top-right corner: the first at the
    corner, the second tucked to its left, the third just below it. */
+/* The rail's tool block: closed (0fr) while the sidebar is open, opens to
+   its full height when the sidebar hides. The buttons fade and rise in a
+   beat after the block starts opening, and fade out first when it closes. */
+.railtools{display:grid;grid-template-rows:0fr;transition:grid-template-rows 320ms var(--ease);width:100%}
+.railtools>div{overflow:hidden;min-height:0;display:flex;flex-direction:column;align-items:center;gap:6px}
+.railtools .ic{opacity:0;transform:translateY(-6px);transition:opacity 180ms var(--ease),transform 240ms var(--ease),background var(--fast),color var(--fast)}
+.railtools.open{grid-template-rows:1fr}
+.railtools.open .ic{opacity:1;transform:none;transition-delay:120ms}
+.railtools.open .ic:nth-child(2){transition-delay:160ms}
+.railtools.open .ic:nth-child(3){transition-delay:200ms}
+.railtools.open>div{padding-bottom:6px}
+.side{transition:width 320ms var(--ease),min-width 320ms var(--ease),padding 320ms var(--ease)}
+.side>*{transition:opacity 160ms var(--ease)}
+.side.hidden>*{opacity:0}
 /* The rail is 76px wide for layout 1: the tile, then its badges beside it. */
 .rail2{width:76px;min-width:76px}
 .rail2 .tiles{gap:12px;align-items:flex-start;padding-left:10px}
@@ -115,6 +129,8 @@ THREADS.splice(THREADS.indexOf(T('t9')) + 1, 0, { id: 't20', p: 'aftertales', ki
 if (S.collapsed.afterterm === undefined) S.collapsed.afterterm = true;
 
 const F = window.__final = window.__final || { q: '', dockOpen: false, home: false, panelHidden: false, opened: {}, secClosed: {} };
+// #collapsed in the address opens the page with the sidebar already hidden.
+if (location.hash === '#collapsed') F.panelHidden = true;
 const RECENT_DAYS = 3;
 
 const needsMe = p => { const c = counts(p.id); return c.needsYou > 0 || c.done > 0; };
@@ -160,8 +176,12 @@ function railTile(p) {
 }
 function rail() {
   const tiles = PROJECTS.filter(needsMe).map(railTile).join('');
-  const bottom = F.panelHidden ? `<button class="ic" data-tip="Search">${svg('i-search', 18)}</button><button class="ic" data-tip="New thread">${svg('i-plus', 18)}</button><button class="ic" data-tip="Open sidebar" data-toggle-panel>${svg('i-panel', 18)}</button>` : '';
-  return `<div class="rail2"><button class="ic" data-tip="Home" data-go="home"${F.home ? ' aria-selected="true"' : ''}>${svg('i-home', 18)}</button><button class="ic" data-tip="Workspace" data-go="work"${F.home ? '' : ' aria-selected="true"'}>${svg('i-term', 18)}</button><span class="sep"></span><div class="tiles">${tiles}</div><span class="grow"></span>${bottom}</div>`;
+  // While the sidebar is hidden, its top controls (the toggle, Search, New
+  // thread) live in the rail, right under Home and Workspace. The block is
+  // always in the DOM so it can animate open and closed; the tiles below it
+  // move with it.
+  const tools = `<div class="railtools${F.panelHidden && !F.home ? ' open' : ''}"><div><button class="ic" data-tip="Open sidebar" data-toggle-panel>${svg('i-panel', 18)}</button><button class="ic" data-tip="Search">${svg('i-search', 18)}</button><button class="ic" data-tip="New thread">${svg('i-plus', 18)}</button></div></div>`;
+  return `<div class="rail2"><button class="ic" data-tip="Home" data-go="home"${F.home ? ' aria-selected="true"' : ''}>${svg('i-home', 18)}</button><button class="ic" data-tip="Workspace" data-go="work"${F.home ? '' : ' aria-selected="true"'}>${svg('i-term', 18)}</button>${tools}<span class="sep"></span><div class="tiles">${tiles}</div><span class="grow"></span></div>`;
 }
 
 // ── The panel ────────────────────────────────────────────────────────────
@@ -231,7 +251,14 @@ function render(frame) {
   const main = F.home ? homeScreen({ railNav: true }) : panelHtml() + mainPane();
   frame.innerHTML = titleBar() + `<div class="work">${rail()}${main}</div>`;
 
-  frame.querySelectorAll('[data-toggle-panel]').forEach(b => b.onclick = () => { F.panelHidden = !F.panelHidden; window.__redraw(); });
+  // The panel toggle animates in place rather than re-rendering: the panel's
+  // width closes, and the rail's tool block opens (or the reverse), so the
+  // tiles glide down or up with it.
+  frame.querySelectorAll('[data-toggle-panel]').forEach(b => b.onclick = () => {
+    F.panelHidden = !F.panelHidden;
+    frame.querySelector('.side')?.classList.toggle('hidden', F.panelHidden);
+    frame.querySelector('.railtools')?.classList.toggle('open', F.panelHidden);
+  });
   frame.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { F.home = b.dataset.go === 'home'; window.__redraw(); });
   frame.querySelectorAll('[data-collapse-sec]').forEach(b => b.onclick = e => {
     e.stopPropagation();
@@ -285,6 +312,13 @@ document.addEventListener('keydown', e => {
     const n = e.key === 'ArrowDown' ? (i + 1) % rows.length : (i - 1 + rows.length) % rows.length;
     S.selected = rows[n].dataset.th;
     window.__redraw();
+  }
+  // Ctrl+Shift+B hides or shows the sidebar, the same as the toggle button.
+  if (e.ctrlKey && e.shiftKey && (e.key === 'B' || e.key === 'b')) {
+    e.preventDefault();
+    const b = document.querySelector('.side:not(.hidden) [data-toggle-panel]') || document.querySelector('.railtools [data-toggle-panel]');
+    if (b) b.click();
+    return;
   }
   if (e.key === 'Enter' && !e.target.matches('input')) {
     const t = T(S.selected);
