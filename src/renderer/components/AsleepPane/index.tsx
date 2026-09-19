@@ -106,7 +106,12 @@ export function AsleepPane({ tab, tail, now, onWake }: AsleepPaneProps) {
           <pre className="past">{tail.join('\n')}</pre>
         )}
       </div>
-      <JumpButton target={jump.target} onJump={onJump} />
+      <JumpButton
+        target={jump.target}
+        onJump={onJump}
+        // A wheel over the button scrolls the pane exactly as one beside it would.
+        onWheel={(deltaY) => scrollRef.current?.scrollBy({ top: deltaY })}
+      />
     </div>
   );
 }

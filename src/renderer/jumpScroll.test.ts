@@ -4,7 +4,7 @@
 
 import {
   initialJumpState, onScrollSample, JUMP_THRESHOLD_LINES, JUMP_THRESHOLD_PX,
-  jumpDurationMs, jumpLineAt, prefersReducedMotion, JUMP_MIN_MS, JUMP_MAX_MS,
+  jumpDurationMs, jumpLineAt, prefersReducedMotion, JUMP_MIN_MS, JUMP_MAX_MS, wheelToLines,
 } from './jumpScroll.ts';
 import type { JumpState } from './jumpScroll.ts';
 
@@ -193,6 +193,22 @@ console.log('\njumpScroll: the animated terminal jump (jumpDurationMs, jumpLineA
   check('a negative elapsed time is treated as the start', jumpLineAt(400, 0, -20, 300) === 400);
   check('the line is an integer', Number.isInteger(jumpLineAt(0, 333, 100, 300)));
   check('reduced motion reads false without a window (plain Node)', prefersReducedMotion() === false);
+}
+
+console.log('\njumpScroll: a wheel over the button (wheelToLines)\n');
+{
+  check('a 100px notch over 20px cells is 5 lines', wheelToLines(100, 0, 20, 30).lines === 5);
+  check('upward is negative', wheelToLines(-100, 0, 20, 30).lines === -5);
+  check('a small delta is damped to 30%', wheelToLines(40, 0, 20, 30).lines === 0 && Math.abs(wheelToLines(40, 0, 20, 30).carry - 0.6) < 1e-9, show(wheelToLines(40, 0, 20, 30)));
+  const a = wheelToLines(40, 0, 20, 30); const b = wheelToLines(40, 0, 20, 30, a.carry);
+  check('the fractional remainder carries over into whole lines', b.lines === 1 && Math.abs(b.carry - 0.2) < 1e-9, show(b));
+  check('line mode passes the delta through', wheelToLines(3, 1, 20, 30).lines === 3);
+  check('page mode scrolls rows per page', wheelToLines(1, 2, 20, 30).lines === 30);
+  check('zero delta scrolls nothing and keeps the carry', wheelToLines(0, 0, 20, 30, 0.4).lines === 0 && wheelToLines(0, 0, 20, 30, 0.4).carry === 0.4);
+  check('no cell height (nothing laid out) scrolls nothing', wheelToLines(100, 0, 0, 30).lines === 0);
+  check('a non-finite delta scrolls nothing', wheelToLines(NaN, 0, 20, 30).lines === 0);
+  const neg = wheelToLines(-30, 0, 20, 30, -0.7);
+  check('negative carries round toward zero the same way', neg.lines === -1 && Math.abs(neg.carry + 0.15) < 1e-9, show(neg));
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

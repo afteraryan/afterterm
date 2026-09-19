@@ -12,7 +12,7 @@ import {
   type CommandMarkState,
 } from '../../commandMarks';
 import { TAIL_MAX_LINES } from '../../../thread-tail';
-import { JUMP_THRESHOLD_LINES, JumpState, JumpTarget, initialJumpState, onScrollSample, jumpDurationMs, jumpLineAt, prefersReducedMotion } from '../../jumpScroll';
+import { JUMP_THRESHOLD_LINES, JumpState, JumpTarget, initialJumpState, onScrollSample, jumpDurationMs, jumpLineAt, prefersReducedMotion, wheelToLines } from '../../jumpScroll';
 import { JumpButton } from '../JumpButton';
 import { isWindowsDrivePath, osc7ToWindowsPath } from '../../../shell-paths';
 
@@ -780,6 +780,24 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
     jumpFrameRef.current = requestAnimationFrame(step);
   }, []);
 
+  // A wheel event over the jump button scrolls the active terminal as if the
+  // button were not there, so it never interrupts scrolling. The native event
+  // never reaches xterm (the button is a sibling of the terminal host, not a
+  // child of it), and replaying a constructed WheelEvent onto xterm does nothing
+  // (see wheelToLines), so the lines are computed with xterm's own maths and
+  // applied through scrollLines. The cell height is the screen's height over
+  // the row count, which holds for the WebGL renderer too.
+  const wheelCarryRef = useRef(0);
+  const wheelToTerminal = useCallback((deltaY: number, _deltaX: number, deltaMode: number) => {
+    const info = termsRef.current.get(activeRef.current);
+    if (!info) return;
+    const screen = info.container.querySelector('.xterm-screen');
+    const cellHeight = screen ? screen.clientHeight / Math.max(1, info.term.rows) : 0;
+    const { lines, carry } = wheelToLines(deltaY, deltaMode, cellHeight, info.term.rows, wheelCarryRef.current);
+    wheelCarryRef.current = carry;
+    if (lines !== 0) info.term.scrollLines(lines);
+  }, []);
+
   // Coming back from another screen. The workspace is hidden with display: none
   // while Home or a project page shows, and FitAddon on a hidden container
   // measures 0, so the active terminal is left at the size it had. Refit it once
@@ -886,7 +904,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
           imperatively. The find bar lives as a sibling so React can manage it freely. */}
       <div ref={hostRef} className="terminal-host" />
 
-      <JumpButton target={jump} onJump={jumpTo} />
+      <JumpButton target={jump} onJump={jumpTo} onWheel={wheelToTerminal} />
 
       {findOpen && (
         <div className="find-bar">

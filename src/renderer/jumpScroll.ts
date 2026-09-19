@@ -67,6 +67,30 @@ export function prefersReducedMotion(): boolean {
     && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
+// A wheel over the jump button has to scroll the terminal as if the button
+// were not there. xterm 6 reads the legacy `wheelDeltaY` field, which a
+// constructed WheelEvent leaves at 0, so replaying the event onto xterm scrolls
+// nothing; the lines are computed here the way xterm's own consumeWheelEvent
+// does it instead: pixels over the cell height, a small delta (under 50px, a
+// trackpad tick) damped to 30%, and the fractional remainder carried over to
+// the next event (`carry`) so slow scrolling still adds up to whole lines.
+// deltaMode 1 is already lines, 2 is pages (rows per page).
+export interface WheelLines { lines: number; carry: number; }
+export function wheelToLines(deltaY: number, deltaMode: number, cellHeight: number, rows: number, carry = 0): WheelLines {
+  if (!Number.isFinite(deltaY) || deltaY === 0) return { lines: 0, carry };
+  let amount: number;
+  if (deltaMode === 1) amount = deltaY;
+  else if (deltaMode === 2) amount = deltaY * rows;
+  else {
+    if (!(cellHeight > 0)) return { lines: 0, carry };
+    amount = deltaY / cellHeight;
+    if (Math.abs(deltaY) < 50) amount *= 0.3;
+  }
+  const total = carry + amount;
+  const lines = total > 0 ? Math.floor(total) : Math.ceil(total);
+  return { lines, carry: total - lines };
+}
+
 export function initialJumpState(position = 0): JumpState {
   return { target: null, position };
 }

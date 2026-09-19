@@ -58,10 +58,14 @@
 //                                  then the folder the last "Open in File Explorer" reached
 //                                  (window.__afterterm.lastOpenFolder), or "folder: (none opened)"
 //   scroll <sel> <deltaY> [i]     a mouse wheel over the element, deltaY in pixels, negative = up
+//   wheel-on-jump [deltaY]        a wheel over the shown jump button itself; prints the scroller
+//                                  position before and after (default deltaY -300)
 //   marks [--tab <id>]            window.__afterterm.commandState(id): at-prompt flag
 //                                  and prompt-end row/col, or "(no marks)"
 //   jump                           the jump-to-top/bottom button (.jump-btn): "jump: hidden"
-//                                  or "jump: shown target=<top|bottom> tip=\"<text>\""
+//                                  or "jump: shown target=<top|bottom>" (no tooltip since Aryan's
+//                                  first use; shown means data-shown="true", the button stays mounted
+//                                  while it shrinks away)
 //   pane-scroll                    the asleep pane's scroller position: "pane scroll:
 //                                  top=<n> max=<n> atEnd=<bool>", or "(no asleep pane)"
 //   reload                        reload the renderer page (location.reload). Vite's Fast
@@ -340,6 +344,7 @@ try {
       case 'rightclick': await cmdClick(args[0], args[1], 'right'); break;
       case 'hover': await cmdHover(args[0], args[1]); break;
       case 'scroll': await cmdScroll(args[0], args[1], args[2]); break;
+      case 'wheel-on-jump': await cmdWheelOnJump(args[0]); break;
       case 'unhover': await cmdUnhover(); break;
       case 'drag': await cmdDrag(args); break;
       case 'emulate-media': await cmdEmulateMedia(args[0]); break;
@@ -500,6 +505,17 @@ async function cmdScroll(selector, deltaArg, indexArg) {
   }
   await sleep(80);
   console.log(`scrolled ${selector}[${index}] by ${deltaY}px at (${x}, ${y}) of ${count} match(es)`);
+}
+
+// Phase 9: a wheel over the jump button itself (the button appears under the
+// pointer mid-scroll), to prove it hands the wheel on to the scroller instead
+// of swallowing it. Prints the scroller position before and after.
+async function cmdWheelOnJump(deltaArg) {
+  const deltaY = Number(deltaArg ?? -300);
+  const read = `(() => { const v = window.__afterterm.viewport && window.__afterterm.viewport(); if (v) return 'terminal viewportY=' + v.viewportY; const s = document.querySelector('.asleep-scroll'); return s ? 'pane top=' + s.scrollTop : '(no scroller)'; })()`;
+  console.log(`before: ${await evaluate(cdp, read)}`);
+  await cmdScroll('.jump-btn[data-shown="true"]', String(deltaY), '0');
+  console.log(`after:  ${await evaluate(cdp, read)}`);
 }
 
 async function cmdHover(selector, indexArg) {
@@ -1150,10 +1166,13 @@ async function cmdPane() {
 async function cmdJump() {
   const rows = await evaluate(cdp, `((sel) => {
     const els = Array.from(document.querySelectorAll(sel));
-    return els.map(el => ({ target: el.getAttribute('data-jump'), tip: el.getAttribute('data-tip') }));
+    // The button stays mounted while it shrinks away (scale-only exit), so
+    // data-shown, not presence, is what says whether it is offered right now.
+    return els.filter(el => el.getAttribute('data-shown') === 'true')
+      .map(el => ({ target: el.getAttribute('data-jump') }));
   })(${JSON.stringify(SEL.jumpButton)})`);
   if (!rows.length) { console.log('jump: hidden'); return; }
-  for (const r of rows) console.log(`jump: shown target=${r.target} tip="${r.tip}"`);
+  for (const r of rows) console.log(`jump: shown target=${r.target}`);
 }
 
 // Phase 9: the asleep pane's own scroller position, on its own (`pane` above
