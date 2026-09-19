@@ -188,3 +188,23 @@ At the top of a conversation the header shows the chat name, and under it a subh
 2. Look at the header under the thread name: the project, model and branch sit in small grey text on the dark pane background.
 
 **Cause:** `.header-meta` in `src/renderer/components/Header/Header.css` renders line 2 at `font-size: 12.5px` in `var(--text3)` (`#8e8e8e` in `theme.css`), the palette's dimmest text token, on the `#191919` pane, while `.header-name` above it is 15px in `var(--text)` (`#ececec`). Fix direction: agree the treatment with Aryan, for example `var(--text2)` or brighter for the values with only the icons and separators left in text3, a size closer to 13.5px, or a chip-style treatment for each item, keeping the same three `data-meta` items.
+
+---
+
+## A thread's own folder or worktree cannot be opened in Explorer from the thread menu or the header
+
+**Observed:** 2026-09-19 by Aryan during manual testing · **Phase:** 3 (thread identity: the header's line 2 and the thread menu) · **Status:** open · **Severity:** medium (a missing action, the project menu's Explorer entry opens the wrong folder for a worktree thread) · **Screenshot:** none attached
+
+**What happens:**
+Two related asks.
+
+1. When a Claude Code thread runs inside a worktree (for example under the Outscal tree), the header's subheading shows that worktree folder. Aryan expects clicking that worktree item to open the worktree folder in Explorer.
+2. Right-clicking a thread in the sidebar should offer "Open in Explorer", opening whatever folder that thread is actually working in: the worktree or folder of the Claude session for a chat, or the terminal's own folder for a plain shell thread. Today the only way to reach a folder is right-clicking the project, which opens the project's root, not the thread's worktree.
+
+**Repro:**
+1. Open a chat thread whose Claude session runs in a linked worktree, so the header shows a worktree item.
+2. Click the worktree item in the header: nothing happens.
+3. Right-click the thread's sidebar row: the menu has Open, Sleep or Wake, Move to project, Open project page and Close, no Explorer entry.
+4. Right-click the project row instead: "Open in File Explorer" opens the project folder, not the worktree.
+
+**Cause:** `buildThreadMenu` in `src/renderer/threadMenu.tsx` has no Explorer entry, and the header's `data-meta="worktree"` and `data-meta="project"` spans in `src/renderer/components/Header/index.tsx` are plain spans with no click handler. The pieces already exist: `projectMenu.tsx` calls `actions.openInExplorer(group.id)` through the `projects:openInExplorer` IPC in `preload.ts`, which takes any folder path, and `threadGitCwd` in `useTabState.ts` already picks `claudeCwd ?? cwd` for a thread. Fix direction: add an "Open in Explorer" item to `buildThreadMenu` that calls the same IPC with `threadGitCwd(tab)`, and make the header's worktree and project items buttons that do the same, with the "Folder not found" disabled state the project menu already uses.
