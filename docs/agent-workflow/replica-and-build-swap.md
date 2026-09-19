@@ -1,4 +1,4 @@
-# Guide 03: leaving Aryan a replica dev build, and replacing his production build without a release
+# Leaving Aryan a replica dev build, and replacing his production build without a release
 
 Two procedures an agent needs at the end of a phase, both learned on 2026-09-19 while handing Phase 9 over.
 
