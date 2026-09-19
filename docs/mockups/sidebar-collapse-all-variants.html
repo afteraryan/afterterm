@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sidebar collapse-all variants: where the collapse-all control sits</title>
+<link rel="stylesheet" href="design-03-shared.css">
+</head>
+<body>
+<script src="design-03-shared.js"></script>
+<script>
+// Decision 9 of design-03: where the control that collapses or expands every
+// project's thread list at once sits. "Collapse all" means every project row,
+// pinned and unpinned, gets S.collapsed[id] = true (its thread list folds
+// away); "Expand all" sets them all back to false. The control's own icon and
+// label are derived each render from whether any project is currently
+// expanded: a collapse icon while something is open (there is something left
+// to collapse), an expand icon once every project is already folded (there is
+// something left to expand). Three variants, same 1280x760 frame, no rail
+// (titleBar + panel + mainPane only).
+
+function allProjectIds() { return PROJECTS.map(p => p.id); }
+function anyExpanded(ids) { return ids.some(id => !S.collapsed[id]); }
+function collapseToggleIcon(anyOpen, size) { return anyOpen ? svg('i-collapse-all', size) : svg('i-expand-all', size); }
+function collapseToggleTip(anyOpen, what) { return anyOpen ? `Collapse all ${what}` : `Expand all ${what}`; }
+
+function setCollapsed(ids, value) { ids.forEach(id => { S.collapsed[id] = value; }); }
+
+// ── Variant A: one button in the icon row ──────────────────────────────
+function iconRowButton() {
+  const ids = allProjectIds();
+  const anyOpen = anyExpanded(ids);
+  return `<button class="ic" data-tip="${collapseToggleTip(anyOpen, 'projects')}" data-collapse-all>${collapseToggleIcon(anyOpen, 18)}</button>`;
+}
+function wireCollapseAll(frame) {
+  frame.querySelectorAll('[data-collapse-all]').forEach(b => b.onclick = () => {
+    const ids = allProjectIds();
+    setCollapsed(ids, anyExpanded(ids));
+    window.__redraw();
+  });
+}
+function renderA(frame) {
+  frame.innerHTML = titleBar() + `<div class="work">${panel(defaultSections(), { brand: { extra: iconRowButton() } })}${mainPane()}</div>`;
+  wireCollapseAll(frame);
+}
+
+// ── Variant B: a button on each section's label row ────────────────────
+function sectionCollapseButton(ids, what, key) {
+  if (!ids.length) return '';
+  const anyOpen = anyExpanded(ids);
+  return `<button class="ib" data-tip="${collapseToggleTip(anyOpen, what)}" data-collapse-section="${key}">${collapseToggleIcon(anyOpen, 14)}</button>`;
+}
+function renderB(frame) {
+  const gen = generalList();
+  const pinnedIds = pinnedList().map(p => p.id);
+  const unpinnedIds = unpinnedList().map(p => p.id);
+  const body = `${gen.length ? `<div class="sec"><div class="lbl">General</div>${threadList(null)}</div>` : ''}
+    <div class="sec">${sectionLabel('Pinned', sectionCollapseButton(pinnedIds, 'pinned projects', 'pinned'))}${pinnedList().map(p => projectBlock(p, { pinned: true })).join('')}</div>
+    <div class="sec">${sectionLabel('Projects', sectionCollapseButton(unpinnedIds, 'projects', 'unpinned') + `<button class="ib" data-tip="New project">${svg('i-plus', 14)}</button>`)}${unpinnedList().map(p => projectBlock(p, {})).join('')}</div>`;
+  frame.innerHTML = titleBar() + `<div class="work">${panel(body)}${mainPane()}</div>`;
+  frame.querySelectorAll('[data-collapse-section]').forEach(b => b.onclick = () => {
+    const ids = b.dataset.collapseSection === 'pinned' ? pinnedList().map(p => p.id) : unpinnedList().map(p => p.id);
+    setCollapsed(ids, anyExpanded(ids));
+    window.__redraw();
+  });
+}
+
+// ── Variant C: the icon-row button plus a fold on the Projects label ───
+const CS = window.__collapseState = window.__collapseState || { projectsFolded: false };
+function renderC(frame) {
+  const gen = generalList();
+  const folded = !!CS.projectsFolded;
+  const body = `${gen.length ? `<div class="sec"><div class="lbl">General</div>${threadList(null)}</div>` : ''}
+    <div class="sec"><div class="lbl">Pinned</div>${pinnedList().map(p => projectBlock(p, { pinned: true })).join('')}</div>
+    <div class="sec">
+      <div class="lblrow">
+        <button class="lbl clickable" data-fold-projects><span class="chev${folded ? ' closed' : ''}">${svg('i-chev-d', 14)}</span>Projects</button>
+        <button class="ib" data-tip="New project">${svg('i-plus', 14)}</button>
+      </div>
+      <div class="secbody${folded ? ' closed' : ''}"><div>${unpinnedList().map(p => projectBlock(p, {})).join('')}</div></div>
+    </div>`;
+  frame.innerHTML = titleBar() + `<div class="work">${panel(body, { brand: { extra: iconRowButton() } })}${mainPane()}</div>`;
+  wireCollapseAll(frame);
+  frame.querySelector('[data-fold-projects]').onclick = () => {
+    CS.projectsFolded = !CS.projectsFolded;
+    window.__redraw();
+  };
+}
+
+// afterterm's seven-thread list starts folded so the Projects section, whose
+// label variant C acts on, is on screen without a scroll.
+if (S.collapsed.afterterm === undefined) S.collapsed.afterterm = true;
+
+initVariants({
+  title: 'Decision 9: where the collapse-all control sits',
+  variants: [
+    {
+      id: 'iconrow',
+      name: 'A. One button in the icon row, beside the sidebar toggle',
+      note: 'The one toggle at the top of the sidebar that bugs.md asks for, sitting in the row that already holds the sidebar\'s own toggle. It is always visible, not tucked behind a hover, and it acts on every project at once, pinned and unpinned. The icon and tooltip flip with the state: a down-chevron pair while any project is expanded ("Collapse all projects"), an up-chevron pair once every project is already folded ("Expand all projects"). A keyboard shortcut is a separate question: Ctrl+Shift+E is free, Ctrl+Shift+B is already the sidebar toggle.',
+      closes: ['bugs.md: "The sidebar has no button to collapse or expand every project at once"'],
+      render: renderA,
+    },
+    {
+      id: 'labels',
+      name: 'B. A button on each section\'s label row, one per section',
+      note: 'No icon-row button. The Pinned label row and the Projects label row each get their own small button, appearing only while that section is hovered (the shared .lblrow .ib rule), and each acts only on its own section: Pinned\'s button touches pinned projects, Projects\' button the unpinned list. The Projects row keeps its New project + alongside it, two buttons on that one row. This gives finer control, collapse the long unpinned list while leaving Pinned open, but there is no single "everything" toggle and the control is invisible until the pointer finds it, so it is a weaker answer to the bug as logged.',
+      closes: ['bugs.md: "The sidebar has no button to collapse or expand every project at once" (partly)'],
+      render: renderB,
+    },
+    {
+      id: 'both',
+      name: 'C. The icon-row button plus a fold on the Projects label',
+      note: 'The icon-row button from A is still here, collapsing or expanding every project\'s thread list at once. Alongside it, the Projects section label itself becomes clickable with a chevron and folds the whole unpinned section away as one block, independent of the per-project collapse state underneath it. These are two different things: collapsing every project\'s thread list, versus hiding the unpinned section entirely. This variant shows both side by side because decision 10 (the pinned split) may bring the section fold on its own; if it does, A plus that fold is the same page as C, and this is here to make that overlap visible now rather than discover it later.',
+      closes: ['bugs.md: "The sidebar has no button to collapse or expand every project at once"'],
+      render: renderC,
+    },
+  ],
+});
+</script>
+</body>
+</html>

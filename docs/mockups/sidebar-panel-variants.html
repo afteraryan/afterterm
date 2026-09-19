@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sidebar panel variants: which projects are in the panel, and how one comes in and goes out</title>
+<link rel="stylesheet" href="design-03-shared.css">
+<style>
+/* Sheet-only additions: the "Other projects" fold, the confirm dialog host,
+   and a plain dim row for a project listed there (no thread list, no hover
+   buttons beyond the one action). */
+.otherlist{display:flex;flex-direction:column;gap:1px}
+.otherrow{display:flex;align-items:center;gap:8px;padding:6px 6px 6px 10px;border-radius:10px;color:var(--text3);width:100%;min-width:0;cursor:pointer;transition:background var(--fast),color var(--fast)}
+.otherrow:hover{background:var(--hover);color:var(--text2)}
+.otherrow .n{flex:1;min-width:40px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:400}
+.otherrow .t{font-size:12px;color:var(--text4);flex:none}
+</style>
+</head>
+<body>
+<script src="design-03-shared.js"></script>
+<script>
+// Decision 2 of design-03: which projects sit in the expanded panel (not the
+// rail, that is decision 1), and how a project gets added to or dropped from
+// that list. Three answers, same 1280x760 frame, no rail (titleBar + panel +
+// mainPane only).
+//
+// Local state lives on window.__panelState so a redraw (window.__redraw, via
+// bindCommon) does not lose it. lastActive is re-read from THREADS/PROJECTS
+// live, since bring-in/close-out mutate PROJECTS entries directly for the mock.
+
+const PS = window.__panelState = window.__panelState || {
+  otherOpen: { rule: false, manual: false },     // "Other projects · N" expanded, per variant
+  openSet: new Set(['afterthought', 'website-desk']), // variant C's manually-opened projects
+  confirm: null,                                  // { variant, pid } while a close-out confirm shows
+};
+
+function daysAgo(min) { return min / (24 * 60); }
+
+function windowDays(opts) {
+  const picked = ['w1', 'w3', 'w7'].filter(k => opts[k]);
+  if (!picked.length) return 3;
+  return Math.max(...picked.map(k => Number(k.slice(1))));
+}
+
+// ── Variant A: today's layout, plus a foldable Projects label ─────────────
+function renderA(frame) {
+  const closed = !!S.collapsed['__unpinned_fold'];
+  const gen = generalList();
+  const body = `${gen.length ? `<div class="sec"><div class="lbl">General</div>${threadList(null)}</div>` : ''}
+    <div class="sec"><div class="lbl">Pinned</div>${pinnedList().map(p => projectBlock(p, { pinned: true })).join('')}</div>
+    <div class="sec">
+      <div class="lblrow">
+        <button class="lbl clickable" data-fold-unpinned><span class="chev${closed ? ' closed' : ''}">${svg('i-chev-d', 14)}</span>Projects</button>
+        <button class="ib" data-tip="New project">${svg('i-plus', 14)}</button>
+      </div>
+      <div class="secbody${closed ? ' closed' : ''}"><div>${unpinnedList().map(p => projectBlock(p, {})).join('')}</div></div>
+    </div>`;
+  frame.innerHTML = titleBar() + `<div class="work">${panel(body)}${mainPane()}</div>`;
+  frame.querySelector('[data-fold-unpinned]').onclick = () => {
+    S.collapsed['__unpinned_fold'] = !S.collapsed['__unpinned_fold'];
+    window.__redraw();
+  };
+}
+
+// ── Variants B and C share the "Projects section is a filtered/opened list,
+// plus an Other projects fold underneath" shape. `membership` decides who is
+// in vs. in the fold; `onBringIn`/`onCloseOut` mutate state for the mock. ──
+function renderFilteredPanel(frame, key, membership, onBringIn, onCloseOut, opts) {
+  const gen = generalList();
+  const unpinned = unpinnedList(false);
+  const inPanel = unpinned.filter(p => membership(p)).sort((a, b) => a.lastActive - b.lastActive);
+  const rest = unpinned.filter(p => !membership(p)).sort((a, b) => a.lastActive - b.lastActive);
+  const open = !!PS.otherOpen[key];
+
+  const closeBtn = p => `<button class="ib" data-tip="Close out of sidebar" data-close-out="${p.id}">${svg('i-x', 14)}</button>`;
+  const otherRow = p => `<button class="otherrow" data-bring-in="${p.id}"><span class="g">${folder(p, false, 16)}</span><span class="n">${esc(p.name)}</span><span class="t">${agoText(p.lastActive)}</span></button>`;
+
+  const body = `${gen.length ? `<div class="sec"><div class="lbl">General</div>${threadList(null)}</div>` : ''}
+    <div class="sec"><div class="lbl">Pinned</div>${pinnedList().map(p => projectBlock(p, { pinned: true })).join('')}</div>
+    <div class="sec">
+      ${sectionLabel('Projects')}
+      ${inPanel.length ? inPanel.map(p => projectBlock(p, { extraTail: closeBtn(p) })).join('') : `<div class="nomatch">Nothing else is current right now.</div>`}
+      ${rest.length ? `<button class="thmore" style="padding-left:12px" data-toggle-other>${open ? 'Show less' : `Other projects · ${rest.length}`}</button>` : ''}
+      ${rest.length ? `<div class="secbody${open ? '' : ' closed'}"><div class="otherlist">${rest.map(otherRow).join('')}</div></div>` : ''}
+    </div>`;
+
+  frame.innerHTML = titleBar() + `<div class="work">${panel(body)}${mainPane()}</div>` + confirmMarkup(key);
+
+  frame.querySelector('[data-toggle-other]')?.addEventListener('click', () => { PS.otherOpen[key] = !PS.otherOpen[key]; window.__redraw(); });
+  frame.querySelectorAll('[data-bring-in]').forEach(b => b.onclick = () => onBringIn(b.dataset.bringIn));
+  frame.querySelectorAll('[data-close-out]').forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    const pid = b.dataset.closeOut;
+    if (awake(pid).length) {
+      PS.confirm = { key, pid };
+      window.__redraw();
+    } else {
+      onCloseOut(pid);
+    }
+  });
+  if (PS.confirm && PS.confirm.key === key) wireConfirm(frame, key, onCloseOut);
+}
+
+function confirmMarkup(key) {
+  if (!PS.confirm || PS.confirm.key !== key) return '';
+  const p = P(PS.confirm.pid);
+  const n = awake(p.id).length;
+  return `<div class="mbg show" data-confirm-bg><div class="modal">
+    <h2>Close ${esc(p.name)} out of the sidebar?</h2>
+    <p>${n} thread${n === 1 ? ' is' : 's are'} awake. Closing sleeps ${n === 1 ? 'it' : 'them'}, the project stays on Home and in the palette.</p>
+    <div class="acts"><button class="b q" data-confirm-cancel>Cancel</button><button class="b p" data-confirm-ok>Sleep and close</button></div>
+  </div></div>`;
+}
+function wireConfirm(frame, key, onCloseOut) {
+  const bg = frame.querySelector('[data-confirm-bg]');
+  if (!bg) return;
+  bg.addEventListener('mousedown', e => { if (e.target === bg) { PS.confirm = null; window.__redraw(); } });
+  frame.querySelector('[data-confirm-cancel]').onclick = () => { PS.confirm = null; window.__redraw(); };
+  frame.querySelector('[data-confirm-ok]').onclick = () => {
+    const pid = PS.confirm.pid;
+    projectThreads(pid).forEach(t => { if (t.state !== 'asleep') t.state = 'asleep'; });
+    PS.confirm = null;
+    onCloseOut(pid);
+  };
+}
+
+// ── Variant B: pinned, awake, or active within the chosen window ──────────
+function renderB(frame, opts) {
+  const days = windowDays(opts);
+  const membership = p => awake(p.id).length > 0 || daysAgo(p.lastActive) <= days;
+  renderFilteredPanel(frame, 'rule', membership,
+    pid => { P(pid).lastActive = 0; const t = projectThreads(pid).find(x => x.state !== 'asleep') || projectThreads(pid)[0]; if (t) S.selected = t.id; window.__redraw(); },
+    pid => { P(pid).lastActive = 999999; window.__redraw(); },
+    opts);
+}
+
+// ── Variant C: pinned plus a manually opened set ───────────────────────────
+function renderC(frame, opts) {
+  const membership = p => PS.openSet.has(p.id);
+  renderFilteredPanel(frame, 'manual', membership,
+    pid => { PS.openSet.add(pid); const t = projectThreads(pid).find(x => x.state !== 'asleep') || projectThreads(pid)[0]; if (t) S.selected = t.id; window.__redraw(); },
+    pid => { PS.openSet.delete(pid); window.__redraw(); },
+    opts);
+}
+
+// This sheet is about the Projects section, so the two long pinned lists start
+// folded to keep that section on screen without a scroll.
+if (S.collapsed.afterterm === undefined) { S.collapsed.afterterm = true; S.collapsed.aftertales = true; }
+
+initVariants({
+  title: 'Decision 2: which projects are in the panel, and how one comes in and goes out',
+  options: [
+    { key: 'w1', label: 'Window: 1 day', default: false, only: ['rule'] },
+    { key: 'w3', label: 'Window: 3 days', default: true, only: ['rule'] },
+    { key: 'w7', label: 'Window: 7 days', default: false, only: ['rule'] },
+  ],
+  variants: [
+    {
+      id: 'all',
+      name: 'A. Every project, as today, plus a foldable Projects section',
+      note: 'Today\'s layout unchanged: General, Pinned, then Projects sorted by activity, every unpinned project listed. The one addition is the chevron on the Projects label; clicking it folds the whole unpinned list away, and the fold is persisted across relaunch the same way pinning is. Every project is still listed here, nothing ages out and nothing has to be reopened after it drops off, but a long project list is exactly as long as it always was, just optionally hidden as one block. <b>This does not answer</b> either "Only current projects in the expanded sidebar" or "Bring a project in, close a project out" from research-02: the Projects section still holds every unpinned project, whether or not it is current, and there is nothing to bring in because nothing was ever left out.',
+      closes: [
+        'bugs.md: "Pinned and unpinned projects read as one block in the sidebar, and the unpinned list cannot be collapsed" (the fold half of it: the whole unpinned list can now be hidden as one block).',
+        'Does <b>not</b> close research-02\'s "Only current projects in the expanded sidebar" or "Bring a project in, close a project out": every project stays listed, folded or not.',
+      ],
+      render: (frame) => renderA(frame),
+    },
+    {
+      id: 'rule',
+      name: 'B. Current projects by rule: pinned, awake, or active in the last N days',
+      note: 'The Projects section holds only unpinned projects that are pinned by nature (Pinned is unchanged above it), have at least one awake thread, or were last active within the chosen window (the option row above sets it: 1, 3 or 7 days, largest wins when more than one is checked, default 3). Everything else sits under "Other projects · N", collapsed, listed dim with no thread rows under them since they have nothing awake to show. Clicking one there brings it in: it moves into Projects and its first thread is selected. An unpinned project already in Projects gets an extra x in its hover row (Close out of the sidebar); if it has awake threads that asks first ("N threads are awake, closing sleeps them, the project stays on Home and in the palette") and sleeps them, otherwise it drops straight to Other projects. This is a view filter over activity, not a pin: design-02 already rejected auto-pinning a project just because it is busy, and this pins nothing, it only decides what shows without touching Group.pinned. In: pinned, has an awake thread, or active within the window. Out: none of those, whether it aged past the window or its last awake thread went to sleep or closed. In also happens by opening the project from Home, the palette, or the rail (decision 1); Other projects is a manual fallback for a project the rule does not currently favour.',
+      closes: [
+        'research-02: "Only current projects in the expanded sidebar" (the floor Aryan set, "awake threads or the projects I am working on", is exactly the rule here).',
+        'research-02: "Bring a project in, close a project out", including its close-out confirm text pattern reused from the Phase 5 <code>ConfirmDialog</code>.',
+        'bugs.md: "unpinned list cannot be collapsed" (the list is short by rule instead of needing a manual collapse).',
+      ],
+      render: (frame, opts) => renderB(frame, opts),
+    },
+    {
+      id: 'manual',
+      name: 'C. Open projects, by hand: pinned plus the ones you opened, until you close them',
+      note: 'Same look as B, but the Projects section holds a persisted "open" set instead of a rule: this mock starts with afterthought and website-afteraryan-desk open. Other projects lists the rest; clicking one there opens it (adds it to the set, selects its first thread). The x closes a project out with the same confirm as B when it has awake threads. Projects inside the section sort by activity, same as everywhere else in the panel. This is pure intent, the same principle Pinned already follows (design-02: process state never decides intent on its own). A project is in the panel because you opened it, and it leaves because you closed it: nothing ages out on its own, and nothing you have not touched moves. The set is persisted across relaunch. A project with awake threads cannot be closed out without sleeping them first (the confirm), so "in the panel" always covers "has awake threads", closing that gap without a rule to get it wrong.',
+      closes: [
+        'research-02: "Only current projects in the expanded sidebar" and "Bring a project in, close a project out", the same two items B closes, answered by intent instead of a rule.',
+        'bugs.md: "unpinned list cannot be collapsed" (the list only ever holds what you opened).',
+        'Recommended by this design: nothing in the panel ever moves or disappears without a click, so the sidebar never surprises.',
+      ],
+      render: (frame, opts) => renderC(frame, opts),
+    },
+  ],
+});
+</script>
+</body>
+</html>

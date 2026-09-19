@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Search input variants: the Search row becomes a real input, and what typing in it does</title>
+<link rel="stylesheet" href="design-03-shared.css">
+<style>
+/* Sheet-only additions: the palette overlay for variant B. */
+.pal-scrim{position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:60;display:flex;justify-content:center}
+.pal-card{width:560px;max-width:90%;margin-top:12%;height:fit-content;max-height:70%;background:var(--hover);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:10px;display:flex;flex-direction:column;gap:8px;animation:popin 160ms var(--ease)}
+.pal-card .srch{margin:0}
+.pal-results{overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:2px 2px 4px}
+.pal-group{display:flex;flex-direction:column;gap:1px}
+.pal-lbl{font-size:11px;color:var(--text4);font-weight:500;margin:4px 0 2px 10px;text-transform:uppercase;letter-spacing:.03em}
+.pal-row{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;color:var(--text)}
+.pal-row:hover{background:var(--hover2)}
+.pal-n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pal-p{color:var(--text3);font-size:12px;flex:none}
+.pal-ic{display:inline-grid;place-items:center;color:var(--text3);flex:none}
+</style>
+</head>
+<body>
+<script src="design-03-shared.js"></script>
+<script>
+// Decision from research-02, bucket 2: "The Search row in the sidebar is a
+// button with a shortcut label. It should be a real search input, the way
+// Enjoy's is, with the palette's matching behind it." Three answers to what
+// typing in that input then does, shown against the same data.
+//
+// Typed text lives on window.__searchState so a redraw (window.__redraw, via
+// bindCommon) does not lose it. { q: the typed text, focused: true once the
+// user has clicked or typed into a search field, so a redraw knows to put the
+// caret back rather than leaving the field looking dead. }
+
+const SS = window.__searchState = window.__searchState || { q: '', focused: false };
+
+const HISTORY = [
+  { title: 'Rename the group modal fields', p: 'afterterm' },
+  { title: 'Search palette keyboard handling', p: 'afterterm' },
+  { title: 'Toast card shadow', p: 'afterterm' },
+];
+
+function searchInputRow(extraClass = '') {
+  const has = SS.q.length > 0;
+  return `<div class="srch${has ? ' has' : ''}${extraClass ? ' ' + extraClass : ''}"><span class="g">${svg('i-search', 16)}</span><input placeholder="Search" data-search-input><span class="k">Ctrl Shift P</span><button class="ib clr" data-search-clear tabindex="-1" data-tip="Clear">${svg('i-x', 14)}</button></div>`;
+}
+
+// Wires every [data-search-input] and [data-search-clear] found in the frame
+// to the shared state, then restores focus and caret to whichever selector
+// should hold it (only when the flag says a field was actually focused).
+function wireSearch(frame, onChange, focusSelector) {
+  frame.querySelectorAll('[data-search-input]').forEach(input => {
+    input.value = SS.q;
+    input.addEventListener('focus', () => { SS.focused = true; });
+    input.addEventListener('input', () => { SS.q = input.value; SS.focused = true; onChange(); });
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { SS.q = ''; SS.focused = true; onChange(); }
+    });
+  });
+  frame.querySelectorAll('[data-search-clear]').forEach(btn => btn.onclick = () => {
+    SS.q = ''; SS.focused = true; onChange();
+  });
+  if (SS.focused) {
+    const el = frame.querySelector(focusSelector);
+    if (el) { el.focus(); const n = el.value.length; el.setSelectionRange(n, n); }
+  }
+}
+
+/* ── Variant A: filters the panel in place ──────────────────────────────── */
+function matchesFor(q) {
+  const ql = q.trim().toLowerCase();
+  if (!ql) return null;
+  const has = s => s.toLowerCase().includes(ql);
+  const gen = generalList().filter(t => has(t.name));
+  const pick = list => list.map(p => {
+    if (has(p.name)) return { p, threads: projectThreads(p.id) };
+    const ts = projectThreads(p.id).filter(t => has(t.name));
+    return ts.length ? { p, threads: ts } : null;
+  }).filter(Boolean);
+  return { gen, pinned: pick(pinnedList()), unpinned: pick(unpinnedList()) };
+}
+
+// A project row plus only the threads that matched (all of them when the
+// project's own name matched). Mirrors projectBlock's markup.
+function filteredProjectBlock(p, threads, opts = {}) {
+  // Search results always show open: a fold state from before you searched
+  // has nothing to do with which threads just matched.
+  const c = counts(p.id);
+  const pinBtn = opts.pinned ? '' : `<button class="ib" data-tip="Pin" tabindex="-1">${svg('i-pin', 14)}</button>`;
+  const row = `<div class="pj ${opts.pinned ? '' : 'dim'}">${folder(p, true)}<span class="n">${esc(p.name)}</span>${sig('need', c.needsYou)}${sig('run', c.working + c.running)}<button class="ib" data-tip="New thread in ${esc(p.name)}" tabindex="-1">${svg('i-plus', 14)}</button><button class="ib" data-tip="Open project page" tabindex="-1">${svg('i-page', 14)}</button>${pinBtn}</div>`;
+  const list = threads.length ? `<div class="tlw"><div class="tli">${threadList(p.id, { threads })}</div></div>` : '';
+  return `<div class="pjw">${row}${list}</div>`;
+}
+
+function filteredBody(q) {
+  const m = matchesFor(q);
+  if (!m) return defaultSections();
+  const nothing = !m.gen.length && !m.pinned.length && !m.unpinned.length;
+  if (nothing) return `<div class="nomatch">No matches</div>`;
+  return `${m.gen.length ? `<div class="sec"><div class="lbl">General</div>${threadList(null, { threads: m.gen })}</div>` : ''}
+    ${m.pinned.length ? `<div class="sec"><div class="lbl">Pinned</div>${m.pinned.map(x => filteredProjectBlock(x.p, x.threads, { pinned: true })).join('')}</div>` : ''}
+    ${m.unpinned.length ? `<div class="sec">${sectionLabel('Projects')}${m.unpinned.map(x => filteredProjectBlock(x.p, x.threads, {})).join('')}</div>` : ''}`;
+}
+
+function renderInplace(frame) {
+  const top = searchInputRow() + newThreadRow();
+  const body = filteredBody(SS.q);
+  frame.innerHTML = titleBar() + `<div class="work">${panel(body, { top })}${mainPane()}</div>`;
+  wireSearch(frame, () => window.__redraw(), '[data-search-input]');
+}
+
+/* ── Variant B: opens the palette with the typed text ───────────────────── */
+function paletteMatches(q) {
+  const ql = q.toLowerCase();
+  const has = s => s.toLowerCase().includes(ql);
+  return {
+    projects: PROJECTS.filter(p => has(p.name)),
+    threads: THREADS.filter(t => has(t.name)),
+    history: HISTORY.filter(h => has(h.title)),
+  };
+}
+
+function paletteOverlay(q) {
+  const m = paletteMatches(q);
+  const group = (label, items, render) => items.length ? `<div class="pal-group"><div class="pal-lbl">${label}</div>${items.map(render).join('')}</div>` : '';
+  const projRow = p => `<div class="pal-row">${folder(p, false, 16)}<span class="pal-n">${esc(p.name)}</span></div>`;
+  const threadRowPal = t => `<div class="pal-row">${kindIcon(t, 15)}<span class="pal-n">${esc(t.name)}</span>${t.p ? `<span class="pal-p">${esc(P(t.p).name)}</span>` : ''}</div>`;
+  const histRow = h => `<div class="pal-row"><span class="pal-ic">${svg('i-page', 15)}</span><span class="pal-n">${esc(h.title)}</span><span class="pal-p">${esc(P(h.p).name)}</span></div>`;
+  const anything = m.projects.length || m.threads.length || m.history.length;
+  const results = anything
+    ? group('Projects', m.projects, projRow) + group('Threads', m.threads, threadRowPal) + group('History', m.history, histRow)
+    : `<div class="nomatch">No matches</div>`;
+  return `<div class="pal-scrim" data-pal-scrim><div class="pal-card">
+      ${searchInputRow('pal-input').replace('data-search-input', 'data-search-input data-palette-input')}
+      <div class="pal-results">${results}</div>
+    </div></div>`;
+}
+
+function renderPalette(frame) {
+  const top = searchInputRow() + newThreadRow();
+  const body = defaultSections();
+  const overlay = SS.q ? paletteOverlay(SS.q) : '';
+  frame.innerHTML = titleBar() + `<div class="work">${panel(body, { top })}${mainPane()}</div>` + overlay;
+  wireSearch(frame, () => window.__redraw(), SS.q ? '[data-palette-input]' : '[data-search-input]');
+  const scrim = frame.querySelector('[data-pal-scrim]');
+  if (scrim) scrim.addEventListener('mousedown', e => {
+    if (e.target === scrim) { SS.q = ''; SS.focused = false; window.__redraw(); }
+  });
+}
+
+/* ── Variant C: today, for comparison ───────────────────────────────────── */
+function renderToday(frame) {
+  const body = defaultSections();
+  frame.innerHTML = titleBar() + `<div class="work">${panel(body, { top: searchRow() + newThreadRow() })}${mainPane()}</div>`;
+}
+
+initVariants({
+  title: 'Decision: the Search row becomes a real input, and what typing in it does',
+  variants: [
+    {
+      id: 'inplace',
+      name: 'A. An input in the Search row; typing filters the panel in place',
+      note: 'The Search row is the input itself, not a button that opens something else. Empty, the panel is exactly today\'s: General, Pinned, Projects. Typing narrows all three sections to what matches, case-insensitive, over project names and thread names: a project whose own name matches keeps every one of its threads; a project whose name does not match but has a matching thread keeps only that thread, under its own row; a section with nothing left is left out entirely, and if nothing anywhere matches the panel shows one line, "No matches". Escape clears the field. The palette (Ctrl+Shift+P) still exists, for history (closed threads, which this row never shows) and for a keyboard-first jump straight to a thread; this row is only for narrowing what is already on screen. The shortcut label sits in the row next to the input and disappears the moment you start typing, the clear button taking its place.',
+      closes: ['research-02, bucket 2: "The Search row in the sidebar is a button with a shortcut label. It should be a real search input, the way Enjoy\'s is, with the palette\'s matching behind it."'],
+      render: renderInplace,
+    },
+    {
+      id: 'palette',
+      name: 'B. An input in the Search row; typing opens the palette with that text',
+      note: 'Same input, but the first character opens the palette as an overlay, its own input echoing what you typed, results grouped Projects, Threads and History underneath, all three matched the same substring way. The sidebar row stays exactly as it was, unchanged, sitting under the dimmed scrim. Escape, or a click on the scrim, closes the palette and clears the field. This keeps one matching engine in one place, since the palette already searches projects, threads and history; the row becomes a second way to reach it rather than a second way to search. The cost: typing in the sidebar immediately moves your eyes to a card in the middle of the window instead of narrowing what is already next to your hand.',
+      closes: ['research-02, bucket 2: "The Search row in the sidebar is a button with a shortcut label. It should be a real search input, the way Enjoy\'s is, with the palette\'s matching behind it."'],
+      render: renderPalette,
+    },
+    {
+      id: 'today',
+      name: 'C. Today: a button that opens the palette (for comparison)',
+      note: 'What exists right now, kept here so the two input variants are judged against it. The row is a plain button with a shortcut label; clicking it opens the palette with nothing typed in the sidebar itself. Nothing here has changed.',
+      closes: [],
+      render: renderToday,
+    },
+  ],
+});
+</script>
+</body>
+</html>

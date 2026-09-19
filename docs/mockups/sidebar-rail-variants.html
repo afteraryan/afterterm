@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sidebar rail variants: which projects get a tile on the always-on rail</title>
+<link rel="stylesheet" href="design-03-shared.css">
+</head>
+<body>
+<script src="design-03-shared.js"></script>
+<script>
+// Decision 1 of design-03: the rail rule. Three answers to "which projects get
+// a tile on the always-on rail", each shown against the same data. In every
+// variant the rail is a 56px column at the left edge that never goes away; the
+// panel beside it is today's sidebar and can still be hidden with Ctrl+Shift+B
+// (the panel toggle), which is what the "Hide the panel" option shows.
+//
+// The current project is the project of the selected thread. The sheet starts
+// on a quiet shell in afterthought (unpinned, one working thread, nothing
+// pending) so the "where does the current project show" question is visible.
+
+S.selected = S.selected === 't4' ? 't15' : S.selected;
+
+const currentProject = () => { const t = T(S.selected); return t.p; };
+const pending = p => { const c = counts(p.id); return c.needsYou > 0 || c.done > 0; };
+
+function tilesFor(rule, opts) {
+  const cur = currentProject();
+  const style = opts.letterTiles ? 'letter' : 'folder';
+  const mk = (p, extra = {}) => tile(p, { current: p.id === cur, style, countDone: opts.countDone, ...extra });
+  if (rule === 'pending') {
+    // Pending projects in sidebar order, plus the current one (marked) even when
+    // it has nothing pending, so the project you are in always has a tile.
+    const list = PROJECTS.filter(p => pending(p) || p.id === cur);
+    return list.map(p => mk(p)).join('');
+  }
+  if (rule === 'all') {
+    const list = [...pinnedList(), ...unpinnedList()];
+    return list.map(p => mk(p)).join('');
+  }
+  // 'pinned-plus': pinned always, in pinned order; then a separator; then
+  // unpinned projects only while pending or current.
+  const rest = unpinnedList().filter(p => pending(p) || p.id === cur);
+  return pinnedList().map(p => mk(p)).join('') + (rest.length ? `<span class="sep"></span>` + rest.map(p => mk(p)).join('') : '');
+}
+
+function render(rule) {
+  return (frame, opts) => {
+    const rail = newRail(tilesFor(rule, opts), { panelHidden: opts.panelHidden, onHome: opts.home });
+    const body = opts.home
+      ? homeScreen({ railNav: true })
+      : panel(defaultSections(), { hidden: opts.panelHidden, brand: { noNav: true } }) + mainPane();
+    frame.innerHTML = titleBar() + `<div class="work">${rail}${body}</div>`;
+    frame.querySelectorAll('[data-toggle-panel]').forEach(b => b.onclick = () => { opts.panelHidden = !opts.panelHidden; window.__redraw(); });
+  };
+}
+
+initVariants({
+  title: 'Decision 1: which projects get a tile on the always-on rail',
+  options: [
+    { key: 'panelHidden', label: 'Hide the panel (Ctrl+Shift+B), rail stays', default: false },
+    { key: 'home', label: 'Show Home instead of the workspace (decision 11: the rail on every screen)', default: false },
+    { key: 'letterTiles', label: 'Tiles show the project initial instead of the folder (every project here starts with A, which is why the folder is the default)', default: false },
+    { key: 'countDone', label: 'A grey badge counts Done threads too (amber stays for needs you)', default: false },
+  ],
+  variants: [
+    {
+      id: 'pending',
+      name: 'A. Only projects with something pending',
+      note: 'Your 2026-09-18 rule. A tile appears while a project has a thread that needs you (or is marked unread) or a finished turn nobody has viewed; the project you are in keeps a tile (ringed) even with nothing pending, so the rail is never empty and a tile never vanishes under the pointer the moment you click it. Everything else is reached from the panel, Home or the palette. Here: aftertales and answer-machine need you, afterterm has a Done, afterthought is current.',
+      closes: ['research-02: "The rail shows only projects that need attention", "Attention badges on the rail tiles", "An always-on rail"', 'bugs.md: "Threads that are mid-turn are hard to find" (the spinner corner on a tile says where work is happening, from any screen)'],
+      render: render('pending'),
+    },
+    {
+      id: 'all',
+      name: 'B. Every project, badges where pending',
+      note: 'The VS Code shape you first described: one tile per live project, pinned first in their order, then the rest by activity, with a badge only where something is pending. The rail doubles as project navigation. With many projects it scrolls (the tiles column scrolls on its own; the top and bottom controls stay put). Eight projects fit at this window height; the real session has fourteen.',
+      closes: ['research-02: "An always-on rail, VS Code style", "Attention badges on the rail tiles"', 'bugs.md: "Threads that are mid-turn are hard to find" (spinner corner)'],
+      render: render('all'),
+    },
+    {
+      id: 'pinned-plus',
+      name: 'C. Pinned always, the others only while pending',
+      note: 'The middle road, and the one this design recommends. Pinned projects always have a tile, in the order you pinned them, so the rail is stable navigation for the projects you chose; below a thin separator, an unpinned project gets a tile only while it has something pending or is the one you are in, and it drops off once that clears. The rail then reads as "my projects, and whatever else is asking". Pinned stays the only thing you set by hand; the rest is a view, not a pin.',
+      closes: ['research-02: all three rail items, with the pinned rule from design-02 kept intact', 'bugs.md: "Pinned and unpinned projects read as one block" (the rail itself separates them, before the panel does)', 'bugs.md: "Threads that are mid-turn are hard to find" (spinner corner)'],
+      render: render('pinned-plus'),
+    },
+  ],
+});
+</script>
+</body>
+</html>

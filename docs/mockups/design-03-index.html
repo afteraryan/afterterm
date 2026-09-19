@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Design 03 variant sheets: the sidebar, the rail and the attention model</title>
+<link rel="stylesheet" href="design-03-shared.css">
+<style>
+  .idx{max-width:760px;margin:0 auto;padding:40px 24px 80px;display:flex;flex-direction:column;gap:18px}
+  .idx h1{font-size:22px;font-weight:500;margin:0}
+  .idx p{color:var(--text2);margin:0;line-height:1.55}
+  .idx a.card{display:flex;flex-direction:column;gap:4px;padding:16px 18px;border-radius:14px;background:#161616;border:1px solid #242424;color:var(--text);text-decoration:none}
+  .idx a.card:hover{background:#1c1c1c}
+  .idx a.card b{font-weight:500}
+  .idx a.card span{color:var(--text3);font-size:13px}
+</style>
+</head>
+<body>
+<div class="idx">
+  <h1>Design 03 variant sheets</h1>
+  <p>One page per layout decision in <code>docs/design-03-sidebar-and-attention.md</code>. Each page has two or three variants switchable at the top, on the same data (eight projects, three pinned, threads in every state), drawn with the app's own markup and tokens. Rows, project names, tiles and controls react to clicks. Every variant's note says which logged problem it closes.</p>
+  <a class="card" href="sidebar-rail-variants.html"><b>Decision 1: which projects get a tile on the always-on rail</b><span>Also decision 11: the rail on Home (the "Show Home" option).</span></a>
+  <a class="card" href="sidebar-panel-variants.html"><b>Decision 2: which projects are in the panel, and how one comes in and goes out</b><span>Also decision 3: close-out sleeps awake threads after a confirm.</span></a>
+  <a class="card" href="sidebar-attention-filter-variants.html"><b>Decisions 6 and 7: the attention filter, and how mid-turn threads are found</b><span>A filter control, an attention block, or a strip under the title bar.</span></a>
+  <a class="card" href="sidebar-pinned-split-variants.html"><b>Decision 10: how pinned rows differ from unpinned rows, and where the divider goes</b><span>A divider, a pin glyph, or a raised block; the Projects section folds in every variant.</span></a>
+  <a class="card" href="sidebar-collapse-all-variants.html"><b>Decision 9: where the collapse-all control sits</b><span>The icon row, the section labels, or both with a section fold.</span></a>
+  <a class="card" href="sidebar-search-input-variants.html"><b>The Search row becomes a real input, and what typing in it does</b><span>Filter the panel in place, open the palette, or today's button.</span></a>
+</div>
+</body>
+</html>
