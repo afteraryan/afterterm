@@ -29,6 +29,26 @@ console QuickEdit behavior. The native context menu is suppressed.
 - Highlight colors: all-occurrences uses a dim low-key amber; the current match uses a bright
   bordered amber so the two are clearly distinguishable (an earlier pass had them too close).
 
+## The jump button (Phase 9)
+
+- One round button sits at the centre of the terminal card, and a matching one at the centre of
+  the asleep pane, over the scrolled content.
+- It shows only while you have scrolled away from an end of the output, and points the way you
+  would need to scroll to get back: scrolled up, it points up ("to top"); scrolled down from
+  there, it points down ("to bottom"). It hides once that end is within a few lines.
+- It appears and disappears by scaling only, no fade, and carries no tooltip.
+- A click scrolls to that end with an eased animation (instant under reduced motion).
+- A wheel over the button scrolls the terminal or the pane underneath, exactly as if the button
+  were not there.
+- Only scrolling the user actually started counts. Output arriving, a refit, or the button's own
+  animated jump never makes it appear; a click on it hides it at once.
+
+Implementation: `src/renderer/jumpScroll.ts` holds the pure rule (which way the button points,
+when it shows, the eased jump, the wheel-to-lines maths for a terminal, the user-scroll guard)
+with its tests; `src/renderer/components/JumpButton` is the button itself; the terminal side
+samples `viewportY`/`baseY` on xterm's `onScroll` in `Terminal/index.tsx`, and the asleep pane
+samples its own `scrollTop`.
+
 ## Font zoom (Ctrl+scroll)
 
 - **Per-tab** font size, clamped 6–40px.

@@ -1,5 +1,20 @@
 # Design 03: the sidebar, the always-on rail and the attention model
 
+**What changed after this was agreed.**
+- Compacting on the rail is a corner icon on the tile, not a count in the badge column this
+  design's decision 1 describes; separately, compacting is its own third pill on a project's row
+  and on Home's totals, rather than counted with working. Both decided with Aryan at the Phase 8
+  handoff, 2026-09-19, recorded in `PHASES.md`.
+- The rail badges' exact colours are not this design's amber, grey and green as written: a
+  brighter set and a translucent tint were both tried and rejected as too loud before landing on
+  the solid "set B" shown to Aryan at the Phase 8 handoff, 2026-09-19 (`PHASES.md`).
+- Decision 12 leaves the sidebar rows, Home cards and project page showing the coloured folder,
+  with only the rail tile carrying a project's chosen icon. Aryan asked for the icon on the
+  sidebar rows too at the Phase 8 handoff, and Phase 9 (2026-09-19) extended it everywhere a
+  project is drawn, including Home cards and the project page (`PHASES.md`).
+- The rail badges do not move: an animated halo, then an in-place breath, were both tried at
+  Aryan's request at the Phase 8 handoff and dropped the same day, 2026-09-19 (`PHASES.md`).
+
 This design extends the sidebar from [`design-02-projects-and-threads.md`](design-02-projects-and-threads.md): a rail that always shows which projects need you, a sidebar that lists only pinned and recent projects, a needs-you that stays until it is answered, a way to mark a chat unread, one aggregate every count reads from, per-group collapse buttons, a real search box, activity ordering and a keyboard cycle through threads. It is Cluster 1 of [`plan-01-sidebar-attention-and-manual-testing-fixes.md`](plan-01-sidebar-attention-and-manual-testing-fixes.md).
 
 Status: agreed with Aryan on 2026-09-19 against the pages in `docs/mockups/`. Execution is Phases 7 and 8 in [`../PHASES.md`](../PHASES.md). Nothing in the app has changed yet.

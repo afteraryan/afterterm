@@ -468,6 +468,7 @@ Registered via Electron `before-input-event` — work even when xterm.js has foc
 | Ctrl+Shift+W | Close current tab |
 | Ctrl+Tab | Next tab |
 | Ctrl+Shift+Tab | Previous tab |
+| Ctrl+Shift+Down / Ctrl+Shift+Up | Next and previous thread row in sidebar order, crossing projects (Phase 8) |
 | Ctrl+Shift+B | Hide or show the panel (the rail stays) |
 | Ctrl+Shift+Down | Next thread the panel is showing, across projects |
 | Ctrl+Shift+Up | Previous thread the panel is showing, across projects |
@@ -590,6 +591,8 @@ everything else is committed with the phase. See `docs/screenshots/README.md`.
 - **Group contiguity** — dragging a tab out of its group's contiguous block auto-removes it from the group (intentional fix, not a bug)
 
 ## Docs
+
+`CHANGELOG.md` at the repo root records what changed for the person using the app, release by release, at feature level (never code level); the section "Unreleased" collects everything since the last tag and becomes the next release's notes. Add to it whenever a change is something the user would notice.
 
 Research and design documents live in `docs/`. Naming convention: `research-NN-<topic>.md` for research, `design-NN-<topic>.md` for designs, other prefixes as needed.
 

@@ -1,5 +1,17 @@
 # Design 02: Projects and threads
 
+**What changed after this was agreed.**
+- Every thread restored from a previous launch starts asleep, and nothing resumes automatically
+  on launch, not even the thread that was active when the app last closed (Phase 4, decided
+  2026-09-07, recorded in `PHASES.md`'s Phase 4 handoff decisions).
+- The wake replay this design describes ("Waking appends a 'Woke just now' divider and continues
+  below it") was dropped on 2026-09-19: a woken thread now opens with a clean prompt, and its
+  saved output is shown on the asleep pane only, not replayed into the terminal (Phase 9,
+  `PHASES.md`).
+- The asleep pane no longer puts the Wake button "at the top of the pane" over dimmed output as
+  this design describes: it opens scrolled to its newest lines, with a Wake button floating over
+  the text and a jump button for reaching the top or bottom of long output (Phase 9, `PHASES.md`).
+
 The sidebar today shows terminals. This design makes it show **projects** and the **threads** of work inside them, adds a **Home** screen that answers "what am I working on right now", and gives every thread a name, a state and a place to go when you are done with it.
 
 Status: design agreed on 2026-09-06 against an interactive mock. Not built. Execution is planned in [`../PHASES.md`](../PHASES.md).

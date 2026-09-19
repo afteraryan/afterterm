@@ -1,5 +1,12 @@
 # Plan 01: the next round of work after the projects-and-threads phases
 
+**Status.** This plan was executed as Phases 7, 8 and 9 (branches `phase-7-attention-state`,
+`phase-8-sidebar-rail-and-panel`, `phase-9-output-and-visual-fixes`), merged to `main` through
+PR #23 on 2026-09-19, with follow-ups merged through PR #31 on 2026-09-20. No release has been
+cut yet: Aryan is using the build first. Section 3's fifteen questions were all answered; the
+answers are recorded in `PHASES.md`'s Phase 7, 8 and 9 sections and its Log. `docs/bugs.md` is
+empty.
+
 Written 2026-09-18 against branch `manual-testing-fixes`, which holds Phases 0 to 6 of
 [`design-02-projects-and-threads.md`](design-02-projects-and-threads.md) plus every bug logged
 from Aryan's manual testing. `main` is still at 0.8.0; nothing from the phases has shipped, and
