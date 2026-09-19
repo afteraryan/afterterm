@@ -1,160 +1,117 @@
 # Design 03: the sidebar, the always-on rail and the attention model
 
-This design extends the sidebar from [`design-02-projects-and-threads.md`](design-02-projects-and-threads.md) so that it answers "what needs me" honestly and from anywhere: a needs-you that stays until it is actually answered, a way to put attention back on a thread by hand, one aggregate every count reads from, an always-on rail with badges beside the panel, a rule for which projects the panel shows, a filter over the thread list, a clear split between pinned and unpinned projects, a collapse-all control, activity ordering, and a real search input. It is Cluster 1 of [`plan-01-sidebar-attention-and-manual-testing-fixes.md`](plan-01-sidebar-attention-and-manual-testing-fixes.md).
+This design extends the sidebar from [`design-02-projects-and-threads.md`](design-02-projects-and-threads.md): a rail that always shows which projects need you, a sidebar that lists only pinned and recent projects, a needs-you that stays until it is answered, a way to mark a chat unread, one aggregate every count reads from, per-group collapse buttons, a real search box, activity ordering and a keyboard cycle through threads. It is Cluster 1 of [`plan-01-sidebar-attention-and-manual-testing-fixes.md`](plan-01-sidebar-attention-and-manual-testing-fixes.md).
 
-Status: draft, written 2026-09-19 for discussion with Aryan. The variant sheets are built; nothing in the app has changed. Each decision below is marked **pending** until Aryan picks, then records the date and the variant chosen. Execution is two phases, 7 and 8, listed at the end and in [`../PHASES.md`](../PHASES.md).
+Status: agreed with Aryan on 2026-09-19 against the pages in `docs/mockups/`. Execution is Phases 7 and 8 in [`../PHASES.md`](../PHASES.md). Nothing in the app has changed yet.
 
-Constraints carried in from earlier documents, not re-argued here:
+Constraints carried in and kept: design-02's Pinned rule (pinned is explicit and only explicit, nothing pins or unpins on its own); design-02's rejections (no Sleep all, no rename in afterterm, no derived subheadings, no typed notes); research-02 bucket 4 (no message snippets anywhere, no chat UI, no drastic redesign); Phase 1.1's title bar (the 32px strip is the drag region and nothing shares its row).
 
-- design-02's Pinned rule: pinned is explicit and only explicit; nothing pins on its own, no pin decay, process state never decides intent.
-- design-02's "Rejected along the way": no Sleep all, no rename in afterterm, no derived subheadings, no typed notes.
-- research-02 bucket 4: no message snippets anywhere (a needs-you row never quotes the question), no chat UI, no drastic redesign. Every variant here is the sidebar of today plus something; none rebuilds the workspace.
-- Phase 1.1: the 32px title bar is the drag region and nothing shares its row with the caption buttons.
-- Aryan's instruction for this round: do not make drastic changes for the sake of changing.
+## The pages this was agreed against
 
-## The problems this closes
+All in `docs/mockups/`, built on `design-03-shared.css` and `design-03-shared.js` (the tokens, markup and icons of `afterterm-next.html`, plus one data set: eight projects, three pinned, threads in every state).
 
-From `docs/bugs.md`: pinned and unpinned projects read as one block and the unpinned list cannot be collapsed; there is no collapse-all button; mid-turn threads are hard to find and switch between; an unpinned project that just became active does not rise in the Projects section.
+- `design-03-final-sidebar.html`: **the agreed result**, every decision applied on one page, plus the eleven tile layouts that were compared (layout 1 is the one chosen).
+- `design-03-index.html` and the six `sidebar-*-variants.html` pages: the questionnaire, one question per page, two or three answers each. Kept as the record of what was compared.
 
-From `docs/research-02-enjoy-dev-ideas-for-afterterm.md`, bucket 1, every item: the always-on rail, badges on the rail tiles, the rail showing only what needs attention, only current projects in the panel, bring a project in and close it out, an attention filter, needs-you until answered, mark as unread. Plus bucket 2's search input.
+## Decisions, all taken 2026-09-19
 
-From `docs/ideas.md`: the app-wide attention count and the persistent needs-you from "Tab Attention / Notification System"; the keyboard cycle from "Arrow Key Tab Navigation" is decided here too.
+### 1. The rail shows only projects that need you
 
-## The variant sheets
+The rail is a 76px column at the left edge, on every screen (workspace, Home, project page). It holds the Home and Workspace icons at the top (so they are in the same place everywhere and Home's own icon row goes), then one tile per project that has a thread waiting for you (needs-you, or marked unread) or a thread that finished and has not been viewed. A project with nothing pending is not on the rail, whether or not it is pinned or current. At the bottom: the panel toggle, and Search and New thread only while the panel is hidden (today's collapsed rail, kept).
 
-One file per layout decision in `docs/mockups/`, variants switchable at the top of each page, every variant on the same data (eight live projects, three pinned, threads in every state, one thread in General) and in the app's own markup, tokens and icons (`design-03-shared.css`, `design-03-shared.js`, both taken from `afterterm-next.html`). Each variant's note says which logged problem it closes. Open them in a browser; rows, project names, tiles and controls react.
+A tile is the project's icon (decision 12) on a faint tint of the project colour. Beside the tile, in the tile's own row, a column of badges, only the non-zero ones, top to bottom: waiting for you (amber), working (grey), finished (green). Nothing overlaps another tile and nothing covers the icon. This is layout 1 of the eleven compared; initials were rejected early because every one of Aryan's projects starts with "after"; corner badges, fanned badges and bare numbers were rejected as cluttered or unframed.
 
-| Sheet | Decision |
-|---|---|
-| `sidebar-rail-variants.html` | 1, the rail rule; 11, the rail on every screen (the "Show Home" option) |
-| `sidebar-panel-variants.html` | 2, the panel rule, and 3, bring in and close out |
-| `sidebar-attention-filter-variants.html` | 6, the filter; 7, how mid-turn threads are found |
-| `sidebar-pinned-split-variants.html` | 10, pinned versus unpinned rows and the divider |
-| `sidebar-collapse-all-variants.html` | 9, the collapse-all control |
-| `sidebar-search-input-variants.html` | the Search row as an input |
+Hovering a tile shows a card to its right: the project name, then one line per non-zero number, in this order: "Finished: N", "Working: N", "Waiting for you: N". Clicking a tile opens the workspace on that project: the first thread waiting for you, else the first finished one, else the most recently active awake thread; the project is expanded in the panel. Right-click gives the project menu.
 
-Decisions 4, 5 and 8 (what clears needs-you, unread, ordering) are about state and rules, not layout, so they have no sheet; they are questions below with a recommendation each.
+### 2. The panel lists pinned and recent projects; everything else is docked at the bottom
 
-## Decisions
+The panel, top to bottom: the icon row (panel toggle only, since the rail carries Home and Workspace), the Search box, New thread, then the scrolling list: General (threads with no project, only when there are any), **Pinned** (heading with a pin icon; the pinned projects in their dragged order; a thin line under the group), **Recent** (unpinned projects that have at least one awake thread or activity in the last 3 days, sorted by latest activity, newest first). There is no "Projects" section any more.
 
-### 1. Which projects get a tile on the rail
+**Other projects · N** is a row docked at the bottom of the panel, outside the scroll, collapsed by default. Clicking it expands the rest of the unpinned projects upward as dim rows with no thread lists; clicking one brings it in: it stamps the project's activity to now (so the Recent rule holds it for 3 days), selects its first thread (waking nothing) and expands it. No close-out control: a project leaves Recent when it has no awake thread and its activity passes the window. Archived projects are nowhere in the panel, as today. This is a view filter over activity, not a pin: `Group.pinned` is untouched by any of it.
 
-**Pending.** Sheet: `sidebar-rail-variants.html`.
+### 3. No close-out confirm
 
-The rail is a 56px column at the left edge that never goes away. It holds Home and Workspace at the top (so those two icons are in the same place on every screen, as design-02 requires), then one tile per project the rule admits, then at the bottom the panel toggle, and Search and New thread only while the panel is hidden (today's collapsed rail, kept). A tile is the project's coloured folder on a faint tint of its colour; an initial letter was tried and rejected during the build because every one of Aryan's projects starts with "after", so the initials all read "A". The tile of the project you are in has a ring. Badges: an amber count of threads that need you (including marked-unread ones) at the top right, and a small spinner at the bottom right while any thread is mid-turn. Hovering shows the name and the counts. Clicking a tile opens the workspace on that project: the first thread that needs you, else the first Done, else the most recently active awake thread. Right-click gives the project menu.
+Nothing sleeps a project's threads from the panel. Since a project with an awake thread is Recent by rule, the panel never hides a running thread.
 
-- A. Only projects with something pending (Aryan's 2026-09-18 rule), plus the current project so the rail is never empty and a tile never vanishes under the pointer.
-- B. Every live project, pinned first, badges where pending (the VS Code shape).
-- C. Pinned always, in pinned order; unpinned only while pending or current, below a separator. **Recommended:** it keeps the rail as stable navigation for the projects Aryan chose, adds only what is asking, and keeps Pinned the one thing set by hand.
+### 4. Needs-you stays until it is answered
 
-Lingering: in A and C a tile whose attention clears stays while its project is current; it drops the next time another project becomes current. Nothing animates away under the pointer.
-
-### 2. Which projects are in the panel
-
-**Pending.** Sheet: `sidebar-panel-variants.html`.
-
-- A. Every project as today, with the Projects section foldable as one block. Closes the fold half of the bug and nothing from research-02.
-- B. Current projects by rule: Pinned, plus unpinned projects with an awake thread or activity within a window (1, 3 or 7 days); the rest behind "Other projects · N". A view filter, not a pin.
-- C. Open projects by hand: Pinned, plus the projects you opened (from Home, the palette, the rail, or Other projects), until you close them out; the set is persisted. **Recommended:** it is the same principle as Pinned, nothing moves without a click, and "in the panel" always covers "has awake threads" because close-out sleeps them first.
-
-### 3. Closing a project out of the panel
-
-**Pending.** Part of the same sheet. Close-out is the x that appears on hover on an unpinned project row in the panel (and "Close out of sidebar" in the project menu). If the project has awake threads, a confirm asks first: "Close afterthought out of the sidebar?" / "2 threads are awake. Closing sleeps them; the project stays on Home and in the palette." / Cancel / Sleep and close. With nothing awake it closes out at once. This is per project and one confirm, not the global Sleep all design-02 rejected; the alternative is to hide the project and leave its threads running, which would make the panel lie about what is running. Recommended: sleep, with the confirm.
-
-### 4. What clears needs-you
-
-**Pending.** No sheet. Today `handleActivate` clears the badge the moment a row is selected, so a glance counts as an answer. The new rule: needs-you persists until one of these, and nothing else:
+Today `handleActivate` in `app.tsx` clears the badge the moment a row is selected. Now needs-you persists until one of these, and nothing else:
 
 1. The hook reports the state moved on: `▶ working` from `UserPromptSubmit` or `✅` from `Stop` (`onTitle` in `spinnerState.ts`, unchanged).
-2. Enter is pressed in that thread (`\r` in `term.onData`, next to the existing Esc and Ctrl+C interrupt check). Enter is what submits an answer to a permission prompt, an AskUserQuestion or a typed reply, so it is the one keystroke that means "answered". It moves the thread to working; if Claude does not actually resume, the existing 2.5s silence-clear drops working again.
-3. Esc or Ctrl+C in that thread (the existing interrupt path): a cancelled prompt is no longer waiting on the user, so the thread goes quiet.
+2. Enter (`\r`) is pressed in that thread (`term.onData` in `Terminal/index.tsx`, beside the existing Esc and Ctrl+C check). The thread goes to working; if Claude does not resume, the 2.5s silence-clear drops it again.
+3. Esc or Ctrl+C in that thread (the existing interrupt path): the thread goes quiet.
 
-Not clearing it: opening or viewing the thread; arrow keys (multi-character sequences that never match `\r`); output alone. The output re-arm in `spinnerState.ts` (`onOutput`) stops flipping attention to working, since browsing options with the arrow keys echoes output and would count as an answer; it keeps re-arming compacting. Single-key answers that some prompts accept without Enter are not caught by afterterm, but the hook's next event catches them, so the worst case is a badge that outlives its prompt by one turn, never one that clears early.
-
-`done` keeps clearing on view: a finished turn asks nothing further, and the rail rule counts "done, not yet viewed" exactly as design-02 defined it. The overlay toast for a needs-you is still dismissed when the thread is opened (the toast says "go look", the badge says "still waiting").
-
-Recommended: the rule above, all three signals.
+Not clearing it: viewing the thread, arrow keys, output alone. `onOutput` in `spinnerState.ts` stops re-arming from attention (arrow keys echo output); it keeps re-arming compacting. The overlay toast is still dismissed when the thread is opened. `done` keeps clearing on view.
 
 ### 5. Mark as unread
 
-**Pending.** No sheet. A new entry "Mark as unread" in the one thread menu (`threadMenu.tsx`), for chats only (Aryan's wording; a shell has no conversation to come back to). It sets `Tab.unread`, persisted in `session.json` so a thread marked on Friday still asks on Monday, and shown with the same amber bell and breath as needs-you (one bell, one meaning: this thread wants you). It counts in every needs-you count (row, project pills, rail badge, Home totals, the filter's Needs you). It clears when the thread is opened: coming back to it is the whole point of the mark, so here a glance is the answer, unlike a prompt. It does not toast. An asleep thread keeps its unread mark and shows the bell on its dimmed row, since the mark is about the user, not the process. The menu entry reads "Mark as read" while set.
+"Mark as unread" in the one thread menu (`threadMenu.tsx`), chats only; "Mark as read" while set. Sets `Tab.unread`, persisted. Shown with the same amber bell and breath as needs-you, counted in every waiting-for-you count (row, project pills, rail badge, hover card, Home totals). Clears when the thread is opened. No toast. An asleep thread keeps the mark and shows the bell on its dimmed row.
 
-Recommended: as written. Alternatives Aryan may prefer: its own filter tab and count (the sheet's filter has All, Needs you, Working; Unread would be a fourth), or clearing by the same answered rule as needs-you.
+### 6 and 7. Mid-turn threads are reached through the rail and a keyboard cycle
 
-### 6. The attention filter
-
-**Pending.** Sheet: `sidebar-attention-filter-variants.html`.
-
-- A. A segmented control under New thread: All, Needs you, Working, with counts across every project. All is today's sectioned list; a filter is one flat list across every project, each row prefixed with its project's folder and name. **Recommended:** the flat list is what makes switching between working threads one click each, wherever they live.
-- B. An attention block above the sections, always present when something is pending: Needs you rows, Working rows, then the sections as today. No mode; the same rows appear twice.
-- C. A strip of working threads under the title bar, Chrome style, on its own 36px row (the title bar cannot host it). Shown for comparison; not recommended, since it costs terminal height on every screen and duplicates the rows.
-
-Working means mid-turn chats only, per Aryan. A running server shows its port on its row and is not counted as Working unless Aryan wants it to be (an option on the sheet). Today's play pill on project rows folds running into working; the design makes the pill mean working only, and the port on the row carries running.
-
-### 7. How mid-turn threads are found
-
-**Pending.** The filter above is the main answer. In addition, a keyboard cycle: Ctrl+Shift+Down and Ctrl+Shift+Up move through the thread rows the panel is showing, in panel order, skipping rows hidden by a collapsed project or the fold; while a filter is on, that is a cycle through the filtered rows, which is a working-threads cycle for free. Ctrl+Tab and Ctrl+Shift+Tab keep their session-order cycle. Recommended: build the cycle in Phase 8 with the filter.
+No filter control, no attention block, no strip: the sidebar's look is unchanged by this. The rail is how projects that need you are reached from anywhere. Ctrl+Shift+Down and Ctrl+Shift+Up move through every thread row the panel is showing, in panel order, across projects (from the last thread of one project to the first of the next), skipping rows hidden by a collapsed project or the five-row fold, wrapping at the ends. Ctrl+Tab keeps its session-order cycle.
 
 ### 8. Ordering
 
-**Pending.** No sheet. The Projects section (unpinned) is sorted by `lastActiveAt` descending, the rule Home already uses, so a project that just had activity (typing, output, activation) rises to the top. Any working thread stamps activity through the existing PTY activity stamping, so a project with a working thread is always near the top without a second rule. Pinned keeps its saved (dragged) order; the rail's pinned tiles follow the same order. Home and the panel share one rule. Recommended: as written.
+Recent is sorted by `lastActiveAt` descending, the rule Home already uses. Pinned keeps its dragged order.
 
-### 9. The collapse-all control
+### 9. Collapse buttons on the group headings
 
-**Pending.** Sheet: `sidebar-collapse-all-variants.html`.
+Each of the Pinned and Recent headings has a small button at its right end, visible when the heading is hovered, that collapses or expands every project in that group (icon and tooltip derived from whether any of them is expanded). The Recent heading also carries the New project plus, and the collapse button sits directly beside it. No global collapse-all, no shortcut.
 
-- A. One button in the icon row beside the sidebar toggle; collapse-all or expand-all, derived from whether any project is expanded. **Recommended:** it is the single toggle at the top the bug asks for.
-- B. A button on each section's label row, per section, visible on hover.
-- C. A plus the Projects section fold from decision 10, shown side by side.
+### 10. Pinned versus unpinned
 
-A shortcut is a separate question: Ctrl+Shift+E is free.
-
-### 10. Pinned rows versus unpinned rows
-
-**Pending.** Sheet: `sidebar-pinned-split-variants.html`. In every variant the Projects section folds as a whole from its label (chevron), persisted.
-
-- A. A divider line between the sections, rows as today. **Recommended:** the smallest change that makes the two sections read apart, together with the fold.
-- B. A plus a small pin glyph at the right of each pinned row.
-- C. Pinned projects in a raised block, unpinned plain below. The strongest split and a second surface tone inside the sidebar.
+A thin line under the Pinned group and a pin icon in the Pinned heading. Rows are otherwise as today (pinned full weight, unpinned lighter).
 
 ### 11. The sidebar on Home and the project page
 
-**Pending.** The rail sheet's "Show Home" option shows it. Recommended: the rail is on every screen (that is what "always on" buys: the badges answer "what needs me" from Home too), and it carries the Home and Workspace icons, so Home's and the project page's own icon row goes and those two icons never move. The panel is workspace-only, as today.
+The rail is on every screen and carries the Home and Workspace icons; Home's and the project page's own icon row goes. The panel is workspace-only, as today.
 
-### Decisions the orchestrator takes unless Aryan objects
+### 12. Project icons
 
-- The panel stays 264px; with the rail the sidebar area is 320px in total. Narrowing the panel to compensate would squeeze thread names that are already ellipsed.
-- Ctrl+Shift+B keeps toggling the panel; the rail is unaffected by it.
-- The panel-hidden state and the Projects fold are persisted in `session.json` under a new optional `ui` object (0.8.1 ignores unknown keys), since bugs.md asks for the fold to survive and today nothing about the sidebar does.
-- `notification` (needs-you, working, done) stays transient: every thread restores asleep, and an asleep thread has no prompt left to answer. `unread` is the only attention flag that persists.
-- Counts everywhere come from one pure module, `src/renderer/attention.ts`: per-project and total counts of needs-you (including unread), working, running and done, and the thread list for a filter. `projectCounts` in `threadView.ts` becomes a call into it. Home's totals, the project pills, the rail badges and the filter counts read the same numbers.
+A project has an optional icon, chosen in the New project and Edit project dialog (`GroupModal`) from a set of ten solid, filled glyphs at the folder's weight: book, robot, bulb, globe, pen, film, house, music note, bell, rocket. The terminal glyph is not in the set (it is the Workspace icon). The rail tile shows the chosen icon, or the folder when none is chosen. Persisted as `Group.icon`. Orchestrator's decision, open to Aryan: the sidebar rows, Home cards and project page keep the coloured folder.
+
+### 13. The Search box
+
+The Search row is a text box. Typing filters the panel in place, case-insensitive substring over project names and thread names: a project whose name matches keeps all its threads; otherwise only its matching threads show under its row; empty groups are omitted; nothing matching shows "No matches". While there is text, the New thread row is hidden and the docked Other projects row is hidden. Escape or the clear button empties it. Ctrl+Shift+P still opens the palette (the only place closed threads are searched).
+
+### Decisions the orchestrator takes
+
+- The panel stays 264px; with the 76px rail the sidebar area is 340px.
+- Ctrl+Shift+B keeps toggling the panel; the rail is never hidden.
+- `notification` stays transient (every thread restores asleep, with no prompt left to answer). `unread` persists.
+- The panel-hidden state persists in `session.json` under a new optional `ui` object. Per-project collapse is `Group.collapsed`, as today. The Other projects fold and the search text are transient.
+- All counts come from one pure module, `src/renderer/attention.ts`: per-project and total counts of waiting (needs-you plus unread), working, running, finished; the rail's project list; the panel's Recent and Other lists. `projectCounts` in `threadView.ts`, Home's totals, the rail and the hover card read the same numbers.
+- The project row's play pill keeps counting working and running together, as today; only the rail separates them.
 
 ## The attention model, stated once
 
-A thread's state (`threadState` in `threadView.ts`) in precedence order: unread (a chat the user marked, shown even while asleep), asleep, needs-you, working, done, compacting, background, running, quiet.
+State precedence (`threadState` in `threadView.ts`): unread (a chat the user marked, shown even while asleep), asleep, needs-you, working, done, compacting, background, running, quiet.
 
-Needs-you begins with the hook's `⚠` title. It ends with the hook's next `▶` or `✅`, with Enter in that thread (to working), or with Esc or Ctrl+C in that thread (to quiet). It does not end with viewing, arrow keys or output.
+- Needs-you begins with the hook's `⚠`. It ends with the hook's next `▶` or `✅`, Enter in that thread (to working), or Esc or Ctrl+C in that thread (to quiet). Not with viewing, arrows or output.
+- Unread begins with Mark as unread. It ends with opening the thread or Mark as read.
+- Done begins with `✅`. It ends with viewing, as today.
+- Working begins with `▶` or with Enter on a needs-you. It ends with silence (2.5s), Esc or Ctrl+C, or `✅`.
 
-Unread begins with Mark as unread. It ends with opening the thread or Mark as read.
-
-Done begins with the hook's `✅`. It ends with viewing, as today.
-
-Working begins with the hook's `▶` or with Enter on a needs-you. It ends with silence (2.5s), Esc or Ctrl+C, or the hook's `✅`.
+"Waiting for you" everywhere in the UI means needs-you plus unread.
 
 ## Persisted fields this adds
 
 - `Tab.unread?: boolean` (chats only; absent means false).
-- `session.json` top-level `ui?: { panelHidden?: boolean; projectsFolded?: boolean; openProjects?: string[] }` (the last only if decision 2 picks C). Added in `sessionMigration.ts`; every 0.8.1 key keeps its name and meaning.
+- `Group.icon?: string` (one of the ten icon ids; absent means the folder).
+- `session.json` top-level `ui?: { panelHidden?: boolean }`.
+
+All added in `sessionMigration.ts` with validation; every 0.8.1 key keeps its name and meaning; 0.8.1 ignores the new keys.
 
 ## Phase 7: attention state
 
-Branch `phase-7-attention-state`, worktree `.claude/worktrees/phase-7-attention-state`, from `design-03-sidebar-and-attention`.
+Branch `phase-7-attention-state`, worktree `.claude/worktrees/phase-7-attention-state`, created from `design-03-sidebar-and-attention`.
 
 - [ ] Needs-you persists: `handleActivate` no longer clears `attention`; `clearThreadBadges` keeps dismissing the toast and clearing `done`.
-- [ ] The answered signal: Enter (`\r`) in `term.onData` calls a new `onAnswer` next to `onUserInput`; `spinnerState.ts` gains `onAnswer(current)` (attention to working) and `onInterrupt` also clears attention; `onOutput` stops re-arming from attention (keeps compacting). Tests for every transition, including the arrow-key case.
-- [ ] Mark as unread and Mark as read in `threadMenu.tsx`; `Tab.unread` in `types.ts`, `sessionMigration.ts` (persisted, validated as boolean), `useTabState.ts` (`setUnread`); cleared in `handleActivate`.
-- [ ] `threadState` gains `unread` with its precedence; `stateLabel`, `StateIcon`, the breath, the header chip and the hover card word it.
-- [ ] `src/renderer/attention.ts`, pure and unit-tested: per-project and total counts, filter lists; `projectCounts` and Home's totals read from it.
+- [ ] The answered signal: Enter (`\r`) in `term.onData` calls a new `onAnswer` next to `onUserInput`; `spinnerState.ts` gains `onAnswer(current)` (attention to working); `onInterrupt` also clears attention; `onOutput` stops re-arming from attention (keeps compacting). Tests for every transition, including the arrow-key case.
+- [ ] Mark as unread and Mark as read in `threadMenu.tsx`; `Tab.unread` in `types.ts`, `sessionMigration.ts`, `useTabState.ts` (`setUnread`); cleared in `handleActivate`.
+- [ ] `threadState` gains `unread` with its precedence; `stateLabel`, `StateIcon`, the breath, the header chip and the hover card word it ("Unread").
+- [ ] `src/renderer/attention.ts`, pure and unit-tested: per-project and total counts (waiting, working, running, finished), the rail list, the Recent and Other lists with the 3-day rule; `projectCounts` and Home's totals read from it.
 - [ ] Harness: `drive.mjs` `sidebar` prints the unread mark; a `counts` reader for the aggregate.
 - [ ] Self-test on the secondary monitor with screenshots and recordings in `docs/screenshots/phase-7/`: a needs-you that survives a click, clears on Enter, on Esc and on the hook's next title, and does not clear on arrows; mark unread, relaunch, still unread, opens and clears.
 - [ ] CLAUDE.md and PHASES.md updated.
@@ -163,15 +120,16 @@ Done when: a permission prompt in a background thread stays needs-you after it i
 
 ## Phase 8: the rail and the panel
 
-Branch `phase-8-sidebar-rail-and-panel`, from `phase-7-attention-state`.
+Branch `phase-8-sidebar-rail-and-panel`, worktree `.claude/worktrees/phase-8-sidebar-rail-and-panel`, created from `phase-7-attention-state`.
 
-- [ ] The rail: a new `Rail` component beside `SidePanel`, tiles per the chosen rule, badges from `attention.ts`, tooltip, click and right-click; on every screen if decision 11 says so.
-- [ ] The panel rule and close-out with its confirm (`ConfirmDialog`), per decision 2 and 3.
-- [ ] The filter, the flat list and the keyboard cycle (main.ts `before-input-event` for Ctrl+Shift+Up/Down).
-- [ ] Pinned split, the Projects fold, collapse-all, activity ordering in `sidebarSections`.
-- [ ] The search input.
-- [ ] Persistence in `session.json`'s `ui` object.
-- [ ] Harness: `rail`, `filter` and `fold` readers in `drive.mjs`.
+- [ ] The rail: a new `Rail` component on every screen, tiles from `attention.ts`, badges in a column beside the tile, the hover card, click and right-click; Home's and the project page's icon row removed; the panel's icon row keeps only the toggle.
+- [ ] Project icons: the ten solid glyphs in `Icons.tsx`, the picker in `GroupModal`, `Group.icon` persisted, the tile reads it.
+- [ ] The panel: Pinned (pin icon, line), Recent (3-day rule, activity order), Other projects docked at the bottom with bring-in; no Projects section.
+- [ ] Collapse buttons on the two headings beside the plus.
+- [ ] The Search box filtering in place, New thread and Other projects hidden while typing.
+- [ ] Ctrl+Shift+Down/Up through the shown rows (`main.ts` `before-input-event`, `app.tsx` dispatch, panel order from a pure helper).
+- [ ] `ui.panelHidden` persisted.
+- [ ] Harness: `rail`, `dock` and `search` readers in `drive.mjs`.
 - [ ] Self-test with screenshots and recordings in `docs/screenshots/phase-8/`; CLAUDE.md and PHASES.md updated.
 
-Done when: from Home, the rail shows which projects need you with counts; clicking a tile lands on the thread that needs you; the Needs you and Working filters list every such thread across projects in one list; the Projects section sorts by activity, folds, and pinned rows read apart from it.
+Done when: from Home, the rail shows exactly the projects with a thread waiting or finished, with the three numbers beside each tile; clicking a tile lands on the thread that needs you; the panel shows Pinned and Recent only, with Other projects docked at the bottom; typing in Search narrows the list in place; Ctrl+Shift+Down crosses from one project's last thread to the next project's first.
