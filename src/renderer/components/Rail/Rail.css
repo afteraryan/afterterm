@@ -210,34 +210,38 @@
 }
 
 /* ── Badges, stacked beside the tile, only the non-zero ones ─────────────
-   Order top to bottom: waiting (amber), working (grey), finished (green). */
+   Order top to bottom: waiting (amber), working (grey), finished (green).
+   Quiet, not loud: a faint tint of the state colour as the disc and the
+   number in the colour itself, the same treatment the tile's own tint and
+   the compacting mark use. Solid amber and green discs with black numbers
+   were rejected by Aryan at the Phase 8 handoff (2026-09-19) as too bright. */
 
 .bd {
-  min-width: 17px;
-  height: 17px;
-  padding: 0 4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
   border-radius: 999px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   display: grid;
   place-items: center;
-  color: #0d0d0d;
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 
 .bd.w {
-  background: var(--need);
+  background: color-mix(in srgb, var(--need) 18%, transparent);
+  color: var(--need);
 }
 
 .bd.k {
   background: var(--hover2);
-  color: var(--text);
+  color: var(--text2);
 }
 
-
 .bd.d {
-  background: var(--live);
+  background: color-mix(in srgb, var(--live) 16%, transparent);
+  color: var(--live);
 }
 
 /* Reduced motion is handled globally in theme.css, which turns every

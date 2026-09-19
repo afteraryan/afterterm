@@ -81,6 +81,7 @@ Never close the running afterterm. A dev build runs beside it. A copied `session
 **Decisions taken on 2026-09-19 (Phase 8 handoff, with Aryan).**
 - Compacting on the rail is a separate icon on the tile's top-left corner, not a numbered badge in the column beside it (`.tile .corner` in `Rail.css`). The column keeps waiting, working and finished.
 - A project with a compacting chat alone does appear on the rail.
+- The rail's badges are tints, not solid discs: a faint tint of the state colour under the number in that colour (`.bd.w`, `.bd.d` in `Rail.css`), the same treatment as the tile and the compacting mark. Aryan found the solid amber and green discs with black numbers too bright.
 - The open Other projects drawer must look different from the rest of the panel, not just sit under a separator: it is now a darker inset tray (`#101010`, rounded, the line gone) while open (`.dock.open` in `SidePanel.css`).
 
 | Phase | What it delivers | Backend work | Status |
