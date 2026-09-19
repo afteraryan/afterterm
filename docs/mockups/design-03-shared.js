@@ -289,9 +289,10 @@ function initVariants(cfg) {
 
   const draw = () => {
     const v = cfg.variants.find(x => x.id === current);
-    sheet.innerHTML = `<div class="vbar"><h1>${esc(cfg.title)}</h1><div class="row">${cfg.variants.map(x => `<button class="vb" data-v="${x.id}" aria-selected="${x.id === current}">${esc(x.name)}</button>`).join('')}</div>
-      <div class="note"><b>${esc(v.name)}.</b> ${v.note}${v.closes ? `<ul>${v.closes.map(c => `<li>${c}</li>`).join('')}</ul>` : ''}</div>
-      ${cfg.options ? `<div class="opts">${cfg.options.filter(o => !o.only || o.only.includes(current)).map(o => `<label><input type="checkbox" data-opt="${o.key}" ${opts[o.key] ? 'checked' : ''}>${esc(o.label)}</label>`).join('')}<span style="margin-left:auto">Click rows, tiles and project names: the mock reacts.</span></div>` : ''}</div>
+    const visibleOpts = (cfg.options || []).filter(o => !o.only || o.only.includes(current));
+    sheet.innerHTML = `<div class="vbar"><h1>${esc(cfg.title)}</h1>${cfg.question ? `<p class="q">${cfg.question}</p>` : ''}<div class="row"><span class="pick">Pick one:</span>${cfg.variants.map(x => `<button class="vb" data-v="${x.id}" aria-selected="${x.id === current}">${esc(x.name)}</button>`).join('')}</div>
+      <div class="note"><b>${esc(v.name)}.</b> ${v.note}${v.look ? `<div class="look">Look at: ${v.look}</div>` : ''}${v.closes ? `<ul>${v.closes.map(c => `<li>${c}</li>`).join('')}</ul>` : ''}</div>
+      ${visibleOpts.length ? `<div class="opts">${visibleOpts.map(o => `<label><input type="checkbox" data-opt="${o.key}" ${opts[o.key] ? 'checked' : ''}>${esc(o.label)}</label>`).join('')}</div>` : ''}</div>
       <div class="frame" id="frame"></div><div class="tip" id="tip"></div><div class="menu" id="menu"></div>`;
     const frame = sheet.querySelector('#frame');
     v.render(frame, opts);

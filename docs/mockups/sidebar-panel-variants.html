@@ -147,43 +147,28 @@ function renderC(frame, opts) {
 if (S.collapsed.afterterm === undefined) { S.collapsed.afterterm = true; S.collapsed.aftertales = true; }
 
 initVariants({
-  title: 'Decision 2: which projects are in the panel, and how one comes in and goes out',
-  options: [
-    { key: 'w1', label: 'Window: 1 day', default: false, only: ['rule'] },
-    { key: 'w3', label: 'Window: 3 days', default: true, only: ['rule'] },
-    { key: 'w7', label: 'Window: 7 days', default: false, only: ['rule'] },
-  ],
+  title: 'Page 2 of 6: the sidebar list',
+  question: 'Which projects should be listed in the sidebar?',
   variants: [
     {
       id: 'all',
-      name: 'A. Every project, as today, plus a foldable Projects section',
-      note: 'Today\'s layout unchanged: General, Pinned, then Projects sorted by activity, every unpinned project listed. The one addition is the chevron on the Projects label; clicking it folds the whole unpinned list away, and the fold is persisted across relaunch the same way pinning is. Every project is still listed here, nothing ages out and nothing has to be reopened after it drops off, but a long project list is exactly as long as it always was, just optionally hidden as one block. <b>This does not answer</b> either "Only current projects in the expanded sidebar" or "Bring a project in, close a project out" from research-02: the Projects section still holds every unpinned project, whether or not it is current, and there is nothing to bring in because nothing was ever left out.',
-      closes: [
-        'bugs.md: "Pinned and unpinned projects read as one block in the sidebar, and the unpinned list cannot be collapsed" (the fold half of it: the whole unpinned list can now be hidden as one block).',
-        'Does <b>not</b> close research-02\'s "Only current projects in the expanded sidebar" or "Bring a project in, close a project out": every project stays listed, folded or not.',
-      ],
+      name: 'A. All of them, like today',
+      note: 'Every project stays in the list. The only change: clicking the "Projects" label folds the unpinned ones away.',
+      look: 'the sidebar: Pinned, then all five unpinned projects under "Projects". Click the "Projects" label to fold them.',
       render: (frame) => renderA(frame),
     },
     {
       id: 'rule',
-      name: 'B. Current projects by rule: pinned, awake, or active in the last N days',
-      note: 'The Projects section holds only unpinned projects that are pinned by nature (Pinned is unchanged above it), have at least one awake thread, or were last active within the chosen window (the option row above sets it: 1, 3 or 7 days, largest wins when more than one is checked, default 3). Everything else sits under "Other projects · N", collapsed, listed dim with no thread rows under them since they have nothing awake to show. Clicking one there brings it in: it moves into Projects and its first thread is selected. An unpinned project already in Projects gets an extra x in its hover row (Close out of the sidebar); if it has awake threads that asks first ("N threads are awake, closing sleeps them, the project stays on Home and in the palette") and sleeps them, otherwise it drops straight to Other projects. This is a view filter over activity, not a pin: design-02 already rejected auto-pinning a project just because it is busy, and this pins nothing, it only decides what shows without touching Group.pinned. In: pinned, has an awake thread, or active within the window. Out: none of those, whether it aged past the window or its last awake thread went to sleep or closed. In also happens by opening the project from Home, the palette, or the rail (decision 1); Other projects is a manual fallback for a project the rule does not currently favour.',
-      closes: [
-        'research-02: "Only current projects in the expanded sidebar" (the floor Aryan set, "awake threads or the projects I am working on", is exactly the rule here).',
-        'research-02: "Bring a project in, close a project out", including its close-out confirm text pattern reused from the Phase 5 <code>ConfirmDialog</code>.',
-        'bugs.md: "unpinned list cannot be collapsed" (the list is short by rule instead of needing a manual collapse).',
-      ],
+      name: 'B. Only recent ones, automatically',
+      note: 'An unpinned project is listed only if a thread in it is awake or you worked in it in the last three days. The rest are tucked under "Other projects" at the bottom. Hovering a listed project shows an x that closes it out (if threads are awake, it asks first and sleeps them).',
+      look: 'the sidebar: only afterthought under "Projects", then "Other projects · 4". Click that row to see the rest; click one to bring it back.',
       render: (frame, opts) => renderB(frame, opts),
     },
     {
       id: 'manual',
-      name: 'C. Open projects, by hand: pinned plus the ones you opened, until you close them',
-      note: 'Same look as B, but the Projects section holds a persisted "open" set instead of a rule: this mock starts with afterthought and website-afteraryan-desk open. Other projects lists the rest; clicking one there opens it (adds it to the set, selects its first thread). The x closes a project out with the same confirm as B when it has awake threads. Projects inside the section sort by activity, same as everywhere else in the panel. This is pure intent, the same principle Pinned already follows (design-02: process state never decides intent on its own). A project is in the panel because you opened it, and it leaves because you closed it: nothing ages out on its own, and nothing you have not touched moves. The set is persisted across relaunch. A project with awake threads cannot be closed out without sleeping them first (the confirm), so "in the panel" always covers "has awake threads", closing that gap without a rule to get it wrong.',
-      closes: [
-        'research-02: "Only current projects in the expanded sidebar" and "Bring a project in, close a project out", the same two items B closes, answered by intent instead of a rule.',
-        'bugs.md: "unpinned list cannot be collapsed" (the list only ever holds what you opened).',
-        'Recommended by this design: nothing in the panel ever moves or disappears without a click, so the sidebar never surprises.',
-      ],
+      name: 'C. Only the ones I opened, until I close them',
+      note: 'Nothing appears or disappears on its own. A project is listed because you opened it (from Home, search, the rail or "Other projects"), and it leaves when you click its x. Same "Other projects" row for the rest.',
+      look: 'the sidebar: afterthought and website-afteraryan-desk under "Projects", "Other projects · 3" below. Hover a project row for the x.',
       render: (frame, opts) => renderC(frame, opts),
     },
   ],

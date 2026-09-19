@@ -55,33 +55,31 @@ function render(rule) {
 }
 
 initVariants({
-  title: 'Decision 1: which projects get a tile on the always-on rail',
+  title: 'Page 1 of 6: the rail',
+  question: 'The rail is the thin strip at the far left with a small folder per project. Which projects should show up there?',
   options: [
-    { key: 'panelHidden', label: 'Hide the panel (Ctrl+Shift+B), rail stays', default: false },
-    { key: 'home', label: 'Show Home instead of the workspace (decision 11: the rail on every screen)', default: false },
-    { key: 'letterTiles', label: 'Tiles show the project initial instead of the folder (every project here starts with A, which is why the folder is the default)', default: false },
-    { key: 'countDone', label: 'A grey badge counts Done threads too (amber stays for needs you)', default: false },
+    { key: 'home', label: 'Show the Home screen instead, to see the rail stay there too', default: false },
   ],
   variants: [
     {
       id: 'pending',
-      name: 'A. Only projects with something pending',
-      note: 'Your 2026-09-18 rule. A tile appears while a project has a thread that needs you (or is marked unread) or a finished turn nobody has viewed; the project you are in keeps a tile (ringed) even with nothing pending, so the rail is never empty and a tile never vanishes under the pointer the moment you click it. Everything else is reached from the panel, Home or the palette. Here: aftertales and answer-machine need you, afterterm has a Done, afterthought is current.',
-      closes: ['research-02: "The rail shows only projects that need attention", "Attention badges on the rail tiles", "An always-on rail"', 'bugs.md: "Threads that are mid-turn are hard to find" (the spinner corner on a tile says where work is happening, from any screen)'],
+      name: 'A. Only projects that need me',
+      note: 'A project gets a folder on the rail only while a thread in it is waiting for you or has just finished. The project you are currently in stays there too (the ringed one). Everything else is gone from the rail.',
+      look: 'the left strip: three folders with badges, plus the ringed one you are in.',
       render: render('pending'),
     },
     {
       id: 'all',
-      name: 'B. Every project, badges where pending',
-      note: 'The VS Code shape you first described: one tile per live project, pinned first in their order, then the rest by activity, with a badge only where something is pending. The rail doubles as project navigation. With many projects it scrolls (the tiles column scrolls on its own; the top and bottom controls stay put). Eight projects fit at this window height; the real session has fourteen.',
-      closes: ['research-02: "An always-on rail, VS Code style", "Attention badges on the rail tiles"', 'bugs.md: "Threads that are mid-turn are hard to find" (spinner corner)'],
+      name: 'B. All projects',
+      note: 'Every project gets a folder on the rail, pinned ones first. The amber number says how many threads need you; the small spinner says something is working.',
+      look: 'the left strip: all eight folders, badges only where something is pending.',
       render: render('all'),
     },
     {
       id: 'pinned-plus',
-      name: 'C. Pinned always, the others only while pending',
-      note: 'The middle road, and the one this design recommends. Pinned projects always have a tile, in the order you pinned them, so the rail is stable navigation for the projects you chose; below a thin separator, an unpinned project gets a tile only while it has something pending or is the one you are in, and it drops off once that clears. The rail then reads as "my projects, and whatever else is asking". Pinned stays the only thing you set by hand; the rest is a view, not a pin.',
-      closes: ['research-02: all three rail items, with the pinned rule from design-02 kept intact', 'bugs.md: "Pinned and unpinned projects read as one block" (the rail itself separates them, before the panel does)', 'bugs.md: "Threads that are mid-turn are hard to find" (spinner corner)'],
+      name: 'C. Pinned always, others only while they need me',
+      note: 'Your pinned projects are always on the rail, in your order. Below a small gap, any other project appears only while it needs you or while you are in it, and disappears again after.',
+      look: 'the left strip: three pinned folders, a gap, then only afterthought because you are in it.',
       render: render('pinned-plus'),
     },
   ],

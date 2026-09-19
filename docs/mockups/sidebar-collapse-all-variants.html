@@ -91,27 +91,28 @@ function renderC(frame) {
 if (S.collapsed.afterterm === undefined) S.collapsed.afterterm = true;
 
 initVariants({
-  title: 'Decision 9: where the collapse-all control sits',
+  title: 'Page 5 of 6: collapse all',
+  question: 'Where should the button that collapses or expands every project at once go?',
   variants: [
     {
       id: 'iconrow',
-      name: 'A. One button in the icon row, beside the sidebar toggle',
-      note: 'The one toggle at the top of the sidebar that bugs.md asks for, sitting in the row that already holds the sidebar\'s own toggle. It is always visible, not tucked behind a hover, and it acts on every project at once, pinned and unpinned. The icon and tooltip flip with the state: a down-chevron pair while any project is expanded ("Collapse all projects"), an up-chevron pair once every project is already folded ("Expand all projects"). A keyboard shortcut is a separate question: Ctrl+Shift+E is free, Ctrl+Shift+B is already the sidebar toggle.',
-      closes: ['bugs.md: "The sidebar has no button to collapse or expand every project at once"'],
+      name: 'A. Top of the sidebar, next to the sidebar toggle',
+      note: 'One button in the top row, always visible. Click it to fold every project; click again to open them all.',
+      look: 'the double-chevron button at the top right of the sidebar, left of the sidebar toggle. Click it.',
       render: renderA,
     },
     {
       id: 'labels',
-      name: 'B. A button on each section\'s label row, one per section',
-      note: 'No icon-row button. The Pinned label row and the Projects label row each get their own small button, appearing only while that section is hovered (the shared .lblrow .ib rule), and each acts only on its own section: Pinned\'s button touches pinned projects, Projects\' button the unpinned list. The Projects row keeps its New project + alongside it, two buttons on that one row. This gives finer control, collapse the long unpinned list while leaving Pinned open, but there is no single "everything" toggle and the control is invisible until the pointer finds it, so it is a weaker answer to the bug as logged.',
-      closes: ['bugs.md: "The sidebar has no button to collapse or expand every project at once" (partly)'],
+      name: 'B. On the "Pinned" and "Projects" labels',
+      note: 'Each group label gets its own small button, visible when you hover the label. It folds only that group\'s projects.',
+      look: 'hover the "Pinned" or "Projects" label to see its button.',
       render: renderB,
     },
     {
       id: 'both',
-      name: 'C. The icon-row button plus a fold on the Projects label',
-      note: 'The icon-row button from A is still here, collapsing or expanding every project\'s thread list at once. Alongside it, the Projects section label itself becomes clickable with a chevron and folds the whole unpinned section away as one block, independent of the per-project collapse state underneath it. These are two different things: collapsing every project\'s thread list, versus hiding the unpinned section entirely. This variant shows both side by side because decision 10 (the pinned split) may bring the section fold on its own; if it does, A plus that fold is the same page as C, and this is here to make that overlap visible now rather than discover it later.',
-      closes: ['bugs.md: "The sidebar has no button to collapse or expand every project at once"'],
+      name: 'C. Both A and a fold on the "Projects" label',
+      note: 'The top-row button from A, plus the "Projects" label itself folds the whole unpinned group away when clicked.',
+      look: 'the top-right button, and the chevron next to "Projects".',
       render: renderC,
     },
   ],

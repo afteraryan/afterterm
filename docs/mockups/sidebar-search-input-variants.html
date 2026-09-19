@@ -155,27 +155,28 @@ function renderToday(frame) {
 }
 
 initVariants({
-  title: 'Decision: the Search row becomes a real input, and what typing in it does',
+  title: 'Page 6 of 6: the Search box',
+  question: 'When you type in the sidebar\'s Search box, what should happen?',
   variants: [
     {
       id: 'inplace',
-      name: 'A. An input in the Search row; typing filters the panel in place',
-      note: 'The Search row is the input itself, not a button that opens something else. Empty, the panel is exactly today\'s: General, Pinned, Projects. Typing narrows all three sections to what matches, case-insensitive, over project names and thread names: a project whose own name matches keeps every one of its threads; a project whose name does not match but has a matching thread keeps only that thread, under its own row; a section with nothing left is left out entirely, and if nothing anywhere matches the panel shows one line, "No matches". Escape clears the field. The palette (Ctrl+Shift+P) still exists, for history (closed threads, which this row never shows) and for a keyboard-first jump straight to a thread; this row is only for narrowing what is already on screen. The shortcut label sits in the row next to the input and disappears the moment you start typing, the clear button taking its place.',
-      closes: ['research-02, bucket 2: "The Search row in the sidebar is a button with a shortcut label. It should be a real search input, the way Enjoy\'s is, with the palette\'s matching behind it."'],
+      name: 'A. The sidebar list shrinks to what matches',
+      note: 'The Search row is a text box. As you type, the list below shows only projects and threads whose names match.',
+      look: 'the Search box: type "spin" or "tales".',
       render: renderInplace,
     },
     {
       id: 'palette',
-      name: 'B. An input in the Search row; typing opens the palette with that text',
-      note: 'Same input, but the first character opens the palette as an overlay, its own input echoing what you typed, results grouped Projects, Threads and History underneath, all three matched the same substring way. The sidebar row stays exactly as it was, unchanged, sitting under the dimmed scrim. Escape, or a click on the scrim, closes the palette and clears the field. This keeps one matching engine in one place, since the palette already searches projects, threads and history; the row becomes a second way to reach it rather than a second way to search. The cost: typing in the sidebar immediately moves your eyes to a card in the middle of the window instead of narrowing what is already next to your hand.',
-      closes: ['research-02, bucket 2: "The Search row in the sidebar is a button with a shortcut label. It should be a real search input, the way Enjoy\'s is, with the palette\'s matching behind it."'],
+      name: 'B. The search palette opens with my text',
+      note: 'The Search row is a text box, but typing opens the usual search palette (Ctrl+Shift+P) in the middle with your text in it. The sidebar list does not change.',
+      look: 'the Search box: type a letter and the palette opens.',
       render: renderPalette,
     },
     {
       id: 'today',
-      name: 'C. Today: a button that opens the palette (for comparison)',
-      note: 'What exists right now, kept here so the two input variants are judged against it. The row is a plain button with a shortcut label; clicking it opens the palette with nothing typed in the sidebar itself. Nothing here has changed.',
-      closes: [],
+      name: 'C. Keep it as it is today',
+      note: 'The Search row stays a button that opens the palette. Nothing to type in the sidebar.',
+      look: 'the Search row: a button, as today.',
       render: renderToday,
     },
   ],

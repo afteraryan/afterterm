@@ -79,30 +79,28 @@ function render(variant) {
 if (S.collapsed.afterterm === undefined) S.collapsed.afterterm = true;
 
 initVariants({
-  title: 'Decision 10: how pinned rows differ from unpinned rows, and where the divider goes',
-  options: [
-    { key: 'projectsClosed', label: 'Projects section folded', default: false },
-  ],
+  title: 'Page 4 of 6: pinned versus unpinned',
+  question: 'How should pinned projects look different from the rest in the sidebar?',
   variants: [
     {
       id: 'divider',
-      name: 'A. A divider line between the sections, rows unchanged',
-      note: "Today's rows exactly: pinned rows at full weight, unpinned rows dimmed the way they already are. The only change is a thin divider between Pinned and Projects, and the Projects label is now a fold control with a chevron so the whole unpinned list can close. This is the smallest change on the table: the line plus the fold is already enough for the two sections to read apart, without touching a single row.",
-      closes: ['bugs.md: "Pinned and unpinned projects read as one block in the sidebar, and the unpinned list cannot be collapsed"'],
+      name: 'A. A line between them',
+      note: 'A thin line between the Pinned group and the Projects group. The rows themselves do not change. In all three choices, clicking the "Projects" label folds the unpinned ones away.',
+      look: 'the line above "Projects" in the sidebar.',
       render: render('divider'),
     },
     {
       id: 'pinmark',
-      name: 'B. Pinned rows carry a small pin glyph, plus the divider',
-      note: 'Everything in A, and every pinned project row also carries a small filled pin at its right end, before the counter pills (the same pin icon Home\'s pinned cards use). It hides on hover, when the + and page buttons take that spot. The row itself now says why it is up there, which a divider alone does not: scroll past the divider on its own and a pinned project still looks like any other row until you notice its position.',
-      closes: ['bugs.md: "Pinned and unpinned projects read as one block in the sidebar, and the unpinned list cannot be collapsed"'],
+      name: 'B. A line plus a pin icon on pinned rows',
+      note: 'The same line, and every pinned project row shows a small pin at its right end.',
+      look: 'the small pin at the right of afterterm, aftertales and answer-machine.',
       render: render('pinmark'),
     },
     {
       id: 'block',
-      name: 'C. Pinned projects in a raised block, unpinned plain below',
-      note: 'The Pinned section sits in a raised panel (a lighter background, 14px corners) with no divider needed, since the block\'s own edge is the divider; the Projects section below is plain rows with the same fold. This is the strongest separation and the biggest visual change: the block reads as "these are mine" the way Home\'s pinned cards already do. It also adds a second surface tone inside the sidebar, which design-02\'s visual system otherwise avoids (today, layers separate by tone and the sidebar itself is one flat tone throughout). Pick this one only if A and B turn out too subtle in practice.',
-      closes: ['bugs.md: "Pinned and unpinned projects read as one block in the sidebar, and the unpinned list cannot be collapsed"'],
+      name: 'C. Pinned rows in a lighter box',
+      note: 'The pinned projects sit inside a slightly lighter box, the way pinned cards look on Home. Unpinned rows sit plainly below it.',
+      look: 'the lighter box around the three pinned projects.',
       render: render('block'),
     },
   ],

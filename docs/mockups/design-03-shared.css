@@ -39,6 +39,12 @@ svg{display:block;flex:none}
 .vbar .opts{display:flex;gap:14px;align-items:center;font-size:13px;color:var(--text3);flex-wrap:wrap}
 .vbar .opts label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
 .vbar .opts input{accent-color:#ececec}
+/* Plain-language sheet header: the question in one sentence, then the choices */
+.vbar h1{font-size:15px;color:var(--text3);font-weight:500}
+.vbar .q{margin:0;font-size:20px;font-weight:500;color:var(--text);line-height:1.35}
+.vbar .pick{color:var(--text3);font-size:13px;margin-right:4px}
+.vbar .note .look{margin-top:8px;color:var(--text3);font-size:13px}
+.vbar .note .look::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--need);margin-right:8px;vertical-align:middle}
 .frame{width:1280px;height:760px;max-width:100%;background:var(--side);border-radius:10px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6);display:flex;flex-direction:column;position:relative}
 
 /* ── App chrome, as in afterterm-next.html ────────────────────────────── */
