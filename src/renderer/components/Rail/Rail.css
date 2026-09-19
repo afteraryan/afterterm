@@ -206,17 +206,14 @@
   display: grid;
   place-items: center;
   color: var(--compact-ink);
-  animation: glow-compact 2.4s ease-in-out infinite;
 }
 
 /* ── Badges, stacked beside the tile, only the non-zero ones ─────────────
    Order top to bottom: waiting (amber), working (grey), finished (green).
    Solid colours a step deeper than the row icons' --need and --live, with
    dark numbers (theme.css, --badge-*): the bright originals glared on the
-   rail (Aryan, 2026-09-19). The ones that want you, waiting and finished,
-   breathe on the same 2.4s cycle the sidebar rows use, the disc itself
-   brightening and swelling slightly; working asks nothing of you and holds
-   still. */
+   rail (Aryan, 2026-09-19). No movement: a halo and an in-place breath were
+   both tried and dropped the same day. */
 
 .bd {
   min-width: 18px;
@@ -234,7 +231,6 @@
 .bd.w {
   background: var(--badge-wait);
   color: var(--badge-wait-ink);
-  animation: glow-wait 2.4s ease-in-out infinite;
 }
 
 .bd.k {
@@ -245,24 +241,6 @@
 .bd.d {
   background: var(--badge-done);
   color: var(--badge-done-ink);
-  animation: glow-done 2.8s ease-in-out infinite;
-}
-
-/* The movement is in the disc itself, not around it (Aryan, 2026-09-19: no
-   halo): it brightens a little and swells a little, then settles. */
-@keyframes glow-wait {
-  0%, 100% { filter: brightness(1); transform: scale(1); }
-  50% { filter: brightness(1.22); transform: scale(1.07); }
-}
-
-@keyframes glow-done {
-  0%, 100% { filter: brightness(1); transform: scale(1); }
-  50% { filter: brightness(1.22); transform: scale(1.07); }
-}
-
-@keyframes glow-compact {
-  0%, 100% { filter: brightness(1); transform: scale(1); }
-  50% { filter: brightness(1.2); transform: scale(1.07); }
 }
 
 /* Reduced motion is handled globally in theme.css, which turns every
