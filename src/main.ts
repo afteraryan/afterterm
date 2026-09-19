@@ -1377,7 +1377,7 @@ function readAndPushClaudeSession(tabId: string) {
       // /model switch, and gives a nameless chat its first-prompt fallback.
       const meta = readClaudeMeta(obj.sessionId, obj.cwd);
       mainWindow.webContents.send('claude-session:meta', {
-        tabId, sessionId: obj.sessionId, firstPrompt: meta.firstPrompt, model: meta.model,
+        tabId, sessionId: obj.sessionId, firstPrompt: meta.firstPrompt, model: meta.model, cwd: meta.cwd,
       });
     }
   } catch { /* missing / mid-write / unparseable — ignore, next write retries */ }
@@ -1407,7 +1407,7 @@ function startClaudeSessionWatch() {
 // the not-found result rather than throwing.
 ipcMain.handle('claude-session:meta', (_event, sessionId: unknown, cwd: unknown) => {
   if (!isSessionId(sessionId) || typeof cwd !== 'string' || !cwd) {
-    return { firstPrompt: null, model: null, exists: false };
+    return { firstPrompt: null, model: null, cwd: null, exists: false };
   }
   return readClaudeMeta(sessionId, cwd);
 });

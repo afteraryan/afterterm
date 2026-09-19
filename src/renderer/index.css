@@ -158,6 +158,19 @@ html, body, #root {
   background: transparent;
 }
 
+/* xterm 6 draws its own scrollbar (the VS Code scrollable element, not the
+   viewport's native bar), a 14px column whose element runs from 8px below the
+   card's top edge (the container's 10px padding less the card's 2px inset) to
+   the card's bottom edge exactly, so its thumb was clipped by the rounded
+   corner (Aryan, 2026-09-20). The thumb is positioned from JS, so the bar is
+   clipped rather than resized: the visible part starts and ends where the
+   card's straight edge does (the surface radius, 16px, in from each corner),
+   with rounded clip corners so a thumb sitting at either end still ends in a
+   curve rather than a flat cut. */
+.xterm-container .xterm-scrollable-element > .scrollbar.vertical {
+  clip-path: inset(8px 0 16px 0 round 7px);
+}
+
 /* ─── Find bar ───────────────────────────────────────────────────────────────
    Floating, top-right of the terminal area, like conhost's Find dialog. Searches
    only the active tab's scrollback. */

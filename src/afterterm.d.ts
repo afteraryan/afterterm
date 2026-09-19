@@ -49,6 +49,9 @@ interface ClaudeSessionUpdate {
 interface ClaudeSessionMeta {
   firstPrompt: string | null;
   model: string | null;
+  // The folder the session was last working in, from the transcript's newest
+  // entry; null when the transcript was not found or carries none.
+  cwd: string | null;
   exists: boolean;
 }
 
@@ -57,6 +60,7 @@ interface ClaudeSessionMetaPush {
   sessionId: string;
   firstPrompt: string | null;
   model: string | null;
+  cwd: string | null;
 }
 
 // Branch and worktree for a folder. worktree is the linked worktree's folder relative

@@ -409,11 +409,26 @@ export function App() {
 
   // Read the session transcript for one thread (first prompt + model). Returns the
   // promise so the startup pass can await one read before starting the next.
+  // A transcript read also says where the session was last working (meta.cwd, the
+  // newest entry's cwd). When that differs from the folder the notify hook recorded
+  // (a session that entered a worktree, then was resumed: Claude Code restores the
+  // worktree, the hook only reports it on the next prompt) the tab follows the
+  // transcript at once, so the header's branch and worktree, Open in File Explorer
+  // and the next wake's `claude --resume` folder are right without a message being
+  // sent (Aryan, 2026-09-19). The hook's own report still wins on every turn: it
+  // arrives through onUpdate with the same setClaudeSession.
+  const applyClaudeMeta = useCallback((tabId: string, sessionId: string, meta: ClaudeSessionMeta) => {
+    stateRef.current.setClaudeMeta(tabId, { firstPrompt: meta.firstPrompt, model: meta.model });
+    if (!meta.cwd) return;
+    const tab = stateRef.current.tabs.find(t => t.id === tabId);
+    if (!tab || tab.claudeSessionId !== sessionId || tab.claudeCwd === meta.cwd) return;
+    stateRef.current.setClaudeSession(tabId, sessionId, meta.cwd);
+    refreshGit(tabId, meta.cwd);
+  }, [refreshGit]);
+
   const refreshClaudeMeta = useCallback((tabId: string, sessionId: string, cwd: string) => {
-    return window.afterterm.claudeSession.meta(sessionId, cwd).then(meta => {
-      stateRef.current.setClaudeMeta(tabId, { firstPrompt: meta.firstPrompt, model: meta.model });
-    });
-  }, []);
+    return window.afterterm.claudeSession.meta(sessionId, cwd).then(meta => applyClaudeMeta(tabId, sessionId, meta));
+  }, [applyClaudeMeta]);
 
   // Main captures each tab's live Claude session (via the notify hook's file channel)
   // and pushes it here → store on the tab so the next launch can resume it. The first
@@ -430,8 +445,8 @@ export function App() {
   // Main re-reads the transcript after every hook write, that is once a turn, so a
   // /model switch or Claude's first reply shows up without anything polling.
   useEffect(() => {
-    window.afterterm.claudeSession.onMeta(({ tabId, firstPrompt, model }) => {
-      stateRef.current.setClaudeMeta(tabId, { firstPrompt, model });
+    window.afterterm.claudeSession.onMeta(({ tabId, sessionId, firstPrompt, model, cwd }) => {
+      applyClaudeMeta(tabId, sessionId, { firstPrompt, model, cwd, exists: true });
     });
   }, []);
 
@@ -767,12 +782,20 @@ export function App() {
 
   // No screen switch and no activation: Wake from a background thread's menu wakes
   // it where it is, and the pane's own Wake button is on the active thread anyway.
-  const wakeThread = useCallback((tabId: string) => {
+  // A chat reads its transcript before the wake (one small IPC round trip, a head
+  // and tail read), so a session that moved worktree resumes in the folder it was
+  // last working in rather than the one the hook recorded (applyClaudeMeta); the
+  // wake never waits on a failed read.
+  const wakeThread = useCallback(async (tabId: string) => {
+    const tab = stateRef.current.tabs.find(t => t.id === tabId);
+    if (tab?.claudeSessionId && tab.claudeCwd) {
+      try { await refreshClaudeMeta(tabId, tab.claudeSessionId, tab.claudeCwd); } catch { /* wake anyway */ }
+    }
     stateRef.current.wakeTab(tabId);
     // Waking is acting on the thread, the same as typing in it: the unread mark
     // has done its job.
     if (stateRef.current.tabs.find(t => t.id === tabId)?.unread) stateRef.current.setUnread(tabId, false);
-  }, []);
+  }, [refreshClaudeMeta]);
 
   // Bring a closed thread back from its project's history. The recreated tab carries
   // the closed thread's id, so its saved tail replays, and it comes back awake.

@@ -18,6 +18,8 @@ import {
   modelDisplayName,
   projectDirName,
   readTranscriptMeta,
+  latestCwd,
+  findTranscript,
   transcriptPath,
 } from './claude-transcript.ts';
 
@@ -277,6 +279,48 @@ console.log('\nclaude-transcript: readTranscriptMeta\n');
   const badCwd = readTranscriptMeta(projects, '', SESSION, fs);
   check('an empty cwd gives the not found result', badCwd.exists === false, show(badCwd));
 
+  fs.rmSync(root, { recursive: true, force: true });
+}
+
+console.log('\nclaude-transcript: latestCwd and findTranscript (a session that moved worktree)\n');
+{
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'afterterm-transcript-move-'));
+  const projects = path.join(root, 'projects');
+  const oldCwd = 'D:\\repo';
+  const newCwd = 'D:\\repo\\.claude\\worktrees\\feature';
+  const MOVED = 'ab12ab12-0000-4000-8000-00000000000a';
+  fs.mkdirSync(path.join(projects, projectDirName(oldCwd)), { recursive: true });
+  fs.mkdirSync(path.join(projects, projectDirName(newCwd)), { recursive: true });
+  const text = [
+    JSON.stringify({ type: 'user', cwd: oldCwd, message: { role: 'user', content: 'Start here' } }),
+    JSON.stringify({ type: 'assistant', cwd: oldCwd, message: { role: 'assistant', model: 'claude-opus-5', content: [] } }),
+    JSON.stringify({ type: 'user', cwd: newCwd, message: { role: 'user', content: 'Now in the worktree' } }),
+    JSON.stringify({ type: 'assistant', cwd: newCwd, message: { role: 'assistant', model: 'claude-opus-5', content: [] } }),
+    '{ this line is cut off by the tail window',
+  ].join('\n') + '\n';
+  // The transcript lives under the NEW worktree's project dir only, as Claude Code leaves it.
+  fs.writeFileSync(path.join(projects, projectDirName(newCwd), `${MOVED}.jsonl`), text, 'utf-8');
+
+  check('latestCwd takes the newest entry that carries a cwd', latestCwd(text) === newCwd, show(latestCwd(text)));
+  check('latestCwd ignores an unparseable trailing line', latestCwd('{ cut') === null);
+  check('latestCwd is null when no entry carries a cwd', latestCwd('{"type":"user"}') === null);
+
+  const found = findTranscript(projects, oldCwd, MOVED, fs);
+  check('findTranscript looks past the recorded folder and finds the moved file',
+    found !== null && found.endsWith(`${projectDirName(newCwd)}/${MOVED}.jsonl`), show(found));
+  check('findTranscript prefers the expected place when the file is there',
+    findTranscript(projects, newCwd, MOVED, fs) === transcriptPath(projects, newCwd, MOVED));
+  check('findTranscript gives null for a session that is nowhere', findTranscript(projects, oldCwd, 'ab12ab12-0000-4000-8000-00000000000b', fs) === null);
+  check('findTranscript rejects a bad id', findTranscript(projects, oldCwd, 'nope', fs) === null);
+  const noSearch = { openSync: fs.openSync, fstatSync: fs.fstatSync, readSync: fs.readSync, closeSync: fs.closeSync };
+  check('without readdirSync the expected place is the only answer',
+    findTranscript(projects, oldCwd, MOVED, noSearch) === transcriptPath(projects, oldCwd, MOVED));
+
+  const meta = readTranscriptMeta(projects, oldCwd, MOVED, fs);
+  check('readTranscriptMeta with the old cwd still finds the moved session', meta.exists === true);
+  check('and reports the new cwd from its tail', meta.cwd === newCwd, show(meta.cwd));
+  check('and still gives the first prompt', meta.firstPrompt === 'Start here', show(meta.firstPrompt));
+  check('a missing session carries a null cwd', readTranscriptMeta(projects, oldCwd, 'ab12ab12-0000-4000-8000-00000000000b', fs).cwd === null);
   fs.rmSync(root, { recursive: true, force: true });
 }
 
