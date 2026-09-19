@@ -91,6 +91,22 @@ export function wheelToLines(deltaY: number, deltaMode: number, cellHeight: numb
   return { lines, carry: total - lines };
 }
 
+// Only a scroll the user started may show the button. A scroller also moves
+// on its own: opening an asleep thread slides the sidebar in, the pane narrows,
+// long tail lines re-wrap and the browser's scroll anchoring shifts scrollTop
+// to keep the text in place; the pane's scroll-to-end and the animated jump
+// move it too. Each of those fires scroll events that read like the user
+// scrolling and showed the button on a thread nobody had scrolled (Aryan,
+// 2026-09-19). So a host stamps the time of the last user input that scrolls
+// (a wheel, a key), and a scroll event only counts inside this window after
+// it, or while a scrollbar drag is in progress (which the host tracks with a
+// flag, since a drag can last longer than any window).
+export const USER_SCROLL_WINDOW_MS = 250;
+
+export function isUserScroll(lastInputAt: number, now: number, dragging = false): boolean {
+  return dragging || (Number.isFinite(lastInputAt) && now - lastInputAt >= 0 && now - lastInputAt <= USER_SCROLL_WINDOW_MS);
+}
+
 export function initialJumpState(position = 0): JumpState {
   return { target: null, position };
 }

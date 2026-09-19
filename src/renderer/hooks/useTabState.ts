@@ -7,6 +7,7 @@ import { claudeSummaryTitle } from '../chatTitle';
 // pure record transforms, the callbacks are the state actions that apply them.
 import { sleepTab as sleepTabRecord, wakeTab as wakeTabRecord, restoredTab } from '../sleepWake';
 import { historyEntryFor, appendHistory, removeHistoryEntry, tabFromHistory, maxNumericId } from '../history';
+import { lastWorkedThread } from '../attention';
 
 // Everything the group modal can set. A group with no tabs is a valid, persisted
 // state (it sits in the sidebar's Projects shelf), so creation no longer needs a tab.
@@ -521,11 +522,14 @@ export function useTabState() {
   // thread in tab order. Returns false when the project has no threads at all, which
   // is the caller's cue to open one (a project with nothing running should still be
   // one click from a terminal).
+  // Opening a project lands on the thread last worked in (lastWorkedThread in
+  // attention.ts; Aryan, 2026-09-19), not the first in tab order. It is only
+  // shown, never woken, the same as clicking its row.
   const openProject = useCallback((groupId: string): boolean => {
     setGroups(prev => prev.map(g => g.id === groupId && g.collapsed ? { ...g, collapsed: false } : g));
-    const first = tabsRef.current.find(t => t.groupId === groupId);
-    if (!first) return false;
-    activateTab(first.id);
+    const last = lastWorkedThread(tabsRef.current.filter(t => t.groupId === groupId));
+    if (!last) return false;
+    activateTab(last.id);
     return true;
   }, [activateTab]);
 
@@ -533,8 +537,9 @@ export function useTabState() {
   // (design-03 decision 2): this is a view filter over activity, not a pin,
   // so it only ever stamps lastActiveAt (never backwards, matching
   // touchActivity's own rule) so the Recent 3-day window picks the project up,
-  // expands it, and activates its first tab in tab order through activateTab,
-  // the ordinary user-activation stamp. Nothing here wakes an asleep thread:
+  // expands it, and activates the thread last worked in (lastWorkedThread, the
+  // same rule opening a project from Home follows) through activateTab, the
+  // ordinary user-activation stamp. Nothing here wakes an asleep thread:
   // bringing a project in is not the same as waking one of its threads.
   // Returns the activated tab id, or null when the project has no threads at
   // all (the caller decides what to do then, same as openProject's `false`).
@@ -542,10 +547,10 @@ export function useTabState() {
     setGroups(prev => prev.map(g => g.id === groupId
       ? { ...g, lastActiveAt: Math.max(g.lastActiveAt, now), collapsed: false }
       : g));
-    const first = tabsRef.current.find(t => t.groupId === groupId);
-    if (!first) return null;
-    activateTab(first.id);
-    return first.id;
+    const last = lastWorkedThread(tabsRef.current.filter(t => t.groupId === groupId));
+    if (!last) return null;
+    activateTab(last.id);
+    return last.id;
   }, [activateTab]);
 
   // `saved` has already been through migrateSession, so every field is present and

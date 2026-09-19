@@ -5,6 +5,7 @@
 import {
   initialJumpState, onScrollSample, JUMP_THRESHOLD_LINES, JUMP_THRESHOLD_PX,
   jumpDurationMs, jumpLineAt, prefersReducedMotion, JUMP_MIN_MS, JUMP_MAX_MS, wheelToLines,
+  isUserScroll, USER_SCROLL_WINDOW_MS,
 } from './jumpScroll.ts';
 import type { JumpState } from './jumpScroll.ts';
 
@@ -209,6 +210,16 @@ console.log('\njumpScroll: a wheel over the button (wheelToLines)\n');
   check('a non-finite delta scrolls nothing', wheelToLines(NaN, 0, 20, 30).lines === 0);
   const neg = wheelToLines(-30, 0, 20, 30, -0.7);
   check('negative carries round toward zero the same way', neg.lines === -1 && Math.abs(neg.carry + 0.15) < 1e-9, show(neg));
+}
+
+console.log('\njumpScroll: only scrolling the user started counts (isUserScroll)\n');
+{
+  check('a scroll right after a wheel counts', isUserScroll(1000, 1010) === true);
+  check('a scroll at the edge of the window still counts', isUserScroll(1000, 1000 + USER_SCROLL_WINDOW_MS) === true);
+  check('a scroll after the window does not', isUserScroll(1000, 1000 + USER_SCROLL_WINDOW_MS + 1) === false);
+  check('no input ever (0) does not count once time has passed', isUserScroll(0, 5000) === false);
+  check('a scrollbar drag counts however long ago the pointer went down', isUserScroll(0, 99999, true) === true);
+  check('a non-finite stamp never counts', isUserScroll(NaN, 10) === false);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

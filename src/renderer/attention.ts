@@ -131,6 +131,18 @@ export function panelLists(groups: Group[], tabs: Tab[], now: number): { recent:
 // `tabs` is taken in caller order for the first two passes (the order the
 // panel already shows them in); the fallback pass instead picks the highest
 // lastActiveAt regardless of position.
+// Opening a project from Home (a card or a row) or bringing it in from the
+// docked Other projects row lands on the thread you last worked in, asleep or
+// awake: the highest lastActiveAt, the earlier one in tab order on a tie, null
+// when the project has no threads (the caller then opens a new one). Aryan,
+// 2026-09-19: "the last working thread in that project", replacing the first
+// thread in tab order. Distinct from firstThreadToOpen, the rail tile's rule,
+// which prefers whatever is waiting for you.
+export function lastWorkedThread(tabs: Tab[]): Tab | null {
+  if (tabs.length === 0) return null;
+  return tabs.reduce((latest, t) => (t.lastActiveAt > latest.lastActiveAt ? t : latest));
+}
+
 export function firstThreadToOpen(tabs: Tab[]): Tab | null {
   const waiting = tabs.find(t => {
     const s = threadState(t);

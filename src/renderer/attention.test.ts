@@ -5,7 +5,7 @@
 
 import {
   countStates, countTabs, projectAttention, totalAttention, railProjects,
-  panelLists, firstThreadToOpen, RECENT_WINDOW_MS, isWaitingState,
+  panelLists, firstThreadToOpen, lastWorkedThread, RECENT_WINDOW_MS, isWaitingState,
 } from './attention.ts';
 import type { AttentionCounts } from './attention.ts';
 import type { ThreadState } from './threadView.ts';
@@ -203,6 +203,21 @@ console.log('\nattention: panelLists\n');
     const { other } = panelLists([b, a], [], NOW);
     check('other keeps caller order', other.map(g => g.id).join(',') === 'B,A');
   }
+}
+
+console.log('\nattention: lastWorkedThread\n');
+{
+  check('null for a project with no threads', lastWorkedThread([]) === null);
+  const tabs = [
+    tab('t1', { lastActiveAt: 100 }),
+    tab('t2', { lastActiveAt: 300, asleep: true }),
+    tab('t3', { lastActiveAt: 200 }),
+  ];
+  check('the highest lastActiveAt wins, asleep or not', lastWorkedThread(tabs)?.id === 't2');
+  check('a tie goes to the earlier thread in tab order',
+    lastWorkedThread([tab('a', { lastActiveAt: 5 }), tab('b', { lastActiveAt: 5 })])?.id === 'a');
+  check('a waiting thread does not jump the queue (that is the rail tile rule, not this one)',
+    lastWorkedThread([tab('old', { notification: 'attention', lastActiveAt: 1 }), tab('new', { lastActiveAt: 9 })])?.id === 'new');
 }
 
 console.log('\nattention: firstThreadToOpen\n');
