@@ -2,7 +2,8 @@
 // the workspace, the project page). Shows the sidebar toggle and Search/New
 // thread only while the panel is hidden on the workspace, the Home/Workspace
 // pill, then one tile per project that has something pending (a thread
-// waiting for you, working, compacting or finished, unviewed). See
+// waiting for you, working, compacting or finished, unviewed; compacting is a
+// corner icon on the tile, the rest are counts beside it). See
 // docs/design-03-sidebar-and-attention.md decision 1 and
 // docs/mockups/design-03-final-sidebar.html (.railblk, .navseg, .rail2, .l1,
 // .col, .bd2, the rail()/railTile() functions), whose values this component
@@ -10,7 +11,7 @@
 import React, { useState } from 'react';
 import type { Tab, Group } from '../TabBar/types';
 import { GROUP_COLORS } from '../TabBar/types';
-import { IconHome, IconTerm, IconPanel, IconSearch, IconPlus, IconFolder, ProjectIcon } from '../Icons';
+import { IconHome, IconTerm, IconPanel, IconSearch, IconPlus, IconFolder, IconCompact, ProjectIcon } from '../Icons';
 import { railProjects, projectAttention } from '../../attention';
 import { buildProjectMenu, ProjectActions } from '../../projectMenu';
 import { Menu, MenuItem } from '../Menu';
@@ -157,6 +158,13 @@ export function Rail({
                 onContextMenu={e => openProjectMenu(e, group)}
               >
                 {group.icon ? <ProjectIcon icon={group.icon} size={20} /> : <IconFolder size={20} />}
+                {/* Compacting is not a count in the column: it sits as its own icon on
+                    the tile's top-left corner (Aryan, 2026-09-19). */}
+                {!!c && c.compacting > 0 && (
+                  <span className="corner compact" data-corner="compacting" data-tip="Compacting" data-tip-side="right">
+                    <IconCompact size={12} />
+                  </span>
+                )}
               </button>
               <span className="col">
                 {!!c && c.waiting > 0 && (
@@ -167,11 +175,6 @@ export function Rail({
                 {!!c && c.working > 0 && (
                   <span className="bd k" data-badge="working" data-tip="Working" data-tip-side="right">
                     {c.working}
-                  </span>
-                )}
-                {!!c && c.compacting > 0 && (
-                  <span className="bd c" data-badge="compacting" data-tip="Compacting" data-tip-side="right">
-                    {c.compacting}
                   </span>
                 )}
                 {!!c && c.finished > 0 && (

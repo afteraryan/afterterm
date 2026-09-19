@@ -264,13 +264,30 @@
 /* Design-03 decision 2: the unpinned projects outside the 3-day window sit
    under the scroll in one collapsed row, "Other projects · N". Opening it
    grows the list upward (the 0fr to 1fr grid trick the thread lists use) as
-   dim rows with no thread lists. */
+   dim rows with no thread lists. Closed, the row sits under a thin line;
+   open, the whole thing becomes a tray: a darker inset block with its own
+   corners, the same #101010 the rail's pill uses, so the list reads as a
+   drawer that slid out rather than more of the same panel (Aryan,
+   2026-09-19). */
 
 .side-panel .dock {
   flex: none;
   margin-top: 6px;
   padding-top: 6px;
   border-top: 1px solid #2e2e2e;
+  border-radius: 12px;
+  transition: background var(--med) var(--ease), padding var(--med) var(--ease), border-color var(--med) var(--ease);
+}
+
+.side-panel .dock.open {
+  background: #101010;
+  border-top-color: transparent;
+  padding: 6px;
+  margin-top: 8px;
+}
+
+.side-panel .dock.open .drow {
+  color: var(--text);
 }
 
 .side-panel .dock .drow {
@@ -326,6 +343,10 @@
 
 .side-panel .dock .pj {
   padding-left: 12px;
+}
+
+.side-panel .dock .pj:hover {
+  background: var(--hover);
 }
 
 .side-panel .dock .pj .c {

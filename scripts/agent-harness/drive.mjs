@@ -147,6 +147,7 @@ const SEL = {
     tile: '.tiles .l1',
     tileButton: '.tile',
     badge: '.bd[data-badge]',
+    corner: '[data-corner="compacting"]', // Phase 8: compacting is a corner icon, not a count
   },
 
   // Home screen (src/renderer/components/Home/index.tsx, Home.css).
@@ -700,7 +701,7 @@ async function cmdRail() {
         badge: b.getAttribute('data-badge'),
         count: text(b),
       }));
-      return { name: btn ? btn.getAttribute('data-tip') : null, badges };
+      return { name: btn ? btn.getAttribute('data-tip') : null, badges, compacting: !!l1.querySelector(S.corner) };
     });
     return { present: true, screen: root.dataset.screen || null, blocksOpen, nav, tiles };
   })(${JSON.stringify(S)})`);
@@ -710,7 +711,7 @@ async function cmdRail() {
   console.log(`rail screen=${data.screen || '?'} blocks=${data.blocksOpen ? 'open' : 'closed'} nav=${data.nav || '?'} panelHidden=${panelHidden === null ? '?' : panelHidden}`);
   if (!data.tiles.length) { console.log('  (no tiles)'); return; }
   for (const t of data.tiles) {
-    const badges = t.badges.map(b => `${b.badge}=${b.count}`).join(' ');
+    const badges = t.badges.map(b => `${b.badge}=${b.count}`).concat(t.compacting ? ['compacting'] : []).join(' ');
     console.log(`  - ${t.name || '(unnamed)'}  ${badges || '(no badges)'}`);
   }
 }

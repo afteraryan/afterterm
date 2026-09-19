@@ -149,7 +149,9 @@
   overflow-y: auto;
   overflow-x: hidden;
   min-height: 0;
-  padding: 0 4px 0 10px;
+  /* Headroom for the compacting mark, which hangs 6px above the first tile and
+     would otherwise be clipped by this box (found at the Phase 8 handoff). */
+  padding: 8px 4px 0 10px;
   width: 100%;
 }
 
@@ -187,9 +189,28 @@
   background: color-mix(in srgb, var(--tc) 20%, transparent);
 }
 
+/* The compacting mark: its own small icon on the tile's top-left corner
+   (Aryan, 2026-09-19), on a purple disc so it reads over the tint. No number: one glance says "something here is compacting". */
+
+.tile .corner {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  /* Two shades of purple, like Claude Code's own compacting mark (Aryan,
+     2026-09-19): a dark purple disc, ringed in the rail colour so it stands
+     off the tile, and the lighter purple glyph on it. */
+  background: var(--compact-disc, #3b2b5e);
+  box-shadow: 0 0 0 2px var(--side);
+  display: grid;
+  place-items: center;
+  color: var(--compact, #c084fc);
+}
+
 /* ── Badges, stacked beside the tile, only the non-zero ones ─────────────
-   Order top to bottom: waiting (amber), working (grey), compacting (blue,
-   added with Phase 8's compacting state), finished (green). */
+   Order top to bottom: waiting (amber), working (grey), finished (green). */
 
 .bd {
   min-width: 17px;
@@ -214,9 +235,6 @@
   color: var(--text);
 }
 
-.bd.c {
-  background: var(--compact, #60a5fa);
-}
 
 .bd.d {
   background: var(--live);

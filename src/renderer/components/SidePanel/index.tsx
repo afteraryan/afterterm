@@ -857,7 +857,7 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
               lists them as dim rows with no thread lists; clicking one brings it in.
               Hidden while a search is narrowing the list. */}
           {others.length > 0 && !filtered && (
-            <div className="dock" data-dock="">
+            <div className={`dock${dockOpen ? ' open' : ''}`} data-dock="">
               <div className={`dlist${dockOpen ? ' open' : ''}`} inert={!dockOpen}>
                 <div>
                   {others.map(entry => (
