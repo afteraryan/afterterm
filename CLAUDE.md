@@ -593,6 +593,10 @@ everything else is committed with the phase. See `docs/screenshots/README.md`.
 
 Research and design documents live in `docs/`. Naming convention: `research-NN-<topic>.md` for research, `design-NN-<topic>.md` for designs, other prefixes as needed.
 
+Procedures an agent follows while working on this repo (not product docs, not research) live in `docs/agent-workflow/`, one file per procedure, plain names. Read the one you need when you need it:
+
+- `docs/agent-workflow/replica-and-build-swap.md`: leaving Aryan a replica dev build after a phase (the data copy, `--claude-resume all`, why `--open-external` is needed) and replacing his production build without a release (build in the worktree, swap after he closes afterterm)
+
 - `docs/research-00-terminal-landscape-and-stack-validation.md` — pre-build stack/landscape research
 - `docs/design-01-persistent-pty-host.md` — design for a detached PTY-host daemon so terminals survive an app update (not yet built)
 - `docs/design-02-projects-and-threads.md` — the projects-and-threads redesign (Home screen, pinned projects, named threads, sleep/wake, history); agreed 2026-09-06 against `docs/mockups/afterterm-next.html`. Execution plan in `PHASES.md` at the repo root.
@@ -600,7 +604,6 @@ Research and design documents live in `docs/`. Naming convention: `research-NN-<
 - `docs/plan-01-sidebar-attention-and-manual-testing-fixes.md`: the round of work after the projects-and-threads phases, ranked; design-03 is its Cluster 1.
 - `docs/guide-01-distributable-build.md` — shrink the portable build into a ~67 MB self-extracting `.exe` for sharing (7-Zip LZMA2 + pruning)
 - `docs/guide-02-releases.md` — versioning (semver) + how to cut a tagged, version-stamped release (`npm run release`)
-- `docs/guide-03-replica-and-build-swap.md`: leaving Aryan a replica dev build after a phase (the data copy, `--claude-resume all`, why `--open-external` is needed) and replacing his production build without a release (build in the worktree, swap after he closes afterterm)
 - `docs/ideas.md` — feature ideas backlog
 - `docs/bugs.md` — running list of known, unfixed bugs (distinct from the platform Known Limitations above)
 - `docs/note-01-duplicate-notifications-dispatcher.md` — why both the Windows popup and the overlay fired inside afterterm, and the settings.json dispatcher fix (incl. a TODO to make the self-install hook use the same approach)
