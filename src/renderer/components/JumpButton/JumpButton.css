@@ -6,7 +6,7 @@
    It comes and goes by scaling only, no fade (Aryan, 2026-09-19): scale(0) to
    scale(1) on --med with the app's ease, and visibility flips after the exit
    transition so a hidden button is never hoverable or clickable. Relies on
-   theme.css tokens (--hover2, --text, --text2, --med, --ease) and its global
+   theme.css tokens (--med, --ease) and its global
    reduced-motion rule, which turns the transition off (the visibility flip
    then lands at once). */
 
@@ -23,8 +23,10 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--hover2);
-  color: var(--text2);
+  /* Fixed colours, not tokens (Aryan, 2026-09-20): one button whatever the
+     surface, like the Wake box's button and pill. */
+  background: #383838;
+  color: #b4b4b4;
   border: 1px solid #333;
   box-shadow: 0 2px 8px rgba(0, 0, 0, .35);
   transition: transform var(--med) var(--ease), visibility 0s linear var(--med), background var(--fast), color var(--fast);
@@ -37,5 +39,5 @@
 }
 
 .jump-btn:hover {
-  color: var(--text);
+  color: #ececec;
 }

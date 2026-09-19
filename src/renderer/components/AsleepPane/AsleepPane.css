@@ -48,30 +48,27 @@
   gap: 10px;
   font-family: var(--sans);
   /* The pane opens at the end of its tail (Phase 9), so this sticky box sits
-     over dimmed text. It is a floating card of its own: shrunk to its content
-     and centred, a translucent fill of the surface colour with the text behind
-     it blurred, a hairline border and a soft shadow, the way a floating
-     control sits over content in macOS or Windows. Fill and border are mixed
-     from the theme tokens, so a light surface gets a light card with a dark
-     hairline by itself. (A radial "clearing" in the pane's colour was tried
-     first and rejected on 2026-09-20: it read as a smear.) */
+     over dimmed text. Aryan's rule (2026-09-20), one answer for a dark or a
+     light surface: the white Wake button carries a thin dark border, and the
+     "asleep since" line sits in a solid dark pill. Fixed colours on purpose,
+     not tokens: both pieces are dark-on-white or white-on-dark whatever the
+     surface is. (A radial clearing and then a frosted card were tried first
+     and rejected.) */
   width: fit-content;
   margin: -40px auto 0;
-  padding: 18px 30px 16px;
-  border-radius: 22px;
-  background: color-mix(in srgb, var(--pane) 72%, transparent);
-  -webkit-backdrop-filter: blur(16px) saturate(1.15);
-  backdrop-filter: blur(16px) saturate(1.15);
-  border: 1px solid color-mix(in srgb, var(--text) 9%, transparent);
-  box-shadow:
-    0 12px 32px color-mix(in srgb, #000 35%, transparent),
-    0 1px 0 color-mix(in srgb, var(--text) 4%, transparent) inset;
   z-index: 1;
 }
 
+.asleep-pane .wakebox .b.big {
+  border: 1px solid #191919;
+}
+
 .asleep-pane .wakebox .w {
-  color: var(--text3);
+  color: #b4b4b4;
   font-size: 13px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: #191919;
 }
 
 /* The dimmed scrollback tail: same mono, size and line-height as the live
