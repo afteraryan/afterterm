@@ -1,7 +1,7 @@
 /* JumpButton (JumpButton/index.tsx): a 32px round button floating at the
-   bottom centre of whichever scroller mounts it (Aryan, 2026-09-19: the wheel
-   is used in the middle of the pane, so the button belongs there, not in a
-   corner) (.terminal-instances or
+   exact centre of whichever scroller mounts it, horizontally and vertically
+   (Aryan, 2026-09-19: the wheel is used in the middle of the pane, so the
+   button belongs where the pointer already is, not at an edge) (.terminal-instances or
    .asleep-pane's .asleep-scroll), both position: relative; overflow: hidden
    hosts. Relies on theme.css tokens (--hover2, --text, --text2, --fast) and
    its global reduced-motion rule (@media (prefers-reduced-motion: reduce),
@@ -10,8 +10,8 @@
 .jump-btn {
   position: absolute;
   left: 50%;
-  bottom: 14px;
-  transform: translateX(-50%);
+  top: 50%;
+  transform: translate(-50%, -50%);
   z-index: 10;
   display: flex;
   align-items: center;
