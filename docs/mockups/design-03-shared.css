@@ -201,6 +201,7 @@ svg{display:block;flex:none}
 .tile.leaving{opacity:.45}
 .tile .bd{position:absolute;top:-5px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--need);color:#0d0d0d;font-size:11px;font-weight:600;display:grid;place-items:center;font-variant-numeric:tabular-nums;box-shadow:0 0 0 2px var(--side)}
 .tile .bd.grey{background:var(--hover2);color:var(--text)}
+.tile .bd.ok{background:var(--live);color:#0d0d0d}
 .tile .wk{position:absolute;bottom:-3px;right:-3px;width:14px;height:14px;border-radius:50%;background:var(--side);display:grid;place-items:center}
 .tile .wk .spin{width:8px;height:8px;border-width:1.5px;border-color:var(--text2);border-right-color:transparent}
 .tile.folder{background:color-mix(in srgb,var(--tc) 9%,transparent);color:var(--tc)}

@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The sidebar with every pick applied</title>
+<link rel="stylesheet" href="design-03-shared.css">
+<style>
+/* Additions for the combined page only. */
+.side .lbl.hd{display:flex;align-items:center;gap:6px}
+.side .lbl.hd .pin{display:inline-grid;place-items:center;color:var(--text3)}
+.side .lblrow .acts{display:flex;align-items:center;gap:2px}
+.side .lblrow .acts .ib{opacity:0}
+.side .sec:hover .lblrow .acts .ib{opacity:1}
+/* Other projects, docked at the bottom of the panel, outside the scroll. */
+.dock{flex:none;margin-top:6px;padding-top:6px;border-top:1px solid #2e2e2e}
+.dock .drow{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;color:var(--text2);width:100%;cursor:pointer;font-size:13px}
+.dock .drow:hover{background:var(--hover)}
+.dock .drow .chev{display:inline-grid;place-items:center;color:var(--text3);transition:transform var(--med) var(--ease)}
+.dock .drow .chev.up{transform:rotate(180deg)}
+.dock .drow .c{margin-left:auto;color:var(--text3);font-size:12px}
+.dock .dlist{display:grid;grid-template-rows:0fr;transition:grid-template-rows var(--med) var(--ease)}
+.dock .dlist.open{grid-template-rows:1fr}
+.dock .dlist>div{overflow:hidden;min-height:0}
+.dock .pj{padding-left:12px}
+.dock .pj .ib{display:none}
+.help{width:1280px;max-width:100%;display:flex;flex-wrap:wrap;gap:8px 22px;color:var(--text3);font-size:13px;margin-top:-4px}
+.help b{color:var(--text2);font-weight:500}
+</style>
+</head>
+<body>
+<script src="design-03-shared.js"></script>
+<script>
+// Every pick from 2026-09-19 on one page:
+//   rail: only projects that need you (waiting or finished-not-viewed)
+//   sidebar: General, Pinned (pin icon, line under it), Recent (awake or
+//     active in 3 days), Other projects docked at the bottom, collapsed
+//   collapse button per group heading, beside the plus
+//   search filters in place, New thread row hides while typing
+//   needs-you stays until answered; Mark as unread on chats
+//   Ctrl+Shift+Down/Up moves through every thread shown, across projects
+
+// Make canvas-agent recent so the Recent group has two rows.
+P('canvas-agent').lastActive = 2 * 24 * 60;
+// afterterm's long list starts collapsed so Pinned, Recent and the docked
+// Other projects row are all on screen at once.
+if (S.collapsed.afterterm === undefined) S.collapsed.afterterm = true;
+
+const F = window.__final = window.__final || { q: '', dockOpen: false, home: false, panelHidden: false, opened: {}, secClosed: {} };
+const RECENT_DAYS = 3;
+
+const needsMe = p => { const c = counts(p.id); return c.needsYou > 0 || c.done > 0; };
+const isRecent = p => awake(p.id).length > 0 || p.lastActive <= RECENT_DAYS * 24 * 60 || F.opened[p.id];
+const recentList = () => unpinnedList().filter(isRecent);
+const otherList = () => unpinnedList().filter(p => !isRecent(p));
+
+// The rail tile: amber count for waiting threads; green count for finished
+// ones nobody has viewed; a spinner corner while something is working.
+function railTile(p) {
+  const c = counts(p.id);
+  const badge = c.needsYou ? `<span class="bd">${c.needsYou}</span>` : `<span class="bd ok">${c.done}</span>`;
+  const wk = c.working ? `<span class="wk"><span class="spin"></span></span>` : '';
+  const parts = [];
+  if (c.needsYou) parts.push(`${c.needsYou} waiting for you`);
+  if (c.done) parts.push(`${c.done} finished`);
+  if (c.working) parts.push(`${c.working} working`);
+  return `<button class="tile folder" style="--tc:${COLORS[p.color]}" data-tile="${p.id}" data-tip="${esc(p.name)} · ${parts.join(' · ')}">${svg('i-folder', 20)}${badge}${wk}</button>`;
+}
+function rail() {
+  const tiles = PROJECTS.filter(needsMe).map(railTile).join('');
+  const bottom = F.panelHidden ? `<button class="ic" data-tip="Search">${svg('i-search', 18)}</button><button class="ic" data-tip="New thread">${svg('i-plus', 18)}</button><button class="ic" data-tip="Open sidebar" data-toggle-panel>${svg('i-panel', 18)}</button>` : '';
+  return `<div class="rail2"><button class="ic" data-tip="Home" data-go="home"${F.home ? ' aria-selected="true"' : ''}>${svg('i-home', 18)}</button><button class="ic" data-tip="Workspace" data-go="work"${F.home ? '' : ' aria-selected="true"'}>${svg('i-term', 18)}</button><span class="sep"></span><div class="tiles">${tiles}</div><span class="grow"></span>${bottom}</div>`;
+}
+
+// ── The panel ────────────────────────────────────────────────────────────
+const q = () => F.q.trim().toLowerCase();
+const match = s => !q() || s.toLowerCase().includes(q());
+
+function collapseBtn(key, ids) {
+  if (!ids.length) return '';
+  const anyOpen = ids.some(id => !S.collapsed[id]);
+  return `<button class="ib" data-tip="${anyOpen ? 'Collapse all' : 'Expand all'}" data-collapse-sec="${key}">${svg(anyOpen ? 'i-collapse-all' : 'i-expand-all', 14)}</button>`;
+}
+
+// A project block filtered by the search text: a matching project keeps every
+// thread; otherwise only its matching threads show; nothing matching, no block.
+function filteredBlock(p, opts) {
+  if (!q()) return projectBlock(p, opts);
+  const ts = projectThreads(p.id);
+  if (match(p.name)) return projectBlock(p, opts);
+  const hits = ts.filter(t => match(t.name));
+  if (!hits.length) return '';
+  const row = `<div class="pj ${opts.pinned ? '' : 'dim'}" data-pj="${p.id}">${folder(p, true)}<span class="n">${esc(p.name)}</span></div>`;
+  return `<div class="pjw">${row}<div class="tlw"><div class="tli">${hits.map(t => threadRow(t)).join('')}</div></div></div>`;
+}
+
+function group(label, key, projects, opts) {
+  const blocks = projects.map(p => filteredBlock(p, opts)).join('');
+  if (q() && !blocks) return '';
+  const ids = projects.map(p => p.id);
+  const head = label === 'Pinned'
+    ? `<span class="lbl hd"><span class="pin">${svg('i-pin-on', 12)}</span>Pinned</span>`
+    : `<span class="lbl hd">${label}</span>`;
+  const extra = label === 'Recent' ? `<button class="ib" data-tip="New project">${svg('i-plus', 14)}</button>` : '';
+  return `<div class="sec"><div class="lbl lblrow">${head}<span class="acts">${collapseBtn(key, ids)}${extra}</span></div>${blocks}</div>`;
+}
+
+function body() {
+  const gen = generalList().filter(t => match(t.name));
+  const parts = [];
+  if (gen.length) parts.push(`<div class="sec"><div class="lbl">General</div>${gen.map(t => threadRow(t)).join('')}</div>`);
+  const pinned = group('Pinned', 'pinned', pinnedList(), { pinned: true });
+  const recent = group('Recent', 'recent', recentList(), {});
+  if (pinned) parts.push(pinned);
+  if (pinned && recent) parts.push('<div class="divider"></div>');
+  if (recent) parts.push(recent);
+  if (!parts.length) parts.push('<div class="nomatch">No matches</div>');
+  return parts.join('');
+}
+
+function dock() {
+  const others = otherList();
+  if (!others.length || q()) return '';
+  const rows = others.map(p => `<div class="pj dim" data-open="${p.id}">${folder(p, false)}<span class="n">${esc(p.name)}</span><span class="c">${agoText(p.lastActive)}</span></div>`).join('');
+  return `<div class="dock"><div class="dlist${F.dockOpen ? ' open' : ''}"><div>${rows}</div></div><button class="drow" data-dock><span class="chev${F.dockOpen ? ' up' : ''}">${svg('i-chev-d', 14)}</span>Other projects<span class="c">${others.length}</span></button></div>`;
+}
+
+function topRows() {
+  const has = q() ? ' has' : '';
+  return `<div class="srch${has}"><span class="g">${svg('i-search', 16)}</span><input id="q" placeholder="Search" value="${esc(F.q)}"><span class="k">Ctrl Shift P</span><button class="ib clr" data-clear>${svg('i-x', 14)}</button></div>${q() ? '' : newThreadRow()}`;
+}
+
+function panelHtml() {
+  return `<aside class="side${F.panelHidden ? ' hidden' : ''}"><div class="brand"><span class="sp"></span><button class="ic" data-tip="Close sidebar" data-toggle-panel>${svg('i-panel', 18)}</button></div>${topRows()}<div class="scroll">${body()}</div>${dock()}</aside>`;
+}
+
+// ── The page ─────────────────────────────────────────────────────────────
+function render(frame) {
+  const main = F.home ? homeScreen({ railNav: true }) : panelHtml() + mainPane();
+  frame.innerHTML = titleBar() + `<div class="work">${rail()}${main}</div>`;
+
+  frame.querySelectorAll('[data-toggle-panel]').forEach(b => b.onclick = () => { F.panelHidden = !F.panelHidden; window.__redraw(); });
+  frame.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { F.home = b.dataset.go === 'home'; window.__redraw(); });
+  frame.querySelectorAll('[data-collapse-sec]').forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    const ids = (b.dataset.collapseSec === 'pinned' ? pinnedList() : recentList()).map(p => p.id);
+    const anyOpen = ids.some(id => !S.collapsed[id]);
+    ids.forEach(id => { S.collapsed[id] = anyOpen; });
+    window.__redraw();
+  });
+  const dk = frame.querySelector('[data-dock]');
+  if (dk) dk.onclick = () => { F.dockOpen = !F.dockOpen; window.__redraw(); };
+  frame.querySelectorAll('[data-open]').forEach(r => r.onclick = () => {
+    const p = P(r.dataset.open);
+    F.opened[p.id] = true;
+    F.dockOpen = false;
+    const first = projectThreads(p.id)[0];
+    if (first) S.selected = first.id;
+    S.collapsed[p.id] = false;
+    window.__redraw();
+  });
+  const input = frame.querySelector('#q');
+  if (input) {
+    input.oninput = () => { F.q = input.value; window.__redraw(); const i2 = document.getElementById('q'); i2.focus(); i2.setSelectionRange(i2.value.length, i2.value.length); };
+    input.onkeydown = e => { if (e.key === 'Escape') { F.q = ''; window.__redraw(); document.getElementById('q').focus(); } };
+  }
+  const clr = frame.querySelector('[data-clear]');
+  if (clr) clr.onclick = () => { F.q = ''; window.__redraw(); };
+
+  // Mark as unread / read on a chat's right-click menu.
+  frame.querySelectorAll('[data-th]').forEach(r => r.oncontextmenu = e => {
+    e.preventDefault();
+    const t = T(r.dataset.th);
+    const items = [{ label: 'Open', onSelect: () => { S.selected = t.id; window.__redraw(); } }];
+    if (t.kind === 'chat' && t.state !== 'needs-you') {
+      items.push(t.state === 'unread'
+        ? { label: 'Mark as read', onSelect: () => { t.state = t._prev || 'quiet'; window.__redraw(); } }
+        : { label: 'Mark as unread', onSelect: () => { t._prev = t.state; t.state = 'unread'; window.__redraw(); } });
+    }
+    items.push('-', { label: t.state === 'asleep' ? 'Wake' : 'Sleep' }, { label: 'Close', danger: true });
+    showMenu(e.clientX, e.clientY, items);
+  });
+}
+
+// Ctrl+Shift+Down / Up: through every thread row the sidebar shows, in order,
+// across projects. Also Enter on a waiting thread answers it (it starts working).
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.shiftKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+    e.preventDefault();
+    const rows = [...document.querySelectorAll('.side .scroll [data-th]')].filter(r => !r.closest('.tlw.closed'));
+    if (!rows.length) return;
+    const i = rows.findIndex(r => r.dataset.th === S.selected);
+    const n = e.key === 'ArrowDown' ? (i + 1) % rows.length : (i - 1 + rows.length) % rows.length;
+    S.selected = rows[n].dataset.th;
+    window.__redraw();
+  }
+  if (e.key === 'Enter' && !e.target.matches('input')) {
+    const t = T(S.selected);
+    if (t && t.state === 'needs-you') { t.state = 'working'; window.__redraw(); }
+  }
+});
+
+document.body.insertAdjacentHTML('afterbegin', ICONS);
+const sheet = document.createElement('div');
+sheet.className = 'sheet';
+sheet.innerHTML = `<div class="vbar"><div class="nav"><a href="design-03-index.html">All questions</a></div><h1>The sidebar with every pick applied</h1><p class="q">Three projects need you at once. The rail on the far left shows exactly those three; the sidebar itself is unchanged by it.</p></div>
+  <div class="help"><span><b>Rail:</b> click a folder to jump to the thread that needs you in that project. Amber = waiting for you, green = finished, not yet viewed.</span><span><b>Home icon:</b> the rail stays on Home too.</span><span><b>Sidebar toggle</b> (top right of the sidebar): the rail stays.</span><span><b>Other projects:</b> docked at the bottom; click to open, click a project to bring it into Recent.</span><span><b>Search:</b> type to filter; New thread hides while you type; Esc clears.</span><span><b>Right-click a chat:</b> Mark as unread.</span><span><b>Ctrl+Shift+Down / Up:</b> next or previous thread, across projects.</span><span><b>Enter</b> on a waiting thread answers it; clicking it does not.</span></div>
+  <div class="frame" id="frame"></div><div class="tip" id="tip"></div><div class="menu" id="menu"></div>`;
+document.body.appendChild(sheet);
+const frame = sheet.querySelector('#frame');
+const draw = () => { render(frame); bindCommon(frame, draw); };
+window.__redraw = draw;
+draw();
+</script>
+</body>
+</html>
