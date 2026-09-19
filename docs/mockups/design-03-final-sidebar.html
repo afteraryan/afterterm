@@ -75,6 +75,16 @@
 .l7 .strip7{width:14px;display:flex;flex-direction:column}
 .cell{flex:1;display:grid;place-items:center;font-size:9.5px;font-weight:700;color:#0d0d0d;font-variant-numeric:tabular-nums}
 .cell.w{background:var(--need)}.cell.k{background:var(--hover2);color:var(--text)}.cell.d{background:var(--live)}
+/* 8 to 11: the sidebar's counter pills, small */
+.sig.xs{padding:1px 6px 1px 4px;font-size:11px;gap:3px;font-weight:600}
+.sig.xs .spin{width:9px;height:9px;border-width:1.5px}
+.sig.xs.one .gap{width:5px}
+.l8{display:flex;flex-direction:column;align-items:center;gap:4px}
+.l8 .col{display:flex;flex-direction:column;gap:2px;align-items:center}
+.l10{width:44px;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 0 6px;color:var(--tc);background:color-mix(in srgb,var(--tc) 12%,transparent)}
+.l10 .col{display:flex;flex-direction:column;gap:2px;align-items:center}
+.l11{display:flex;align-items:center;gap:4px}
+.l11 .col{display:flex;flex-direction:column;gap:2px;align-items:flex-start}
 .help{width:1280px;max-width:100%;display:flex;flex-wrap:wrap;gap:8px 22px;color:var(--text3);font-size:13px;margin-top:-4px}
 .help b{color:var(--text2);font-weight:500}
 </style>
@@ -321,25 +331,28 @@ const nums = (x, cls = 'mini') => [x.w ? `<span class="${cls} w">${x.w}</span>` 
 const urgent = x => x.w ? 'w' : (x.k ? 'k' : 'd');
 const total = x => x.w + x.k + x.d;
 
+// The sidebar's own counter pills (bell, play, check with a count), reused
+// under or beside the tile. Every number sits in a pill; nothing overlaps.
+const pillOf = (kind, n) => {
+  if (!n) return '';
+  const ic = kind === 'w' ? `<span class="si need">${svg('i-bell', 11)}</span>` : (kind === 'k' ? `<span class="spin"></span>` : `<span class="si ok">${svg('i-check', 11)}</span>`);
+  return `<span class="sig xs">${ic}${n}</span>`;
+};
+const pills = x => pillOf('w', x.w) + pillOf('k', x.k) + pillOf('d', x.d);
+const combined = x => `<span class="sig xs one">${[x.w ? `<span class="si need">${svg('i-bell', 11)}</span>${x.w}` : '', x.k ? `<span class="spin"></span>${x.k}` : '', x.d ? `<span class="si ok">${svg('i-check', 11)}</span>${x.d}` : ''].filter(Boolean).join('<span class="gap"></span>')}</span>`;
 const LAYOUTS = [
-  { name: '1. Badges in a column beside the tile', why: 'The rail is a little wider (76px). The badges sit outside the tile, stacked to its right, in the tile\'s own row, so they never reach another tile and never cover the icon.',
-    html: x => { const p = P(x.p); return `<div class="l1"><span class="tile folder" style="${tc(p)}">${icon(p)}</span><span class="col">${nums(x, 'bd2')}</span></div>`; } },
-  { name: '2. Numbers under the icon, inside the tile', why: 'The tile grows taller (40 by 50). The icon stays on top, the numbers sit in a row beneath it, inside the tile. Nothing sticks out at all.',
-    html: x => { const p = P(x.p); return `<span class="l2" style="${tc(p)}">${icon(p)}<span class="row">${nums(x)}</span></span>`; } },
-  { name: '3. A row of small pills under the tile', why: 'The tile stays 36px. Three tiny pills sit in a row just under it, outside, in the tile\'s own row. The icon is fully clear.',
-    html: x => { const p = P(x.p); return `<div class="l3"><span class="tile folder" style="${tc(p)}">${icon(p)}</span><span class="row">${nums(x, 'pill')}</span></div>`; } },
-  { name: '4. One badge, the total, coloured by the most urgent state', why: 'Exactly the tile from before with one badge. The number is the total; its colour is amber if anything is waiting, grey if only working, green if only finished. The hover card gives the three numbers.',
-    html: x => { const p = P(x.p); return `<span class="tile folder" style="${tc(p)}">${icon(p)}<span class="bd one ${urgent(x)}">${total(x)}</span></span>`; } },
-  { name: '5. A coloured ring plus the total', why: 'The tile\'s border is a ring split into coloured arcs, one per state, sized by count. One badge at the corner with the total. The icon is untouched.',
-    html: x => { const p = P(x.p); const t = total(x); const a = 360 * x.w / t, b = 360 * (x.w + x.k) / t; return `<span class="tile folder l5" style="${tc(p)};--ring:conic-gradient(var(--need) 0 ${a}deg, var(--text2) ${a}deg ${b}deg, var(--live) ${b}deg 360deg)">${icon(p)}<span class="bd one ${urgent(x)}">${t}</span></span>`; } },
-  { name: '6. A wide tile: icon left, numbers stacked right', why: 'The rail is 76px and the tile is a 64 by 40 pill. The icon sits on the left half, the numbers stack in a tiny column on the right half, inside the tile.',
-    html: x => { const p = P(x.p); return `<span class="l6" style="${tc(p)}">${icon(p)}<span class="col">${nums(x)}</span></span>`; } },
-  { name: '7. A thin coloured strip down the tile\'s right edge', why: 'The tile is 46px wide: the icon in its left part, and a narrow strip on the right edge carrying the numbers stacked top to bottom, each on its own colour. Nothing outside the tile.',
-    html: x => { const p = P(x.p); return `<span class="l7" style="${tc(p)}"><span class="ic7">${icon(p)}</span><span class="strip7">${nums(x, 'cell')}</span></span>`; } },
+  { name: '8. The sidebar\'s counter pills, stacked under the tile',
+    html: x => { const p = P(x.p); return `<div class="l8"><span class="tile folder" style="${tc(p)}">${icon(p)}</span><span class="col">${pills(x)}</span></div>`; } },
+  { name: '9. One combined pill under the tile',
+    html: x => { const p = P(x.p); return `<div class="l8"><span class="tile folder" style="${tc(p)}">${icon(p)}</span>${combined(x)}</div>`; } },
+  { name: '10. The pills inside a taller tile, under the icon',
+    html: x => { const p = P(x.p); return `<span class="l10" style="${tc(p)}">${icon(p)}<span class="col">${pills(x)}</span></span>`; } },
+  { name: '11. The pills beside the tile, stacked',
+    html: x => { const p = P(x.p); return `<div class="l11"><span class="tile folder" style="${tc(p)}">${icon(p)}</span><span class="col">${pills(x)}</span></div>`; } },
 ];
 const lay = document.createElement('div');
 lay.className = 'layouts';
-lay.innerHTML = `<h2>Seven ways to show the three numbers on a tile</h2><p>Same three projects in each. Amber is waiting for you, grey is working, green is finished. The tile's hover card (name and one line per number) exists in every one of them.</p><div class="lgrid">${LAYOUTS.map(l => `<div class="lcard"><div class="lrail">${LAY.map(x => l.html(x)).join('')}</div><div class="ltext"><b>${esc(l.name)}</b><span>${l.why}</span></div></div>`).join('')}</div>`;
+lay.innerHTML = `<h2>Four more ways to show the three numbers on a tile</h2><div class="lgrid">${LAYOUTS.map(l => `<div class="lcard"><div class="lrail">${LAY.map(x => l.html(x)).join('')}</div><div class="ltext"><b>${esc(l.name)}</b></div></div>`).join('')}</div>`;
 document.body.appendChild(lay);
 const frame = sheet.querySelector('#frame');
 const draw = () => { render(frame); bindCommon(frame, draw); };
