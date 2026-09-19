@@ -40,7 +40,7 @@
    the current screen's icon raised. */
 .navseg{position:relative;display:flex;flex-direction:column;gap:2px;padding:3px;border-radius:12px;background:#101010}
 .navseg .thumb{position:absolute;left:3px;top:3px;width:32px;height:32px;border-radius:9px;background:#2a2a2a;transition:transform 150ms cubic-bezier(.3,1.2,.4,1);pointer-events:none}
-.navseg.work .thumb{transform:translateY(34px)}
+.navseg.at-work .thumb{transform:translateY(34px)}
 .navseg .ic{width:32px;height:32px;border-radius:9px;position:relative;transition:color 120ms var(--ease)}
 .navseg .ic:hover{background:rgba(255,255,255,.05)}
 .navseg .ic[aria-selected="true"]{background:none;color:var(--text)}
@@ -191,7 +191,7 @@ function rail() {
   // both blocks are closed (Home has no sidebar and no Search row).
   const open = F.panelHidden && !F.home ? ' open' : '';
   const blk1 = `<div class="railblk${open}"><div><button class="ic" data-tip="Open sidebar" data-toggle-panel>${svg('i-panel', 18)}</button></div></div>`;
-  const nav = `<div class="navseg${F.home ? '' : ' work'}"><span class="thumb"></span><button class="ic" data-tip="Home" data-go="home"${F.home ? ' aria-selected="true"' : ''}>${svg('i-home', 18)}</button><button class="ic" data-tip="Workspace" data-go="work"${F.home ? '' : ' aria-selected="true"'}>${svg('i-term', 18)}</button></div>`;
+  const nav = `<div class="navseg${F.home ? '' : ' at-work'}"><span class="thumb"></span><button class="ic" data-tip="Home" data-go="home"${F.home ? ' aria-selected="true"' : ''}>${svg('i-home', 18)}</button><button class="ic" data-tip="Workspace" data-go="work"${F.home ? '' : ' aria-selected="true"'}>${svg('i-term', 18)}</button></div>`;
   const blk2 = `<div class="railblk${open}"><div><button class="ic" data-tip="Search">${svg('i-search', 18)}</button><button class="ic" data-tip="New thread">${svg('i-plus', 18)}</button></div></div>`;
   return `<div class="rail2">${blk1}${nav}${blk2}<span class="sep"></span><div class="tiles">${tiles}</div><span class="grow"></span></div>`;
 }
@@ -201,7 +201,7 @@ function syncRail(frame) {
   const open = F.panelHidden && !F.home;
   frame.querySelectorAll('.railblk').forEach(b => b.classList.toggle('open', open));
   frame.querySelectorAll('[data-go]').forEach(b => b.setAttribute('aria-selected', String((b.dataset.go === 'home') === F.home)));
-  frame.querySelector('.navseg')?.classList.toggle('work', !F.home);
+  frame.querySelector('.navseg')?.classList.toggle('at-work', !F.home);
 }
 
 // ── The panel ────────────────────────────────────────────────────────────
@@ -277,10 +277,28 @@ function render(frame) {
     const home = b.dataset.go === 'home';
     if (home === F.home) return;
     F.home = home;
-    frame.querySelector('.mainwrap').innerHTML = mainHtml();
     syncRail(frame);
-    bindMain(frame);
-    bindCommon(frame, window.__redraw);
+    const wrap = frame.querySelector('.mainwrap');
+    const swap = () => { wrap.innerHTML = mainHtml(); bindMain(frame); bindCommon(frame, window.__redraw); };
+    const side = frame.querySelector('.side');
+    if (home) {
+      // To Home: the sidebar slides shut first, then the screen changes.
+      if (side && !side.classList.contains('hidden')) {
+        side.classList.add('hidden');
+        setTimeout(swap, 320);
+      } else {
+        swap();
+      }
+    } else {
+      // Back to the workspace: the sidebar comes in closed and slides open,
+      // unless it was hidden before Home.
+      swap();
+      const s2 = frame.querySelector('.side');
+      if (s2 && !F.panelHidden) {
+        s2.classList.add('hidden');
+        requestAnimationFrame(() => requestAnimationFrame(() => s2.classList.remove('hidden')));
+      }
+    }
   });
   bindMain(frame);
 }
