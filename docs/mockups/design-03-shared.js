@@ -384,9 +384,17 @@ function bindCommon(frame, redraw) {
     el.addEventListener('mouseenter', () => {
       tip.textContent = el.dataset.tip;
       const r = el.getBoundingClientRect();
-      tip.style.left = Math.min(r.left + r.width / 2, window.innerWidth - 160) + 'px';
-      tip.style.top = (r.bottom + 6) + 'px';
-      tip.style.transform = 'translateX(-50%)';
+      // Rail tiles and badges get the tooltip beside them (to the right,
+      // vertically centred); everything else keeps it underneath.
+      if (el.closest('.rail2')) {
+        tip.style.left = (r.right + 8) + 'px';
+        tip.style.top = (r.top + r.height / 2) + 'px';
+        tip.style.transform = 'translateY(-50%)';
+      } else {
+        tip.style.left = Math.min(r.left + r.width / 2, window.innerWidth - 160) + 'px';
+        tip.style.top = (r.bottom + 6) + 'px';
+        tip.style.transform = 'translateX(-50%)';
+      }
       tip.classList.add('show');
     });
     el.addEventListener('mouseleave', () => tip.classList.remove('show'));
