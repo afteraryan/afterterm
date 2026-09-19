@@ -54,7 +54,10 @@
 //   confirm                       the close confirm dialog as a tree (title, body,
 //                                  confirm and cancel button text), or "(no confirm dialog)"
 //   opened                        the URL the last "Open localhost:port" click reached
-//                                  (window.__afterterm.lastOpenExternal), or "(nothing opened)"
+//                                  (window.__afterterm.lastOpenExternal), or "(nothing opened)",
+//                                  then the folder the last "Open in File Explorer" reached
+//                                  (window.__afterterm.lastOpenFolder), or "folder: (none opened)"
+//   scroll <sel> <deltaY> [i]     a mouse wheel over the element, deltaY in pixels, negative = up
 //   marks [--tab <id>]            window.__afterterm.commandState(id): at-prompt flag
 //                                  and prompt-end row/col, or "(no marks)"
 //   jump                           the jump-to-top/bottom button (.jump-btn): "jump: hidden"
