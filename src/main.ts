@@ -4,7 +4,6 @@ import fs from 'fs';
 import os from 'os';
 import { execFile, execFileSync, execSync, spawn } from 'child_process';
 import * as pty from 'node-pty';
-import { runNotifierSelfTest, runNotifierDemo } from './notifier-selftest';
 import { reconcileClaudeHook, HOOK_SCRIPT_NAME } from './claude-hook-install';
 import { detectEditors } from './editor-detect.ts';
 import type { DetectDeps } from './editor-detect.ts';
@@ -552,6 +551,16 @@ function notifierDisplay(): Electron.Display {
 // reports `contentHeight`). Because the window is never larger than its visible
 // content, there is no invisible dead zone swallowing clicks, and nothing for DWM
 // to paint a white bar over above the toasts.
+// A full repaint of the overlay, the white-bar cure (see createNotifierWindow).
+// Deferred a tick so it lands after the frame paint it is there to overwrite.
+function repaintNotifier() {
+  setTimeout(() => {
+    if (notifierWindow && !notifierWindow.isDestroyed() && notifierWindow.isVisible()) {
+      notifierWindow.webContents.invalidate();
+    }
+  }, 0);
+}
+
 function positionNotifier(contentHeight: number = notifierHeight) {
   if (!notifierWindow || notifierWindow.isDestroyed()) return;
   notifierHeight = contentHeight;
@@ -604,6 +613,20 @@ function createNotifierWindow() {
 
   notifierWindow.loadURL(notifierUrl);
   notifierWindow.on('closed', () => { notifierWindow = null; });
+
+  // The white bar. The overlay is a transparent layered window, and DWM briefly
+  // turns its non-client (caption) rendering on around a show and around a
+  // foreground change (WM_DWMNCRENDERINGCHANGED 1 then 0, three milliseconds
+  // apart in the harness log). In that gap DWM paints the caption strip, white,
+  // into the top of the window, and Chromium afterwards repaints only its own
+  // content, so the strip stays until a full repaint. It is a race, so it shows
+  // some of the time and not others (2026-09-19: Aryan's trigger was coming back
+  // to afterterm on another thread with a toast up). The cure is a full repaint
+  // right after each moment DWM can touch the frame: the show itself
+  // (notify:push below), the DWM rendering toggle, and the main window gaining
+  // focus. webContents.invalidate() is that repaint.
+  const WM_DWMNCRENDERINGCHANGED = 0x031f;
+  notifierWindow.hookWindowMessage(WM_DWMNCRENDERINGCHANGED, () => repaintNotifier());
 
   // A monitor plugged in, unplugged or rescaled can leave the overlay on a display
   // that no longer exists or no longer holds the main window; re-place it at once
@@ -665,6 +688,10 @@ function createWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
   }
+
+  // Coming back to afterterm with a toast up is when DWM revisits the overlay's
+  // frame and can leave the white bar (see createNotifierWindow); repaint it.
+  mainWindow.on('focus', () => repaintNotifier());
 
   mainWindow.on('close', (e) => {
     if (isQuitting || ptys.size === 0) return;
@@ -752,6 +779,7 @@ ipcMain.on('notify:push', (_event, toast) => {
     // since the last toast, and a hidden overlay is never re-measured meanwhile.
     positionNotifier();
     notifierWindow.showInactive();
+    repaintNotifier();
     notifierWindow.webContents.send('notify:push', toast);
   }
 });
@@ -1535,16 +1563,6 @@ app.whenReady().then(() => {
   // Before any window loads: the preload reads app:last-opened-at synchronously.
   initLastOpenedAt();
   createNotifierWindow();
-  // Headless geometry self-test: drive the overlay through a toast sequence and
-  // assert the window resizes to fit (no dead zone) and stays bottom-anchored.
-  if (process.env.AFTERTERM_NOTIFY_TEST === '1') {
-    runNotifierSelfTest(notifierWindow!);
-    return; // skip the main window — this run only exercises the overlay
-  }
-  if (process.env.AFTERTERM_NOTIFY_DEMO === '1') {
-    runNotifierDemo(notifierWindow!);
-    return; // leave toasts on screen for visual inspection
-  }
   createWindow();
   reconcileNotifierHook();
   startClaudeSessionWatch();
