@@ -1,4 +1,4 @@
-// Pure decision logic for the sidebar "working" spinner. No React, no DOM — so it
+// Pure decision logic for the sidebar "working" spinner. No React, no DOM, so it
 // can be unit-tested (spinnerState.test.ts) and replayed against real captured PTY
 // traces (scripts/spinner-harness/fixtures/*.jsonl).
 //
@@ -11,9 +11,9 @@
 //      `working` is never cleared → the spinner spins forever at idle.
 //
 // The fix adds the PTY output stream as a second signal:
-//   • RE-ARM  — output resuming after the pause's quiet flips compacting back to
+//   • RE-ARM:  output resuming after the pause's quiet flips compacting back to
 //               working (fixes #1 for compaction).
-//   • SILENCE — `working` clears after sustained output silence (fixes #2).
+//   • SILENCE: `working` clears after sustained output silence (fixes #2).
 //
 // Phase 7 (docs/design-03-sidebar-and-attention.md, decision 4) changed what ends
 // attention. It used to be cleared by viewing the thread and re-armed by output;
@@ -34,7 +34,7 @@ export type Notif = 'working' | 'done' | 'attention' | 'background' | 'compactin
 // Clear `working` once output has been silent this long. Chosen >5x the ~450ms
 // worst-case in-turn gap measured across think/tools/mixed turns; idle is silent
 // forever, so this only ever trips at a genuine end (or a multi-second stall right
-// before a permission prompt, where dropping the spinner is fine — Claude is blocked
+// before a permission prompt, where dropping the spinner is fine, Claude is blocked
 // waiting on you, not working).
 export const SILENCE_CLEAR_MS = 2500;
 
@@ -56,7 +56,7 @@ export function initTiming(now: number): TabTiming {
 }
 
 // A title change. A decorated title sets its notif; an undecorated title changes
-// nothing — we deliberately do NOT clear `working` on a plain title (that was the
+// nothing: we deliberately do NOT clear `working` on a plain title (that was the
 // old early-stop bug); silence is what clears it. A title change is itself bytes on
 // the wire, so it also refreshes the silence clock.
 export function onTitle(current: Notif, titleNotif: Notif, timing: TabTiming, at: number): Notif {
@@ -79,7 +79,7 @@ export function onOutput(current: Notif, timing: TabTiming, at: number, byteLen:
 }
 
 // A periodic clock tick. Clears `working` after sustained output silence. Only ever
-// acts on `working` — attention/compacting/done are left for a title or re-arm to
+// acts on `working`; attention/compacting/done are left for a title or re-arm to
 // change, so a silent permission wait stays "needs permission", not blank.
 export function onTick(current: Notif, timing: TabTiming, at: number): Notif {
   if (current === 'working' && at - timing.lastOutputAt > SILENCE_CLEAR_MS) return undefined;

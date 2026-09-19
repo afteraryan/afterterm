@@ -188,3 +188,21 @@ At the top of a conversation the header shows the chat name, and under it a subh
 2. Look at the header under the thread name: the project, model and branch sit in small grey text on the dark pane background.
 
 **Cause:** `.header-meta` in `src/renderer/components/Header/Header.css` renders line 2 at `font-size: 12.5px` in `var(--text3)` (`#8e8e8e` in `theme.css`), the palette's dimmest text token, on the `#191919` pane, while `.header-name` above it is 15px in `var(--text)` (`#ececec`). Fix direction: agree the treatment with Aryan, for example `var(--text2)` or brighter for the values with only the icons and separators left in text3, a size closer to 13.5px, or a chip-style treatment for each item, keeping the same three `data-meta` items.
+
+---
+
+## The five-row fold can hide a thread that needs you once the active thread moves back inside the fold
+
+**Observed:** 2026-09-19 by the Phase 7 orchestrator in the harness · **Phase:** 1 (the five-row fold) · **Status:** open · **Severity:** low (the project pill still counts it) · **Screenshot:** none (seen in `drive sidebar` output)
+
+**What happens:**
+A project's thread list shows five rows and folds the rest behind "Show N more". The fold is forced open only while the active thread sits beyond it (`foldThreads` in `src/renderer/threadView.ts`). In the Phase 7 self-test a ninth thread in the afterterm project raised needs-you while it was active (so the fold was open); clicking the project's first thread moved the active row back inside the first five, the fold closed, and the needs-you row disappeared behind "Show 4 more". The project row's bell pill still read 1, so the count was right, but the row that needed a look was not on screen.
+
+**Repro:**
+1. A project with six or more threads.
+2. Make the last one active and give it needs-you (a permission prompt, or a faked `⚠` title).
+3. Click the project's first thread.
+4. The list folds and the needs-you row is hidden; only the pill shows it.
+
+**Hypothesis:**
+`foldThreads` only knows the active id. A rule like "the fold also stays open while any hidden row is waiting for you" (needs-you or unread, the same definition `attention.ts` uses) would keep it visible; alternatively the folded rows that wait could be lifted above the fold. Phase 8 rebuilds the panel, so this is best decided there.
