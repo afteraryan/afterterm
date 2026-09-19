@@ -45,11 +45,11 @@ Today `handleActivate` in `app.tsx` clears the badge the moment a row is selecte
 2. Enter (`\r`) is pressed in that thread (`term.onData` in `Terminal/index.tsx`, beside the existing Esc and Ctrl+C check). The thread goes to working; if Claude does not resume, the 2.5s silence-clear drops it again.
 3. Esc or Ctrl+C in that thread (the existing interrupt path): the thread goes quiet.
 
-Not clearing it: viewing the thread, arrow keys, output alone. `onOutput` in `spinnerState.ts` stops re-arming from attention (arrow keys echo output); it keeps re-arming compacting. The overlay toast is still dismissed when the thread is opened. `done` keeps clearing on view.
+Not clearing it: viewing the thread, arrow keys, output alone. `onOutput` in `spinnerState.ts` stops re-arming from attention (arrow keys echo output); it keeps re-arming compacting. The overlay toast is still dismissed when the thread is opened. `done` keeps clearing on view, and (Aryan, 2026-09-19, at the Phase 7 handoff) a `✅` that lands while the user is already looking at that thread, with the window focused, clears at once rather than waiting for the next activation; with the app behind another window it stays done until the thread is looked at.
 
 ### 5. Mark as unread
 
-"Mark as unread" in the one thread menu (`threadMenu.tsx`), chats only; "Mark as read" while set. Sets `Tab.unread`, persisted. Shown with the same amber bell and breath as needs-you, counted in every waiting-for-you count (row, project pills, rail badge, Home totals). Clears when the thread is opened. No toast. An asleep thread keeps the mark and shows the bell on its dimmed row.
+"Mark as unread" in the one thread menu (`threadMenu.tsx`), chats only; "Mark as read" while set. Sets `Tab.unread`, persisted. Shown with the same amber bell and breath as needs-you, counted in every waiting-for-you count (row, project pills, rail badge, Home totals). Clears when the thread is opened, and (Aryan, 2026-09-19, at the Phase 7 handoff) the moment the user types in it or wakes it, so marking the thread you are looking at unread lasts until you act on it. No toast. An asleep thread keeps the mark and shows the bell on its dimmed row.
 
 ### 6 and 7. Mid-turn threads are reached through the rail and a keyboard cycle
 
@@ -93,8 +93,9 @@ The Search row is a text box. Typing filters the panel in place, case-insensitiv
 State precedence (`threadState` in `threadView.ts`): unread (a chat the user marked, shown even while asleep), asleep, needs-you, working, done, compacting, background, running, quiet.
 
 - Needs-you begins with the hook's `⚠`. It ends with the hook's next `▶` or `✅`, Enter in that thread (to working), or Esc or Ctrl+C in that thread (to quiet). Not with viewing, arrows or output.
-- Unread begins with Mark as unread. It ends with opening the thread or Mark as read.
-- Done begins with `✅`. It ends with viewing, as today.
+- Unread begins with Mark as unread. It ends with opening the thread, typing in it, waking it, or Mark as read.
+- Done begins with `✅`. It ends with viewing, as today; a `✅` that arrives on the thread being viewed ends at once.
+- Compacting begins with `⚙` and ends with output resuming (to working) or the next title. From Phase 8 it is shown as its own state, not as the working spinner (below).
 - Working begins with `▶` or with Enter on a needs-you. It ends with silence (2.5s), Esc or Ctrl+C, or `✅`.
 
 "Waiting for you" everywhere in the UI means needs-you plus unread.
@@ -122,6 +123,11 @@ Branch `phase-7-attention-state`, worktree `.claude/worktrees/phase-7-attention-
 
 Done when: a permission prompt in a background thread stays needs-you after it is clicked into and looked at, and clears the moment it is answered; a chat marked unread on one launch still carries the bell on the next.
 
+### Added at the Phase 7 handoff, 2026-09-19
+
+- **Compacting is its own state** (Aryan). Today a compacting chat shows the same grey spinner as working and is counted nowhere. From Phase 8 it gets its own compacting icon on the sidebar row, the header chip and the hover card's Type row (`StateIcon`'s `'compacting'` case, `stateLabel` already says "Compacting"), a project with a compacting chat appears on the rail with its own compacting badge, and `attention.ts` gains a `compacting` count next to waiting, working, running and finished (the project row's play pill keeps counting working and running only, unless Aryan says otherwise). `background` (`⏳`) stays as it is.
+- **The five-row fold stays open while a hidden row is waiting for you** (Aryan agreed with the orchestrator's suggestion). `foldThreads` in `threadView.ts` only knows the active id; a hidden row that is needs-you or unread (the same definition `attention.ts` uses for waiting) must keep the list open too. Logged in `docs/bugs.md`; built with the panel in Phase 8.
+
 ## Phase 8: the rail and the panel
 
 Branch `phase-8-sidebar-rail-and-panel`, worktree `.claude/worktrees/phase-8-sidebar-rail-and-panel`, created from `phase-7-attention-state`.
@@ -133,6 +139,8 @@ Branch `phase-8-sidebar-rail-and-panel`, worktree `.claude/worktrees/phase-8-sid
 - [ ] The Search box filtering in place, New thread and Other projects hidden while typing.
 - [ ] Ctrl+Shift+Down/Up through the shown rows (`main.ts` `before-input-event`, `app.tsx` dispatch, panel order from a pure helper).
 - [ ] `ui.panelHidden` persisted.
+- [ ] Compacting as its own state: icon on the row, chip and hover card, a compacting badge on the rail tile, a `compacting` count in `attention.ts` (added 2026-09-19).
+- [ ] The five-row fold stays open while a hidden row is waiting for you (added 2026-09-19, `docs/bugs.md`).
 - [ ] Harness: `rail`, `dock` and `search` readers in `drive.mjs`.
 - [ ] Self-test with screenshots and recordings in `docs/screenshots/phase-8/`; CLAUDE.md and PHASES.md updated.
 

@@ -473,13 +473,20 @@ export function App() {
     const now = Date.now();
     const timing = getTiming(tabId, now);
     const cur = stateRef.current.tabs.find(t => t.id === tabId)?.notification;
-    applyNotif(tabId, cur, onTitle(cur, type, timing, now));
+    const next = onTitle(cur, type, timing, now);
+    // The user is looking at this thread right now: the same test that suppresses
+    // the toast below. A `done` that lands on the viewed thread has already been
+    // seen, so it clears at once instead of waiting for the next activation
+    // (Aryan, 2026-09-19); with the app behind another window it stays done until
+    // the thread is looked at, exactly as a background one does.
+    const viewing = stateRef.current.activeTabId === tabId && document.hasFocus();
+    applyNotif(tabId, cur, next === 'done' && viewing ? undefined : next);
 
     if (!type) return;
     // Working indicator is sidebar-only, no toast while Claude is mid-turn
     if (type === 'working') return;
     // Only skip toast if user is actively looking at this tab right now
-    if (stateRef.current.activeTabId === tabId && document.hasFocus()) return;
+    if (viewing) return;
 
     const s = stateRef.current;
     const tab = s.tabs.find(t => t.id === tabId);
@@ -513,6 +520,13 @@ export function App() {
     const cur = stateRef.current.tabs.find(t => t.id === tabId)?.notification;
     applyNotif(tabId, cur, onAnswer(cur, timing, now));
   }, [state.setTabNotification]);
+
+  // A real keystroke in a thread. An unread chat the user is typing in is no
+  // longer unread (Aryan, 2026-09-19); nothing else changes here, the attention
+  // state machine has its own two signals above.
+  const handleTyped = useCallback((tabId: string) => {
+    if (stateRef.current.tabs.find(t => t.id === tabId)?.unread) stateRef.current.setUnread(tabId, false);
+  }, []);
 
   // Every PTY output chunk. Refreshes the tab's silence clock and, if the tab was
   // paused at a compaction, re-arms `working` once Claude's output resumes (see
@@ -633,6 +647,9 @@ export function App() {
   // it where it is, and the pane's own Wake button is on the active thread anyway.
   const wakeThread = useCallback((tabId: string) => {
     stateRef.current.wakeTab(tabId);
+    // Waking is acting on the thread, the same as typing in it: the unread mark
+    // has done its job.
+    if (stateRef.current.tabs.find(t => t.id === tabId)?.unread) stateRef.current.setUnread(tabId, false);
   }, []);
 
   // Bring a closed thread back from its project's history. The recreated tab carries
@@ -953,6 +970,7 @@ export function App() {
               onNotification={handleNotification}
               onUserInput={handleUserInput}
               onAnswer={handleAnswer}
+              onTyped={handleTyped}
               onOutput={handleOutput}
               onFontSizeChange={state.setTabFontSize}
               onExit={handlePtyExit}

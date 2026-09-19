@@ -488,6 +488,10 @@ npm run harness:drive -- sidebar                                           # the
 npm run harness:drive -- window quit                                       # relaunch with the same data dir: still unread
 ```
 
+After a right-click menu the terminal no longer has keyboard focus, so `type` and `key`
+go nowhere until something refocuses it: `drive click ".xterm-screen" 0` first. This cost
+the Phase 7 self-test twenty minutes on a "typing does not clear unread" that was not real.
+
 Renderer edits (`src/renderer/**`) show up live in the running harness app through
 Vite HMR; no relaunch needed. A `src/main.ts` or `src/preload.ts` edit does NOT restart
 Electron: the bundle is rebuilt but the running process keeps its old code. To pick up

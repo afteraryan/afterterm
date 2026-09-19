@@ -69,6 +69,11 @@ interface TerminalAreaProps {
   // answer, so it is what ends needs-you (spinnerState.ts, onAnswer). Fired for
   // every Enter; the state machine ignores it outside a prompt.
   onAnswer: (tabId: string) => void;
+  // Fires on a real keystroke or paste in the terminal (anything xterm hands to
+  // onData that is not an escape sequence). Typing in a chat is what clears its
+  // unread mark (Aryan, 2026-09-19); the focus reports xterm emits on a tab switch
+  // start with ESC and are excluded, so merely focusing a thread does not count.
+  onTyped: (tabId: string) => void;
   // Fires on every PTY output chunk (byteLen = chunk size), drives the working-
   // spinner's silence-clear and resume-based re-arm (see spinnerState.ts).
   onOutput: (tabId: string, byteLen: number) => void;
@@ -224,7 +229,7 @@ const THEME = {
 };
 
 export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(function TerminalArea(
-  { tabs: tabInfos, activeTabId, visible, hidden, onTitleChange, onCwdChange, onNotification, onUserInput, onAnswer, onOutput, onFontSizeChange, onExit, onTail, onCommand },
+  { tabs: tabInfos, activeTabId, visible, hidden, onTitleChange, onCwdChange, onNotification, onUserInput, onAnswer, onTyped, onOutput, onFontSizeChange, onExit, onTail, onCommand },
   ref,
 ) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -242,6 +247,8 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
   onUserInputRef.current = onUserInput;
   const onAnswerRef = useRef(onAnswer);
   onAnswerRef.current = onAnswer;
+  const onTypedRef = useRef(onTyped);
+  onTypedRef.current = onTyped;
   const onOutputRef = useRef(onOutput);
   onOutputRef.current = onOutput;
   const onFontSizeChangeRef = useRef(onFontSizeChange);
@@ -613,6 +620,9 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
           // block ending in a newline is not an Enter keypress and does not match.
           onAnswerRef.current(tabId);
         }
+        // Any real keystroke (not an escape sequence: arrows, focus reports) is
+        // the user working in this thread, which clears its unread mark.
+        if (data.length > 0 && !data.startsWith('\x1b')) onTypedRef.current(tabId);
       });
 
       term.onResize(({ cols, rows }) => api.pty.resize(tabId, cols, rows));
