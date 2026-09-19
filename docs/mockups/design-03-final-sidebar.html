@@ -23,6 +23,15 @@
 .dock .dlist>div{overflow:hidden;min-height:0}
 .dock .pj{padding-left:12px}
 .dock .pj .ib{display:none}
+/* The other two corners for the same badge style */
+.tile .bd.br{top:auto;bottom:-5px;right:-6px}
+.tile .bd.bl{top:auto;bottom:-5px;right:auto;left:-6px}
+.rail2 .tiles{gap:10px}
+/* The tile's hover card: name, then one line per number */
+.railcard{position:absolute;left:64px;background:#0d0d0d;border-radius:12px;padding:10px 14px;font-size:13px;color:var(--text2);box-shadow:0 8px 24px rgba(0,0,0,.5);display:none;z-index:30;min-width:160px;line-height:1.7}
+.railcard.show{display:block}
+.railcard .rc-name{display:flex;align-items:center;gap:7px;color:var(--text);font-weight:500;margin-bottom:2px}
+.railcard b{color:var(--text);font-weight:500}
 .help{width:1280px;max-width:100%;display:flex;flex-wrap:wrap;gap:8px 22px;color:var(--text3);font-size:13px;margin-top:-4px}
 .help b{color:var(--text2);font-weight:500}
 </style>
@@ -53,17 +62,42 @@ const isRecent = p => awake(p.id).length > 0 || p.lastActive <= RECENT_DAYS * 24
 const recentList = () => unpinnedList().filter(isRecent);
 const otherList = () => unpinnedList().filter(p => !isRecent(p));
 
-// The rail tile: amber count for waiting threads; green count for finished
-// ones nobody has viewed; a spinner corner while something is working.
+// A project's icon: chosen when the project is made or edited (ten to pick
+// from, the folder when none is chosen). Shown on the rail tile; the sidebar
+// keeps the coloured folder. The icon set here is a first cut for the kinds of
+// project Aryan has: a terminal app, a website, a book of tales, an answer
+// machine, notes, a canvas, transcripts, a home, a music player, notifications.
+const PROJECT_ICONS = { afterterm: 'i-term', aftertales: 'i-book', 'answer-machine': 'i-bot', afterthought: 'i-bulb', 'website-desk': 'i-globe', 'canvas-agent': 'i-pen', transcript: 'i-video', ghar: 'i-home' };
+document.body.insertAdjacentHTML('afterbegin', `<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11a2 2 0 0 1 2 2v13a1.5 1.5 0 0 0-1.5-1.5H4zM20 5.5A1.5 1.5 0 0 0 18.5 4H13a2 2 0 0 0-2 2v13a1.5 1.5 0 0 1 1.5-1.5H20z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+  <symbol id="i-bot" viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="11" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 8V4M9 13h.01M15 13h.01" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="3.5" r="1.2" fill="currentColor"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M8 12a4 4 0 1 1 8 0c0 2-1.5 3-2 4.5h-4C9.5 15 8 14 8 12z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 12h16M12 4c2.5 2.5 2.5 13.5 0 16M12 4c-2.5 2.5-2.5 13.5 0 16" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24"><path d="m4 20 4-1L19 8a2 2 0 0 0-3-3L5 16z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 10 5-2.5v9L16 14z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+  <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V6l10-2v12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.5" fill="currentColor"/><circle cx="16.5" cy="16" r="2.5" fill="currentColor"/></symbol>
+</svg>`);
+
+// The rail tile, exactly as before, with the chosen icon in place of the
+// folder. The badges keep their style; each number has its own corner so all
+// three can show at once: waiting for you (amber, top right), finished (green,
+// bottom right), working (grey, bottom left). Only the non-zero ones show.
 function railTile(p) {
   const c = counts(p.id);
-  const badge = c.needsYou ? `<span class="bd">${c.needsYou}</span>` : `<span class="bd ok">${c.done}</span>`;
-  const wk = c.working ? `<span class="wk"><span class="spin"></span></span>` : '';
-  const parts = [];
-  if (c.needsYou) parts.push(`${c.needsYou} waiting for you`);
-  if (c.done) parts.push(`${c.done} finished`);
-  if (c.working) parts.push(`${c.working} working`);
-  return `<button class="tile folder" style="--tc:${COLORS[p.color]}" data-tile="${p.id}" data-tip="${esc(p.name)} · ${parts.join(' · ')}">${svg('i-folder', 20)}${badge}${wk}</button>`;
+  const waiting = c.needsYou ? `<span class="bd">${c.needsYou}</span>` : '';
+  const finished = c.done ? `<span class="bd ok br">${c.done}</span>` : '';
+  const working = c.working ? `<span class="bd grey bl">${c.working}</span>` : '';
+  return `<button class="tile folder" style="--tc:${COLORS[p.color]}" data-tile="${p.id}" data-card="${p.id}">${svg(PROJECT_ICONS[p.id] || 'i-folder', 20)}${waiting}${finished}${working}</button>`;
+}
+// The hover card for a tile: the name, then one line per number, each only
+// when non-zero, in the order finished, working, waiting for you.
+function railCard(p) {
+  const c = counts(p.id);
+  const lines = [];
+  if (c.done) lines.push(`<div>Finished: <b>${c.done}</b></div>`);
+  if (c.working) lines.push(`<div>Working: <b>${c.working}</b></div>`);
+  if (c.needsYou) lines.push(`<div>Waiting for you: <b>${c.needsYou}</b></div>`);
+  return `<div class="rc-name">${folder(p, false, 14)}${esc(p.name)}</div>${lines.join('')}`;
 }
 function rail() {
   const tiles = PROJECTS.filter(needsMe).map(railTile).join('');
@@ -140,6 +174,18 @@ function render(frame) {
 
   frame.querySelectorAll('[data-toggle-panel]').forEach(b => b.onclick = () => { F.panelHidden = !F.panelHidden; window.__redraw(); });
   frame.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { F.home = b.dataset.go === 'home'; window.__redraw(); });
+  // The tile hover card, to the right of the tile it belongs to.
+  frame.insertAdjacentHTML('beforeend', '<div class="railcard" id="railcard"></div>');
+  const card = frame.querySelector('#railcard');
+  frame.querySelectorAll('[data-card]').forEach(b => {
+    b.onmouseenter = () => {
+      card.innerHTML = railCard(P(b.dataset.card));
+      const fr = frame.getBoundingClientRect(), r = b.getBoundingClientRect();
+      card.style.top = (r.top - fr.top) + 'px';
+      card.classList.add('show');
+    };
+    b.onmouseleave = () => card.classList.remove('show');
+  });
   frame.querySelectorAll('[data-collapse-sec]').forEach(b => b.onclick = e => {
     e.stopPropagation();
     const ids = (b.dataset.collapseSec === 'pinned' ? pinnedList() : recentList()).map(p => p.id);
