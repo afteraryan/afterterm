@@ -74,15 +74,45 @@ When Aryan opens a project from Home, or brings one in from the Other projects d
 
 ---
 
-## "Open" in the header's dots menu does nothing, since the thread is already the open one
+## "Open" should not be in the thread menus at all, and the header dots menu should be its own menu, not the sidebar one
 
 **Observed:** 2026-09-21 by Aryan during manual testing · **Phase:** 1 (the one thread menu, shared by the sidebar right-click and the header dots button) · **Status:** open · **Severity:** low (a dead menu item) · **Screenshot:** `docs/screenshots/manual-testing/05-header-dots-menu-open-item-on-the-already-open-thread.png`
 
 **What happens:**
 The dots menu on the main pane header offers Open, Sleep, Mark as unread, Move to project, Open project page, Open in File Explorer and Close. Aryan asked what "Open" does there. Nothing visible: the header belongs to the thread that is already open, so the item re-activates the thread that is active. The item exists because the same menu is built for the sidebar's right-click and the project page's rows, where Open switches to that thread.
 
+Aryan's decision (2026-09-21): there should be no Open item in either menu, neither the sidebar right-click nor the header dots menu (a click on the row already opens the thread). And the two should be two separate menus, built for their own place, not one menu reused: the header's menu is for the thread on screen and gets the items that make sense there (see the next entry for "Open in VS Code").
+
 **Repro:**
 1. In the workspace, click the dots button at the right of the header.
 2. Click "Open". Nothing changes.
 
-**Cause:** `buildThreadMenu` in `src/renderer/threadMenu.tsx` always puts Open first, and the header's caller in `app.tsx` passes `open: () => state.activateTab(activeTab.id)`, which activates the thread that is already active. Fix direction: leave Open out of the menu when it is built for the active thread (a flag on `ThreadMenuActions`, or the header passing no `open`), keeping it for the sidebar and the project page where it means something.
+**Cause:** `buildThreadMenu` in `src/renderer/threadMenu.tsx` is the one menu for the sidebar right-click, the header dots button and the project page rows, and always puts Open first; the header's caller in `app.tsx` passes `open: () => state.activateTab(activeTab.id)`, which activates the thread that is already active. Fix direction: drop Open from `buildThreadMenu` entirely, and split the header's menu into its own builder (a `buildHeaderMenu`, or a `place` argument) so the header and the sidebar can differ in items and order.
+
+---
+
+## The header dots menu has no "Open in VS Code" for the thread's own folder, and which folder each action opens is not written down
+
+**Observed:** 2026-09-21 by Aryan during manual testing · **Phase:** 9 (Open in File Explorer for a thread's own folder; the editor launch is Phase 2) · **Status:** open · **Severity:** medium (a missing action, and a rule that has to be settled before more of them are added) · **Screenshot:** none attached
+
+**What happens:**
+The header dots menu has "Open in File Explorer", which opens the thread's own folder (the worktree when the chat runs in one). Aryan wants "Open in VS Code" beside it, working the same way: if the thread is in a worktree, VS Code opens on the worktree, not the project root. Today the only editor launch is on the project menu and the project page, and it always opens the project root.
+
+He also wants it settled, and written down, which actions open the project root and which open the thread's own folder (the worktree), so every button follows one rule. What the code does today:
+
+| Where | Action | Opens |
+|---|---|---|
+| Project menu (sidebar row, Home card or row, rail tile, project page) | Open in File Explorer, Open in <editor> | the project root (`Group.cwd`) |
+| Header line 2, the project item | click | the project root |
+| Header line 2, the worktree item | click | the thread's own folder (`threadFolder`: the chat's Claude folder, a shell's cwd) |
+| Thread menu (sidebar right-click, header dots, project page row) | Open in File Explorer | the thread's own folder |
+| Thread menu | Open in <editor> | missing |
+
+Proposed rule for the fix: anything reached from a project (project menu, project page, the header's project item) opens the project root; anything reached from a thread (thread menu, the header's worktree item, and the new Open in <editor> on the thread menu) opens the thread's own folder. Aryan to confirm before it is built.
+
+**Repro:**
+1. Open a chat thread that runs in a worktree (the header shows a worktree item).
+2. Click the header's dots button: there is Open in File Explorer, no Open in VS Code.
+3. The only Open in VS Code is on the project menu, and it opens the project root, not the worktree.
+
+**Cause:** `buildThreadMenu` in `src/renderer/threadMenu.tsx` takes `openInExplorer` but nothing for an editor, while `buildProjectMenu` in `projectMenu.tsx` builds the "Open in <editor>" entries from the detected editors (`ctx.editors`) and `actions.openInEditor(group.id, editorId)`, which resolves the project's `cwd`. The editor launch itself (`editors.open(folder, editorId)` in `preload.ts`, `main.ts`) already takes any folder, so the thread side only needs the same entries built from `threadFolder(tab)` with the same "Folder not found" disabled state. Fix direction: add the editor entries to the thread menu next to Open in File Explorer, through a `threadEditor(tab)` in `app.tsx` mirroring `threadExplorer(tab)`, and record the root-versus-worktree rule above in CLAUDE.md once Aryan confirms it.
