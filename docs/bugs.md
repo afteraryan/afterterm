@@ -146,3 +146,19 @@ The project dialog offers ten fixed icons. Aryan wants to upload his own image o
 2. The icon row offers only the ten glyphs; there is no way to pick a file.
 
 **Cause:** `Group.icon` is a `ProjectIconId`, one of the ten ids in `PROJECT_ICON_IDS` (`src/renderer/components/TabBar/types.ts`), validated on load by `isProjectIconId` in `sessionMigration.ts` and drawn by `ProjectIcon` in `Icons.tsx` from inline SVG paths; the picker in `GroupModal/index.tsx` is a swatch grid over those ids, and there is no file picker, no image storage and no `<img>` rendering path anywhere. Fix direction: a second kind of icon, an image file copied into `%APPDATA%\afterterm\icons\<groupId>.<ext>` through a main-process picker (the same shape as the folder picker), stored on the group as a path or as `{ kind: 'image', file }`, rendered by `FolderIcon`/`ProjectIcon` as an `<img>` with `object-fit` and an adjustable crop or fit chosen in the dialog, with the ten glyphs staying as they are; the overlay toast would need the image too, since it draws the icon itself. A design decision with Aryan first on how the adjustment works (fit, crop, offset).
+
+---
+
+## A notification toast keeps the project's old colour and icon after the project is edited
+
+**Observed:** 2026-09-21 by Aryan during manual testing · **Phase:** 1 (the overlay toast cards; the project icon on them is Phase 9) · **Status:** open · **Severity:** low (cosmetic, and only until the toast is dismissed) · **Screenshot:** none attached
+
+**What happens:**
+A toast from the Spotify taskbar project was showing. Aryan then edited that project in the sidebar, changing its colour and its icon. The toast kept the old colour and icon. He expects a change made in one place to show everywhere the project is drawn, the toast included.
+
+**Repro:**
+1. Have a toast on screen for a thread in some project.
+2. Edit that project (right-click its row, Edit project) and change its colour or icon.
+3. The sidebar, rail and header update; the toast does not.
+
+**Cause:** a toast is a snapshot: `handleNotification` in `src/renderer/app.tsx` pushes `projectColor` and `projectIcon` as plain values in the `notify:push` payload, and `NotifierApp.tsx` in the overlay window renders whatever it received; the overlay has no access to the main window's project state and no message ever tells it a project changed. Fix direction: on a project edit, push a `notify:project-updated` with the new colour and icon (and label) for the overlay to apply to its open toasts for that project, or resend the affected toasts; the rail and the sidebar need nothing, they render from state.
