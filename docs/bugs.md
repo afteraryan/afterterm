@@ -71,3 +71,18 @@ When Aryan opens a project from Home, or brings one in from the Other projects d
 3. The same after opening a project from the Other projects drawer.
 
 **Cause:** `openProject` and `bringProjectIn` in `src/renderer/hooks/useTabState.ts` expand the project (`collapsed: false`) and activate a thread, but nothing scrolls the sidebar: there is no `scrollIntoView` anywhere in `SidePanel/index.tsx` or `app.tsx`, and the panel's five-row fold only auto-opens for the active thread or a waiting one. Fix direction: after an activation that came from Home, the rail or the drawer, scroll the project's row (or the activated thread's row) into view in the panel's `.scroll` container and make sure the fold shows it; a brief highlight on the row would make the landing obvious.
+
+---
+
+## "Open" in the header's dots menu does nothing, since the thread is already the open one
+
+**Observed:** 2026-09-21 by Aryan during manual testing · **Phase:** 1 (the one thread menu, shared by the sidebar right-click and the header dots button) · **Status:** open · **Severity:** low (a dead menu item) · **Screenshot:** `docs/screenshots/manual-testing/05-header-dots-menu-open-item-on-the-already-open-thread.png`
+
+**What happens:**
+The dots menu on the main pane header offers Open, Sleep, Mark as unread, Move to project, Open project page, Open in File Explorer and Close. Aryan asked what "Open" does there. Nothing visible: the header belongs to the thread that is already open, so the item re-activates the thread that is active. The item exists because the same menu is built for the sidebar's right-click and the project page's rows, where Open switches to that thread.
+
+**Repro:**
+1. In the workspace, click the dots button at the right of the header.
+2. Click "Open". Nothing changes.
+
+**Cause:** `buildThreadMenu` in `src/renderer/threadMenu.tsx` always puts Open first, and the header's caller in `app.tsx` passes `open: () => state.activateTab(activeTab.id)`, which activates the thread that is already active. Fix direction: leave Open out of the menu when it is built for the active thread (a flag on `ThreadMenuActions`, or the header passing no `open`), keeping it for the sidebar and the project page where it means something.
