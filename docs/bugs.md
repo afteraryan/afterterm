@@ -116,3 +116,18 @@ Proposed rule for the fix: anything reached from a project (project menu, projec
 3. The only Open in VS Code is on the project menu, and it opens the project root, not the worktree.
 
 **Cause:** `buildThreadMenu` in `src/renderer/threadMenu.tsx` takes `openInExplorer` but nothing for an editor, while `buildProjectMenu` in `projectMenu.tsx` builds the "Open in <editor>" entries from the detected editors (`ctx.editors`) and `actions.openInEditor(group.id, editorId)`, which resolves the project's `cwd`. The editor launch itself (`editors.open(folder, editorId)` in `preload.ts`, `main.ts`) already takes any folder, so the thread side only needs the same entries built from `threadFolder(tab)` with the same "Folder not found" disabled state. Fix direction: add the editor entries to the thread menu next to Open in File Explorer, through a `threadEditor(tab)` in `app.tsx` mirroring `threadExplorer(tab)`, and record the root-versus-worktree rule above in CLAUDE.md once Aryan confirms it.
+
+---
+
+## New threads are added at the bottom of a project, so the latest ones sit behind "Show more"
+
+**Observed:** 2026-09-21 by Aryan during manual testing · **Phase:** 1 (the sidebar's thread rows and the five-row fold; the fold's waiting rule is Phase 8) · **Status:** open · **Severity:** medium (the threads being worked on are the ones hidden) · **Screenshot:** none attached
+
+**What happens:**
+Inside a project, a new thread is appended after the existing ones, so the latest threads are at the bottom of the list. With more than five threads the fold hides everything after the fifth, which means that as soon as Aryan starts working, the threads he just opened are the ones behind "Show more" and the old ones are the ones on show. He wants the arrangement of threads inside a project changed; the first thing to try is putting a new thread at the top so the older ones get pushed down.
+
+**Repro:**
+1. In a project that already has five or more threads, open a new thread.
+2. It appears as the last row, behind "Show 1 more"; the five oldest threads stay visible.
+
+**Cause:** `addTab` in `src/renderer/hooks/useTabState.ts` appends the new tab after the last tab of its group (`[...prev, newTab]`, or spliced after the group's last index), and the sidebar shows a project's threads in tab order with `foldThreads` (`threadView.ts`) keeping the first five. Fix direction: insert a new thread before the group's first tab instead of after its last (so tab order itself is newest first), or keep the order and sort a project's rows by `lastActiveAt` before folding; the first is what Aryan asked to try first, and it also keeps Ctrl+Tab's session order meaningful.
