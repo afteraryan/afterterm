@@ -162,3 +162,19 @@ A toast from the Spotify taskbar project was showing. Aryan then edited that pro
 3. The sidebar, rail and header update; the toast does not.
 
 **Cause:** a toast is a snapshot: `handleNotification` in `src/renderer/app.tsx` pushes `projectColor` and `projectIcon` as plain values in the `notify:push` payload, and `NotifierApp.tsx` in the overlay window renders whatever it received; the overlay has no access to the main window's project state and no message ever tells it a project changed. Fix direction: on a project edit, push a `notify:project-updated` with the new colour and icon (and label) for the overlay to apply to its open toasts for that project, or resend the affected toasts; the rail and the sidebar need nothing, they render from state.
+
+---
+
+## There is no quick way to toggle between the awake threads when they are spread across Pinned and Recent
+
+**Observed:** 2026-09-22 by Aryan during manual testing · **Phase:** 8 (the panel's Pinned and Recent split, the keyboard cycle) · **Status:** open · **Severity:** medium (a daily action costs a search through the sidebar) · **Screenshot:** none attached
+
+**What happens:**
+Aryan often wants to flip between the threads he has awake right now. When some of them sit in pinned projects and others in Recent, there is no one place that shows them together: he has to scroll down to Recent and work out which one his fifth awake thread was. He wants that solved: a way to see and switch between the active (awake) threads directly, wherever their projects sit in the sidebar.
+
+**Repro:**
+1. Have five or so awake threads in projects that are split between Pinned and Recent.
+2. Try to switch to a particular one of them: the sidebar shows them by project, in two sections, with the rest of each project's threads around them and folds in between.
+3. Ctrl+Tab cycles in session order without showing the set, and Ctrl+Shift+Up/Down walks every visible row, asleep ones included.
+
+**Cause:** the panel is built by project (`panelSections` in `src/renderer/panelView.ts`, Pinned then Recent then Other) and there is no view or list keyed on "awake": `attention.ts` counts working, waiting, finished and running threads for the rail and the pills but has no list of awake threads, and the two keyboard cycles (`cycleThreadId` in panel order, the session-order Ctrl+Tab in `main.ts`) do not filter by state. Fix direction: an "Awake" list, for example a section at the top of the panel, a rail entry, or a Ctrl+Tab switcher that shows the awake threads and cycles only through them (design-03's Section 3 question 8 raised a working-threads strip and it was left out then); this is a design decision for Aryan before it is built.
