@@ -50,6 +50,20 @@ export function threadFolder(tab: Pick<Tab, 'cwd' | 'claudeCwd'>): string | unde
   return tab.claudeCwd ?? tab.cwd;
 }
 
+// What a thread's own Open in File Explorer and Open in <editor> act on (the
+// thread menu, the header's editor button): threadFolder, and whether main has
+// checked it and found it gone. Only an explicit false in `folderExists` counts
+// as missing, so a folder not checked yet never starts out disabled. Undefined
+// when the thread has no folder at all, and then neither control is offered.
+export function threadFolderTarget(
+  tab: Pick<Tab, 'cwd' | 'claudeCwd'>,
+  folderExists: Record<string, boolean>,
+): { folder: string; missing: boolean } | undefined {
+  const folder = threadFolder(tab);
+  if (!folder) return undefined;
+  return { folder, missing: folderExists[folder] === false };
+}
+
 // The word for a thread's kind, shown in the asleep pane ("Server asleep since
 // 2d ago") and anywhere else that needs "Chat"/"Server"/"Shell" rather than the
 // icon. Distinct from threadKind/ThreadKind, which stay chat/shell for the row

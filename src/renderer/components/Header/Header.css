@@ -36,11 +36,15 @@
   text-overflow: ellipsis;
 }
 
+/* One row, never wrapped: a second row would drop under the header into the
+   terminal card. When the line is too long the worktree item shrinks and
+   ellipsizes (below), and anything still too long is cut at the edge. */
 .header-meta {
   min-width: 0;
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow: hidden;
   gap: 14px;
   color: var(--text2);
   font-size: 12.5px;
@@ -52,6 +56,7 @@
   align-items: center;
   gap: 6px;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* The words carry the brighter --text2 above; the icons stay dim (--text3)
@@ -108,6 +113,18 @@
   align-items: center;
   gap: 4px;
   flex: none;
+}
+
+/* The editor button for a thread whose folder is gone: the project page's
+   disabled look, so the tip ("Folder not found") explains the dead button. */
+.header-actions .ic.disabled {
+  opacity: .4;
+  cursor: default;
+}
+
+.header-actions .ic.disabled:hover {
+  background: none;
+  color: var(--text3);
 }
 
 .header-chip {

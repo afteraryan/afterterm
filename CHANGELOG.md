@@ -31,8 +31,10 @@ The sidebar is no longer tab groups. It is projects and threads, with a Home scr
 - Sleep any thread from its menu. Its last output is kept and shown while it sleeps.
 - Closing a thread in a project files it in the project's History tab; a chat can be resumed from there.
 - Hovering a thread row shows a card with its type, project, model, branch, worktree, last command and last activity.
-- Right-click a thread for Open, Sleep or Wake, Mark as unread, Move to project, Open localhost (for a server), Open project page, Open in File Explorer (the thread's own folder, which for a chat is the worktree it works in) and Close.
+- Right-click a thread for Open, Sleep or Wake, Mark as unread, Move to project, Open localhost (for a server), Open project page, Open in File Explorer and Open in VS Code (or your editor; both open the thread's own folder, which for a chat is the worktree it works in) and Close.
 - In the header, the project and the worktree items are clickable and open their folders in File Explorer.
+- The header has an Open in VS Code button beside the dots menu (your editor's logo if you use Cursor, Windsurf or VS Code Insiders). It opens the folder the thread is actually in: the worktree for a chat that runs in one, the project folder for a chat that runs there, the current folder for a shell. It is greyed out with "Folder not found" when that folder is gone.
+- The header's second line stays on one row; a long worktree name is shortened with an ellipsis instead of wrapping into the terminal.
 - A chat that switched worktree outside afterterm shows its new branch and worktree at the next launch, before it is even woken, and resumes in that folder.
 
 ### Attention

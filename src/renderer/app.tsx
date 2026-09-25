@@ -21,7 +21,7 @@ import { Tab, TabNotification, GROUP_COLORS, nextGroupColor } from './components
 import { onTitle, onOutput, onTick, onInterrupt, onAnswer, initTiming, TabTiming } from './spinnerState';
 import { migrateSession, serializeSession } from './sessionMigration';
 import { sleepAllForShutdown } from './sleepWake';
-import { toastMessage, initialScreen, threadName, needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText, localhostUrl, threadFolder } from './threadView';
+import { toastMessage, initialScreen, threadName, needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText, localhostUrl, threadFolder, threadFolderTarget } from './threadView';
 import { ProjectActions } from './projectMenu';
 import { buildThreadMenu } from './threadMenu';
 import { projectAttention, totalAttention, railProjects, firstThreadToOpen } from './attention';
@@ -242,9 +242,35 @@ export function App() {
   // false for a folder main has actually checked and found missing; an
   // unchecked one counts as present, so the item never starts out disabled.
   const threadExplorer = (tab: Tab) => {
-    const folder = threadFolder(tab);
-    if (!folder) return undefined;
-    return { missing: folderExists[folder] === false, open: () => openFolderInExplorer(folder) };
+    const target = threadFolderTarget(tab, folderExists);
+    if (!target) return undefined;
+    return { missing: target.missing, open: () => openFolderInExplorer(target.folder) };
+  };
+
+  // Launches an editor on a folder, for a project (its root) and a thread (its
+  // own folder) alike. main re-runs detection on failure, so a vanished editor
+  // stops being offered, and the toast offers to pick one.
+  const openFolderInEditor = (folder: string, editorId: string) => {
+    // Recorded for the harness (drive.mjs's `opened`), like lastOpenFolder.
+    const win = window as unknown as { __afterterm?: Record<string, unknown> };
+    win.__afterterm = { ...(win.__afterterm ?? {}), lastOpenEditor: { folder, editorId } };
+    const name = editors.find(e => e.id === editorId)?.name ?? 'the editor';
+    window.afterterm.editors.open(folder, editorId).then(result => {
+      setEditors(result.editors);
+      if (!result.ok) {
+        showToast({ message: `Couldn't open ${name}`, actionLabel: 'Choose editor...', onAction: chooseEditor });
+      }
+    });
+  };
+
+  // "Open in <editor>" for a thread's own folder (the worktree for a worktree
+  // chat, the project root for a chat that runs there, a shell's cwd), the
+  // editor twin of threadExplorer: the header's editor button and the thread
+  // menu entries. Undefined when the thread has no folder or no editor was found.
+  const threadEditor = (tab: Tab) => {
+    const target = threadFolderTarget(tab, folderExists);
+    if (!target || editors.length === 0) return undefined;
+    return { editors, missing: target.missing, open: (editorId: string) => openFolderInEditor(target.folder, editorId) };
   };
 
   const projectActions: ProjectActions = {
@@ -280,15 +306,7 @@ export function App() {
     },
     openInEditor: (groupId, editorId) => {
       const folder = findGroup(groupId)?.cwd;
-      if (!folder) return;
-      const name = editors.find(e => e.id === editorId)?.name ?? 'the editor';
-      window.afterterm.editors.open(folder, editorId).then(result => {
-        // main re-runs detection on failure, so a vanished editor stops being offered.
-        setEditors(result.editors);
-        if (!result.ok) {
-          showToast({ message: `Couldn't open ${name}`, actionLabel: 'Choose editor...', onAction: chooseEditor });
-        }
-      });
+      if (folder) openFolderInEditor(folder, editorId);
     },
     chooseEditor,
     edit: (groupId) => setProjectModal({ mode: 'edit', groupId }),
@@ -1067,6 +1085,7 @@ export function App() {
             setUnread: unread => state.setUnread(tab.id, unread),
             openLocalhost: () => openLocalhost(tab.id),
             openInExplorer: threadExplorer(tab),
+            openInEditor: threadEditor(tab),
             openProjectPage: tab.groupId ? () => goScreen('project', tab.groupId) : undefined,
           })}
           onBack={() => goScreen('home')}
@@ -1092,6 +1111,7 @@ export function App() {
           onWake={wakeThread}
           onOpenLocalhost={openLocalhost}
           threadExplorer={threadExplorer}
+          threadEditor={threadEditor}
           onNewTab={state.addTab}
           onOpenChooser={setChooser}
           onOpenProjectPage={groupId => goScreen('project', groupId)}
@@ -1123,6 +1143,7 @@ export function App() {
               missing: folderMissing(activeGroup),
               open: () => openFolderInExplorer(activeGroup.cwd!),
             } : undefined}
+            editor={activeTab ? threadEditor(activeTab) : undefined}
             actions={activeTab ? {
               open: () => state.activateTab(activeTab.id),
               moveToGroup: (id) => id ? state.addToGroup(activeTab.id, id) : state.removeFromGroup(activeTab.id),

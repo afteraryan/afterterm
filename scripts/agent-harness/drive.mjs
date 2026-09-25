@@ -1247,6 +1247,10 @@ async function cmdOpened() {
   const folder = await evaluate(cdp, `window.__afterterm && window.__afterterm.lastOpenFolder`);
   console.log(url ? url : '(nothing opened)');
   console.log(folder ? `folder: ${folder}` : 'folder: (none opened)');
+  // The folder and editor id the last "Open in <editor>" reached (the header's
+  // editor button, the thread menu, the project menu or page).
+  const ed = await evaluate(cdp, `window.__afterterm && window.__afterterm.lastOpenEditor`);
+  console.log(ed ? `editor: ${ed.editorId} ${ed.folder}` : 'editor: (none opened)');
 }
 
 // Phase 5: window.__afterterm.commandState(tabId) (Terminal/index.tsx), the OSC
