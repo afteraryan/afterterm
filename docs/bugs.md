@@ -334,3 +334,19 @@ On Home, under the pinned cards, the Projects list shows the projects by recent 
 2. To reach one that is further down, expand Show more and scan the list, or leave Home for the search palette; there is nothing to type into on Home itself.
 
 **Cause:** Home has no query at all. `components/Home/index.tsx` renders the pinned cards and then a plain `.list` of rows from `homeSections` in `homeView.ts` (which sorts and splits pinned, unpinned and archived), with a `.more` toggle for the rest; `homeView.ts` has a `filterThreads` helper but nothing that filters projects, and no row animation beyond the page's entrance stagger. The sidebar already has the pattern to copy: an in-place `.srch` box whose value runs through `filterPanel` (`panelView.ts`) and narrows the list as you type. Fix direction: a `filterProjects` in `homeView.ts` (pure, unit-tested, matching the sidebar's case-insensitive substring rule), a search box in Home's Projects section header, and enter and exit animations on the rows; the animation is a look decision, so a mock page with one question for Aryan before it is built.
+
+---
+
+## The white bar is back above the toast stack, and it also shows when no toast is on screen
+
+**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 9 (the notifier white bar fix) · **Status:** open · **Severity:** low (cosmetic, but on top of every other window) · **Screenshot:** `docs/screenshots/manual-testing/10-white-bar-above-the-toast-stack.png`
+
+**What happens:**
+A white bar spans the full width of the overlay, above the top toast card. In the screenshot two toasts are stacked and the bar sits in the padding above the first one. Aryan also sees it appear when there is no notification at all: no toast on screen, just the bar.
+
+This is the same artefact Phase 9 fixed on 2026-09-20; that fix held for the cases tested then (a toast up, the main window activated from another app, and hide-and-show cycles), so this is a case it does not cover.
+
+**Repro:**
+As observed; the exact trigger is not known. Two circumstances are recorded: with more than one toast stacked (the screenshot), and with no toast showing.
+
+**Cause:** the Phase 9 fix repaints the overlay at three moments (`repaintNotifier()` in `src/main.ts`, called after the `showInactive` on a push, on the `WM_DWMNCRENDERINGCHANGED` message, and on the main window's `focus` event), because DWM paints the caption strip into the transparent window whenever it touches the frame. It does not repaint after a bounds change: `positionNotifier` calls `setBounds` on every `notifier:resize` from the renderer, which is exactly what happens when a second toast joins the stack and the window grows, and a bounds change is another moment DWM can paint the frame. That fits the screenshot, where the bar sits at the top of a window that had just been made taller. The no-toast case is a second thread to pull: the overlay is meant to be hidden when the last toast clears (`notifier:hide` from `NotifierApp.tsx`), so a bar with no toast means either the hide did not happen or the window was left visible at a small height with the caption strip painted into it. Fix direction: call `repaintNotifier()` after every `setBounds` in `positionNotifier`, then reproduce the empty case in the harness (push two toasts, dismiss both, watch `isVisible()` and the window height) before deciding whether the hide path needs its own fix.
