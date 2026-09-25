@@ -13,7 +13,7 @@ import {
 } from '@dnd-kit/core';
 import { Tab, Group, GroupColor } from '../TabBar/types';
 import { Menu, MenuItem } from '../Menu';
-import { buildThreadMenu } from '../../threadMenu';
+import { buildThreadMenu, ThreadMenuActions } from '../../threadMenu';
 import { buildProjectMenu, ProjectActions } from '../../projectMenu';
 import type { EditorInfo } from '../../../editors';
 import {
@@ -316,6 +316,9 @@ export interface SidePanelProps {
   // threadMenu's "Open in File Explorer" for the thread's own folder (Phase 9):
   // the caller decides whether the thread has a folder and whether it exists.
   threadExplorer: (tab: Tab) => { missing: boolean; open: () => void } | undefined;
+  // threadMenu's "Open in <editor>" entries for the same folder; undefined when
+  // the thread has no folder or no editor was detected.
+  threadEditor: (tab: Tab) => ThreadMenuActions['openInEditor'];
   onNewTab: (groupId?: string, shellId?: string) => void;
   // The chooser is anchored under whichever New thread control was used, so the
   // caller is handed that control's bottom-left corner.
@@ -351,7 +354,7 @@ export interface SidePanelProps {
 export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function SidePanel(props, ref) {
   const {
     tabs, groups, activeTabId, hidden, now, shells, onToggleCollapse,
-    onActivate, onClose, onSleep, onWake, onSetUnread, onOpenLocalhost, threadExplorer, onNewTab,
+    onActivate, onClose, onSleep, onWake, onSetUnread, onOpenLocalhost, threadExplorer, threadEditor, onNewTab,
     onOpenChooser, onOpenProjectPage, onTogglePin,
     onNewProject, editors, folderExists, projectActions,
     onCreateGroup, onAddToGroup, onRemoveFromGroup,
@@ -578,6 +581,7 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
         openProjectPage: tab.groupId ? () => onOpenProjectPage(tab.groupId!) : undefined,
         openLocalhost: () => onOpenLocalhost(tab.id),
         openInExplorer: threadExplorer(tab),
+        openInEditor: threadEditor(tab),
       }),
     });
   };

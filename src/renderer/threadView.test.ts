@@ -4,7 +4,7 @@
 // Exits 0 if all pass, 1 on any failure.
 
 import {
-  threadFolder, threadKind, threadState, stateLabel, stateBreathes, displayTitle,
+  threadFolder, threadFolderTarget, threadKind, threadState, stateLabel, stateBreathes, displayTitle,
   threadName, modelLabel, kindWord, runningLabel, localhostUrl, openLocalhostLabel,
   needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText,
   foldThreads, projectCounts, toastMessage,
@@ -37,6 +37,25 @@ console.log('\nthreadView: threadFolder\n');
     threadFolder({ cwd: 'D:\\repo', claudeCwd: 'D:\\repo\\.claude\\worktrees\\phase-9' }) === 'D:\\repo\\.claude\\worktrees\\phase-9');
   check('a shell with only a cwd opens that cwd', threadFolder({ cwd: 'D:\\repo' }) === 'D:\\repo');
   check('no folder at all is undefined', threadFolder({}) === undefined);
+}
+
+console.log('\nthreadView: threadFolderTarget\n');
+{
+  const wt = 'D:\\repo\\.claude\\worktrees\\fix-login';
+  const t = threadFolderTarget({ cwd: 'D:\\repo', claudeCwd: wt }, { [wt]: true, 'D:\\repo': true });
+  check('a worktree chat targets the worktree, not the project root',
+    t?.folder === wt && t.missing === false, show(t));
+  const root = threadFolderTarget({ cwd: 'D:\\repo', claudeCwd: 'D:\\repo' }, {});
+  check('a chat in the project root targets the root', root?.folder === 'D:\\repo', show(root));
+  const shell = threadFolderTarget({ cwd: 'C:\\Users\\me\\src' }, {});
+  check('a shell targets its own cwd', shell?.folder === 'C:\\Users\\me\\src', show(shell));
+  check('a folder not checked yet is not missing',
+    threadFolderTarget({ cwd: 'D:\\repo' }, {})?.missing === false);
+  check('a folder main checked and found gone is missing',
+    threadFolderTarget({ claudeCwd: wt }, { [wt]: false })?.missing === true);
+  check('the worktree being gone disables it even when the project root exists',
+    threadFolderTarget({ cwd: 'D:\\repo', claudeCwd: wt }, { [wt]: false, 'D:\\repo': true })?.missing === true);
+  check('a thread with no folder has no target', threadFolderTarget({}, { 'D:\\repo': true }) === undefined);
 }
 
 console.log('\nthreadView: threadKind\n');

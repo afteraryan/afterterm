@@ -81,41 +81,13 @@ When Aryan opens a project from Home, or brings one in from the Other projects d
 **What happens:**
 The dots menu on the main pane header offers Open, Sleep, Mark as unread, Move to project, Open project page, Open in File Explorer and Close. Aryan asked what "Open" does there. Nothing visible: the header belongs to the thread that is already open, so the item re-activates the thread that is active. The item exists because the same menu is built for the sidebar's right-click and the project page's rows, where Open switches to that thread.
 
-Aryan's decision (2026-09-21): there should be no Open item in either menu, neither the sidebar right-click nor the header dots menu (a click on the row already opens the thread). And the two should be two separate menus, built for their own place, not one menu reused: the header's menu is for the thread on screen and gets the items that make sense there (see the next entry for "Open in VS Code").
+Aryan's decision (2026-09-21): there should be no Open item in either menu, neither the sidebar right-click nor the header dots menu (a click on the row already opens the thread). And the two should be two separate menus, built for their own place, not one menu reused: the header's menu is for the thread on screen and gets the items that make sense there (Open in VS Code was added on 2026-09-25 as a header button beside the dots and an item on the sidebar right-click, not in the dots menu).
 
 **Repro:**
 1. In the workspace, click the dots button at the right of the header.
 2. Click "Open". Nothing changes.
 
 **Cause:** `buildThreadMenu` in `src/renderer/threadMenu.tsx` is the one menu for the sidebar right-click, the header dots button and the project page rows, and always puts Open first; the header's caller in `app.tsx` passes `open: () => state.activateTab(activeTab.id)`, which activates the thread that is already active. Fix direction: drop Open from `buildThreadMenu` entirely, and split the header's menu into its own builder (a `buildHeaderMenu`, or a `place` argument) so the header and the sidebar can differ in items and order.
-
----
-
-## The header dots menu has no "Open in VS Code" for the thread's own folder, and which folder each action opens is not written down
-
-**Observed:** 2026-09-21 by Aryan during manual testing · **Phase:** 9 (Open in File Explorer for a thread's own folder; the editor launch is Phase 2) · **Status:** open · **Severity:** medium (a missing action, and a rule that has to be settled before more of them are added) · **Screenshot:** none attached
-
-**What happens:**
-The header dots menu has "Open in File Explorer", which opens the thread's own folder (the worktree when the chat runs in one). Aryan wants "Open in VS Code" beside it, working the same way: if the thread is in a worktree, VS Code opens on the worktree, not the project root. Today the only editor launch is on the project menu and the project page, and it always opens the project root.
-
-He also wants it settled, and written down, which actions open the project root and which open the thread's own folder (the worktree), so every button follows one rule. What the code does today:
-
-| Where | Action | Opens |
-|---|---|---|
-| Project menu (sidebar row, Home card or row, rail tile, project page) | Open in File Explorer, Open in <editor> | the project root (`Group.cwd`) |
-| Header line 2, the project item | click | the project root |
-| Header line 2, the worktree item | click | the thread's own folder (`threadFolder`: the chat's Claude folder, a shell's cwd) |
-| Thread menu (sidebar right-click, header dots, project page row) | Open in File Explorer | the thread's own folder |
-| Thread menu | Open in <editor> | missing |
-
-Proposed rule for the fix: anything reached from a project (project menu, project page, the header's project item) opens the project root; anything reached from a thread (thread menu, the header's worktree item, and the new Open in <editor> on the thread menu) opens the thread's own folder. Aryan to confirm before it is built.
-
-**Repro:**
-1. Open a chat thread that runs in a worktree (the header shows a worktree item).
-2. Click the header's dots button: there is Open in File Explorer, no Open in VS Code.
-3. The only Open in VS Code is on the project menu, and it opens the project root, not the worktree.
-
-**Cause:** `buildThreadMenu` in `src/renderer/threadMenu.tsx` takes `openInExplorer` but nothing for an editor, while `buildProjectMenu` in `projectMenu.tsx` builds the "Open in <editor>" entries from the detected editors (`ctx.editors`) and `actions.openInEditor(group.id, editorId)`, which resolves the project's `cwd`. The editor launch itself (`editors.open(folder, editorId)` in `preload.ts`, `main.ts`) already takes any folder, so the thread side only needs the same entries built from `threadFolder(tab)` with the same "Folder not found" disabled state. Fix direction: add the editor entries to the thread menu next to Open in File Explorer, through a `threadEditor(tab)` in `app.tsx` mirroring `threadExplorer(tab)`, and record the root-versus-worktree rule above in CLAUDE.md once Aryan confirms it.
 
 ---
 
@@ -219,24 +191,6 @@ He also asks whether any of this was designed and built before the redesign, so 
 5. Drag a thread out of its project towards General: no target to drop it on.
 
 **Cause:** what the code says today, from `src/renderer/components/SidePanel/index.tsx`: project drags do exist (`handleDragEnd` calls `onMoveGroupAfterGroup(dragged, target)` when a project is dropped on a project row, so the intended gesture is "move after the target"), and design-03 says "Pinned keeps its dragged order" while "Recent is sorted by lastActiveAt descending", so a reorder inside Recent is overridden by the activity sort by design, and a reorder inside Pinned should work but Aryan reports it does not (not investigated further; the Pinned list in `panelView.ts` is built from group order, so the move may not be reaching `groups` or may be landing across the Pinned and Recent boundary). There is no pin-on-drop (`togglePin` is only called from the pin buttons and menus), only an "after the target" drop and so no "before the first row" indicator, the project row's `drop-over` class is applied from `isOver` for any drag kind (line 184), and a thread's only drop targets are other thread rows and project rows (`moveTab` inherits the target's group), so an empty General offers nowhere to drop. Fix direction: a proper drag model for the panel: reorder within Pinned with a before-or-after line indicator (including above the first row), a drop into the Pinned section that pins, no reordering in Recent (it is sorted by activity, say so on hover or allow nothing), project rows not highlighting while a project is dragged, and a General drop zone (the section heading, or an always-present target when the section is empty) that takes a thread out of its project. This is a design decision with Aryan first (one mock page, one question per gesture), then one piece of work.
-
----
-
-## A chat has no "Open in VS Code" button, and the editor action should sit outside the dots menu
-
-**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 9 (the thread's own folder in Explorer; the editor launch is Phase 2) · **Status:** open · **Severity:** medium (a daily action is missing from where he needs it) · **Screenshot:** none attached
-
-**What happens:**
-There is no "Open in VS Code" on a chat at all, and Aryan wants one. He also wants it out of the three-dot dropdown: a button of its own, visible without opening a menu, the way the project page carries its Explorer and editor buttons. It must open the folder the thread is actually in: the worktree when the chat runs in one, the project root when it runs there.
-
-This extends the earlier entry "The header dots menu has no 'Open in VS Code' for the thread's own folder, and which folder each action opens is not written down", which asked for the menu item; this one adds where the control belongs (a button, not a menu item).
-
-**Repro:**
-1. Open a chat thread, in a worktree or not.
-2. There is no Open in VS Code anywhere on it: not as a button in the header, not in the dots menu.
-3. The only editor launch is on the project menu and the project page, and it opens the project root.
-
-**Cause:** `buildThreadMenu` in `src/renderer/threadMenu.tsx` takes `openInExplorer` and nothing for an editor, and the header (`components/Header/index.tsx`) has only the state chip and the dots button in its actions area; `buildProjectMenu` and the project page build editor entries from the detected editors and open `Group.cwd`. The launch itself (`editors.open(folder, editorId)` through `preload.ts` and `main.ts`) takes any folder, so the thread side needs the folder from `threadFolder(tab)` and a place to put the control. Fix direction: an editor button in the header's actions area beside the dots (the primary editor's logo, the same disabled "Folder not found" state the project page uses), opening `threadFolder(tab)`; the menu item from the earlier entry can stay for the sidebar rows. Settle it together with the root-versus-worktree rule in that entry.
 
 ---
 

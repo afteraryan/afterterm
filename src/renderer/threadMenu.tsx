@@ -5,9 +5,10 @@
 // unlooked-at.
 import { Tab, Group } from './components/TabBar/types';
 import { MenuItem } from './components/Menu';
-import { FolderIcon, IconExplorer, IconTerm } from './components/Icons';
+import { FolderIcon, IconExplorer, IconTerm, EditorLogo } from './components/Icons';
 import { openLocalhostLabel } from './threadView';
 import { FOLDER_MISSING_TIP } from './projectMenu';
+import type { EditorInfo } from '../editors';
 
 export interface ThreadMenuActions {
   open: () => void;
@@ -31,6 +32,11 @@ export interface ThreadMenuActions {
   // folder at all, so the item stays out of the menu; `missing` disables it
   // with the same "Folder not found" tip the project menu uses.
   openInExplorer?: { missing: boolean; open: () => void };
+  // "Open in <editor>" for the same folder, one entry per detected editor, the
+  // primary first. The sidebar right-click and the project page rows pass it;
+  // the header's dots menu does not, since the header carries its own editor
+  // button right beside the dots. Absent (or no editors) leaves the entries out.
+  openInEditor?: { editors: EditorInfo[]; missing: boolean; open: (editorId: string) => void };
 }
 
 export function buildThreadMenu(tab: Tab, groups: Group[], actions: ThreadMenuActions): MenuItem[] {
@@ -83,6 +89,19 @@ export function buildThreadMenu(tab: Tab, groups: Group[], actions: ThreadMenuAc
       tip: missing ? FOLDER_MISSING_TIP : undefined,
       onSelect: open,
     });
+  }
+
+  if (actions.openInEditor) {
+    const { editors, missing, open } = actions.openInEditor;
+    for (const editor of editors) {
+      items.push({
+        label: `Open in ${editor.name}`,
+        right: <EditorLogo product={editor.product} size={16} />,
+        disabled: missing,
+        tip: missing ? FOLDER_MISSING_TIP : undefined,
+        onSelect: () => open(editor.id),
+      });
+    }
   }
 
   items.push({ label: 'Close', danger: true, onSelect: actions.close });

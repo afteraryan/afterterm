@@ -1102,6 +1102,14 @@ ipcMain.handle('editors:open', async (_event, folder: unknown, editorId?: unknow
   }
   if (!editor) return { ok: false, error: 'No editor found', editors: cachedEditors };
 
+  // Under the agent harness an editor window must never land on the person's
+  // screen either (the header's editor button made this reachable from a
+  // self-test), so the launch is logged after the checks above, like Explorer.
+  if (harnessOnlyLogsExternal()) {
+    console.log(`[harness] editors:open ${editor.name} ${folder}`);
+    return { ok: true, editors: cachedEditors };
+  }
+
   const result = await new Promise<{ ok: boolean; error?: string }>(resolve => {
     let child;
     try {
