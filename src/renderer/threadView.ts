@@ -50,6 +50,22 @@ export function threadFolder(tab: Pick<Tab, 'cwd' | 'claudeCwd'>): string | unde
   return tab.claudeCwd ?? tab.cwd;
 }
 
+// Where a new thread goes in the tab list (addTab, and a thread resumed from
+// history). In a project it goes first, before the project's first thread, so
+// the newest threads are the ones the sidebar's five-row fold shows and the old
+// ones are pushed behind "Show more" (Aryan, 2026-09-21: new threads were landing
+// at the bottom, behind the fold). A project's threads stay contiguous. A
+// project with no threads yet, or a thread with no project (General), goes at
+// the end as before.
+export function insertNewThread<T extends Pick<Tab, 'groupId'>>(tabs: T[], tab: T): T[] {
+  if (!tab.groupId) return [...tabs, tab];
+  const firstIdx = tabs.findIndex(t => t.groupId === tab.groupId);
+  if (firstIdx === -1) return [...tabs, tab];
+  const next = [...tabs];
+  next.splice(firstIdx, 0, tab);
+  return next;
+}
+
 // What a thread's own Open in File Explorer and Open in <editor> act on (the
 // thread menu, the header's editor button): threadFolder, and whether main has
 // checked it and found it gone. Only an explicit false in `folderExists` counts
@@ -305,6 +321,45 @@ export function toastMessage(type: TabNotification): string {
     case 'compacting': return 'Compacting context';
     case 'working': return '';
   }
+}
+
+// A toast is drawn in the overlay window from values sent when it was pushed,
+// so a project edited while its toast is on screen would keep the old name,
+// colour and icon (Aryan, 2026-09-21). The main window compares its projects on
+// every change and sends the overlay the look of each one that changed;
+// projectLookChanges finds them. A project new in `next` (a create, the session
+// restore) is not a change: no toast can show it yet.
+export interface ProjectLook {
+  projectId: string;
+  label: string;
+  color: Group['color'];
+  icon?: Group['icon'];
+}
+
+export function projectLookChanges(prev: Group[], next: Group[]): ProjectLook[] {
+  const before = new Map(prev.map(g => [g.id, g]));
+  const changes: ProjectLook[] = [];
+  for (const g of next) {
+    const old = before.get(g.id);
+    if (!old) continue;
+    if (old.label !== g.label || old.color !== g.color || old.icon !== g.icon) {
+      changes.push({ projectId: g.id, label: g.label, color: g.color, icon: g.icon });
+    }
+  }
+  return changes;
+}
+
+// The overlay's side: every toast from that project takes the new name,
+// colour (already resolved to the drawn colour) and icon; the rest are left as
+// they are, and the same array comes back when nothing matched.
+export function applyProjectLook<T extends { projectId?: string; secondaryLabel?: string; projectColor?: string; projectIcon?: string }>(
+  toasts: T[],
+  look: { projectId: string; label: string; color: string; icon?: string },
+): T[] {
+  if (!toasts.some(t => t.projectId === look.projectId)) return toasts;
+  return toasts.map(t => t.projectId === look.projectId
+    ? { ...t, secondaryLabel: look.label, projectColor: look.color, projectIcon: look.icon }
+    : t);
 }
 
 // Which screen the app opens on once the session has loaded. Always Home, decided

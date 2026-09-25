@@ -13,7 +13,7 @@ import {
 } from '../../commandMarks';
 import { TAIL_MAX_LINES } from '../../../thread-tail';
 import { JUMP_THRESHOLD_LINES, JumpState, JumpTarget, initialJumpState, onScrollSample, jumpDurationMs, jumpLineAt, prefersReducedMotion, wheelToLines, isUserScroll } from '../../jumpScroll';
-import { JumpButton } from '../JumpButton';
+import { JumpButton, JumpButtonHandle } from '../JumpButton';
 import { isWindowsDrivePath, osc7ToWindowsPath } from '../../../shell-paths';
 
 interface TermInfo {
@@ -272,6 +272,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
   // scroll event, which fires for the user's scrolling and for output arriving alike.
   const jumpRef = useRef(new Map<string, JumpState>());
   const [jump, setJump] = useState<JumpTarget>(null);
+  const jumpBtnRef = useRef<JumpButtonHandle>(null);
   // Only the user's own scrolling may show the button (isUserScroll in
   // jumpScroll.ts): a wheel or a key over the terminal stamps jumpInputRef, a
   // pointer down outside the screen (the scrollbar) holds jumpDragRef until
@@ -631,11 +632,14 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       term.onScroll(() => {
         const buffer = term.buffer.active;
         const prev = jumpRef.current.get(tabId) ?? initialJumpState(buffer.viewportY);
-        const next = isUserScroll(jumpInputRef.current, performance.now(), jumpDragRef.current)
+        const userScroll = isUserScroll(jumpInputRef.current, performance.now(), jumpDragRef.current);
+        const next = userScroll
           ? onScrollSample(prev, buffer.viewportY, buffer.baseY, JUMP_THRESHOLD_LINES)
           : { target: prev.target, position: buffer.viewportY };
         jumpRef.current.set(tabId, next);
         if (tabId === activeRef.current && next.target !== prev.target) setJump(next.target);
+        // Still scrolling: the button stays another JUMP_IDLE_MS (JumpButton).
+        if (tabId === activeRef.current && userScroll) jumpBtnRef.current?.poke();
       });
       container.addEventListener('wheel', () => { jumpInputRef.current = performance.now(); }, { passive: true, capture: true });
       container.addEventListener('keydown', () => { jumpInputRef.current = performance.now(); }, { capture: true });
@@ -934,7 +938,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
           imperatively. The find bar lives as a sibling so React can manage it freely. */}
       <div ref={hostRef} className="terminal-host" />
 
-      <JumpButton target={jump} onJump={jumpTo} onWheel={wheelToTerminal} />
+      <JumpButton ref={jumpBtnRef} target={jump} onJump={jumpTo} onWheel={wheelToTerminal} />
 
       {findOpen && (
         <div className="find-bar">

@@ -7,7 +7,7 @@ import React, { useCallback, useRef, useState } from 'react';
 import { Tab, Group } from '../TabBar/types';
 import { EditorLogo, FolderIcon, IconBranch, IconModel, IconMore, IconTerm, IconWorktree, KindIcon, StateIcon } from '../Icons';
 import { Menu } from '../Menu';
-import { buildThreadMenu, ThreadMenuActions } from '../../threadMenu';
+import { buildHeaderMenu, HeaderMenuActions, ThreadMenuActions } from '../../threadMenu';
 import { FOLDER_MISSING_TIP } from '../../projectMenu';
 import { threadKind, threadName, threadState, stateLabel, modelLabel, runningLabel } from '../../threadView';
 import { asleepLabel } from '../../sleepWake';
@@ -22,7 +22,7 @@ export interface HeaderProps {
   group: Group | undefined;
   groups: Group[];
   // Undefined only when there is no active tab (nothing to act on).
-  actions?: ThreadMenuActions;
+  actions?: HeaderMenuActions;
   // "Open in File Explorer" for the project's own folder, behind the project item
   // on line 2 (Phase 9, Aryan: the project item should open the project folder).
   // Undefined when the thread has no project or the project has no folder.
@@ -168,7 +168,7 @@ export function Header({ tab, group, groups, actions, projectExplorer, editor, n
         <Menu
           x={menuPos.x}
           y={menuPos.y}
-          items={buildThreadMenu(tab, groups, actions)}
+          items={buildHeaderMenu(tab, groups, actions)}
           onClose={closeMenu}
         />
       )}

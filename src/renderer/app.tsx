@@ -21,7 +21,7 @@ import { Tab, TabNotification, GROUP_COLORS, nextGroupColor } from './components
 import { onTitle, onOutput, onTick, onInterrupt, onAnswer, initTiming, TabTiming } from './spinnerState';
 import { migrateSession, serializeSession } from './sessionMigration';
 import { sleepAllForShutdown } from './sleepWake';
-import { toastMessage, initialScreen, threadName, needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText, localhostUrl, threadFolder, threadFolderTarget } from './threadView';
+import { toastMessage, initialScreen, threadName, needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText, localhostUrl, threadFolder, threadFolderTarget, projectLookChanges } from './threadView';
 import { ProjectActions } from './projectMenu';
 import { buildThreadMenu } from './threadMenu';
 import { projectAttention, totalAttention, railProjects, firstThreadToOpen } from './attention';
@@ -288,6 +288,7 @@ export function App() {
         stateRef.current.addTab(groupId);
       }
       goScreen('workspace');
+      panelRef.current?.revealProject(groupId);
     },
     newThread: (groupId) => {
       stateRef.current.addTab(groupId);
@@ -606,6 +607,7 @@ export function App() {
     if (target) {
       handleActivate(target.id);
       goScreen('workspace');
+      panelRef.current?.revealProject(groupId);
       return;
     }
     projectActions.open(groupId);
@@ -618,6 +620,7 @@ export function App() {
   const bringProjectIn = useCallback((groupId: string) => {
     const tabId = stateRef.current.bringProjectIn(groupId, Date.now());
     if (tabId) clearThreadBadges(tabId);
+    panelRef.current?.revealProject(groupId);
   }, [clearThreadBadges]);
 
   const handleNotification = useCallback((tabId: string, type: TabNotification | undefined, projectName: string) => {
@@ -654,6 +657,7 @@ export function App() {
       secondaryLabel: group?.label,
       projectColor: group ? GROUP_COLORS[group.color].border : undefined,
       projectIcon: group?.icon,
+      projectId: group?.id,
       message: toastMessage(type),
     });
   }, [state.setTabNotification]);
@@ -918,6 +922,24 @@ export function App() {
     return () => { cancelled = true; };
   }, [state.activeTabId, activeTabAsleep, tails]);
 
+  // A toast is drawn from what it was sent, so a project edited while its toast
+  // is on screen tells the overlay its new name, colour and icon. The first
+  // render only records the projects: nothing on screen can be out of date yet.
+  const prevGroupsRef = useRef<typeof state.groups | null>(null);
+  useEffect(() => {
+    const prev = prevGroupsRef.current;
+    prevGroupsRef.current = state.groups;
+    if (!prev) return;
+    for (const look of projectLookChanges(prev, state.groups)) {
+      window.afterterm.notify.projectUpdated({
+        projectId: look.projectId,
+        label: look.label,
+        color: GROUP_COLORS[look.color].border,
+        icon: look.icon,
+      });
+    }
+  }, [state.groups]);
+
   // Folder existence for the screens that show it and, since Phase 9, for the
   // thread menu's own Explorer entry. One round trip per screen entry, so a folder
   // deleted while you were in the workspace is caught on the way back, plus one
@@ -1077,7 +1099,6 @@ export function App() {
           onResume={entryId => resumeThread(pageGroup.id, entryId)}
           initialTab={projectPageTab}
           threadMenu={tab => buildThreadMenu(tab, state.groups, {
-            open: () => openThreadInWorkspace(tab.id),
             moveToGroup: id => (id ? state.addToGroup(tab.id, id) : state.removeFromGroup(tab.id)),
             close: () => closeThread(tab.id),
             sleep: () => sleepThread(tab.id),
@@ -1145,7 +1166,6 @@ export function App() {
             } : undefined}
             editor={activeTab ? threadEditor(activeTab) : undefined}
             actions={activeTab ? {
-              open: () => state.activateTab(activeTab.id),
               moveToGroup: (id) => id ? state.addToGroup(activeTab.id, id) : state.removeFromGroup(activeTab.id),
               close: () => closeThread(activeTab.id),
               sleep: () => sleepThread(activeTab.id),

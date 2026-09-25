@@ -1,6 +1,6 @@
 # afterterm — Known Bugs
 
-Running list of observed bugs that are **not yet fixed**. Fixed bugs get removed from here (their fix lives in git history / `CLAUDE.md`). For inherent *platform limitations* (input lag, Wispr, etc.) see the **Known Limitations** section in [`../CLAUDE.md`](../CLAUDE.md) — those are constraints, not bugs on a fix-list.
+Running list of observed bugs that are **not yet fixed**. When a bug is fixed, its entry is deleted from here and a short entry is added to [`bugs-fixed.md`](bugs-fixed.md) in the same change (what was wrong, what the fix does, the PR), and the fix goes in `CHANGELOG.md`'s Fixed list. For inherent *platform limitations* (input lag, Wispr, etc.) see the **Known Limitations** section in [`../CLAUDE.md`](../CLAUDE.md) — those are constraints, not bugs on a fix-list.
 
 Format per bug: a short title, the date observed, what happens, repro if known, and any hypothesis about the cause.
 
@@ -9,22 +9,6 @@ This one file is where every bug goes, and `docs/screenshots/manual-testing/` is
 ---
 
 Every entry from the manual-testing round after the projects-and-threads phases (seven bugs plus the thread-folder Explorer ask) was closed in Phase 9 on 2026-09-19; see PHASES.md's Phase 9 section and Log for what each fix was and how it was verified. Entries below are from Aryan's use of the Phase 9 build.
-
----
-
-## The jump button stays on screen after scrolling stops instead of going away on its own
-
-**Observed:** 2026-09-20 by Aryan during manual testing · **Phase:** 9 (long output, the jump button) · **Status:** open · **Severity:** low (a lingering control) · **Screenshot:** none attached
-
-**What happens:**
-Once the jump button has appeared during a scroll, it stays until the scroller reaches an end or the button is clicked. Aryan expects it to disappear on its own a moment after the scrolling stops, about a second, the exact time to be settled.
-
-**Repro:**
-1. Open a thread with long output (a live terminal or an asleep pane with a long tail).
-2. Scroll up a few lines and stop.
-3. The button appears and stays as long as the position is away from that end; nothing hides it while the mouse is idle.
-
-**Cause:** the show-or-hide rule in `src/renderer/jumpScroll.ts` (`onScrollSample`) is a function of position and direction only; there is no idle timer anywhere. Fix direction: in both hosts (`AsleepPane/index.tsx`'s `onScroll`, `Terminal/index.tsx`'s `term.onScroll` sampling) start a timer on every user scroll sample that shows the button and clear the target when it fires (about a second, the exact value Aryan's to settle), resetting the timer on each further scroll, with the hide going through the existing scale-out; a hover over the button should probably hold it open.
 
 ---
 
@@ -58,54 +42,6 @@ When the docked "Other projects" row at the bottom of the sidebar is opened, Ary
 
 ---
 
-## Opening a project from Home or from the Other projects drawer does not bring its row into view in the sidebar
-
-**Observed:** 2026-09-21 by Aryan during manual testing · **Phase:** 8 (the panel, the docked Other projects row; the Home card route is Phase 2) · **Status:** open · **Severity:** medium (the sidebar loses the user after every project switch) · **Screenshot:** none attached
-
-**What happens:**
-When Aryan opens a project from Home, or brings one in from the Other projects drawer, the workspace opens on it but the sidebar does not show him where that project is: he has to look for it, or search for it, in the sidebar list. He expects the sidebar to have that project in focus, scrolled into view with its rows expanded (its toggle open), so the project he just chose is the one he sees.
-
-**Repro:**
-1. On Home, click a project card or row that sits low in the sidebar's list (below the visible part, or behind a fold).
-2. The workspace opens on that project's thread, but the sidebar is left where it was; the project's row may be off screen.
-3. The same after opening a project from the Other projects drawer.
-
-**Cause:** `openProject` and `bringProjectIn` in `src/renderer/hooks/useTabState.ts` expand the project (`collapsed: false`) and activate a thread, but nothing scrolls the sidebar: there is no `scrollIntoView` anywhere in `SidePanel/index.tsx` or `app.tsx`, and the panel's five-row fold only auto-opens for the active thread or a waiting one. Fix direction: after an activation that came from Home, the rail or the drawer, scroll the project's row (or the activated thread's row) into view in the panel's `.scroll` container and make sure the fold shows it; a brief highlight on the row would make the landing obvious.
-
----
-
-## "Open" should not be in the thread menus at all, and the header dots menu should be its own menu, not the sidebar one
-
-**Observed:** 2026-09-21 by Aryan during manual testing · **Phase:** 1 (the one thread menu, shared by the sidebar right-click and the header dots button) · **Status:** open · **Severity:** low (a dead menu item) · **Screenshot:** `docs/screenshots/manual-testing/05-header-dots-menu-open-item-on-the-already-open-thread.png`
-
-**What happens:**
-The dots menu on the main pane header offers Open, Sleep, Mark as unread, Move to project, Open project page, Open in File Explorer and Close. Aryan asked what "Open" does there. Nothing visible: the header belongs to the thread that is already open, so the item re-activates the thread that is active. The item exists because the same menu is built for the sidebar's right-click and the project page's rows, where Open switches to that thread.
-
-Aryan's decision (2026-09-21): there should be no Open item in either menu, neither the sidebar right-click nor the header dots menu (a click on the row already opens the thread). And the two should be two separate menus, built for their own place, not one menu reused: the header's menu is for the thread on screen and gets the items that make sense there (Open in VS Code was added on 2026-09-25 as a header button beside the dots and an item on the sidebar right-click, not in the dots menu).
-
-**Repro:**
-1. In the workspace, click the dots button at the right of the header.
-2. Click "Open". Nothing changes.
-
-**Cause:** `buildThreadMenu` in `src/renderer/threadMenu.tsx` is the one menu for the sidebar right-click, the header dots button and the project page rows, and always puts Open first; the header's caller in `app.tsx` passes `open: () => state.activateTab(activeTab.id)`, which activates the thread that is already active. Fix direction: drop Open from `buildThreadMenu` entirely, and split the header's menu into its own builder (a `buildHeaderMenu`, or a `place` argument) so the header and the sidebar can differ in items and order.
-
----
-
-## New threads are added at the bottom of a project, so the latest ones sit behind "Show more"
-
-**Observed:** 2026-09-21 by Aryan during manual testing · **Phase:** 1 (the sidebar's thread rows and the five-row fold; the fold's waiting rule is Phase 8) · **Status:** open · **Severity:** medium (the threads being worked on are the ones hidden) · **Screenshot:** none attached
-
-**What happens:**
-Inside a project, a new thread is appended after the existing ones, so the latest threads are at the bottom of the list. With more than five threads the fold hides everything after the fifth, which means that as soon as Aryan starts working, the threads he just opened are the ones behind "Show more" and the old ones are the ones on show. He wants the arrangement of threads inside a project changed; the first thing to try is putting a new thread at the top so the older ones get pushed down.
-
-**Repro:**
-1. In a project that already has five or more threads, open a new thread.
-2. It appears as the last row, behind "Show 1 more"; the five oldest threads stay visible.
-
-**Cause:** `addTab` in `src/renderer/hooks/useTabState.ts` appends the new tab after the last tab of its group (`[...prev, newTab]`, or spliced after the group's last index), and the sidebar shows a project's threads in tab order with `foldThreads` (`threadView.ts`) keeping the first five. Fix direction: insert a new thread before the group's first tab instead of after its last (so tab order itself is newest first), or keep the order and sort a project's rows by `lastActiveAt` before folding; the first is what Aryan asked to try first, and it also keeps Ctrl+Tab's session order meaningful.
-
----
-
 ## A project icon can only be one of ten built-in glyphs; the user cannot upload an image of their own
 
 **Observed:** 2026-09-21 by Aryan during manual testing · **Phase:** 8 (project icons, the icon picker in the New/Edit project dialog) · **Status:** open · **Severity:** medium (a feature Aryan expects is missing) · **Screenshot:** none attached
@@ -118,22 +54,6 @@ The project dialog offers ten fixed icons. Aryan wants to upload his own image o
 2. The icon row offers only the ten glyphs; there is no way to pick a file.
 
 **Cause:** `Group.icon` is a `ProjectIconId`, one of the ten ids in `PROJECT_ICON_IDS` (`src/renderer/components/TabBar/types.ts`), validated on load by `isProjectIconId` in `sessionMigration.ts` and drawn by `ProjectIcon` in `Icons.tsx` from inline SVG paths; the picker in `GroupModal/index.tsx` is a swatch grid over those ids, and there is no file picker, no image storage and no `<img>` rendering path anywhere. Fix direction: a second kind of icon, an image file copied into `%APPDATA%\afterterm\icons\<groupId>.<ext>` through a main-process picker (the same shape as the folder picker), stored on the group as a path or as `{ kind: 'image', file }`, rendered by `FolderIcon`/`ProjectIcon` as an `<img>` with `object-fit` and an adjustable crop or fit chosen in the dialog, with the ten glyphs staying as they are; the overlay toast would need the image too, since it draws the icon itself. A design decision with Aryan first on how the adjustment works (fit, crop, offset).
-
----
-
-## A notification toast keeps the project's old colour and icon after the project is edited
-
-**Observed:** 2026-09-21 by Aryan during manual testing · **Phase:** 1 (the overlay toast cards; the project icon on them is Phase 9) · **Status:** open · **Severity:** low (cosmetic, and only until the toast is dismissed) · **Screenshot:** none attached
-
-**What happens:**
-A toast from the Spotify taskbar project was showing. Aryan then edited that project in the sidebar, changing its colour and its icon. The toast kept the old colour and icon. He expects a change made in one place to show everywhere the project is drawn, the toast included.
-
-**Repro:**
-1. Have a toast on screen for a thread in some project.
-2. Edit that project (right-click its row, Edit project) and change its colour or icon.
-3. The sidebar, rail and header update; the toast does not.
-
-**Cause:** a toast is a snapshot: `handleNotification` in `src/renderer/app.tsx` pushes `projectColor` and `projectIcon` as plain values in the `notify:push` payload, and `NotifierApp.tsx` in the overlay window renders whatever it received; the overlay has no access to the main window's project state and no message ever tells it a project changed. Fix direction: on a project edit, push a `notify:project-updated` with the new colour and icon (and label) for the overlay to apply to its open toasts for that project, or resend the affected toasts; the rail and the sidebar need nothing, they render from state.
 
 ---
 
@@ -227,3 +147,19 @@ Now and then a chunk of Claude Code's output appears twice in a row: in the scre
 As observed; repro not yet known. Seen in a chat thread running Claude Code while it printed a long block, and the second copy wraps at a different width from the first, which suggests the terminal was resized (or refit) between the two.
 
 **Cause:** not investigated in the code beyond checking the obvious duplicate-listener paths, which look sound: `pty.onData` in `src/preload.ts` keeps one handler per tab in `dataListeners` and `offData` removes it, and `Terminal/index.tsx` registers it once per created terminal with `creatingRef` guarding a double create. The reflowed second copy points instead at a redraw by the program: Claude Code's TUI repaints its transcript when the terminal size changes, and afterterm refits on every container resize (the `ResizeObserver` in `Terminal/index.tsx`, and the refit when the workspace becomes visible again), each refit sending a new size to the PTY. So the first question to answer is whether this is a repaint on resize (which would also happen in Windows Terminal if it is resized at the same moment, making it Claude Code's behaviour, not afterterm's) or a genuine double write by afterterm. Investigation plan: reproduce with `drive record` while resizing the window and switching screens, compare against the same session in Windows Terminal at the same sizes, and check whether the duplicate ever appears with no resize at all.
+
+---
+
+## The thread menu on the project page offers "Open project page" while you are already on that page
+
+**Observed:** 2026-09-25 by Claude during the self-test of the small fixes · **Phase:** 2 (the project page's thread rows share the row menu) · **Status:** open · **Severity:** low (a dead menu item, the same kind as the "Open" item removed on 2026-09-25) · **Screenshot:** none attached
+
+**What happens:**
+Right-clicking a thread row on a project page shows "Open project page", which goes to the page that is already open.
+
+**Repro:**
+1. Open a project page.
+2. Right-click a thread row in the Live or Asleep tab.
+3. "Open project page" is in the menu; choosing it changes nothing.
+
+**Cause:** the project page rows use `buildThreadMenu` (`src/renderer/threadMenu.tsx`), the sidebar's row menu, and `app.tsx` passes `openProjectPage` for them too. Fix direction: leave `openProjectPage` out for the project page's rows, or give the page its own menu the way the header has `buildHeaderMenu`.

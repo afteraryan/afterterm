@@ -32,7 +32,7 @@ import {
 // Phase 8: the panel's groups (General, Pinned, Recent, Other), the in-place
 // search filter and the keyboard cycle's row order all come from panelView.ts,
 // pure and unit-tested; this component only renders what it returns.
-import { panelSections, filterPanel, visibleThreadIds, cycleThreadId } from '../../panelView';
+import { panelSections, filterPanel, visibleThreadIds, cycleThreadId, revealScrollTop } from '../../panelView';
 import type { PanelEntry, PanelSections } from '../../panelView';
 import { isWaitingState } from '../../attention';
 import { relativeTime } from '../../homeView';
@@ -43,6 +43,13 @@ const THREAD_FOLD_LIMIT = 5;
 // How long the pointer has to rest on a thread row before its card appears. Long
 // enough that moving the pointer down the list never flashes a card.
 const HOVER_DELAY_MS = 350;
+// revealProject's timing: wait out the project's expand transition (--med,
+// 200ms) before measuring, retry while the workspace is still hidden, and keep
+// the landing highlight on the row for a little over a second.
+const REVEAL_SETTLE_MS = 260;
+const REVEAL_RETRY_MS = 50;
+const REVEAL_MAX_TRIES = 20;
+const REVEAL_FLASH_MS = 1200;
 
 // ─── Thread row ────────────────────────────────────────────────────────────────
 
@@ -142,6 +149,8 @@ interface ProjectRowProps {
   counts: { needsYou: number; running: number; compacting: number };
   pinned: boolean;
   isDragging: boolean;
+  // The short highlight after the project was opened from elsewhere.
+  revealed?: boolean;
   overlay?: boolean;
   onToggle: () => void;
   onDoubleClick: () => void;
@@ -156,7 +165,7 @@ interface ProjectRowProps {
 }
 
 function ProjectRow({
-  group, threadCount, counts, pinned, isDragging, overlay,
+  group, threadCount, counts, pinned, isDragging, revealed, overlay,
   onToggle, onDoubleClick, onContextMenu, onNewThread, onOpenProjectPage, onTogglePin,
   isRenaming, renameValue, onRenameChange, onRenameCommit,
 }: ProjectRowProps) {
@@ -183,6 +192,7 @@ function ProjectRow({
     pinned ? '' : 'dim',
     isOver ? 'drop-over' : '',
     isDragging ? 'dragging' : '',
+    revealed ? 'revealed' : '',
     overlay ? 'drag-overlay' : '',
   ].filter(Boolean).join(' ');
 
@@ -289,6 +299,10 @@ export interface SidePanelHandle {
   visibleIds(): string[];
   // Puts the caret in the search box.
   focusSearch(): void;
+  // Scrolls a project that was just opened (from Home, the rail, the palette or
+  // the Other projects drawer) into view with its active thread, and highlights
+  // its row for a moment. A search that is narrowing the list is cleared first.
+  revealProject(groupId: string): void;
 }
 
 export interface SidePanelProps {
@@ -378,6 +392,11 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
   const [query, setQuery] = useState('');
   const [dockOpen, setDockOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  // A project to bring into view (revealProject), and the row being highlighted
+  // after it arrives. `seq` makes a second open of the same project count again.
+  const [reveal, setReveal] = useState<{ groupId: string; seq: number } | null>(null);
+  const [flash, setFlash] = useState<{ groupId: string; seq: number } | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   // Which thread row the pointer is resting on, the rectangle the card points at,
   // and the clock reading it was opened with (the card shows relative times and
   // must not restart a timer of its own).
@@ -417,6 +436,46 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
     if (group?.collapsed) onToggleGroupCollapse(group.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTabId]);
+
+  // Bring a just-opened project into view. The wait lets the project's expand
+  // transition (--med) finish so its rows have their real height, and it retries
+  // while the workspace is still hidden (opened from Home, it is display: none
+  // until the screen switches). Then the smallest scroll that shows the project
+  // row down to its active thread, and a short highlight on the row.
+  useEffect(() => {
+    if (!reveal) return;
+    let cancelled = false;
+    let tries = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    const attempt = () => {
+      if (cancelled) return;
+      const scroller = scrollRef.current;
+      const wrap = scroller?.querySelector<HTMLElement>(`[data-pjw="${CSS.escape(reveal.groupId)}"]`);
+      const row = wrap?.querySelector<HTMLElement>('.pj');
+      if (!scroller || !wrap || !row || scroller.clientHeight === 0) {
+        if (++tries < REVEAL_MAX_TRIES) timer = setTimeout(attempt, REVEAL_RETRY_MS);
+        return;
+      }
+      const base = scroller.getBoundingClientRect().top - scroller.scrollTop;
+      const active = wrap.querySelector<HTMLElement>('.th.sel');
+      const top = row.getBoundingClientRect().top - base;
+      const bottom = (active ?? row).getBoundingClientRect().bottom - base;
+      const next = revealScrollTop(scroller.scrollTop, scroller.clientHeight, top, bottom);
+      if (next !== null) {
+        const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        scroller.scrollTo({ top: next, behavior: reduce ? 'auto' : 'smooth' });
+      }
+      setFlash(reveal);
+    };
+    timer = setTimeout(attempt, REVEAL_SETTLE_MS);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [reveal]);
+
+  useEffect(() => {
+    if (!flash) return;
+    const t = setTimeout(() => setFlash(null), REVEAL_FLASH_MS);
+    return () => clearTimeout(t);
+  }, [flash]);
 
   const dwellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastOverRef = useRef<string | null>(null);
@@ -572,7 +631,6 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
       x: e.clientX,
       y: e.clientY,
       items: buildThreadMenu(tab, groups, {
-        open: () => onActivate(tab.id),
         moveToGroup: id => (id ? onAddToGroup(tab.id, id) : onRemoveFromGroup(tab.id)),
         close: () => onClose(tab.id),
         sleep: () => onSleep(tab.id),
@@ -629,7 +687,12 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
     },
     visibleIds: () => visibleThreadIds(view, { activeTabId, expandedLists, limit: THREAD_FOLD_LIMIT, isWaiting }),
     focusSearch: () => searchRef.current?.focus(),
-  }), [view, expandedLists, activeTabId]);
+    revealProject: (groupId) => {
+      if (query) setQuery('');
+      setDockOpen(false);
+      setReveal(r => ({ groupId, seq: (r?.seq ?? 0) + 1 }));
+    },
+  }), [view, expandedLists, activeTabId, query]);
 
   const clearQuery = () => {
     setQuery('');
@@ -673,9 +736,10 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
     const expanded = !group.collapsed;
     const counts = projectCounts(groupTabs.map(threadState));
     return (
-      <div className="pjw" key={group.id}>
+      <div className="pjw" key={group.id} data-pjw={group.id}>
         <ProjectRow
           group={group}
+          revealed={flash?.groupId === group.id}
           threadCount={groupTabs.length}
           counts={counts}
           pinned={isPinned}
@@ -794,7 +858,7 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
             onDragEnd={handleDragEnd}
             onDragCancel={handleDragCancel}
           >
-            <div className="scroll" onScroll={hideHover}>
+            <div className="scroll" ref={scrollRef} onScroll={hideHover}>
               {view.general.length > 0 && (
                 <div className="sec" data-sec="general">
                   <div className="lbl">General</div>

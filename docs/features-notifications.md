@@ -51,3 +51,8 @@ settings file; only the global/project `settings.json` hierarchy, and hooks
 Tests (no app needed): `assets/hooks/test-afterterm-notify.ps1` (22 cases, runs
 the hook as a subprocess) and `src/claude-hook-install.test.ts` (26 cases, run
 with `node src/claude-hook-install.test.ts` — Node 24+ strips the TS types).
+
+### A toast follows an edit to its project (2026-09-25)
+
+A toast is drawn in the overlay from the values it was pushed with, so a project edited while its toast was up kept the old name, colour and icon (Aryan's manual-testing entry). The push now carries `projectId`. `app.tsx` keeps the previous `groups` in a ref and, on every change, runs `projectLookChanges` (`threadView.ts`): the projects whose label, colour or icon changed, never one that is new in the list. For each it sends `notify:project-updated` (preload `notify.projectUpdated`) with the drawn colour (`GROUP_COLORS[color].border`); main forwards it to the overlay without showing it, and `NotifierApp` applies it with `applyProjectLook`, which returns the same array when no toast belongs to that project. The cards carry `data-project`, `data-color` and `data-icon`, which `drive toasts` reads from the overlay's page target. Verified in the harness: a done toast from a background shell in Website, then Edit project to green and the rocket icon, then a rename to "Website v2"; the toast on screen followed each change (`drive toasts` and whole-display captures in `docs/screenshots/small-fixes-2026-09-25/displays/`, which stay local).
+

@@ -4,7 +4,7 @@
 // Exits 0 if all pass, 1 on any failure.
 
 import { computeSegments } from './sidebarWalk.ts';
-import { panelSections, filterPanel, visibleThreadIds, cycleThreadId } from './panelView.ts';
+import { panelSections, filterPanel, visibleThreadIds, cycleThreadId, revealScrollTop } from './panelView.ts';
 import type { PanelSections } from './panelView.ts';
 import type { Tab, Group, TabNotification } from './components/TabBar/types.ts';
 
@@ -232,6 +232,25 @@ console.log('\npanelView: cycleThreadId\n');
   check('an id not in the list starts at the last for dir -1', cycleThreadId(ids, 'zzz', -1) === 'c');
   check('an empty list returns null', cycleThreadId([], 'a', 1) === null);
   check('a single-element list wraps to itself', cycleThreadId(['a'], 'a', 1) === 'a');
+}
+
+console.log('\npanelView: revealScrollTop\n');
+{
+  // A 500px view scrolled to 1000, so rows 1000..1500 are in view.
+  check('a region already in view does not move', revealScrollTop(1000, 500, 1100, 1300) === null);
+  check('a region below the view moves just far enough to show its bottom',
+    revealScrollTop(1000, 500, 1600, 1700) === 1700 + 8 - 500);
+  check('a region above the view moves to its top', revealScrollTop(1000, 500, 200, 300) === 192);
+  check('a region cut at the top of the view moves to its top', revealScrollTop(1000, 500, 1004, 1200) === 996);
+  check('a region taller than the view aligns to its top',
+    revealScrollTop(1000, 500, 1400, 2200) === 1392);
+  check('never scrolls above 0', revealScrollTop(300, 500, 2, 40) === 0);
+  check('a stop close to the start snaps to 0 so the first heading shows',
+    revealScrollTop(1081, 546, 26, 76) === 0);
+  check('no snap when the region would not fit from 0',
+    revealScrollTop(1081, 100, 30, 120) === 22);
+  check('the margin counts: a row flush with the bottom edge still moves',
+    revealScrollTop(1000, 500, 1450, 1500) === 1508 - 500);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

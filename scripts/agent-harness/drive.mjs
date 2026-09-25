@@ -93,7 +93,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  REPO_ROOT, LATEST_FILE, parseArgs, loadRun, resolvePort, listTargets, pickMainPage, Cdp, evaluate,
+  REPO_ROOT, LATEST_FILE, parseArgs, loadRun, resolvePort, listTargets, pickMainPage, pickNotifierPage, Cdp, evaluate,
   listDisplays, displayContaining, listWindows, pidListeningOn, pidExists, spawnViaWmi,
   readJson, writeJson, sleep, powershell, DPI_AWARE_PRELUDE,
 } from './lib.mjs';
@@ -327,6 +327,13 @@ try {
 
   if (command === 'targets') {
     for (const t of targets) console.log(`${t.type.padEnd(8)} ${t.id}  ${t.url}`);
+  } else if (command === 'toasts') {
+    // The toasts the overlay window is showing, read from its own page target
+    // (the notifier window), not the main window.
+    const notifier = pickNotifierPage(targets);
+    if (!notifier) throw new DriveError('no notifier overlay page target');
+    cdp = await Cdp.connect(notifier.webSocketDebuggerUrl);
+    await cmdToasts();
   } else if (command === 'record') {
     // The recorder is its own detached process with its own CDP session (see
     // record.mjs); this drive.mjs process needs no page connection of its own.
@@ -1242,6 +1249,20 @@ async function cmdConfirm() {
 // thread's own folder from the thread menu and the header's worktree item):
 // app.tsx records the folder on window.__afterterm.lastOpenFolder and main logs
 // `[harness] projects:openInExplorer <folder>` instead of launching Explorer.
+// The notifier overlay's toast cards, one line each: the thread name, then the
+// project line as drawn (label, colour, icon) and the project id it belongs to.
+async function cmdToasts() {
+  const cards = await evaluate(cdp, `[...document.querySelectorAll('.notif-card')].map(c => ({
+    primary: c.querySelector('.notif-primary')?.textContent ?? '',
+    sub: c.querySelector('.notif-sub')?.textContent ?? '',
+    project: c.dataset.project ?? '', color: c.dataset.color ?? '', icon: c.dataset.icon ?? '',
+  }))`);
+  if (!cards || cards.length === 0) { console.log('(no toasts)'); return; }
+  for (const c of cards) {
+    console.log(`- "${c.primary}"  ${c.sub}  [project=${c.project || '-'} color=${c.color || '-'} icon=${c.icon || '-'}]`);
+  }
+}
+
 async function cmdOpened() {
   const url = await evaluate(cdp, `window.__afterterm && window.__afterterm.lastOpenExternal`);
   const folder = await evaluate(cdp, `window.__afterterm && window.__afterterm.lastOpenFolder`);

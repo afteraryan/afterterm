@@ -789,6 +789,15 @@ ipcMain.on('notify:dismiss-tab', (_event, tabId: string) => {
   notifierWindow?.webContents.send('notify:dismiss-tab', tabId);
 });
 
+// Main window → notifier: a project was edited (name, colour or icon), so the
+// toasts on screen for it redraw with the new look. Never shows the overlay: a
+// hidden overlay has no toasts to update.
+ipcMain.on('notify:project-updated', (_event, look) => {
+  if (notifierWindow && !notifierWindow.isDestroyed()) {
+    notifierWindow.webContents.send('notify:project-updated', look);
+  }
+});
+
 // Notifier → main window: user clicked a toast → focus app + switch tab
 ipcMain.on('notify:tab-click', (_event, tabId: string) => {
   if (mainWindow) {
