@@ -136,11 +136,26 @@ export interface EditEvent {
   at: number;
 }
 
+/**
+ * Commands that rewrite a whole checkout rather than write the chat's work: a
+ * `git checkout` would otherwise list every file it touched (Phase 2's folder
+ * watch). Checked on the command's first git invocation; `git restore x` or
+ * `git mv` still count.
+ */
+const BULK_GIT = new Set(['checkout', 'switch', 'pull', 'merge', 'rebase', 'reset', 'stash', 'clone', 'worktree', 'cherry-pick', 'am', 'fetch']);
+
+export function isBulkCommand(command: string): boolean {
+  const m = /(?:^|[;&|]\s*|\bcd\s+\S+\s*&&\s*)git(?:\s+-C\s+\S+)?\s+([a-z-]+)/.exec(String(command ?? '').trim());
+  return !!m && BULK_GIT.has(m[1]);
+}
+
 /** A shell command's run, from its tool call to its result. end is null while it runs. */
 export interface ShellWindow {
   start: number;
   end: number | null;
   cwd: string | null;
+  /** A command that rewrites a checkout (isBulkCommand): its changes are not the chat's work. */
+  bulk?: boolean;
 }
 
 interface PendingEdit {
@@ -256,7 +271,8 @@ export function ingestLine(state: SessionParseState, line: string, offset = 0, s
         if (!path) continue;
         state.pendingEdits.set(p.id, { path, at, source: side ? 'subagent' : 'tool' });
       } else if (SHELL_TOOLS.has(p.name)) {
-        const win: ShellWindow = { start: at, end: null, cwd };
+        const command = typeof p.input?.command === 'string' ? p.input.command : '';
+        const win: ShellWindow = { start: at, end: null, cwd, bulk: isBulkCommand(command) };
         state.pendingShells.set(p.id, win);
         state.windows.push(win);
         if (state.windows.length > MAX_WINDOWS) state.windows.splice(0, state.windows.length - MAX_WINDOWS);

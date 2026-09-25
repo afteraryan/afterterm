@@ -26,6 +26,9 @@ import {
 import type { MsysProc, Proc as ServerProc } from './server-detect.ts';
 import { createSessionFilesStore } from './session-files-store.ts';
 import { EMPTY_SESSION_FILES, isAbsolutePath, normalizePath, ownsTempFile, pastedTempPath } from './session-files.ts';
+import type { ChangedFile, ShellWindow } from './session-files.ts';
+import { attributeCommandChanges, isIgnoredChange, mergeSaved, pruneChanges } from './command-files.ts';
+import type { FsChange } from './command-files.ts';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -1333,6 +1336,8 @@ ipcMain.handle('pty:destroy', async (_event, tabId: string) => {
   ptyCreatedAt.delete(tabId);
   forgetServerTab(tabId);
   if (ptys.size === 0) stopServerPolling();
+  // A sleeping or closed chat runs no commands: its folder watch ends with it.
+  unwatchChatFolder(tabId);
 
   await killTree(tabId, pid, info);
 
@@ -1398,6 +1403,9 @@ function readAndPushClaudeSession(tabId: string) {
       // the transcript on the same beat: that is what keeps the model current after a
       // /model switch, and gives a nameless chat its first-prompt fallback.
       const meta = readClaudeMeta(obj.sessionId, obj.cwd);
+      // Edited files, Phase 2: from the chat's first turn on, watch the folder it
+      // works in, so files its commands change can be attributed to it.
+      watchChatFolder(tabId, meta.cwd || obj.cwd);
       mainWindow.webContents.send('claude-session:meta', {
         tabId, sessionId: obj.sessionId, firstPrompt: meta.firstPrompt, model: meta.model, cwd: meta.cwd,
       });
@@ -1474,14 +1482,127 @@ function checkedFile(p: unknown): string | null {
   return isUsableFile(file) ? file : null;
 }
 
+// ─── Edited files, Phase 2: files changed by the chat's commands ─────────────
+
+// Every change the folder watches saw, bounded (pruneChanges). Attribution to a
+// chat happens when its list is read: a change counts only if one of that chat's
+// Bash/PowerShell calls was running in that folder at the time (command-files.ts).
+let fsChanges: FsChange[] = [];
+const folderWatches = new Map<string, { folder: string; watcher: fs.FSWatcher; tabs: Set<string> }>();
+const tabWatchFolder = new Map<string, string>();
+const pendingChangeStats = new Map<string, NodeJS.Timeout>();
+
+// Folders never watched whole: a chat started in the home folder, a drive root,
+// the temp folder or Windows itself would have the watch flooded by everything
+// else on the machine.
+function watchableFolder(folder: string): boolean {
+  const key = normalizePath(folder).toLowerCase();
+  if (/^[a-z]:\\?$/.test(key)) return false;
+  const never = [os.homedir(), os.tmpdir(), process.env.SystemRoot || 'C:\\Windows', process.env.APPDATA || '', process.env.LOCALAPPDATA || '']
+    .filter(Boolean).map(p => normalizePath(p).toLowerCase());
+  return !never.includes(key) && isUsableFolder(folder);
+}
+
+function noteFsChange(root: string, rel: string): void {
+  const full = normalizePath(path.join(root, rel));
+  if (isIgnoredChange(full, root)) return;
+  const seen = Date.now();
+  // A write is often several events in a row; one stat after the burst settles.
+  const key = full.toLowerCase();
+  clearTimeout(pendingChangeStats.get(key));
+  pendingChangeStats.set(key, setTimeout(() => {
+    pendingChangeStats.delete(key);
+    fs.promises.stat(full).then(st => {
+      if (!st.isFile()) return;
+      fsChanges.push({ path: full, at: seen, birth: st.birthtimeMs });
+      if (fsChanges.length > 25000) fsChanges = pruneChanges(fsChanges, Date.now());
+    }, () => { /* deleted or renamed away: nothing to open */ });
+  }, 150));
+}
+
+function watchChatFolder(tabId: string, folder: string): void {
+  if (!folder || !ptys.has(tabId)) return;
+  const key = normalizePath(folder).toLowerCase();
+  if (tabWatchFolder.get(tabId) === key) return;
+  unwatchChatFolder(tabId);
+  if (!watchableFolder(folder)) return;
+  let entry = folderWatches.get(key);
+  if (!entry) {
+    const root = normalizePath(folder);
+    let watcher: fs.FSWatcher;
+    try {
+      watcher = fs.watch(root, { recursive: true }, (_event, filename) => {
+        if (filename) noteFsChange(root, filename.toString());
+      });
+    } catch (err) {
+      console.error('[files] could not watch', root, err);
+      return;
+    }
+    watcher.on('error', () => {
+      try { watcher.close(); } catch {}
+      folderWatches.delete(key);
+    });
+    entry = { folder: root, watcher, tabs: new Set() };
+    folderWatches.set(key, entry);
+  }
+  entry.tabs.add(tabId);
+  tabWatchFolder.set(tabId, key);
+  if (process.env.AFTERTERM_HARNESS === '1') console.log(`[harness] files:watch ${entry.folder} tabs=${[...entry.tabs].join(',')}`);
+}
+
+function unwatchChatFolder(tabId: string): void {
+  const key = tabWatchFolder.get(tabId);
+  if (!key) return;
+  tabWatchFolder.delete(tabId);
+  const entry = folderWatches.get(key);
+  if (!entry) return;
+  entry.tabs.delete(tabId);
+  if (entry.tabs.size > 0) return;
+  try { entry.watcher.close(); } catch {}
+  folderWatches.delete(key);
+  if (process.env.AFTERTERM_HARNESS === '1') console.log(`[harness] files:unwatch ${entry.folder}`);
+}
+
+// Attributed files are kept per session in <userData>\edited-files\<sessionId>.json,
+// because the watch only sees what happens while the app runs.
+function commandFilesPath(sessionId: string): string {
+  return path.join(app.getPath('userData'), 'edited-files', `${sessionId}.json`);
+}
+
+function commandFilesFor(sessionId: string, windows: ShellWindow[]): ChangedFile[] {
+  const file = commandFilesPath(sessionId);
+  let saved: unknown = [];
+  let savedText = '';
+  try {
+    savedText = fs.readFileSync(file, 'utf-8');
+    saved = (JSON.parse(savedText) as { commandFiles?: unknown }).commandFiles ?? [];
+  } catch { /* none yet */ }
+  const fresh = attributeCommandChanges(fsChanges, windows, Date.now());
+  const merged = mergeSaved(saved, fresh);
+  if (fresh.length > 0) {
+    const text = JSON.stringify({ version: 1, commandFiles: merged });
+    if (text !== savedText) {
+      try {
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, text, 'utf-8');
+      } catch { /* the list still shows them this launch */ }
+    }
+  }
+  return merged;
+}
+
 ipcMain.handle('session-files:list', async (_event, sessionId: unknown, cwd: unknown) => {
   if (!isSessionId(sessionId) || typeof cwd !== 'string' || !cwd) return EMPTY_SESSION_FILES;
   const started = Date.now();
   // Claude Code's own temp folder holds its scratchpad scripts: working files, not
   // the chat's work, so they stay out of the list.
-  const files = await sessionFilesStore.list(sessionId, cwd, undefined, [path.join(os.tmpdir(), 'claude')]);
+  const files = await sessionFilesStore.list(
+    sessionId, cwd,
+    state => commandFilesFor(sessionId, state.windows),
+    [path.join(os.tmpdir(), 'claude')],
+  );
   if (process.env.AFTERTERM_HARNESS === '1') {
-    console.log(`[harness] session-files:list ${sessionId} changed=${files?.changed.length ?? 0} pasted=${files?.pasted.length ?? 0} in ${Date.now() - started}ms`);
+    console.log(`[harness] session-files:list ${sessionId} changed=${files?.changed.length ?? 0} command=${files?.changed.filter(f => f.source === 'command').length ?? 0} pasted=${files?.pasted.length ?? 0} in ${Date.now() - started}ms`);
   }
   return files ?? EMPTY_SESSION_FILES;
 });

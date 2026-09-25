@@ -106,6 +106,12 @@ Options:
   the values, a value could be private) are recorded in the run record as
   `extraEnv` and printed in the launch summary.
 
+The dev build does not inherit the launching agent's Claude Code session
+variables (`CLAUDECODE`, `CLAUDE_CODE_*`, `CLAUDE_PID`, `CLAUDE_EFFORT`): with
+them, a `claude` started inside the dev build counts as a child of the agent's
+session and saves no transcript (found 2026-09-25 in the edited-files self-test,
+where the Files list stayed empty for that reason). `--env` can still set one.
+
 What it does, in order: creates the data dir, writes `session.json` (from the
 parsed copy) and `prefs.json` with `claudeHookToastShown: true` (so the one-time
 "Claude Code notifications enabled" toast does not fire on a fresh profile; the

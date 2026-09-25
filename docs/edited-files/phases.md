@@ -9,7 +9,7 @@ Rule: finish and polish one phase (unit tests, harness self-test, recordings, fi
 | Phase | What it contains | Status |
 |---|---|---|
 | 1 | The Files button and its list, built from Claude's own record: files changed with Claude's tools, subagents' edits, pasted images; the fold rows and the motion | implemented, untested by Aryan |
-| 2 | Files Claude changed with a command (`cat >>`, `sed -i`, scripts, `cp`), found by watching the chat's folder while its commands run | pending |
+| 2 | Files Claude changed with a command (`cat >>`, `sed -i`, scripts, `cp`), found by watching the chat's folder while its commands run | implemented, untested by Aryan |
 | 3 | File paths in the terminal output become clickable, like web links | pending |
 | Handoff | Final self-test of all three together, a replica dev build left running for Aryan, the to-verify entries | pending |
 
@@ -39,13 +39,17 @@ Done (2026-09-25):
 ## Phase 2: files changed by a command
 
 To do:
-- [ ] Watch the chat's folder (`threadFolder`) while the chat is working; ignore `node_modules`, `.git`, `out`, `dist`, `.vite` and similar.
-- [ ] Keep a change only if it happened while one of that chat's `Bash`/`PowerShell` tool calls was running (the tool call's timestamp to its result's timestamp in the JSONL).
-- [ ] Two chats in one folder both running a command at that moment: list the file in both.
-- [ ] Merge these into the same list as Phase 1, marked new or changed the same way.
-- [ ] Unit tests for the attribution rule; a harness run where a real Claude chat in the dev build writes a markdown file with a shell command.
+- [x] Watch the chat's folder (`threadFolder`) while the chat is working; ignore `node_modules`, `.git`, `out`, `dist`, `.vite` and similar.
+- [x] Keep a change only if it happened while one of that chat's `Bash`/`PowerShell` tool calls was running (the tool call's timestamp to its result's timestamp in the JSONL).
+- [x] Two chats in one folder both running a command at that moment: list the file in both.
+- [x] Merge these into the same list as Phase 1, marked new or changed the same way.
+- [x] Unit tests for the attribution rule; a harness run where a real Claude chat in the dev build writes a markdown file with a shell command.
 
-Done: nothing yet.
+Done (2026-09-25):
+- `src/command-files.ts` (pure): `isIgnoredChange` (dependency, version-control, build and cache folders, another chat's `.claude\worktrees` checkout, temp files such as sed's `sedXXXXXX`), `attributeCommandChanges` (a change counts when it falls inside one of the session's command windows, 0.5 s before the call to 2 s after its result, and inside the folder that command ran in; New when the file was born inside the window), `pruneChanges`, `mergeSaved`. `session-files.ts` now records each command window's folder and marks checkout-like git commands (`isBulkCommand`).
+- Main (`main.ts`): a recursive `fs.watch` on the chat's folder from its first hook report (`UserPromptSubmit`) while its terminal is awake, shared by chats in one folder, closed when the last of them sleeps or closes; one `stat` per file after a 150 ms burst; changes kept in memory (pruned). Attributed files are saved per session in `<userData>\edited-files\<sessionId>.json`, so they survive a restart and an asleep chat still lists them. The home folder, a drive root, `%TEMP%`, `%APPDATA%` and Windows are never watched whole.
+- Harness: `launch.mjs` no longer passes the launching agent's Claude Code session variables to the dev build (with them, a `claude` started inside it saves no transcript).
+- Tests: `command-files.test.ts` (46).
 
 ## Phase 3: clickable file paths in the output
 
@@ -78,9 +82,14 @@ Known and wanted, not assigned to a phase:
 - 2026-09-25 (builder): the list keeps the prototype's "No documents in this chat yet" line when only code changed (the prototype's "Only code changed" state shows it), rather than no line at all.
 - 2026-09-25 (builder): the right-click menu uses the editor's own logo beside "Open in VS Code" and the Explorer folder beside "Show in File Explorer", on the right like the thread and project menus (Aryan asked for their icons during the build). "Copy path" has no icon.
 - 2026-09-25 (builder): the Code and pasted folds remember their state per thread until another thread is shown.
+- 2026-09-25 (builder): the folder watch runs from a chat's first turn while its terminal is awake, not only during each turn; attribution to command windows is what keeps hand edits out, so watching longer loses nothing and needs no signal of when a turn ends.
+- 2026-09-25 (builder): changes made during `git checkout`, `switch`, `pull`, `merge`, `rebase`, `reset`, `stash`, `clone`, `worktree`, `cherry-pick`, `am` or `fetch` are not attributed: they rewrite a checkout, and would flood the list. `git restore x` and `git mv` still count.
+- 2026-09-25 (builder): the window's slack is 0.5 s before the tool call and 2 s after its result. A command waiting on a permission prompt keeps its window open, so a hand edit made during that wait would be counted (rare, accepted).
+- 2026-09-25 (builder): command-made files are saved per session in `<userData>\edited-files\` because the watch only exists while the app runs; nothing about them goes into `session.json`.
 - 2026-09-25 (builder, follows the design literally): a chat whose only record is pasted images has no button, so those images are not reachable from the header. Question for Aryan in the handoff.
 
 ## Log
 
 - 2026-09-25: design agreed; phases written; handoff prompt given to the building agent.
 - 2026-09-25: Phase 1 built and self-tested in the harness on copies of Aryan's real sessions (the design chat: 7 documents, code, 3 pasted images with temp copies; tab-80: 7 pasted images decoded because the temp copies are gone; tab-88: only code, Code unfolded; "Source code extraction from APK": a subagent's document; a 19.5 MB session read in 272 ms; a chat with no changes and a shell: no button; reduced motion). Screenshots 01 to 16 and recordings 01 to 04 in `docs/screenshots/edited-files-phase-1/`. Recording 01 also shows a stray close of the list that could not be reproduced afterwards; a trace left on for the rest of the run caught only closes with a cause.
+- 2026-09-25: Phase 2 built and self-tested. A real Claude chat (Haiku) in the dev build, in a scratch project (`%LOCALAPPDATA%\Temp\afterterm-edited-files-scratch`), wrote `docs/notes.md` with `cat >` (listed, New) and appended to `README.md` with `cat >>` (listed, not New); two files the agent wrote there by hand while the chat was idle were not listed; after Sleep the watch closed and the list still showed both. The first run found that the dev build inherited the agent's Claude Code session variables, so Claude saved no transcript (recording 01); `launch.mjs` now drops them. Also found: the harness's shared `latest.json` let `stop.mjs` stop another agent's dev build; every call now names its `--data-dir`. Screenshots 01 to 04, recordings 01 and 02 in `docs/screenshots/edited-files-phase-2/`.
