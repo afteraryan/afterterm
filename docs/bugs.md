@@ -219,3 +219,43 @@ He also asks whether any of this was designed and built before the redesign, so 
 5. Drag a thread out of its project towards General: no target to drop it on.
 
 **Cause:** what the code says today, from `src/renderer/components/SidePanel/index.tsx`: project drags do exist (`handleDragEnd` calls `onMoveGroupAfterGroup(dragged, target)` when a project is dropped on a project row, so the intended gesture is "move after the target"), and design-03 says "Pinned keeps its dragged order" while "Recent is sorted by lastActiveAt descending", so a reorder inside Recent is overridden by the activity sort by design, and a reorder inside Pinned should work but Aryan reports it does not (not investigated further; the Pinned list in `panelView.ts` is built from group order, so the move may not be reaching `groups` or may be landing across the Pinned and Recent boundary). There is no pin-on-drop (`togglePin` is only called from the pin buttons and menus), only an "after the target" drop and so no "before the first row" indicator, the project row's `drop-over` class is applied from `isOver` for any drag kind (line 184), and a thread's only drop targets are other thread rows and project rows (`moveTab` inherits the target's group), so an empty General offers nowhere to drop. Fix direction: a proper drag model for the panel: reorder within Pinned with a before-or-after line indicator (including above the first row), a drop into the Pinned section that pins, no reordering in Recent (it is sorted by activity, say so on hover or allow nothing), project rows not highlighting while a project is dragged, and a General drop zone (the section heading, or an always-present target when the section is empty) that takes a thread out of its project. This is a design decision with Aryan first (one mock page, one question per gesture), then one piece of work.
+
+---
+
+## A chat has no "Open in VS Code" button, and the editor action should sit outside the dots menu
+
+**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 9 (the thread's own folder in Explorer; the editor launch is Phase 2) · **Status:** open · **Severity:** medium (a daily action is missing from where he needs it) · **Screenshot:** none attached
+
+**What happens:**
+There is no "Open in VS Code" on a chat at all, and Aryan wants one. He also wants it out of the three-dot dropdown: a button of its own, visible without opening a menu, the way the project page carries its Explorer and editor buttons. It must open the folder the thread is actually in: the worktree when the chat runs in one, the project root when it runs there.
+
+This extends the earlier entry "The header dots menu has no 'Open in VS Code' for the thread's own folder, and which folder each action opens is not written down", which asked for the menu item; this one adds where the control belongs (a button, not a menu item).
+
+**Repro:**
+1. Open a chat thread, in a worktree or not.
+2. There is no Open in VS Code anywhere on it: not as a button in the header, not in the dots menu.
+3. The only editor launch is on the project menu and the project page, and it opens the project root.
+
+**Cause:** `buildThreadMenu` in `src/renderer/threadMenu.tsx` takes `openInExplorer` and nothing for an editor, and the header (`components/Header/index.tsx`) has only the state chip and the dots button in its actions area; `buildProjectMenu` and the project page build editor entries from the detected editors and open `Group.cwd`. The launch itself (`editors.open(folder, editorId)` through `preload.ts` and `main.ts`) takes any folder, so the thread side needs the folder from `threadFolder(tab)` and a place to put the control. Fix direction: an editor button in the header's actions area beside the dots (the primary editor's logo, the same disabled "Folder not found" state the project page uses), opening `threadFolder(tab)`; the menu item from the earlier entry can stay for the sidebar rows. Settle it together with the root-versus-worktree rule in that entry.
+
+---
+
+## The project row's running count uses a play icon while the thread itself shows a green circle
+
+**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 5 (running state and its icon; the project pills are Phase 1) · **Status:** open · **Severity:** low (an inconsistent icon) · **Screenshot:** none attached
+
+**What happens:**
+A project row shows a pill with a play icon and the number of running threads. Aryan does not think a play button says "running": the thread row itself shows the running circle, and the project should show that same mark, not a play. He asks that every place the play icon stands for "running" be found first, so the change is made everywhere at once.
+
+Where the play icon is used today, from a grep of `src/renderer`:
+- `StateIcon`'s `running` case in `components/Icons.tsx`, which draws `IconPlay` inside `.si.run`. That is the thread's own state icon, on the sidebar row, the header chip, the hover card's Type row and the project page rows.
+- The project row's counter pill in `components/SidePanel/index.tsx` (`<span className="si run"><IconPlay size={13} /></span>`), the pill Aryan is describing, which is also what Home's totals use.
+- The rail tile has no play: its badges are counts (`data-badge="working"` and the rest), so the rail is unaffected.
+
+So the play icon means "running" in two places, and both are the same idea: one for a thread, one for a count of threads.
+
+**Repro:**
+1. Start a dev server in a thread so its row turns green with its port.
+2. The thread's row shows the running mark; its project's row shows a pill with a play icon and the count.
+
+**Cause:** not a defect in the code, a choice of glyph: `IconPlay` is `StateIcon`'s `running` case and the pill's icon, chosen in Phase 5 when running state was added. Fix direction: pick one mark for running (Aryan's preference is the circle the thread shows) and use it in `StateIcon`'s running case and the counter pill together, checking the hover card, the header chip, Home's totals and the project page at the same time so nothing keeps the old glyph.
