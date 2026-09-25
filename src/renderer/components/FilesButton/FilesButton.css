@@ -1,0 +1,268 @@
+/* The Files button and its list (FilesButton/index.tsx). Every colour, size and
+   timing is docs/mockups/edited-files-button.html's, scaled from the mockup's
+   12.5px base to the header's 13px. Relies on theme.css tokens: --hover,
+   --hover2, --text..--text4, --ease. Reduced motion is theme.css's global rule. */
+
+.fbtn {
+  --doc: #93c5fd;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  /* One pixel less padding than .chip, for the border, so both are the same height. */
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--hover);
+  border: 1px solid transparent;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: nowrap;
+  cursor: pointer;
+  margin-right: 4px;
+  transition: background 140ms var(--ease), border-color 140ms var(--ease);
+}
+
+.fbtn:hover { background: var(--hover2); }
+.fbtn.open { background: var(--hover2); border-color: #4a4a4a; }
+.fbtn svg { color: var(--text2); }
+.fbtn:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; border-radius: 999px; }
+
+/* The list grows out of the button's corner: scale from .96 and a 6px drop,
+   fading in over 220ms; it closes a little faster (140ms). */
+.fpop {
+  --doc: #93c5fd;
+  position: fixed;
+  z-index: 900;
+  width: 380px;
+  max-width: calc(100vw - 24px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .5);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 13px;
+  line-height: 1.45;
+  transform-origin: top right;
+  opacity: 0;
+  transform: translateY(-6px) scale(.96);
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 120ms ease-in, transform 140ms ease-in, visibility 0s linear 140ms;
+}
+
+.fpop.open {
+  opacity: 1;
+  transform: none;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 160ms var(--ease), transform 220ms var(--ease), visibility 0s;
+}
+
+.fpop:focus { outline: none; }
+
+.fsec {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text3);
+  padding: 6px 8px 3px;
+}
+
+.fsec .n { color: var(--text4); }
+
+.fempty {
+  font-size: 12px;
+  color: var(--text3);
+  padding: 8px 8px 4px;
+}
+
+.frow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 5px 8px;
+  border-radius: 7px;
+  color: var(--text);
+  white-space: nowrap;
+  min-width: 0;
+  cursor: pointer;
+  transition: background 120ms var(--ease);
+}
+
+.frow:hover,
+.frow.sel,
+.frow:focus-visible { background: var(--hover); }
+.frow:focus-visible { outline: none; }
+
+.frow .fi {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  flex: none;
+  color: var(--doc);
+}
+
+.frow .fn {
+  flex: none;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.frow .fd {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text4);
+  font-size: 12px;
+}
+
+.frow .ft {
+  font-size: 11.5px;
+  color: var(--text4);
+  min-width: 26px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.frow.code {
+  padding-block: 3px;
+  color: var(--text2);
+  font-size: 12.5px;
+}
+
+.frow.code .fi { color: var(--text3); }
+
+.ftag {
+  font-size: 10.5px;
+  border-radius: 4px;
+  padding: 0 5px;
+  line-height: 16px;
+  flex: none;
+  background: rgba(95, 184, 122, .18);
+  color: #8fd9a5;
+}
+
+/* A folded row: only its label and count. Height eases open (260ms), the
+   chevron turns a quarter, the rows fade in one after another 22ms apart;
+   folding back is quicker (180ms). */
+.ffold {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 6px 8px;
+  margin-top: 3px;
+  border-radius: 7px;
+  border-top: 1px solid #353535;
+  color: var(--text2);
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms var(--ease);
+}
+
+.ffold:hover { background: var(--hover); }
+.ffold:focus-visible { outline: 2px solid #60a5fa; outline-offset: -2px; border-radius: 7px; }
+.ffold > svg { color: var(--text3); }
+.ffold .n { color: var(--text4); }
+.ffold .fill { flex: 1; }
+.ffold .chev { display: grid; place-items: center; color: var(--text3); transition: transform 220ms var(--ease); }
+.ffold[aria-expanded="true"] .chev { transform: rotate(90deg); }
+
+.fbody {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 180ms ease-in;
+}
+
+.fbody.open {
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 260ms var(--ease);
+}
+
+.fbody > div {
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.fbody .frow {
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 100ms ease-in, transform 100ms ease-in, background 120ms var(--ease);
+}
+
+.fbody.open .frow {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 180ms var(--ease) calc(var(--i) * 22ms + 60ms),
+    transform 220ms var(--ease) calc(var(--i) * 22ms + 60ms),
+    background 120ms var(--ease);
+}
+
+.fpasted {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 4px 6px 6px;
+  opacity: 0;
+  transition: opacity 100ms ease-in;
+}
+
+.fbody.open .fpasted {
+  opacity: 1;
+  transition: opacity 200ms var(--ease) 80ms;
+}
+
+.fpi {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 3px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 120ms var(--ease);
+}
+
+.fpi:hover,
+.fpi.sel,
+.fpi:focus-visible { background: var(--hover); outline: none; }
+
+.fpi .big {
+  aspect-ratio: 16 / 10;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #444;
+  background: #111;
+  max-width: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--text4);
+}
+
+.fpi .big img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.fpi .cap {
+  font-size: 11px;
+  color: var(--text4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

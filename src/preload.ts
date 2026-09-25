@@ -22,6 +22,8 @@ contextBridge.exposeInMainWorld('afterterm', {
     // null on the first launch. Resolved synchronously at preload time so Home
     // can use it on its first render.
     lastOpenedAt: ipcRenderer.sendSync('app:last-opened-at') as number | null,
+    // The home folder, from main (this sandboxed preload has no USERPROFILE).
+    homeDir: ipcRenderer.sendSync('app:home') as string,
   },
 
   projects: {
@@ -64,6 +66,25 @@ contextBridge.exposeInMainWorld('afterterm', {
     // Electron 32+ removed File.path; webUtils.getPathForFile is the supported way
     // to get a dropped file's absolute path. Must run in preload (has Node access).
     pathForFile: (file: File): string => webUtils.getPathForFile(file),
+    // Edited files (docs/edited-files): open in the detected editor, at a line
+    // when given; open in the default app (images); show selected in Explorer.
+    open: (path: string, line?: number): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke('files:open', path, line),
+    openDefault: (path: string): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke('files:openDefault', path),
+    reveal: (path: string): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke('files:reveal', path),
+  },
+
+  // The files a chat changed and the images pasted into it, from its transcript.
+  sessionFiles: {
+    list: (sessionId: string, cwd: string) => ipcRenderer.invoke('session-files:list', sessionId, cwd),
+    thumb: (sessionId: string, cwd: string, key: string): Promise<string | null> =>
+      ipcRenderer.invoke('session-files:thumb', sessionId, cwd, key),
+    openPasted: (sessionId: string, cwd: string, key: string): Promise<{ ok: boolean; error?: string; path?: string }> =>
+      ipcRenderer.invoke('session-files:openPasted', sessionId, cwd, key),
+    pastedPath: (sessionId: string, cwd: string, key: string): Promise<string | null> =>
+      ipcRenderer.invoke('session-files:pastedPath', sessionId, cwd, key),
   },
 
   session: {

@@ -40,6 +40,28 @@ interface AftertermShellAPI {
 
 interface AftertermFilesAPI {
   pathForFile(file: File): string;
+  // Opens a file in the primary detected editor (at `line` when given), or in its
+  // default app when no editor was found. Under the harness it only logs.
+  open(path: string, line?: number): Promise<{ ok: boolean; error?: string }>;
+  // Opens a file in its Windows default app (an image in Photos).
+  openDefault(path: string): Promise<{ ok: boolean; error?: string }>;
+  // File Explorer with the file selected.
+  reveal(path: string): Promise<{ ok: boolean; error?: string }>;
+}
+
+type SessionFiles = import('./session-files.ts').SessionFiles;
+
+// The files a chat changed and the images pasted into it (docs/edited-files).
+interface AftertermSessionFilesAPI {
+  // Brought up to date from the transcript on every call (only new bytes are read).
+  list(sessionId: string, cwd: string): Promise<SessionFiles>;
+  // A small data URL of one pasted image, or null when it cannot be found.
+  thumb(sessionId: string, cwd: string, key: string): Promise<string | null>;
+  // Opens one pasted image full size in the default app: Claude Code's temp copy,
+  // or a copy decoded once from the transcript when that is gone.
+  openPasted(sessionId: string, cwd: string, key: string): Promise<{ ok: boolean; error?: string; path?: string }>;
+  // The same file's path without opening it (Show in File Explorer, Copy path).
+  pastedPath(sessionId: string, cwd: string, key: string): Promise<string | null>;
 }
 
 interface AftertermSessionAPI {
@@ -144,6 +166,8 @@ interface AftertermAppAPI {
   // on the first launch. Resolved synchronously at preload time, so it is a plain
   // value on the API and needs no await.
   lastOpenedAt: number | null;
+  // The home folder (os.homedir() in main), for showing paths under it as ~.
+  homeDir: string;
 }
 
 interface AftertermProjectsAPI {
@@ -216,6 +240,7 @@ interface AftertermAPI {
   shells: AftertermShellsAPI;
   shell: AftertermShellAPI;
   files: AftertermFilesAPI;
+  sessionFiles: AftertermSessionFilesAPI;
   session: AftertermSessionAPI;
   claudeSession: AftertermClaudeSessionAPI;
   threads: AftertermThreadsAPI;
