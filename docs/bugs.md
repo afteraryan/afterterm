@@ -140,3 +140,18 @@ Opening a file that Claude just edited depends on Claude having written the path
 2. To open one, look through the output for a path the link addon made clickable; if Claude wrote it plainly, or wrote it relative, there is nothing to click and nothing else in the app knows the file exists.
 
 **Cause:** nothing in afterterm tracks edited files: the transcript reader (`src/claude-transcript.ts`) reads only the first prompt, the latest model and the newest cwd, and the terminal's only file affordance is the web-links addon over whatever text the shell printed (`Terminal/index.tsx`). The data is there to build it: every `Edit`, `Write` and `NotebookEdit` tool call in the session transcript carries `input.file_path` in an assistant message's `content`, in order, so a tail read of the same JSONL gives the edited files newest first (checked against a real transcript on 2026-09-25). Fix direction: extend the transcript reader to collect the last N distinct `file_path` values from those tool calls, and show them for the active chat (a panel, a header popover or a project page tab, Aryan's choice), each row opening the file in the detected editor through the existing `editors:open` IPC (which takes any path) or revealing it in Explorer; the read already happens once a turn, so a list would stay current without polling.
+
+---
+
+## Home's project list has no search box, so a project low in the list can only be reached by scrolling or Show more
+
+**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 2 (Home and its project list) · **Status:** open · **Severity:** medium (a project is hard to reach from the screen the app opens on) · **Screenshot:** none attached
+
+**What happens:**
+On Home, under the pinned cards, the Projects list shows the projects by recent activity with a Show more after the first few. Aryan wants a search box there so he can type a project's name and get it, as part of the list rather than a separate screen. It should feel smooth: the matching projects arrive with an animation and the ones that no longer match leave with one.
+
+**Repro:**
+1. Open Home with more projects than the list shows before Show more.
+2. To reach one that is further down, expand Show more and scan the list, or leave Home for the search palette; there is nothing to type into on Home itself.
+
+**Cause:** Home has no query at all. `components/Home/index.tsx` renders the pinned cards and then a plain `.list` of rows from `homeSections` in `homeView.ts` (which sorts and splits pinned, unpinned and archived), with a `.more` toggle for the rest; `homeView.ts` has a `filterThreads` helper but nothing that filters projects, and no row animation beyond the page's entrance stagger. The sidebar already has the pattern to copy: an in-place `.srch` box whose value runs through `filterPanel` (`panelView.ts`) and narrows the list as you type. Fix direction: a `filterProjects` in `homeView.ts` (pure, unit-tested, matching the sidebar's case-insensitive substring rule), a search box in Home's Projects section header, and enter and exit animations on the rows; the animation is a look decision, so a mock page with one question for Aryan before it is built.
