@@ -6,6 +6,17 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
+## Build after PR #42 (2026-09-25)
+
+### The thread hover card: Type and Status on separate rows, one age only
+**Status:** waiting for Aryan
+1. Hover an asleep thread in the sidebar (for example "Changelog video narrative"). Type says just "Chat" (or "Shell", "Server").
+2. A Status row under it shows the moon and "Asleep", with no "1d" after it. The last row says "Last used 2d ago" instead of "Active".
+3. Hover a thread that is working, needs you, finished, has background tasks or runs a server: Status shows the same icon as that row in the sidebar (spinner, bell, check, hourglass, green play with "Running on :port").
+4. Hover a shell that is awake with nothing going on: there is no Status row, the same as its header having no chip.
+
+---
+
 ## Build after PR #40 (2026-09-25)
 
 ### Background tasks show a flipping hourglass instead of the working spinner

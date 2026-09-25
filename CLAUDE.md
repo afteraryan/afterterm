@@ -53,7 +53,7 @@ src/
     jumpScroll.ts                      ← Pure: jump button show/hide rule. JumpTarget, JumpState, JUMP_THRESHOLD_LINES/PX, initialJumpState, onScrollSample, JUMP_IDLE_MS, jumpHoldOnMove. No xterm/DOM. Unit-tested. Test file: jumpScroll.test.ts
     sessionMigration.ts                ← session.json shape: migrateSession, serializeSession, setUnreadFlag, asUi, Group.icon validated, port validated 1-65535. Pure, unit-tested.
     sidebarWalk.ts                     ← computeSegments: sidebar rows built from groups first, so a group with zero tabs renders. Pure, unit-tested.
-    threadView.ts                      ← Pure: thread kind/state/title, threadFolderTarget, insertNewThread, projectCounts/pillCounts (spinner and play pills apart), projectLookChanges, applyProjectLook, threadName, model label, foldThreads, counter pills, kindWord, runningLabel, needsCloseConfirm, needsSleepConfirm, threadState, projectCounts, threadFolder. Unit-tested.
+    threadView.ts                      ← Pure: thread kind/state/title, statusText (hover card Status row), threadFolderTarget, insertNewThread, projectCounts/pillCounts (spinner and play pills apart), projectLookChanges, applyProjectLook, threadName, model label, foldThreads, counter pills, kindWord, runningLabel, needsCloseConfirm, needsSleepConfirm, threadState, projectCounts, threadFolder. Unit-tested.
     attention.ts                       ← Aggregate every count reads from (waiting, working, running, finished, compacting, background): countStates/countTabs, isWaitingState, projectAttention, totalAttention, railProjects, panelLists, firstThreadToOpen. Pure, unit-tested. Test file: attention.test.ts
     panelView.ts                       ← Sidebar panel groups (General, Pinned, Recent, Other): panelSections, filterPanel, visibleThreadIds, cycleThreadId, revealScrollTop. Unit-tested. Test file: panelView.test.ts
     spinnerState.ts                    ← Pure decision logic for the spinner and needs-you: onTitle, onOutput, onTick, onInterrupt, onAnswer, TabTiming. Unit-tested. Test file: spinnerState.test.ts
@@ -74,7 +74,7 @@ src/
       ScreenNav.tsx                    ← Just the Screen type ('home' | 'workspace' | 'project'); the old icon row is gone, carried by the always-on Rail. ScreenNav.css removed.
       Toast.tsx                        ← In-app toast pill (pin, archive, restore, editor errors). Styles in Toast.css
       Toast.css                        ← Toast styles (centre bottom, auto-hide)
-      ThreadHoverCard.tsx               ← Sidebar thread hover card: Type (kind + state via asleepLabel/runningLabel), project, model, branch, worktree, Last ran, active time, shown 350ms after hover.
+      ThreadHoverCard.tsx               ← Sidebar thread hover card: Type (kind alone), Status (StateIcon + statusText, no sleep age, absent when quiet), project, model, branch, worktree, Last ran, Last used, shown 350ms after hover.
       ThreadHoverCard.css               ← Hover card styles
       Rail/
         index.tsx                      ← Always-on rail, 76px at the left edge: the one sidebar toggle (always first, fixed place; opens the workspace from Home), Search/New thread rows, Home/Workspace pill, one tile per railProjects, click opens firstThreadToOpen, right-click the project menu.

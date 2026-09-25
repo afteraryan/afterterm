@@ -10,6 +10,10 @@ Format: the bug as it was titled, the date it was fixed, the PR or commit, then 
 
 ## Fixed on 2026-09-25
 
+### The thread hover card showed two different ages, "Asleep · 1d" and "Active 2d ago", that read like a contradiction
+
+PR #42. The first age was when the thread went to sleep (quitting afterterm sleeps every thread), the second when it was last used. The card now has a Type row with the kind alone, a Status row with the same icon the sidebar row shows beside its word (moon and "Asleep", bell and "Needs you", "Running on :5173" for a server; no row for a quiet thread), no sleep age, and "Last used" in place of "Active" (`statusText` in `threadView.ts`, `ThreadHoverCard.tsx`).
+
 ### A thread keeps showing "Background tasks" and its spinner after the turn has ended
 
 PR #39. Opening a thread cleared a background badge, but a `⏳` title landing on the thread already being viewed was only cleared if it was a `✅`, so a turn that ended with background tasks still running left the viewed thread spinning until you switched away and back. Both paths now use one rule (`clearsWhenSeen` and `onViewedTitle` in `spinnerState.ts`): done and background clear on the viewed thread at once; a thread not in view keeps its badge until opened. PR #40 then gave background its own icon, a flipping hourglass, and its own pill, so a badge that is still showing no longer reads as Claude working.

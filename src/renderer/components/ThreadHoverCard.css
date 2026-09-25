@@ -48,14 +48,16 @@
   text-overflow: ellipsis;
 }
 
-.hover-card dd.hc-project {
+.hover-card dd.hc-project,
+.hover-card dd.hc-status {
   display: flex;
   align-items: center;
   gap: 6px;
   min-width: 0;
 }
 
-.hover-card .hc-project-name {
+.hover-card .hc-project-name,
+.hover-card .hc-status-text {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

@@ -145,6 +145,17 @@ export function runningLabel(port: number): string {
   return `Running on :${port}`;
 }
 
+// The hover card's Status row (Aryan, 2026-09-25): the state word the sidebar
+// row's icon stands for, "Running on :5173" for a server, and no sleep age,
+// since the card's Last used row already says how long ago. Undefined when the
+// thread is quiet, so the row is left out just as the header chip is.
+export function statusText(tab: Pick<Tab, 'asleep' | 'notification' | 'port' | 'unread'>): string | undefined {
+  const state = threadState(tab);
+  if (state === 'quiet') return undefined;
+  if (state === 'running' && tab.port !== undefined) return runningLabel(tab.port);
+  return stateLabel(state);
+}
+
 // The bare "localhost:5173" URL and menu label for "Open localhost:port".
 export function localhostUrl(port: number): string {
   return `http://localhost:${port}`;
