@@ -6,6 +6,16 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
+## Build after PR #39 (2026-09-25)
+
+### A thread you are looking at no longer keeps "Background tasks" and its spinner after Claude's turn ends
+**Status:** waiting for Aryan
+1. In a chat you are looking at, start a turn that leaves a background task running when it ends (for example, ask Claude to run a long command in the background, or a session cron).
+2. When the turn ends and the prompt is back, the row's spinner and the header's "Background tasks" chip should be gone at once, without switching away and back.
+3. Do the same in a chat, then switch to another thread before the turn ends. That chat's row should keep its spinner (and a toast appears) until you open it; opening it clears it.
+
+---
+
 ## Build after PR #38 (2026-09-25)
 
 ### A project's pills: a spinner for working threads, a play only for servers

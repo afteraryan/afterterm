@@ -140,21 +140,3 @@ Opening a file that Claude just edited depends on Claude having written the path
 2. To open one, look through the output for a path the link addon made clickable; if Claude wrote it plainly, or wrote it relative, there is nothing to click and nothing else in the app knows the file exists.
 
 **Cause:** nothing in afterterm tracks edited files: the transcript reader (`src/claude-transcript.ts`) reads only the first prompt, the latest model and the newest cwd, and the terminal's only file affordance is the web-links addon over whatever text the shell printed (`Terminal/index.tsx`). The data is there to build it: every `Edit`, `Write` and `NotebookEdit` tool call in the session transcript carries `input.file_path` in an assistant message's `content`, in order, so a tail read of the same JSONL gives the edited files newest first (checked against a real transcript on 2026-09-25). Fix direction: extend the transcript reader to collect the last N distinct `file_path` values from those tool calls, and show them for the active chat (a panel, a header popover or a project page tab, Aryan's choice), each row opening the file in the detected editor through the existing `editors:open` IPC (which takes any path) or revealing it in Explorer; the read already happens once a turn, so a list would stay current without polling.
-
----
-
-## A thread keeps showing "Background tasks" and its spinner after the turn has ended
-
-**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 1 (the notification states and the spinner; the clearing paths are in app.tsx) · **Status:** open · **Severity:** medium (the sidebar says a thread is busy when it is idle) · **Screenshot:** `docs/screenshots/manual-testing/07-thread-shows-background-tasks-and-spinner-after-the-turn-ended.png`
-
-**What happens:**
-Claude had finished its turn (the transcript shows "Churned for 2m 39s, done 1:49 PM" and the prompt is back, with typed text waiting), but the thread still showed a spinner on its sidebar row and a "Background tasks" chip in the header. Aryan asks why it still reads as working when the message has been sent and the turn is over.
-
-**Repro:**
-1. In a thread you are looking at, run a turn that leaves a Claude Code background task (or a session cron) still running when the turn ends.
-2. The turn ends: the prompt is back and nothing runs in the foreground, but the row keeps its spinner and the header its "Background tasks" chip.
-3. Switch to another thread and back: it clears.
-
-**Cause:** two clearing paths disagree, and the `background` badge falls through the gap. `clearThreadBadges` in `src/renderer/app.tsx` (which runs when a thread is activated) clears `done` and `background` together, but `handleNotification`'s viewing test in the same file clears only `done`: `applyNotif(tabId, cur, next === 'done' && viewing ? undefined : next)`. The `background` title always lands in the thread the user is looking at, because the turn that produced it just ended there, so the viewing test is exactly the path that should clear it and is the one that does not; activation has already happened, so the other path never runs again and the badge stays until the user switches away and back. The state itself is `background`, not `working`: the hook emits `⏳ <project> - bg (N running)` on `Stop` when `background_tasks` still has running entries or session crons remain (`assets/hooks/afterterm-notify.ps1`), and `StateIcon` in `components/Icons.tsx` draws `working` and `background` with the same grey spinner (`case 'working': case 'background':`), which is why a finished turn reads as a busy one.
-
-Fix direction, two changes: include `background` in `handleNotification`'s viewing clear so the two paths treat the same pair of states the same way; and give `background` its own icon instead of the working spinner (`IconHourglass` exists, and Phase 8 did exactly this for compacting), so a badge that is legitimately showing says "background tasks" rather than "Claude is busy". Deliberately not a silence timer: silence says nothing about whether a background task is still running, so a timer would trade a badge that lingers for one that lies the other way. The limit that stays: Claude Code fires no hook when a background task finishes, so afterterm can never report the end on its own; with those two changes that stops mattering.

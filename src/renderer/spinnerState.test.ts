@@ -9,7 +9,7 @@
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import {
-  onTitle, onOutput, onTick, onInterrupt, onAnswer, initTiming,
+  onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, clearsWhenSeen, initTiming,
   SILENCE_CLEAR_MS, REARM_AFTER_QUIET_MS,
 } from './spinnerState.ts';
 import type { Notif } from './spinnerState.ts';
@@ -172,6 +172,38 @@ check('interrupt leaves background alone', onInterrupt('background') === 'backgr
   check('Esc at a prompt goes quiet', n === undefined);
   n = onOutput(n, t, 1000 + REARM_AFTER_QUIET_MS + 100, 500);
   check('output after Esc stays quiet', n === undefined);
+}
+
+// ── clearsWhenSeen / onViewedTitle: what a look at the thread clears ─────────
+{
+  check('done clears when seen', clearsWhenSeen('done'));
+  check('background clears when seen', clearsWhenSeen('background'));
+  check('needs-you does not clear when seen', !clearsWhenSeen('attention'));
+  check('working does not clear when seen', !clearsWhenSeen('working'));
+  check('compacting does not clear when seen', !clearsWhenSeen('compacting'));
+  check('quiet has nothing to clear', !clearsWhenSeen(undefined));
+
+  // The bug: a ⏳ landing on the thread being viewed kept its spinner, because
+  // only done was cleared on this path while activation cleared both.
+  check('background on the viewed thread clears at once', onViewedTitle('background', true) === undefined);
+  check('done on the viewed thread clears at once', onViewedTitle('done', true) === undefined);
+  check('background on a thread not in view stays', onViewedTitle('background', false) === 'background');
+  check('done on a thread not in view stays', onViewedTitle('done', false) === 'done');
+  check('needs-you on the viewed thread stays', onViewedTitle('attention', true) === 'attention');
+  check('working on the viewed thread stays', onViewedTitle('working', true) === 'working');
+  check('compacting on the viewed thread stays', onViewedTitle('compacting', true) === 'compacting');
+  check('an undecorated title on the viewed thread stays quiet', onViewedTitle(undefined, true) === undefined);
+}
+{
+  // A background turn end, the way handleNotification runs it: onTitle, then the
+  // viewing rule. Viewed, the thread goes quiet; not viewed, it keeps the badge
+  // for activation to clear.
+  const t = initTiming(0);
+  const viewed = onViewedTitle(onTitle('working', 'background', t, 1000), true);
+  check('turn ending with background tasks, viewed: quiet', viewed === undefined);
+  const unseen = onViewedTitle(onTitle('working', 'background', t, 1000), false);
+  check('turn ending with background tasks, not viewed: background', unseen === 'background');
+  check('the badge left on a thread not in view clears on opening it', clearsWhenSeen(unseen));
 }
 
 // ── Replay real captured traces ─────────────────────────────────────────────

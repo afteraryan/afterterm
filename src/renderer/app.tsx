@@ -18,7 +18,7 @@ import { ConfirmDialog } from './components/ConfirmDialog';
 import type { Screen } from './components/ScreenNav';
 import { useTabState, threadGitCwd } from './hooks/useTabState';
 import { Tab, TabNotification, GROUP_COLORS, nextGroupColor } from './components/TabBar/types';
-import { onTitle, onOutput, onTick, onInterrupt, onAnswer, initTiming, TabTiming } from './spinnerState';
+import { onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, clearsWhenSeen, initTiming, TabTiming } from './spinnerState';
 import { migrateSession, serializeSession } from './sessionMigration';
 import { sleepAllForShutdown } from './sleepWake';
 import { toastMessage, initialScreen, threadName, needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText, localhostUrl, threadFolder, threadFolderTarget, projectLookChanges } from './threadView';
@@ -548,11 +548,11 @@ export function App() {
   // still waiting after you look at it, and only answering it (Enter), cancelling
   // it (Esc or Ctrl+C) or the hook's next title ends it, all in spinnerState.ts.
   // 'working' and 'compacting' are ongoing-turn state, not unseen badges, so they
-  // keep spinning.
+  // keep spinning. The same rule (clearsWhenSeen) clears a title that lands on
+  // the thread while it is being viewed, in handleNotification.
   const clearThreadBadges = useCallback((tabId: string) => {
     const tab = stateRef.current.tabs.find(t => t.id === tabId);
-    const current = tab?.notification;
-    if (current === 'done' || current === 'background') stateRef.current.setTabNotification(tabId, undefined);
+    if (clearsWhenSeen(tab?.notification)) stateRef.current.setTabNotification(tabId, undefined);
     if (tab?.unread) stateRef.current.setUnread(tabId, false);
     window.afterterm.notify.dismissTab(tabId);
   }, []);
@@ -632,12 +632,13 @@ export function App() {
     const cur = stateRef.current.tabs.find(t => t.id === tabId)?.notification;
     const next = onTitle(cur, type, timing, now);
     // The user is looking at this thread right now: the same test that suppresses
-    // the toast below. A `done` that lands on the viewed thread has already been
-    // seen, so it clears at once instead of waiting for the next activation
-    // (Aryan, 2026-09-19); with the app behind another window it stays done until
-    // the thread is looked at, exactly as a background one does.
+    // the toast below. A `done` or `background` that lands on the viewed thread
+    // has already been seen, so it clears at once instead of waiting for the next
+    // activation (Aryan, 2026-09-19 for done; background since 2026-09-25, when a
+    // ⏳ on the viewed thread kept its spinner until a switch away and back). With
+    // the app behind another window it stays until the thread is looked at.
     const viewing = stateRef.current.activeTabId === tabId && document.hasFocus();
-    applyNotif(tabId, cur, next === 'done' && viewing ? undefined : next);
+    applyNotif(tabId, cur, onViewedTitle(next, viewing));
 
     if (!type) return;
     // Working indicator is sidebar-only, no toast while Claude is mid-turn
