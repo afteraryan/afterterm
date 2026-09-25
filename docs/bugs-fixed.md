@@ -12,7 +12,7 @@ Format: the bug as it was titled, the date it was fixed, the PR or commit, then 
 
 ### The thread hover card showed two different ages, "Asleep · 1d" and "Active 2d ago", that read like a contradiction
 
-PR pending. The first age was when the thread went to sleep (quitting afterterm sleeps every thread), the second when it was last used. The card now has a Type row with the kind alone, a Status row with the same icon the sidebar row shows beside its word (moon and "Asleep", bell and "Needs you", "Running on :5173" for a server; no row for a quiet thread), no sleep age, and "Last used" in place of "Active" (`statusText` in `threadView.ts`, `ThreadHoverCard.tsx`).
+PR #42. The first age was when the thread went to sleep (quitting afterterm sleeps every thread), the second when it was last used. The card now has a Type row with the kind alone, a Status row with the same icon the sidebar row shows beside its word (moon and "Asleep", bell and "Needs you", "Running on :5173" for a server; no row for a quiet thread), no sleep age, and "Last used" in place of "Active" (`statusText` in `threadView.ts`, `ThreadHoverCard.tsx`).
 
 ### A thread keeps showing "Background tasks" and its spinner after the turn has ended
 

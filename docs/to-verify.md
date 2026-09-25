@@ -6,7 +6,7 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
-## Build after the hover card PR (2026-09-25)
+## Build after PR #42 (2026-09-25)
 
 ### The thread hover card: Type and Status on separate rows, one age only
 **Status:** waiting for Aryan
