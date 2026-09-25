@@ -244,3 +244,17 @@ When a project has one thread working and nothing else, the rail shows nothing f
 3. The project's tile appears on the rail with a finished badge and a working badge.
 
 **Cause:** the rail decides membership and badges from different rules. `railProjects` in `src/renderer/attention.ts` keeps a project only when `waiting`, `finished` or `compacting` is above zero (working is left out, as design-03 decision 1 says: "one tile per project that has a thread waiting for you ... or a thread that finished and has not been viewed"), while `components/Rail/index.tsx` draws a badge for every non-zero count, including `working`, as design-03's badge column also says. Fix direction, once Aryan picks: either drop the working badge from the rail tile (keeping the rail for "needs you"), or add `working > 0` to `railProjects` so a working project gets a tile of its own; update `attention.test.ts` and design-03's decision 1 to match either way.
+
+---
+
+## A thread's toast stayed on screen after the thread was opened from the sidebar
+
+**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 1 (the toast cards) · **Status:** open · **Severity:** medium (a toast for something already seen keeps asking for attention) · **Screenshot:** none attached
+
+**What happens:**
+A toast for a thread was up. Aryan opened that thread from the sidebar, and the toast did not go away. He expects opening the thread to dismiss its toast. He does not know what was special about that moment, so the case has to be recreated before it can be fixed.
+
+**Repro:**
+As observed; repro not yet known.
+
+**Cause:** not confirmed. Opening a thread row dismisses its toast: `handleActivate` in `src/renderer/app.tsx` calls `clearThreadBadges`, which sends `notify:dismiss-tab` for that tab id, and `NotifierApp.tsx` drops every toast with that id. One path found in a quick look does not match: opening a project (`openProject` in `app.tsx`, around line 282) clears badges and the toast of the project's *first* thread (`tabs.find(t => t.groupId === groupId)`), while `openProject` actually lands on the last-worked thread, so opening a project from its sidebar row can leave the toast of the thread it really shows on screen. Fix direction: recreate the case (thread row click versus project row click, and with the window focused or not), and make the project-open path dismiss the toast of the thread that `openProject` selects.
