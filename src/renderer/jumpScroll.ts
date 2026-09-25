@@ -31,6 +31,21 @@ export interface JumpState {
   position: number;
 }
 
+// How long the button stays once the user stops scrolling, in milliseconds
+// (Aryan, 2026-09-21: it should go away on its own about a second after the
+// scrolling stops). Every scroll of the user's resets it, and the pointer
+// resting on the button holds it (JumpButton).
+export const JUMP_IDLE_MS = 1000;
+// A pointer move over the button only holds it this long after the last scroll:
+// a mouse jitters while the wheel turns, and those moves must not hold it.
+export const JUMP_HOLD_AFTER_SCROLL_MS = 300;
+
+// Whether a pointer move over the shown button should hold it open: only once
+// the scrolling has paused, so it is the user reaching for the button.
+export function jumpHoldOnMove(now: number, lastScrollAt: number): boolean {
+  return now - lastScrollAt > JUMP_HOLD_AFTER_SCROLL_MS;
+}
+
 // Buffer lines for the terminal scroller (xterm reports position in lines).
 export const JUMP_THRESHOLD_LINES = 3;
 // Pixels for the asleep pane's plain div scroller.

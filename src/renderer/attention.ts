@@ -31,6 +31,10 @@ export interface AttentionCounts {
   running: number;
   finished: number;
   compacting: number;
+  // Background tasks after the turn (the hook's hourglass title). The thread
+  // row draws the hourglass, and the project pills give it its own hourglass
+  // pill (projectCounts); the rail's badges leave it out, as before.
+  background: number;
 }
 
 // "Waiting for you" everywhere in the UI means needs-you plus unread
@@ -47,13 +51,14 @@ export function isWaitingState(state: ThreadState): boolean {
 // (Phase 8) is its own bucket, counted nowhere else (the play pill still
 // counts working and running only, per design-03's Phase 7 handoff).
 export function countStates(states: ThreadState[]): AttentionCounts {
-  const counts: AttentionCounts = { waiting: 0, working: 0, running: 0, finished: 0, compacting: 0 };
+  const counts: AttentionCounts = { waiting: 0, working: 0, running: 0, finished: 0, compacting: 0, background: 0 };
   for (const state of states) {
     if (isWaitingState(state)) counts.waiting++;
     else if (state === 'working') counts.working++;
     else if (state === 'running') counts.running++;
     else if (state === 'done') counts.finished++;
     else if (state === 'compacting') counts.compacting++;
+    else if (state === 'background') counts.background++;
   }
   return counts;
 }

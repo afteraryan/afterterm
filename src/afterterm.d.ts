@@ -15,7 +15,19 @@ interface NotifierToast {
   // The project's chosen icon id (Phase 8), so the toast draws the same icon
   // the sidebar and Home do; absent means the plain folder.
   projectIcon?: string;
+  // The project's id, so a later edit to the project can reach this toast
+  // (notify:project-updated); absent for a thread in General.
+  projectId?: string;
   message: string;
+}
+
+// A project's name, colour (the drawn colour) and icon after an edit, sent to
+// the overlay so the toasts it is showing for that project update in place.
+interface NotifierProjectLook {
+  projectId: string;
+  label: string;
+  color: string;
+  icon?: string;
 }
 
 interface AftertermShellsAPI {
@@ -109,12 +121,14 @@ interface AftertermShortcutsAPI {
 interface AftertermNotifyAPI {
   push(toast: NotifierToast): void;
   dismissTab(tabId: string): void;
+  projectUpdated(look: NotifierProjectLook): void;
   onActivateTab(callback: (tabId: string) => void): void;
 }
 
 interface AftertermNotifierAPI {
   onPush(callback: (toast: NotifierToast) => void): void;
   onDismissTab(callback: (tabId: string) => void): void;
+  onProjectUpdated(callback: (look: NotifierProjectLook) => void): void;
   clickTab(tabId: string): void;
   setIgnoreMouse(ignore: boolean): void;
   hide(): void;

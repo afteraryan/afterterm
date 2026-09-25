@@ -789,6 +789,15 @@ ipcMain.on('notify:dismiss-tab', (_event, tabId: string) => {
   notifierWindow?.webContents.send('notify:dismiss-tab', tabId);
 });
 
+// Main window → notifier: a project was edited (name, colour or icon), so the
+// toasts on screen for it redraw with the new look. Never shows the overlay: a
+// hidden overlay has no toasts to update.
+ipcMain.on('notify:project-updated', (_event, look) => {
+  if (notifierWindow && !notifierWindow.isDestroyed()) {
+    notifierWindow.webContents.send('notify:project-updated', look);
+  }
+});
+
 // Notifier → main window: user clicked a toast → focus app + switch tab
 ipcMain.on('notify:tab-click', (_event, tabId: string) => {
   if (mainWindow) {
@@ -1101,6 +1110,14 @@ ipcMain.handle('editors:open', async (_event, folder: unknown, editorId?: unknow
     editor = cachedEditors[0];
   }
   if (!editor) return { ok: false, error: 'No editor found', editors: cachedEditors };
+
+  // Under the agent harness an editor window must never land on the person's
+  // screen either (the header's editor button made this reachable from a
+  // self-test), so the launch is logged after the checks above, like Explorer.
+  if (harnessOnlyLogsExternal()) {
+    console.log(`[harness] editors:open ${editor.name} ${folder}`);
+    return { ok: true, editors: cachedEditors };
+  }
 
   const result = await new Promise<{ ok: boolean; error?: string }>(resolve => {
     let child;

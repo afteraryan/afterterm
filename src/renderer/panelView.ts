@@ -149,3 +149,29 @@ export function cycleThreadId(ids: string[], activeTabId: string, dir: 1 | -1): 
   const nextIdx = (idx + dir + ids.length) % ids.length;
   return ids[nextIdx];
 }
+
+// Where the panel's scroller should move to bring a project into view after it
+// was opened from Home, the rail, the palette or the Other projects drawer
+// (Aryan, 2026-09-21: the sidebar was left where it was and he had to hunt for
+// the project). `top` and `bottom` bound the region to show, the project row
+// down to its active thread row, in the scroller's content coordinates. Returns
+// null when the region is already fully in view (no jump at all); otherwise the
+// smallest move that shows it, with `margin` pixels of air, and a region taller
+// than the view is aligned to its top so the project row itself is never lost.
+// A move that would stop within `snap` pixels of the list's start goes all the
+// way to 0, so the first section's heading is not left cut off above the row.
+export function revealScrollTop(
+  scrollTop: number,
+  viewHeight: number,
+  top: number,
+  bottom: number,
+  margin = 8,
+  snap = 48,
+): number | null {
+  const want = { top: top - margin, bottom: bottom + margin };
+  if (want.top >= scrollTop && want.bottom <= scrollTop + viewHeight) return null;
+  const next = want.bottom - want.top > viewHeight || want.top < scrollTop
+    ? Math.max(0, want.top)
+    : want.bottom - viewHeight;
+  return next < snap && bottom <= viewHeight ? 0 : next;
+}

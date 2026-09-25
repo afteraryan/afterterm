@@ -129,19 +129,31 @@ console.log('\nhomeView: homeTotals\n');
   const totals = homeTotals(groups, tabs);
   check('needsYou counts non-archived project threads plus General, not archived',
     totals.needsYou === 2, show(totals));
-  check('running counts working threads the same way',
-    totals.running === 2, show(totals));
+  check('working counts working threads the same way, apart from running',
+    totals.working === 2 && totals.running === 0, show(totals));
 
   const zero = homeTotals([], []);
-  check('no tabs: every total is zero', zero.needsYou === 0 && zero.running === 0 && zero.compacting === 0);
+  check('no tabs: every total is zero',
+    zero.needsYou === 0 && zero.working === 0 && zero.running === 0 && zero.compacting === 0);
 
   const withCompacting = homeTotals(groups, [
     ...tabs,
     tab('t10', { groupId: 'live1', notification: 'compacting' }),
     tab('t11', { groupId: 'archivedProj', notification: 'compacting' }), // excluded
   ]);
-  check('compacting is its own total, not counted under running (Phase 8 handoff, Aryan)',
-    withCompacting.compacting === 1 && withCompacting.running === totals.running, show(withCompacting));
+  check('compacting is its own total, not counted under working or running (Phase 8 handoff, Aryan)',
+    withCompacting.compacting === 1 && withCompacting.working === totals.working && withCompacting.running === totals.running,
+    show(withCompacting));
+
+  const withBackground = homeTotals(groups, [
+    ...tabs,
+    tab('t12', { groupId: 'live1', notification: 'background' }),
+    tab('t13', { notification: 'background' }), // General
+    tab('t14', { groupId: 'archivedProj', notification: 'background' }), // excluded
+  ]);
+  check('background is its own total, not counted under working (the hourglass pill)',
+    withBackground.background === 2 && withBackground.working === totals.working, show(withBackground));
+  check('background total is zero when none', totals.background === 0, show(totals));
 
   const withUnread = homeTotals(groups, [
     ...tabs,

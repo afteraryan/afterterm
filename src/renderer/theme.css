@@ -150,6 +150,19 @@ svg {
   to { transform: rotate(360deg); }
 }
 
+/* The hourglass flip (Aryan, 2026-09-25): a half turn that starts fast and
+   eases to a stop, a rest, then the next half turn. One cycle is two flips
+   (0 to 180, rest, 180 to 360, rest) so the loop restarts at the same angle
+   it ends on. Each flip is 0.7s of the 3s cycle, each rest 0.8s (it was
+   1.6s; Aryan asked for a shorter wait). */
+@keyframes hourglass-flip {
+  0% { transform: rotate(0deg); animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+  23.33% { transform: rotate(180deg); }
+  50% { transform: rotate(180deg); animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+  73.33% { transform: rotate(360deg); }
+  100% { transform: rotate(360deg); }
+}
+
 /* Screen-entrance transitions (Phase 1.1). Applied in index.css when a class
    is set on div.app; see app.tsx for when each is set. */
 @keyframes sidein {
@@ -221,6 +234,8 @@ svg {
 .si.ok { color: var(--live); }
 .si.sleep { color: var(--sleep); }
 .si.compact { color: var(--compact); }
+.si.bg { color: var(--text2); }
+.si.bg svg { animation: hourglass-flip 3s infinite; }
 
 /* .spin: small loading spinner */
 .spin {

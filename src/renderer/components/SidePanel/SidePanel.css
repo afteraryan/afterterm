@@ -2,10 +2,11 @@
    The workspace sidebar of docs/mockups/design-03-final-sidebar.html (.side,
    .brand, .srch, .srow, .scroll, .sec, .pj, .th, .tlw, .thmore, .dock),
    against the tokens in theme.css. No borders anywhere: the panel separates
-   from the terminal by tone. .brand is a direct child of .side-panel;
-   everything else (the Search box, New thread, the scrolling section list and
-   the docked Other projects row) lives in .side-body. The always-on rail is
-   its own component to the panel's left (Rail/), on every screen.
+   from the terminal by tone. Everything (the Search box, New thread, the
+   scrolling section list and the docked Other projects row) lives in
+   .side-body. The panel has no row of its own at the top any more: the one
+   sidebar toggle is on the always-on rail (Rail/), in the same place on every
+   screen (2026-09-25), so Search starts at the top.
 
    Hiding (Ctrl+Shift+B, the toggle, or the slide-shut on the way to Home):
    the width closes to zero over 320ms while the contents fade (design-03
@@ -39,35 +40,16 @@
   opacity: 0;
 }
 
-/* ── Brand row ─────────────────────────────────────────────────────────── */
-/* The name and version badge moved to the title bar strip above the whole
-   app, and that strip is now the only drag region; the Home and Workspace
-   icons moved to the rail (Phase 8). This row holds the collapse toggle only,
-   at the right end. */
-
-.side-panel .brand {
-  height: var(--toprow);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0 10px 0 14px;
-  margin: 0 -8px;
-  flex: none;
-}
-
-.side-panel .brand .sp {
-  flex: 1;
-}
-
 /* ── Side body ─────────────────────────────────────────────────────────── */
-/* Everything below the brand row and above the rail: Search, New thread and
-   the scrolling section list. */
+/* Search, New thread and the scrolling section list. The top padding lines
+   the Search box up with the rail's first button (the rail's own 11px). */
 
 .side-panel .side-body {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  padding-top: 8px;
 }
 
 /* ── Search box ────────────────────────────────────────────────────────── */
@@ -604,6 +586,27 @@
 .side-panel .thmore:hover {
   background: var(--hover);
   color: var(--text);
+}
+
+/* ── A project just opened from elsewhere ──────────────────────────────── */
+
+/* revealProject: the row lights up when it arrives and fades back, one
+   animation as long as the class stays on (REVEAL_FLASH_MS in index.tsx), so
+   the ordinary hover keeps its own quick transition. Under reduced motion the
+   global rule in theme.css turns the animation off. */
+@keyframes pj-reveal {
+  0%, 45% { background: var(--hover2); }
+  100% { background: transparent; }
+}
+
+.side-panel .pj.revealed {
+  animation: pj-reveal 1200ms var(--ease) both;
+}
+
+/* A highlight is not movement: with animation off it still shows, as a plain
+   background for the same moment, with no fade. */
+@media (prefers-reduced-motion: reduce) {
+  .side-panel .pj.revealed { background: var(--hover2); }
 }
 
 /* ── Drop targets ──────────────────────────────────────────────────────── */

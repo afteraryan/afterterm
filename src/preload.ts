@@ -123,6 +123,8 @@ contextBridge.exposeInMainWorld('afterterm', {
       ipcRenderer.send('notify:push', toast),
     dismissTab: (tabId: string): void =>
       ipcRenderer.send('notify:dismiss-tab', tabId),
+    projectUpdated: (look: any): void =>
+      ipcRenderer.send('notify:project-updated', look),
     onActivateTab: (callback: (tabId: string) => void): void => {
       ipcRenderer.on('notify:activate-tab', (_event, tabId) => callback(tabId));
     },
@@ -135,6 +137,9 @@ contextBridge.exposeInMainWorld('afterterm', {
     },
     onDismissTab: (callback: (tabId: string) => void): void => {
       ipcRenderer.on('notify:dismiss-tab', (_event, tabId) => callback(tabId));
+    },
+    onProjectUpdated: (callback: (look: any) => void): void => {
+      ipcRenderer.on('notify:project-updated', (_event, look) => callback(look));
     },
     clickTab: (tabId: string): void =>
       ipcRenderer.send('notify:tab-click', tabId),

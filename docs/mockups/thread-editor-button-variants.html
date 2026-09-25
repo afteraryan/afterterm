@@ -1,0 +1,305 @@
+<title>Open in VS Code on a thread</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap">
+<style>
+/* afterterm's own palette (src/renderer/theme.css). The page is a picture of the
+   app, so it keeps the app's single dark look in every viewer theme. */
+:root{
+  color-scheme:dark;
+  --bg:#212121;--side:#171717;--pane:#191919;--hover:#2f2f2f;--hover2:#383838;
+  --text:#ececec;--text2:#b4b4b4;--text3:#8e8e8e;--text4:#5c5c5c;
+  --live:#4ade80;--need:#fbbf24;--pick:#60a5fa;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--side);color:var(--text);font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1040px;margin:0 auto;padding-block:40px 80px;padding-inline:24px;display:flex;flex-direction:column;gap:36px}
+@media (max-width:600px){.wrap{padding-inline:16px}}
+h1{font-size:22px;font-weight:500;margin:0 0 8px;text-wrap:balance}
+.lead{color:var(--text2);margin:0;max-width:68ch}
+.lead + .lead{margin-top:8px}
+.lead b{color:var(--text);font-weight:500}
+svg{display:block;flex:none}
+
+.opt{display:flex;flex-direction:column;gap:12px}
+.opt-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.opt-letter{font-size:12px;font-weight:500;letter-spacing:.06em;color:var(--pick);text-transform:uppercase}
+.opt h2{font-size:16px;font-weight:500;margin:0}
+.opt p{margin:0;color:var(--text3);max-width:68ch}
+.opt p b{color:var(--text2);font-weight:500}
+
+/* The pictures scroll sideways on a phone instead of squashing the header. */
+.shots{display:flex;flex-direction:column;gap:10px;overflow-x:auto;padding-bottom:4px}
+.shot{min-width:640px;display:flex;flex-direction:column;gap:6px}
+.cap{font-size:12px;color:var(--text3);display:flex;gap:8px;flex-wrap:wrap}
+.cap code{font-family:'Cascadia Code',Consolas,monospace;font-size:12px;color:var(--text2);background:var(--hover);padding:1px 6px;border-radius:5px}
+
+/* The main pane and its header, as the app draws them (Header.css). */
+.pane{background:var(--bg);border-radius:16px 0 0 0;overflow:hidden}
+.header{height:56px;display:flex;align-items:center;gap:14px;padding:0 20px}
+.header-title{min-width:0;flex:1;display:flex;flex-direction:column;gap:2px}
+.header-name{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:500;line-height:1.35;white-space:nowrap;overflow:hidden}
+.header-name span{overflow:hidden;text-overflow:ellipsis}
+.header-name svg{color:var(--text3)}
+.header-meta{min-width:0;display:flex;align-items:center;flex-wrap:wrap;gap:14px;color:var(--text2);font-size:12.5px;line-height:1.4}
+.mi{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.mi > svg{color:var(--text3)}
+.mi.fo > svg{color:#e879f9}
+.header-actions{display:flex;align-items:center;gap:4px;flex:none}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:var(--hover);color:var(--text2);font-size:13px;white-space:nowrap;margin-right:4px}
+.chip .dot{width:8px;height:8px;border-radius:50%;background:var(--live)}
+.ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:var(--text3);background:none;border:0;padding:0;cursor:pointer;position:relative;transition:background 140ms,color 140ms}
+.ic:hover,.ic:focus-visible{background:var(--hover);color:var(--text)}
+.ic:focus-visible,.wbtn:focus-visible,.inl:focus-visible{outline:2px solid var(--pick);outline-offset:2px}
+.term{height:84px;margin:0 20px 20px;background:var(--pane);border-radius:12px;padding:12px 16px;font-family:'Cascadia Code',Consolas,monospace;font-size:12.5px;color:var(--text3);line-height:1.6;white-space:pre;overflow:hidden}
+.term .me{color:var(--text2)}
+
+/* The app tooltip (data-tip), shown on hover and focus. */
+[data-tip]{position:relative}
+[data-tip]:hover::after,[data-tip]:focus-visible::after{content:attr(data-tip);position:absolute;top:calc(100% + 8px);right:0;background:#0d0d0d;color:var(--text);font-size:12px;font-family:'Inter',system-ui,sans-serif;padding:5px 9px;border-radius:7px;white-space:nowrap;z-index:5;pointer-events:none}
+.inl[data-tip]:hover::after,.inl[data-tip]:focus-visible::after{left:0;right:auto}
+
+/* The new control carries the class .new for reference only: no ring, it looks exactly as it will in the app. */
+
+
+/* Option C: a button with words. */
+.wbtn{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 12px 0 10px;border-radius:999px;border:1px solid var(--hover2);background:none;color:var(--text2);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap;transition:background 140ms,color 140ms}
+.wbtn:hover{background:var(--hover);color:var(--text)}
+.wbtn.new{border-radius:999px}
+
+/* Option D: a small logo right after the folder on line 2. */
+.inl{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;background:none;border:0;padding:0;cursor:pointer;margin-left:-8px}
+.inl:hover{background:var(--hover)}
+.inl.new{border-radius:6px}
+
+.note{border-top:1px solid #262626;padding-top:24px;color:var(--text3);max-width:68ch;display:flex;flex-direction:column;gap:8px}
+.note h2{font-size:15px;font-weight:500;color:var(--text);margin:0}
+.note p{margin:0}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="vsc" viewBox="0 0 100 100">
+      <path d="M96.46 10.8 75.86.88c-2.39-1.15-5.24-.67-7.11 1.21L1.3 63.6c-1.82 1.65-1.81 4.51.01 6.15l5.51 5.01c1.49 1.35 3.73 1.45 5.33.24L93.38 13.38C96.1 11.31 100 13.26 100 16.68v-.24c0-2.41-1.38-4.6-3.54-5.64z" fill="#0065A9"/>
+      <path d="M96.46 89.2 75.86 99.12c-2.39 1.15-5.24.67-7.11-1.21L1.3 36.4c-1.82-1.65-1.81-4.51.01-6.15l5.51-5.01c1.49-1.35 3.73-1.45 5.33-.24l81.23 61.62C96.1 88.69 100 86.74 100 83.32v.24c0 2.41-1.38 4.6-3.54 5.64z" fill="#007ACC"/>
+      <path d="M75.86 99.13c-2.4 1.14-5.24.66-7.11-1.22 2.3 2.3 6.25.67 6.25-2.58V4.67c0-3.25-3.95-4.88-6.25-2.58 1.87-1.88 4.71-2.36 7.11-1.22l20.6 9.91C98.62 11.82 100 14.02 100 16.42v67.16c0 2.4-1.38 4.6-3.54 5.64l-20.6 9.91z" fill="#1F9CF0"/>
+    </symbol>
+    <symbol id="exp" viewBox="0 0 24 24">
+      <path d="M2 6.5A2 2 0 0 1 4 4.5h5.2l2 2H20a2 2 0 0 1 2 2V10H2z" fill="#D99A00"/>
+      <path d="M2 10h20v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z" fill="#FFCA3A"/>
+      <path d="M2 10h20v1.5H2z" fill="#FFE08A"/>
+    </symbol>
+    <symbol id="more" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="18" cy="12" r="1.6" fill="currentColor"/></symbol>
+    <symbol id="chat" viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 3.5V17H6.5A2.5 2.5 0 0 1 4 14.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+    <symbol id="folder" viewBox="0 0 24 24"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6H9l2 2h8.5A1.5 1.5 0 0 1 21 9.5v8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" fill="currentColor"/></symbol>
+    <symbol id="model" viewBox="0 0 24 24"><path d="M12 3.5c.6 3.8 2.7 5.9 6.5 6.5-3.8.6-5.9 2.7-6.5 6.5-.6-3.8-2.7-5.9-6.5-6.5 3.8-.6 5.9-2.7 6.5-6.5zM18.5 14.5c.3 1.7 1.2 2.6 2.9 2.9-1.7.3-2.6 1.2-2.9 2.9-.3-1.7-1.2-2.6-2.9-2.9 1.7-.3 2.6-1.2 2.9-2.9z" fill="currentColor"/></symbol>
+    <symbol id="branch" viewBox="0 0 24 24"><circle cx="6" cy="5" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="6" cy="19" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="18" cy="8" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M6 7.2v9.6M18 10.2c0 3.3-3 4.3-6 4.8-2.6.4-6 1-6 1.8" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+    <symbol id="wt" viewBox="0 0 24 24"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6H9l2 2h8.5A1.5 1.5 0 0 1 21 9.5v8A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 11.5v5M9 11.5c0 2.5 2.5 2.5 5.5 2.5M14.5 12v4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="9" cy="11.5" r="1.1" fill="currentColor"/><circle cx="14.5" cy="12" r="1.1" fill="currentColor"/></symbol>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <div>
+    <h1>Where should the Open in VS Code button sit on a chat?</h1>
+    <p class="lead">Each option below shows the top of the main pane for the same chat, once when it runs in a worktree and once when it runs in the project folder. Hover the VS Code logo to see its tooltip.</p>
+    <p class="lead">In every option the button opens <b>the folder the chat is actually in</b>: the worktree when there is one, the project folder when there is not. The dots menu does not get the item, since the button sits right beside it.</p>
+  </div>
+
+  <!-- A -->
+  <section class="opt" aria-labelledby="a-h">
+    <div class="opt-head"><span class="opt-letter">Option A</span><h2 id="a-h">A VS Code logo button beside the dots</h2></div>
+    <p>One icon button with the VS Code logo, just left of the dots. It is the same button the project page already has, so it looks familiar. <b>Look at:</b> the right end of the header.</p>
+    <div class="shots">
+      <div class="shot">
+        <div class="pane">
+          <div class="header">
+            <div class="header-title">
+              <div class="header-name"><svg width="16" height="16"><use href="#chat"/></svg><span>Fix the login redirect loop</span></div>
+              <div class="header-meta">
+                <span class="mi fo"><svg width="14" height="14"><use href="#folder"/></svg>spotify-taskbar</span>
+                <span class="mi"><svg width="14" height="14"><use href="#model"/></svg>Opus 5.5</span>
+                <span class="mi"><svg width="14" height="14"><use href="#branch"/></svg>fix-login-redirect</span>
+                <span class="mi"><svg width="14" height="14"><use href="#wt"/></svg>fix-login-redirect</span>
+              </div>
+            </div>
+            <div class="header-actions">
+              <span class="chip"><span class="dot"></span>Running</span>
+              <button type="button" class="ic new" data-tip="Open in VS Code"><svg width="18" height="18"><use href="#vsc"/></svg></button>
+              <button type="button" class="ic" data-tip="More"><svg width="18" height="18"><use href="#more"/></svg></button>
+            </div>
+          </div>
+          <div class="term"><span class="me">&gt; the redirect loops after sign in, can you find why</span>
+● Reading src/auth/callback.ts
+● The callback sets the session cookie after the redirect, so the guard never sees it.</div>
+        </div>
+        <div class="cap">Chat in a worktree. Opens <code>D:\Pitara\spotify-taskbar\.claude\worktrees\fix-login-redirect</code></div>
+      </div>
+      <div class="shot">
+        <div class="pane">
+          <div class="header">
+            <div class="header-title">
+              <div class="header-name"><svg width="16" height="16"><use href="#chat"/></svg><span>Add a mini player search</span></div>
+              <div class="header-meta">
+                <span class="mi fo"><svg width="14" height="14"><use href="#folder"/></svg>spotify-taskbar</span>
+                <span class="mi"><svg width="14" height="14"><use href="#model"/></svg>Sonnet 5</span>
+                <span class="mi"><svg width="14" height="14"><use href="#branch"/></svg>main</span>
+              </div>
+            </div>
+            <div class="header-actions">
+              <button type="button" class="ic new" data-tip="Open in VS Code"><svg width="18" height="18"><use href="#vsc"/></svg></button>
+              <button type="button" class="ic" data-tip="More"><svg width="18" height="18"><use href="#more"/></svg></button>
+            </div>
+          </div>
+        </div>
+        <div class="cap">Chat in the project folder. Opens <code>D:\Pitara\spotify-taskbar</code></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- B -->
+  <section class="opt" aria-labelledby="b-h">
+    <div class="opt-head"><span class="opt-letter">Option B</span><h2 id="b-h">File Explorer and VS Code buttons side by side</h2></div>
+    <p>The pair the project page has, a folder button and a VS Code button, both opening the chat's own folder. File Explorer also stays in the dots menu. <b>Look at:</b> the two buttons before the dots.</p>
+    <div class="shots">
+      <div class="shot">
+        <div class="pane">
+          <div class="header">
+            <div class="header-title">
+              <div class="header-name"><svg width="16" height="16"><use href="#chat"/></svg><span>Fix the login redirect loop</span></div>
+              <div class="header-meta">
+                <span class="mi fo"><svg width="14" height="14"><use href="#folder"/></svg>spotify-taskbar</span>
+                <span class="mi"><svg width="14" height="14"><use href="#model"/></svg>Opus 5.5</span>
+                <span class="mi"><svg width="14" height="14"><use href="#branch"/></svg>fix-login-redirect</span>
+                <span class="mi"><svg width="14" height="14"><use href="#wt"/></svg>fix-login-redirect</span>
+              </div>
+            </div>
+            <div class="header-actions">
+              <span class="chip"><span class="dot"></span>Running</span>
+              <span class="new" style="display:flex;gap:2px"><button type="button" class="ic" data-tip="Open in File Explorer"><svg width="18" height="18"><use href="#exp"/></svg></button><button type="button" class="ic" data-tip="Open in VS Code"><svg width="18" height="18"><use href="#vsc"/></svg></button></span>
+              <button type="button" class="ic" data-tip="More"><svg width="18" height="18"><use href="#more"/></svg></button>
+            </div>
+          </div>
+        </div>
+        <div class="cap">Chat in a worktree. Both open <code>…\.claude\worktrees\fix-login-redirect</code></div>
+      </div>
+      <div class="shot">
+        <div class="pane">
+          <div class="header">
+            <div class="header-title">
+              <div class="header-name"><svg width="16" height="16"><use href="#chat"/></svg><span>Add a mini player search</span></div>
+              <div class="header-meta">
+                <span class="mi fo"><svg width="14" height="14"><use href="#folder"/></svg>spotify-taskbar</span>
+                <span class="mi"><svg width="14" height="14"><use href="#model"/></svg>Sonnet 5</span>
+                <span class="mi"><svg width="14" height="14"><use href="#branch"/></svg>main</span>
+              </div>
+            </div>
+            <div class="header-actions">
+              <span class="new" style="display:flex;gap:2px"><button type="button" class="ic" data-tip="Open in File Explorer"><svg width="18" height="18"><use href="#exp"/></svg></button><button type="button" class="ic" data-tip="Open in VS Code"><svg width="18" height="18"><use href="#vsc"/></svg></button></span>
+              <button type="button" class="ic" data-tip="More"><svg width="18" height="18"><use href="#more"/></svg></button>
+            </div>
+          </div>
+        </div>
+        <div class="cap">Chat in the project folder. Both open <code>D:\Pitara\spotify-taskbar</code></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- C -->
+  <section class="opt" aria-labelledby="c-h">
+    <div class="opt-head"><span class="opt-letter">Option C</span><h2 id="c-h">A button with the words "Open in VS Code"</h2></div>
+    <p>A rounded button with the logo and the words, so it cannot be missed. It takes more room, and on a narrow window the thread name gets cut sooner. <b>Look at:</b> the right end of the header.</p>
+    <div class="shots">
+      <div class="shot">
+        <div class="pane">
+          <div class="header">
+            <div class="header-title">
+              <div class="header-name"><svg width="16" height="16"><use href="#chat"/></svg><span>Fix the login redirect loop</span></div>
+              <div class="header-meta">
+                <span class="mi fo"><svg width="14" height="14"><use href="#folder"/></svg>spotify-taskbar</span>
+                <span class="mi"><svg width="14" height="14"><use href="#model"/></svg>Opus 5.5</span>
+                <span class="mi"><svg width="14" height="14"><use href="#branch"/></svg>fix-login-redirect</span>
+                <span class="mi"><svg width="14" height="14"><use href="#wt"/></svg>fix-login-redirect</span>
+              </div>
+            </div>
+            <div class="header-actions">
+              <span class="chip"><span class="dot"></span>Running</span>
+              <button type="button" class="wbtn new"><svg width="16" height="16"><use href="#vsc"/></svg>Open in VS Code</button>
+              <button type="button" class="ic" data-tip="More"><svg width="18" height="18"><use href="#more"/></svg></button>
+            </div>
+          </div>
+        </div>
+        <div class="cap">Chat in a worktree. Opens <code>…\.claude\worktrees\fix-login-redirect</code></div>
+      </div>
+      <div class="shot">
+        <div class="pane">
+          <div class="header">
+            <div class="header-title">
+              <div class="header-name"><svg width="16" height="16"><use href="#chat"/></svg><span>Add a mini player search</span></div>
+              <div class="header-meta">
+                <span class="mi fo"><svg width="14" height="14"><use href="#folder"/></svg>spotify-taskbar</span>
+                <span class="mi"><svg width="14" height="14"><use href="#model"/></svg>Sonnet 5</span>
+                <span class="mi"><svg width="14" height="14"><use href="#branch"/></svg>main</span>
+              </div>
+            </div>
+            <div class="header-actions">
+              <button type="button" class="wbtn new"><svg width="16" height="16"><use href="#vsc"/></svg>Open in VS Code</button>
+              <button type="button" class="ic" data-tip="More"><svg width="18" height="18"><use href="#more"/></svg></button>
+            </div>
+          </div>
+        </div>
+        <div class="cap">Chat in the project folder. Opens <code>D:\Pitara\spotify-taskbar</code></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- D -->
+  <section class="opt" aria-labelledby="d-h">
+    <div class="opt-head"><span class="opt-letter">Option D</span><h2 id="d-h">A small VS Code logo right after the folder name on the second line</h2></div>
+    <p>The logo sits next to the folder it opens: after the worktree name when there is one, after the project name when there is not. It says which folder it opens by where it is. <b>Look at:</b> the second line under the thread name.</p>
+    <div class="shots">
+      <div class="shot">
+        <div class="pane">
+          <div class="header">
+            <div class="header-title">
+              <div class="header-name"><svg width="16" height="16"><use href="#chat"/></svg><span>Fix the login redirect loop</span></div>
+              <div class="header-meta">
+                <span class="mi fo"><svg width="14" height="14"><use href="#folder"/></svg>spotify-taskbar</span>
+                <span class="mi"><svg width="14" height="14"><use href="#model"/></svg>Opus 5.5</span>
+                <span class="mi"><svg width="14" height="14"><use href="#branch"/></svg>fix-login-redirect</span>
+                <span class="mi"><svg width="14" height="14"><use href="#wt"/></svg>fix-login-redirect</span>
+                <button type="button" class="inl new" data-tip="Open worktree in VS Code"><svg width="14" height="14"><use href="#vsc"/></svg></button>
+              </div>
+            </div>
+            <div class="header-actions">
+              <span class="chip"><span class="dot"></span>Running</span>
+              <button type="button" class="ic" data-tip="More"><svg width="18" height="18"><use href="#more"/></svg></button>
+            </div>
+          </div>
+        </div>
+        <div class="cap">Chat in a worktree. Opens <code>…\.claude\worktrees\fix-login-redirect</code></div>
+      </div>
+      <div class="shot">
+        <div class="pane">
+          <div class="header">
+            <div class="header-title">
+              <div class="header-name"><svg width="16" height="16"><use href="#chat"/></svg><span>Add a mini player search</span></div>
+              <div class="header-meta">
+                <span class="mi fo"><svg width="14" height="14"><use href="#folder"/></svg>spotify-taskbar</span>
+                <button type="button" class="inl new" data-tip="Open project in VS Code"><svg width="14" height="14"><use href="#vsc"/></svg></button>
+                <span class="mi"><svg width="14" height="14"><use href="#model"/></svg>Sonnet 5</span>
+                <span class="mi"><svg width="14" height="14"><use href="#branch"/></svg>main</span>
+              </div>
+            </div>
+            <div class="header-actions">
+              <button type="button" class="ic" data-tip="More"><svg width="18" height="18"><use href="#more"/></svg></button>
+            </div>
+          </div>
+        </div>
+        <div class="cap">Chat in the project folder. Opens <code>D:\Pitara\spotify-taskbar</code></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="note">
+    <h2>What stays the same in every option</h2>
+    <p>If you use Cursor, Windsurf or VS Code Insiders instead, the button shows that editor's logo and name. If the chat's folder has been deleted, the button is greyed out with the tip "Folder not found". If no editor is installed, there is no button. Shells get the same button, opening the folder the shell is in.</p>
+  </div>
+</div>

@@ -13,13 +13,13 @@ import {
 } from '@dnd-kit/core';
 import { Tab, Group, GroupColor } from '../TabBar/types';
 import { Menu, MenuItem } from '../Menu';
-import { buildThreadMenu } from '../../threadMenu';
+import { buildThreadMenu, ThreadMenuActions } from '../../threadMenu';
 import { buildProjectMenu, ProjectActions } from '../../projectMenu';
 import type { EditorInfo } from '../../../editors';
 import {
   FolderIcon, KindIcon, StateIcon,
-  IconPanel, IconSearch, IconPlus, IconPage, IconPin, IconPinOn, IconChevD,
-  IconCollapseAll, IconExpandAll, IconBell, IconPlay, IconCompact, IconX,
+  IconSearch, IconPlus, IconPage, IconPin, IconPinOn, IconChevD,
+  IconCollapseAll, IconExpandAll, IconBell, IconPlay, IconCompact, IconHourglass, IconX, Spinner,
 } from '../Icons';
 // The row order is computed groups-first (see sidebarWalk.ts), so a group with no
 // terminals renders as a normal row instead of vanishing from the list. That walk
@@ -29,10 +29,11 @@ import {
   threadKind, threadState, stateBreathes, threadName, foldThreads,
   projectCounts,
 } from '../../threadView';
+import type { ProjectPillCounts } from '../../threadView';
 // Phase 8: the panel's groups (General, Pinned, Recent, Other), the in-place
 // search filter and the keyboard cycle's row order all come from panelView.ts,
 // pure and unit-tested; this component only renders what it returns.
-import { panelSections, filterPanel, visibleThreadIds, cycleThreadId } from '../../panelView';
+import { panelSections, filterPanel, visibleThreadIds, cycleThreadId, revealScrollTop } from '../../panelView';
 import type { PanelEntry, PanelSections } from '../../panelView';
 import { isWaitingState } from '../../attention';
 import { relativeTime } from '../../homeView';
@@ -43,6 +44,13 @@ const THREAD_FOLD_LIMIT = 5;
 // How long the pointer has to rest on a thread row before its card appears. Long
 // enough that moving the pointer down the list never flashes a card.
 const HOVER_DELAY_MS = 350;
+// revealProject's timing: wait out the project's expand transition (--med,
+// 200ms) before measuring, retry while the workspace is still hidden, and keep
+// the landing highlight on the row for a little over a second.
+const REVEAL_SETTLE_MS = 260;
+const REVEAL_RETRY_MS = 50;
+const REVEAL_MAX_TRIES = 20;
+const REVEAL_FLASH_MS = 1200;
 
 // ─── Thread row ────────────────────────────────────────────────────────────────
 
@@ -139,9 +147,11 @@ function ThreadRow({
 interface ProjectRowProps {
   group: Group;
   threadCount: number;
-  counts: { needsYou: number; running: number; compacting: number };
+  counts: ProjectPillCounts;
   pinned: boolean;
   isDragging: boolean;
+  // The short highlight after the project was opened from elsewhere.
+  revealed?: boolean;
   overlay?: boolean;
   onToggle: () => void;
   onDoubleClick: () => void;
@@ -156,7 +166,7 @@ interface ProjectRowProps {
 }
 
 function ProjectRow({
-  group, threadCount, counts, pinned, isDragging, overlay,
+  group, threadCount, counts, pinned, isDragging, revealed, overlay,
   onToggle, onDoubleClick, onContextMenu, onNewThread, onOpenProjectPage, onTogglePin,
   isRenaming, renameValue, onRenameChange, onRenameCommit,
 }: ProjectRowProps) {
@@ -183,6 +193,7 @@ function ProjectRow({
     pinned ? '' : 'dim',
     isOver ? 'drop-over' : '',
     isDragging ? 'dragging' : '',
+    revealed ? 'revealed' : '',
     overlay ? 'drag-overlay' : '',
   ].filter(Boolean).join(' ');
 
@@ -220,6 +231,18 @@ function ProjectRow({
         <span className="sig need">
           <span className="si need"><IconBell size={14} /></span>
           {counts.needsYou}
+        </span>
+      )}
+      {counts.working > 0 && (
+        <span className="sig work">
+          <span className="si"><Spinner size={11} /></span>
+          {counts.working}
+        </span>
+      )}
+      {counts.background > 0 && (
+        <span className="sig bg">
+          <span className="si bg"><IconHourglass size={13} /></span>
+          {counts.background}
         </span>
       )}
       {counts.running > 0 && (
@@ -289,6 +312,10 @@ export interface SidePanelHandle {
   visibleIds(): string[];
   // Puts the caret in the search box.
   focusSearch(): void;
+  // Scrolls a project that was just opened (from Home, the rail, the palette or
+  // the Other projects drawer) into view with its active thread, and highlights
+  // its row for a moment. A search that is narrowing the list is cleared first.
+  revealProject(groupId: string): void;
 }
 
 export interface SidePanelProps {
@@ -303,7 +330,6 @@ export interface SidePanelProps {
   // The clock the Recent rule (3 days) and the docked Other rows' "2d" read.
   now: number;
   shells: { id: string; name: string }[];
-  onToggleCollapse: () => void;
   onActivate: (tabId: string) => void;
   onClose: (tabId: string) => void;
   onSleep: (tabId: string) => void;
@@ -316,6 +342,9 @@ export interface SidePanelProps {
   // threadMenu's "Open in File Explorer" for the thread's own folder (Phase 9):
   // the caller decides whether the thread has a folder and whether it exists.
   threadExplorer: (tab: Tab) => { missing: boolean; open: () => void } | undefined;
+  // threadMenu's "Open in <editor>" entries for the same folder; undefined when
+  // the thread has no folder or no editor was detected.
+  threadEditor: (tab: Tab) => ThreadMenuActions['openInEditor'];
   onNewTab: (groupId?: string, shellId?: string) => void;
   // The chooser is anchored under whichever New thread control was used, so the
   // caller is handed that control's bottom-left corner.
@@ -350,8 +379,8 @@ export interface SidePanelProps {
 
 export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function SidePanel(props, ref) {
   const {
-    tabs, groups, activeTabId, hidden, now, shells, onToggleCollapse,
-    onActivate, onClose, onSleep, onWake, onSetUnread, onOpenLocalhost, threadExplorer, onNewTab,
+    tabs, groups, activeTabId, hidden, now, shells,
+    onActivate, onClose, onSleep, onWake, onSetUnread, onOpenLocalhost, threadExplorer, threadEditor, onNewTab,
     onOpenChooser, onOpenProjectPage, onTogglePin,
     onNewProject, editors, folderExists, projectActions,
     onCreateGroup, onAddToGroup, onRemoveFromGroup,
@@ -375,6 +404,11 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
   const [query, setQuery] = useState('');
   const [dockOpen, setDockOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  // A project to bring into view (revealProject), and the row being highlighted
+  // after it arrives. `seq` makes a second open of the same project count again.
+  const [reveal, setReveal] = useState<{ groupId: string; seq: number } | null>(null);
+  const [flash, setFlash] = useState<{ groupId: string; seq: number } | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   // Which thread row the pointer is resting on, the rectangle the card points at,
   // and the clock reading it was opened with (the card shows relative times and
   // must not restart a timer of its own).
@@ -414,6 +448,46 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
     if (group?.collapsed) onToggleGroupCollapse(group.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTabId]);
+
+  // Bring a just-opened project into view. The wait lets the project's expand
+  // transition (--med) finish so its rows have their real height, and it retries
+  // while the workspace is still hidden (opened from Home, it is display: none
+  // until the screen switches). Then the smallest scroll that shows the project
+  // row down to its active thread, and a short highlight on the row.
+  useEffect(() => {
+    if (!reveal) return;
+    let cancelled = false;
+    let tries = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    const attempt = () => {
+      if (cancelled) return;
+      const scroller = scrollRef.current;
+      const wrap = scroller?.querySelector<HTMLElement>(`[data-pjw="${CSS.escape(reveal.groupId)}"]`);
+      const row = wrap?.querySelector<HTMLElement>('.pj');
+      if (!scroller || !wrap || !row || scroller.clientHeight === 0) {
+        if (++tries < REVEAL_MAX_TRIES) timer = setTimeout(attempt, REVEAL_RETRY_MS);
+        return;
+      }
+      const base = scroller.getBoundingClientRect().top - scroller.scrollTop;
+      const active = wrap.querySelector<HTMLElement>('.th.sel');
+      const top = row.getBoundingClientRect().top - base;
+      const bottom = (active ?? row).getBoundingClientRect().bottom - base;
+      const next = revealScrollTop(scroller.scrollTop, scroller.clientHeight, top, bottom);
+      if (next !== null) {
+        const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        scroller.scrollTo({ top: next, behavior: reduce ? 'auto' : 'smooth' });
+      }
+      setFlash(reveal);
+    };
+    timer = setTimeout(attempt, REVEAL_SETTLE_MS);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [reveal]);
+
+  useEffect(() => {
+    if (!flash) return;
+    const t = setTimeout(() => setFlash(null), REVEAL_FLASH_MS);
+    return () => clearTimeout(t);
+  }, [flash]);
 
   const dwellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastOverRef = useRef<string | null>(null);
@@ -569,7 +643,6 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
       x: e.clientX,
       y: e.clientY,
       items: buildThreadMenu(tab, groups, {
-        open: () => onActivate(tab.id),
         moveToGroup: id => (id ? onAddToGroup(tab.id, id) : onRemoveFromGroup(tab.id)),
         close: () => onClose(tab.id),
         sleep: () => onSleep(tab.id),
@@ -578,6 +651,7 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
         openProjectPage: tab.groupId ? () => onOpenProjectPage(tab.groupId!) : undefined,
         openLocalhost: () => onOpenLocalhost(tab.id),
         openInExplorer: threadExplorer(tab),
+        openInEditor: threadEditor(tab),
       }),
     });
   };
@@ -625,7 +699,12 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
     },
     visibleIds: () => visibleThreadIds(view, { activeTabId, expandedLists, limit: THREAD_FOLD_LIMIT, isWaiting }),
     focusSearch: () => searchRef.current?.focus(),
-  }), [view, expandedLists, activeTabId]);
+    revealProject: (groupId) => {
+      if (query) setQuery('');
+      setDockOpen(false);
+      setReveal(r => ({ groupId, seq: (r?.seq ?? 0) + 1 }));
+    },
+  }), [view, expandedLists, activeTabId, query]);
 
   const clearQuery = () => {
     setQuery('');
@@ -669,9 +748,10 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
     const expanded = !group.collapsed;
     const counts = projectCounts(groupTabs.map(threadState));
     return (
-      <div className="pjw" key={group.id}>
+      <div className="pjw" key={group.id} data-pjw={group.id}>
         <ProjectRow
           group={group}
+          revealed={flash?.groupId === group.id}
           threadCount={groupTabs.length}
           counts={counts}
           pinned={isPinned}
@@ -727,13 +807,6 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
   return (
     <>
       <div className={`side-panel${hidden ? ' hidden' : ''}`} inert={hidden}>
-        <div className="brand">
-          <span className="sp" />
-          <button className="ic" onClick={onToggleCollapse} data-tip="Close sidebar">
-            <IconPanel size={18} />
-          </button>
-        </div>
-
         <div className="side-body">
           {/* The Search box (design-03 decision 13): typing filters the panel in
               place; Ctrl+Shift+P still opens the palette, the only place closed
@@ -790,7 +863,7 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
             onDragEnd={handleDragEnd}
             onDragCancel={handleDragCancel}
           >
-            <div className="scroll" onScroll={hideHover}>
+            <div className="scroll" ref={scrollRef} onScroll={hideHover}>
               {view.general.length > 0 && (
                 <div className="sec" data-sec="general">
                   <div className="lbl">General</div>
@@ -845,7 +918,7 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
                 <ProjectRow
                   group={draggingGroup}
                   threadCount={tabs.filter(t => t.groupId === draggingGroup.id).length}
-                  counts={{ needsYou: 0, running: 0, compacting: 0 }}
+                  counts={{ needsYou: 0, working: 0, background: 0, running: 0, compacting: 0 }}
                   pinned={draggingGroup.pinned}
                   isDragging={false}
                   onToggle={() => {}}

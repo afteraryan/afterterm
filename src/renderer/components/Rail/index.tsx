@@ -1,7 +1,11 @@
 // The always-on rail: a 76px column at the left edge of every screen (Home,
-// the workspace, the project page). Shows the sidebar toggle and Search/New
-// thread only while the panel is hidden on the workspace, the Home/Workspace
-// pill, then one tile per project that has something pending (a thread
+// the workspace, the project page). The sidebar toggle sits first, always, in
+// the same place on every screen and whether the panel is open or not (Aryan,
+// 2026-09-25: it used to appear only while the panel was hidden, so the Home
+// button slid up into its spot and a second click on the same place opened
+// Home); it is the only sidebar toggle, the panel has none of its own. Then the
+// Home/Workspace pill, Search/New thread only while the panel is hidden on the
+// workspace, then one tile per project that has something pending (a thread
 // waiting for you, working, compacting or finished, unviewed; compacting is a
 // corner icon on the tile, the rest are counts beside it). See
 // docs/design-03-sidebar-and-attention.md decision 1 and
@@ -30,6 +34,8 @@ export interface RailProps {
   projectActions: ProjectActions;
   onGoHome: () => void;
   onGoWorkspace: () => void;
+  // On the workspace, hides or shows the panel; on Home and the project page,
+  // which have no panel, opens the workspace with the panel showing.
   onTogglePanel: () => void;
   onSearch: () => void;
   onNewThread: (anchor: { x: number; y: number }) => void; // bottom-left of the button + 6px, same as the sidebar's openChooserUnder
@@ -78,20 +84,15 @@ export function Rail({
 
   return (
     <div className="rail-bar" data-screen={screen}>
-      <div className={'railblk' + (open ? ' open' : '')}>
-        <div>
-          <button
-            className="ic"
-            data-tip="Open sidebar"
-            data-tip-side="right"
-            data-toggle-panel=""
-            tabIndex={open ? 0 : -1}
-            onClick={onTogglePanel}
-          >
-            <IconPanel size={18} />
-          </button>
-        </div>
-      </div>
+      <button
+        className="ic rail-toggle"
+        data-tip={screen === 'workspace' && !panelHidden ? 'Close sidebar' : 'Open sidebar'}
+        data-tip-side="right"
+        data-toggle-panel=""
+        onClick={onTogglePanel}
+      >
+        <IconPanel size={18} />
+      </button>
 
       <div className={'navseg' + (homeSelected ? '' : ' at-work')}>
         <span className="thumb" />

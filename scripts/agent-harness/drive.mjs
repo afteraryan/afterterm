@@ -93,7 +93,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  REPO_ROOT, LATEST_FILE, parseArgs, loadRun, resolvePort, listTargets, pickMainPage, Cdp, evaluate,
+  REPO_ROOT, LATEST_FILE, parseArgs, loadRun, resolvePort, listTargets, pickMainPage, pickNotifierPage, Cdp, evaluate,
   listDisplays, displayContaining, listWindows, pidListeningOn, pidExists, spawnViaWmi,
   readJson, writeJson, sleep, powershell, DPI_AWARE_PRELUDE,
 } from './lib.mjs';
@@ -111,6 +111,8 @@ const SEL = {
   projectRename: '.pj-rename',
   pillNeed: '.sig.need',
   pillRun: '.sig.run',
+  pillWork: '.sig.work', // 2026-09-25: threads Claude is working in (the spinner), split from the play pill
+  pillBg: '.sig.bg', // 2026-09-25: threads whose turn ended with background tasks running (the hourglass)
   pillCompact: '.sig.compact', // Phase 8: compacting's own pill, separate from the play pill
   threadListWrap: '.tlw',
   threadListClosedClass: 'closed',
@@ -168,11 +170,15 @@ const SEL = {
     dateHeading: 'h1.home-date',
     totNeed: '.home .tot .sig.need',
     totRun: '.home .tot .sig.run',
+    totWork: '.home .tot .sig.work',
+    totBg: '.home .tot .sig.bg',
     lastHere: '.home-lasthere',
     pinnedCard: '.cards .cd',
     name: '.n',
     pillNeed: '.sig.need',
     pillRun: '.sig.run',
+    pillWork: '.sig.work',
+    pillBg: '.sig.bg',
     ago: '.ago',
     pinButton: '[data-pin]',
     pinButtonOnClass: 'on',
@@ -327,6 +333,13 @@ try {
 
   if (command === 'targets') {
     for (const t of targets) console.log(`${t.type.padEnd(8)} ${t.id}  ${t.url}`);
+  } else if (command === 'toasts') {
+    // The toasts the overlay window is showing, read from its own page target
+    // (the notifier window), not the main window.
+    const notifier = pickNotifierPage(targets);
+    if (!notifier) throw new DriveError('no notifier overlay page target');
+    cdp = await Cdp.connect(notifier.webSocketDebuggerUrl);
+    await cmdToasts();
   } else if (command === 'record') {
     // The recorder is its own detached process with its own CDP session (see
     // record.mjs); this drive.mjs process needs no page connection of its own.
@@ -674,6 +687,8 @@ async function cmdSidebar() {
           collapsed: !!(row && row.dataset.collapsed),
           threads: row ? Number(row.dataset.threads || 0) : 0,
           need: text(row && row.querySelector(S.pillNeed)) || null,
+          work: text(row && row.querySelector(S.pillWork)) || null,
+          bg: text(row && row.querySelector(S.pillBg)) || null,
           run: text(row && row.querySelector(S.pillRun)) || null,
           compact: text(row && row.querySelector(S.pillCompact)) || null,
           more: text(more) || null,
@@ -729,7 +744,7 @@ async function cmdSidebar() {
     for (const t of sec.loose) console.log(threadLine(t, '    '));
     if (sec.looseMore) console.log(`    (${sec.looseMore})`);
     for (const p of sec.projects) {
-      const pills = [p.need ? `need=${p.need}` : null, p.run ? `run=${p.run}` : null, p.compact ? `compact=${p.compact}` : null].filter(Boolean).join(' ');
+      const pills = [p.need ? `need=${p.need}` : null, p.work ? `work=${p.work}` : null, p.bg ? `bg=${p.bg}` : null, p.run ? `run=${p.run}` : null, p.compact ? `compact=${p.compact}` : null].filter(Boolean).join(' ');
       console.log(`    [project] ${p.label}  threads=${p.threads}${p.collapsed ? ' collapsed' : ''}${pills ? '  ' + pills : ''}`);
       for (const t of p.rows) console.log(threadLine(t, '      '));
       if (p.more) console.log(`      (${p.more})`);
@@ -876,6 +891,8 @@ async function cmdHome() {
         group: cd.dataset.group || null,
         name: text(cd.querySelector(S.name)),
         need: text(cd.querySelector(S.pillNeed)) || null,
+        work: text(cd.querySelector(S.pillWork)) || null,
+        bg: text(cd.querySelector(S.pillBg)) || null,
         run: text(cd.querySelector(S.pillRun)) || null,
         ago: text(cd.querySelector(S.ago)) || null,
         pinnedOn: !!(pinBtn && pinBtn.classList.contains(S.pinButtonOnClass)),
@@ -887,6 +904,8 @@ async function cmdHome() {
         group: pr.dataset.group || null,
         name: text(pr.querySelector(S.name)),
         need: text(pr.querySelector(S.pillNeed)) || null,
+        work: text(pr.querySelector(S.pillWork)) || null,
+        bg: text(pr.querySelector(S.pillBg)) || null,
         run: text(pr.querySelector(S.pillRun)) || null,
         time: text(pr.querySelector(S.projectTime)) || null,
       }));
@@ -900,6 +919,8 @@ async function cmdHome() {
       dateHeading: text(document.querySelector(S.dateHeading)),
       totNeed: text(document.querySelector(S.totNeed)) || null,
       totRun: text(document.querySelector(S.totRun)) || null,
+      totWork: text(document.querySelector(S.totWork)) || null,
+      totBg: text(document.querySelector(S.totBg)) || null,
       lastHere: text(document.querySelector(S.lastHere)) || null,
       pinned,
       nothingPinned: text(document.querySelector(S.nothing)) || null,
@@ -912,9 +933,9 @@ async function cmdHome() {
 
   if (!data.present) { console.log('(not on Home)'); return; }
   console.log(data.dateHeading || '(no date heading)');
-  console.log(`  totals: need=${data.totNeed ?? 'none'} run=${data.totRun ?? 'none'}`);
+  console.log(`  totals: need=${data.totNeed ?? 'none'} work=${data.totWork ?? 'none'} bg=${data.totBg ?? 'none'} run=${data.totRun ?? 'none'}`);
   if (data.lastHere) console.log(`  lasthere: ${data.lastHere}`);
-  const pills = p => [p.need ? `need=${p.need}` : null, p.run ? `run=${p.run}` : null].filter(Boolean).join(' ');
+  const pills = p => [p.need ? `need=${p.need}` : null, p.work ? `work=${p.work}` : null, p.bg ? `bg=${p.bg}` : null, p.run ? `run=${p.run}` : null].filter(Boolean).join(' ');
   console.log('  Pinned:');
   if (!data.pinned.length) console.log(`    ${data.nothingPinned || '(none)'}`);
   for (const p of data.pinned) {
@@ -1242,11 +1263,29 @@ async function cmdConfirm() {
 // thread's own folder from the thread menu and the header's worktree item):
 // app.tsx records the folder on window.__afterterm.lastOpenFolder and main logs
 // `[harness] projects:openInExplorer <folder>` instead of launching Explorer.
+// The notifier overlay's toast cards, one line each: the thread name, then the
+// project line as drawn (label, colour, icon) and the project id it belongs to.
+async function cmdToasts() {
+  const cards = await evaluate(cdp, `[...document.querySelectorAll('.notif-card')].map(c => ({
+    primary: c.querySelector('.notif-primary')?.textContent ?? '',
+    sub: c.querySelector('.notif-sub')?.textContent ?? '',
+    project: c.dataset.project ?? '', color: c.dataset.color ?? '', icon: c.dataset.icon ?? '',
+  }))`);
+  if (!cards || cards.length === 0) { console.log('(no toasts)'); return; }
+  for (const c of cards) {
+    console.log(`- "${c.primary}"  ${c.sub}  [project=${c.project || '-'} color=${c.color || '-'} icon=${c.icon || '-'}]`);
+  }
+}
+
 async function cmdOpened() {
   const url = await evaluate(cdp, `window.__afterterm && window.__afterterm.lastOpenExternal`);
   const folder = await evaluate(cdp, `window.__afterterm && window.__afterterm.lastOpenFolder`);
   console.log(url ? url : '(nothing opened)');
   console.log(folder ? `folder: ${folder}` : 'folder: (none opened)');
+  // The folder and editor id the last "Open in <editor>" reached (the header's
+  // editor button, the thread menu, the project menu or page).
+  const ed = await evaluate(cdp, `window.__afterterm && window.__afterterm.lastOpenEditor`);
+  console.log(ed ? `editor: ${ed.editorId} ${ed.folder}` : 'editor: (none opened)');
 }
 
 // Phase 5: window.__afterterm.commandState(tabId) (Terminal/index.tsx), the OSC

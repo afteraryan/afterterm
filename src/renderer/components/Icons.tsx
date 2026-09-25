@@ -518,10 +518,18 @@ export function StateIcon({ state, size = 15 }: StateIconProps) {
           <IconCompact size={size} />
         </span>
       );
-    case 'working':
     case 'background':
-      // Working and background both read as "something is happening but
-      // there is nothing to act on": the same grey spinner.
+      // The turn has ended with background tasks (or session crons) still
+      // running: the hourglass the toast already uses, not the working
+      // spinner, so a finished turn no longer reads as Claude still busy
+      // (Aryan, 2026-09-25).
+      return (
+        <span className="si bg" data-state="background">
+          <IconHourglass size={size} />
+        </span>
+      );
+    case 'working':
+      // Something is happening but there is nothing to act on: the grey spinner.
       return (
         <span data-state={state}>
           <Spinner size={size} />

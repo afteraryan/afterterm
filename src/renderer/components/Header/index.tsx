@@ -1,12 +1,14 @@
 // The main pane's header: kind icon and thread name on line 1, the project
 // (and, from Phase 3 on, model / branch / worktree) on line 2, the state
-// chip and the thread's dots menu on the right. See "Workspace" -> "Main
-// pane" in docs/design-02-projects-and-threads.md and PHASES.md Phase 1.
+// chip, the editor button and the thread's dots menu on the right. See
+// "Workspace" -> "Main pane" in docs/design-02-projects-and-threads.md and
+// PHASES.md Phase 1.
 import React, { useCallback, useRef, useState } from 'react';
 import { Tab, Group } from '../TabBar/types';
-import { FolderIcon, IconBranch, IconModel, IconMore, IconTerm, IconWorktree, KindIcon, StateIcon } from '../Icons';
+import { EditorLogo, FolderIcon, IconBranch, IconModel, IconMore, IconTerm, IconWorktree, KindIcon, StateIcon } from '../Icons';
 import { Menu } from '../Menu';
-import { buildThreadMenu, ThreadMenuActions } from '../../threadMenu';
+import { buildHeaderMenu, HeaderMenuActions, ThreadMenuActions } from '../../threadMenu';
+import { FOLDER_MISSING_TIP } from '../../projectMenu';
 import { threadKind, threadName, threadState, stateLabel, modelLabel, runningLabel } from '../../threadView';
 import { asleepLabel } from '../../sleepWake';
 import './Header.css';
@@ -20,18 +22,24 @@ export interface HeaderProps {
   group: Group | undefined;
   groups: Group[];
   // Undefined only when there is no active tab (nothing to act on).
-  actions?: ThreadMenuActions;
+  actions?: HeaderMenuActions;
   // "Open in File Explorer" for the project's own folder, behind the project item
   // on line 2 (Phase 9, Aryan: the project item should open the project folder).
   // Undefined when the thread has no project or the project has no folder.
   projectExplorer?: { missing: boolean; open: () => void };
+  // The editor button beside the dots: opens the thread's own folder (the
+  // worktree for a worktree chat, the project root for a chat that runs there,
+  // a shell's cwd) in the primary editor, drawn with that editor's logo.
+  // Undefined when the thread has no folder or no editor was detected, and then
+  // there is no button. The dots menu never gets these entries.
+  editor?: ThreadMenuActions['openInEditor'];
   // Clock reading for the asleep chip's "Asleep · 2d" wording (asleepLabel).
   // Required, not read from Date.now() here, so the chip updates on the same
   // tick as the rest of the app instead of drifting on its own render timing.
   now: number;
 }
 
-export function Header({ tab, group, groups, actions, projectExplorer, now }: HeaderProps) {
+export function Header({ tab, group, groups, actions, projectExplorer, editor, now }: HeaderProps) {
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -59,6 +67,7 @@ export function Header({ tab, group, groups, actions, projectExplorer, now }: He
   // missing-folder case keeps the button but disables it with the same tip the
   // menus use, so a dead path is explained rather than silently ignored.
   const explorer = actions?.openInExplorer;
+  const primaryEditor = editor?.editors[0];
 
   return (
     <div className="header">
@@ -129,6 +138,26 @@ export function Header({ tab, group, groups, actions, projectExplorer, now }: He
                 : stateLabel(state)}
           </span>
         )}
+        {editor && primaryEditor && (editor.missing ? (
+          <span
+            className="ic disabled"
+            data-action="editor"
+            aria-disabled="true"
+            data-tip={FOLDER_MISSING_TIP}
+          >
+            <EditorLogo product={primaryEditor.product} size={18} />
+          </span>
+        ) : (
+          <button
+            type="button"
+            className="ic"
+            data-action="editor"
+            data-tip={`Open in ${primaryEditor.name}`}
+            onClick={() => editor.open(primaryEditor.id)}
+          >
+            <EditorLogo product={primaryEditor.product} size={18} />
+          </button>
+        ))}
         {actions && (
           <button ref={moreButtonRef} className="ic" data-tip="More" onClick={openMenu}>
             <IconMore size={18} />
@@ -139,7 +168,7 @@ export function Header({ tab, group, groups, actions, projectExplorer, now }: He
         <Menu
           x={menuPos.x}
           y={menuPos.y}
-          items={buildThreadMenu(tab, groups, actions)}
+          items={buildHeaderMenu(tab, groups, actions)}
           onClose={closeMenu}
         />
       )}

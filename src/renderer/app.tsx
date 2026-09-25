@@ -18,10 +18,10 @@ import { ConfirmDialog } from './components/ConfirmDialog';
 import type { Screen } from './components/ScreenNav';
 import { useTabState, threadGitCwd } from './hooks/useTabState';
 import { Tab, TabNotification, GROUP_COLORS, nextGroupColor } from './components/TabBar/types';
-import { onTitle, onOutput, onTick, onInterrupt, onAnswer, initTiming, TabTiming } from './spinnerState';
+import { onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, clearsWhenSeen, initTiming, TabTiming } from './spinnerState';
 import { migrateSession, serializeSession } from './sessionMigration';
 import { sleepAllForShutdown } from './sleepWake';
-import { toastMessage, initialScreen, threadName, needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText, localhostUrl, threadFolder } from './threadView';
+import { toastMessage, initialScreen, threadName, needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText, localhostUrl, threadFolder, threadFolderTarget, projectLookChanges } from './threadView';
 import { ProjectActions } from './projectMenu';
 import { buildThreadMenu } from './threadMenu';
 import { projectAttention, totalAttention, railProjects, firstThreadToOpen } from './attention';
@@ -242,9 +242,35 @@ export function App() {
   // false for a folder main has actually checked and found missing; an
   // unchecked one counts as present, so the item never starts out disabled.
   const threadExplorer = (tab: Tab) => {
-    const folder = threadFolder(tab);
-    if (!folder) return undefined;
-    return { missing: folderExists[folder] === false, open: () => openFolderInExplorer(folder) };
+    const target = threadFolderTarget(tab, folderExists);
+    if (!target) return undefined;
+    return { missing: target.missing, open: () => openFolderInExplorer(target.folder) };
+  };
+
+  // Launches an editor on a folder, for a project (its root) and a thread (its
+  // own folder) alike. main re-runs detection on failure, so a vanished editor
+  // stops being offered, and the toast offers to pick one.
+  const openFolderInEditor = (folder: string, editorId: string) => {
+    // Recorded for the harness (drive.mjs's `opened`), like lastOpenFolder.
+    const win = window as unknown as { __afterterm?: Record<string, unknown> };
+    win.__afterterm = { ...(win.__afterterm ?? {}), lastOpenEditor: { folder, editorId } };
+    const name = editors.find(e => e.id === editorId)?.name ?? 'the editor';
+    window.afterterm.editors.open(folder, editorId).then(result => {
+      setEditors(result.editors);
+      if (!result.ok) {
+        showToast({ message: `Couldn't open ${name}`, actionLabel: 'Choose editor...', onAction: chooseEditor });
+      }
+    });
+  };
+
+  // "Open in <editor>" for a thread's own folder (the worktree for a worktree
+  // chat, the project root for a chat that runs there, a shell's cwd), the
+  // editor twin of threadExplorer: the header's editor button and the thread
+  // menu entries. Undefined when the thread has no folder or no editor was found.
+  const threadEditor = (tab: Tab) => {
+    const target = threadFolderTarget(tab, folderExists);
+    if (!target || editors.length === 0) return undefined;
+    return { editors, missing: target.missing, open: (editorId: string) => openFolderInEditor(target.folder, editorId) };
   };
 
   const projectActions: ProjectActions = {
@@ -262,6 +288,7 @@ export function App() {
         stateRef.current.addTab(groupId);
       }
       goScreen('workspace');
+      panelRef.current?.revealProject(groupId);
     },
     newThread: (groupId) => {
       stateRef.current.addTab(groupId);
@@ -280,15 +307,7 @@ export function App() {
     },
     openInEditor: (groupId, editorId) => {
       const folder = findGroup(groupId)?.cwd;
-      if (!folder) return;
-      const name = editors.find(e => e.id === editorId)?.name ?? 'the editor';
-      window.afterterm.editors.open(folder, editorId).then(result => {
-        // main re-runs detection on failure, so a vanished editor stops being offered.
-        setEditors(result.editors);
-        if (!result.ok) {
-          showToast({ message: `Couldn't open ${name}`, actionLabel: 'Choose editor...', onAction: chooseEditor });
-        }
-      });
+      if (folder) openFolderInEditor(folder, editorId);
     },
     chooseEditor,
     edit: (groupId) => setProjectModal({ mode: 'edit', groupId }),
@@ -529,11 +548,11 @@ export function App() {
   // still waiting after you look at it, and only answering it (Enter), cancelling
   // it (Esc or Ctrl+C) or the hook's next title ends it, all in spinnerState.ts.
   // 'working' and 'compacting' are ongoing-turn state, not unseen badges, so they
-  // keep spinning.
+  // keep spinning. The same rule (clearsWhenSeen) clears a title that lands on
+  // the thread while it is being viewed, in handleNotification.
   const clearThreadBadges = useCallback((tabId: string) => {
     const tab = stateRef.current.tabs.find(t => t.id === tabId);
-    const current = tab?.notification;
-    if (current === 'done' || current === 'background') stateRef.current.setTabNotification(tabId, undefined);
+    if (clearsWhenSeen(tab?.notification)) stateRef.current.setTabNotification(tabId, undefined);
     if (tab?.unread) stateRef.current.setUnread(tabId, false);
     window.afterterm.notify.dismissTab(tabId);
   }, []);
@@ -588,6 +607,7 @@ export function App() {
     if (target) {
       handleActivate(target.id);
       goScreen('workspace');
+      panelRef.current?.revealProject(groupId);
       return;
     }
     projectActions.open(groupId);
@@ -600,6 +620,7 @@ export function App() {
   const bringProjectIn = useCallback((groupId: string) => {
     const tabId = stateRef.current.bringProjectIn(groupId, Date.now());
     if (tabId) clearThreadBadges(tabId);
+    panelRef.current?.revealProject(groupId);
   }, [clearThreadBadges]);
 
   const handleNotification = useCallback((tabId: string, type: TabNotification | undefined, projectName: string) => {
@@ -611,12 +632,13 @@ export function App() {
     const cur = stateRef.current.tabs.find(t => t.id === tabId)?.notification;
     const next = onTitle(cur, type, timing, now);
     // The user is looking at this thread right now: the same test that suppresses
-    // the toast below. A `done` that lands on the viewed thread has already been
-    // seen, so it clears at once instead of waiting for the next activation
-    // (Aryan, 2026-09-19); with the app behind another window it stays done until
-    // the thread is looked at, exactly as a background one does.
+    // the toast below. A `done` or `background` that lands on the viewed thread
+    // has already been seen, so it clears at once instead of waiting for the next
+    // activation (Aryan, 2026-09-19 for done; background since 2026-09-25, when a
+    // ⏳ on the viewed thread kept its spinner until a switch away and back). With
+    // the app behind another window it stays until the thread is looked at.
     const viewing = stateRef.current.activeTabId === tabId && document.hasFocus();
-    applyNotif(tabId, cur, next === 'done' && viewing ? undefined : next);
+    applyNotif(tabId, cur, onViewedTitle(next, viewing));
 
     if (!type) return;
     // Working indicator is sidebar-only, no toast while Claude is mid-turn
@@ -636,6 +658,7 @@ export function App() {
       secondaryLabel: group?.label,
       projectColor: group ? GROUP_COLORS[group.color].border : undefined,
       projectIcon: group?.icon,
+      projectId: group?.id,
       message: toastMessage(type),
     });
   }, [state.setTabNotification]);
@@ -900,6 +923,24 @@ export function App() {
     return () => { cancelled = true; };
   }, [state.activeTabId, activeTabAsleep, tails]);
 
+  // A toast is drawn from what it was sent, so a project edited while its toast
+  // is on screen tells the overlay its new name, colour and icon. The first
+  // render only records the projects: nothing on screen can be out of date yet.
+  const prevGroupsRef = useRef<typeof state.groups | null>(null);
+  useEffect(() => {
+    const prev = prevGroupsRef.current;
+    prevGroupsRef.current = state.groups;
+    if (!prev) return;
+    for (const look of projectLookChanges(prev, state.groups)) {
+      window.afterterm.notify.projectUpdated({
+        projectId: look.projectId,
+        label: look.label,
+        color: GROUP_COLORS[look.color].border,
+        icon: look.icon,
+      });
+    }
+  }, [state.groups]);
+
   // Folder existence for the screens that show it and, since Phase 9, for the
   // thread menu's own Explorer entry. One round trip per screen entry, so a folder
   // deleted while you were in the workspace is caught on the way back, plus one
@@ -978,7 +1019,7 @@ export function App() {
           total: totalAttention(s.groups, s.tabs),
           projects: s.groups
             .filter(g => !g.archived)
-            .map(g => ({ id: g.id, label: g.label, pinned: g.pinned, ...(perProject.get(g.id) ?? { waiting: 0, working: 0, running: 0, finished: 0, compacting: 0 }) })),
+            .map(g => ({ id: g.id, label: g.label, pinned: g.pinned, ...(perProject.get(g.id) ?? { waiting: 0, working: 0, running: 0, finished: 0, compacting: 0, background: 0 }) })),
           rail: railProjects(s.groups, s.tabs).map(g => g.label),
         };
       },
@@ -1027,7 +1068,17 @@ export function App() {
         projectActions={projectActions}
         onGoHome={() => goScreen('home')}
         onGoWorkspace={() => goScreen('workspace')}
-        onTogglePanel={togglePanel}
+        onTogglePanel={() => {
+          // Home and the project page have no panel: the toggle takes you to
+          // the workspace with it showing, rather than flipping a hidden flag.
+          if (screen !== 'workspace') {
+            setPanelShut(false);
+            setPanelHidden(false);
+            goScreen('workspace');
+          } else {
+            togglePanel();
+          }
+        }}
         onSearch={() => setPaletteOpen(open => !open)}
         onNewThread={setChooser}
         onOpenProject={openProjectFromRail}
@@ -1059,7 +1110,6 @@ export function App() {
           onResume={entryId => resumeThread(pageGroup.id, entryId)}
           initialTab={projectPageTab}
           threadMenu={tab => buildThreadMenu(tab, state.groups, {
-            open: () => openThreadInWorkspace(tab.id),
             moveToGroup: id => (id ? state.addToGroup(tab.id, id) : state.removeFromGroup(tab.id)),
             close: () => closeThread(tab.id),
             sleep: () => sleepThread(tab.id),
@@ -1067,7 +1117,8 @@ export function App() {
             setUnread: unread => state.setUnread(tab.id, unread),
             openLocalhost: () => openLocalhost(tab.id),
             openInExplorer: threadExplorer(tab),
-            openProjectPage: tab.groupId ? () => goScreen('project', tab.groupId) : undefined,
+            openInEditor: threadEditor(tab),
+            // No openProjectPage: these rows are on the project page already.
           })}
           onBack={() => goScreen('home')}
         />
@@ -1084,7 +1135,6 @@ export function App() {
           hidden={panelHidden || panelShut}
           now={now}
           shells={shells}
-          onToggleCollapse={togglePanel}
           onActivate={handleActivate}
           onClose={closeThread}
           onSleep={sleepThread}
@@ -1092,6 +1142,7 @@ export function App() {
           onWake={wakeThread}
           onOpenLocalhost={openLocalhost}
           threadExplorer={threadExplorer}
+          threadEditor={threadEditor}
           onNewTab={state.addTab}
           onOpenChooser={setChooser}
           onOpenProjectPage={groupId => goScreen('project', groupId)}
@@ -1123,8 +1174,8 @@ export function App() {
               missing: folderMissing(activeGroup),
               open: () => openFolderInExplorer(activeGroup.cwd!),
             } : undefined}
+            editor={activeTab ? threadEditor(activeTab) : undefined}
             actions={activeTab ? {
-              open: () => state.activateTab(activeTab.id),
               moveToGroup: (id) => id ? state.addToGroup(activeTab.id, id) : state.removeFromGroup(activeTab.id),
               close: () => closeThread(activeTab.id),
               sleep: () => sleepThread(activeTab.id),
