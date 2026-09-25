@@ -18,8 +18,8 @@ import { buildProjectMenu, ProjectActions } from '../../projectMenu';
 import type { EditorInfo } from '../../../editors';
 import {
   FolderIcon, KindIcon, StateIcon,
-  IconPanel, IconSearch, IconPlus, IconPage, IconPin, IconPinOn, IconChevD,
-  IconCollapseAll, IconExpandAll, IconBell, IconPlay, IconCompact, IconX,
+  IconSearch, IconPlus, IconPage, IconPin, IconPinOn, IconChevD,
+  IconCollapseAll, IconExpandAll, IconBell, IconPlay, IconCompact, IconX, Spinner,
 } from '../Icons';
 // The row order is computed groups-first (see sidebarWalk.ts), so a group with no
 // terminals renders as a normal row instead of vanishing from the list. That walk
@@ -29,6 +29,7 @@ import {
   threadKind, threadState, stateBreathes, threadName, foldThreads,
   projectCounts,
 } from '../../threadView';
+import type { ProjectPillCounts } from '../../threadView';
 // Phase 8: the panel's groups (General, Pinned, Recent, Other), the in-place
 // search filter and the keyboard cycle's row order all come from panelView.ts,
 // pure and unit-tested; this component only renders what it returns.
@@ -146,7 +147,7 @@ function ThreadRow({
 interface ProjectRowProps {
   group: Group;
   threadCount: number;
-  counts: { needsYou: number; running: number; compacting: number };
+  counts: ProjectPillCounts;
   pinned: boolean;
   isDragging: boolean;
   // The short highlight after the project was opened from elsewhere.
@@ -230,6 +231,12 @@ function ProjectRow({
         <span className="sig need">
           <span className="si need"><IconBell size={14} /></span>
           {counts.needsYou}
+        </span>
+      )}
+      {counts.working > 0 && (
+        <span className="sig work">
+          <span className="si"><Spinner size={11} /></span>
+          {counts.working}
         </span>
       )}
       {counts.running > 0 && (
@@ -317,7 +324,6 @@ export interface SidePanelProps {
   // The clock the Recent rule (3 days) and the docked Other rows' "2d" read.
   now: number;
   shells: { id: string; name: string }[];
-  onToggleCollapse: () => void;
   onActivate: (tabId: string) => void;
   onClose: (tabId: string) => void;
   onSleep: (tabId: string) => void;
@@ -367,7 +373,7 @@ export interface SidePanelProps {
 
 export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function SidePanel(props, ref) {
   const {
-    tabs, groups, activeTabId, hidden, now, shells, onToggleCollapse,
+    tabs, groups, activeTabId, hidden, now, shells,
     onActivate, onClose, onSleep, onWake, onSetUnread, onOpenLocalhost, threadExplorer, threadEditor, onNewTab,
     onOpenChooser, onOpenProjectPage, onTogglePin,
     onNewProject, editors, folderExists, projectActions,
@@ -795,13 +801,6 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
   return (
     <>
       <div className={`side-panel${hidden ? ' hidden' : ''}`} inert={hidden}>
-        <div className="brand">
-          <span className="sp" />
-          <button className="ic" onClick={onToggleCollapse} data-tip="Close sidebar">
-            <IconPanel size={18} />
-          </button>
-        </div>
-
         <div className="side-body">
           {/* The Search box (design-03 decision 13): typing filters the panel in
               place; Ctrl+Shift+P still opens the palette, the only place closed
@@ -913,7 +912,7 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
                 <ProjectRow
                   group={draggingGroup}
                   threadCount={tabs.filter(t => t.groupId === draggingGroup.id).length}
-                  counts={{ needsYou: 0, running: 0, compacting: 0 }}
+                  counts={{ needsYou: 0, working: 0, running: 0, compacting: 0 }}
                   pinned={draggingGroup.pinned}
                   isDragging={false}
                   onToggle={() => {}}

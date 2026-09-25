@@ -21,8 +21,9 @@ export interface ThreadMenuActions {
   // Mark as unread / Mark as read (chats only; the builders decide which label
   // to show and whether to show either at all).
   setUnread: (unread: boolean) => void;
-  // Only passed where there is a screen to go to. A thread with no project has no
-  // page to open, so the item stays out of the menu in that case either way.
+  // Only passed where there is a page to go to: not for a thread with no
+  // project, and not on the project page's own rows, which are already on it
+  // (Aryan, 2026-09-25: a dead item, like the old Open). Absent leaves it out.
   openProjectPage?: () => void;
   // Only offered for an awake server (design-02 "Right-click on a thread": "Open
   // localhost:port (servers)"). Absent for a chat, a plain shell, or an asleep
@@ -78,11 +79,8 @@ function localhostItems(tab: Tab, actions: HeaderMenuActions): MenuItem[] {
 }
 
 function projectPageItems(tab: Tab, actions: HeaderMenuActions): MenuItem[] {
-  if (!tab.groupId) return [];
-  const openPage = actions.openProjectPage;
-  return [openPage
-    ? { label: 'Open project page', onSelect: openPage }
-    : { label: 'Open project page', disabled: true }];
+  if (!tab.groupId || !actions.openProjectPage) return [];
+  return [{ label: 'Open project page', onSelect: actions.openProjectPage }];
 }
 
 function explorerItems(actions: HeaderMenuActions): MenuItem[] {

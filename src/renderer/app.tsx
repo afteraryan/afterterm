@@ -1067,7 +1067,17 @@ export function App() {
         projectActions={projectActions}
         onGoHome={() => goScreen('home')}
         onGoWorkspace={() => goScreen('workspace')}
-        onTogglePanel={togglePanel}
+        onTogglePanel={() => {
+          // Home and the project page have no panel: the toggle takes you to
+          // the workspace with it showing, rather than flipping a hidden flag.
+          if (screen !== 'workspace') {
+            setPanelShut(false);
+            setPanelHidden(false);
+            goScreen('workspace');
+          } else {
+            togglePanel();
+          }
+        }}
         onSearch={() => setPaletteOpen(open => !open)}
         onNewThread={setChooser}
         onOpenProject={openProjectFromRail}
@@ -1107,7 +1117,7 @@ export function App() {
             openLocalhost: () => openLocalhost(tab.id),
             openInExplorer: threadExplorer(tab),
             openInEditor: threadEditor(tab),
-            openProjectPage: tab.groupId ? () => goScreen('project', tab.groupId) : undefined,
+            // No openProjectPage: these rows are on the project page already.
           })}
           onBack={() => goScreen('home')}
         />
@@ -1124,7 +1134,6 @@ export function App() {
           hidden={panelHidden || panelShut}
           now={now}
           shells={shells}
-          onToggleCollapse={togglePanel}
           onActivate={handleActivate}
           onClose={closeThread}
           onSleep={sleepThread}

@@ -92,6 +92,9 @@ The sidebar is no longer tab groups. It is projects and threads, with a Home scr
 
 ### Fixed
 
+- The sidebar toggle appeared on the rail only while the sidebar was closed, so after opening the sidebar the same spot held the Home button; the toggle now stays first on the rail in one place, and the sidebar starts with Search.
+- The project page's thread menu offered "Open project page" while already on that page; it no longer does.
+- A project showed a green play pill both when Claude was working in one of its threads and when a thread was running a server; it now shows a spinner pill for working threads and the play pill only for servers, on the sidebar and on Home.
 - The thread menus had an "Open" item that did nothing for the thread already open; it is gone, and the header's dots menu is now its own menu.
 - New threads landed at the bottom of a project, behind "Show more"; they now go first, so the newest threads are the ones on show.
 - A toast on screen kept a project's old name, colour and icon after the project was edited; it now updates straight away.

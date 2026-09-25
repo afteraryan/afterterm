@@ -114,28 +114,6 @@ He also asks whether any of this was designed and built before the redesign, so 
 
 ---
 
-## The project row's running count uses a play icon while the thread itself shows a green circle
-
-**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 5 (running state and its icon; the project pills are Phase 1) · **Status:** open · **Severity:** low (an inconsistent icon) · **Screenshot:** none attached
-
-**What happens:**
-A project row shows a pill with a play icon and the number of running threads. Aryan does not think a play button says "running": the thread row itself shows the running circle, and the project should show that same mark, not a play. He asks that every place the play icon stands for "running" be found first, so the change is made everywhere at once.
-
-Where the play icon is used today, from a grep of `src/renderer`:
-- `StateIcon`'s `running` case in `components/Icons.tsx`, which draws `IconPlay` inside `.si.run`. That is the thread's own state icon, on the sidebar row, the header chip, the hover card's Type row and the project page rows.
-- The project row's counter pill in `components/SidePanel/index.tsx` (`<span className="si run"><IconPlay size={13} /></span>`), the pill Aryan is describing, which is also what Home's totals use.
-- The rail tile has no play: its badges are counts (`data-badge="working"` and the rest), so the rail is unaffected.
-
-So the play icon means "running" in two places, and both are the same idea: one for a thread, one for a count of threads.
-
-**Repro:**
-1. Start a dev server in a thread so its row turns green with its port.
-2. The thread's row shows the running mark; its project's row shows a pill with a play icon and the count.
-
-**Cause:** not a defect in the code, a choice of glyph: `IconPlay` is `StateIcon`'s `running` case and the pill's icon, chosen in Phase 5 when running state was added. Fix direction: pick one mark for running (Aryan's preference is the circle the thread shows) and use it in `StateIcon`'s running case and the counter pill together, checking the hover card, the header chip, Home's totals and the project page at the same time so nothing keeps the old glyph.
-
----
-
 ## A block of Claude's output is printed twice in the terminal
 
 **Observed:** 2026-09-25 by Aryan during manual testing (an old problem, still happening) · **Phase:** pre-existing (the terminal's output path) · **Status:** open · **Severity:** medium (the scrollback cannot be trusted to show what was said once) · **Screenshot:** `docs/screenshots/manual-testing/06-claude-output-block-repeated-in-the-terminal.png`
@@ -150,16 +128,33 @@ As observed; repro not yet known. Seen in a chat thread running Claude Code whil
 
 ---
 
-## The thread menu on the project page offers "Open project page" while you are already on that page
+## There is no list of the files a chat has edited, and no way to open one without a clickable path in the output
 
-**Observed:** 2026-09-25 by Claude during the self-test of the small fixes · **Phase:** 2 (the project page's thread rows share the row menu) · **Status:** open · **Severity:** low (a dead menu item, the same kind as the "Open" item removed on 2026-09-25) · **Screenshot:** none attached
+**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 3 (thread identity, what afterterm reads from a Claude session) · **Status:** open · **Severity:** medium (a daily action has no support at all) · **Screenshot:** none attached
 
 **What happens:**
-Right-clicking a thread row on a project page shows "Open project page", which goes to the page that is already open.
+Opening a file that Claude just edited depends on Claude having written the path in a form the terminal turns into a link, and it does not always do that. Aryan does not want to have to ask for paths in a particular format. He wants afterterm to know which files a chat has edited, show them as a list he can open from, newest edit first.
 
 **Repro:**
-1. Open a project page.
-2. Right-click a thread row in the Live or Asleep tab.
-3. "Open project page" is in the menu; choosing it changes nothing.
+1. Work in a chat thread until Claude edits several files.
+2. To open one, look through the output for a path the link addon made clickable; if Claude wrote it plainly, or wrote it relative, there is nothing to click and nothing else in the app knows the file exists.
 
-**Cause:** the project page rows use `buildThreadMenu` (`src/renderer/threadMenu.tsx`), the sidebar's row menu, and `app.tsx` passes `openProjectPage` for them too. Fix direction: leave `openProjectPage` out for the project page's rows, or give the page its own menu the way the header has `buildHeaderMenu`.
+**Cause:** nothing in afterterm tracks edited files: the transcript reader (`src/claude-transcript.ts`) reads only the first prompt, the latest model and the newest cwd, and the terminal's only file affordance is the web-links addon over whatever text the shell printed (`Terminal/index.tsx`). The data is there to build it: every `Edit`, `Write` and `NotebookEdit` tool call in the session transcript carries `input.file_path` in an assistant message's `content`, in order, so a tail read of the same JSONL gives the edited files newest first (checked against a real transcript on 2026-09-25). Fix direction: extend the transcript reader to collect the last N distinct `file_path` values from those tool calls, and show them for the active chat (a panel, a header popover or a project page tab, Aryan's choice), each row opening the file in the detected editor through the existing `editors:open` IPC (which takes any path) or revealing it in Explorer; the read already happens once a turn, so a list would stay current without polling.
+
+---
+
+## A thread keeps showing "Background tasks" and its spinner after the turn has ended
+
+**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 1 (the notification states and the spinner; the clearing paths are in app.tsx) · **Status:** open · **Severity:** medium (the sidebar says a thread is busy when it is idle) · **Screenshot:** `docs/screenshots/manual-testing/07-thread-shows-background-tasks-and-spinner-after-the-turn-ended.png`
+
+**What happens:**
+Claude had finished its turn (the transcript shows "Churned for 2m 39s, done 1:49 PM" and the prompt is back, with typed text waiting), but the thread still showed a spinner on its sidebar row and a "Background tasks" chip in the header. Aryan asks why it still reads as working when the message has been sent and the turn is over.
+
+**Repro:**
+1. In a thread you are looking at, run a turn that leaves a Claude Code background task (or a session cron) still running when the turn ends.
+2. The turn ends: the prompt is back and nothing runs in the foreground, but the row keeps its spinner and the header its "Background tasks" chip.
+3. Switch to another thread and back: it clears.
+
+**Cause:** two clearing paths disagree, and the `background` badge falls through the gap. `clearThreadBadges` in `src/renderer/app.tsx` (which runs when a thread is activated) clears `done` and `background` together, but `handleNotification`'s viewing test in the same file clears only `done`: `applyNotif(tabId, cur, next === 'done' && viewing ? undefined : next)`. The `background` title always lands in the thread the user is looking at, because the turn that produced it just ended there, so the viewing test is exactly the path that should clear it and is the one that does not; activation has already happened, so the other path never runs again and the badge stays until the user switches away and back. The state itself is `background`, not `working`: the hook emits `⏳ <project> - bg (N running)` on `Stop` when `background_tasks` still has running entries or session crons remain (`assets/hooks/afterterm-notify.ps1`), and `StateIcon` in `components/Icons.tsx` draws `working` and `background` with the same grey spinner (`case 'working': case 'background':`), which is why a finished turn reads as a busy one.
+
+Fix direction, two changes: include `background` in `handleNotification`'s viewing clear so the two paths treat the same pair of states the same way; and give `background` its own icon instead of the working spinner (`IconHourglass` exists, and Phase 8 did exactly this for compacting), so a badge that is legitimately showing says "background tasks" rather than "Claude is busy". Deliberately not a silence timer: silence says nothing about whether a background task is still running, so a timer would trade a badge that lingers for one that lies the other way. The limit that stays: Claude Code fires no hook when a background task finishes, so afterterm can never report the end on its own; with those two changes that stops mattering.

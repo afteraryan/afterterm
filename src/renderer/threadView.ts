@@ -305,9 +305,29 @@ export function foldThreads<T extends { id: string }>(
 // compacting (design-03's Phase 7 handoff): a compacting chat gets its own
 // state and its own rail badge, but is not "actively doing something" for the
 // purpose of this pill, only the rail separates it out.
-export function projectCounts(states: ThreadState[]): { needsYou: number; running: number; compacting: number } {
-  const counts = countStates(states);
-  return { needsYou: counts.waiting, running: counts.working + counts.running, compacting: counts.compacting };
+// A project's pills show what its thread rows show (Aryan, 2026-09-25): the
+// spinner for threads Claude is working in (working, and background, which
+// draws the same spinner), the green play for threads running a server. They
+// used to be added together under the play, so a working chat and a server
+// looked the same on the project row.
+export function projectCounts(states: ThreadState[]): ProjectPillCounts {
+  return pillCounts(countStates(states));
+}
+
+export interface ProjectPillCounts {
+  needsYou: number;
+  working: number;
+  running: number;
+  compacting: number;
+}
+
+export function pillCounts(counts: ReturnType<typeof countStates>): ProjectPillCounts {
+  return {
+    needsYou: counts.waiting,
+    working: counts.working + counts.background,
+    running: counts.running,
+    compacting: counts.compacting,
+  };
 }
 
 // Toast wording per hook notification. Working never toasts (it is a silent,
