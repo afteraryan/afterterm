@@ -19,7 +19,7 @@ import type { EditorInfo } from '../../../editors';
 import {
   FolderIcon, KindIcon, StateIcon,
   IconSearch, IconPlus, IconPage, IconPin, IconPinOn, IconChevD,
-  IconCollapseAll, IconExpandAll, IconBell, IconPlay, IconCompact, IconX, Spinner,
+  IconCollapseAll, IconExpandAll, IconBell, IconPlay, IconCompact, IconHourglass, IconX, Spinner,
 } from '../Icons';
 // The row order is computed groups-first (see sidebarWalk.ts), so a group with no
 // terminals renders as a normal row instead of vanishing from the list. That walk
@@ -237,6 +237,12 @@ function ProjectRow({
         <span className="sig work">
           <span className="si"><Spinner size={11} /></span>
           {counts.working}
+        </span>
+      )}
+      {counts.background > 0 && (
+        <span className="sig bg">
+          <span className="si bg"><IconHourglass size={13} /></span>
+          {counts.background}
         </span>
       )}
       {counts.running > 0 && (
@@ -912,7 +918,7 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
                 <ProjectRow
                   group={draggingGroup}
                   threadCount={tabs.filter(t => t.groupId === draggingGroup.id).length}
-                  counts={{ needsYou: 0, working: 0, running: 0, compacting: 0 }}
+                  counts={{ needsYou: 0, working: 0, background: 0, running: 0, compacting: 0 }}
                   pinned={draggingGroup.pinned}
                   isDragging={false}
                   onToggle={() => {}}

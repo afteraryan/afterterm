@@ -32,8 +32,8 @@ export interface AttentionCounts {
   finished: number;
   compacting: number;
   // Background tasks after the turn (the hook's hourglass title). The thread
-  // row draws the same spinner as working, so the project pills count it with
-  // working (projectCounts); the rail's badges leave it out, as before.
+  // row draws the hourglass, and the project pills give it its own hourglass
+  // pill (projectCounts); the rail's badges leave it out, as before.
   background: number;
 }
 
