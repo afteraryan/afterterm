@@ -6,6 +6,35 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
+## Branch edited-files-build, in the replica dev build (2026-09-25)
+
+The replica is a copy of your data at `%TEMP%\afterterm-agent-harness\aryan-edited-files-replica`, on the second screen. Opening files and folders launches for real there.
+
+### A chat's header has a Files button listing the documents, code and pasted images it changed
+**Status:** waiting for Aryan
+1. Open "Recently edited files UI design" (afterterm). The header shows "10 files" left of the Asleep chip; do not wake it.
+2. Click it: the list grows out of the button with the documents first, newest first, New on the ones it created. Code and Images you pasted are single rows showing only their counts.
+3. Click Code, then Images you pasted: each unfolds in place (thumbnails load). Click a document: it opens in VS Code and the list closes. Click an image: it opens full size.
+4. Right-click a document: Open in VS Code, Show in File Explorer, Copy path. Esc and a click outside close the list.
+5. Open "what things are uncommited?" (dl-bwmi): only code changed, so Code starts unfolded under "No documents in this chat yet".
+6. Open "In an old session a claude isntance connected to chrome…" (dl-bwmi): its 6 pasted images show and open although Claude Code's own copies are gone (one of them was logged twice by Claude Code and is listed once).
+7. Open "Source code extraction from APK" (Revy App): 07-old-code-behaviour.md, written by a subagent, is in the list.
+
+### Files a chat changed with shell commands are in the list too
+**Status:** waiting for Aryan
+1. Open "Create docs/notes.md with heredoc" (Edited files test). Its list shows notes.md (New) and README.md, both changed with `cat` commands, plus the files it wrote later.
+2. Wake it and ask it to write a markdown file with a shell command (for example `cat > docs/another.md`). After its reply the file is in the list.
+3. Change a file in that folder yourself while the chat is idle: it does not appear.
+
+### File paths in the terminal are clickable, like web links
+**Status:** waiting for Aryan
+1. Wake "Create docs/notes.md with heredoc" (Edited files test). Its conversation comes back on screen.
+2. Hover the paths in the Write(...) and Update(...) lines: each is underlined, and a click opens that file in VS Code.
+3. In the last reply, hover `index.tsx`: it is underlined with a note saying it opens `src\b\index.tsx`, the newest of two. `docs/notes.md:1` opens at line 1. The long path broken over two lines is underlined as one.
+4. `edited-files-design`, `.md` and `and/or` in that reply stay plain.
+
+---
+
 ## Build after PR #40 (2026-09-25)
 
 ### Background tasks show a flipping hourglass instead of the working spinner
