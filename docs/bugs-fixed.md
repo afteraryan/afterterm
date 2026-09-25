@@ -12,7 +12,7 @@ Format: the bug as it was titled, the date it was fixed, the PR or commit, then 
 
 ### A thread keeps showing "Background tasks" and its spinner after the turn has ended
 
-PR #39. Opening a thread cleared a background badge, but a `⏳` title landing on the thread already being viewed was only cleared if it was a `✅`, so a turn that ended with background tasks still running left the viewed thread spinning until you switched away and back. Both paths now use one rule (`clearsWhenSeen` and `onViewedTitle` in `spinnerState.ts`): done and background clear on the viewed thread at once; a thread not in view keeps its badge until opened. The background icon is unchanged.
+PR #39. Opening a thread cleared a background badge, but a `⏳` title landing on the thread already being viewed was only cleared if it was a `✅`, so a turn that ended with background tasks still running left the viewed thread spinning until you switched away and back. Both paths now use one rule (`clearsWhenSeen` and `onViewedTitle` in `spinnerState.ts`): done and background clear on the viewed thread at once; a thread not in view keeps its badge until opened. PR #40 then gave background its own icon, a flipping hourglass, and its own pill, so a badge that is still showing no longer reads as Claude working.
 
 ### The sidebar toggle moved off the rail once the sidebar opened, so clicking the same spot again opened Home
 

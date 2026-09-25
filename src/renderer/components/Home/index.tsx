@@ -94,6 +94,9 @@ export function Home({ groups, tabs, now, editors, folderExists, actions, onNewP
         {counts.working > 0 && (
           <span className="sig work"><StateIcon state="working" size={11} />{counts.working}</span>
         )}
+        {counts.background > 0 && (
+          <span className="sig bg"><StateIcon state="background" size={13} />{counts.background}</span>
+        )}
         {counts.running > 0 && (
           <span className="sig run"><StateIcon state="running" size={14} />{counts.running}</span>
         )}
@@ -168,13 +171,16 @@ export function Home({ groups, tabs, now, editors, folderExists, actions, onNewP
       <div className="home">
         <div>
           <h1 className="home-date">{dateHeading(now)}</h1>
-          {(totals.needsYou > 0 || totals.working > 0 || totals.running > 0 || totals.compacting > 0) && (
+          {(totals.needsYou > 0 || totals.working > 0 || totals.background > 0 || totals.running > 0 || totals.compacting > 0) && (
             <div className="sub tot">
               {totals.needsYou > 0 && (
                 <span className="sig need"><StateIcon state="needs-you" size={14} />{totals.needsYou}</span>
               )}
               {totals.working > 0 && (
                 <span className="sig work"><StateIcon state="working" size={11} />{totals.working}</span>
+              )}
+              {totals.background > 0 && (
+                <span className="sig bg"><StateIcon state="background" size={13} />{totals.background}</span>
               )}
               {totals.running > 0 && (
                 <span className="sig run"><StateIcon state="running" size={14} />{totals.running}</span>

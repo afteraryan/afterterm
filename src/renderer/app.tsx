@@ -1019,7 +1019,7 @@ export function App() {
           total: totalAttention(s.groups, s.tabs),
           projects: s.groups
             .filter(g => !g.archived)
-            .map(g => ({ id: g.id, label: g.label, pinned: g.pinned, ...(perProject.get(g.id) ?? { waiting: 0, working: 0, running: 0, finished: 0, compacting: 0 }) })),
+            .map(g => ({ id: g.id, label: g.label, pinned: g.pinned, ...(perProject.get(g.id) ?? { waiting: 0, working: 0, running: 0, finished: 0, compacting: 0, background: 0 }) })),
           rail: railProjects(s.groups, s.tabs).map(g => g.label),
         };
       },

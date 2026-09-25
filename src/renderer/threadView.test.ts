@@ -428,8 +428,12 @@ console.log('\nthreadView: projectCounts\n');
   check('working and running are separate counts, not added together (Aryan, 2026-09-25)',
     c.working === 1 && c.running === 1, show(c));
   const spinning = projectCounts(['working', 'background', 'running', 'running']);
-  check('background counts with working, since its row draws the same spinner',
-    spinning.working === 2, show(spinning));
+  check('background is its own count, not under working (Aryan, 2026-09-25: the hourglass)',
+    spinning.working === 1 && spinning.background === 1, show(spinning));
+  check('background is zero when none', c.background === 0, show(c));
+  const bgOnly = projectCounts(['background', 'background', 'quiet']);
+  check('a project with only background threads has no spinner pill',
+    bgOnly.background === 2 && bgOnly.working === 0 && bgOnly.running === 0, show(bgOnly));
   check('only servers count under running (the play pill)', spinning.running === 2, show(spinning));
   const chatOnly = projectCounts(['working', 'quiet']);
   check('a project with only a working chat has no play pill', chatOnly.running === 0 && chatOnly.working === 1, show(chatOnly));

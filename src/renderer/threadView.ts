@@ -306,10 +306,10 @@ export function foldThreads<T extends { id: string }>(
 // state and its own rail badge, but is not "actively doing something" for the
 // purpose of this pill, only the rail separates it out.
 // A project's pills show what its thread rows show (Aryan, 2026-09-25): the
-// spinner for threads Claude is working in (working, and background, which
-// draws the same spinner), the green play for threads running a server. They
-// used to be added together under the play, so a working chat and a server
-// looked the same on the project row.
+// spinner for threads Claude is working in, the hourglass for threads whose
+// turn ended with background tasks still running, the green play for threads
+// running a server. Working and servers used to be added together under the
+// play, and background under the spinner, so a finished turn read as a busy one.
 export function projectCounts(states: ThreadState[]): ProjectPillCounts {
   return pillCounts(countStates(states));
 }
@@ -317,6 +317,7 @@ export function projectCounts(states: ThreadState[]): ProjectPillCounts {
 export interface ProjectPillCounts {
   needsYou: number;
   working: number;
+  background: number;
   running: number;
   compacting: number;
 }
@@ -324,7 +325,8 @@ export interface ProjectPillCounts {
 export function pillCounts(counts: ReturnType<typeof countStates>): ProjectPillCounts {
   return {
     needsYou: counts.waiting,
-    working: counts.working + counts.background,
+    working: counts.working,
+    background: counts.background,
     running: counts.running,
     compacting: counts.compacting,
   };

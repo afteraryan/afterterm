@@ -6,6 +6,17 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
+## Build after PR #40 (2026-09-25)
+
+### Background tasks show a flipping hourglass instead of the working spinner
+**Status:** waiting for Aryan
+1. In a chat, start a turn that leaves a background task running when it ends, and switch to another thread before the turn ends.
+2. When it ends, that chat's row should show a grey hourglass (not the spinner) that turns half a turn, rests for under a second, and turns again.
+3. The project row in the sidebar should show an hourglass pill with 1, apart from any spinner pill for threads Claude is still working in. Home's card for the project and the totals under the date should show the same.
+4. Open the chat: the hourglass clears. With afterterm behind another window when a turn like that ends, the header chip reads "Background tasks" with the hourglass.
+
+---
+
 ## Build after PR #39 (2026-09-25)
 
 ### A thread you are looking at no longer keeps "Background tasks" and its spinner after Claude's turn ends

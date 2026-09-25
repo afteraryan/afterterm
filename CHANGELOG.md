@@ -43,6 +43,7 @@ The sidebar is no longer tab groups. It is projects and threads, with a Home scr
 - Mark a chat as unread to come back to it later; the mark survives a relaunch and clears when you type in the thread.
 - The rail on the left is always visible and lists only the projects with something pending: a tile per project with counts for waiting, working and finished, and a mark for compacting. Clicking a tile opens the thread that most needs you.
 - Project rows in the sidebar show the same counts as small pills. Nothing is shown at zero.
+- A thread whose turn ended with background tasks still running shows a grey hourglass that flips a half turn at a time, not the working spinner, on its row and in the header. Projects and Home's totals count these threads in their own hourglass pill, apart from the spinner pill.
 
 ### Servers
 

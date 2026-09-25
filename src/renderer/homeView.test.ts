@@ -145,6 +145,16 @@ console.log('\nhomeView: homeTotals\n');
     withCompacting.compacting === 1 && withCompacting.working === totals.working && withCompacting.running === totals.running,
     show(withCompacting));
 
+  const withBackground = homeTotals(groups, [
+    ...tabs,
+    tab('t12', { groupId: 'live1', notification: 'background' }),
+    tab('t13', { notification: 'background' }), // General
+    tab('t14', { groupId: 'archivedProj', notification: 'background' }), // excluded
+  ]);
+  check('background is its own total, not counted under working (the hourglass pill)',
+    withBackground.background === 2 && withBackground.working === totals.working, show(withBackground));
+  check('background total is zero when none', totals.background === 0, show(totals));
+
   const withUnread = homeTotals(groups, [
     ...tabs,
     tab('t8', { groupId: 'live1', unread: true }),
