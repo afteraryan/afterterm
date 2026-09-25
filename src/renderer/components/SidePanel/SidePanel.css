@@ -606,6 +606,27 @@
   color: var(--text);
 }
 
+/* ── A project just opened from elsewhere ──────────────────────────────── */
+
+/* revealProject: the row lights up when it arrives and fades back, one
+   animation as long as the class stays on (REVEAL_FLASH_MS in index.tsx), so
+   the ordinary hover keeps its own quick transition. Under reduced motion the
+   global rule in theme.css turns the animation off. */
+@keyframes pj-reveal {
+  0%, 45% { background: var(--hover2); }
+  100% { background: transparent; }
+}
+
+.side-panel .pj.revealed {
+  animation: pj-reveal 1200ms var(--ease) both;
+}
+
+/* A highlight is not movement: with animation off it still shows, as a plain
+   background for the same moment, with no fade. */
+@media (prefers-reduced-motion: reduce) {
+  .side-panel .pj.revealed { background: var(--hover2); }
+}
+
 /* ── Drop targets ──────────────────────────────────────────────────────── */
 
 .side-panel .th.drop-target::after,

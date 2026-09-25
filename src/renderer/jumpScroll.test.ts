@@ -3,6 +3,7 @@
 // Exits 0 if all pass, 1 on any failure.
 
 import {
+  JUMP_IDLE_MS, JUMP_HOLD_AFTER_SCROLL_MS, jumpHoldOnMove,
   initialJumpState, onScrollSample, JUMP_THRESHOLD_LINES, JUMP_THRESHOLD_PX,
   jumpDurationMs, jumpLineAt, prefersReducedMotion, JUMP_MIN_MS, JUMP_MAX_MS, wheelToLines,
   isUserScroll, USER_SCROLL_WINDOW_MS,
@@ -220,6 +221,18 @@ console.log('\njumpScroll: only scrolling the user started counts (isUserScroll)
   check('no input ever (0) does not count once time has passed', isUserScroll(0, 5000) === false);
   check('a scrollbar drag counts however long ago the pointer went down', isUserScroll(0, 99999, true) === true);
   check('a non-finite stamp never counts', isUserScroll(NaN, 10) === false);
+}
+
+console.log('\njumpScroll: idle hide and hold\n');
+{
+  check('the button goes after about a second idle', JUMP_IDLE_MS === 1000);
+  check('a move during the scroll (jitter) does not hold it',
+    jumpHoldOnMove(1000 + JUMP_HOLD_AFTER_SCROLL_MS - 50, 1000) === false);
+  check('a move right at the scroll does not hold it', jumpHoldOnMove(1000, 1000) === false);
+  check('a move once the scrolling has paused holds it',
+    jumpHoldOnMove(1000 + JUMP_HOLD_AFTER_SCROLL_MS + 1, 1000) === true);
+  check('the pause is shorter than the idle wait, so the user can still reach it',
+    JUMP_HOLD_AFTER_SCROLL_MS < JUMP_IDLE_MS);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

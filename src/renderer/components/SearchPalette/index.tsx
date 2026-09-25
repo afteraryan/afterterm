@@ -65,6 +65,11 @@ export function SearchPalette({ groups, tabs, onOpenProject, onOpenThread, onOpe
       e.preventDefault();
       setHi(h => Math.max(h - 1, 0));
     } else if (e.key === 'Enter') {
+      // Without this, the same key press goes on to press whatever has focus
+      // once the palette closes: opening a project whose thread is asleep puts
+      // focus on the asleep pane's Wake button, and Enter woke it (a chat ran
+      // `claude --resume`). Found in the 2026-09-25 self-test.
+      e.preventDefault();
       open(hi);
     } else if (e.key === 'Escape') {
       onClose();

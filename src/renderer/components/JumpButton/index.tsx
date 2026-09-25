@@ -13,10 +13,26 @@
 // comes and goes by scaling (no fade), which needs it to stay mounted while it
 // shrinks away: the last non-null target is kept for the icon during the exit,
 // and the shown state drives the CSS transition.
-import React, { useRef } from 'react';
+//
+// It also goes away on its own JUMP_IDLE_MS after the scrolling stops (Aryan,
+// 2026-09-21). The host calls poke() on every scroll of the user's (through the
+// ref, so a scroll never re-renders the host); the pointer moved onto the
+// button holds it, and leaving it starts the wait again. The button appears at
+// the scroller's centre, often right under a pointer that is only turning the
+// wheel, so neither an enter nor a jittering move during the scroll holds it:
+// a scroll always releases the hold, and a move holds only once the scrolling
+// has paused (jumpHoldOnMove; found in the self-test). Hidden this way, the
+// host's target is untouched, so the next scroll brings the button back.
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { IconChevU, IconChevD } from '../Icons';
+import { JUMP_IDLE_MS, jumpHoldOnMove } from '../../jumpScroll';
 import type { JumpTarget } from '../../jumpScroll';
 import './JumpButton.css';
+
+export interface JumpButtonHandle {
+  // The user scrolled: show again if the wait had hidden it, and restart the wait.
+  poke(): void;
+}
 
 export interface JumpButtonProps {
   target: JumpTarget;
@@ -25,10 +41,44 @@ export interface JumpButtonProps {
   onWheel: (deltaY: number, deltaX: number, deltaMode: number) => void;
 }
 
-export function JumpButton({ target, onJump, onWheel }: JumpButtonProps) {
+export const JumpButton = forwardRef<JumpButtonHandle, JumpButtonProps>(function JumpButton({ target, onJump, onWheel }, ref) {
   const lastRef = useRef<'top' | 'bottom'>('bottom');
   if (target !== null) lastRef.current = target;
-  const shown = target !== null;
+
+  const [idle, setIdle] = useState(false);
+  const hoverRef = useRef(false);
+  const lastScrollRef = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearWait = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+  };
+  const startWait = useCallback(() => {
+    clearWait();
+    timerRef.current = setTimeout(() => {
+      timerRef.current = null;
+      if (!hoverRef.current) setIdle(true);
+    }, JUMP_IDLE_MS);
+  }, []);
+  useImperativeHandle(ref, () => ({
+    poke: () => {
+      lastScrollRef.current = performance.now();
+      hoverRef.current = false;
+      setIdle(false);
+      startWait();
+    },
+  }), [startWait]);
+  // Appearing or flipping direction is the user scrolling too; gone, no wait.
+  useEffect(() => {
+    lastScrollRef.current = performance.now();
+    hoverRef.current = false;
+    setIdle(false);
+    if (target === null) clearWait();
+    else startWait();
+  }, [target, startWait]);
+  useEffect(() => clearWait, []);
+
+  const shown = target !== null && !idle;
   const dir = target ?? lastRef.current;
   const label = dir === 'top' ? 'Go to top' : 'Go to bottom';
 
@@ -46,10 +96,16 @@ export function JumpButton({ target, onJump, onWheel }: JumpButtonProps) {
       // The button lives over a scroller the user is actively reading; a
       // click on it must not steal focus away from the terminal or pane.
       onMouseDown={(e) => e.preventDefault()}
+      onMouseMove={() => {
+        if (hoverRef.current || idle || !jumpHoldOnMove(performance.now(), lastScrollRef.current)) return;
+        hoverRef.current = true;
+        clearWait();
+      }}
+      onMouseLeave={() => { hoverRef.current = false; if (target !== null) startWait(); }}
       onWheel={(e) => onWheel(e.deltaY, e.deltaX, e.deltaMode)}
       onClick={() => { if (shown) onJump(dir); }}
     >
       {dir === 'top' ? <IconChevU size={16} /> : <IconChevD size={16} />}
     </button>
   );
-}
+});

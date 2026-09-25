@@ -31,7 +31,7 @@ The sidebar is no longer tab groups. It is projects and threads, with a Home scr
 - Sleep any thread from its menu. Its last output is kept and shown while it sleeps.
 - Closing a thread in a project files it in the project's History tab; a chat can be resumed from there.
 - Hovering a thread row shows a card with its type, project, model, branch, worktree, last command and last activity.
-- Right-click a thread for Open, Sleep or Wake, Mark as unread, Move to project, Open localhost (for a server), Open project page, Open in File Explorer and Open in VS Code (or your editor; both open the thread's own folder, which for a chat is the worktree it works in) and Close.
+- Right-click a thread for Sleep or Wake, Mark as unread, Move to project, Open localhost (for a server), Open project page, Open in File Explorer and Open in VS Code (or your editor; both open the thread's own folder, which for a chat is the worktree it works in) and Close.
 - In the header, the project and the worktree items are clickable and open their folders in File Explorer.
 - The header has an Open in VS Code button beside the dots menu (your editor's logo if you use Cursor, Windsurf or VS Code Insiders). It opens the folder the thread is actually in: the worktree for a chat that runs in one, the project folder for a chat that runs there, the current folder for a shell. It is greyed out with "Folder not found" when that folder is gone.
 - The header's second line stays on one row; a long worktree name is shortened with an ellipsis instead of wrapping into the terminal.
@@ -92,6 +92,12 @@ The sidebar is no longer tab groups. It is projects and threads, with a Home scr
 
 ### Fixed
 
+- The thread menus had an "Open" item that did nothing for the thread already open; it is gone, and the header's dots menu is now its own menu.
+- New threads landed at the bottom of a project, behind "Show more"; they now go first, so the newest threads are the ones on show.
+- A toast on screen kept a project's old name, colour and icon after the project was edited; it now updates straight away.
+- Opening a project from Home, the rail, the search palette or the Other projects drawer left the sidebar where it was; it now scrolls to the project and highlights it for a moment.
+- The jump button stayed on screen after scrolling stopped; it now goes away about a second later, unless the pointer is resting on it.
+- Pressing Enter in the search palette on a project whose last thread was asleep also woke that thread (for a chat, it resumed the Claude session); it now only opens it.
 - The header had no way to open a chat's folder in VS Code; it now has an Open in VS Code button beside the dots, opening the worktree when the chat runs in one.
 - The header's second line could wrap into the terminal on a narrower window; it stays on one row now.
 - The header kept showing the old worktree after a chat moved to another one.

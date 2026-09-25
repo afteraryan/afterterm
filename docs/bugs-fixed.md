@@ -10,6 +10,30 @@ Format: the bug as it was titled, the date it was fixed, the PR or commit, then 
 
 ## Fixed on 2026-09-25
 
+### "Open" was in the thread menus, and the header's dots menu was the sidebar's menu reused
+
+PR #37. The Open item is gone from every thread menu (a click on a row already opens the thread, and the header's thread is the open one). The header's dots menu is now built on its own (`buildHeaderMenu`), so it can differ from the sidebar's; today it differs only in leaving out Open in VS Code, which is a button beside it.
+
+### New threads were added at the bottom of a project, so the latest ones sat behind "Show more"
+
+PR #37. A new thread, and a thread resumed from a project's History, now goes first in its project, so the five threads on show are the newest.
+
+### A notification toast kept the project's old colour and icon after the project was edited
+
+PR #37. Editing a project's name, colour or icon now tells the toast window, and any toast on screen for that project redraws with the new look.
+
+### Opening a project from Home or from the Other projects drawer did not bring its row into view in the sidebar
+
+PR #37. Opening a project from Home, the rail, the search palette or the Other projects drawer scrolls the sidebar just far enough to show the project and its open thread, and the project row lights up for about a second.
+
+### The jump button stayed on screen after scrolling stopped
+
+PR #37. It now goes away about a second after the scrolling stops, in the terminal and on the asleep pane. Resting the pointer on it keeps it; a pointer that is only turning the wheel does not.
+
+### Enter in the search palette also woke the thread it opened
+
+PR #37. Found while testing the fixes above, not reported. Opening a project whose last thread was asleep put focus on the asleep pane's Wake button while the Enter was still being handled, so the same key press woke the thread (for a chat, a `claude --resume`). The palette now stops the key press once it has used it.
+
 ### A chat had no Open in VS Code button, and the editor action belonged outside the dots menu
 
 PR #36. The header has the editor's logo as a button beside the dots. It opens the folder the thread is actually in: the worktree for a chat that runs in one, the project folder for a chat that runs there, a shell's current folder. It is greyed out with "Folder not found" when that folder is gone. The sidebar right-click and the project page rows gained "Open in VS Code" too; the dots menu did not.

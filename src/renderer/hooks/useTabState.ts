@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { Tab, Group, GroupColor, nextGroupColor, TabNotification, ProjectIconId } from '../components/TabBar/types';
 import type { SavedSession } from '../sessionMigration';
-import { nextActiveTabAfterArchive, threadFolder, threadName } from '../threadView';
+import { insertNewThread, nextActiveTabAfterArchive, threadFolder, threadName } from '../threadView';
 import { claudeSummaryTitle } from '../chatTitle';
 // Named apart from the hook's own sleepTab/wakeTab callbacks below: these are the
 // pure record transforms, the callbacks are the state actions that apply them.
@@ -70,16 +70,8 @@ export function useTabState() {
     // Opening a terminal in a project is the user acting on that project, so it
     // counts as activity for the group as much as switching to one of its tabs does.
     if (group) setGroups(prev => prev.map(g => g.id === group.id ? { ...g, lastActiveAt: now } : g));
-    setTabs(prev => {
-      if (groupId) {
-        const lastIdx = prev.map(t => t.groupId).lastIndexOf(groupId);
-        if (lastIdx === -1) return [...prev, newTab];
-        const next = [...prev];
-        next.splice(lastIdx + 1, 0, newTab);
-        return next;
-      }
-      return [...prev, newTab];
-    });
+    // First in its project, so the newest threads are the ones the fold shows.
+    setTabs(prev => insertNewThread(prev, newTab));
     setActiveTabId(id);
     return id;
   }, [groups]);
@@ -141,15 +133,9 @@ export function useTabState() {
     if (!group || !entry) return null;
     const now = Date.now();
     const tab = tabFromHistory(entry, group, now);
-    // Same splice as addTab: the thread lands at the end of its project's contiguous
-    // block, which is what keeps every group contiguous in the tab list.
-    setTabs(prev => {
-      const lastIdx = prev.map(t => t.groupId).lastIndexOf(groupId);
-      if (lastIdx === -1) return [...prev, tab];
-      const next = [...prev];
-      next.splice(lastIdx + 1, 0, tab);
-      return next;
-    });
+    // Same place as a new thread (insertNewThread): first in its project, since a
+    // resumed thread is the one about to be worked in.
+    setTabs(prev => insertNewThread(prev, tab));
     setGroups(prev => prev.map(g => g.id === groupId
       ? { ...g, history: removeHistoryEntry(g.history, entryId), lastActiveAt: now }
       : g));

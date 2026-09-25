@@ -4,7 +4,7 @@
 // Exits 0 if all pass, 1 on any failure.
 
 import {
-  threadFolder, threadFolderTarget, threadKind, threadState, stateLabel, stateBreathes, displayTitle,
+  threadFolder, threadFolderTarget, insertNewThread, projectLookChanges, applyProjectLook, threadKind, threadState, stateLabel, stateBreathes, displayTitle,
   threadName, modelLabel, kindWord, runningLabel, localhostUrl, openLocalhostLabel,
   needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText,
   foldThreads, projectCounts, toastMessage,
@@ -56,6 +56,58 @@ console.log('\nthreadView: threadFolderTarget\n');
   check('the worktree being gone disables it even when the project root exists',
     threadFolderTarget({ cwd: 'D:\\repo', claudeCwd: wt }, { [wt]: false, 'D:\\repo': true })?.missing === true);
   check('a thread with no folder has no target', threadFolderTarget({}, { 'D:\\repo': true }) === undefined);
+}
+
+console.log('\nthreadView: insertNewThread\n');
+{
+  const ids = (ts: Tab[]) => ts.map(t => t.id).join(',');
+  const list = [
+    tab('g1', { groupId: 'a' }), tab('a1', { groupId: 'a' }), tab('a2', { groupId: 'a' }),
+    tab('b1', { groupId: 'b' }), tab('free'),
+  ];
+  const inA = insertNewThread(list, tab('new', { groupId: 'a' }));
+  check('a new thread goes before its project\'s first thread', ids(inA) === 'new,g1,a1,a2,b1,free', ids(inA));
+  const inB = insertNewThread(list, tab('new', { groupId: 'b' }));
+  check('in a later project it goes first in that project, not first overall',
+    ids(inB) === 'g1,a1,a2,new,b1,free', ids(inB));
+  const inEmpty = insertNewThread(list, tab('new', { groupId: 'c' }));
+  check('a project with no threads yet gets it at the end', ids(inEmpty) === 'g1,a1,a2,b1,free,new', ids(inEmpty));
+  const general = insertNewThread(list, tab('new'));
+  check('a thread with no project (General) goes at the end as before', ids(general) === 'g1,a1,a2,b1,free,new', ids(general));
+  check('the input list is not changed', ids(list) === 'g1,a1,a2,b1,free');
+  const twice = insertNewThread(inA, tab('newer', { groupId: 'a' }));
+  check('the newest of two new threads is first', ids(twice) === 'newer,new,g1,a1,a2,b1,free', ids(twice));
+}
+
+console.log('\nthreadView: projectLookChanges and applyProjectLook\n');
+{
+  const a = group('a', { label: 'Spotify taskbar', color: 'teal' });
+  const b = group('b', { label: 'afterterm', color: 'blue' });
+  check('nothing changed gives no updates', projectLookChanges([a, b], [a, b]).length === 0);
+  check('a pin or an activity stamp is not a look change',
+    projectLookChanges([a], [{ ...a, pinned: true, lastActiveAt: 99 }]).length === 0);
+  const recolored = projectLookChanges([a, b], [{ ...a, color: 'pink' }, b]);
+  check('a colour change is reported for that project only',
+    recolored.length === 1 && recolored[0].projectId === 'a' && recolored[0].color === 'pink', show(recolored));
+  const reIconed = projectLookChanges([a], [{ ...a, icon: 'music' } as Group]);
+  check('an icon change is reported', reIconed.length === 1 && reIconed[0].icon === 'music', show(reIconed));
+  const renamed = projectLookChanges([a], [{ ...a, label: 'Spotify bar' }]);
+  check('a rename is reported', renamed.length === 1 && renamed[0].label === 'Spotify bar', show(renamed));
+  check('a project new in the list is not a change', projectLookChanges([a], [a, b]).length === 0);
+  check('a project removed from the list is not a change', projectLookChanges([a, b], [a]).length === 0);
+
+  const toasts = [
+    { id: 't1', projectId: 'a', secondaryLabel: 'Spotify taskbar', projectColor: '#0f0', projectIcon: 'folder' },
+    { id: 't2', projectId: 'b', secondaryLabel: 'afterterm', projectColor: '#00f', projectIcon: undefined },
+    { id: 't3', secondaryLabel: undefined, projectColor: undefined, projectIcon: undefined },
+  ];
+  const look = { projectId: 'a', label: 'Spotify bar', color: '#f0f', icon: 'music' };
+  const after = applyProjectLook(toasts, look);
+  check('the project\'s toast takes the new name, colour and icon',
+    after[0].secondaryLabel === 'Spotify bar' && after[0].projectColor === '#f0f' && after[0].projectIcon === 'music', show(after[0]));
+  check('another project\'s toast is untouched', after[1] === toasts[1]);
+  check('a General toast is untouched', after[2] === toasts[2]);
+  check('no matching toast returns the same array', applyProjectLook(toasts, { ...look, projectId: 'zzz' }) === toasts);
 }
 
 console.log('\nthreadView: threadKind\n');

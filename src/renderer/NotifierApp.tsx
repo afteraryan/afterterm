@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './NotifierApp.css';
 import { IconBell, IconCheck, IconHourglass, IconCompact, IconX, IconFolder, ProjectIcon } from './components/Icons';
 import { isProjectIconId } from './components/TabBar/types';
+import { applyProjectLook } from './threadView';
 
 export type NotifType = 'done' | 'attention' | 'background' | 'compacting';
 
@@ -13,6 +14,7 @@ export interface NotifierToast {
   secondaryLabel?: string;
   projectColor?: string;
   projectIcon?: string;
+  projectId?: string;
   message: string;
 }
 
@@ -43,6 +45,11 @@ function ToastCard({ toast, onDismiss }: ToastCardProps) {
     <div
       className="notif-card"
       style={{ '--notif-c': rgb } as React.CSSProperties}
+      // Read by the harness (drive toasts): which project the toast is drawn for,
+      // with the colour and icon it is drawn in.
+      data-project={toast.projectId}
+      data-color={toast.projectColor}
+      data-icon={toast.projectIcon}
       onClick={handleClick}
     >
       <span className="notif-state">
@@ -99,6 +106,10 @@ export function NotifierApp() {
     });
     window.afterterm.notifier.onDismissTab((tabId) => {
       setToasts(prev => prev.filter(t => t.tabId !== tabId));
+    });
+    // A project edited while its toast is up: redraw with the new look.
+    window.afterterm.notifier.onProjectUpdated((look) => {
+      setToasts(prev => applyProjectLook(prev, look));
     });
   }, []);
 

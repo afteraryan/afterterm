@@ -16,7 +16,7 @@ import { kindWord } from '../../threadView';
 import { asleepSinceText } from '../../sleepWake';
 import { initialJumpState, onScrollSample, JUMP_THRESHOLD_PX } from '../../jumpScroll';
 import type { JumpState } from '../../jumpScroll';
-import { JumpButton } from '../JumpButton';
+import { JumpButton, JumpButtonHandle } from '../JumpButton';
 import { prefersReducedMotion, isUserScroll } from '../../jumpScroll';
 import './AsleepPane.css';
 
@@ -33,6 +33,7 @@ export function AsleepPane({ tab, tail, now, onWake }: AsleepPaneProps) {
   const wakeRef = useRef<HTMLButtonElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [jump, setJump] = useState<JumpState>(() => initialJumpState());
+  const jumpBtnRef = useRef<JumpButtonHandle>(null);
 
   // Autofocus Wake so Enter wakes the thread, the same "don't steal focus from
   // something else" guard Terminal/index.tsx uses when it focuses xterm: a
@@ -114,6 +115,8 @@ export function AsleepPane({ tab, tail, now, onWake }: AsleepPaneProps) {
     setJump((prev) => userScroll
       ? onScrollSample(prev, el.scrollTop, el.scrollHeight - el.clientHeight, JUMP_THRESHOLD_PX)
       : { target: prev.target, position: el.scrollTop });
+    // The user is still scrolling: keep the button up another JUMP_IDLE_MS.
+    if (userScroll) jumpBtnRef.current?.poke();
   };
 
   // A jump scrolls, it does not teleport (Aryan, 2026-09-19): the browser's own
@@ -149,6 +152,7 @@ export function AsleepPane({ tab, tail, now, onWake }: AsleepPaneProps) {
         )}
       </div>
       <JumpButton
+        ref={jumpBtnRef}
         target={jump.target}
         onJump={onJump}
         // A wheel over the button scrolls the pane exactly as one beside it would.
