@@ -288,3 +288,19 @@ Opening a file that Claude just edited depends on Claude having written the path
 2. To open one, look through the output for a path the link addon made clickable; if Claude wrote it plainly, or wrote it relative, there is nothing to click and nothing else in the app knows the file exists.
 
 **Cause:** nothing in afterterm tracks edited files: the transcript reader (`src/claude-transcript.ts`) reads only the first prompt, the latest model and the newest cwd, and the terminal's only file affordance is the web-links addon over whatever text the shell printed (`Terminal/index.tsx`). The data is there to build it: every `Edit`, `Write` and `NotebookEdit` tool call in the session transcript carries `input.file_path` in an assistant message's `content`, in order, so a tail read of the same JSONL gives the edited files newest first (checked against a real transcript on 2026-09-25). Fix direction: extend the transcript reader to collect the last N distinct `file_path` values from those tool calls, and show them for the active chat (a panel, a header popover or a project page tab, Aryan's choice), each row opening the file in the detected editor through the existing `editors:open` IPC (which takes any path) or revealing it in Explorer; the read already happens once a turn, so a list would stay current without polling.
+
+---
+
+## The sidebar toggle moves off the rail once the sidebar opens, so clicking the same spot again opens Home
+
+**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 8 (the rail and the panel) · **Status:** open · **Severity:** medium (a click lands on the wrong control) · **Screenshot:** none attached
+
+**What happens:**
+With the sidebar closed, Aryan opens it from the rail. To close it again he clicks the same place without looking, and Home opens instead: the toggle is no longer there, and the Home button has moved up into that spot. He wants the open and close toggle to live permanently on the rail, in one fixed place, and then the sidebar can use the space that frees up by moving Search up.
+
+**Repro:**
+1. Hide the sidebar (Ctrl+Shift+B or the toggle).
+2. Click the toggle at the top of the rail: the sidebar opens.
+3. Click the same spot again: Home opens, because the toggle now sits in the sidebar's own icon row and the rail's Home button has taken that position.
+
+**Cause:** the rail's toggle lives in a closable block that only shows while the panel is hidden: `components/Rail/index.tsx` renders it inside `.railblk` with `tabIndex={open ? 0 : -1}`, and `Rail.css` collapses `.railblk:not(.open)` to nothing, so the buttons below (the Home and Workspace pill) shift up into its place; the panel carries its own toggle in `SidePanel/index.tsx`'s `.brand` row. Fix direction: one toggle that always sits at the top of the rail, in the same position whether the panel is open or closed, and remove the panel's own copy; the Search row can then move up into the panel's icon row (see the earlier entry about the Search and New thread rows taking too much space), which is the same layout change and should be settled together.
