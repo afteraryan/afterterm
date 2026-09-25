@@ -304,3 +304,17 @@ With the sidebar closed, Aryan opens it from the rail. To close it again he clic
 3. Click the same spot again: Home opens, because the toggle now sits in the sidebar's own icon row and the rail's Home button has taken that position.
 
 **Cause:** the rail's toggle lives in a closable block that only shows while the panel is hidden: `components/Rail/index.tsx` renders it inside `.railblk` with `tabIndex={open ? 0 : -1}`, and `Rail.css` collapses `.railblk:not(.open)` to nothing, so the buttons below (the Home and Workspace pill) shift up into its place; the panel carries its own toggle in `SidePanel/index.tsx`'s `.brand` row. Fix direction: one toggle that always sits at the top of the rail, in the same position whether the panel is open or closed, and remove the panel's own copy; the Search row can then move up into the panel's icon row (see the earlier entry about the Search and New thread rows taking too much space), which is the same layout change and should be settled together.
+
+---
+
+## A thread keeps showing "Background tasks" and its spinner after the turn has ended
+
+**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 1 (the notification states and the spinner; the silence clear is in spinnerState.ts) · **Status:** open · **Severity:** medium (the sidebar says a thread is busy when it is idle) · **Screenshot:** `docs/screenshots/manual-testing/07-thread-shows-background-tasks-and-spinner-after-the-turn-ended.png`
+
+**What happens:**
+Claude had finished its turn (the transcript shows "Churned for 2m 39s, done 1:49 PM" and the prompt is back, with typed text waiting), but the thread still showed a spinner on its sidebar row and a "Background tasks" chip in the header. Aryan asks why it still reads as working when the message has been sent and the turn is over.
+
+**Repro:**
+As observed; repro not yet known, and it may not be reproducible on demand. It needs a turn that ends while at least one Claude Code background task is still registered as running.
+
+**Cause:** the state is `background`, not `working`, and nothing clears it. The bundled hook emits `⏳ <project> - bg (N running)` on `Stop` when `background_tasks` still has entries with `status: running` (`assets/hooks/afterterm-notify.ps1`), so the turn ending is exactly when this state is set. In `src/renderer/spinnerState.ts` the silence clear only acts on `working` (`onTick`: "Only ever acts on working; attention/compacting/done are left for a title or re-arm to change"), and `onInterrupt` leaves `background` alone too, so `background` persists until another hook title arrives; if the background task ends without a further `Stop` (or the next hook event never fires for that tab), it stays forever. `threadView.ts` maps `background` to the spinner and the "Background tasks" chip, which is why it reads as working. Fix direction: decide how `background` should end. Options: clear it on the same output-silence rule as `working` (it is a turn-over state, not a question), clear it when the thread is viewed, or have the hook emit a plain `✅` on the next `Stop` with no running tasks (it does that already, so the gap is only when no further Stop happens). Worth checking whether Claude Code's own background task list can be read the way the transcript is, so the state can be verified rather than remembered.
