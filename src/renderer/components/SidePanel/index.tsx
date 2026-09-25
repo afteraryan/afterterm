@@ -18,7 +18,7 @@ import { buildProjectMenu, ProjectActions } from '../../projectMenu';
 import type { EditorInfo } from '../../../editors';
 import {
   FolderIcon, KindIcon, StateIcon,
-  IconPanel, IconSearch, IconPlus, IconPage, IconPin, IconPinOn, IconChevD,
+  IconSearch, IconPlus, IconPage, IconPin, IconPinOn, IconChevD,
   IconCollapseAll, IconExpandAll, IconBell, IconPlay, IconCompact, IconX, Spinner,
 } from '../Icons';
 // The row order is computed groups-first (see sidebarWalk.ts), so a group with no
@@ -324,7 +324,6 @@ export interface SidePanelProps {
   // The clock the Recent rule (3 days) and the docked Other rows' "2d" read.
   now: number;
   shells: { id: string; name: string }[];
-  onToggleCollapse: () => void;
   onActivate: (tabId: string) => void;
   onClose: (tabId: string) => void;
   onSleep: (tabId: string) => void;
@@ -374,7 +373,7 @@ export interface SidePanelProps {
 
 export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function SidePanel(props, ref) {
   const {
-    tabs, groups, activeTabId, hidden, now, shells, onToggleCollapse,
+    tabs, groups, activeTabId, hidden, now, shells,
     onActivate, onClose, onSleep, onWake, onSetUnread, onOpenLocalhost, threadExplorer, threadEditor, onNewTab,
     onOpenChooser, onOpenProjectPage, onTogglePin,
     onNewProject, editors, folderExists, projectActions,
@@ -802,13 +801,6 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
   return (
     <>
       <div className={`side-panel${hidden ? ' hidden' : ''}`} inert={hidden}>
-        <div className="brand">
-          <span className="sp" />
-          <button className="ic" onClick={onToggleCollapse} data-tip="Close sidebar">
-            <IconPanel size={18} />
-          </button>
-        </div>
-
         <div className="side-body">
           {/* The Search box (design-03 decision 13): typing filters the panel in
               place; Ctrl+Shift+P still opens the palette, the only place closed

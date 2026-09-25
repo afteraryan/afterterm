@@ -77,10 +77,10 @@ src/
       ThreadHoverCard.tsx               ← Sidebar thread hover card: Type (kind + state via asleepLabel/runningLabel), project, model, branch, worktree, Last ran, active time, shown 350ms after hover.
       ThreadHoverCard.css               ← Hover card styles
       Rail/
-        index.tsx                      ← Always-on rail, 76px at the left edge: sidebar toggle, Search/New thread rows, Home/Workspace pill, one tile per railProjects, click opens firstThreadToOpen, right-click the project menu.
+        index.tsx                      ← Always-on rail, 76px at the left edge: the one sidebar toggle (always first, fixed place; opens the workspace from Home), Search/New thread rows, Home/Workspace pill, one tile per railProjects, click opens firstThreadToOpen, right-click the project menu.
         Rail.css                       ← Rail styles: the two closable blocks, the Home/Workspace pill's sliding thumb, the tile and badge column.
       SidePanel/
-        index.tsx                      ← The panel: toggle, Search box, General/Pinned/Recent (panelView.ts), docked Other projects row, thread rows with close x and port pill, five-row fold, DnD, hover card, SidePanelHandle (revealProject scrolls a just-opened project into view and highlights it).
+        index.tsx                      ← The panel (no toggle row of its own, the toggle is on the rail): Search box, General/Pinned/Recent (panelView.ts), docked Other projects row, thread rows with close x and port pill, five-row fold, DnD, hover card, SidePanelHandle (revealProject scrolls a just-opened project into view and highlights it).
         SidePanel.css                  ← Panel styles (.side-panel slides to zero when hidden), breath keyframes, Pinned line, collapse-all buttons, Search box (.srch), the dock (.dock/.dlist/.drow).
       Header/
         index.tsx                      ← Main pane header: kind icon, name, project/model/branch/worktree line, state chip, editor button (primary editor's logo, opens threadFolder), dots menu (Sleep or Wake, Open localhost:port); worktree opens the folder in Explorer; line 2 stays one row.
@@ -341,6 +341,7 @@ Procedures an agent follows while working on this repo (not product docs, not re
 - `docs/guide-02-releases.md` — versioning (semver) + how to cut a tagged, version-stamped release (`npm run release`)
 - `docs/ideas.md` — feature ideas backlog
 - `docs/bugs.md` — running list of known, unfixed bugs (distinct from the platform Known Limitations above)
+- `docs/to-verify.md`: every change that reached Aryan's build and is waiting for him to check it while using the app, newest build first, each with how to check it. Any agent shipping a change he would notice adds it there in the same change.
 - `docs/bugs-fixed.md`: every fixed bug, newest first, with the PR it landed in. A fix deletes its entry from `bugs.md`, adds one here and a line to `CHANGELOG.md`'s Fixed list, in the same change.
 - `docs/note-01-duplicate-notifications-dispatcher.md` — why both the Windows popup and the overlay fired inside afterterm, and the settings.json dispatcher fix (incl. a TODO to make the self-install hook use the same approach)
 - `docs/features-projects-and-threads.md`: the full record of Phases 0 to 4 (Home, projects, the project page, thread identity, sleep and wake, history, the tail), moved out of CLAUDE.md on 2026-09-20
