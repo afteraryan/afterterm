@@ -1725,6 +1725,37 @@ ipcMain.handle('files:open', async (_event, target: unknown, line?: unknown) => 
   return { ok: false, error: `Couldn't open ${editor.name}` };
 });
 
+// Phase 3: which of the paths a terminal line might mean really exist, so only
+// those are underlined. One batched call per rendered line, cached renderer-side.
+// A WSL path is never touched (a stat on one can hang), like isUsableFolder.
+const MAX_STAT_PATHS = 200;
+ipcMain.handle('files:stat', async (_event, paths: unknown) => {
+  const result: Record<string, 'file' | 'dir' | null> = {};
+  if (!Array.isArray(paths)) return result;
+  await Promise.all(paths.slice(0, MAX_STAT_PATHS).map(async (p) => {
+    if (typeof p !== 'string' || !p || p.length > 1024 || p in result) return;
+    if (!isAbsolutePath(p) || isWslPath(p) || /^\\\\/.test(p)) { result[p] = null; return; }
+    try {
+      const st = await fs.promises.stat(p);
+      result[p] = st.isFile() ? 'file' : st.isDirectory() ? 'dir' : null;
+    } catch {
+      result[p] = null;
+    }
+  }));
+  return result;
+});
+
+// A folder a file link points at: the same Explorer launch as a project folder's.
+ipcMain.handle('files:openFolder', async (_event, folder: unknown) => {
+  if (typeof folder !== 'string' || !isAbsolutePath(folder) || !isUsableFolder(folder)) return { ok: false, error: 'Folder not found' };
+  if (harnessOnlyLogsExternal()) {
+    console.log(`[harness] files:openFolder ${folder}`);
+    return { ok: true };
+  }
+  const result = await spawnDetached('explorer.exe', [normalizePath(folder)]);
+  return result.ok ? { ok: true } : { ok: false, error: 'Could not open File Explorer' };
+});
+
 ipcMain.handle('files:openDefault', async (_event, target: unknown) => {
   const file = checkedFile(target);
   if (!file) return { ok: false, error: 'File not found' };

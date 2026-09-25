@@ -74,6 +74,11 @@ contextBridge.exposeInMainWorld('afterterm', {
       ipcRenderer.invoke('files:openDefault', path),
     reveal: (path: string): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke('files:reveal', path),
+    // Phase 3: which paths exist (file, folder or neither), and a folder link.
+    stat: (paths: string[]): Promise<Record<string, 'file' | 'dir' | null>> =>
+      ipcRenderer.invoke('files:stat', paths),
+    openFolder: (folder: string): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke('files:openFolder', folder),
   },
 
   // The files a chat changed and the images pasted into it, from its transcript.

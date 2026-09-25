@@ -29,6 +29,7 @@ import type { EditorInfo } from '../editors';
 import type { SessionFiles } from '../session-files';
 import type { FilesButtonProps } from './components/FilesButton';
 import { filesListView } from './filesView';
+import type { FileLinkContext, FileLinkTarget } from './components/Terminal/fileLinks';
 
 let toastCounter = 0;
 
@@ -329,6 +330,39 @@ export function App() {
       setFilesByTab(prev => ({ ...prev, [tabId]: { sessionId, files } }));
     });
   }, []);
+
+  // What a terminal's file links resolve against (Phase 3): the thread's own
+  // folder, its project's, the home folder, and for a chat the files it changed.
+  // Read through refs because the terminal asks on every hover.
+  const filesByTabRef = useRef(filesByTab);
+  filesByTabRef.current = filesByTab;
+  const fileContextFor = useCallback((tabId: string): FileLinkContext | null => {
+    const tab = stateRef.current.tabs.find(t => t.id === tabId);
+    if (!tab) return null;
+    const project = tab.groupId ? stateRef.current.groups.find(g => g.id === tab.groupId) : undefined;
+    const entry = filesByTabRef.current[tabId];
+    const files = entry && entry.sessionId === tab.claudeSessionId ? entry.files : undefined;
+    return {
+      threadFolder: threadFolder(tab),
+      projectFolder: project?.cwd,
+      home: window.afterterm.app.homeDir || undefined,
+      changed: files?.changed ?? [],
+      edits: files?.edits ?? [],
+    };
+  }, []);
+
+  const openFileLink = (target: FileLinkTarget) => {
+    if (target.how === 'explorer') {
+      noteOpened('lastOpenFile', target.path);
+      window.afterterm.files.openFolder(target.path).then(result => {
+        if (!result.ok) showToast({ message: result.error ?? 'Could not open the folder' });
+      });
+    } else if (target.how === 'default') {
+      openFileWithDefaultApp(target.path);
+    } else {
+      openFileInEditor(target.path, target.line);
+    }
+  };
 
   // The Files button's props for a chat, or undefined for a shell.
   const filesButtonFor = (tab: Tab): FilesButtonProps | undefined => {
@@ -1326,6 +1360,8 @@ export function App() {
               onExit={handlePtyExit}
               onTail={handleTail}
               onCommand={handleCommand}
+              fileContext={fileContextFor}
+              onOpenFileLink={openFileLink}
             />
           )}
         </div>

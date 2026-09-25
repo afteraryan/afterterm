@@ -47,6 +47,10 @@ interface AftertermFilesAPI {
   openDefault(path: string): Promise<{ ok: boolean; error?: string }>;
   // File Explorer with the file selected.
   reveal(path: string): Promise<{ ok: boolean; error?: string }>;
+  // Which of these absolute paths exist: 'file', 'dir' or null. At most 200.
+  stat(paths: string[]): Promise<Record<string, 'file' | 'dir' | null>>;
+  // A folder a file link points at, in File Explorer.
+  openFolder(folder: string): Promise<{ ok: boolean; error?: string }>;
 }
 
 type SessionFiles = import('./session-files.ts').SessionFiles;

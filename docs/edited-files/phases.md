@@ -10,7 +10,7 @@ Rule: finish and polish one phase (unit tests, harness self-test, recordings, fi
 |---|---|---|
 | 1 | The Files button and its list, built from Claude's own record: files changed with Claude's tools, subagents' edits, pasted images; the fold rows and the motion | implemented, untested by Aryan |
 | 2 | Files Claude changed with a command (`cat >>`, `sed -i`, scripts, `cp`), found by watching the chat's folder while its commands run | implemented, untested by Aryan |
-| 3 | File paths in the terminal output become clickable, like web links | pending |
+| 3 | File paths in the terminal output become clickable, like web links | implemented, untested by Aryan |
 | Handoff | Final self-test of all three together, a replica dev build left running for Aryan, the to-verify entries | pending |
 
 Status words: `pending`, `in progress`, `implemented, untested by Aryan`. Only Aryan marks something `done`, after he has used it.
@@ -54,15 +54,19 @@ Done (2026-09-25):
 ## Phase 3: clickable file paths in the output
 
 To do:
-- [ ] An xterm link provider for file paths beside the existing web-links addon (`Terminal/index.tsx`).
-- [ ] Recognise paths (`/` or `\`, `C:\`, `./`, `../`, `~/`, a name with an extension), resolve relative ones against the chat's folder then the project folder, underline only what exists on disk.
-- [ ] Bare names link only when they match a file this chat changed; two with the same name open the newest.
-- [ ] `Write(...)` and `Update(...)` lines each open their own file, matched by time.
-- [ ] Join a path Claude Code broke across two lines.
-- [ ] Open by kind: markdown and code in VS Code, images in the default app, folders in File Explorer.
-- [ ] Unit tests for recognising and resolving; harness self-test.
+- [x] An xterm link provider for file paths beside the existing web-links addon (`Terminal/index.tsx`).
+- [x] Recognise paths (`/` or `\`, `C:\`, `./`, `../`, `~/`, a name with an extension), resolve relative ones against the chat's folder then the project folder, underline only what exists on disk.
+- [x] Bare names link only when they match a file this chat changed; two with the same name open the newest.
+- [x] `Write(...)` and `Update(...)` lines each open their own file, matched by time.
+- [x] Join a path Claude Code broke across two lines.
+- [x] Open by kind: markdown and code in VS Code, images in the default app, folders in File Explorer.
+- [x] Unit tests for recognising and resolving; harness self-test.
 
-Done: nothing yet.
+Done (2026-09-25):
+- `src/renderer/filePaths.ts` (pure): `findPathCandidates` (a `Write(...)`/`Update(...)`/`Read(...)` line's whole path, spaces included; path-shaped tokens elsewhere, sentence punctuation and quotes trimmed, a `:line[:col]` suffix kept apart; URLs left to the web-links addon), `resolveCandidates` (absolute as written, `~`, Git Bash `/c/`, relative against the chat's folder then the project's), `matchChangedName` (a bare name, or an edit line that does not resolve, among the chat's own files, by the time its line was drawn, else the newest), `continuation` (a path broken at the edge), `elidedTail` (a path Claude Code shortened with "…"), `openKind`.
+- `components/Terminal/fileLinks.ts`: the link provider (reads buffer cells, so wide characters do not shift ranges), a batched `files:stat` with a cache (a found path for a minute, a missing one for 4 s, since Claude often prints a path just before writing it), markers stamping when each edit line was drawn, and the hover note for a name matched among the chat's files. Main: `files:stat`, `files:openFolder`. A `file:line` link opens VS Code at that line (`-g`).
+- Harness hooks: `window.__afterterm.fileLinks(tab, row)`, `openFileLink(tab, row, i)`, `findRow(tab, text)`.
+- Tests: `filePaths.test.ts` (67).
 
 ## Unphased backlog
 
@@ -86,6 +90,11 @@ Known and wanted, not assigned to a phase:
 - 2026-09-25 (builder): changes made during `git checkout`, `switch`, `pull`, `merge`, `rebase`, `reset`, `stash`, `clone`, `worktree`, `cherry-pick`, `am` or `fetch` are not attributed: they rewrite a checkout, and would flood the list. `git restore x` and `git mv` still count.
 - 2026-09-25 (builder): the window's slack is 0.5 s before the tool call and 2 s after its result. A command waiting on a permission prompt keeps its window open, so a hand edit made during that wait would be counted (rare, accepted).
 - 2026-09-25 (builder): command-made files are saved per session in `<userData>\edited-files\` because the watch only exists while the app runs; nothing about them goes into `session.json`.
+- 2026-09-25 (builder): a path broken over two lines is joined when it ends within 12 columns of the right edge, not only at it: Claude Code wraps its tool-result blocks about five columns short (measured at 112 columns). A wrong join costs nothing, since the joined path is used only when it exists on disk.
+- 2026-09-25 (builder): a tool line Claude Code shortened with "…" in the middle is matched by the name after the "…" among the chat's own edits.
+- 2026-09-25 (builder): a folder link opens File Explorer; any text with a separator is tried (the disk check keeps "and/or" plain), but a bare word such as a worktree name is never a path.
+- 2026-09-25 (builder): the hover note appears only on a link found by name among the chat's files ("Opens src\b\index.tsx, the newest of 2 with this name"); a path written out in full needs none.
+- 2026-09-25 (builder): the saved tail on the asleep pane is plain text, not a terminal, so its paths are not links; they are once the thread is awake.
 - 2026-09-25 (builder, follows the design literally): a chat whose only record is pasted images has no button, so those images are not reachable from the header. Question for Aryan in the handoff.
 
 ## Log
@@ -93,3 +102,4 @@ Known and wanted, not assigned to a phase:
 - 2026-09-25: design agreed; phases written; handoff prompt given to the building agent.
 - 2026-09-25: Phase 1 built and self-tested in the harness on copies of Aryan's real sessions (the design chat: 7 documents, code, 3 pasted images with temp copies; tab-80: 7 pasted images decoded because the temp copies are gone; tab-88: only code, Code unfolded; "Source code extraction from APK": a subagent's document; a 19.5 MB session read in 272 ms; a chat with no changes and a shell: no button; reduced motion). Screenshots 01 to 16 and recordings 01 to 04 in `docs/screenshots/edited-files-phase-1/`. Recording 01 also shows a stray close of the list that could not be reproduced afterwards; a trace left on for the rest of the run caught only closes with a cause.
 - 2026-09-25: Phase 2 built and self-tested. A real Claude chat (Haiku) in the dev build, in a scratch project (`%LOCALAPPDATA%\Temp\afterterm-edited-files-scratch`), wrote `docs/notes.md` with `cat >` (listed, New) and appended to `README.md` with `cat >>` (listed, not New); two files the agent wrote there by hand while the chat was idle were not listed; after Sleep the watch closed and the list still showed both. The first run found that the dev build inherited the agent's Claude Code session variables, so Claude saved no transcript (recording 01); `launch.mjs` now drops them. Also found: the harness's shared `latest.json` let `stop.mjs` stop another agent's dev build; every call now names its `--data-dir`. Screenshots 01 to 04, recordings 01 and 02 in `docs/screenshots/edited-files-phase-2/`.
+- 2026-09-25: Phase 3 built and self-tested on the scratch chat, which wrote `src\a\index.tsx` and `src\b\index.tsx`, updated both, wrote a file whose path Claude Code shortened with "…" and wrapped, then replied with bare names, `docs/notes.md:1` and a long absolute path that wrapped. Every tool line opened its own file; the bare `index.tsx` opened the newest with the note; `:1` opened at line 1; both wrapped paths linked whole and their second halves not on their own; `edited-files-design`, `.md` and `and/or` stayed plain; in a shell sitting in the design worktree a relative path opened the worktree's file. Found and fixed during the run: the second half of a wrapped path matched a changed file by a tail cut mid-folder-name. Editing the terminal module hot-reloads every terminal and took the renderer down three times (the harness README's known limitation), filing the chat into History; it was resumed from there. Screenshots 01 to 06, recordings 01 to 04 in `docs/screenshots/edited-files-phase-3/`.
