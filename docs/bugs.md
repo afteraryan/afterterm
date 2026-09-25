@@ -130,7 +130,7 @@ As observed; repro not yet known. Seen in a chat thread running Claude Code whil
 
 ## There is no list of the files a chat has edited, and no way to open one without a clickable path in the output
 
-**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 3 (thread identity, what afterterm reads from a Claude session) · **Status:** open · **Severity:** medium (a daily action has no support at all) · **Screenshot:** none attached
+**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 3 (thread identity, what afterterm reads from a Claude session) · **Status:** open, design agreed 2026-09-25 in [`design-04-edited-files.md`](design-04-edited-files.md) · **Severity:** medium (a daily action has no support at all) · **Screenshot:** none attached
 
 **What happens:**
 Opening a file that Claude just edited depends on Claude having written the path in a form the terminal turns into a link, and it does not always do that. Aryan does not want to have to ask for paths in a particular format. He wants afterterm to know which files a chat has edited, show them as a list he can open from, newest edit first.

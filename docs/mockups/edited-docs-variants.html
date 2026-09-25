@@ -1,0 +1,425 @@
+<title>Chat Documents and Images</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+<style>
+:root{
+  color-scheme:dark;
+  --page:#141414;--side:#171717;--bg:#212121;--pane:#191919;--raise:#2a2a2a;--hover:#2f2f2f;--hover2:#383838;
+  --text:#ececec;--text2:#b4b4b4;--text3:#8e8e8e;--text4:#5c5c5c;
+  --live:#4ade80;--need:#fbbf24;--sleep:#a78bfa;--blue:#60a5fa;--add:#5fb87a;--rm:#e06c75;--proj:#60a5fa;
+  --doc:#93c5fd;--img:#f0abfc;--code:#8e8e8e;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'Cascadia Code','Cascadia Mono',Consolas,ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+body{background:var(--page);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased;padding-inline:16px}
+.wrap{max-width:1180px;margin:0 auto;padding-block:40px 96px;display:flex;flex-direction:column;gap:56px}
+svg{display:block;flex:none}
+h1{font-size:26px;font-weight:600;margin:0;text-wrap:balance;letter-spacing:-.01em}
+.variant{display:flex;flex-direction:column;gap:18px}
+.variant>h2{font-size:19px;font-weight:600;margin:0;text-wrap:balance;display:flex;gap:12px;align-items:baseline}
+.variant>h2 .vn{font-variant-numeric:tabular-nums;color:var(--text3);font-weight:500;min-width:2ch}
+.group-h{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin:0 0 -30px}
+.cases{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,520px),1fr));gap:22px 20px}
+.cases.strips{grid-template-columns:repeat(auto-fill,minmax(min(100%,520px),1fr));gap:14px 20px}
+.case{display:flex;flex-direction:column;gap:8px;min-width:0}
+.case.wide{grid-column:1/-1}
+.case h3{font-size:13.5px;font-weight:500;color:var(--text2);margin:0}
+.shot{overflow-x:auto;border-radius:12px}
+.kinds{display:flex;flex-wrap:wrap;gap:10px}
+.kind{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:12px;background:#1c1c1c;border:1px solid #292929;flex:1 1 260px}
+.kind b{font-weight:600;font-size:13.5px;display:flex;align-items:center;gap:8px}
+.kind .ext{display:flex;flex-wrap:wrap;gap:5px}
+.kind .ext span{font-family:var(--mono);font-size:11.5px;padding:1px 7px;border-radius:6px;background:#262626;color:var(--text2)}
+.kind .how{font-size:12px;color:var(--text3)}
+
+/* table */
+.tbl{overflow-x:auto;border:1px solid #292929;border-radius:12px}
+table{border-collapse:collapse;width:100%;min-width:760px;font-size:13px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid #262626;vertical-align:top}
+th{font-weight:500;color:var(--text3);font-size:12px;background:#1a1a1a}
+tr:last-child td{border-bottom:0}
+td code{font-family:var(--mono);font-size:11.5px;background:#232323;border-radius:5px;padding:1px 6px;color:var(--text2);white-space:nowrap}
+.sure{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.sure i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.sure.s-ex i{background:var(--add)}.sure.s-lk i{background:var(--need)}.sure.s-no i{background:#555}
+.variant>h2 .vn:empty{display:none}
+.facts{display:flex;flex-wrap:wrap;gap:10px}
+.fact{padding:12px 16px;border-radius:12px;background:#1c1c1c;border:1px solid #292929;display:flex;flex-direction:column;gap:2px;flex:1 1 200px}
+.fact b{font-size:24px;font-weight:600;font-variant-numeric:tabular-nums}
+.fact span{font-size:12.5px;color:var(--text3)}
+
+/* mini app */
+.app{position:relative;display:flex;min-width:500px;background:var(--side);border:1px solid #262626;border-radius:12px;overflow:hidden;font-size:12.5px}
+.rail{width:44px;flex:none;display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px 0}
+.rail i{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;color:var(--text3)}
+.rail i.t{background:#2b2b2b}
+.rail i.t b{width:12px;height:12px;border-radius:4px;display:block}
+.rail hr{width:20px;border:0;border-top:1px solid #2c2c2c;margin:2px 0}
+.main{flex:1;min-width:0;background:var(--bg);border-radius:12px 0 0 0;margin-top:6px;display:flex;flex-direction:column;position:relative}
+.hdr{height:48px;flex:none;display:flex;align-items:center;gap:10px;padding:0 12px}
+.hdr .ki{color:var(--text3)}
+.ht{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.hn{font-weight:500;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hm{display:flex;gap:10px;color:var(--text2);font-size:11.5px;white-space:nowrap;overflow:hidden}
+.hm span{display:inline-flex;align-items:center;gap:4px}
+.hm .fo{color:var(--proj)}
+.ha{display:flex;align-items:center;gap:6px;flex:none}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--hover);color:var(--text2);white-space:nowrap}
+.chip .dot{width:7px;height:7px;border-radius:50%;background:var(--live)}
+.chip.sleep .dot{background:var(--sleep)}
+.chip.done .dot{background:var(--add)}
+.ic{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:var(--text3)}
+.fbtn{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--hover);color:var(--text);white-space:nowrap;border:1px solid transparent}
+.fbtn.open{background:var(--hover2);border-color:#4a4a4a}
+.fbtn.off{background:transparent;color:var(--text3);border-color:#333}
+.fbtn .sep{color:var(--text4)}
+.fbtn .th{width:22px;height:16px;border-radius:4px;overflow:hidden;margin-left:-4px;border:1px solid #444}
+.fbtn .th svg{width:100%;height:100%}
+.work{flex:1;min-height:0;display:flex;padding:0 10px 10px}
+.term{flex:1;min-width:0;background:var(--pane);border:1px solid #262626;border-radius:10px;padding:10px 12px;font-family:var(--mono);font-size:11.5px;line-height:1.6;color:var(--text2);overflow:hidden;position:relative}
+.tl{white-space:pre;overflow:hidden;text-overflow:ellipsis;position:relative}
+.tl .g{color:var(--live)}
+.tl .w{color:var(--text)}
+.tl .d{color:var(--text4)}
+.tl .p{color:var(--text3)}
+.lk{color:var(--text);text-decoration:underline;text-decoration-color:rgba(96,165,250,.55);text-underline-offset:2px}
+.lk.h{text-decoration-color:var(--blue);background:rgba(96,165,250,.16);border-radius:3px}
+.asleep{flex:1;min-width:0;background:var(--pane);border:1px solid #262626;border-radius:10px;position:relative;overflow:hidden}
+.asleep .tail{padding:10px 12px;font-family:var(--mono);font-size:11.5px;line-height:1.6;color:var(--text4)}
+.wakebox{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:#f2f2f2;color:#111;border-radius:999px;padding:6px 8px 6px 14px;font-weight:500;box-shadow:0 0 0 1px #d0d0d0;white-space:nowrap}
+.wakebox .since{font-weight:400;font-size:11px;background:#e1dcf5;color:#3b2f73;border-radius:999px;padding:2px 8px}
+
+/* list rows */
+.pop{position:absolute;z-index:3;width:350px;background:var(--raise);border:1px solid #3a3a3a;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.5);padding:6px;display:flex;flex-direction:column;gap:1px}
+.sec{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text3);padding:6px 8px 3px}
+.sec .n{color:var(--text4)}
+.fr{display:flex;align-items:center;gap:9px;padding:5px 8px;border-radius:7px;color:var(--text);white-space:nowrap;min-width:0}
+.fr.sel{background:var(--hover)}
+.fr .fi{display:grid;place-items:center;width:26px;height:20px;flex:none}
+.fr .fi.doc{color:var(--doc)}
+.fr .fi.code{color:var(--code)}
+.thumb{width:26px;height:20px;border-radius:4px;overflow:hidden;border:1px solid #444;flex:none;background:#111}
+.thumb svg{width:100%;height:100%}
+.fr .fn{flex:none;max-width:52%;overflow:hidden;text-overflow:ellipsis}
+.fr .fd{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--text4);font-size:11.5px}
+.fr .ft{font-size:11px;color:var(--text4);min-width:24px;text-align:right;font-variant-numeric:tabular-nums}
+.fr .hint{font-size:11px;color:var(--text2);background:#363636;border-radius:5px;padding:0 6px;line-height:17px}
+.fr.code{padding-block:3px;color:var(--text2);font-size:12px}
+.fr.code .fi{height:16px}
+.tag{font-size:10px;border-radius:4px;padding:0 5px;line-height:16px;flex:none}
+.tnew{background:rgba(95,184,122,.18);color:#8fd9a5}
+.foldrow{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:7px;color:var(--text2);margin-top:3px;border-top:1px solid #353535}
+.foldrow .sp{flex:1}
+.foldrow .names{color:var(--text4);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}
+.pf{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 8px 3px;border-top:1px solid #353535;margin-top:4px;color:var(--text3);font-size:11.5px}
+.pf .lnk{color:var(--text2);display:inline-flex;align-items:center;gap:5px}
+.pt{display:flex;align-items:center;gap:6px;padding:4px 8px 6px;color:var(--text2);font-size:12px}
+.pt .sp{flex:1}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:2px 4px 6px}
+.tile{display:flex;flex-direction:column;gap:4px;border-radius:8px;padding:4px;min-width:0}
+.tile.sel{background:var(--hover)}
+.tile .big{aspect-ratio:16/10;border-radius:6px;overflow:hidden;border:1px solid #444;background:#111;max-width:100%}
+.tile .big svg{width:100%;height:100%}
+.tile span{font-size:11px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.srch{display:flex;align-items:center;gap:6px;margin:0 2px 4px;padding:5px 8px;border-radius:8px;background:#222;border:1px solid #3a3a3a;color:var(--text3)}
+.srch .v{color:var(--text)}
+.srch .caret{width:1px;height:13px;background:var(--text);margin-left:-4px}
+.codeline{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:7px 8px 3px;border-top:1px solid #353535;margin-top:4px;font-size:11.5px;color:var(--text3)}
+.codeline a{color:var(--text2);text-decoration:underline;text-decoration-color:#555;text-underline-offset:2px}
+.codeline .more{color:var(--text3)}
+.back{display:flex;align-items:center;gap:6px;padding:4px 8px 6px;color:var(--text2);font-size:12px}
+.menu{position:absolute;z-index:4;width:220px;background:#303030;border:1px solid #444;border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.55);padding:4px}
+.mi{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;color:var(--text);white-space:nowrap}
+.mi .k{margin-left:auto;color:var(--text4);font-size:11px}
+.mi.hi{background:#3c3c3c}
+.mi svg{color:var(--text3)}
+.msep{height:1px;background:#444;margin:4px 6px}
+.tip{position:absolute;z-index:4;background:#0e0e0e;border:1px solid #333;color:var(--text);border-radius:8px;padding:6px 9px;font-size:11.5px;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.5);font-family:var(--sans)}
+.tip .s{color:var(--text3)}
+.tip.pv{padding:6px;display:flex;flex-direction:column;gap:5px}
+.tip.pv .big{width:220px;height:136px;border-radius:5px;overflow:hidden;border:1px solid #333}
+.tip.pv .big svg{width:100%;height:100%}
+.tcard{position:absolute;right:12px;bottom:12px;width:340px;z-index:2;background:var(--raise);border:1px solid #3a3a3a;border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.55);padding:6px;font-family:var(--sans);font-size:12.5px;display:flex;flex-direction:column;gap:1px}
+.tcard .th2{display:flex;align-items:center;gap:8px;padding:4px 6px 6px 8px;color:var(--text)}
+.tcard .th2 .sp{flex:1}
+.tpill{position:absolute;right:12px;bottom:12px;z-index:2;display:inline-flex;align-items:center;gap:8px;padding:4px 10px 4px 5px;border-radius:999px;background:var(--raise);border:1px solid #3a3a3a;color:var(--text);font-family:var(--sans);font-size:12px;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+.match{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.match .col{background:var(--pane);border:1px solid #262626;border-radius:10px;padding:10px 12px;font-family:var(--mono);font-size:11.5px;line-height:1.9;min-width:0;overflow:hidden}
+.match .col .ttl{font-family:var(--sans);font-size:11.5px;color:var(--text3);margin-bottom:4px}
+.match .row{display:flex;gap:10px;white-space:nowrap}
+.match .row .t{color:var(--text4)}
+.match .row b{font-weight:400;display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;font-family:var(--sans);font-size:10.5px;color:#111;flex:none;margin-top:2px}
+@media (max-width:640px){.match{grid-template-columns:1fr}}
+</style>
+
+<div class="wrap">
+  <h1>Opening the documents and images a chat made, with code kept out of the way</h1>
+
+  <div class="variant">
+    <h2><span class="vn"></span><span>How afterterm sorts a chat's files into three kinds</span></h2>
+    <div class="kinds">
+      <div class="kind"><b><span style="color:var(--doc)" id="k-doc"></span>Documents, shown first</b><div class="ext"><span>.md</span><span>.mdx</span><span>.txt</span><span>.pdf</span><span>.docx</span><span>.csv</span><span>.html</span></div><div class="how">Markdown opens in VS Code, a page opens in the browser, a PDF in its own app</div></div>
+      <div class="kind"><b><span style="color:var(--img)" id="k-img"></span>Images and videos, shown with a picture</b><div class="ext"><span>.svg</span><span>.png</span><span>.jpg</span><span>.gif</span><span>.webp</span><span>.ico</span><span>.mp4</span></div><div class="how">Open in the Windows default app (Photos, the browser for .svg)</div></div>
+      <div class="kind"><b><span style="color:var(--code)" id="k-code"></span>Code, kept out of the way</b><div class="ext"><span>everything else</span></div><div class="how">Opens in VS Code</div></div>
+    </div>
+  </div>
+
+  <div id="a" class="variant"></div>
+
+  <p class="group-h">The Files button's list: four ways to keep code out of the way</p>
+  <div id="b1" class="variant"></div>
+  <div id="b2" class="variant"></div>
+  <div id="b3" class="variant"></div>
+  <div id="b4" class="variant"></div>
+
+  <div id="c" class="variant"></div>
+  <div id="d" class="variant"></div>
+
+  <div class="variant">
+    <h2><span class="vn">E</span><span>How afterterm knows which files a chat changed, including ones Claude made with a command</span></h2>
+    <div class="facts">
+      <div class="fact"><b>4</b><span>times Claude used its Write tool in your longest afterterm chat</span></div>
+      <div class="fact"><b>38</b><span>shell commands in the same chat that look like they write files (cat &gt;&gt;, sed -i, python, cp)</span></div>
+      <div class="fact"><b>21</b><span>subagent records kept beside the chats, each with its own edits</span></div>
+    </div>
+    <div class="tbl"><table>
+      <tr><th>How the file changed</th><th>Example</th><th>How afterterm finds it</th><th>How sure</th></tr>
+      <tr><td>Claude's Edit or Write tool</td><td><code>Write(docs/design-04.md)</code></td><td>The chat's record has the full path, the time, and whether the file is new</td><td><span class="sure s-ex"><i></i>Exact</span></td></tr>
+      <tr><td>A command Claude ran</td><td><code>python make_chart.py</code> writes <code>chart.png</code><br><code>cat &gt;&gt; docs/ideas.md</code></td><td>Watches the chat's folder while one of that chat's commands is running</td><td><span class="sure s-lk"><i></i>Very likely</span></td></tr>
+      <tr><td>A subagent the chat started</td><td><code>Agent</code> then <code>Write(docs/research.md)</code></td><td>Reads the subagent's own record, kept next to the chat's</td><td><span class="sure s-ex"><i></i>Exact</span></td></tr>
+      <tr><td>A file outside the chat's folder</td><td>a file in <code>~/.claude</code> or a temp folder</td><td>Only when Claude's own tools wrote it (the folder watch does not reach it)</td><td><span class="sure s-ex"><i></i>Exact</span> for tools</td></tr>
+      <tr><td>Two chats in one folder, both running a command at that moment</td><td>two chats in the main <code>afterterm</code> folder, no worktrees</td><td>Listed in both chats</td><td><span class="sure s-lk"><i></i>Very likely</span></td></tr>
+      <tr><td>You edit it yourself in VS Code</td><td>you save <code>bugs.md</code></td><td>Not listed: no command of the chat was running</td><td><span class="sure s-no"><i></i>Left out</span></td></tr>
+    </table></div>
+  </div>
+
+  <div class="variant">
+    <h2><span class="vn"></span><span>Two files named index.tsx: each output line is matched to its own edit by time, so nothing asks you</span></h2>
+    <div class="match">
+      <div class="col"><div class="ttl">What the terminal printed</div>
+        <div class="row"><b style="background:#93c5fd">1</b><span class="t">14:02:10</span><span>Update(src/renderer/components/SidePanel/index.tsx)</span></div>
+        <div class="row"><b style="background:#f0abfc">2</b><span class="t">14:03:41</span><span>Update(src/renderer/components/Rail/index.tsx)</span></div>
+        <div class="row"><b style="background:#fcd34d">3</b><span class="t">14:04:05</span><span>I kept the fold logic in index.tsx.</span></div>
+      </div>
+      <div class="col"><div class="ttl">What the chat's record says</div>
+        <div class="row"><b style="background:#93c5fd">1</b><span class="t">14:02:10</span><span>Edit  …/components/SidePanel/index.tsx</span></div>
+        <div class="row"><b style="background:#f0abfc">2</b><span class="t">14:03:41</span><span>Edit  …/components/Rail/index.tsx</span></div>
+        <div class="row"><b style="background:#fcd34d">3</b><span class="t"></span><span>plain name: opens the newest, Rail/index.tsx</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="variant">
+    <h2><span class="vn"></span><span>Left for later: a Files tab on the project page, split by worktree</span></h2>
+  </div>
+</div>
+
+<script>
+/* ── icons ─────────────────────────────────────────────────────── */
+const sv=(s,p,x='')=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" ${x}>${p}</svg>`;
+const st='fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"';
+const I={
+  chat:(s=16)=>sv(s,`<path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 3.5V17H6.5A2.5 2.5 0 0 1 4 14.5z" ${st}/>`),
+  folder:(s=13)=>sv(s,`<path d="M2.5 7A2 2 0 0 1 4.5 5h4.6l2 2h7.4a2 2 0 0 1 2 2v1.5H6.6a2 2 0 0 0-1.9 1.4L2.5 17z" fill="currentColor" fill-opacity=".72"/><path d="M2.6 18.2 5 11.9a1.5 1.5 0 0 1 1.4-1H22l-2.7 7.1a2 2 0 0 1-1.9 1.3H4.3a1.8 1.8 0 0 1-1.7-2.1z" fill="currentColor"/>`),
+  doc:(s=15)=>sv(s,`<path d="M7 3.5h6.5L18 8v11.5a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1z" ${st}/><path d="M13 3.5V8h5M9 12.5h6M9 15.5h6" ${st}/>`),
+  page:(s=15)=>sv(s,`<rect x="3.5" y="4.5" width="17" height="15" rx="2" ${st}/><path d="M3.5 8.5h17" ${st}/><circle cx="6.3" cy="6.5" r=".6" fill="currentColor"/>`),
+  img:(s=15)=>sv(s,`<rect x="3.5" y="4.5" width="17" height="15" rx="2" ${st}/><circle cx="9" cy="10" r="1.6" ${st}/><path d="M20.5 16l-5-5-8 8.5" ${st}/>`),
+  code:(s=13)=>sv(s,`<path d="M9 7l-5 5 5 5M15 7l5 5-5 5" ${st}/>`),
+  files:(s=14)=>sv(s,`<path d="M9 3.5h5.5L19 8v9.5a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1z" ${st}/><path d="M14 3.5V8h5M5 7.5v12a1 1 0 0 0 1 1h9" ${st}/>`),
+  model:(s=12)=>sv(s,`<path d="M12 3.5c.6 3.8 2.7 5.9 6.5 6.5-3.8.6-5.9 2.7-6.5 6.5-.6-3.8-2.7-5.9-6.5-6.5 3.8-.6 5.9-2.7 6.5-6.5z" fill="currentColor"/>`),
+  branch:(s=12)=>sv(s,`<circle cx="6" cy="5" r="2.2" ${st}/><circle cx="6" cy="19" r="2.2" ${st}/><circle cx="18" cy="8" r="2.2" ${st}/><path d="M6 7.2v9.6M18 10.2c0 3.3-3 4.3-6 4.8-2.6.4-6 1-6 1.8" ${st}/>`),
+  dots:(s=16)=>sv(s,`<circle cx="6" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="18" cy="12" r="1.6" fill="currentColor"/>`),
+  search:(s=13)=>sv(s,`<circle cx="11" cy="11" r="6" ${st}/><path d="M20 20l-4.5-4.5" ${st}/>`),
+  chev:(s=12)=>sv(s,`<path d="M9 6l6 6-6 6" ${st}/>`),
+  chevD:(s=12)=>sv(s,`<path d="M6 9l6 6 6-6" ${st}/>`),
+  back:(s=12)=>sv(s,`<path d="M15 6l-6 6 6 6" ${st}/>`),
+  reveal:(s=13)=>sv(s,`<path d="M3 7.5A1.5 1.5 0 0 1 4.5 6H9l2 2h8.5A1.5 1.5 0 0 1 21 9.5v8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" ${st}/><path d="M12 11v5M9.5 13.5 12 11l2.5 2.5" ${st}/>`),
+  copy:(s=13)=>sv(s,`<rect x="8" y="8" width="11" height="11" rx="2" ${st}/><path d="M5 15V6a1 1 0 0 1 1-1h9" ${st}/>`),
+  open:(s=13)=>sv(s,`<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" ${st}/>`),
+  home:(s=15)=>sv(s,`<path d="M4 11l8-6.5 8 6.5V19a1 1 0 0 1-1 1h-4v-5h-6v5H5a1 1 0 0 1-1-1z" ${st}/>`),
+  side:(s=15)=>sv(s,`<rect x="3.5" y="5" width="17" height="14" rx="2.5" ${st}/><path d="M9.5 5v14" ${st}/>`),
+  plus:(s=14)=>sv(s,`<path d="M12 5v14M5 12h14" ${st}/>`),
+  x:(s=12)=>sv(s,`<path d="M6 6l12 12M18 6L6 18" ${st}/>`),
+};
+document.getElementById('k-doc').innerHTML=I.doc(16);
+document.getElementById('k-img').innerHTML=I.img(16);
+document.getElementById('k-code').innerHTML=I.code(16);
+
+/* fake thumbnails drawn in SVG: two screenshots of the app and an icon */
+const TH={
+  shot1:`<svg viewBox="0 0 160 100" preserveAspectRatio="xMidYMid slice"><rect width="160" height="100" fill="#171717"/><rect x="18" y="6" width="142" height="94" rx="6" fill="#212121"/><rect x="26" y="12" width="60" height="5" rx="2" fill="#ececec"/><rect x="104" y="11" width="26" height="8" rx="4" fill="#383838"/><rect x="92" y="22" width="62" height="56" rx="5" fill="#2a2a2a" stroke="#444"/><rect x="97" y="29" width="40" height="4" rx="2" fill="#93c5fd"/><rect x="97" y="37" width="48" height="4" rx="2" fill="#b4b4b4"/><rect x="97" y="45" width="36" height="4" rx="2" fill="#b4b4b4"/><rect x="97" y="55" width="44" height="4" rx="2" fill="#f0abfc"/><rect x="26" y="26" width="58" height="3" rx="1.5" fill="#4ade80"/><rect x="26" y="33" width="50" height="3" rx="1.5" fill="#5c5c5c"/><rect x="26" y="40" width="54" height="3" rx="1.5" fill="#5c5c5c"/><rect x="5" y="12" width="8" height="8" rx="2" fill="#2b2b2b"/><rect x="5" y="26" width="8" height="8" rx="2" fill="#60a5fa"/></svg>`,
+  shot2:`<svg viewBox="0 0 160 100" preserveAspectRatio="xMidYMid slice"><rect width="160" height="100" fill="#171717"/><rect x="18" y="6" width="142" height="94" rx="6" fill="#212121"/><rect x="24" y="24" width="130" height="70" rx="5" fill="#191919"/><rect x="30" y="31" width="70" height="3" rx="1.5" fill="#4ade80"/><rect x="30" y="39" width="92" height="3" rx="1.5" fill="#ececec"/><rect x="30" y="39" width="40" height="3" rx="1.5" fill="#60a5fa"/><rect x="30" y="47" width="80" height="3" rx="1.5" fill="#5c5c5c"/><rect x="60" y="55" width="80" height="12" rx="3" fill="#0e0e0e" stroke="#333"/><rect x="26" y="12" width="56" height="5" rx="2" fill="#ececec"/></svg>`,
+  icon:`<svg viewBox="0 0 160 100"><rect width="160" height="100" fill="#f4f4f4"/><g transform="translate(58 22)" fill="none" stroke="#1f2937" stroke-width="5" stroke-linejoin="round"><path d="M18 2h22l14 14v38a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4z"/><path d="M40 2v14h14"/><path d="M6 14v42a4 4 0 0 0 4 4h30" stroke="#60a5fa"/></g></svg>`,
+  chart:`<svg viewBox="0 0 160 100"><rect width="160" height="100" fill="#fafafa"/><path d="M16 84h130M16 84V14" stroke="#999" stroke-width="1.5"/><rect x="28" y="54" width="16" height="30" fill="#60a5fa"/><rect x="54" y="38" width="16" height="46" fill="#60a5fa"/><rect x="80" y="26" width="16" height="58" fill="#60a5fa"/><rect x="106" y="46" width="16" height="38" fill="#f472b6"/></svg>`,
+};
+
+/* ── data ──────────────────────────────────────────────────────── */
+const DOCS=[
+  {n:'design-04-edited-files.md',d:'docs',t:'2m',nw:1,k:'doc'},
+  {n:'bugs.md',d:'docs',t:'5m',k:'doc'},
+  {n:'edited-docs-variants.html',d:'docs/mockups',t:'9m',nw:1,k:'page'},
+  {n:'CHANGELOG.md',d:'',t:'20m',k:'doc'},
+];
+const IMGS=[
+  {n:'01-header-list.png',d:'docs/screenshots/edited-files',t:'1m',nw:1,k:'img',th:'shot1'},
+  {n:'02-output-links.png',d:'docs/screenshots/edited-files',t:'1m',nw:1,k:'img',th:'shot2'},
+  {n:'icon-files.svg',d:'assets',t:'12m',nw:1,k:'img',th:'icon'},
+];
+const CODE=[
+  {n:'claude-transcript.ts',d:'src',t:'3m',k:'code'},
+  {n:'index.tsx',d:'src/renderer/components/Header',t:'4m',k:'code'},
+  {n:'Header.css',d:'src/renderer/components/Header',t:'4m',k:'code'},
+  {n:'fileKinds.ts',d:'src/renderer',t:'6m',nw:1,k:'code'},
+  {n:'fileKinds.test.ts',d:'src/renderer',t:'6m',nw:1,k:'code'},
+  {n:'preload.ts',d:'src',t:'8m',k:'code'},
+  {n:'main.ts',d:'src',t:'8m',k:'code'},
+];
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+const OPENS={doc:'VS Code',page:'browser',img:'Photos',code:'VS Code'};
+
+function ficon(f){
+  if(f.k==='img') return `<span class="thumb">${TH[f.th]}</span>`;
+  if(f.k==='code') return `<span class="fi code">${I.code(13)}</span>`;
+  return `<span class="fi doc">${f.k==='page'?I.page(15):I.doc(15)}</span>`;
+}
+function row(f,o={}){
+  const c=['fr',f.k==='code'&&'code',o.sel&&'sel'].filter(Boolean).join(' ');
+  let name=esc(f.n);
+  if(o.hl){const i=f.n.toLowerCase().indexOf(o.hl);if(i>=0)name=esc(f.n.slice(0,i))+'<mark style="background:rgba(251,191,36,.25);color:inherit">'+esc(f.n.slice(i,i+o.hl.length))+'</mark>'+esc(f.n.slice(i+o.hl.length));}
+  const tag=f.nw&&f.k!=='code'?'<span class="tag tnew">New</span>':'';
+  const right=o.hint?`<span class="hint">Opens in ${OPENS[f.k]}</span>`:`<span class="ft">${f.t}</span>`;
+  return `<div class="${c}">${ficon(f)}<span class="fn">${name}</span>${tag}<span class="fd">${esc(f.d||'project root')}</span>${right}</div>`;
+}
+const sec=(label,n,icon)=>`<div class="sec">${icon||''}${label}<span class="n">${n}</span></div>`;
+
+/* ── frame pieces ──────────────────────────────────────────────── */
+const rail=()=>`<div class="rail"><i>${I.side()}</i><i>${I.search(14)}</i><i>${I.plus()}</i><hr><i>${I.home()}</i><hr><i class="t"><b style="background:#60a5fa"></b></i><i class="t"><b style="background:#f472b6"></b></i></div>`;
+function header(o={}){
+  const s=o.state||'work';
+  const chip=s==='sleep'?'<span class="chip sleep"><span class="dot"></span>Asleep</span>':s==='done'?'<span class="chip done"><span class="dot"></span>Done</span>':'<span class="chip"><span class="dot"></span>Working</span>';
+  return `<div class="hdr"><span class="ki">${I.chat()}</span><div class="ht"><div class="hn">${o.name||'Design the edited files list'}</div><div class="hm"><span><span class="fo">${I.folder(12)}</span>afterterm</span><span>${I.model()}Opus 5</span><span>${I.branch()}edited-files-design</span></div></div><div class="ha">${o.act||''}${chip}<span class="ic">${I.dots()}</span></div></div>`;
+}
+const TERM=`
+<div class="tl"><span class="g">●</span> <span class="w">Write(docs/design-04-edited-files.md)</span></div>
+<div class="tl d">  ⎿  Wrote 142 lines</div>
+<div class="tl"><span class="g">●</span> <span class="w">Bash(node scripts/agent-harness/drive.mjs screenshot …)</span></div>
+<div class="tl d">  ⎿  Saved docs/screenshots/edited-files/01-header-list.png</div>
+<div class="tl"><span class="g">●</span> <span class="w">Update(src/claude-transcript.ts)</span></div>
+<div class="tl d">  ⎿  Updated with 38 additions and 4 removals</div>
+<div class="tl p">✳ Writing the design doc…</div>`;
+const term=(x='',inner=TERM)=>`<div class="term">${inner}${x}</div>`;
+const asleep=()=>`<div class="asleep"><div class="tail">${TERM}</div><div class="wakebox">Wake <span class="since">Asleep since 2h ago</span></div></div>`;
+function app(o){
+  return `<div class="shot"><div class="app" style="height:${o.h||300}px">${rail()}<div class="main">${header(o.hdr||{})}<div class="work">${o.body||term()}</div></div>${o.over||''}</div></div>`;
+}
+const strip=(act,o={})=>`<div class="shot"><div class="app" style="height:64px">${rail()}<div class="main">${header({act,...o})}</div></div></div>`;
+function variant(id,num,title,cases){
+  document.getElementById(id).innerHTML=`<h2><span class="vn">${num}</span><span>${title}</span></h2><div class="cases ${id==='a'?'strips':''}">${cases.map(([t,h,w])=>`<div class="case ${w?'wide':''}"><h3>${t}</h3>${h}</div>`).join('')}</div>`;
+}
+const pop=(inner,style='top:52px;right:12px')=>`<div class="pop" style="${style}">${inner}</div>`;
+const menu=(f,style)=>`<div class="menu" style="${style}">
+  <div class="mi hi">${I.open()}Open in ${OPENS[f.k]}<span class="k">Enter</span></div>
+  ${f.k!=='code'&&f.k!=='doc'?`<div class="mi">${I.code()}Open in VS Code</div>`:''}
+  <div class="mi">${I.reveal()}Show in File Explorer</div>
+  <div class="msep"></div>
+  <div class="mi">${I.copy()}Copy path</div></div>`;
+
+/* ── A. the button ─────────────────────────────────────────────── */
+const fb=(inner,cls='')=>`<span class="fbtn ${cls}">${inner}</span>`;
+variant('a','A','What the Files button in the header says',[
+  ['Counts documents and images only',strip(fb(`${I.files(13)}7 files`))],
+  ['Names the two kinds',strip(fb(`${I.doc(13)}4 docs <span class="sep">·</span> ${I.img(13)}3 images`))],
+  ['Shows the newest image beside the count',strip(fb(`<span class="th">${TH.shot1}</span>7 files`))],
+  ['Only code changed: the button says so, in grey',strip(fb(`${I.code(13)}7 code files`,'off'))],
+  ['Nothing changed yet: no button',strip('')],
+  ['The chat is asleep: the button stays',strip(fb(`${I.files(13)}7 files`),{state:'sleep'})],
+]);
+
+/* ── B1. code folded into one row ──────────────────────────────── */
+const listB1=(o={})=>`${sec('Documents',DOCS.length)}${DOCS.map((f,i)=>row(f,{sel:o.sel===i,hint:o.hint===i})).join('')}${sec('Images',IMGS.length)}${IMGS.map((f,i)=>row(f,{sel:o.sel===10+i,hint:o.hint===10+i})).join('')}`;
+const foldB1=(open)=>`<div class="foldrow">${I.code(13)}<span>Code</span><span class="n" style="color:var(--text4)">${CODE.length}</span><span class="names">${open?'':CODE.slice(0,3).map(f=>f.n).join(', ')+'…'}</span>${open?I.chevD(12):I.chev(12)}</div>`;
+variant('b1','B1','Documents, then images, then code folded into one row at the bottom',[
+  ['The list opens on documents and images',app({h:400,hdr:{act:fb(`${I.files(13)}7 files`,'open')},over:pop(listB1()+foldB1(false))})],
+  ['Clicking the Code row unfolds it in place, in smaller type',app({h:470,hdr:{act:fb(`${I.files(13)}7 files`,'open')},over:pop(listB1().replace(/<div class="fr"[^]*?(?=<div class="sec">Images)/,m=>DOCS.slice(0,2).map(f=>row(f)).join(''))+foldB1(true)+CODE.slice(0,6).map(f=>row(f)).join(''))})],
+  ['Each file opens in the app that suits it',app({h:400,hdr:{act:fb(`${I.files(13)}7 files`,'open')},over:pop(listB1({sel:10,hint:10})+foldB1(false))})],
+  ['Right-click an image',app({h:400,hdr:{act:fb(`${I.files(13)}7 files`,'open')},over:pop(listB1({sel:10})+foldB1(false))+menu(IMGS[0],'top:212px;right:250px')})],
+  ['Only code changed: the Code row is already open',app({h:330,hdr:{act:fb(`${I.code(13)}7 code files`,'open off')},over:pop(`<div class="sec">No documents or images in this chat yet</div>${foldB1(true)}${CODE.slice(0,6).map(f=>row(f)).join('')}`)})],
+  ['The chat is asleep: the list still opens',app({h:400,hdr:{act:fb(`${I.files(13)}7 files`,'open'),state:'sleep'},body:asleep(),over:pop(listB1()+foldB1(false))})],
+]);
+
+/* ── B2. image tiles on top, code behind a link ────────────────── */
+const tiles=(sel)=>`<div class="tiles">${IMGS.map((f,i)=>`<div class="tile ${sel===i?'sel':''}"><div class="big">${TH[f.th]}</div><span>${esc(f.n)}</span></div>`).join('')}</div>`;
+const listB2=(o={})=>`${sec('Images',IMGS.length)}${tiles(o.tsel)}${sec('Documents',DOCS.length)}${DOCS.map(f=>row(f)).join('')}<div class="pf"><span class="lnk">${I.code(12)}Show the 7 code files</span><span>${I.chev(12)}</span></div>`;
+variant('b2','B2','Images as pictures on top, documents below, code behind a link',[
+  ['The list opens with the images as pictures',app({h:430,hdr:{act:fb(`<span class="th">${TH.shot1}</span>7 files`,'open')},over:pop(listB2())})],
+  ['Hovering an image shows it larger',app({h:430,hdr:{act:fb(`<span class="th">${TH.shot1}</span>7 files`,'open')},over:pop(listB2({tsel:0}))+`<div class="tip pv" style="top:128px;right:40px"><div class="big">${TH.shot1}</div><span class="s">01-header-list.png · 1240 × 780 · click to open</span></div>`})],
+  ['The link swaps the list to code, with a way back',app({h:400,hdr:{act:fb(`<span class="th">${TH.shot1}</span>7 files`,'open')},over:pop(`<div class="back">${I.back()}Documents and images</div>${sec('Code',CODE.length)}${CODE.map(f=>row(f)).join('')}`)})],
+  ['Only documents changed: no picture row',app({h:320,hdr:{act:fb(`${I.doc(13)}4 docs`,'open')},over:pop(`${sec('Documents',DOCS.length)}${DOCS.map(f=>row(f)).join('')}<div class="pf"><span class="lnk">${I.code(12)}Show the 7 code files</span><span>${I.chev(12)}</span></div>`)})],
+]);
+
+/* ── B3. code only through search ──────────────────────────────── */
+const srch=(q)=>`<div class="srch">${I.search()}${q?`<span class="v">${q}</span><span class="caret"></span>`:'Search every file, code included'}</div>`;
+variant('b3','B3','Code stays hidden until you search for it',[
+  ['The list shows documents and images; the search box reaches code',app({h:420,hdr:{act:fb(`${I.files(13)}7 files`,'open')},over:pop(srch()+listB1())})],
+  ['Typing finds code files too, listed last',app({h:340,hdr:{act:fb(`${I.files(13)}7 files`,'open')},over:pop(srch('edited')+sec('Documents',1)+row(DOCS[0],{hl:'edited',sel:1})+sec('Images',0)+`<div class="sec" style="color:var(--text4);padding-top:0">none</div>`+sec('Code',1)+row({n:'editedFiles.ts',d:'src/renderer',t:'6m',k:'code'},{hl:'edited'}))})],
+  ['Only code changed: the list says how to reach it',app({h:280,hdr:{act:fb(`${I.code(13)}7 code files`,'open off')},over:pop(srch()+`<div class="sec" style="padding:14px 8px">No documents or images yet · type to search 7 code files</div>`)})],
+]);
+
+/* ── B4. code as one line of names ─────────────────────────────── */
+const codeline=`<div class="codeline"><span>${I.code(12)}</span><span>Code</span>${CODE.slice(0,3).map(f=>`<a>${esc(f.n)}</a>`).join('')}<span class="more">+4 more</span></div>`;
+variant('b4','B4','Code as one line of clickable names under the list',[
+  ['Documents and images as rows, code as names on one line',app({h:400,hdr:{act:fb(`${I.files(13)}7 files`,'open')},over:pop(listB1()+codeline)})],
+  ['"+4 more" makes the line wrap to show every name',app({h:410,hdr:{act:fb(`${I.files(13)}7 files`,'open')},over:pop(listB1()+`<div class="codeline"><span>${I.code(12)}</span><span>Code</span>${CODE.map(f=>`<a>${esc(f.n)}</a>`).join('')}</div>`)})],
+  ['Hovering a code name shows its folder',app({h:400,hdr:{act:fb(`${I.files(13)}7 files`,'open')},over:pop(listB1()+codeline)+`<div class="tip" style="top:392px;right:120px;top:auto;bottom:12px">src/claude-transcript.ts <span class="s">· 3m ago</span></div>`})],
+]);
+
+/* ── C. clickable names in the output ──────────────────────────── */
+const L=(t,h)=>`<span class="lk ${h?'h':''}">${t}</span>`;
+variant('c','C','Click any file name in Claude\'s output to open it',[
+  ['Write and Update lines: the path is a link',app({h:250,body:term('',`
+<div class="tl"><span class="g">●</span> <span class="w">Write(${L('docs/design-04-edited-files.md')})</span></div>
+<div class="tl d">  ⎿  Wrote 142 lines</div>
+<div class="tl"><span class="g">●</span> <span class="w">Update(${L('src/claude-transcript.ts')})</span></div>
+<div class="tl d">  ⎿  Updated with 38 additions and 4 removals</div>
+<div class="tl"><span class="g">●</span> <span class="w">Write(${L('assets/icon-files.svg')})</span></div>
+<div class="tl d">  ⎿  Wrote 9 lines</div>`)})],
+  ['An image a command saved: hovering shows it',app({h:300,body:term(`<div class="tip pv" style="top:92px;right:24px"><div class="big">${TH.shot1}</div><span class="s">docs/screenshots/edited-files/01-header-list.png · click to open</span></div>`,`
+<div class="tl"><span class="g">●</span> <span class="w">Bash(node scripts/agent-harness/drive.mjs screenshot …)</span></div>
+<div class="tl d">  ⎿  Saved ${L('docs/screenshots/edited-files/01-header-list.png',1)}</div>
+<div class="tl"><span class="g">●</span> The header list now shows documents first.</div>`)})],
+  ['Two edited files named index.tsx: each line opens its own',app({h:260,body:term(`<div class="tip" style="top:52px;left:90px">src/renderer/components/Rail/index.tsx <span class="s">· click to open in VS Code</span></div>`,`
+<div class="tl"><span class="g">●</span> <span class="w">Update(${L('src/renderer/components/SidePanel/index.tsx')})</span></div>
+<div class="tl d">  ⎿  Updated with 14 additions and 3 removals</div>
+<div class="tl"><span class="g">●</span> <span class="w">Update(${L('src/renderer/components/Rail/index.tsx',1)})</span></div>
+<div class="tl d">  ⎿  Updated with 31 additions and 7 removals</div>`)})],
+  ['A bare name in Claude\'s reply: opens the newest file with that name, the hover says which',app({h:240,body:term(`<div class="tip" style="top:36px;left:110px">src/renderer/components/Rail/index.tsx <span class="s">· edited 2m ago</span></div>`,`
+<div class="tl"><span class="g">●</span> I kept the fold logic in ${L('index.tsx',1)} and noted it in ${L('design-04-edited-files.md')}.</div>
+<div class="tl p">&gt; </div>`)})],
+  ['A file named inside a command links too, when it exists',app({h:230,body:term('',`
+<div class="tl"><span class="g">●</span> <span class="w">Bash(cat &gt;&gt; ${L('docs/ideas.md')} &lt;&lt;'EOF' …)</span></div>
+<div class="tl d">  ⎿  (No output)</div>
+<div class="tl"><span class="g">●</span> Added the idea to ${L('docs/ideas.md')}.</div>`)})],
+  ['A name that is not a real file stays plain text',app({h:230,body:term('',`
+<div class="tl"><span class="g">●</span> A future fileKinds.ts could hold the rule; for now it lives in ${L('src/claude-transcript.ts')}.</div>
+<div class="tl p">&gt; </div>`)})],
+]);
+
+/* ── D. card when a reply made a document or image ─────────────── */
+const tcard=(inner,title)=>`<div class="tcard"><div class="th2">${I.files(13)}<span>${title}</span><span class="sp"></span><span style="color:var(--text4)">${I.x()}</span></div>${inner}</div>`;
+const TDONE=`
+<div class="tl"><span class="g">●</span> <span class="w">Write(docs/design-04-edited-files.md)</span></div>
+<div class="tl d">  ⎿  Wrote 142 lines</div>
+<div class="tl"><span class="g">●</span> <span class="w">Update(src/claude-transcript.ts)</span></div>
+<div class="tl d">  ⎿  Updated with 38 additions and 4 removals</div>
+<div class="tl"><span class="g">●</span> The design doc and two screenshots are ready.</div>
+<div class="tl p">&gt; </div>`;
+variant('d','D','A card when a reply made a document or an image, and none for code',[
+  ['Claude finishes a reply that made a document and two screenshots',app({h:300,hdr:{state:'done'},body:term(tcard(row(DOCS[0])+row(IMGS[0])+row(IMGS[1]),'This reply made 3 files'),TDONE)})],
+  ['A reply that only changed code: no card',app({h:230,hdr:{state:'done'},body:term('',`
+<div class="tl"><span class="g">●</span> <span class="w">Update(src/claude-transcript.ts)</span></div>
+<div class="tl d">  ⎿  Updated with 38 additions and 4 removals</div>
+<div class="tl"><span class="g">●</span> Done: the reader now collects every edited path.</div>
+<div class="tl p">&gt; </div>`)})],
+  ['You start typing: the card shrinks to a pill with the newest picture',app({h:230,hdr:{state:'done'},body:term(`<div class="tpill"><span class="thumb" style="width:24px;height:18px;border-radius:999px">${TH.shot1}</span>3 new files</div>`,TDONE.replace('&gt; </div>','&gt; now add the code toggle</div>'))})],
+]);
+</script>

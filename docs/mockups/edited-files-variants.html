@@ -1,0 +1,606 @@
+<title>Edited Files Mockups</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+<style>
+:root{
+  color-scheme:dark;
+  --page:#141414;--side:#171717;--bg:#212121;--pane:#191919;--raise:#2a2a2a;--hover:#2f2f2f;--hover2:#383838;--line:#2c2c2c;
+  --text:#ececec;--text2:#b4b4b4;--text3:#8e8e8e;--text4:#5c5c5c;
+  --live:#4ade80;--need:#fbbf24;--sleep:#a78bfa;--blue:#60a5fa;--add:#5fb87a;--rm:#e06c75;--proj:#60a5fa;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'Cascadia Code','Cascadia Mono',Consolas,ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+body{background:var(--page);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased;padding-inline:16px}
+.wrap{max-width:1180px;margin:0 auto;padding-block:40px 96px;display:flex;flex-direction:column;gap:56px}
+svg{display:block;flex:none}
+h1{font-size:26px;font-weight:600;margin:0;text-wrap:balance;letter-spacing:-.01em}
+.part{display:flex;flex-direction:column;gap:6px}
+.part .eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)}
+.variant{display:flex;flex-direction:column;gap:18px}
+.variant>h2{font-size:19px;font-weight:600;margin:0;text-wrap:balance;display:flex;gap:12px;align-items:baseline}
+.variant>h2 .vn{font-variant-numeric:tabular-nums;color:var(--text3);font-weight:500;min-width:2ch}
+.cases{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,520px),1fr));gap:22px 20px}
+.case{display:flex;flex-direction:column;gap:8px;min-width:0}
+.case h3{font-size:13.5px;font-weight:500;color:var(--text2);margin:0}
+.shot{overflow-x:auto;border-radius:12px}
+.divider{display:flex;align-items:center;gap:16px;margin-block:8px}
+.divider::before,.divider::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,#444 20%,#444 80%,transparent)}
+.divider span{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);white-space:nowrap}
+
+/* ── the mini app ─────────────────────────────────────────────── */
+.app{position:relative;display:flex;min-width:500px;background:var(--side);border:1px solid #262626;border-radius:12px;overflow:hidden;font-size:12.5px}
+.rail{width:44px;flex:none;display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px 0}
+.rail i{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;color:var(--text3)}
+.rail i.t{background:#2b2b2b}
+.rail i.t b{width:12px;height:12px;border-radius:4px;display:block}
+.rail hr{width:20px;border:0;border-top:1px solid #2c2c2c;margin:2px 0}
+.panel{width:206px;flex:none;padding:10px 8px;display:flex;flex-direction:column;gap:2px;border-right:0}
+.ph{font-size:11px;color:var(--text4);padding:6px 8px 4px;letter-spacing:.02em}
+.pr{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:8px;color:var(--text2);white-space:nowrap;min-width:0}
+.pr .l{overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+.pr.proj{color:var(--text);font-weight:500}
+.pr.act{background:var(--hover);color:var(--text)}
+.pr.sub{padding-left:22px}
+.pr.file{padding:3px 8px 3px 36px;color:var(--text2);font-size:12px}
+.pr.file .d{color:var(--text4);font-size:11px;margin-left:4px}
+.pr.more{padding:3px 8px 3px 36px;color:var(--text3);font-size:12px}
+.cnt{font-size:11px;color:var(--text2);background:#303030;border-radius:999px;padding:1px 7px;display:inline-flex;align-items:center;gap:4px}
+.cnt.on{background:#3a3a3a;color:var(--text)}
+.main{flex:1;min-width:0;background:var(--bg);border-radius:12px 0 0 0;margin-top:6px;display:flex;flex-direction:column;position:relative}
+.hdr{height:48px;flex:none;display:flex;align-items:center;gap:10px;padding:0 12px}
+.hdr .ki{color:var(--text3)}
+.ht{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.hn{font-weight:500;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hm{display:flex;gap:10px;color:var(--text2);font-size:11.5px;white-space:nowrap;overflow:hidden}
+.hm span{display:inline-flex;align-items:center;gap:4px}
+.hm .fo{color:var(--proj)}
+.ha{display:flex;align-items:center;gap:6px;flex:none}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--hover);color:var(--text2);white-space:nowrap}
+.chip .dot{width:7px;height:7px;border-radius:50%;background:var(--live)}
+.chip.sleep .dot{background:var(--sleep)}
+.chip.done .dot{background:var(--add)}
+.ic{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:var(--text3)}
+.fbtn{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--hover);color:var(--text);white-space:nowrap;border:1px solid transparent}
+.fbtn.open{background:var(--hover2);border-color:#4a4a4a}
+.fbtn.off{background:transparent;color:var(--text4);border-color:#2e2e2e}
+.fbtn .nd{width:6px;height:6px;border-radius:50%;background:var(--live)}
+.work{flex:1;min-height:0;display:flex;gap:0;padding:0 10px 10px}
+.term{flex:1;min-width:0;background:var(--pane);border:1px solid #262626;border-radius:10px;padding:10px 12px;font-family:var(--mono);font-size:11.5px;line-height:1.55;color:var(--text2);overflow:hidden;position:relative}
+.tl{white-space:pre;overflow:hidden;text-overflow:ellipsis}
+.tl .g{color:var(--live)}
+.tl .w{color:var(--text)}
+.tl .d{color:var(--text4)}
+.tl .u{text-decoration:underline;text-decoration-color:var(--blue);text-underline-offset:2px;color:var(--text)}
+.tl .u.h{background:rgba(96,165,250,.14);border-radius:3px}
+.tl .p{color:var(--text3)}
+
+/* asleep pane */
+.asleep{flex:1;min-width:0;background:var(--pane);border:1px solid #262626;border-radius:10px;position:relative;overflow:hidden;display:flex;flex-direction:column}
+.asleep .tail{padding:10px 12px;font-family:var(--mono);font-size:11.5px;line-height:1.55;color:var(--text4);flex:1;overflow:hidden}
+.wakebox{white-space:nowrap;position:absolute;left:50%;bottom:14px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:#f2f2f2;color:#111;border-radius:999px;padding:6px 8px 6px 14px;font-weight:500;box-shadow:0 0 0 1px #d0d0d0}
+.wakebox .since{font-weight:400;font-size:11px;background:#e1dcf5;color:#3b2f73;border-radius:999px;padding:2px 8px}
+
+/* file rows */
+.fr{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:7px;color:var(--text);white-space:nowrap;min-width:0}
+.fr:hover,.fr.sel{background:var(--hover)}
+.fr .fi{color:var(--text3)}
+.fr .fn{flex:none;max-width:48%;overflow:hidden;text-overflow:ellipsis}
+.fr .fd{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--text4);font-size:11.5px}
+.fr .fx{font-family:var(--mono);font-size:10.5px;font-variant-numeric:tabular-nums;color:var(--text3)}
+.fr .fx .ad{color:var(--add);font-weight:400}
+.fr .fx .rm{color:var(--rm);font-weight:400}
+.fr .ft{font-size:11px;color:var(--text4);min-width:26px;text-align:right;font-variant-numeric:tabular-nums}
+.fr.fresh{background:rgba(74,222,128,.08);box-shadow:inset 2px 0 0 var(--live)}
+.fr.fresh .ft{color:var(--live)}
+.fr.gone .fn{color:var(--text4);text-decoration:line-through}
+.fr.gone .fi{color:var(--text4)}
+.fr.out .fi{color:var(--need)}
+.fr mark{background:rgba(251,191,36,.25);color:var(--text);border-radius:2px}
+.tag{font-size:10px;border-radius:4px;padding:0 5px;line-height:16px;flex:none}
+.tnew{background:rgba(95,184,122,.18);color:#8fd9a5}
+.tgone{background:#2c2c2c;color:var(--text3)}
+.tout{background:rgba(251,191,36,.14);color:#e8c46a}
+
+/* popover */
+.pop{position:absolute;z-index:3;width:330px;background:var(--raise);border:1px solid #3a3a3a;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.5);padding:6px;display:flex;flex-direction:column;gap:1px}
+.pop .pt{display:flex;align-items:center;justify-content:space-between;padding:4px 8px 6px;color:var(--text3);font-size:11.5px}
+.pop .pf{display:flex;align-items:center;justify-content:space-between;padding:6px 8px 2px;border-top:1px solid #353535;margin-top:4px;color:var(--text3);font-size:11px}
+.srch{display:flex;align-items:center;gap:6px;margin:0 2px 4px;padding:5px 8px;border-radius:8px;background:#222;border:1px solid #3a3a3a;color:var(--text3)}
+.srch .v{color:var(--text)}
+.srch .caret{width:1px;height:13px;background:var(--text);margin-left:-4px}
+.scrollfade{position:relative}
+.scrollfade::after{content:"";position:absolute;left:0;right:0;bottom:0;height:28px;background:linear-gradient(transparent,var(--raise));pointer-events:none}
+.sb{position:absolute;right:2px;top:40px;width:3px;height:42px;border-radius:2px;background:#4a4a4a}
+
+/* context menu */
+.menu{position:absolute;z-index:4;width:210px;background:#303030;border:1px solid #444;border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.55);padding:4px}
+.mi{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;color:var(--text);white-space:nowrap}
+.mi .k{margin-left:auto;color:var(--text4);font-size:11px}
+.mi.hi{background:#3c3c3c}
+.mi svg{color:var(--text3)}
+.msep{height:1px;background:#444;margin:4px 6px}
+
+/* tooltip */
+.tip{position:absolute;z-index:4;background:#0e0e0e;border:1px solid #333;color:var(--text);border-radius:8px;padding:6px 9px;font-size:11.5px;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.5)}
+.tip .s{color:var(--text3)}
+
+/* right panel */
+.rp{width:228px;flex:none;margin-left:10px;background:var(--pane);border:1px solid #262626;border-radius:10px;display:flex;flex-direction:column;overflow:hidden}
+.rph{display:flex;align-items:center;gap:6px;padding:8px 8px 6px 10px;color:var(--text2);font-weight:500}
+.rph .sp{flex:1}
+.seg{display:inline-flex;background:#232323;border-radius:7px;padding:2px;gap:2px}
+.seg i{width:22px;height:20px;border-radius:5px;display:grid;place-items:center;color:var(--text4)}
+.seg i.on{background:#3a3a3a;color:var(--text)}
+.rpl{padding:0 4px 6px;display:flex;flex-direction:column;gap:1px;overflow:hidden}
+.rp .fr .fn{max-width:none;flex:1;overflow:hidden;text-overflow:ellipsis}
+.rp .fr .fd{display:none}
+.tree .fold{display:flex;align-items:center;gap:5px;padding:4px 6px;color:var(--text3);font-size:11.5px;white-space:nowrap;overflow:hidden}
+.tree .fr{padding-left:22px}
+.tree .fr.deep{padding-left:34px}
+.tree .fold.deep{padding-left:18px}
+.rstrip{width:30px;flex:none;margin-left:10px;background:var(--pane);border:1px solid #262626;border-radius:10px;display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:8px;color:var(--text2)}
+.rstrip .n{font-size:11px;font-variant-numeric:tabular-nums}
+.rstrip .nd{width:6px;height:6px;border-radius:50%;background:var(--live)}
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--text3);text-align:center;padding:16px;font-size:12px}
+.empty svg{color:var(--text4)}
+
+/* chips row */
+.chips{display:flex;align-items:center;gap:6px;padding:0 12px 8px;overflow:hidden;white-space:nowrap}
+.fc{display:inline-flex;align-items:center;gap:5px;padding:3px 9px 3px 7px;border-radius:7px;background:#2a2a2a;border:1px solid #333;color:var(--text2);flex:none}
+.fc svg{color:var(--text3)}
+.fc.fresh{border-color:rgba(74,222,128,.5);color:var(--text);background:rgba(74,222,128,.08)}
+.fc.fresh svg{color:var(--live)}
+.fc.more{color:var(--text3);background:transparent;border-style:dashed}
+.fc.open{background:var(--hover2);color:var(--text)}
+.chips .lbl{color:var(--text4);font-size:11px;flex:none}
+
+/* project page */
+.pp{flex:1;min-width:0;background:var(--bg);border-radius:12px 0 0 0;margin-top:6px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;position:relative}
+.pph{display:flex;align-items:center;gap:10px}
+.pph .pi{width:30px;height:30px;border-radius:9px;background:rgba(96,165,250,.16);color:var(--proj);display:grid;place-items:center}
+.pph .pn{font-size:16px;font-weight:600}
+.pph .ps{color:var(--text3);font-size:11.5px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid #2e2e2e}
+.tabs span{padding:6px 10px;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px;display:inline-flex;gap:6px}
+.tabs span b{font-weight:400;color:var(--text4)}
+.tabs span.on{color:var(--text);border-color:var(--text)}
+.tabs span.on b{color:var(--text3)}
+.pptools{display:flex;gap:8px;align-items:center}
+.pptools .srch{flex:1;margin:0;background:#1b1b1b}
+.pplist{display:flex;flex-direction:column;gap:1px}
+.who{display:inline-flex;gap:4px;flex:none}
+.who span{font-size:10.5px;color:var(--text2);background:#2c2c2c;border-radius:999px;padding:1px 7px;max-width:120px;overflow:hidden;text-overflow:ellipsis}
+.grp{display:flex;align-items:center;gap:7px;padding:8px 8px 4px;color:var(--text2);font-weight:500;white-space:nowrap}
+.grp .s{color:var(--text4);font-weight:400;font-size:11px}
+.pplist .fr.ind{padding-left:28px}
+
+/* picker */
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:2}
+.pick{position:absolute;z-index:3;left:50%;top:26px;transform:translateX(-50%);width:420px;background:var(--raise);border:1px solid #3a3a3a;border-radius:14px;box-shadow:0 18px 44px rgba(0,0,0,.6);padding:8px;display:flex;flex-direction:column;gap:1px}
+.pick .srch{padding:8px 10px;font-size:13px;background:#1f1f1f}
+.pick .kbd{margin-left:auto;font-size:10.5px;color:var(--text4);border:1px solid #3a3a3a;border-radius:5px;padding:0 5px}
+.pick .sec{font-size:11px;color:var(--text4);padding:6px 8px 3px}
+.pick .foot{display:flex;gap:14px;padding:6px 8px 2px;border-top:1px solid #353535;margin-top:4px;color:var(--text4);font-size:11px}
+.pick .foot b{font-weight:500;color:var(--text3)}
+.pick .who span{max-width:150px}
+
+@keyframes glow{0%{box-shadow:inset 2px 0 0 var(--live),0 0 0 0 rgba(74,222,128,.35)}70%{box-shadow:inset 2px 0 0 var(--live),0 0 0 6px rgba(74,222,128,0)}100%{box-shadow:inset 2px 0 0 var(--live),0 0 0 0 rgba(74,222,128,0)}}
+.fr.fresh.anim{animation:glow 1.8s var(--ease,ease-out) infinite}
+@keyframes slidein{from{transform:translateY(-8px);opacity:.3}to{transform:none;opacity:1}}
+.fr.slide{animation:slidein .6s ease-out infinite alternate}
+@media (prefers-reduced-motion:reduce){.fr.fresh.anim,.fr.slide{animation:none}}
+
+/* ── part 2 ───────────────────────────────────────────────────── */
+.refs{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:10px}
+.ref{display:flex;flex-direction:column;gap:3px;padding:10px 12px;border-radius:10px;background:#1c1c1c;border:1px solid #292929;text-decoration:none;color:var(--text)}
+.ref:hover,.ref:focus-visible{border-color:#444;outline:none}
+.ref b{font-weight:500;font-size:13px}
+.ref span{color:var(--text3);font-size:12px;line-height:1.4}
+.refs-h{font-size:15px;font-weight:600;margin:0}
+.seen{font-size:12px;font-weight:400;color:var(--text3);display:inline-flex;gap:6px;flex-wrap:wrap;align-items:center}
+.seen i{font-style:normal;background:#252525;border:1px solid #303030;border-radius:999px;padding:1px 8px;color:var(--text2)}
+.variant>h2.h2b{flex-direction:column;align-items:flex-start;gap:6px}
+.variant>h2.h2b .t{display:flex;gap:12px;align-items:baseline}
+.case.wide{grid-column:1/-1}
+.stat{font-family:var(--mono);font-size:11px;font-variant-numeric:tabular-nums}
+.stat .ad{color:var(--add)}.stat .rm{color:var(--rm)}
+.tcard{position:absolute;right:12px;bottom:12px;width:330px;z-index:2;background:var(--raise);border:1px solid #3a3a3a;border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.55);padding:6px;font-family:var(--sans);font-size:12.5px;display:flex;flex-direction:column;gap:1px}
+.tcard .th{display:flex;align-items:center;gap:8px;padding:4px 6px 6px 8px;color:var(--text)}
+.tcard .th .sp{flex:1}
+.tcard .th .x{color:var(--text4)}
+.tcard .sec{font-size:11px;color:var(--text4);padding:6px 8px 2px}
+.tcard .tf{display:flex;justify-content:space-between;padding:6px 8px 2px;border-top:1px solid #353535;margin-top:4px;color:var(--text3);font-size:11px}
+.tpill{position:absolute;right:12px;bottom:12px;z-index:2;display:inline-flex;align-items:center;gap:8px;padding:5px 10px 5px 9px;border-radius:999px;background:var(--raise);border:1px solid #3a3a3a;color:var(--text);font-family:var(--sans);font-size:12px;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+.tpill svg{color:var(--text3)}
+.hstat{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--hover);border:1px solid transparent;white-space:nowrap}
+.hstat.open{background:var(--hover2);border-color:#4a4a4a}
+.dp{width:52%;flex:none;margin-left:10px;background:var(--pane);border:1px solid #262626;border-radius:10px;display:flex;flex-direction:column;overflow:hidden}
+.dp .dph{display:flex;align-items:center;gap:8px;padding:8px 10px 6px;color:var(--text2);font-weight:500;white-space:nowrap}
+.dp .dph .sp{flex:1}
+.dp .seg i{width:auto;padding:0 8px;font-style:normal;font-size:11px}
+.dp .dl{padding:0 4px 4px;display:flex;flex-direction:column;gap:1px;border-bottom:1px solid #262626}
+.diff{font-family:var(--mono);font-size:11px;line-height:1.6;padding:6px 0;overflow:hidden;flex:1;position:relative}
+.diff .dh{display:flex;align-items:center;gap:8px;padding:2px 10px 6px;font-family:var(--sans);font-size:12px;color:var(--text)}
+.diff .dh .sp{flex:1}
+.diff .dh .ob{font-size:11px;color:var(--text2);background:#2a2a2a;border:1px solid #363636;border-radius:6px;padding:1px 8px;display:inline-flex;gap:5px;align-items:center}
+.dln{display:flex;white-space:pre;color:var(--text2)}
+.dln .n{width:34px;flex:none;text-align:right;padding-right:8px;color:var(--text4)}
+.dln.a{background:rgba(95,184,122,.12);color:#cfe9d6}
+.dln.r{background:rgba(224,108,117,.12);color:#f0c9cc}
+.dln.hk{color:var(--text4);background:#1d1d1d}
+.dln.sel{box-shadow:inset 3px 0 0 var(--blue);background:rgba(96,165,250,.16)}
+.askbtn{position:absolute;right:10px;z-index:2;display:inline-flex;align-items:center;gap:6px;background:#f2f2f2;color:#111;border-radius:999px;padding:4px 10px;font-family:var(--sans);font-size:11.5px;font-weight:500;box-shadow:0 6px 16px rgba(0,0,0,.4)}
+.bgroup{display:flex;align-items:center;gap:6px;padding:7px 8px 3px;color:var(--text2);font-size:11.5px;white-space:nowrap;overflow:hidden}
+.bgroup .q{overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.bgroup .s{color:var(--text4);flex:none}
+.fold .tot{margin-left:auto}
+.tcol{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--pane);border:1px solid #262626;border-radius:10px;overflow:hidden;position:relative}
+.tcol .term{border:0;border-radius:0;background:transparent}
+.bbar{display:flex;align-items:center;gap:10px;padding:7px 12px;border-top:1px solid #2a2a2a;background:#1d1d1d;font-size:12px;color:var(--text2);white-space:nowrap}
+.bbar .nf{color:var(--text3);overflow:hidden;text-overflow:ellipsis;min-width:0}
+.bbar .sp{flex:1}
+.bbar .ch{color:var(--text3)}
+.bbar.open{background:#232323}
+.bacc{background:#202020;border-top:1px solid #2a2a2a;padding:4px;display:flex;flex-direction:column;gap:1px}
+.bacc .srch{margin:2px 2px 4px}
+.tick{display:inline-block;animation:tick 1.2s ease-out infinite alternate}
+@keyframes tick{from{color:var(--live)}to{color:var(--text)}}
+.snip{margin:0 8px 4px 29px;padding:4px 8px;border-radius:6px;background:#1f1f1f;font-family:var(--mono);font-size:10.5px;line-height:1.5;color:var(--text3);white-space:pre;overflow:hidden}
+.snip .a{color:#9fdcb1}.snip .r{color:#eaa3a9}
+.snip .ln{color:var(--text4)}
+.snip mark{background:rgba(251,191,36,.25);color:inherit;border-radius:2px}
+.ptabs{display:flex;gap:4px;padding:2px 4px 6px}
+.ptabs span{font-size:11px;padding:2px 9px;border-radius:999px;color:var(--text3);border:1px solid #353535}
+.ptabs span.on{background:#3a3a3a;color:var(--text);border-color:#4a4a4a}
+.deco{position:absolute;right:10px;display:inline-flex;align-items:center;gap:5px;font-family:var(--sans);font-size:11px;color:var(--text);background:#2c2c2c;border:1px solid #3c3c3c;border-radius:6px;padding:0 7px;height:18px}
+.tl.hov{background:rgba(255,255,255,.05);margin:0 -12px;padding:0 12px}
+.sbar{position:absolute;right:3px;top:8px;bottom:8px;width:6px;border-radius:3px;background:#222}
+.sbar b{position:absolute;left:0;right:0;height:3px;border-radius:2px;background:var(--live)}
+.sbar i{position:absolute;left:0;right:0;border-radius:3px;background:#3a3a3a}
+@media (prefers-reduced-motion:reduce){.tick{animation:none}}
+</style>
+
+<div class="wrap">
+  <div class="part">
+    <h1>Where a chat's edited files could show up, and how you open them</h1>
+  </div>
+
+  <div class="part"><span class="eyebrow">Part 1 · my own proposals, made before looking at other tools</span></div>
+
+  <div id="v1" class="variant"></div>
+  <div id="v2" class="variant"></div>
+  <div id="v3" class="variant"></div>
+  <div id="v4" class="variant"></div>
+  <div id="v5" class="variant"></div>
+  <div id="v6" class="variant"></div>
+  <div id="v7" class="variant"></div>
+
+
+  <div class="divider"><span>Part 2 · after looking at other tools</span></div>
+
+  <div class="variant">
+    <h3 class="refs-h">Tools I looked at, and how each shows changed files</h3>
+    <div class="refs">
+      <a class="ref" href="https://github.com/pingdotgg/t3code/releases/tag/v0.0.28" target="_blank" rel="noopener"><b>T3 Code</b><span>A changed files card with aligned +/&minus; counts; a diff panel on the right, per turn</span></a>
+      <a class="ref" href="https://github.com/openai/codex/issues/45471" target="_blank" rel="noopener"><b>Codex app</b><span>An "Edited" card at the end of each reply; a Review panel with a Last turn view</span></a>
+      <a class="ref" href="https://code.claude.com/docs/en/changelog" target="_blank" rel="noopener"><b>Claude Code /diff</b><span>Changed files with +/&minus; counts and the diff below; whole or per turn; selected lines go to the prompt</span></a>
+      <a class="ref" href="https://code.claude.com/docs/en/desktop" target="_blank" rel="noopener"><b>Claude desktop</b><span>A +12 &minus;1 count that opens a diff pane: file list left, code right</span></a>
+      <a class="ref" href="https://www.conductor.build/docs/reference/diff-viewer" target="_blank" rel="noopener"><b>Conductor</b><span>Changes as a folder tree; a folded folder shows its totals; filter by path</span></a>
+      <a class="ref" href="https://docs.warp.dev/code/code-review/" target="_blank" rel="noopener"><b>Warp</b><span>"Review changes" under the agent's reply opens a review panel with +/&minus; per file</span></a>
+      <a class="ref" href="https://zed.dev/docs/ai/agent-panel" target="_blank" rel="noopener"><b>Zed</b><span>An edits bar above the message box that unfolds; one tab with every diff</span></a>
+      <a class="ref" href="https://code.visualstudio.com/blogs/2025/02/24/introducing-copilot-agent-mode" target="_blank" rel="noopener"><b>VS Code Copilot</b><span>Changed files listed above the chat input, Keep or Undo each</span></a>
+      <a class="ref" href="https://forum.cursor.com/t/agent-mode-no-longer-shows-review-accept-interface-and-applies-file-changes-automatically-after-recent-update/152581" target="_blank" rel="noopener"><b>Cursor</b><span>Changed files in the agent chat, accept or revert each</span></a>
+      <a class="ref" href="https://github.com/anomalyco/opencode/issues/30877" target="_blank" rel="noopener"><b>opencode</b><span>Modified files in the sidebar with +/&minus; counts</span></a>
+      <a class="ref" href="https://docs.cline.bot/core-workflows/checkpoints" target="_blank" rel="noopener"><b>Cline</b><span>A marker after each step with Compare and Restore</span></a>
+      <a class="ref" href="https://www.jetbrains.com/help/idea/recent-files-and-changes.html" target="_blank" rel="noopener"><b>JetBrains</b><span>Ctrl+E recent files, press again for edited only; Recent Locations shows the code</span></a>
+      <a class="ref" href="https://openai.com/index/introducing-canvas/" target="_blank" rel="noopener"><b>ChatGPT Canvas</b><span>Show changes on one document: additions green, deletions red</span></a>
+    </div>
+  </div>
+
+  <div id="v8" class="variant"></div>
+  <div id="v9" class="variant"></div>
+  <div id="v10" class="variant"></div>
+  <div id="v11" class="variant"></div>
+  <div id="v12" class="variant"></div>
+
+</div>
+
+<script>
+/* ── icons ─────────────────────────────────────────────────────── */
+const sv=(s,p,x='')=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" ${x}>${p}</svg>`;
+const st='fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"';
+const I={
+  chat:(s=16)=>sv(s,`<path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 3.5V17H6.5A2.5 2.5 0 0 1 4 14.5z" ${st}/>`),
+  shell:(s=14)=>sv(s,`<path d="M5 7l4 4-4 4M11 17h8" ${st}/>`),
+  folder:(s=13)=>sv(s,`<path d="M2.5 7A2 2 0 0 1 4.5 5h4.6l2 2h7.4a2 2 0 0 1 2 2v1.5H6.6a2 2 0 0 0-1.9 1.4L2.5 17z" fill="currentColor" fill-opacity=".72"/><path d="M2.6 18.2 5 11.9a1.5 1.5 0 0 1 1.4-1H22l-2.7 7.1a2 2 0 0 1-1.9 1.3H4.3a1.8 1.8 0 0 1-1.7-2.1z" fill="currentColor"/>`),
+  folderLine:(s=13)=>sv(s,`<path d="M3 7.5A1.5 1.5 0 0 1 4.5 6H9l2 2h8.5A1.5 1.5 0 0 1 21 9.5v8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" ${st}/>`),
+  file:(s=14)=>sv(s,`<path d="M7 3.5h6.5L18 8v11.5a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1z" ${st}/><path d="M13 3.5V8h5" ${st}/>`),
+  files:(s=14)=>sv(s,`<path d="M9 3.5h5.5L19 8v9.5a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1z" ${st}/><path d="M14 3.5V8h5M5 7.5v12a1 1 0 0 0 1 1h9" ${st}/>`),
+  pen:(s=14)=>sv(s,`<path d="M14.5 5.5l4 4L9 19H5v-4z" ${st}/>`),
+  model:(s=12)=>sv(s,`<path d="M12 3.5c.6 3.8 2.7 5.9 6.5 6.5-3.8.6-5.9 2.7-6.5 6.5-.6-3.8-2.7-5.9-6.5-6.5 3.8-.6 5.9-2.7 6.5-6.5z" fill="currentColor"/>`),
+  branch:(s=12)=>sv(s,`<circle cx="6" cy="5" r="2.2" ${st}/><circle cx="6" cy="19" r="2.2" ${st}/><circle cx="18" cy="8" r="2.2" ${st}/><path d="M6 7.2v9.6M18 10.2c0 3.3-3 4.3-6 4.8-2.6.4-6 1-6 1.8" ${st}/>`),
+  dots:(s=16)=>sv(s,`<circle cx="6" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="18" cy="12" r="1.6" fill="currentColor"/>`),
+  search:(s=13)=>sv(s,`<circle cx="11" cy="11" r="6" ${st}/><path d="M20 20l-4.5-4.5" ${st}/>`),
+  chev:(s=12)=>sv(s,`<path d="M9 6l6 6-6 6" ${st}/>`),
+  chevD:(s=12)=>sv(s,`<path d="M6 9l6 6 6-6" ${st}/>`),
+  list:(s=13)=>sv(s,`<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" ${st}/>`),
+  tree:(s=13)=>sv(s,`<path d="M5 4v14h5M5 9h5M14 9h6M14 18h6" ${st}/>`),
+  code:(s=13)=>sv(s,`<path d="M9 7l-5 5 5 5M15 7l5 5-5 5" ${st}/>`),
+  reveal:(s=13)=>sv(s,`<path d="M3 7.5A1.5 1.5 0 0 1 4.5 6H9l2 2h8.5A1.5 1.5 0 0 1 21 9.5v8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" ${st}/><path d="M12 11v5M9.5 13.5 12 11l2.5 2.5" ${st}/>`),
+  copy:(s=13)=>sv(s,`<rect x="8" y="8" width="11" height="11" rx="2" ${st}/><path d="M5 15V6a1 1 0 0 1 1-1h9" ${st}/>`),
+  home:(s=15)=>sv(s,`<path d="M4 11l8-6.5 8 6.5V19a1 1 0 0 1-1 1h-4v-5h-6v5H5a1 1 0 0 1-1-1z" ${st}/>`),
+  side:(s=15)=>sv(s,`<rect x="3.5" y="5" width="17" height="14" rx="2.5" ${st}/><path d="M9.5 5v14" ${st}/>`),
+  plus:(s=14)=>sv(s,`<path d="M12 5v14M5 12h14" ${st}/>`),
+  collapse:(s=13)=>sv(s,`<path d="M14 5l7 7-7 7" ${st}/>`),
+  expand:(s=13)=>sv(s,`<path d="M10 5l-7 7 7 7" ${st}/>`),
+  x:(s=12)=>sv(s,`<path d="M6 6l12 12M18 6L6 18" ${st}/>`),
+};
+
+/* ── data ──────────────────────────────────────────────────────── */
+const F=[
+  {n:'index.tsx',d:'src/renderer/components/SidePanel',a:14,r:3,t:'12s',fresh:1},
+  {n:'panelView.ts',d:'src/renderer',a:40,r:12,t:'1m'},
+  {n:'panelView.test.ts',d:'src/renderer',a:88,r:0,t:'2m',nw:1},
+  {n:'SidePanel.css',d:'src/renderer/components/SidePanel',a:6,r:2,t:'4m'},
+  {n:'bugs.md',d:'docs',a:12,r:0,t:'9m'},
+  {n:'CHANGELOG.md',d:'',a:2,r:0,t:'11m'},
+];
+const MANY=[...F,
+  {n:'settings.json',d:'~/.claude',a:3,r:1,t:'14m',out:1},
+  {n:'attention.ts',d:'src/renderer',a:22,r:9,t:'16m'},
+  {n:'sidebarWalk.ts',d:'src/renderer',a:0,r:0,t:'19m',gone:1},
+  {n:'threadView.ts',d:'src/renderer',a:5,r:5,t:'21m'},
+  {n:'index.tsx',d:'src/renderer/components/Rail',a:31,r:7,t:'24m'},
+  {n:'Rail.css',d:'src/renderer/components/Rail',a:18,r:4,t:'26m'},
+];
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+const full=f=>(f.d?f.d+'/':'')+f.n;
+
+function row(f,o={}){
+  const c=['fr',f.fresh&&!o.nofresh&&'fresh',f.fresh&&o.anim&&'anim',f.gone&&'gone',f.out&&'out',o.sel&&'sel',o.cls].filter(Boolean).join(' ');
+  let name=esc(f.n);
+  if(o.hl){const i=f.n.toLowerCase().indexOf(o.hl);if(i>=0)name=esc(f.n.slice(0,i))+'<mark>'+esc(f.n.slice(i,i+o.hl.length))+'</mark>'+esc(f.n.slice(i+o.hl.length));}
+  const tag=f.nw?'<span class="tag tnew">New</span>':f.gone?'<span class="tag tgone">Deleted</span>':f.out?'<span class="tag tout">Outside project</span>':'';
+  const diff=f.gone||o.nodiff?'':`<span class="fx"><b class="ad">+${f.a}</b>${f.r?` <b class="rm">\u2212${f.r}</b>`:''}</span>`;
+  const dir=o.nodir?'':`<span class="fd">${esc(f.d||'project root')}</span>`;
+  return `<div class="${c}"><span class="fi">${f.nw?I.plus(13):I.file(13)}</span><span class="fn">${name}</span>${tag}${dir}${o.who?`<span class="who">${o.who.map(w=>`<span>${w}</span>`).join('')}</span>`:''}${diff}${o.notime?'':`<span class="ft">${f.t}</span>`}</div>`;
+}
+
+/* ── frame pieces ──────────────────────────────────────────────── */
+const rail=()=>`<div class="rail"><i>${I.side()}</i><i>${I.search(14)}</i><i>${I.plus()}</i><hr><i>${I.home()}</i><hr><i class="t"><b style="background:#60a5fa"></b></i><i class="t"><b style="background:#f472b6"></b></i></div>`;
+function header(o={}){
+  const state=o.state||'work';
+  const chip=state==='sleep'?'<span class="chip sleep"><span class="dot"></span>Asleep</span>':state==='done'?'<span class="chip done"><span class="dot"></span>Done</span>':'<span class="chip"><span class="dot"></span>Working</span>';
+  return `<div class="hdr"><span class="ki">${I.chat()}</span><div class="ht"><div class="hn">${o.name||'Fix the flaky sidebar hover test'}</div><div class="hm"><span><span class="fo">${I.folder(12)}</span>afterterm</span><span>${I.model()}Opus 5</span><span>${I.branch()}phase-9-output-fixes</span></div></div><div class="ha">${o.act||''}${chip}<span class="ic">${I.dots()}</span></div></div>`;
+}
+const TERM=`
+<div class="tl"><span class="g">\u25cf</span> <span class="w">Update(src/renderer/panelView.ts)</span></div>
+<div class="tl d">  \u23bf  Updated with 40 additions and 12 removals</div>
+<div class="tl"><span class="g">\u25cf</span> <span class="w">Write(src/renderer/panelView.test.ts)</span></div>
+<div class="tl d">  \u23bf  Wrote 88 lines</div>
+<div class="tl"><span class="g">\u25cf</span> The fold now stays open while a hidden row is waiting.</div>
+<div class="tl"><span class="g">\u25cf</span> <span class="w">Update(\u2026/SidePanel/index.tsx)</span></div>
+<div class="tl d">  \u23bf  Updated with 14 additions and 3 removals</div>
+<div class="tl p">\u2733 Running tests\u2026</div>`;
+const term=(x='',inner=TERM)=>`<div class="term">${inner}${x}</div>`;
+const asleep=(x='')=>`<div class="asleep"><div class="tail">${TERM}</div><div class="wakebox">Wake <span class="since">Asleep since 2h ago</span></div>${x}</div>`;
+function app(o){
+  return `<div class="shot"><div class="app" style="height:${o.h||300}px">${o.norail?'':rail()}${o.panel||''}${o.page||`<div class="main">${header(o.hdr||{})}${o.under||''}<div class="work">${o.body||term()}${o.right||''}</div></div>`}${o.over||''}</div></div>`;
+}
+function variant(id,num,title,cases){
+  document.getElementById(id).innerHTML=`<h2><span class="vn">${num}</span><span>${title}</span></h2><div class="cases">${cases.map(([t,h])=>`<div class="case"><h3>${t}</h3>${h}</div>`).join('')}</div>`;
+}
+const pop=(inner,style)=>`<div class="pop" style="${style}">${inner}</div>`;
+const menu=(style,hi=0)=>`<div class="menu" style="${style}">
+  <div class="mi ${hi===0?'hi':''}">${I.code()}Open in VS Code<span class="k">Enter</span></div>
+  <div class="mi">${I.reveal()}Show in File Explorer</div>
+  <div class="msep"></div>
+  <div class="mi">${I.copy()}Copy path</div>
+  <div class="mi">${I.copy()}Copy relative path</div></div>`;
+
+/* ── 1. header button + dropdown ───────────────────────────────── */
+const fb=(n,cls='',dot=true)=>`<span class="fbtn ${cls}">${I.files(13)}${n}${dot&&!cls.includes('off')?'<span class="nd"></span>':''}</span>`;
+const popList=(list,o={})=>pop(`<div class="pt"><span>Edited in this chat, newest first</span><span>${o.count||list.length}</span></div>${o.search?`<div class="srch">${I.search()}${o.q?`<span class="v">${o.q}</span><span class="caret"></span>`:'Filter files'}</div>`:''}<div class="${o.fade?'scrollfade':''}">${list.map((f,i)=>row(f,{sel:o.sel===i,hl:o.q})).join('')}</div>${o.fade?'<div class="sb"></div>':''}${o.foot?`<div class="pf">${o.foot}</div>`:''}`,o.style||'top:52px;right:12px');
+variant('v1','1','A Files button in the thread header opens a list',[
+  ['The button shows how many files this chat has edited',app({hdr:{act:fb('6 files')}})],
+  ['Clicking it opens the list, newest first',app({h:330,hdr:{act:fb('6 files','open')},over:popList(F,{foot:'<span>Click to open in VS Code</span><span>Right-click for more</span>'})})],
+  ['Thirty-one files: the list scrolls and has a filter box',app({h:380,hdr:{act:fb('31 files','open')},over:popList(MANY.slice(0,10),{search:1,fade:1,count:31})})],
+  ['Typing filters the list',app({h:300,hdr:{act:fb('31 files','open')},over:popList([F[1],F[2],F[0],F[3]],{search:1,q:'panel',count:'4 of 31',sel:0})})],
+  ['Right-click a file for Explorer and copy path',app({h:330,hdr:{act:fb('6 files','open')},over:popList(F,{sel:1})+menu('top:108px;right:250px')})],
+  ['No files edited yet: the button is dimmed',app({h:230,hdr:{act:fb('No files yet','off',false)},body:term('',`<div class="tl p">&gt; why does the hover card flicker on the sidebar?</div><div class="tl"><span class="g">\u25cf</span> Reading src/renderer/components/ThreadHoverCard.tsx\u2026</div>`)})],
+  ['The chat is asleep: the list still opens from the saved record',app({h:330,hdr:{act:fb('6 files','open',false),state:'sleep'},body:asleep(),over:popList(F.map(f=>({...f,fresh:0})).map((f,i)=>({...f,t:['2h','2h','2h','2h','2h','2h'][i]})))})],
+]);
+
+/* ── 2. right panel ────────────────────────────────────────────── */
+const rp=(list,o={})=>`<div class="rp"><div class="rph">${I.files(13)}Edited files<span class="cnt">${o.count||list.length}</span><span class="sp"></span><span class="seg"><i class="${o.tree?'':'on'}">${I.list(12)}</i><i class="${o.tree?'on':''}">${I.tree(12)}</i></span><span class="ic" style="width:22px;height:22px">${I.collapse(12)}</span></div>${o.search?`<div class="srch" style="margin:0 6px 6px">${I.search()}Filter files</div>`:''}${o.body||`<div class="rpl ${o.fade?'scrollfade':''}">${list.map(f=>row(f,{nodir:1,anim:o.anim,cls:f.fresh&&o.slide?'slide':''})).join('')}</div>`}</div>`;
+const tree=`<div class="rpl tree">
+<div class="fold">${I.chevD(11)}${I.folderLine(12)}src/renderer</div>
+<div class="fold deep">${I.chevD(11)}${I.folderLine(12)}components/SidePanel</div>
+${row(F[0],{nodir:1,cls:'deep'})}${row(F[3],{nodir:1,cls:'deep'})}
+${row(F[1],{nodir:1})}${row(F[2],{nodir:1})}
+<div class="fold">${I.chevD(11)}${I.folderLine(12)}docs</div>${row(F[4],{nodir:1})}
+<div class="fold">${I.chevD(11)}${I.folderLine(12)}project root</div>${row(F[5],{nodir:1})}</div>`;
+variant('v2','2','A panel of edited files on the right of the terminal',[
+  ['The panel beside the terminal, newest first',app({h:320,right:rp(F)})],
+  ['The same files grouped by folder',app({h:340,right:rp(F,{tree:1,body:tree})})],
+  ['A new edit arrives: its row moves to the top and glows',app({h:320,right:rp(F,{anim:1,slide:1})})],
+  ['Panel folded to a thin strip with the count',app({h:260,right:`<div class="rstrip">${I.expand(12)}${I.files(14)}<span class="n">6</span><span class="nd"></span></div>`})],
+  ['Many files: a filter box appears at the top',app({h:360,right:rp(MANY.slice(0,9),{search:1,count:31,fade:1})})],
+  ['No files yet',app({h:260,right:rp([],{count:'0',body:`<div class="empty">${I.files(22)}Claude has not edited a file in this chat yet</div>`})})],
+  ['The chat is asleep: the panel keeps the last session\'s files',app({h:320,hdr:{state:'sleep'},body:asleep(),right:rp(F.map(f=>({...f,fresh:0,t:'2h'})))})],
+]);
+
+/* ── 3. chips under the header ─────────────────────────────────── */
+const fc=(f,cls='')=>`<span class="fc ${f.fresh?'fresh':''} ${cls}">${f.nw?I.plus(12):I.file(12)}${esc(f.n)}</span>`;
+const chips=(n,more,x='')=>`<div class="chips" style="position:relative"><span class="lbl">Edited</span>${F.slice(0,n).map(f=>fc(f)).join('')}${more?`<span class="fc more">+${more} more</span>`:''}${x}</div>`;
+variant('v3','3','A row of the newest edited files under the header',[
+  ['The four newest files, the rest behind a count',app({h:260,under:chips(4,2)})],
+  ['The file edited seconds ago is outlined in green',app({h:260,under:chips(3,3)})],
+  ['Hovering a file chip shows its full path and changes',app({h:280,under:chips(4,2),over:`<div class="tip" style="top:108px;left:170px">src/renderer/panelView.ts <span class="s">\u00b7 +40 \u221212 \u00b7 1 minute ago \u00b7 click to open</span></div>`})],
+  ['Clicking "+27 more" opens the full list',app({h:380,under:chips(4,27).replace('fc more','fc more open'),over:popList(MANY.slice(4,12),{search:1,fade:1,count:31,style:'top:92px;left:250px'})})],
+  ['No files yet: the row is not shown at all',app({h:220,body:term('',`<div class="tl p">&gt; why does the hover card flicker on the sidebar?</div><div class="tl"><span class="g">\u25cf</span> Reading ThreadHoverCard.tsx\u2026</div>`)})],
+  ['The chat is asleep: the row stays, dimmed',app({h:260,hdr:{state:'sleep'},under:chips(4,2).replace('class="chips"','class="chips" style="opacity:.6;position:relative"').replace(' fresh',''),body:asleep()})],
+]);
+
+/* ── 4. nested in the sidebar ──────────────────────────────────── */
+const panelRows=(o={})=>`<div class="panel">
+<div class="ph">Pinned</div>
+<div class="pr proj"><span style="color:#60a5fa">${I.folder(13)}</span><span class="l">afterterm</span></div>
+<div class="pr sub ${o.act===2?'':'act'}"><span style="color:var(--live)">${I.chat(13)}</span><span class="l">Fix the flaky sidebar hover test</span>${o.c1?`<span class="cnt ${o.open1?'on':''}">${o.open1?I.chevD(10):I.files(10)}${o.c1}</span>`:''}</div>
+${o.open1||''}
+<div class="pr sub"><span style="color:var(--text3)">${I.shell(13)}</span><span class="l">npm run dev</span><span class="cnt">:5173</span></div>
+<div class="pr sub ${o.act===2?'act':''}"><span style="color:var(--sleep)">${I.chat(13)}</span><span class="l">Release notes for 0.9</span>${o.c2?`<span class="cnt ${o.open2?'on':''}">${o.open2?I.chevD(10):I.files(10)}${o.c2}</span>`:''}</div>
+${o.open2||''}
+<div class="ph">Recent</div>
+<div class="pr proj"><span style="color:#f472b6">${I.folder(13)}</span><span class="l">Spotify taskbar</span></div>
+<div class="pr sub"><span style="color:var(--text3)">${I.chat(13)}</span><span class="l">Tray icon on dark mode</span></div></div>`;
+const sfile=(f,hi)=>`<div class="pr file" style="${f.fresh?'background:rgba(74,222,128,.08)':''}${hi?'background:var(--hover)':''}"><span style="color:${f.nw?'var(--add)':'var(--text4)'}">${f.nw?I.plus(11):I.file(11)}</span><span class="l">${esc(f.n)}<span class="d">${esc(f.d.split('/').pop()||'root')}</span></span></div>`;
+const three=(hi)=>F.slice(0,3).map((f,i)=>sfile(f,i===hi)).join('')+`<div class="pr more">Show all 6</div>`;
+const REL=[{n:'CHANGELOG.md',d:''},{n:'package.json',d:''},{n:'guide-02-releases.md',d:'docs'}];
+variant('v4','4','Edited files nested under the chat in the sidebar',[
+  ['The chat row shows a file count; clicking it unfolds the files',app({h:300,panel:panelRows({c1:6,c2:3})})],
+  ['Unfolded: the three newest files, then "Show all 6"',app({h:330,panel:panelRows({c1:6,c2:3,open1:three()})})],
+  ['Hovering a file shows its full path',app({h:330,panel:panelRows({c1:6,c2:3,open1:three(1)}),over:`<div class="tip" style="top:104px;left:238px">src/renderer/panelView.ts <span class="s">· +40 −12 · 1m ago</span></div>`})],
+  ['Right-click a file in the sidebar',app({h:330,panel:panelRows({c1:6,c2:3,open1:three(1)}),over:menu('top:112px;left:200px',0)})],
+  ['An asleep chat keeps its count and its files',app({h:300,hdr:{state:'sleep',name:'Release notes for 0.9'},body:asleep(),panel:panelRows({c1:6,c2:3,act:2,open2:REL.map(f=>sfile(f)).join('')})})],
+  ['No files yet: no count on the row',app({h:260,panel:panelRows({})})],
+]);
+
+/* ── 5. project page Files tab ─────────────────────────────────── */
+const ppage=(inner,o={})=>`<div class="pp"><div class="pph"><span class="pi">${I.folder(16)}</span><div><div class="pn">afterterm</div><div class="ps">D:\\Pitara\\Work\\Tinkering\\afterterm \u00b7 Command Prompt</div></div></div><div class="tabs"><span>Live <b>3</b></span><span>Asleep <b>5</b></span><span>History <b>12</b></span><span class="on">Files <b>${o.n??31}</b></span></div>${inner}${o.over||''}</div>`;
+const tools=(q)=>`<div class="pptools"><div class="srch">${I.search()}${q?`<span class="v">${q}</span><span class="caret"></span>`:'Search edited files'}</div><span class="seg"><i class="on" style="width:auto;padding:0 8px;font-style:normal;font-size:11px">By file</i><i style="width:auto;padding:0 8px;font-style:normal;font-size:11px">By chat</i></span></div>`;
+const toolsChat=`<div class="pptools"><div class="srch">${I.search()}Search edited files</div><span class="seg"><i style="width:auto;padding:0 8px;font-style:normal;font-size:11px">By file</i><i class="on" style="width:auto;padding:0 8px;font-style:normal;font-size:11px">By chat</i></span></div>`;
+const W1=['Fix the flaky sidebar hover test'],W2=['Fix the flaky sidebar hover test','Release notes for 0.9'],W3=['Rail badges'];
+variant('v5','5','A Files tab on the project page, across all its chats',[
+  ['By file: every file any chat edited, with the chats that touched it',app({h:340,page:ppage(tools()+`<div class="pplist">${row(F[0],{who:W1,nodiff:1})}${row(F[1],{who:W1,nodiff:1})}${row(F[4],{who:W2,nodiff:1})}${row(F[5],{who:W2,nodiff:1})}${row(MANY[10],{who:W3,nodiff:1})}${row(MANY[8],{who:W3,nodiff:1})}</div>`)})],
+  ['By chat: each chat with its files under it',app({h:360,page:ppage(toolsChat+`<div class="pplist"><div class="grp"><span style="color:var(--live)">${I.chat(13)}</span>Fix the flaky sidebar hover test<span class="s">6 files \u00b7 working</span></div>${row(F[0],{cls:'ind',nofresh:0})}${row(F[1],{cls:'ind'})}${row(F[2],{cls:'ind'})}<div class="grp"><span style="color:var(--sleep)">${I.chat(13)}</span>Release notes for 0.9<span class="s">3 files \u00b7 asleep</span></div>${row({n:'CHANGELOG.md',d:'',a:24,r:2,t:'2h'},{cls:'ind'})}${row({n:'package.json',d:'',a:1,r:1,t:'2h'},{cls:'ind'})}</div>`)})],
+  ['Searching narrows every chat\'s files at once',app({h:300,page:ppage(tools('rail')+`<div class="pplist">${row(MANY[10],{who:W3,hl:'rail'})}${row(MANY[11],{who:W3,hl:'rail'})}</div>`)})],
+  ['A closed chat\'s files stay, marked as history',app({h:300,page:ppage(tools()+`<div class="pplist">${row(F[4],{who:['Release notes for 0.9'],nodiff:1})}${row({n:'design-03-sidebar-and-attention.md',d:'docs',t:'3d'},{who:['Sidebar design (closed)'],nodiff:1})}${row({n:'design-03-final-sidebar.html',d:'docs/mockups',t:'3d'},{who:['Sidebar design (closed)'],nodiff:1})}</div>`)})],
+  ['No chat in this project has edited a file',app({h:240,page:ppage(`<div class="empty">${I.files(22)}No chat in this project has edited a file yet</div>`,{n:0})})],
+]);
+
+/* ── 6. quick-open picker ──────────────────────────────────────── */
+const pick=(inner,q,kb='Ctrl+Shift+E')=>`<div class="dim"></div><div class="pick"><div class="srch">${I.search(14)}${q?`<span class="v">${q}</span><span class="caret"></span>`:'Open a file Claude edited'}<span class="kbd">${kb}</span></div>${inner}<div class="foot"><span><b>Enter</b> open in VS Code</span><span><b>Shift+Enter</b> show in Explorer</span><span><b>Ctrl+C</b> copy path</span></div></div>`;
+variant('v6','6','A keyboard picker for edited files',[
+  ['Ctrl+Shift+E opens this chat\'s files, newest first',app({h:360,over:pick(`<div class="sec">This chat</div>${F.slice(0,5).map((f,i)=>row(f,{sel:i===0})).join('')}`)})],
+  ['Typing searches this chat first, then the project\'s other chats',app({h:360,over:pick(`<div class="sec">This chat</div>${row(F[1],{sel:1,hl:'panel'})}${row(F[2],{hl:'panel'})}${row(F[0],{hl:'panel'})}<div class="sec">Other chats in afterterm</div>${row({n:'SidePanel.css',d:'src/renderer/components/SidePanel',a:3,r:1,t:'1d'},{who:['Panel spacing'],hl:'panel'})}`,'panel')})],
+  ['Opened from Home: files from every project',app({h:360,page:`<div class="pp"><div style="font-size:18px;font-weight:600">Friday 25 September</div><div class="ps" style="color:var(--text3)">3 waiting \u00b7 2 working</div></div>`,over:pick(`<div class="sec">afterterm</div>${row(F[0],{sel:1})}${row(F[1])}<div class="sec">Spotify taskbar</div>${row({n:'tray.ts',d:'src',a:9,r:2,t:'1h'})}${row({n:'TrayIcon.cs',d:'native',a:40,r:0,t:'1h',nw:1})}`)})],
+  ['Nothing matches',app({h:260,over:pick(`<div class="empty" style="padding:22px">No edited file matches "wakeplan"</div>`,'wakeplan')})],
+]);
+
+/* ── 7. plain paths in the output become links ─────────────────── */
+const T7=`
+<div class="tl"><span class="g">\u25cf</span> I changed the fold rule in <span class="u">panelView.ts</span> and added tests in</div>
+<div class="tl">  <span class="u">src/renderer/panelView.test.ts</span>. The sidebar itself only needed the</div>
+<div class="tl">  new prop, in <span class="u">SidePanel/index.tsx</span>.</div>
+<div class="tl p">&gt; </div>`;
+const T7b=T7.replace('<span class="u">panelView.ts</span>','<span class="u h">panelView.ts</span>');
+const T7c=`
+<div class="tl"><span class="g">\u25cf</span> Both rows now read their count from the aggregate; see <span class="u h">index.tsx</span>.</div>
+<div class="tl p">&gt; </div>`;
+variant('v7','7','File names Claude writes in plain text become clickable',[
+  ['Names of files this chat edited are underlined, even without a full path',app({h:230,body:term('',T7)})],
+  ['Hovering one shows the file it opens',app({h:260,body:term(`<div class="tip" style="top:32px;left:90px">src/renderer/panelView.ts <span class="s">\u00b7 Ctrl+click to open in VS Code</span></div>`,T7b)})],
+  ['Two edited files share the name: clicking asks which one',app({h:260,body:term(`<div class="menu" style="top:34px;left:200px;width:260px"><div class="mi hi">${I.file(13)}components/SidePanel/index.tsx</div><div class="mi">${I.file(13)}components/Rail/index.tsx</div></div>`,T7c)})],
+  ['A name Claude did not edit stays plain text',app({h:230,body:term('',`<div class="tl"><span class="g">\u25cf</span> The hover card lives in ThreadHoverCard.tsx; I did not change it.</div><div class="tl"><span class="g">\u25cf</span> I only touched <span class="u">SidePanel.css</span>.</div><div class="tl p">&gt; </div>`)})],
+]);
+
+/* ══ PART 2 ══════════════════════════════════════════════════════ */
+function variant2(id,num,title,seen,cases){
+  document.getElementById(id).innerHTML=`<h2 class="h2b"><span class="t"><span class="vn">${num}</span><span>${title}</span></span><span class="seen">Seen in ${seen.map(x=>`<i>${x}</i>`).join('')}</span></h2><div class="cases">${cases.map(([t,h,w])=>`<div class="case ${w?'wide':''}"><h3>${t}</h3>${h}</div>`).join('')}</div>`;
+}
+const stat=(a,r)=>`<span class="stat"><span class="ad">+${a}</span>${r?` <span class="rm">−${r}</span>`:''}</span>`;
+const TDONE=`
+<div class="tl"><span class="g">●</span> <span class="w">Update(src/renderer/panelView.ts)</span></div>
+<div class="tl d">  ⎿  Updated with 40 additions and 12 removals</div>
+<div class="tl"><span class="g">●</span> <span class="w">Write(src/renderer/panelView.test.ts)</span></div>
+<div class="tl d">  ⎿  Wrote 88 lines</div>
+<div class="tl"><span class="g">●</span> The fold now stays open while a hidden row is waiting.</div>
+<div class="tl"><span class="g">●</span> All 24 tests pass.</div>
+<div class="tl p">&gt; </div>`;
+const R3=[F[1],F[2],F[3]].map(f=>({...f,fresh:0}));
+
+/* ── 8. card at the end of a reply ─────────────────────────────── */
+const tcard=(inner,o={})=>`<div class="tcard"><div class="th">${I.files(13)}<span>${o.title||'This reply changed 3 files'}</span>${stat(o.a??134,o.r??14)}<span class="sp"></span><span class="x">${I.x()}</span></div>${inner}${o.foot?`<div class="tf">${o.foot}</div>`:''}</div>`;
+const tpill=(t)=>`<div class="tpill">${I.files(13)}${t}<span class="ch">${I.chevD(11)}</span></div>`;
+variant2('v8','8','A card of the files a reply changed, shown when Claude finishes the reply',['Codex app','T3 Code','Roo Code'],[
+  ['Claude finishes: the card lists what that reply changed',app({h:320,hdr:{state:'done'},body:term(tcard(R3.map(f=>row(f)).join(''),{foot:'<span>6 files in this chat</span><span>Click to open in VS Code</span>'}),TDONE)})],
+  ['You start typing: the card shrinks to a pill',app({h:260,hdr:{state:'done'},body:term(tpill(`3 files ${stat(134,14)}`),TDONE.replace('&gt; </div>','&gt; now make the fold animate</div>'))})],
+  ['Clicking the pill opens it again, with earlier replies below',app({h:380,hdr:{state:'done'},body:term(tcard(`<div class="sec">This reply</div>${R3.map(f=>row(f)).join('')}<div class="sec">Earlier replies</div>${row({...F[0],fresh:0,t:'14m'})}${row({...F[4],t:'20m'})}${row({...F[5],t:'21m'})}`,{title:'6 files changed in this chat',a:162,r:17}),TDONE)})],
+  ['A reply that changed nothing shows no card',app({h:240,hdr:{state:'done'},body:term('',`<div class="tl p">&gt; why does the hover card flicker?</div><div class="tl"><span class="g">●</span> The card remounts on every hover because its key is the row index.</div><div class="tl p">&gt; </div>`)})],
+  ['A reply that changed fourteen files: the five newest, then the rest',app({h:340,hdr:{state:'done'},body:term(tcard(MANY.slice(0,5).map(f=>row({...f,fresh:0})).join(''),{title:'This reply changed 14 files',a:311,r:58,foot:'<span>Show 9 more</span><span>Filter</span>'}),TDONE)})],
+]);
+
+/* ── 9. changes panel: list on top, diff below ─────────────────── */
+const hstat=(open)=>`<span class="hstat ${open?'open':''}">${I.files(13)}6 files ${stat(162,17)}</span>`;
+const DIFF=(sel)=>`<div class="dh">${I.file(13)}src/renderer/panelView.ts<span class="sp"></span><span class="ob">${I.code(12)}Open at line 43</span></div>
+<div class="dln hk"><span class="n"></span>@@ -41,7 +41,12 @@ export function panelSections(</div>
+<div class="dln"><span class="n">41</span>  const rows = threadsFor(project);</div>
+<div class="dln"><span class="n">42</span>  const fold = FOLD_ROWS;</div>
+<div class="dln r"><span class="n">43</span>- if (rows.length &lt;= fold) return rows;</div>
+<div class="dln a ${sel?'sel':''}"><span class="n">43</span>+ const hidden = rows.slice(fold);</div>
+<div class="dln a ${sel?'sel':''}"><span class="n">44</span>+ const waiting = hidden.some(isWaiting);</div>
+<div class="dln a ${sel?'sel':''}"><span class="n">45</span>+ if (rows.length &lt;= fold || waiting) {</div>
+<div class="dln a"><span class="n">46</span>+   return rows;</div>
+<div class="dln a"><span class="n">47</span>+ }</div>
+<div class="dln"><span class="n">48</span>  return rows.slice(0, fold);</div>`;
+const dlist=(sel=1)=>`<div class="dl">${F.slice(0,4).map((f,i)=>row({...f,fresh:0},{sel:i===sel})).join('')}</div>`;
+const dp=(inner,o={})=>`<div class="dp"><div class="dph">${I.files(13)}Changes<span class="cnt">6</span>${stat(162,17)}<span class="sp"></span><span class="seg"><i class="${o.byReply?'':'on'}">Whole chat</i><i class="${o.byReply?'on':''}">By reply</i></span><span class="ic" style="width:22px;height:22px">${I.x()}</span></div>${inner}</div>`;
+const BYREPLY=`<div class="dl" style="border:0">
+<div class="bgroup">${I.chat(12)}<span class="q">"now make the fold animate"</span><span class="s">just now</span></div>${row({...F[0],fresh:0})}
+<div class="bgroup">${I.chat(12)}<span class="q">"keep the fold open while a hidden row is waiting"</span><span class="s">2m</span></div>${row(F[1],{sel:1})}${row(F[2])}${row(F[3])}
+<div class="bgroup">${I.chat(12)}<span class="q">"log the hover bug in bugs.md"</span><span class="s">9m</span></div>${row(F[4])}${row(F[5])}</div>`;
+const TREE2=`<div class="rpl tree">
+<div class="fold">${I.chevD(11)}${I.folderLine(12)}src/renderer<span class="tot">${stat(148,17)}</span></div>
+<div class="fold deep">${I.chev(11)}${I.folderLine(12)}components/SidePanel<span class="tot">${stat(20,5)}</span></div>
+${row(F[1],{nodir:1})}${row(F[2],{nodir:1})}
+<div class="fold">${I.chev(11)}${I.folderLine(12)}docs<span class="tot">${stat(12,0)}</span></div>
+<div class="fold">${I.chevD(11)}${I.folderLine(12)}project root<span class="tot">${stat(2,0)}</span></div>${row(F[5],{nodir:1})}</div>`;
+variant2('v9','9','A changes panel: the file list on top, the chosen file\'s changes below',['Claude Code /diff','Claude desktop','Conductor','Warp','Codex app'],[
+  ['The header shows the chat\'s totals; clicking them opens the panel',app({h:240,hdr:{act:hstat(false)}})],
+  ['Folder tree: a folded folder shows its own totals',app({h:300,hdr:{act:hstat(true)},right:`<div class="rp" style="width:250px"><div class="rph">${I.files(13)}Changes<span class="cnt">6</span><span class="sp"></span><span class="seg"><i>${I.list(12)}</i><i class="on">${I.tree(12)}</i></span></div>${TREE2}</div>`})],
+  ['The panel open: pick a file, read what changed, open it at that line',app({h:430,hdr:{act:hstat(true)},right:dp(dlist(1)+`<div class="diff">${DIFF(false)}</div>`)}),1],
+  ['By reply: files grouped under the message you sent',app({h:420,hdr:{act:hstat(true)},right:dp(BYREPLY,{byReply:1})}),1],
+  ['Select lines and send them to Claude as a reference',app({h:430,hdr:{act:hstat(true)},body:term('',TDONE.replace('&gt; </div>','&gt; @src/renderer/panelView.ts#L43-45 <span class="w" style="background:var(--text);color:var(--pane)"> </span></div>')),right:dp(dlist(1)+`<div class="diff">${DIFF(true)}<span class="askbtn" style="top:176px">${I.chat(12)}Add lines 43 to 45 to the prompt</span></div>`)}),1],
+]);
+
+/* ── 10. bar along the bottom of the terminal ──────────────────── */
+const up=sv(12,`<path d="M6 15l6-6 6 6" ${st}/>`);
+const bbar=(o={})=>`<div class="bbar ${o.open?'open':''}">${I.files(13)}<span style="color:var(--text)">${o.count||(o.n??6)} files changed</span>${stat(o.a??162,o.r??17)}<span class="nf">· ${o.newest||'index.tsx edited 12s ago'}</span><span class="sp"></span><span class="ch">${o.open?I.chevD(12):up}</span></div>`;
+const tcol=(inner,bar,acc='')=>`<div class="tcol"><div class="term">${inner}</div>${acc}${bar}</div>`;
+variant2('v10','10','A bar along the bottom of the terminal that unfolds upward',['Zed','VS Code Copilot','Cursor'],[
+  ['Folded: the count, the totals and the newest file',app({h:270,body:tcol(TERM,bbar())})],
+  ['Unfolded: the list sits above the bar, newest first',app({h:400,body:tcol(TERM,bbar({open:1}),`<div class="bacc">${F.map(f=>row(f)).join('')}</div>`)})],
+  ['While Claude works, the count goes up as each file is edited',app({h:270,body:tcol(TERM,bbar({count:'<span class="tick">6</span>',newest:'<span class="tick">index.tsx edited just now</span>'}))})],
+  ['Many files: the unfolded list scrolls and has a filter box',app({h:430,body:tcol(TERM,bbar({open:1,n:31,a:512,r:96}),`<div class="bacc"><div class="srch">${I.search()}Filter files</div><div class="scrollfade">${MANY.slice(0,7).map(f=>row(f)).join('')}</div></div>`)})],
+  ['No edits yet: no bar',app({h:230,body:tcol(`<div class="tl p">&gt; why does the hover card flicker?</div><div class="tl"><span class="g">●</span> Reading ThreadHoverCard.tsx…</div>`,'')})],
+  ['The chat is asleep: the bar stays on the asleep pane',app({h:300,hdr:{state:'sleep'},body:`<div class="tcol"><div class="asleep" style="border:0;border-radius:0"><div class="tail">${TERM}</div><div class="wakebox">Wake <span class="since">Asleep since 2h ago</span></div></div>${bbar({newest:'last edit 2h ago'})}</div>`})],
+]);
+
+/* ── 11. picker with the edited lines ──────────────────────────── */
+const snipA=`<div class="snip"><span class="ln">44 </span><span class="a">+ const waiting = hidden.some(isWaiting);</span>\n<span class="ln">45 </span><span class="a">+ if (rows.length &lt;= fold || waiting) {</span></div>`;
+const snipB=`<div class="snip"><span class="ln">12 </span><span class="a">+ &lt;FoldRows open={waiting} /&gt;</span>\n<span class="ln">13 </span><span class="r">- &lt;FoldRows /&gt;</span></div>`;
+const snipC=`<div class="snip"><span class="ln">1  </span><span class="a">+ import { panelSections } from './panelView';</span>\n<span class="ln">2  </span><span class="a">+ import test from 'node:test';</span></div>`;
+const pick2=(inner,o={})=>`<div class="dim"></div><div class="pick" style="width:460px"><div class="srch">${I.search(14)}${o.q?`<span class="v">${o.q}</span><span class="caret"></span>`:'Open a file Claude edited'}<span class="kbd">Ctrl+E</span></div><div class="ptabs"><span class="${o.all?'':'on'}">This chat</span><span class="${o.all?'on':''}">All chats in afterterm</span><span style="border:0;color:var(--text4)">Ctrl+E again to switch</span></div>${inner}<div class="foot"><span><b>Enter</b> open at line ${o.line||44}</span><span><b>Shift+Enter</b> show in Explorer</span></div></div>`;
+variant2('v11','11','A picker that shows the lines Claude changed and opens the file at them',['JetBrains Recent Files','JetBrains Recent Locations','VS Code Quick Open'],[
+  ['Each file shows the lines Claude changed in it',app({h:420,over:pick2(row({...F[1]},{sel:1})+snipA+row({...F[0],fresh:0})+snipB+row(F[2])+snipC)})],
+  ['Pressing the shortcut again switches to every chat in the project',app({h:420,over:pick2(row({...F[1]},{sel:1,who:['This chat']})+snipA+row({n:'Rail.css',d:'src/renderer/components/Rail',a:18,r:4,t:'1d'},{who:['Rail badges']})+`<div class="snip"><span class="ln">31 </span><span class="a">+ .badge { min-width: 18px; }</span></div>`+row({n:'bugs.md',d:'docs',a:12,r:0,t:'1d'},{who:['Log bugs']}),{all:1})})],
+  ['Typing narrows by file name and by the changed lines',app({h:360,over:pick2(row({...F[1]},{sel:1})+snipA.replace('isWaiting','is<mark>Wait</mark>ing').replace(' waiting = ',' <mark>wait</mark>ing = ')+row({...F[0],fresh:0})+snipB.replace('open={waiting}','open={<mark>wait</mark>ing}'),{q:'wait'})})],
+]);
+
+/* ── 12. open button beside each edit in the output ────────────── */
+const T12=(hov,res)=>`
+<div class="tl ${hov?'hov':''}" style="position:relative"><span class="g">●</span> <span class="w">Update(src/renderer/panelView.ts)</span>${hov?`<span class="deco" style="top:0">${I.code(11)}Open</span>`:''}</div>
+<div class="tl d">  ⎿  Updated with 40 additions and 12 removals</div>
+<div class="tl"><span class="g">●</span> <span class="w">Write(src/renderer/panelView.test.ts)</span></div>
+<div class="tl d">  ⎿  Wrote 88 lines</div>
+<div class="tl"><span class="g">●</span> The fold now stays open while a hidden row is waiting.</div>
+<div class="tl ${res?'hov':''}" style="position:relative"><span class="g">●</span> <span class="${res?'u h':'w'}">Update(…/SidePanel/index.tsx)</span>${res?`<span class="deco" style="top:0">${I.code(11)}Open</span>`:''}</div>
+<div class="tl d">  ⎿  Updated with 14 additions and 3 removals</div>
+<div class="tl p">✳ Running tests…</div>`;
+variant2('v12','12','An Open button beside each edit Claude prints in the terminal',['Cline','Windsurf'],[
+  ['Hovering an edit line shows Open at its right edge',app({h:260,body:term('',T12(1,0))})],
+  ['A shortened path still opens the right file',app({h:280,body:term(`<div class="tip" style="top:120px;left:40px">src/renderer/components/SidePanel/index.tsx <span class="s">· +14 −3 · click to open</span></div>`,T12(0,1))})],
+  ['A mark on the scrollbar for each edit; click one to jump to it',app({h:280,body:term(`<div class="sbar"><i style="top:52%;height:40%"></i><b style="top:12%"></b><b style="top:21%"></b><b style="top:33%"></b><b style="top:58%"></b><b style="top:71%"></b><b style="top:90%"></b></div>`,TERM)})],
+]);
+</script>

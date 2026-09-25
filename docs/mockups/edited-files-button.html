@@ -1,0 +1,277 @@
+<title>Files Button Prototype</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+<style>
+:root{
+  color-scheme:dark;
+  --page:#141414;--side:#171717;--bg:#212121;--pane:#191919;--raise:#2a2a2a;--hover:#2f2f2f;--hover2:#383838;
+  --text:#ececec;--text2:#b4b4b4;--text3:#8e8e8e;--text4:#5c5c5c;
+  --live:#4ade80;--sleep:#a78bfa;--add:#5fb87a;--proj:#60a5fa;--doc:#93c5fd;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'Cascadia Code','Cascadia Mono',Consolas,ui-monospace,monospace;
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+*{box-sizing:border-box}
+body{background:var(--page);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased;padding-inline:16px}
+.wrap{max-width:1180px;margin:0 auto;padding-block:40px 96px;display:flex;flex-direction:column;gap:52px}
+svg{display:block;flex:none}
+h1{font-size:26px;font-weight:600;margin:0;text-wrap:balance;letter-spacing:-.01em}
+.section{display:flex;flex-direction:column;gap:16px}
+.section>h2{font-size:19px;font-weight:600;margin:0;text-wrap:balance}
+.cases{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,520px),1fr));gap:22px 20px}
+.case{display:flex;flex-direction:column;gap:8px;min-width:0}
+.case h3{font-size:13.5px;font-weight:500;color:var(--text2);margin:0}
+.shot{overflow-x:auto;border-radius:12px}
+.kinds{display:flex;flex-wrap:wrap;gap:10px}
+.kind{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:12px;background:#1c1c1c;border:1px solid #292929;flex:1 1 240px;flex-wrap:wrap}
+.kind b{font-weight:600;font-size:13.5px;display:flex;align-items:center;gap:8px}
+.kind .ext{display:flex;flex-wrap:wrap;gap:5px}
+.kind .ext span{font-family:var(--mono);font-size:11.5px;padding:1px 7px;border-radius:6px;background:#262626;color:var(--text2)}
+.try{font-size:12.5px;color:var(--text3);display:flex;gap:16px;flex-wrap:wrap}
+.try kbd{font-family:var(--sans);font-size:11px;border:1px solid #3a3a3a;border-radius:5px;padding:0 5px;color:var(--text2)}
+
+/* mini app */
+.app{position:relative;display:flex;min-width:500px;background:var(--side);border:1px solid #262626;border-radius:12px;overflow:hidden;font-size:12.5px}
+.rail{width:44px;flex:none;display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px 0}
+.rail i{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;color:var(--text3)}
+.rail i.t{background:#2b2b2b}
+.rail i.t b{width:12px;height:12px;border-radius:4px;display:block}
+.rail hr{width:20px;border:0;border-top:1px solid #2c2c2c;margin:2px 0}
+.main{flex:1;min-width:0;background:var(--bg);border-radius:12px 0 0 0;margin-top:6px;display:flex;flex-direction:column;position:relative}
+.hdr{height:48px;flex:none;display:flex;align-items:center;gap:10px;padding:0 12px}
+.hdr .ki{color:var(--text3)}
+.ht{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.hn{font-weight:500;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hm{display:flex;gap:10px;color:var(--text2);font-size:11.5px;white-space:nowrap;overflow:hidden}
+.hm span{display:inline-flex;align-items:center;gap:4px}
+.hm .fo{color:var(--proj)}
+.ha{display:flex;align-items:center;gap:6px;flex:none}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--hover);color:var(--text2);white-space:nowrap}
+.chip .dot{width:7px;height:7px;border-radius:50%;background:var(--live)}
+.chip.sleep .dot{background:var(--sleep)}
+.ic{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:var(--text3)}
+.fbtn{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--hover);color:var(--text);white-space:nowrap;border:1px solid transparent;font:inherit;cursor:pointer;transition:background 140ms var(--ease),border-color 140ms var(--ease)}
+.fbtn:hover{background:var(--hover2)}
+.fbtn.open{background:var(--hover2);border-color:#4a4a4a}
+.fbtn:focus-visible{outline:2px solid var(--proj);outline-offset:2px}
+.fbtn svg{color:var(--text2)}
+.work{flex:1;min-height:0;display:flex;padding:0 10px 10px}
+.term{flex:1;min-width:0;background:var(--pane);border:1px solid #262626;border-radius:10px;padding:10px 12px;font-family:var(--mono);font-size:11.5px;line-height:1.6;color:var(--text2);overflow:hidden;position:relative}
+.tl{white-space:pre;overflow:hidden;text-overflow:ellipsis}
+.tl .g{color:var(--live)}.tl .w{color:var(--text)}.tl .d{color:var(--text4)}.tl .p{color:var(--text3)}
+.asleep .tl{color:var(--text4)}.asleep .tl .g,.asleep .tl .w{color:var(--text3)}
+.wakebox{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:#f2f2f2;color:#111;border-radius:999px;padding:6px 8px 6px 14px;font-weight:500;font-family:var(--sans);box-shadow:0 0 0 1px #d0d0d0;white-space:nowrap}
+.wakebox .since{font-weight:400;font-size:11px;background:#e1dcf5;color:#3b2f73;border-radius:999px;padding:2px 8px}
+
+/* the list: opens from the button's corner, closes a little faster than it opens */
+.pop{position:absolute;z-index:3;top:52px;right:12px;width:360px;max-height:calc(100% - 64px);overflow:auto;background:var(--raise);border:1px solid #3a3a3a;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.5);padding:6px;display:flex;flex-direction:column;gap:1px;
+  transform-origin:top right;opacity:0;transform:translateY(-6px) scale(.96);visibility:hidden;pointer-events:none;
+  transition:opacity 120ms ease-in,transform 140ms ease-in,visibility 0s linear 140ms}
+.pop.open{opacity:1;transform:none;visibility:visible;pointer-events:auto;
+  transition:opacity 160ms var(--ease),transform 220ms var(--ease),visibility 0s}
+.sec{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text3);padding:6px 8px 3px}
+.sec .n{color:var(--text4)}
+.fr{display:flex;align-items:center;gap:9px;padding:5px 8px;border-radius:7px;color:var(--text);white-space:nowrap;min-width:0;cursor:pointer;transition:background 120ms var(--ease)}
+.fr:hover,.fr.sel{background:var(--hover)}
+.fr .fi{display:grid;place-items:center;width:18px;flex:none;color:var(--doc)}
+.fr .fn{flex:none;max-width:55%;overflow:hidden;text-overflow:ellipsis}
+.fr .fd{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--text4);font-size:11.5px}
+.fr .ft{font-size:11px;color:var(--text4);min-width:24px;text-align:right;font-variant-numeric:tabular-nums}
+.fr.code{padding-block:3px;color:var(--text2);font-size:12px}
+.fr.code .fi{color:var(--text3)}
+.tag{font-size:10px;border-radius:4px;padding:0 5px;line-height:16px;flex:none;background:rgba(95,184,122,.18);color:#8fd9a5}
+.empty-line{font-size:11.5px;color:var(--text3);padding:8px 8px 4px}
+
+/* the folded Code row: height eases open, chevron turns, rows fade in one after another */
+.foldrow{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:7px;color:var(--text2);margin-top:3px;border:0;border-top:1px solid #353535;background:none;font:inherit;width:100%;text-align:left;cursor:pointer;transition:background 120ms var(--ease)}
+.foldrow:hover{background:var(--hover)}
+.foldrow:focus-visible{outline:2px solid var(--proj);outline-offset:-2px}
+.foldrow .n{color:var(--text4)}
+.foldrow .names{color:var(--text4);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1;transition:opacity 140ms var(--ease)}
+.foldrow .chev{color:var(--text3);transition:transform 220ms var(--ease)}
+.foldrow[aria-expanded="true"] .chev{transform:rotate(90deg)}
+.foldrow[aria-expanded="true"] .names{opacity:0}
+.fold{display:grid;grid-template-rows:0fr;transition:grid-template-rows 180ms ease-in}
+.fold.open{grid-template-rows:1fr;transition:grid-template-rows 260ms var(--ease)}
+.fold>div{overflow:hidden;min-height:0;display:flex;flex-direction:column;gap:1px}
+.fold .fr{opacity:0;transform:translateY(-4px);transition:opacity 100ms ease-in,transform 100ms ease-in,background 120ms var(--ease)}
+.fold.open .fr{opacity:1;transform:none;transition:opacity 180ms var(--ease) calc(var(--i) * 22ms + 60ms),transform 220ms var(--ease) calc(var(--i) * 22ms + 60ms),background 120ms var(--ease)}
+.pasted{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:4px 6px 6px}
+.pasted .pi{display:flex;flex-direction:column;gap:3px;min-width:0;cursor:pointer;border-radius:8px;padding:3px;transition:background 120ms var(--ease)}
+.pasted .pi:hover{background:var(--hover)}
+.fold .pasted{opacity:0;transition:opacity 100ms ease-in}
+.fold.open .pasted{opacity:1;transition:opacity 200ms var(--ease) 80ms}
+.pasted .big{aspect-ratio:16/10;border-radius:6px;overflow:hidden;border:1px solid #444;background:#111;max-width:100%}
+.pasted .big svg{width:100%;height:100%}
+.pasted span{font-size:10.5px;color:var(--text4)}
+
+.menu{position:absolute;z-index:4;width:210px;background:#303030;border:1px solid #444;border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.55);padding:4px}
+.mi{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;color:var(--text);white-space:nowrap}
+.mi .k{margin-left:auto;color:var(--text4);font-size:11px}
+.mi.hi{background:#3c3c3c}
+.mi svg{color:var(--text3)}
+.msep{height:1px;background:#444;margin:4px 6px}
+.toast{position:absolute;left:50%;bottom:18px;z-index:5;transform:translate(-50%,8px);opacity:0;background:#f2f2f2;color:#111;border-radius:999px;padding:6px 14px;font-size:12px;font-weight:500;pointer-events:none;transition:opacity 160ms var(--ease),transform 200ms var(--ease);white-space:nowrap}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.scrollfade{position:relative}
+
+/* static pictures: freeze every state without motion */
+.still .pop,.still .fold,.still .fold .fr,.still .foldrow .chev,.still .foldrow .names{transition:none!important}
+
+@media (prefers-reduced-motion:reduce){
+  .pop,.pop.open,.fold,.fold.open,.fold .fr,.fold.open .fr,.foldrow .chev,.toast{transition:none!important}
+}
+</style>
+
+<div class="wrap">
+  <h1>The Files button: markdown first, then code and your pasted images, each folded to a count</h1>
+
+  <div class="kinds">
+    <div class="kind"><b><span style="color:var(--doc)" id="k-doc"></span>Documents, listed first</b><span class="ext"><span>.md</span><span>.mdx</span><span>.txt</span></span></div>
+    <div class="kind"><b><span style="color:var(--text3)" id="k-code"></span>Code, folded into one row</b><span class="ext"><span>everything else</span></span></div>
+    <div class="kind"><b><span style="color:var(--text3)" id="k-img"></span>Images you pasted, folded into one row</b><span class="ext"><span>[Image #3]</span></span></div>
+    <div class="kind"><b><span style="color:var(--text4)" id="k-no"></span>Images Claude made, left out for now</b><span class="ext"><span>.png</span><span>.svg</span></span></div>
+  </div>
+
+  <div class="section">
+    <h2>Try it: click the button, then the Code row or the pasted images row</h2>
+    <div class="try"><span>Click outside or press <kbd>Esc</kbd> to close</span><span>Click a file to see it open</span></div>
+    <div class="shot" id="live"></div>
+  </div>
+
+  <div class="section">
+    <h2>What the button looks like in each state</h2>
+    <div class="cases" id="buttons"></div>
+  </div>
+
+  <div class="section">
+    <h2>What the list looks like in each state</h2>
+    <div class="cases" id="lists"></div>
+  </div>
+
+</div>
+
+<script>
+const sv=(s,p)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" aria-hidden="true">${p}</svg>`;
+const st='fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"';
+const I={
+  chat:(s=16)=>sv(s,`<path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 3.5V17H6.5A2.5 2.5 0 0 1 4 14.5z" ${st}/>`),
+  folder:(s=13)=>sv(s,`<path d="M2.5 7A2 2 0 0 1 4.5 5h4.6l2 2h7.4a2 2 0 0 1 2 2v1.5H6.6a2 2 0 0 0-1.9 1.4L2.5 17z" fill="currentColor" fill-opacity=".72"/><path d="M2.6 18.2 5 11.9a1.5 1.5 0 0 1 1.4-1H22l-2.7 7.1a2 2 0 0 1-1.9 1.3H4.3a1.8 1.8 0 0 1-1.7-2.1z" fill="currentColor"/>`),
+  doc:(s=15)=>sv(s,`<path d="M7 3.5h6.5L18 8v11.5a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1z" ${st}/><path d="M13 3.5V8h5M9 12.5h6M9 15.5h6" ${st}/>`),
+  files:(s=14)=>sv(s,`<path d="M9 3.5h5.5L19 8v9.5a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1z" ${st}/><path d="M14 3.5V8h5M5 7.5v12a1 1 0 0 0 1 1h9" ${st}/>`),
+  img:(s=15)=>sv(s,`<rect x="3.5" y="4.5" width="17" height="15" rx="2" ${st}/><circle cx="9" cy="10" r="1.6" ${st}/><path d="M20.5 16l-5-5-8 8.5" ${st}/>`),
+  code:(s=13)=>sv(s,`<path d="M9 7l-5 5 5 5M15 7l5 5-5 5" ${st}/>`),
+  model:(s=12)=>sv(s,`<path d="M12 3.5c.6 3.8 2.7 5.9 6.5 6.5-3.8.6-5.9 2.7-6.5 6.5-.6-3.8-2.7-5.9-6.5-6.5 3.8-.6 5.9-2.7 6.5-6.5z" fill="currentColor"/>`),
+  branch:(s=12)=>sv(s,`<circle cx="6" cy="5" r="2.2" ${st}/><circle cx="6" cy="19" r="2.2" ${st}/><circle cx="18" cy="8" r="2.2" ${st}/><path d="M6 7.2v9.6M18 10.2c0 3.3-3 4.3-6 4.8-2.6.4-6 1-6 1.8" ${st}/>`),
+  dots:(s=16)=>sv(s,`<circle cx="6" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="18" cy="12" r="1.6" fill="currentColor"/>`),
+  search:(s=14)=>sv(s,`<circle cx="11" cy="11" r="6" ${st}/><path d="M20 20l-4.5-4.5" ${st}/>`),
+  chev:(s=12)=>sv(s,`<path d="M9 6l6 6-6 6" ${st}/>`),
+  reveal:(s=13)=>sv(s,`<path d="M3 7.5A1.5 1.5 0 0 1 4.5 6H9l2 2h8.5A1.5 1.5 0 0 1 21 9.5v8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" ${st}/><path d="M12 11v5M9.5 13.5 12 11l2.5 2.5" ${st}/>`),
+  copy:(s=13)=>sv(s,`<rect x="8" y="8" width="11" height="11" rx="2" ${st}/><path d="M5 15V6a1 1 0 0 1 1-1h9" ${st}/>`),
+  open:(s=13)=>sv(s,`<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" ${st}/>`),
+  home:(s=15)=>sv(s,`<path d="M4 11l8-6.5 8 6.5V19a1 1 0 0 1-1 1h-4v-5h-6v5H5a1 1 0 0 1-1-1z" ${st}/>`),
+  side:(s=15)=>sv(s,`<rect x="3.5" y="5" width="17" height="14" rx="2.5" ${st}/><path d="M9.5 5v14" ${st}/>`),
+  plus:(s=14)=>sv(s,`<path d="M12 5v14M5 12h14" ${st}/>`),
+};
+document.getElementById('k-doc').innerHTML=I.doc(16);
+document.getElementById('k-code').innerHTML=I.code(16);
+document.getElementById('k-img').innerHTML=I.img(16);
+document.getElementById('k-no').innerHTML=I.img(16);
+
+const DOCS=[
+  {n:'design-04-edited-files.md',d:'docs',t:'2m',nw:1},
+  {n:'bugs.md',d:'docs',t:'5m'},
+  {n:'PHASES.md',d:'',t:'14m'},
+  {n:'CHANGELOG.md',d:'',t:'20m'},
+];
+const MANYDOCS=[...DOCS,
+  {n:'features-edited-files.md',d:'docs',t:'22m',nw:1},
+  {n:'to-verify.md',d:'docs',t:'25m'},
+  {n:'README.md',d:'scripts/agent-harness',t:'31m'},
+  {n:'ideas.md',d:'docs',t:'40m'},
+  {n:'CLAUDE.md',d:'',t:'44m'},
+];
+const CODE=[
+  {n:'claude-transcript.ts',d:'src',t:'3m'},
+  {n:'index.tsx',d:'src/renderer/components/Header',t:'4m'},
+  {n:'Header.css',d:'src/renderer/components/Header',t:'4m'},
+  {n:'fileKinds.ts',d:'src/renderer',t:'6m'},
+  {n:'fileKinds.test.ts',d:'src/renderer',t:'6m'},
+  {n:'preload.ts',d:'src',t:'8m'},
+  {n:'main.ts',d:'src',t:'8m'},
+];
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+const row=(f,o={})=>`<div class="fr ${o.code?'code':''} ${o.sel?'sel':''}" data-name="${esc(f.n)}" style="--i:${o.i||0}"><span class="fi">${o.code?I.code(13):I.doc(15)}</span><span class="fn">${esc(f.n)}</span>${f.nw&&!o.code?'<span class="tag">New</span>':''}<span class="fd">${esc(f.d||'project root')}</span><span class="ft">${f.t}</span></div>`;
+const sec=(label,n)=>`<div class="sec">${label}<span class="n">${n}</span></div>`;
+const codeFold=(open,list=CODE)=>`<button class="foldrow" type="button" aria-expanded="${open}">${I.code(13)}<span>Code</span><span class="n">${list.length}</span><span class="names"></span><span class="chev">${I.chev(12)}</span></button><div class="fold ${open?'open':''}"><div>${list.map((f,i)=>row(f,{code:1,i})).join('')}</div></div>`;
+const TH=[
+  `<svg viewBox="0 0 160 100" preserveAspectRatio="xMidYMid slice"><rect width="160" height="100" fill="#171717"/><rect x="18" y="6" width="142" height="94" rx="6" fill="#212121"/><rect x="26" y="12" width="60" height="5" rx="2" fill="#ececec"/><rect x="92" y="22" width="62" height="56" rx="5" fill="#2a2a2a" stroke="#444"/><rect x="97" y="29" width="40" height="4" rx="2" fill="#93c5fd"/><rect x="97" y="37" width="48" height="4" rx="2" fill="#b4b4b4"/><rect x="26" y="26" width="58" height="3" rx="1.5" fill="#4ade80"/><rect x="26" y="33" width="50" height="3" rx="1.5" fill="#5c5c5c"/></svg>`,
+  `<svg viewBox="0 0 160 100" preserveAspectRatio="xMidYMid slice"><rect width="160" height="100" fill="#f5f5f5"/><rect x="10" y="10" width="140" height="10" rx="3" fill="#d4d4d4"/><rect x="10" y="28" width="90" height="6" rx="3" fill="#a3a3a3"/><rect x="10" y="40" width="120" height="6" rx="3" fill="#a3a3a3"/><rect x="10" y="60" width="60" height="28" rx="4" fill="#60a5fa"/></svg>`,
+  `<svg viewBox="0 0 160 100" preserveAspectRatio="xMidYMid slice"><rect width="160" height="100" fill="#171717"/><rect x="10" y="10" width="44" height="80" rx="4" fill="#212121"/><rect x="16" y="18" width="30" height="4" rx="2" fill="#ececec"/><rect x="16" y="28" width="26" height="4" rx="2" fill="#fbbf24"/><rect x="62" y="10" width="88" height="80" rx="4" fill="#191919"/><rect x="70" y="20" width="60" height="3" rx="1.5" fill="#4ade80"/></svg>`,
+];
+const pastedFold=(open)=>`<button class="foldrow" type="button" aria-expanded="${open}">${I.img(13)}<span>Images you pasted</span><span class="n">3</span><span class="names"></span><span class="chev">${I.chev(12)}</span></button><div class="fold ${open?'open':''}"><div><div class="pasted">${TH.map((t,i)=>`<div class="pi" data-name="image #${[3,4,6][i]}"><div class="big">${t}</div><span>#${[3,4,6][i]} · ${['17:17','17:17','17:20'][i]}</span></div>`).join('')}</div></div></div>`;
+const listHTML=(o={})=>{
+  const docs=o.docs??DOCS;
+  const top=docs.length?sec('Documents',docs.length)+docs.map((f,i)=>row(f,{sel:o.sel===i})).join(''):`<div class="empty-line">No documents in this chat yet</div>`;
+  return top+(o.nocode?'':codeFold(!!o.codeOpen))+(o.nopasted?'':pastedFold(!!o.pastedOpen));
+};
+const fbtn=(n,open)=>`<button class="fbtn ${open?'open':''}" type="button" aria-haspopup="true" aria-expanded="${!!open}">${I.files(14)}${n} files</button>`;
+
+const rail=()=>`<div class="rail"><i>${I.side()}</i><i>${I.search()}</i><i>${I.plus()}</i><hr><i>${I.home()}</i><hr><i class="t"><b style="background:#60a5fa"></b></i><i class="t"><b style="background:#f472b6"></b></i></div>`;
+const header=(o={})=>`<div class="hdr"><span class="ki">${I.chat()}</span><div class="ht"><div class="hn">Design the edited files list</div><div class="hm"><span><span class="fo">${I.folder(12)}</span>afterterm</span><span>${I.model()}Opus 5</span><span>${I.branch()}edited-files-design</span></div></div><div class="ha">${o.btn||''}${o.asleep?'<span class="chip sleep"><span class="dot"></span>Asleep</span>':'<span class="chip"><span class="dot"></span>Working</span>'}<span class="ic">${I.dots()}</span></div></div>`;
+const TERM=`
+<div class="tl"><span class="g">●</span> <span class="w">Write(docs/design-04-edited-files.md)</span></div>
+<div class="tl d">  ⎿  Wrote 142 lines</div>
+<div class="tl"><span class="g">●</span> <span class="w">Update(src/claude-transcript.ts)</span></div>
+<div class="tl d">  ⎿  Updated with 38 additions and 4 removals</div>
+<div class="tl"><span class="g">●</span> <span class="w">Bash(cat &gt;&gt; docs/bugs.md &lt;&lt;'EOF' …)</span></div>
+<div class="tl d">  ⎿  (No output)</div>
+<div class="tl"><span class="g">●</span> <span class="w">Update(PHASES.md)</span></div>
+<div class="tl d">  ⎿  Updated with 6 additions and 2 removals</div>
+<div class="tl p">✳ Writing the design doc…</div>`;
+const app=(o)=>`<div class="app ${o.still?'still':''}" style="height:${o.h||300}px">${rail()}<div class="main">${header(o)}<div class="work"><div class="term ${o.asleep?'asleep':''}">${TERM}${o.asleep?'<div class="wakebox">Wake <span class="since">Asleep since 2h ago</span></div>':''}</div></div></div>${o.over||''}</div>`;
+const popStill=(inner,extra='')=>`<div class="pop open" ${extra}>${inner}</div>`;
+const menu=(style)=>`<div class="menu" style="${style}"><div class="mi hi">${I.open()}Open in VS Code<span class="k">Enter</span></div><div class="mi">${I.reveal()}Show in File Explorer</div><div class="msep"></div><div class="mi">${I.copy()}Copy path</div></div>`;
+const cases=(id,list)=>{document.getElementById(id).innerHTML=list.map(([t,h])=>`<div class="case"><h3>${t}</h3><div class="shot">${h}</div></div>`).join('');};
+
+/* ── live prototype ────────────────────────────────────────────── */
+const total=DOCS.length+CODE.length;
+document.getElementById('live').innerHTML=app({h:520,btn:fbtn(total),over:`<div class="pop" role="dialog" aria-label="Files this chat changed">${listHTML()}</div><div class="toast" role="status"></div>`});
+(function(){
+  const root=document.getElementById('live');
+  const btn=root.querySelector('.fbtn'), pop=root.querySelector('.pop'), toast=root.querySelector('.toast');
+  const setOpen=(v)=>{pop.classList.toggle('open',v);btn.classList.toggle('open',v);btn.setAttribute('aria-expanded',v);};
+  btn.addEventListener('click',e=>{e.stopPropagation();setOpen(!pop.classList.contains('open'));});
+  pop.addEventListener('click',e=>{
+    e.stopPropagation();
+    const fold=e.target.closest('.foldrow');
+    if(fold){const o=fold.getAttribute('aria-expanded')!=='true';fold.setAttribute('aria-expanded',o);fold.nextElementSibling.classList.toggle('open',o);return;}
+    const r=e.target.closest('.fr, .pi');
+    if(r){setOpen(false);toast.textContent=r.classList.contains('pi')?`Opening ${r.dataset.name} in Photos`:`Opening ${r.dataset.name} in VS Code`;toast.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>toast.classList.remove('show'),1400);}
+  });
+  document.addEventListener('click',()=>setOpen(false));
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')setOpen(false);});
+})();
+
+/* ── button states ─────────────────────────────────────────────── */
+cases('buttons',[
+  ['Documents and code changed: the files icon and the count of every file',app({h:130,btn:fbtn(11),still:1})],
+  ['Only code changed: the same icon, the same kind of count',app({h:130,btn:fbtn(7),still:1})],
+  ['Nothing changed yet: no button',app({h:130,still:1})],
+  ['The chat is asleep: the button stays',app({h:130,btn:fbtn(11),asleep:1,still:1})],
+]);
+
+/* ── list states ───────────────────────────────────────────────── */
+cases('lists',[
+  ['Open: documents first, then code and pasted images as counts',app({h:350,btn:fbtn(11,1),still:1,over:popStill(listHTML())})],
+  ['Code unfolded',app({h:500,btn:fbtn(11,1),still:1,over:popStill(listHTML({codeOpen:1}))})],
+  ['Only code changed: the Code row starts unfolded',app({h:360,btn:fbtn(7,1),still:1,over:popStill(listHTML({docs:[],codeOpen:1}))})],
+  ['Pasted images unfolded: each picture opens full size',app({h:420,btn:fbtn(11,1),still:1,over:popStill(listHTML({pastedOpen:1}))})],
+  ['No images pasted in this chat: no row for them',app({h:330,btn:fbtn(11,1),still:1,over:popStill(listHTML({nopasted:1}))})],
+  ['Nine documents: the list scrolls, code stays at the bottom',app({h:400,btn:fbtn(16,1),still:1,over:popStill(listHTML({docs:MANYDOCS}))})],
+  ['Right-click a document',app({h:330,btn:fbtn(11,1),still:1,over:popStill(listHTML({sel:1}))+menu('top:136px;right:28px')})],
+  ['The chat is asleep: the list still opens',app({h:330,btn:fbtn(11,1),asleep:1,still:1,over:popStill(listHTML())})],
+]);
+
+/* ── later: pasted images ──────────────────────────────────────── */
+
+</script>
