@@ -92,6 +92,7 @@ The sidebar is no longer tab groups. It is projects and threads, with a Home scr
 
 ### Fixed
 
+- A project showed a green play pill both when Claude was working in one of its threads and when a thread was running a server; it now shows a spinner pill for working threads and the play pill only for servers, on the sidebar and on Home.
 - The thread menus had an "Open" item that did nothing for the thread already open; it is gone, and the header's dots menu is now its own menu.
 - New threads landed at the bottom of a project, behind "Show more"; they now go first, so the newest threads are the ones on show.
 - A toast on screen kept a project's old name, colour and icon after the project was edited; it now updates straight away.

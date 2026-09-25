@@ -28,7 +28,7 @@ function group(id: string, extra: Partial<Group> = {}): Group {
     pinned: false, archived: false, lastActiveAt: 0, ...extra,
   } as Group;
 }
-const zero: AttentionCounts = { waiting: 0, working: 0, running: 0, finished: 0, compacting: 0 };
+const zero: AttentionCounts = { waiting: 0, working: 0, running: 0, finished: 0, compacting: 0, background: 0 };
 
 console.log('\nattention: countStates\n');
 {
@@ -43,7 +43,8 @@ console.log('\nattention: countStates\n');
   check('done counts as finished', countStates(['done']).finished === 1);
   check('compacting counts as its own bucket, not working (Phase 8)',
     countStates(['compacting']).compacting === 1 && countStates(['compacting']).working === 0);
-  check('background counts as nothing', isDeepStrictEqualCounts(countStates(['background']), zero));
+  check('background counts only in its own bucket, not working (the rail leaves it out)',
+    isDeepStrictEqualCounts(countStates(['background']), { ...zero, background: 1 }));
   check('asleep counts as nothing', isDeepStrictEqualCounts(countStates(['asleep']), zero));
   check('quiet counts as nothing', isDeepStrictEqualCounts(countStates(['quiet']), zero));
   check('empty list is all zero', isDeepStrictEqualCounts(countStates([]), zero));
@@ -62,7 +63,7 @@ console.log('\nattention: countStates\n');
 
 function isDeepStrictEqualCounts(a: AttentionCounts, b: AttentionCounts): boolean {
   return a.waiting === b.waiting && a.working === b.working && a.running === b.running
-    && a.finished === b.finished && a.compacting === b.compacting;
+    && a.finished === b.finished && a.compacting === b.compacting && a.background === b.background;
 }
 
 console.log('\nattention: countTabs\n');

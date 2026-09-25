@@ -10,6 +10,10 @@ Format: the bug as it was titled, the date it was fixed, the PR or commit, then 
 
 ## Fixed on 2026-09-25
 
+### The project row showed a green play pill both when Claude was working in a thread and when a thread was running a server
+
+Branch `small-fixes-2026-09-25`, the PR after #37. The project's count added working threads to server threads and drew them all with the play icon, so a chat Claude was working in (a spinner on its row) gave its project a "▶ 1", the same as a server. The project row and Home's cards, rows and totals now have a spinner pill for threads Claude is working in and a play pill for servers, each only when above zero; a project with both shows both.
+
 ### "Open" was in the thread menus, and the header's dots menu was the sidebar's menu reused
 
 PR #37. The Open item is gone from every thread menu (a click on a row already opens the thread, and the header's thread is the open one). The header's dots menu is now built on its own (`buildHeaderMenu`), so it can differ from the sidebar's; today it differs only in leaving out Open in VS Code, which is a button beside it.

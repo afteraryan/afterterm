@@ -425,14 +425,23 @@ console.log('\nthreadView: projectCounts\n');
   const mixed: ThreadState[] = ['needs-you', 'needs-you', 'working', 'running', 'done', 'quiet', 'asleep'];
   const c = projectCounts(mixed);
   check('needsYou counts only needs-you', c.needsYou === 2, show(c));
-  check('running counts running plus working', c.running === 2, show(c));
+  check('working and running are separate counts, not added together (Aryan, 2026-09-25)',
+    c.working === 1 && c.running === 1, show(c));
+  const spinning = projectCounts(['working', 'background', 'running', 'running']);
+  check('background counts with working, since its row draws the same spinner',
+    spinning.working === 2, show(spinning));
+  check('only servers count under running (the play pill)', spinning.running === 2, show(spinning));
+  const chatOnly = projectCounts(['working', 'quiet']);
+  check('a project with only a working chat has no play pill', chatOnly.running === 0 && chatOnly.working === 1, show(chatOnly));
+  const serverOnly = projectCounts(['running', 'asleep']);
+  check('a project with only a server has no spinner pill', serverOnly.working === 0 && serverOnly.running === 1, show(serverOnly));
   const none = projectCounts(['quiet', 'done', 'asleep']);
-  check('both zero when nothing needs-you/working/running', none.needsYou === 0 && none.running === 0, show(none));
+  check('all zero when nothing needs-you/working/running', none.needsYou === 0 && none.working === 0 && none.running === 0, show(none));
   check('empty list is zero and zero', projectCounts([]).needsYou === 0 && projectCounts([]).running === 0);
 
   const withCompacting = projectCounts(['compacting', 'compacting', 'working']);
-  check('compacting is its own count, not in running (Phase 8 handoff, Aryan)',
-    withCompacting.compacting === 2 && withCompacting.running === 1, show(withCompacting));
+  check('compacting is its own count, not in working or running (Phase 8 handoff, Aryan)',
+    withCompacting.compacting === 2 && withCompacting.working === 1 && withCompacting.running === 0, show(withCompacting));
   check('compacting is zero when none', c.compacting === 0);
 
   const withUnread = projectCounts(['unread', 'needs-you', 'working']);

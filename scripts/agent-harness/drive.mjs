@@ -111,6 +111,7 @@ const SEL = {
   projectRename: '.pj-rename',
   pillNeed: '.sig.need',
   pillRun: '.sig.run',
+  pillWork: '.sig.work', // 2026-09-25: threads Claude is working in (the spinner), split from the play pill
   pillCompact: '.sig.compact', // Phase 8: compacting's own pill, separate from the play pill
   threadListWrap: '.tlw',
   threadListClosedClass: 'closed',
@@ -168,11 +169,13 @@ const SEL = {
     dateHeading: 'h1.home-date',
     totNeed: '.home .tot .sig.need',
     totRun: '.home .tot .sig.run',
+    totWork: '.home .tot .sig.work',
     lastHere: '.home-lasthere',
     pinnedCard: '.cards .cd',
     name: '.n',
     pillNeed: '.sig.need',
     pillRun: '.sig.run',
+    pillWork: '.sig.work',
     ago: '.ago',
     pinButton: '[data-pin]',
     pinButtonOnClass: 'on',
@@ -681,6 +684,7 @@ async function cmdSidebar() {
           collapsed: !!(row && row.dataset.collapsed),
           threads: row ? Number(row.dataset.threads || 0) : 0,
           need: text(row && row.querySelector(S.pillNeed)) || null,
+          work: text(row && row.querySelector(S.pillWork)) || null,
           run: text(row && row.querySelector(S.pillRun)) || null,
           compact: text(row && row.querySelector(S.pillCompact)) || null,
           more: text(more) || null,
@@ -736,7 +740,7 @@ async function cmdSidebar() {
     for (const t of sec.loose) console.log(threadLine(t, '    '));
     if (sec.looseMore) console.log(`    (${sec.looseMore})`);
     for (const p of sec.projects) {
-      const pills = [p.need ? `need=${p.need}` : null, p.run ? `run=${p.run}` : null, p.compact ? `compact=${p.compact}` : null].filter(Boolean).join(' ');
+      const pills = [p.need ? `need=${p.need}` : null, p.work ? `work=${p.work}` : null, p.run ? `run=${p.run}` : null, p.compact ? `compact=${p.compact}` : null].filter(Boolean).join(' ');
       console.log(`    [project] ${p.label}  threads=${p.threads}${p.collapsed ? ' collapsed' : ''}${pills ? '  ' + pills : ''}`);
       for (const t of p.rows) console.log(threadLine(t, '      '));
       if (p.more) console.log(`      (${p.more})`);
@@ -883,6 +887,7 @@ async function cmdHome() {
         group: cd.dataset.group || null,
         name: text(cd.querySelector(S.name)),
         need: text(cd.querySelector(S.pillNeed)) || null,
+        work: text(cd.querySelector(S.pillWork)) || null,
         run: text(cd.querySelector(S.pillRun)) || null,
         ago: text(cd.querySelector(S.ago)) || null,
         pinnedOn: !!(pinBtn && pinBtn.classList.contains(S.pinButtonOnClass)),
@@ -894,6 +899,7 @@ async function cmdHome() {
         group: pr.dataset.group || null,
         name: text(pr.querySelector(S.name)),
         need: text(pr.querySelector(S.pillNeed)) || null,
+        work: text(pr.querySelector(S.pillWork)) || null,
         run: text(pr.querySelector(S.pillRun)) || null,
         time: text(pr.querySelector(S.projectTime)) || null,
       }));
@@ -907,6 +913,7 @@ async function cmdHome() {
       dateHeading: text(document.querySelector(S.dateHeading)),
       totNeed: text(document.querySelector(S.totNeed)) || null,
       totRun: text(document.querySelector(S.totRun)) || null,
+      totWork: text(document.querySelector(S.totWork)) || null,
       lastHere: text(document.querySelector(S.lastHere)) || null,
       pinned,
       nothingPinned: text(document.querySelector(S.nothing)) || null,
@@ -919,9 +926,9 @@ async function cmdHome() {
 
   if (!data.present) { console.log('(not on Home)'); return; }
   console.log(data.dateHeading || '(no date heading)');
-  console.log(`  totals: need=${data.totNeed ?? 'none'} run=${data.totRun ?? 'none'}`);
+  console.log(`  totals: need=${data.totNeed ?? 'none'} work=${data.totWork ?? 'none'} run=${data.totRun ?? 'none'}`);
   if (data.lastHere) console.log(`  lasthere: ${data.lastHere}`);
-  const pills = p => [p.need ? `need=${p.need}` : null, p.run ? `run=${p.run}` : null].filter(Boolean).join(' ');
+  const pills = p => [p.need ? `need=${p.need}` : null, p.work ? `work=${p.work}` : null, p.run ? `run=${p.run}` : null].filter(Boolean).join(' ');
   console.log('  Pinned:');
   if (!data.pinned.length) console.log(`    ${data.nothingPinned || '(none)'}`);
   for (const p of data.pinned) {
