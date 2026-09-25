@@ -1,6 +1,6 @@
 # Changelog
 
-What changed for the person using afterterm, release by release. Code-level detail lives in the commit history, `PHASES.md` and `CLAUDE.md`.
+What changed for the person using afterterm, release by release. Each release lists what was added and changed by area, then what was fixed. Every fixed bug, with the PR it landed in, is also in `docs/bugs-fixed.md`. Code-level detail lives in the commit history, `PHASES.md` and `CLAUDE.md`.
 
 ## Unreleased, everything since 0.8.1
 
@@ -89,6 +89,25 @@ The sidebar is no longer tab groups. It is projects and threads, with a Home scr
 | Ctrl+Shift+F | Find in the current thread's scrollback |
 | Ctrl+Shift+A | Select all scrollback |
 | Ctrl+scroll | Zoom the font, per thread |
+
+### Fixed
+
+- The header had no way to open a chat's folder in VS Code; it now has an Open in VS Code button beside the dots, opening the worktree when the chat runs in one.
+- The header's second line could wrap into the terminal on a narrower window; it stays on one row now.
+- The header kept showing the old worktree after a chat moved to another one.
+- A white square showed at the bottom right of the asleep pane.
+- The Wake box was hard to read over the saved output; it is a bordered white button now.
+- Opening a project from Home landed on its first thread instead of the one you last worked in.
+- The jump button appeared when an asleep thread was opened, and scrolling over it stopped at the button.
+- A white bar sometimes appeared above a toast when coming back to afterterm.
+- Toasts appeared on the primary monitor even when afterterm was on another one.
+- The toast shadow was cut off at the edge of its window.
+- The hover card heading overflowed the card for a long title with no spaces.
+- The asleep pane opened scrolled to the top of the saved output.
+- Old output replayed on wake stayed on screen after the terminal came back.
+- The header's project, model and branch line was too faint to read.
+- A thread's own folder or worktree could not be opened in File Explorer.
+- A thread that needed you could be hidden inside a project's five-row fold.
 
 ### Removed or changed on purpose
 

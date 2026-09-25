@@ -341,6 +341,7 @@ Procedures an agent follows while working on this repo (not product docs, not re
 - `docs/guide-02-releases.md` — versioning (semver) + how to cut a tagged, version-stamped release (`npm run release`)
 - `docs/ideas.md` — feature ideas backlog
 - `docs/bugs.md` — running list of known, unfixed bugs (distinct from the platform Known Limitations above)
+- `docs/bugs-fixed.md`: every fixed bug, newest first, with the PR it landed in. A fix deletes its entry from `bugs.md`, adds one here and a line to `CHANGELOG.md`'s Fixed list, in the same change.
 - `docs/note-01-duplicate-notifications-dispatcher.md` — why both the Windows popup and the overlay fired inside afterterm, and the settings.json dispatcher fix (incl. a TODO to make the self-install hook use the same approach)
 - `docs/features-projects-and-threads.md`: the full record of Phases 0 to 4 (Home, projects, the project page, thread identity, sleep and wake, history, the tail), moved out of CLAUDE.md on 2026-09-20
 - `docs/features-attention-and-sidebar.md`: the full record of Phases 7 and 8 (needs-you until answered, mark as unread, the aggregate, the rail, the panel, the keyboard cycle)
