@@ -92,6 +92,7 @@ The sidebar is no longer tab groups. It is projects and threads, with a Home scr
 
 ### Fixed
 
+- A thread you were looking at kept its spinner and a "Background tasks" chip after Claude's turn ended with background tasks still running, until you switched away and back; it now goes quiet at once, the same as a finished turn. A thread you are not looking at still shows it until you open it.
 - The sidebar toggle appeared on the rail only while the sidebar was closed, so after opening the sidebar the same spot held the Home button; the toggle now stays first on the rail in one place, and the sidebar starts with Search.
 - The project page's thread menu offered "Open project page" while already on that page; it no longer does.
 - A project showed a green play pill both when Claude was working in one of its threads and when a thread was running a server; it now shows a spinner pill for working threads and the play pill only for servers, on the sidebar and on Home.

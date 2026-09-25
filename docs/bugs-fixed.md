@@ -10,6 +10,10 @@ Format: the bug as it was titled, the date it was fixed, the PR or commit, then 
 
 ## Fixed on 2026-09-25
 
+### A thread keeps showing "Background tasks" and its spinner after the turn has ended
+
+PR #39. Opening a thread cleared a background badge, but a `⏳` title landing on the thread already being viewed was only cleared if it was a `✅`, so a turn that ended with background tasks still running left the viewed thread spinning until you switched away and back. Both paths now use one rule (`clearsWhenSeen` and `onViewedTitle` in `spinnerState.ts`): done and background clear on the viewed thread at once; a thread not in view keeps its badge until opened. The background icon is unchanged.
+
 ### The sidebar toggle moved off the rail once the sidebar opened, so clicking the same spot again opened Home
 
 PR #38. The toggle is now always the first button on the rail, in the same place on every screen and whether the sidebar is open or closed, so the Home button never moves into its spot. It is the only sidebar toggle: the sidebar's own toggle row is gone, so Search starts at the top of the sidebar. On Home and the project page it opens the workspace with the sidebar showing.

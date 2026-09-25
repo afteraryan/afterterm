@@ -107,3 +107,25 @@ export function onAnswer(current: Notif, timing: TabTiming, at: number): Notif {
   timing.lastOutputAt = at;
   return 'working';
 }
+
+// The badges that only report a turn that has ended: `done` (✅) and `background`
+// (⏳, the turn ended with background tasks or session crons still running).
+// Seeing the thread is all either asks for, so both clear when it is looked at.
+// Needs-you is not one (a permission prompt is still waiting after a look), and
+// neither are working and compacting, which are a turn still in progress. This is
+// the one rule behind both clearing paths in app.tsx: activating a thread
+// (clearThreadBadges) and a title landing on the thread being viewed
+// (handleNotification, through onViewedTitle). They used to disagree: the viewing
+// path cleared only done, so a ⏳ that arrived while the user watched the turn
+// end kept its spinner until they switched away and back (docs/bugs-fixed.md).
+export function clearsWhenSeen(n: Notif): boolean {
+  return n === 'done' || n === 'background';
+}
+
+// What a title's notif becomes when it lands on a thread. On the thread the user
+// is looking at, with the window focused, a done or background badge has already
+// been seen, so it clears at once; anything else, or any thread not in view,
+// keeps it until the thread is opened.
+export function onViewedTitle(next: Notif, viewing: boolean): Notif {
+  return viewing && clearsWhenSeen(next) ? undefined : next;
+}
