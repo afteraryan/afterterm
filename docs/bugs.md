@@ -365,3 +365,27 @@ A rail tile shows its counts, in the screenshot one waiting and two finished. Wh
 2. Click the tile: it opens one of them, with no way from the rail to pick a different one.
 
 **Cause:** the tile is a single button: `components/Rail/index.tsx` renders it with `onClick={() => onOpenProject(group.id)}`, and `app.tsx`'s `openProjectFromRail` picks the thread through `firstThreadToOpen` in `attention.ts` (the first waiting thread, else the first finished one, else the most recently active awake one). The badges next to the tile are plain counts (`.bd` spans with a tooltip), not controls. Fix direction: give the tile a way to expand the choice, for example a hover or right-click list of that project's waiting and finished threads, each row opening its own thread, with the plain click keeping today's behaviour; the rail's tooltip already anchors to the right (`data-tip-side="right"`), so there is a place for such a list to sit. A look decision for Aryan (one mock page) before it is built.
+
+---
+
+## After the laptop sleeps and wakes, the window and its toasts move to the primary screen and stay there
+
+**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 9 (the notifier follows the main window's display); the window's own placement is pre-existing · **Status:** open · **Severity:** medium (the app leaves the monitor it was on and does not come back) · **Screenshot:** none attached
+
+**What happens:**
+With the secondary monitor on, toasts were appearing on the secondary monitor, which is right. Aryan shut the laptop lid and opened it again. After that the toasts came out on the right side of the screen once, and from then on every toast appeared on the primary screen, and the afterterm window itself had moved to the primary screen too. He wants to know whether this is a known problem, whether it can be fixed, and what can be done.
+
+**Repro:**
+1. Run afterterm with the main window on the secondary monitor and confirm toasts appear there.
+2. Close the laptop lid, wait for it to sleep, open it again.
+3. The window is on the primary screen, and toasts follow it there.
+
+**Cause:** partly Windows, partly afterterm, and the two need separating.
+
+The window moving is Windows: when a display sleeps or is disconnected, Windows moves the windows that were on it to the remaining display, and it does not move them back when the display returns. afterterm never repositions its main window after startup (`harnessWindowPlacement` in `src/main.ts` only applies when `AFTERTERM_DISPLAY` is set, at creation), so once Windows has moved it, it stays where Windows put it.
+
+The toasts then follow the window, which is the Phase 9 rule working as designed: `notifierDisplay()` returns `screen.getDisplayMatching(mainWindow.getBounds())`, so a main window on the primary screen means toasts on the primary screen. Placement is re-run on `display-added`, `display-removed` and `display-metrics-changed` (`createNotifierWindow`), which is why the toast placement corrects itself, but it corrects to wherever the main window now is.
+
+The one toast that came out "on the right side" before the pattern settled is unexplained and worth catching in the act: it may be a placement that ran while Windows was still rearranging the displays, with stale work area numbers.
+
+Fix direction, in order: remember the main window's bounds and the display it was on (in `prefs.json`, the way `lastOpenedAt` and `editorPath` already live there), restore them at startup, and on `display-added` offer to move the window back to the display it came from if that display has returned and the window has not been moved by hand since. Electron's `powerMonitor` has `resume` and `unlock-screen` events, which give a moment to re-check the display layout after a wake, and `screen.getAllDisplays()` can say whether the old display is back. Before building any of that, reproduce it once in the harness on the secondary display with a sleep and wake, logging `screen.getAllDisplays()` and the window bounds at each step, so the fix is aimed at what Windows actually does rather than at a guess.
