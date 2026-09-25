@@ -240,26 +240,23 @@ This extends the earlier entry "The header dots menu has no 'Open in VS Code' fo
 
 ---
 
-## The project row's running count uses a play icon while the thread itself shows a green circle
+## The project row shows a green play pill both when Claude is working in a thread and when a thread is running a server
 
-**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 5 (running state and its icon; the project pills are Phase 1) · **Status:** open · **Severity:** low (an inconsistent icon) · **Screenshot:** none attached
+**Observed:** 2026-09-25 by Aryan during manual testing, clarified the same day · **Phase:** 5 (the count mixes working and running since running state was added; the project pills are Phase 1) · **Status:** open · **Severity:** low (a misleading mark) · **Screenshots:** `docs/screenshots/manual-testing/08-project-pill-shows-play-while-a-chat-is-working.png`, `docs/screenshots/manual-testing/09-project-pill-play-for-a-thread-running-a-server.png`
 
 **What happens:**
-A project row shows a pill with a play icon and the number of running threads. Aryan does not think a play button says "running": the thread row itself shows the running circle, and the project should show that same mark, not a play. He asks that every place the play icon stands for "running" be found first, so the change is made everywhere at once.
+A project row carries one pill with a green play icon and a count, and it shows for two different things:
 
-Where the play icon is used today, from a grep of `src/renderer`:
-- `StateIcon`'s `running` case in `components/Icons.tsx`, which draws `IconPlay` inside `.si.run`. That is the thread's own state icon, on the sidebar row, the header chip, the hover card's Type row and the project page rows.
-- The project row's counter pill in `components/SidePanel/index.tsx` (`<span className="si run"><IconPlay size={13} /></span>`), the pill Aryan is describing, which is also what Home's totals use.
-- The rail tile has no play: its badges are counts (`data-badge="working"` and the rest), so the rail is unaffected.
+- A chat Claude is working in. The thread row shows the grey rotating circle (the spinner), but its project, afterterm in screenshot 08, shows "▶ 1".
+- A thread running a server. The thread row shows its port (`:6402`) and the green play icon, and its project, Revy App in screenshot 09, shows the same "▶ 1".
 
-So the play icon means "running" in two places, and both are the same idea: one for a thread, one for a count of threads.
+Aryan's point: the project should show what its threads show. A working thread spins, so its project should show the rotating circle, not a play; a play on the project is only right when a thread is running a server. When he first logged this he called the spinner a "green circle"; he meant the rotating circle.
 
 **Repro:**
-1. Start a dev server in a thread so its row turns green with its port.
-2. The thread's row shows the running mark; its project's row shows a pill with a play icon and the count.
+1. Send a prompt in a chat so Claude starts working: the thread row shows the spinner, the project row shows "▶ 1".
+2. Start a dev server in another project's thread: that thread row shows `:port` and a play icon, and its project row also shows "▶ 1". The two project pills look identical.
 
-**Cause:** not a defect in the code, a choice of glyph: `IconPlay` is `StateIcon`'s `running` case and the pill's icon, chosen in Phase 5 when running state was added. Fix direction: pick one mark for running (Aryan's preference is the circle the thread shows) and use it in `StateIcon`'s running case and the counter pill together, checking the hover card, the header chip, Home's totals and the project page at the same time so nothing keeps the old glyph.
-
+**Cause:** `projectCounts` in `src/renderer/threadView.ts` returns `running: counts.working + counts.running`, adding the threads in the working state (the spinner) to the threads running a server (the play icon), and the project row's pill (`components/SidePanel/index.tsx`, `IconPlay` in `.si.run`) and Home's project cards and rows (`components/Home/index.tsx`, `StateIcon state="running"`) draw that one number with the play icon. The thread rows are right: `StateIcon` draws the spinner for `working` and the play for `running`. Fix direction: count working and running separately and give the project row and Home one pill each, the spinner with the number of working threads and the green play with the number of servers, each shown only when above zero, so a project with both shows both.
 ---
 
 ## A block of Claude's output is printed twice in the terminal
