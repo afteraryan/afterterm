@@ -228,3 +228,19 @@ Aryan's decision (2026-09-25): the kind and the status go in two separate rows; 
 
 **Cause:** `ThreadHoverCard.tsx` builds one `typeText` that joins the kind with the state, and for an asleep thread appends `asleepLabel(tab.sleptAt, now)` from `sleepWake.ts`; the Active row is `relativeTime(tab.lastActiveAt, now)`. `sleptAt` is stamped by `sleepTab` and `sleepAllForShutdown`, `lastActiveAt` by `activateTab` and `touchActivity` in `useTabState.ts`. Fix direction: a Type row with `kindWord(tab)` alone, a new Status row with `StateIcon` for `threadState(tab)` and the state word (`stateLabel`, or `runningLabel(port)` for a server), no `asleepLabel` on the card, and the Active row relabelled "Last used".
 
+
+---
+
+## The rail leaves out a project whose only thread is working, then shows a working count once another thread finishes
+
+**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 8 (the rail and the attention aggregate) · **Status:** open · **Severity:** medium (the rail's two rules disagree, so its counts mislead) · **Screenshot:** none attached
+
+**What happens:**
+When a project has one thread working and nothing else, the rail shows nothing for it. The moment a second thread in the same project finishes, the project's tile appears on the rail with two badges: the finished count and the working count. Aryan says that is inconsistent: if the tile shows a working count, the tile should have been on the rail while the thread was only working, before anything finished. Either the working count goes from the tile, or a project with a working thread gets a tile. That is a decision to take with him before it is fixed.
+
+**Repro:**
+1. In a project with no pending threads, start a chat so it is working. The rail shows no tile for the project.
+2. In the same project, run a second thread until it finishes, and do not view it.
+3. The project's tile appears on the rail with a finished badge and a working badge.
+
+**Cause:** the rail decides membership and badges from different rules. `railProjects` in `src/renderer/attention.ts` keeps a project only when `waiting`, `finished` or `compacting` is above zero (working is left out, as design-03 decision 1 says: "one tile per project that has a thread waiting for you ... or a thread that finished and has not been viewed"), while `components/Rail/index.tsx` draws a badge for every non-zero count, including `working`, as design-03's badge column also says. Fix direction, once Aryan picks: either drop the working badge from the rail tile (keeping the rail for "needs you"), or add `working > 0` to `railProjects` so a working project gets a tile of its own; update `attention.test.ts` and design-03's decision 1 to match either way.
