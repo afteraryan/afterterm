@@ -1,6 +1,6 @@
 # Design 04: the files a chat changed, and clickable file paths in the output
 
-This design answers the bug "There is no list of the files a chat has edited, and no way to open one without a clickable path in the output" in [`bugs.md`](bugs.md). A chat gets a Files button in its header that lists the documents it changed first, then its code and the images you pasted into it, each folded to a count. Separately, any file path Claude writes in the terminal becomes clickable like a web link.
+This design answers the bug "There is no list of the files a chat has edited, and no way to open one without a clickable path in the output" in [`bugs.md`](../bugs.md). A chat gets a Files button in its header that lists the documents it changed first, then its code and the images you pasted into it, each folded to a count. Separately, any file path Claude writes in the terminal becomes clickable like a web link.
 
 Status: agreed with Aryan on 2026-09-25 against the pages in `docs/mockups/`. Nothing in the app has changed yet.
 
