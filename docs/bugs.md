@@ -389,3 +389,20 @@ The toasts then follow the window, which is the Phase 9 rule working as designed
 The one toast that came out "on the right side" before the pattern settled is unexplained and worth catching in the act: it may be a placement that ran while Windows was still rearranging the displays, with stale work area numbers.
 
 Fix direction, in order: remember the main window's bounds and the display it was on (in `prefs.json`, the way `lastOpenedAt` and `editorPath` already live there), restore them at startup, and on `display-added` offer to move the window back to the display it came from if that display has returned and the window has not been moved by hand since. Electron's `powerMonitor` has `resume` and `unlock-screen` events, which give a moment to re-check the display layout after a wake, and `screen.getAllDisplays()` can say whether the old display is back. Before building any of that, reproduce it once in the harness on the secondary display with a sleep and wake, logging `screen.getAllDisplays()` and the window bounds at each step, so the fix is aimed at what Windows actually does rather than at a guess.
+
+---
+
+## The thread hover card shows two different ages, "Asleep · 1d" and "Active 2d ago", that read like a contradiction
+
+**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 3 (the hover card; the asleep age on it is Phase 4) · **Status:** open · **Severity:** low (confusing wording, nothing misbehaves) · **Screenshot:** `docs/screenshots/manual-testing/12-hover-card-asleep-age-and-active-age-disagree.png`
+
+**What happens:**
+Hovering an asleep thread in the sidebar ("Changelog video narrative" in the screenshot) shows the Type row as "Chat · Asleep · 1d" and the Active row as "2d ago". Aryan asked what the difference between the two days is. The first is how long ago the thread was put to sleep (by Sleep, or by quitting afterterm, which sleeps every awake thread), the second is when he last used it; they differ whenever a thread sat awake and idle before it slept, which after a relaunch is almost every thread.
+
+Aryan's decision (2026-09-25): the kind and the status go in two separate rows; the status row shows the same state symbol the app uses for that state elsewhere (the sidebar row's icon) beside its word; the sleep age is dropped from the card; "Active" is renamed "Last used".
+
+**Repro:**
+1. Use a thread, leave it idle for a while, then quit afterterm (or sleep the thread) some time later.
+2. Hover its row in the sidebar: the Type row carries the sleep age and the Active row an older age.
+
+**Cause:** `ThreadHoverCard.tsx` builds one `typeText` that joins the kind with the state, and for an asleep thread appends `asleepLabel(tab.sleptAt, now)` from `sleepWake.ts`; the Active row is `relativeTime(tab.lastActiveAt, now)`. `sleptAt` is stamped by `sleepTab` and `sleepAllForShutdown`, `lastActiveAt` by `activateTab` and `touchActivity` in `useTabState.ts`. Fix direction: a Type row with `kindWord(tab)` alone, a new Status row with `StateIcon` for `threadState(tab)` and the state word (`stateLabel`, or `runningLabel(port)` for a server), no `asleepLabel` on the card, and the Active row relabelled "Last used".
