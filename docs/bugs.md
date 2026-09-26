@@ -302,3 +302,19 @@ When Aryan restarts afterterm, or shuts it down and opens it again, there is no 
 3. There is no action that reopens the previous session's threads; each one has to be woken on its own.
 
 **Evidence:** Only the description above. Aryan's wording on the earlier attempt: "AfterTerm would literally crash because so many processes ran at once."
+
+---
+
+## Clicking a file link in the terminal should open the file in its default app, and right-clicking it should offer Open file location
+
+**Observed:** 2026-09-26 by Aryan during manual testing · **Phase:** Edited files Phase 3 (file paths in the terminal output are links, `docs/edited-files/`) · **Status:** open · **Severity:** low (a feature request: nothing is broken or lost) · **Screenshot:** none attached
+
+**What happens:**
+This is a feature request, not a defect. A file path in the terminal output is a file link: underlined on hover, and a click opens it (markdown and code in VS Code today). Aryan wants a click on a file link to open the file in the native tool for it, meaning the app Windows uses for that file type. He also wants a right-click menu on a file link with an "Open file location" item that shows the file in File Explorer.
+
+**Steps to make it happen again:**
+1. In a chat, hover a file path Claude wrote in the terminal until it is underlined.
+2. Click it: it opens in VS Code, not in the file type's default app.
+3. Right-click it: there is no "Open file location" item.
+
+**Evidence:** Only the description above. The menu item name Aryan asked for: "Open file location".
