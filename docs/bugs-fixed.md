@@ -10,6 +10,10 @@ Format: the bug as it was titled, the date it was fixed, the PR or commit, then 
 
 ## Fixed on 2026-09-26
 
+### A thread whose turn ended while it was not open keeps showing the background status until it is opened
+
+PR #47. Publishing, reading or watching an artifact starts a live-updates watch that Claude Code reports in every later Stop payload as a running background task (`type: "monitor"`, description `live updates for artifact <url>`). The notify hook counted it, so the turn ended on "⏳ bg (1 running)", and since the watch never ends and never starts a turn, nothing replaced that title until the thread was opened. The hook (`assets/hooks/afterterm-notify.ps1`) now leaves the artifact watch out of the count; four new cases in `test-afterterm-notify.ps1` use the payload Claude Code really sent. Reproduced and checked in the dev build (`docs/screenshots/fix-stale-background-status/`).
+
 ### There is no list of the files a chat has edited, and no way to open one without a clickable path in the output
 
 PR #43. A chat's header now has a Files button listing the documents it changed first, then its code and the images pasted into it, each folded to a count, read from the session's transcript and its subagents' files, plus files its shell commands changed (a folder watch attributed to the chat's own command windows). File paths in the terminal are links: underlined on hover once they exist, opened on click. Everything is in `docs/edited-files/`.
