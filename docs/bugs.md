@@ -195,6 +195,7 @@ The toasts then follow the window, which is the Phase 9 rule working as designed
 The one toast that came out "on the right side" before the pattern settled is unexplained and worth catching in the act: it may be a placement that ran while Windows was still rearranging the displays, with stale work area numbers.
 
 Fix direction, in order: remember the main window's bounds and the display it was on (in `prefs.json`, the way `lastOpenedAt` and `editorPath` already live there), restore them at startup, and on `display-added` offer to move the window back to the display it came from if that display has returned and the window has not been moved by hand since. Electron's `powerMonitor` has `resume` and `unlock-screen` events, which give a moment to re-check the display layout after a wake, and `screen.getAllDisplays()` can say whether the old display is back. Before building any of that, reproduce it once in the harness on the secondary display with a sleep and wake, logging `screen.getAllDisplays()` and the window bounds at each step, so the fix is aimed at what Windows actually does rather than at a guess.
+
 ---
 
 ## The rail leaves out a project whose only thread is working, then shows a working count once another thread finishes
