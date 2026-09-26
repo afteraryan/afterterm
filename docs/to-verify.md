@@ -14,6 +14,7 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 2. Click it: the image opens in your image viewer.
 3. A name like `v4/burger.png` opens the file in that folder when there are several `burger.png` files.
 4. Bare `README.md` or `notes.md` in a reply open too, whether or not the chat changed them.
+5. A path in a dot folder, such as `.temp/docs/page.html` or `.claude/commands/bug-record.md`, links and opens.
 
 ---
 

@@ -57,8 +57,12 @@ export function splitLineSuffix(text: string): { text: string; line?: number } {
 function trimToken(raw: string, start: number): { text: string; start: number; end: number } {
   let text = raw;
   let s = start;
-  const lead = /^[.,:;!?]+(?![\\/])/.exec(text);
-  if (lead && !/^\.{1,2}[\\/]/.test(text)) { text = text.slice(lead[0].length); s += lead[0].length; }
+  // Sentence punctuation in front of a path goes, and so does an ellipsis ("...docs");
+  // a single leading dot stays: it is part of the name (".temp/docs", ".claude",
+  // "./a"). Stripping it made ".temp/docs/x.html" look for "temp\docs\x.html", so
+  // nothing linked (Aryan, 2026-09-26).
+  const lead = /^(?:[,:;!?]+|\.{3,})+/.exec(text);
+  if (lead) { text = text.slice(lead[0].length); s += lead[0].length; }
   // Keep a :line suffix, drop sentence punctuation after it or after the name.
   const m = /^(.*?:\d+(?::\d+)?)[.,;!?]*$/.exec(text);
   if (m && LINE_SUFFIX.test(m[1])) text = m[1];

@@ -64,6 +64,15 @@ check('a URL in the same line is left alone', show(texts('  from https://x.com/a
 check('an ordinary sentence has none', texts('  All tests pass and the build is clean.').length === 0);
 check('a trailing ellipsis dot is dropped', texts('  editing README.md...')[0] === 'README.md');
 
+console.log('paths that start with a dot (2026-09-26)');
+check('a dot folder keeps its dot', show(texts('  - New page (same path as before): .temp/docs/aryan-video-generator-decisions.html')) === show(['.temp/docs/aryan-video-generator-decisions.html']));
+check('.claude/commands keeps its dot', show(texts('  It was step 2 of .claude/commands/bug-record.md, word for word:')) === show(['.claude/commands/bug-record.md']));
+check('a backup file in a dot folder', texts('  - Backup: .temp/docs/a.backup-v1.html')[0] === '.temp/docs/a.backup-v1.html');
+check('./ still works', texts('  see ./a.md now')[0] === './a.md');
+check('an ellipsis in front is still dropped', texts('  ...docs/b.md')[0] === 'docs/b.md');
+check('a comma in front is still dropped', texts('  x,docs/c.md')[0] === 'x' || texts(',docs/c.md')[0] === 'docs/c.md');
+check('it resolves inside the chat folder', show(resolveCandidates('.temp/docs/a.html', { threadFolder: 'D:\\p' })) === show(['D:\\p\\.temp\\docs\\a.html']));
+
 console.log('bare names');
 check('index.tsx is bare', isBareName('index.tsx'));
 check('src/index.tsx is not', !isBareName('src/index.tsx'));
