@@ -258,3 +258,18 @@ A toast for a thread was up. Aryan opened that thread from the sidebar, and the 
 As observed; repro not yet known.
 
 **Cause:** not confirmed. Opening a thread row dismisses its toast: `handleActivate` in `src/renderer/app.tsx` calls `clearThreadBadges`, which sends `notify:dismiss-tab` for that tab id, and `NotifierApp.tsx` drops every toast with that id. One path found in a quick look does not match: opening a project (`openProject` in `app.tsx`, around line 282) clears badges and the toast of the project's *first* thread (`tabs.find(t => t.groupId === groupId)`), while `openProject` actually lands on the last-worked thread, so opening a project from its sidebar row can leave the toast of the thread it really shows on screen. Fix direction: recreate the case (thread row click versus project row click, and with the window focused or not), and make the project-open path dismiss the toast of the thread that `openProject` selects.
+
+---
+
+## The thread menus have no item to open a chat's Claude Code session in a regular terminal outside afterterm
+
+**Observed:** 2026-09-26 by Aryan during manual testing · **Phase:** 4 (resuming a chat's Claude Code session) · **Status:** open · **Severity:** low (a missing menu item, nothing is broken or lost) · **Screenshot:** none attached
+
+**What happens:**
+There is no way to take a chat's Claude Code session out of afterterm. Aryan wants a menu item that opens the thread's Claude Code session in a regular terminal outside afterterm. It should be in both thread menus: the one shown on right-clicking a thread in the sidebar, and the header's three-dot menu when the thread is open.
+
+**Repro:**
+1. Right-click a chat thread in the sidebar: no item opens its session outside afterterm.
+2. Open the chat and click the header's three-dot menu: no such item there either.
+
+**Cause:** not built yet. The two menus are `buildThreadMenu` and `buildHeaderMenu` in `src/renderer/threadMenu.tsx`, which share their items. The data is already there: a chat carries `claudeSessionId` and `claudeCwd` (`Tab` in `components/TabBar/types.ts`), and waking types `claude --resume <id>` in that folder (`Terminal/index.tsx`, around line 350). Fix direction: a shared item for chats with a session id, calling a new main-process IPC that starts an external terminal (Windows Terminal, else a new console window) in `threadFolder(tab)` running `claude --resume <id>`, with the session id validated the same way as on wake; decide with Aryan whether the afterterm thread should sleep first, so the same session is not live in two places.
