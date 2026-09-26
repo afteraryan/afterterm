@@ -1,0 +1,105 @@
+<title>Repeated Paste Tag</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+<style>
+/* afterterm's own palette (theme.css and the agreed Files prototype). The app is
+   dark only, so this page commits to that one look and paints every colour. */
+:root{
+  color-scheme:dark;
+  --page:#141414;--side:#171717;--bg:#212121;--pane:#191919;--raise:#2a2a2a;--hover:#2f2f2f;--hover2:#383838;
+  --text:#ececec;--text2:#b4b4b4;--text3:#8e8e8e;--text4:#5c5c5c;
+  --doc:#93c5fd;--live:#4ade80;--sleep:#a78bfa;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'Cascadia Code','Cascadia Mono',Consolas,ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+body{background:var(--page);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased;padding-inline:16px;margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-block:36px 72px;display:flex;flex-direction:column;gap:28px}
+h1{font-size:24px;font-weight:600;margin:0;text-wrap:balance;letter-spacing:-.01em}
+.lead{color:var(--text2);max-width:68ch;margin:0}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:22px}
+.opt{display:flex;flex-direction:column;gap:10px;min-width:0}
+.opt h2{font-size:14.5px;font-weight:600;margin:0;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.opt h2 .rec{font-size:11px;font-weight:500;color:#8fd9a5;background:rgba(95,184,122,.18);border-radius:4px;padding:1px 6px}
+.opt p{margin:0;color:var(--text3);font-size:13px}
+svg{display:block;flex:none}
+
+/* the list, as the app draws it (FilesButton.css) */
+.pop{background:var(--raise);border:1px solid #3a3a3a;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.5);padding:6px;display:flex;flex-direction:column;gap:1px;font-size:13px;max-width:380px;width:100%}
+.sec{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text3);padding:6px 8px 3px}
+.sec .n{color:var(--text4)}
+.fr{display:flex;align-items:center;gap:9px;padding:5px 8px;border-radius:7px;white-space:nowrap;min-width:0}
+.fr .fi{display:grid;place-items:center;width:18px;flex:none;color:var(--doc)}
+.fr .fn{flex:none}
+.fr .fd{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--text4);font-size:12px}
+.fr .ft{font-size:11.5px;color:var(--text4);min-width:26px;text-align:right;font-variant-numeric:tabular-nums}
+.fold{display:flex;align-items:center;gap:9px;padding:6px 8px;margin-top:3px;border-radius:7px;border-top:1px solid #353535;color:var(--text2)}
+.fold svg{color:var(--text3)}
+.fold .n{color:var(--text4)}
+.fold .fill{flex:1}
+.fold .chev{transform:rotate(90deg)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:4px 6px 6px}
+.pi{display:flex;flex-direction:column;gap:3px;min-width:0;padding:3px;border-radius:8px}
+.big{position:relative;aspect-ratio:16/10;border-radius:6px;overflow:hidden;border:1px solid #444;background:#111;max-width:100%}
+.big svg{width:100%;height:100%}
+.cap{font-size:11px;color:var(--text4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;gap:5px;align-items:center}
+
+/* option A: a small count in the thumbnail's corner */
+.corner{position:absolute;right:4px;bottom:4px;font-size:10px;font-weight:600;line-height:15px;padding:0 5px;border-radius:4px;background:rgba(20,20,20,.82);color:var(--text);border:1px solid #555;font-variant-numeric:tabular-nums}
+/* option B: the count after the caption */
+.times{font-size:10.5px;color:var(--text3);font-variant-numeric:tabular-nums}
+/* option C: words in the caption */
+.words{color:var(--text3)}
+</style>
+
+<div class="wrap">
+  <h1>A screenshot pasted more than once is shown once, with a small count</h1>
+  <p class="lead">In the Files list, "Images you pasted" unfolded. #8 was pasted twice in this chat, so it appears once. Its time is the most recent paste, which is why it sorts first. Which count should it carry?</p>
+
+  <div class="opts" id="opts"></div>
+</div>
+
+<script>
+const st='fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"';
+const sv=(s,p)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" aria-hidden="true">${p}</svg>`;
+const I={
+  doc:()=>sv(15,`<path d="M7 3.5h6.5L18 8v11.5a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1z" ${st}/><path d="M13 3.5V8h5M9 12.5h6M9 15.5h6" ${st}/>`),
+  code:()=>sv(13,`<path d="M9 7l-5 5 5 5M15 7l5 5-5 5" ${st}/>`),
+  img:()=>sv(13,`<rect x="3.5" y="4.5" width="17" height="15" rx="2" ${st}/><circle cx="9" cy="10" r="1.6" ${st}/><path d="M20.5 16l-5-5-8 8.5" ${st}/>`),
+  chev:()=>sv(12,`<path d="M9 6l6 6-6 6" ${st}/>`),
+};
+// Three screenshot-like thumbnails (a form, a table, a dark app screen).
+const TH=[
+  `<svg viewBox="0 0 160 100" preserveAspectRatio="xMidYMid slice"><rect width="160" height="100" fill="#f5f5f5"/><rect x="10" y="10" width="140" height="10" rx="3" fill="#d4d4d4"/><rect x="10" y="28" width="90" height="6" rx="3" fill="#a3a3a3"/><rect x="10" y="40" width="120" height="6" rx="3" fill="#a3a3a3"/><rect x="10" y="60" width="60" height="28" rx="4" fill="#60a5fa"/></svg>`,
+  `<svg viewBox="0 0 160 100" preserveAspectRatio="xMidYMid slice"><rect width="160" height="100" fill="#fafafa"/><rect x="0" y="18" width="160" height="12" fill="#2563eb"/><rect x="6" y="36" width="148" height="8" fill="#e5e7eb"/><rect x="6" y="50" width="148" height="8" fill="#f3f4f6"/><rect x="6" y="64" width="148" height="8" fill="#e5e7eb"/></svg>`,
+  `<svg viewBox="0 0 160 100" preserveAspectRatio="xMidYMid slice"><rect width="160" height="100" fill="#171717"/><rect x="10" y="10" width="44" height="80" rx="4" fill="#212121"/><rect x="16" y="18" width="30" height="4" rx="2" fill="#ececec"/><rect x="16" y="28" width="26" height="4" rx="2" fill="#fbbf24"/><rect x="62" y="10" width="88" height="80" rx="4" fill="#191919"/><rect x="70" y="20" width="60" height="3" rx="1.5" fill="#4ade80"/></svg>`,
+];
+const IMAGES=[
+  {n:8,when:'17:42',times:2,t:0},
+  {n:9,when:'17:30',t:1},
+  {n:4,when:'17:12',t:2},
+];
+
+function list(tag){
+  const rows=[['PARITY.md','project root','4w'],['notes.md','docs','5w']]
+    .map(([n,d,t])=>`<div class="fr"><span class="fi">${I.doc()}</span><span class="fn">${n}</span><span class="fd">${d}</span><span class="ft">${t}</span></div>`).join('');
+  const pics=IMAGES.map(p=>{
+    const corner=tag==='corner'&&p.times?`<span class="corner">×${p.times}</span>`:'';
+    const cap=`#${p.n} · ${p.when}`+
+      (tag==='times'&&p.times?` <span class="times">×${p.times}</span>`:'')+
+      (tag==='words'&&p.times?` <span class="words">· pasted twice</span>`:'');
+    return `<div class="pi"><div class="big">${TH[p.t]}${corner}</div><span class="cap">${cap}</span></div>`;
+  }).join('');
+  return `<div class="pop"><div class="sec">Documents<span class="n">2</span></div>${rows}
+    <div class="fold">${I.code()}<span>Code</span><span class="n">5</span><span class="fill"></span><span>${I.chev()}</span></div>
+    <div class="fold">${I.img()}<span>Images you pasted</span><span class="n">3</span><span class="fill"></span><span class="chev">${I.chev()}</span></div>
+    <div class="grid">${pics}</div></div>`;
+}
+
+const OPTS=[
+  ['corner','A. "×2" in the corner of the picture',true,'Sits on the thumbnail like a badge. The caption stays exactly as it is for every other image.'],
+  ['times','B. "×2" after the time in the caption',false,'Nothing covers the picture; the count reads as part of the caption.'],
+  ['words','C. "pasted twice" in the caption',false,'Says it in words. Longer, and it cuts off sooner in a narrow list.'],
+];
+document.getElementById('opts').innerHTML=OPTS.map(([k,h,rec,p])=>
+  `<section class="opt"><h2>${h}${rec?'<span class="rec">Recommended</span>':''}</h2><p>${p}</p>${list(k)}</section>`).join('');
+</script>

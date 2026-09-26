@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, screen, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, screen, shell, nativeImage } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
@@ -10,7 +10,7 @@ import type { DetectDeps } from './editor-detect.ts';
 import type { EditorInfo } from './editors.ts';
 import { readPrefs, updatePrefs } from './prefs.ts';
 import { planSpawn } from './shell-integration.ts';
-import { readTranscriptMeta, isSessionId } from './claude-transcript.ts';
+import { readTranscriptMeta, isSessionId, findTranscript, projectDirName } from './claude-transcript.ts';
 import { gitInfo } from './git-info.ts';
 import { isThreadId, parseTail, serializeTail, tailFilePath, trimTail } from './thread-tail.ts';
 import {
@@ -24,6 +24,11 @@ import {
   trackFirstSeen,
 } from './server-detect.ts';
 import type { MsysProc, Proc as ServerProc } from './server-detect.ts';
+import { createSessionFilesStore } from './session-files-store.ts';
+import { EMPTY_SESSION_FILES, isAbsolutePath, normalizePath, ownsTempFile, pastedTempPath } from './session-files.ts';
+import type { ChangedFile, ShellWindow } from './session-files.ts';
+import { attributeCommandChanges, isIgnoredChange, mergeSaved, pruneChanges } from './command-files.ts';
+import type { FsChange } from './command-files.ts';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -878,6 +883,9 @@ ipcMain.handle('shells:list', () => {
 // Sync so the renderer has it immediately at preload time (no loading flash).
 // app.getVersion() reads package.json "version".
 ipcMain.on('app:version', (event) => { event.returnValue = app.getVersion(); });
+// The home folder, for showing paths under it as ~ (the Files list). The sandboxed
+// preload does not see USERPROFILE, so main answers.
+ipcMain.on('app:home', (event) => { event.returnValue = os.homedir(); });
 
 // ─── prefs.json ──────────────────────────────────────────────────────────────
 
@@ -1328,6 +1336,8 @@ ipcMain.handle('pty:destroy', async (_event, tabId: string) => {
   ptyCreatedAt.delete(tabId);
   forgetServerTab(tabId);
   if (ptys.size === 0) stopServerPolling();
+  // A sleeping or closed chat runs no commands: its folder watch ends with it.
+  unwatchChatFolder(tabId);
 
   await killTree(tabId, pid, info);
 
@@ -1393,6 +1403,9 @@ function readAndPushClaudeSession(tabId: string) {
       // the transcript on the same beat: that is what keeps the model current after a
       // /model switch, and gives a nameless chat its first-prompt fallback.
       const meta = readClaudeMeta(obj.sessionId, obj.cwd);
+      // Edited files, Phase 2: from the chat's first turn on, watch the folder it
+      // works in, so files its commands change can be attributed to it.
+      watchChatFolder(tabId, meta.cwd || obj.cwd);
       mainWindow.webContents.send('claude-session:meta', {
         tabId, sessionId: obj.sessionId, firstPrompt: meta.firstPrompt, model: meta.model, cwd: meta.cwd,
       });
@@ -1427,6 +1440,346 @@ ipcMain.handle('claude-session:meta', (_event, sessionId: unknown, cwd: unknown)
     return { firstPrompt: null, model: null, cwd: null, exists: false };
   }
   return readClaudeMeta(sessionId, cwd);
+});
+
+// ─── Edited files: the files a chat changed (docs/edited-files) ──────────────
+
+// Reads a session's transcript (and its subagents' files) incrementally: the byte
+// offset per file is remembered, so after the first read only what was appended is
+// parsed. The first read of a long session is chunked with a setImmediate between
+// chunks so PTY output keeps flowing (a 60 MB transcript measured 350ms in total,
+// no single block over 31ms). Read-only: nothing under ~/.claude is ever written.
+const sessionFilesStore = createSessionFilesStore({
+  fs: {
+    size: (p) => fs.promises.stat(p).then(s => (s.isFile() ? s.size : null), () => null),
+    read: async (p, position, length) => {
+      const handle = await fs.promises.open(p, 'r');
+      try {
+        const buf = Buffer.alloc(length);
+        const { bytesRead } = await handle.read(buf, 0, length, position);
+        return new Uint8Array(buf.buffer, buf.byteOffset, bytesRead);
+      } finally {
+        await handle.close();
+      }
+    },
+    list: (p) => fs.promises.readdir(p).catch(() => [] as string[]),
+  },
+  locate: (sessionId, cwd) => findTranscript(getClaudeProjectsDir(), cwd, sessionId, fs),
+  yieldNow: () => new Promise(resolve => setImmediate(resolve)),
+});
+
+function isUsableFile(p: string): boolean {
+  try { return fs.statSync(p).isFile(); } catch { return false; }
+}
+
+// A path from the renderer that is about to reach a launcher: absolute, no quote
+// or control characters (explorer's /select, argument is passed verbatim), and a
+// file that exists.
+function checkedFile(p: unknown): string | null {
+  if (typeof p !== 'string' || !p || p.length > 1024) return null;
+  if (/["\r\n\t\0]/.test(p) || !isAbsolutePath(p)) return null;
+  const file = normalizePath(p);
+  return isUsableFile(file) ? file : null;
+}
+
+// ─── Edited files, Phase 2: files changed by the chat's commands ─────────────
+
+// Every change the folder watches saw, bounded (pruneChanges). Attribution to a
+// chat happens when its list is read: a change counts only if one of that chat's
+// Bash/PowerShell calls was running in that folder at the time (command-files.ts).
+let fsChanges: FsChange[] = [];
+const folderWatches = new Map<string, { folder: string; watcher: fs.FSWatcher; tabs: Set<string> }>();
+const tabWatchFolder = new Map<string, string>();
+const pendingChangeStats = new Map<string, NodeJS.Timeout>();
+
+// Folders never watched whole: a chat started in the home folder, a drive root,
+// the temp folder or Windows itself would have the watch flooded by everything
+// else on the machine.
+function watchableFolder(folder: string): boolean {
+  const key = normalizePath(folder).toLowerCase();
+  if (/^[a-z]:\\?$/.test(key)) return false;
+  const never = [os.homedir(), os.tmpdir(), process.env.SystemRoot || 'C:\\Windows', process.env.APPDATA || '', process.env.LOCALAPPDATA || '']
+    .filter(Boolean).map(p => normalizePath(p).toLowerCase());
+  return !never.includes(key) && isUsableFolder(folder);
+}
+
+function noteFsChange(root: string, rel: string): void {
+  const full = normalizePath(path.join(root, rel));
+  if (isIgnoredChange(full, root)) return;
+  const seen = Date.now();
+  // A write is often several events in a row; one stat after the burst settles.
+  const key = full.toLowerCase();
+  clearTimeout(pendingChangeStats.get(key));
+  pendingChangeStats.set(key, setTimeout(() => {
+    pendingChangeStats.delete(key);
+    fs.promises.stat(full).then(st => {
+      if (!st.isFile()) return;
+      fsChanges.push({ path: full, at: seen, birth: st.birthtimeMs });
+      if (fsChanges.length > 25000) fsChanges = pruneChanges(fsChanges, Date.now());
+    }, () => { /* deleted or renamed away: nothing to open */ });
+  }, 150));
+}
+
+function watchChatFolder(tabId: string, folder: string): void {
+  if (!folder || !ptys.has(tabId)) return;
+  const key = normalizePath(folder).toLowerCase();
+  if (tabWatchFolder.get(tabId) === key) return;
+  unwatchChatFolder(tabId);
+  if (!watchableFolder(folder)) return;
+  let entry = folderWatches.get(key);
+  if (!entry) {
+    const root = normalizePath(folder);
+    let watcher: fs.FSWatcher;
+    try {
+      watcher = fs.watch(root, { recursive: true }, (_event, filename) => {
+        if (filename) noteFsChange(root, filename.toString());
+      });
+    } catch (err) {
+      console.error('[files] could not watch', root, err);
+      return;
+    }
+    watcher.on('error', () => {
+      try { watcher.close(); } catch {}
+      folderWatches.delete(key);
+    });
+    entry = { folder: root, watcher, tabs: new Set() };
+    folderWatches.set(key, entry);
+  }
+  entry.tabs.add(tabId);
+  tabWatchFolder.set(tabId, key);
+  if (process.env.AFTERTERM_HARNESS === '1') console.log(`[harness] files:watch ${entry.folder} tabs=${[...entry.tabs].join(',')}`);
+}
+
+function unwatchChatFolder(tabId: string): void {
+  const key = tabWatchFolder.get(tabId);
+  if (!key) return;
+  tabWatchFolder.delete(tabId);
+  const entry = folderWatches.get(key);
+  if (!entry) return;
+  entry.tabs.delete(tabId);
+  if (entry.tabs.size > 0) return;
+  try { entry.watcher.close(); } catch {}
+  folderWatches.delete(key);
+  if (process.env.AFTERTERM_HARNESS === '1') console.log(`[harness] files:unwatch ${entry.folder}`);
+}
+
+// Attributed files are kept per session in <userData>\edited-files\<sessionId>.json,
+// because the watch only sees what happens while the app runs.
+function commandFilesPath(sessionId: string): string {
+  return path.join(app.getPath('userData'), 'edited-files', `${sessionId}.json`);
+}
+
+function commandFilesFor(sessionId: string, windows: ShellWindow[]): ChangedFile[] {
+  const file = commandFilesPath(sessionId);
+  let saved: unknown = [];
+  let savedText = '';
+  try {
+    savedText = fs.readFileSync(file, 'utf-8');
+    saved = (JSON.parse(savedText) as { commandFiles?: unknown }).commandFiles ?? [];
+  } catch { /* none yet */ }
+  const fresh = attributeCommandChanges(fsChanges, windows, Date.now());
+  const merged = mergeSaved(saved, fresh);
+  if (fresh.length > 0) {
+    const text = JSON.stringify({ version: 1, commandFiles: merged });
+    if (text !== savedText) {
+      try {
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, text, 'utf-8');
+      } catch { /* the list still shows them this launch */ }
+    }
+  }
+  return merged;
+}
+
+ipcMain.handle('session-files:list', async (_event, sessionId: unknown, cwd: unknown) => {
+  if (!isSessionId(sessionId) || typeof cwd !== 'string' || !cwd) return EMPTY_SESSION_FILES;
+  const started = Date.now();
+  // Claude Code's own temp folder holds its scratchpad scripts: working files, not
+  // the chat's work, so they stay out of the list.
+  const files = await sessionFilesStore.list(
+    sessionId, cwd,
+    state => commandFilesFor(sessionId, state.windows),
+    [path.join(os.tmpdir(), 'claude')],
+  );
+  if (process.env.AFTERTERM_HARNESS === '1') {
+    console.log(`[harness] session-files:list ${sessionId} changed=${files?.changed.length ?? 0} command=${files?.changed.filter(f => f.source === 'command').length ?? 0} pasted=${files?.pasted.length ?? 0} in ${Date.now() - started}ms`);
+  }
+  return files ?? EMPTY_SESSION_FILES;
+});
+
+// Claude Code keeps its own copy of a pasted image in %TEMP% (undocumented, and
+// Windows may clear it). Looked for under the project dir of the folder the image
+// was pasted in, then under every project dir, since a session can move worktree.
+function pastedTempFile(sessionId: string, cwd: string, n: number): string | null {
+  const tmp = os.tmpdir();
+  const first = pastedTempPath(tmp, projectDirName(cwd), sessionId, n);
+  if (isUsableFile(first)) return first;
+  try {
+    for (const dir of fs.readdirSync(path.join(tmp, 'claude'))) {
+      const candidate = pastedTempPath(tmp, dir, sessionId, n);
+      if (isUsableFile(candidate)) return candidate;
+    }
+  } catch { /* no %TEMP%\claude at all */ }
+  return null;
+}
+
+// The file to show for one pasted image: Claude Code's temp copy when it is still
+// there and is this paste's own (a later paste with the same number overwrites
+// it), otherwise the image decoded once out of the transcript into
+// <userData>\pasted\<sessionId>\<N>.png. Null when the paste cannot be found.
+async function pastedImageFile(sessionId: string, cwd: string, key: string): Promise<string | null> {
+  const got = await sessionFilesStore.read(sessionId, cwd);
+  if (!got) return null;
+  const image = got.state.pasted.find(p => p.key === key);
+  if (!image) return null;
+  if (ownsTempFile(got.state.pasted, key)) {
+    const temp = pastedTempFile(sessionId, image.cwd ?? cwd, image.n);
+    if (temp) return temp;
+  }
+  const dir = path.join(app.getPath('userData'), 'pasted', sessionId);
+  const ext = image.mediaType === 'image/jpeg' ? 'jpg' : image.mediaType.replace(/^image\//, '').replace(/[^a-z0-9]/g, '') || 'png';
+  const unique = ownsTempFile(got.state.pasted, key) ? '' : `-${key.replace(/[^A-Za-z0-9]/g, '').slice(0, 8)}`;
+  const file = path.join(dir, `${image.n}${unique}.${ext}`);
+  if (isUsableFile(file)) return file;
+  const bytes = await sessionFilesStore.pastedBytes(sessionId, cwd, key);
+  if (!bytes) return null;
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(file, bytes.data);
+    return file;
+  } catch {
+    return null;
+  }
+}
+
+// A small data URL for the list's thumbnail, so the renderer never needs file://.
+ipcMain.handle('session-files:thumb', async (_event, sessionId: unknown, cwd: unknown, key: unknown) => {
+  if (!isSessionId(sessionId) || typeof cwd !== 'string' || typeof key !== 'string') return null;
+  const file = await pastedImageFile(sessionId, cwd, key);
+  if (!file) return null;
+  try {
+    const image = nativeImage.createFromPath(file);
+    if (image.isEmpty()) return null;
+    const { width } = image.getSize();
+    return (width > 320 ? image.resize({ width: 320, quality: 'good' }) : image).toDataURL();
+  } catch {
+    return null;
+  }
+});
+
+// Under the agent harness nothing may open on the person's screen, so each opener
+// logs what it would have opened (after its checks), like shell:openExternal.
+async function openWithDefaultApp(file: string): Promise<{ ok: boolean; error?: string }> {
+  if (harnessOnlyLogsExternal()) {
+    console.log(`[harness] files:openDefault ${file}`);
+    return { ok: true };
+  }
+  const error = await shell.openPath(file);
+  return error ? { ok: false, error: 'Could not open the file' } : { ok: true };
+}
+
+ipcMain.handle('session-files:openPasted', async (_event, sessionId: unknown, cwd: unknown, key: unknown) => {
+  if (!isSessionId(sessionId) || typeof cwd !== 'string' || typeof key !== 'string') return { ok: false, error: 'Image not found' };
+  const file = await pastedImageFile(sessionId, cwd, key);
+  if (!file) return { ok: false, error: 'Image not found' };
+  return { ...(await openWithDefaultApp(file)), path: file };
+});
+
+// The pasted image's file path without opening it, for Show in File Explorer and
+// Copy path on its row.
+ipcMain.handle('session-files:pastedPath', async (_event, sessionId: unknown, cwd: unknown, key: unknown) => {
+  if (!isSessionId(sessionId) || typeof cwd !== 'string' || typeof key !== 'string') return null;
+  return pastedImageFile(sessionId, cwd, key);
+});
+
+// Open a file in the primary detected editor (VS Code), at a line when one is
+// given. With no editor detected the file goes to its default app instead.
+ipcMain.handle('files:open', async (_event, target: unknown, line?: unknown) => {
+  const file = checkedFile(target);
+  if (!file) return { ok: false, error: 'File not found' };
+  if (!editorDetectionRan) runEditorDetection('first file open');
+  const editor = cachedEditors[0];
+  if (!editor) return openWithDefaultApp(file);
+  const at = typeof line === 'number' && Number.isInteger(line) && line > 0 ? line : null;
+  // Every detected product but 'other' is VS Code or a fork of it, which all take
+  // -g file:line. An unknown editor gets the plain path.
+  const args = at && editor.product !== 'other' ? ['-g', `${file}:${at}`] : [file];
+  if (harnessOnlyLogsExternal()) {
+    console.log(`[harness] files:open ${editor.name} ${args.join(' ')}`);
+    return { ok: true };
+  }
+  const result = await new Promise<{ ok: boolean; error?: string }>(resolve => {
+    let child;
+    try {
+      child = spawn(editor.path, args, { detached: true, stdio: 'ignore', windowsHide: false });
+    } catch (err) {
+      resolve({ ok: false, error: String(err) });
+      return;
+    }
+    child.once('spawn', () => { try { child.unref(); } catch {} resolve({ ok: true }); });
+    child.once('error', (err) => resolve({ ok: false, error: String(err) }));
+  });
+  if (result.ok) return { ok: true };
+  console.error(`[editors] could not open ${file} in ${editor.path}:`, result.error);
+  runEditorDetection('re-detect after a failed file open');
+  return { ok: false, error: `Couldn't open ${editor.name}` };
+});
+
+// Phase 3: which of the paths a terminal line might mean really exist, so only
+// those are underlined. One batched call per rendered line, cached renderer-side.
+// A WSL path is never touched (a stat on one can hang), like isUsableFolder.
+const MAX_STAT_PATHS = 200;
+ipcMain.handle('files:stat', async (_event, paths: unknown) => {
+  const result: Record<string, 'file' | 'dir' | null> = {};
+  if (!Array.isArray(paths)) return result;
+  await Promise.all(paths.slice(0, MAX_STAT_PATHS).map(async (p) => {
+    if (typeof p !== 'string' || !p || p.length > 1024 || p in result) return;
+    if (!isAbsolutePath(p) || isWslPath(p) || /^\\\\/.test(p)) { result[p] = null; return; }
+    try {
+      const st = await fs.promises.stat(p);
+      result[p] = st.isFile() ? 'file' : st.isDirectory() ? 'dir' : null;
+    } catch {
+      result[p] = null;
+    }
+  }));
+  return result;
+});
+
+// A folder a file link points at: the same Explorer launch as a project folder's.
+ipcMain.handle('files:openFolder', async (_event, folder: unknown) => {
+  if (typeof folder !== 'string' || !isAbsolutePath(folder) || !isUsableFolder(folder)) return { ok: false, error: 'Folder not found' };
+  if (harnessOnlyLogsExternal()) {
+    console.log(`[harness] files:openFolder ${folder}`);
+    return { ok: true };
+  }
+  const result = await spawnDetached('explorer.exe', [normalizePath(folder)]);
+  return result.ok ? { ok: true } : { ok: false, error: 'Could not open File Explorer' };
+});
+
+ipcMain.handle('files:openDefault', async (_event, target: unknown) => {
+  const file = checkedFile(target);
+  if (!file) return { ok: false, error: 'File not found' };
+  return openWithDefaultApp(file);
+});
+
+// File Explorer with the file selected. The argument is verbatim (explorer does
+// its own parsing of /select,"path"); checkedFile has refused any quote in it.
+ipcMain.handle('files:reveal', async (_event, target: unknown) => {
+  const file = checkedFile(target);
+  if (!file) return { ok: false, error: 'File not found' };
+  if (harnessOnlyLogsExternal()) {
+    console.log(`[harness] files:reveal ${file}`);
+    return { ok: true };
+  }
+  return new Promise(resolve => {
+    try {
+      const child = execFile('explorer.exe', [`/select,"${file}"`], { windowsVerbatimArguments: true, windowsHide: false }, () => {});
+      child.once('spawn', () => { try { child.unref(); } catch {} resolve({ ok: true }); });
+      child.once('error', () => resolve({ ok: false, error: 'Could not open File Explorer' }));
+    } catch {
+      resolve({ ok: false, error: 'Could not open File Explorer' });
+    }
+  });
 });
 
 // ─── Thread tails (scrollback that survives sleep and quit) ──────────────────

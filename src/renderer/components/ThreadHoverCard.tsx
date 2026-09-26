@@ -5,10 +5,9 @@
 // row PHASES.md Phase 3 asks for.
 import React from 'react';
 import { Tab, Group } from './TabBar/types';
-import { FolderIcon } from './Icons';
-import { threadName, threadState, stateLabel, modelLabel, runningLabel, kindWord } from '../threadView';
+import { FolderIcon, StateIcon } from './Icons';
+import { threadName, threadState, statusText, modelLabel, kindWord } from '../threadView';
 import { relativeTime } from '../homeView';
-import { asleepLabel } from '../sleepWake';
 import './ThreadHoverCard.css';
 
 export interface ThreadHoverCardProps {
@@ -19,23 +18,16 @@ export interface ThreadHoverCardProps {
 }
 
 export function ThreadHoverCard({ tab, group, anchor, now }: ThreadHoverCardProps): React.JSX.Element {
+  // Type and Status are two rows (Aryan, 2026-09-25): Type is the kind alone,
+  // Status the same icon the sidebar row shows beside its word. There is no
+  // sleep age here: next to Last used it read as a second, contradicting age
+  // ("Asleep · 1d" above "2d ago"). A quiet thread has no Status row, as it has
+  // no header chip.
   const state = threadState(tab);
-  const kind = kindWord(tab);
-  // Asleep reads "Server · Asleep · 2d" rather than the plain "Asleep" stateLabel
-  // wording other rows use, since this card has room to say how long ago. A
-  // running server gets its port ("Server · Running on :5173") the same way the
-  // header chip does; everything else (needs-you, working, done, quiet) still
-  // reads the bare stateLabel word.
-  const typeText = state === 'quiet'
-    ? kind
-    : state === 'asleep'
-      ? `${kind} · ${asleepLabel(tab.sleptAt, now)}`
-      : state === 'running' && tab.port !== undefined
-        ? `${kind} · ${runningLabel(tab.port)}`
-        : `${kind} · ${stateLabel(state)}`;
+  const status = statusText(tab);
   const model = modelLabel(tab.model);
-  const active = relativeTime(tab.lastActiveAt, now);
-  const activeText = active === 'now' ? 'now' : `${active} ago`;
+  const lastUsed = relativeTime(tab.lastActiveAt, now);
+  const lastUsedText = lastUsed === 'now' ? 'now' : `${lastUsed} ago`;
 
   const style: React.CSSProperties = {
     left: anchor.right + 8,
@@ -47,7 +39,17 @@ export function ThreadHoverCard({ tab, group, anchor, now }: ThreadHoverCardProp
       <div className="hn">{threadName(tab)}</div>
       <dl>
         <dt>Type</dt>
-        <dd data-row="type">{typeText}</dd>
+        <dd data-row="type">{kindWord(tab)}</dd>
+
+        {status && (
+          <>
+            <dt>Status</dt>
+            <dd data-row="status" data-state={state} className="hc-status">
+              <StateIcon state={state} size={14} />
+              <span className="hc-status-text">{status}</span>
+            </dd>
+          </>
+        )}
 
         <dt>Project</dt>
         <dd data-row="project" className="hc-project">
@@ -89,8 +91,8 @@ export function ThreadHoverCard({ tab, group, anchor, now }: ThreadHoverCardProp
           </>
         )}
 
-        <dt>Active</dt>
-        <dd data-row="active">{activeText}</dd>
+        <dt>Last used</dt>
+        <dd data-row="last-used">{lastUsedText}</dd>
       </dl>
     </div>
   );

@@ -30,7 +30,7 @@ The sidebar is no longer tab groups. It is projects and threads, with a Home scr
 - Every thread restored from a previous launch starts asleep: nothing is spawned until you wake it. An asleep thread shows its last output, dimmed, opened at its newest lines, with a Wake button. Waking a chat resumes its Claude session; waking a shell opens a fresh prompt in the same folder.
 - Sleep any thread from its menu. Its last output is kept and shown while it sleeps.
 - Closing a thread in a project files it in the project's History tab; a chat can be resumed from there.
-- Hovering a thread row shows a card with its type, project, model, branch, worktree, last command and last activity.
+- Hovering a thread row shows a card with its type, its status (with the same icon as the sidebar row), project, model, branch, worktree, last command and when it was last used.
 - Right-click a thread for Sleep or Wake, Mark as unread, Move to project, Open localhost (for a server), Open project page, Open in File Explorer and Open in VS Code (or your editor; both open the thread's own folder, which for a chat is the worktree it works in) and Close.
 - In the header, the project and the worktree items are clickable and open their folders in File Explorer.
 - The header has an Open in VS Code button beside the dots menu (your editor's logo if you use Cursor, Windsurf or VS Code Insiders). It opens the folder the thread is actually in: the worktree for a chat that runs in one, the project folder for a chat that runs there, the current folder for a shell. It is greyed out with "Folder not found" when that folder is gone.
@@ -51,6 +51,12 @@ The sidebar is no longer tab groups. It is projects and threads, with a Home scr
 - "Open localhost:5173" in the thread menu opens it in your browser.
 - The thread is named after the command that started the server.
 - Closing or sleeping a server thread asks first, since it stops the server. Waking it runs the last command again.
+
+### Files a chat changed
+
+- A chat's header has a Files button with the number of files the chat changed. It opens a list: the documents first (newest first, with a New tag on the ones the chat created), then the code and the images you pasted into the chat, each folded to one row with its count. A click opens a file in VS Code and a pasted image full size; right-click offers Open in VS Code, Show in File Explorer and Copy path. A screenshot pasted more than once shows once, with "×2" on it. An asleep chat keeps its button.
+- The list includes files Claude changed with its own tools, files its subagents changed, and files it changed with shell commands (`cat >`, `sed -i`, scripts), found by watching the chat's folder while its commands run. Files you change yourself are left out.
+- File paths in the terminal are links, like web addresses: hover underlines a path that exists, a click opens it (at the line, for `file.ts:42`). Claude's Write and Update lines, paths inside its commands and paths in its replies all work, a path broken over two lines links whole, and a bare name such as `index.tsx` links to the file this chat changed.
 
 ### Long output
 
@@ -93,6 +99,8 @@ The sidebar is no longer tab groups. It is projects and threads, with a Home scr
 
 ### Fixed
 
+- There was no list of the files a chat had changed, and a file could only be opened when its path happened to be a link; the header's Files button and clickable file paths now cover both.
+- The thread hover card showed two ages that looked like they disagreed ("Asleep · 1d" and "Active 2d ago"); it now shows the kind on its own row, a Status row with the same icon the sidebar uses, no sleep age, and "Last used".
 - A thread you were looking at kept its spinner and a "Background tasks" chip after Claude's turn ended with background tasks still running, until you switched away and back; it now goes quiet at once, the same as a finished turn. A thread you are not looking at still shows it until you open it.
 - The sidebar toggle appeared on the rail only while the sidebar was closed, so after opening the sidebar the same spot held the Home button; the toggle now stays first on the rail in one place, and the sidebar starts with Search.
 - The project page's thread menu offered "Open project page" while already on that page; it no longer does.

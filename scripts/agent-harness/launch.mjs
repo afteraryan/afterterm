@@ -131,8 +131,19 @@ writeJson(path.join(dataDir, 'prefs.json'), { claudeHookToastShown: true, ...ext
 const forgeCli = path.join(REPO_ROOT, 'node_modules', '@electron-forge', 'cli', 'dist', 'electron-forge.js');
 if (!fs.existsSync(forgeCli)) fail(`electron-forge CLI not found at ${forgeCli}; run npm install`);
 
+// An agent that launches the harness runs inside Claude Code, whose session
+// variables (CLAUDECODE, CLAUDE_CODE_CHILD_SESSION, CLAUDE_CODE_SESSION_ID, ...)
+// would otherwise reach every `claude` started in the dev build: Claude Code then
+// treats it as a child of the agent's session and does not save its transcript
+// ("Transcript saving is off", seen 2026-09-25 in the edited-files self-test), so
+// a replica left for Aryan would lose every turn he takes in it. They are dropped;
+// --env can still set one on purpose.
+const inherited = Object.fromEntries(
+  Object.entries(process.env).filter(([k]) => !/^(CLAUDECODE|CLAUDE_CODE_.*|CLAUDE_PID|CLAUDE_EFFORT)$/i.test(k)),
+);
+
 const env = {
-  ...process.env,
+  ...inherited,
   ...extraEnv,
   AFTERTERM_USER_DATA_DIR: dataDir,
   AFTERTERM_DISPLAY: display,
