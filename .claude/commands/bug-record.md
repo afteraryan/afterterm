@@ -10,6 +10,11 @@ Bug report from Aryan: $ARGUMENTS
 
 Steps, in order:
 
+0. **Get onto `manual-testing-fixes` first, before writing anything.** Bugs are only ever recorded on that branch, never on the branch you happen to be working on. Check `git branch --show-current`. If it is not `manual-testing-fixes`, do not stop and do not ask: go to the checkout that has it and come back afterwards.
+   - Find it with `git worktree list` (usually the repo root, `D:\Pitara\Work\Tinkering\afterterm`).
+   - If this session is inside a worktree it entered with EnterWorktree, leave with `ExitWorktree` (`action: "keep"`, never `remove`), which lands in the repo root. If the branch is checked out in another worktree instead, switch with `EnterWorktree` and that `path`.
+   - Pull, do steps 1 to 3 there, then return to the worktree you were in with `EnterWorktree` and its `path`, and say in the reply that you did.
+
 1. **Screenshots.** Every image attached to this message appears in the prompt as `[Image #N]` followed by `[Image: source: <path>]`. Copy each source file into `docs/screenshots/manual-testing/` under the next free two-digit number (look at the folder first: files are `NN-<what-it-shows>.png`, take the highest NN plus one, keep the file's own extension). The name after the number says what the screenshot shows, plainly and literally, in kebab-case (for example `03-project-page-history-tab-empty-after-close.png`). Never overwrite or delete anything in that folder.
 
 2. **The entry.** Append to `docs/bugs.md` (after a `---` separator, matching the existing entries) a section with:
@@ -20,6 +25,6 @@ Steps, in order:
    - `**Evidence:**` everything Aryan gave: the screenshots (each with a line on what it shows), exact text he quoted, times, thread or project names. Write "Only the description above." when there is nothing more.
    No em dashes anywhere. Headings plain. No abbreviations such as "repro".
 
-3. **Commit and push** on the current branch (it should be `manual-testing-fixes`; if it is not, say so and stop before committing): `git add docs/bugs.md docs/screenshots/manual-testing`, a commit message `docs: log <short bug title> from manual testing (Phase N)` ending with the attribution block this session uses, then `git push`.
+3. **Commit and push** on `manual-testing-fixes`: `git add docs/bugs.md docs/screenshots/manual-testing`, a commit message `docs: log <short bug title> from manual testing (Phase N)` ending with the attribution block this session uses, then `git push`.
 
-4. Reply in a few lines: the heading you used, the phase, the screenshot path(s), the commit hash. Nothing else.
+4. Reply in a few lines: the heading you used, the phase, the screenshot path(s), the commit hash, and the worktree you returned to if you moved. Nothing else.
