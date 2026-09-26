@@ -286,3 +286,19 @@ The icon library for project icons is too small, and its icons are not good or a
 2. Look at the icon picker: the choice is small and the icons are not accurate enough.
 
 **Evidence:** Only the description above.
+
+---
+
+## There is no way to reopen the previous session's terminals after afterterm is restarted
+
+**Observed:** 2026-09-26 by Aryan during manual testing · **Phase:** 4 (sleep, wake and session restore: every restored thread starts asleep) · **Status:** open · **Severity:** medium (the previous session has to be woken thread by thread after every restart) · **Screenshot:** none attached
+
+**What happens:**
+When Aryan restarts afterterm, or shuts it down and opens it again, there is no way to resume the previous session as a whole. An earlier version reopened everything at launch, and afterterm crashed because so many processes started at once. He wants a different approach: restore the session a few terminals at a time (one, two or three), queue the rest, and show progress as each one opens ("opening this one", then the next, then the next). The UI for this is still to be designed.
+
+**Steps to make it happen again:**
+1. Work in afterterm with several threads open.
+2. Quit afterterm and open it again.
+3. There is no action that reopens the previous session's threads; each one has to be woken on its own.
+
+**Evidence:** Only the description above. Aryan's wording on the earlier attempt: "AfterTerm would literally crash because so many processes ran at once."
