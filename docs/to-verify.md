@@ -6,9 +6,9 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
-## Branch edited-files-build, in the replica dev build (2026-09-25)
+## Build after PR #43 (2026-09-26)
 
-The replica is a copy of your data at `%TEMP%\afterterm-agent-harness\aryan-edited-files-replica`, on the second screen. Opening files and folders launches for real there.
+The thread names below were checked in a replica of your data; in your own build use the same threads if you still have them, or any chat that changed documents and code.
 
 ### A chat's header has a Files button listing the documents, code and pasted images it changed
 **Status:** waiting for Aryan

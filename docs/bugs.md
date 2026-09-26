@@ -128,21 +128,6 @@ As observed; repro not yet known. Seen in a chat thread running Claude Code whil
 
 ---
 
-## There is no list of the files a chat has edited, and no way to open one without a clickable path in the output
-
-**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 3 (thread identity, what afterterm reads from a Claude session) · **Status:** built on branch `edited-files-build` (not merged), waiting for Aryan in the replica dev build; design in [`edited-files/design-04-edited-files.md`](edited-files/design-04-edited-files.md), status in [`edited-files/phases.md`](edited-files/phases.md) · **Severity:** medium (a daily action has no support at all) · **Screenshot:** none attached
-
-**What happens:**
-Opening a file that Claude just edited depends on Claude having written the path in a form the terminal turns into a link, and it does not always do that. Aryan does not want to have to ask for paths in a particular format. He wants afterterm to know which files a chat has edited, show them as a list he can open from, newest edit first.
-
-**Repro:**
-1. Work in a chat thread until Claude edits several files.
-2. To open one, look through the output for a path the link addon made clickable; if Claude wrote it plainly, or wrote it relative, there is nothing to click and nothing else in the app knows the file exists.
-
-**Cause:** nothing in afterterm tracks edited files: the transcript reader (`src/claude-transcript.ts`) reads only the first prompt, the latest model and the newest cwd, and the terminal's only file affordance is the web-links addon over whatever text the shell printed (`Terminal/index.tsx`). The data is there to build it: every `Edit`, `Write` and `NotebookEdit` tool call in the session transcript carries `input.file_path` in an assistant message's `content`, in order, so a tail read of the same JSONL gives the edited files newest first (checked against a real transcript on 2026-09-25). Fix direction: extend the transcript reader to collect the last N distinct `file_path` values from those tool calls, and show them for the active chat (a panel, a header popover or a project page tab, Aryan's choice), each row opening the file in the detected editor through the existing `editors:open` IPC (which takes any path) or revealing it in Explorer; the read already happens once a turn, so a list would stay current without polling.
-
----
-
 ## Home's project list has no search box, so a project low in the list can only be reached by scrolling or Show more
 
 **Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 2 (Home and its project list) · **Status:** open · **Severity:** medium (a project is hard to reach from the screen the app opens on) · **Screenshot:** none attached

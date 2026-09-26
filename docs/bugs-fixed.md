@@ -8,6 +8,12 @@ Format: the bug as it was titled, the date it was fixed, the PR or commit, then 
 
 ---
 
+## Fixed on 2026-09-26
+
+### There is no list of the files a chat has edited, and no way to open one without a clickable path in the output
+
+PR #43. A chat's header now has a Files button listing the documents it changed first, then its code and the images pasted into it, each folded to a count, read from the session's transcript and its subagents' files, plus files its shell commands changed (a folder watch attributed to the chat's own command windows). File paths in the terminal are links: underlined on hover once they exist, opened on click. Everything is in `docs/edited-files/`.
+
 ## Fixed on 2026-09-25
 
 ### The thread hover card showed two different ages, "Asleep · 1d" and "Active 2d ago", that read like a contradiction
