@@ -15,6 +15,8 @@ import { TAIL_MAX_LINES } from '../../../thread-tail';
 import { JUMP_THRESHOLD_LINES, JumpState, JumpTarget, initialJumpState, onScrollSample, jumpDurationMs, jumpLineAt, prefersReducedMotion, wheelToLines, isUserScroll } from '../../jumpScroll';
 import { JumpButton, JumpButtonHandle } from '../JumpButton';
 import { isWindowsDrivePath, osc7ToWindowsPath } from '../../../shell-paths';
+import { createFileLinkProvider, trackToolLines, type FileLinkContext, type FileLinkTarget } from './fileLinks';
+import type { ILinkProvider } from '@xterm/xterm';
 
 interface TermInfo {
   term: Terminal;
@@ -92,6 +94,11 @@ interface TerminalAreaProps {
   // a wrapped prompt function, Git Bash and WSL through a PROMPT_COMMAND hook (all
   // set up in src/shell-integration.ts).
   onCommand: (tabId: string, command: string) => void;
+  // Edited files, Phase 3: what a thread's file paths resolve against (its folder,
+  // its project's, the files its chat changed), read on every hover, and what a
+  // click on one does. Without them no file links are made.
+  fileContext?: (tabId: string) => FileLinkContext | null;
+  onOpenFileLink?: (target: FileLinkTarget) => void;
 }
 
 // SECURITY: claudeSessionId is read from persisted session.json (a plain file that
@@ -227,7 +234,7 @@ const THEME = {
 };
 
 export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(function TerminalArea(
-  { tabs: tabInfos, activeTabId, visible, hidden, onTitleChange, onCwdChange, onNotification, onUserInput, onAnswer, onTyped, onOutput, onFontSizeChange, onExit, onTail, onCommand },
+  { tabs: tabInfos, activeTabId, visible, hidden, onTitleChange, onCwdChange, onNotification, onUserInput, onAnswer, onTyped, onOutput, onFontSizeChange, onExit, onTail, onCommand, fileContext, onOpenFileLink },
   ref,
 ) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -257,6 +264,13 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
   onTailRef.current = onTail;
   const onCommandRef = useRef(onCommand);
   onCommandRef.current = onCommand;
+  const fileContextRef = useRef(fileContext);
+  fileContextRef.current = fileContext;
+  const onOpenFileLinkRef = useRef(onOpenFileLink);
+  onOpenFileLinkRef.current = onOpenFileLink;
+  // Each terminal's file-link provider, kept so the harness can ask one for the
+  // links on a row without moving a mouse (window.__afterterm.fileLinks).
+  const fileLinkProvidersRef = useRef(new Map<string, ILinkProvider>());
 
   // OSC 133 prompt-mark state per terminal, kept beside the terminals rather than
   // inside TermInfo so the OSC handler and the onData handler (both closures made
@@ -374,6 +388,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
     // terminal starts again from no prompt seen at all.
     marksRef.current.delete(tabId);
     jumpRef.current.delete(tabId);
+    fileLinkProvidersRef.current.delete(tabId);
     if (tabId === activeRef.current) setJump(null);
 
     const destroy = api.pty.destroy(tabId).finally(() => {
@@ -436,6 +451,18 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
 
       // Plain URLs in output → underlined + clickable, opening the default browser
       term.loadAddon(new WebLinksAddon((_event, uri) => window.afterterm.shell.openExternal(uri)));
+
+      // File paths in output, underlined and opened like links once they exist on
+      // disk (edited files, Phase 3, fileLinks.ts). Beside the web-links addon,
+      // which keeps URLs: the path recogniser leaves anything with a scheme alone.
+      const fileLinks = createFileLinkProvider(
+        term,
+        () => fileContextRef.current?.(tabId) ?? null,
+        target => onOpenFileLinkRef.current?.(target),
+        trackToolLines(term),
+      );
+      term.registerLinkProvider(fileLinks);
+      fileLinkProvidersRef.current.set(tabId, fileLinks);
 
       const search = new SearchAddon();
       term.loadAddon(search);
@@ -897,6 +924,9 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         activeTail(n?: number): string[] | null;
         commandState(tabId: string): CommandMarkState | null;
         viewport(tabId?: string): { viewportY: number; baseY: number } | null;
+        fileLinks(tabId: string, row: number): Promise<{ text: string; range: unknown }[]>;
+        openFileLink(tabId: string, row: number, index?: number): Promise<boolean>;
+        findRow(tabId: string, text: string): number;
       };
     };
     // Extended, never replaced: app.tsx hangs its own harness value
@@ -914,6 +944,33 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         if (!info) return null;
         const buffer = info.term.buffer.active;
         return { viewportY: buffer.viewportY, baseY: buffer.baseY };
+      },
+      // Edited files, Phase 3: the file links on one 1-based buffer row, as xterm
+      // would get them on a hover, and a click on one of them.
+      fileLinks: (tabId, row) => new Promise(resolve => {
+        const provider = fileLinkProvidersRef.current.get(tabId);
+        if (!provider) { resolve([]); return; }
+        provider.provideLinks(row, links => resolve((links ?? []).map(l => ({ text: l.text, range: l.range }))));
+      }),
+      openFileLink: (tabId, row, index = 0) => new Promise(resolve => {
+        const provider = fileLinkProvidersRef.current.get(tabId);
+        if (!provider) { resolve(false); return; }
+        provider.provideLinks(row, links => {
+          const link = links?.[index];
+          if (!link) { resolve(false); return; }
+          link.activate(new MouseEvent('click', { button: 0 }), link.text);
+          resolve(true);
+        });
+      }),
+      // The last 1-based buffer row whose text contains `text`, or 0.
+      findRow: (tabId, text) => {
+        const info = termsRef.current.get(tabId);
+        if (!info) return 0;
+        const buffer = info.term.buffer.active;
+        for (let y = buffer.length - 1; y >= 0; y--) {
+          if ((buffer.getLine(y)?.translateToString(true) ?? '').includes(text)) return y + 1;
+        }
+        return 0;
       },
     };
   }, []);

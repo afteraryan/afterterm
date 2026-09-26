@@ -26,6 +26,10 @@ import { ProjectActions } from './projectMenu';
 import { buildThreadMenu } from './threadMenu';
 import { projectAttention, totalAttention, railProjects, firstThreadToOpen } from './attention';
 import type { EditorInfo } from '../editors';
+import type { SessionFiles } from '../session-files';
+import type { FilesButtonProps } from './components/FilesButton';
+import { filesListView } from './filesView';
+import type { FileLinkContext, FileLinkTarget } from './components/Terminal/fileLinks';
 
 let toastCounter = 0;
 
@@ -106,6 +110,11 @@ export function App() {
   // on the way out) and, for a thread restored from disk, read from its tail file
   // the first time its pane shows.
   const [tails, setTails] = useState<Record<string, string[]>>({});
+  // What each chat changed and had pasted into it, read from its transcript
+  // (docs/edited-files). Keyed by tab id, with the session it was read for, so a
+  // chat that started a new session never shows the old one's files. Not
+  // persisted: the transcript is the record.
+  const [filesByTab, setFilesByTab] = useState<Record<string, { sessionId: string; files: SessionFiles }>>({});
   // The running server whose close is waiting on a confirm, or null. Closing a
   // thread that owns a listening port stops that server, which is worth asking
   // about once; every other close still goes straight through.
@@ -271,6 +280,129 @@ export function App() {
     const target = threadFolderTarget(tab, folderExists);
     if (!target || editors.length === 0) return undefined;
     return { editors, missing: target.missing, open: (editorId: string) => openFolderInEditor(target.folder, editorId) };
+  };
+
+  // ── Edited files (docs/edited-files) ──────────────────────────────────────
+  // One recorder for the harness (drive.mjs's `opened`), like lastOpenFolder:
+  // main only logs the launch under AFTERTERM_HARNESS=1, so this is how a test
+  // sees which file a click reached.
+  const noteOpened = (key: string, value: unknown) => {
+    const win = window as unknown as { __afterterm?: Record<string, unknown> };
+    win.__afterterm = { ...(win.__afterterm ?? {}), [key]: value };
+  };
+
+  const openFileInEditor = (path: string, line?: number) => {
+    noteOpened('lastOpenFile', line ? `${path}:${line}` : path);
+    window.afterterm.files.open(path, line).then(result => {
+      if (!result.ok) showToast({ message: result.error ?? 'Could not open the file' });
+    });
+  };
+
+  const openFileWithDefaultApp = (path: string) => {
+    noteOpened('lastOpenFile', path);
+    window.afterterm.files.openDefault(path).then(result => {
+      if (!result.ok) showToast({ message: result.error ?? 'Could not open the file' });
+    });
+  };
+
+  const revealFile = (path: string) => {
+    noteOpened('lastRevealFile', path);
+    window.afterterm.files.reveal(path).then(result => {
+      if (!result.ok) showToast({ message: result.error ?? 'Could not open File Explorer' });
+    });
+  };
+
+  const copyPath = (path: string) => {
+    navigator.clipboard.writeText(path).then(
+      () => showToast({ message: 'Path copied' }),
+      () => showToast({ message: 'Could not copy the path' }),
+    );
+  };
+
+  // Brings one chat's list up to date. Only new transcript bytes are read, so
+  // calling it on every turn is cheap.
+  const refreshFiles = useCallback((tabId: string) => {
+    const tab = stateRef.current.tabs.find(t => t.id === tabId);
+    const sessionId = tab?.claudeSessionId;
+    const cwd = tab?.claudeCwd;
+    if (!sessionId || !cwd) return;
+    window.afterterm.sessionFiles.list(sessionId, cwd).then(files => {
+      setFilesByTab(prev => ({ ...prev, [tabId]: { sessionId, files } }));
+    });
+  }, []);
+
+  // What a terminal's file links resolve against (Phase 3): the thread's own
+  // folder, its project's, the home folder, and for a chat the files it changed.
+  // Read through refs because the terminal asks on every hover.
+  const filesByTabRef = useRef(filesByTab);
+  filesByTabRef.current = filesByTab;
+  const fileContextFor = useCallback((tabId: string): FileLinkContext | null => {
+    const tab = stateRef.current.tabs.find(t => t.id === tabId);
+    if (!tab) return null;
+    const project = tab.groupId ? stateRef.current.groups.find(g => g.id === tab.groupId) : undefined;
+    const entry = filesByTabRef.current[tabId];
+    const files = entry && entry.sessionId === tab.claudeSessionId ? entry.files : undefined;
+    return {
+      threadFolder: threadFolder(tab),
+      projectFolder: project?.cwd,
+      home: window.afterterm.app.homeDir || undefined,
+      changed: files?.changed ?? [],
+      edits: files?.edits ?? [],
+    };
+  }, []);
+
+  const openFileLink = (target: FileLinkTarget) => {
+    if (target.how === 'explorer') {
+      noteOpened('lastOpenFile', target.path);
+      window.afterterm.files.openFolder(target.path).then(result => {
+        if (!result.ok) showToast({ message: result.error ?? 'Could not open the folder' });
+      });
+    } else if (target.how === 'default') {
+      openFileWithDefaultApp(target.path);
+    } else {
+      openFileInEditor(target.path, target.line);
+    }
+  };
+
+  // The Files button's props for a chat, or undefined for a shell.
+  const filesButtonFor = (tab: Tab): FilesButtonProps | undefined => {
+    const sessionId = tab.claudeSessionId;
+    const cwd = tab.claudeCwd;
+    if (!sessionId || !cwd) return undefined;
+    const entry = filesByTab[tab.id];
+    const files = entry && entry.sessionId === sessionId ? entry.files : undefined;
+    const project = tab.groupId ? stateRef.current.groups.find(g => g.id === tab.groupId) : undefined;
+    const view = filesListView(files, threadFolder(tab), window.afterterm.app.homeDir || undefined, Date.now(), project?.cwd);
+    const pasted = window.afterterm.sessionFiles;
+    return {
+      view,
+      threadKey: `${tab.id}:${sessionId}`,
+      editorName: editors[0]?.name ?? '',
+      editorProduct: editors[0]?.product,
+      onOpenList: () => refreshFiles(tab.id),
+      onOpenFile: path => openFileInEditor(path),
+      onRevealFile: revealFile,
+      onCopyFile: copyPath,
+      onOpenPasted: key => {
+        pasted.openPasted(sessionId, cwd, key).then(result => {
+          noteOpened('lastOpenFile', result.path ?? key);
+          if (!result.ok) showToast({ message: result.error ?? 'Could not open the image' });
+        });
+      },
+      onRevealPasted: key => {
+        pasted.pastedPath(sessionId, cwd, key).then(path => {
+          if (path) revealFile(path);
+          else showToast({ message: 'Image not found' });
+        });
+      },
+      onCopyPasted: key => {
+        pasted.pastedPath(sessionId, cwd, key).then(path => {
+          if (path) copyPath(path);
+          else showToast({ message: 'Image not found' });
+        });
+      },
+      thumb: key => pasted.thumb(sessionId, cwd, key),
+    };
   };
 
   const projectActions: ProjectActions = {
@@ -466,6 +598,8 @@ export function App() {
   useEffect(() => {
     window.afterterm.claudeSession.onMeta(({ tabId, sessionId, firstPrompt, model, cwd }) => {
       applyClaudeMeta(tabId, sessionId, { firstPrompt, model, cwd, exists: true });
+      // The same beat (UserPromptSubmit and Stop) keeps the Files list current.
+      refreshFiles(tabId);
     });
   }, []);
 
@@ -1043,6 +1177,17 @@ export function App() {
     stateRef.current.setLastCommand(tabId, command);
   }, []);
 
+  // The Files list of the chat on screen is read when it comes on screen (a
+  // restored, asleep chat included: reading needs no wake), and again on every
+  // turn through the meta push above.
+  const activeId = state.activeTabId;
+  const activeSession = state.tabs.find(t => t.id === activeId)?.claudeSessionId;
+  const activeClaudeCwd = state.tabs.find(t => t.id === activeId)?.claudeCwd;
+  useEffect(() => {
+    if (!initialized || !activeSession || !activeClaudeCwd) return;
+    refreshFiles(activeId);
+  }, [initialized, activeId, activeSession, activeClaudeCwd, refreshFiles]);
+
   const tabInfos = state.tabs.map(t => ({ id: t.id, shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize, claudeSessionId: t.claudeSessionId, claudeCwd: t.claudeCwd, asleep: t.asleep, wokeAt: t.wokeAt, port: t.port, lastCommand: t.lastCommand }));
 
   const activeTab = state.tabs.find(t => t.id === state.activeTabId);
@@ -1175,6 +1320,7 @@ export function App() {
               open: () => openFolderInExplorer(activeGroup.cwd!),
             } : undefined}
             editor={activeTab ? threadEditor(activeTab) : undefined}
+            files={activeTab ? filesButtonFor(activeTab) : undefined}
             actions={activeTab ? {
               moveToGroup: (id) => id ? state.addToGroup(activeTab.id, id) : state.removeFromGroup(activeTab.id),
               close: () => closeThread(activeTab.id),
@@ -1214,6 +1360,8 @@ export function App() {
               onExit={handlePtyExit}
               onTail={handleTail}
               onCommand={handleCommand}
+              fileContext={fileContextFor}
+              onOpenFileLink={openFileLink}
             />
           )}
         </div>

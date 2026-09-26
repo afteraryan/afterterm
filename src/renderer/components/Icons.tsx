@@ -312,6 +312,59 @@ export function IconExplorer(props: IconProps) {
   );
 }
 
+// The Files button and its list (docs/edited-files): paths copied verbatim from
+// docs/mockups/edited-files-button.html, stroke 1.7 like the rest of that page.
+const FILES_STROKE = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+
+// Two overlapping pages: the Files button.
+export function IconFiles(props: IconProps) {
+  return (
+    <svg {...svgProps(props)}>
+      <path d="M9 3.5h5.5L19 8v9.5a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1z" {...FILES_STROKE} />
+      <path d="M14 3.5V8h5M5 7.5v12a1 1 0 0 0 1 1h9" {...FILES_STROKE} />
+    </svg>
+  );
+}
+
+// A page with lines: a document row.
+export function IconDoc(props: IconProps) {
+  return (
+    <svg {...svgProps(props)}>
+      <path d="M7 3.5h6.5L18 8v11.5a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1z" {...FILES_STROKE} />
+      <path d="M13 3.5V8h5M9 12.5h6M9 15.5h6" {...FILES_STROKE} />
+    </svg>
+  );
+}
+
+// Angle brackets: the Code row and a code file.
+export function IconCode(props: IconProps) {
+  return (
+    <svg {...svgProps(props)}>
+      <path d="M9 7l-5 5 5 5M15 7l5 5-5 5" {...FILES_STROKE} />
+    </svg>
+  );
+}
+
+// A picture frame: the pasted images row.
+export function IconImage(props: IconProps) {
+  return (
+    <svg {...svgProps(props)}>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2" {...FILES_STROKE} />
+      <circle cx="9" cy="10" r="1.6" {...FILES_STROKE} />
+      <path d="M20.5 16l-5-5-8 8.5" {...FILES_STROKE} />
+    </svg>
+  );
+}
+
+// The fold row's chevron, turned a quarter when open.
+export function IconFoldChev(props: IconProps) {
+  return (
+    <svg {...svgProps(props)}>
+      <path d="M9 6l6 6-6 6" {...FILES_STROKE} />
+    </svg>
+  );
+}
+
 // VS Code's mark: copied verbatim from the mock's i-vscode symbol (its own
 // 100x100 viewBox, not the shared 24x24 one the rest of this file uses).
 export function IconVSCode({ size = 16, className, style }: IconProps) {

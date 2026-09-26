@@ -1,0 +1,25 @@
+/* The hover note on a file link that was matched by name among the chat's own
+   files (fileLinks.ts): which file a click opens. The app tooltip's look. */
+.file-link-tip {
+  position: fixed;
+  z-index: 1100;
+  max-width: 560px;
+  padding: 5px 9px;
+  border-radius: 8px;
+  background: #303030;
+  border: 1px solid #444;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--fast) var(--ease);
+}
+
+.file-link-tip.show {
+  opacity: 1;
+}

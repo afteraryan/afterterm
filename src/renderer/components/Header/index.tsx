@@ -11,6 +11,7 @@ import { buildHeaderMenu, HeaderMenuActions, ThreadMenuActions } from '../../thr
 import { FOLDER_MISSING_TIP } from '../../projectMenu';
 import { threadKind, threadName, threadState, stateLabel, modelLabel, runningLabel } from '../../threadView';
 import { asleepLabel } from '../../sleepWake';
+import { FilesButton, FilesButtonProps } from '../FilesButton';
 import './Header.css';
 
 // Matches the menu's own min-width (Menu.css), so the panel opens flush with
@@ -37,9 +38,12 @@ export interface HeaderProps {
   // Required, not read from Date.now() here, so the chip updates on the same
   // tick as the rest of the app instead of drifting on its own render timing.
   now: number;
+  // The Files button (docs/edited-files): a chat's changed files and pasted
+  // images. Undefined for a shell; the button itself hides at zero files.
+  files?: FilesButtonProps;
 }
 
-export function Header({ tab, group, groups, actions, projectExplorer, editor, now }: HeaderProps) {
+export function Header({ tab, group, groups, actions, projectExplorer, editor, now, files }: HeaderProps) {
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -128,6 +132,7 @@ export function Header({ tab, group, groups, actions, projectExplorer, editor, n
         </div>
       </div>
       <div className="header-actions">
+        {files && <FilesButton {...files} />}
         {state !== 'quiet' && (
           <span className="chip header-chip">
             <StateIcon state={state} />

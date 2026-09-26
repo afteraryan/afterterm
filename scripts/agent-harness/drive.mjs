@@ -56,7 +56,13 @@
 //   opened                        the URL the last "Open localhost:port" click reached
 //                                  (window.__afterterm.lastOpenExternal), or "(nothing opened)",
 //                                  then the folder the last "Open in File Explorer" reached
-//                                  (window.__afterterm.lastOpenFolder), or "folder: (none opened)"
+//                                  (window.__afterterm.lastOpenFolder), or "folder: (none opened)";
+//                                  then "file:" (the last Files-list row or file link opened)
+//                                  and "reveal:" (the last Show in File Explorer)
+//   files                          the header's Files button and its list: button text, open
+//                                  or closed, Documents rows, the Code and pasted fold rows
+//                                  and their rows once unfolded; a row not from the chat's own
+//                                  tools says (subagent) or (command)
 //   scroll <sel> <deltaY> [i]     a mouse wheel over the element, deltaY in pixels, negative = up
 //   wheel-on-jump [deltaY]        a wheel over the shown jump button itself; prints the scroller
 //                                  position before and after (default deltaY -300)
@@ -378,6 +384,7 @@ try {
       case 'tail': await cmdTail(args[0]); break;
       case 'confirm': await cmdConfirm(); break;
       case 'opened': await cmdOpened(); break;
+      case 'files': await cmdFiles(); break;
       case 'marks': await cmdMarks(); break;
       case 'jump': await cmdJump(); break;
       case 'pane-scroll': await cmdPaneScroll(); break;
@@ -1286,6 +1293,61 @@ async function cmdOpened() {
   // editor button, the thread menu, the project menu or page).
   const ed = await evaluate(cdp, `window.__afterterm && window.__afterterm.lastOpenEditor`);
   console.log(ed ? `editor: ${ed.editorId} ${ed.folder}` : 'editor: (none opened)');
+  // Edited files: the file the last Files-list row or file link reached (with
+  // ":line" when a link carried one), and the last "Show in File Explorer".
+  const file = await evaluate(cdp, `window.__afterterm && window.__afterterm.lastOpenFile`);
+  console.log(file ? `file: ${file}` : 'file: (none opened)');
+  const reveal = await evaluate(cdp, `window.__afterterm && window.__afterterm.lastRevealFile`);
+  console.log(reveal ? `reveal: ${reveal}` : 'reveal: (none)');
+}
+
+// Edited files (docs/edited-files): the header's Files button and its list, as
+// drawn. The button line, whether the list is open, then its parts: Documents
+// rows (name, New, folder, time), the Code and pasted fold rows with their count
+// and open state, and their rows once unfolded (thumbnails say loaded or not).
+async function cmdFiles() {
+  const data = await evaluate(cdp, `(() => {
+    const text = el => (el ? (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim() : '');
+    const btn = document.querySelector('[data-files-button]');
+    const pop = document.querySelector('[data-files-list]');
+    if (!btn) return { button: null };
+    const rows = sel => Array.from(pop.querySelectorAll(sel)).map(r => ({
+      name: text(r.querySelector('.fn')), tag: text(r.querySelector('.ftag')),
+      folder: text(r.querySelector('.fd')), ago: text(r.querySelector('.ft')), path: r.dataset.path, source: r.dataset.source,
+    }));
+    const fold = key => {
+      const b = pop.querySelector('[data-fold="' + key + '"]');
+      if (!b) return null;
+      return { label: text(b), open: b.getAttribute('aria-expanded') === 'true',
+        bodyOpen: !!pop.querySelector('[data-fold-body="' + key + '"].open') };
+    };
+    return {
+      button: text(btn),
+      expanded: btn.getAttribute('aria-expanded') === 'true',
+      listOpen: pop.classList.contains('open'),
+      listStyle: (() => { const cs = getComputedStyle(pop); return { opacity: cs.opacity, transform: cs.transform, visibility: cs.visibility }; })(),
+      empty: text(pop.querySelector('.fempty')) || null,
+      docs: rows('[data-file-row="doc"]'),
+      code: fold('code'),
+      codeRows: rows('[data-file-row="code"]'),
+      pasted: fold('pasted'),
+      pastedRows: Array.from(pop.querySelectorAll('[data-pasted]')).map(p => ({ label: text(p.querySelector('.cap')), thumb: !!p.querySelector('img'), repeat: text(p.querySelector('.frepeat')) || null })),
+    };
+  })()`);
+  if (!data.button) { console.log('(no Files button)'); return; }
+  console.log(`button: ${data.button} ${data.expanded ? '[expanded]' : ''}`.trim());
+  console.log(`list: ${data.listOpen ? 'open' : 'closed'} opacity=${data.listStyle.opacity} visibility=${data.listStyle.visibility}`);
+  if (data.empty) console.log(`  ${data.empty}`);
+  if (data.docs.length) console.log(`  Documents ${data.docs.length}`);
+  for (const d of data.docs) console.log(`    - ${d.name}${d.tag ? ' [New]' : ''}  ${d.folder}  ${d.ago}${d.source && d.source !== 'tool' ? ` (${d.source})` : ''}`);
+  if (data.code) {
+    console.log(`  ${data.code.label} [${data.code.open ? 'unfolded' : 'folded'}]`);
+    if (data.code.open) for (const d of data.codeRows) console.log(`    - ${d.name}  ${d.folder}  ${d.ago}${d.source && d.source !== 'tool' ? ` (${d.source})` : ''}`);
+  }
+  if (data.pasted) {
+    console.log(`  ${data.pasted.label} [${data.pasted.open ? 'unfolded' : 'folded'}]`);
+    if (data.pasted.open) for (const p of data.pastedRows) console.log(`    - ${p.label}${p.repeat ? ` [${p.repeat}]` : ''} ${p.thumb ? '(thumbnail)' : '(no thumbnail yet)'}`);
+  }
 }
 
 // Phase 5: window.__afterterm.commandState(tabId) (Terminal/index.tsx), the OSC
