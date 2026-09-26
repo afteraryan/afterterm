@@ -258,3 +258,20 @@ A thread's turn has ended and Aryan has not opened it yet, but its row still sho
 **Evidence:** Only the description above.
 
 **Cause:** Not recorded here. The agent that fixes this bug finds the cause itself.
+
+---
+
+## The Other projects drawer in the sidebar has no New project button
+
+**Observed:** 2026-09-26 by Aryan during manual testing · **Phase:** 8 (the panel and its docked Other projects row) · **Status:** open · **Severity:** low (a missing button, nothing is broken or lost) · **Screenshot:** none attached
+
+**What happens:**
+The Other projects drawer at the bottom of the sidebar has no button to create a new project. Aryan wants a New project button in it, either at the top or at the bottom of the drawer. Which of the two is still his decision to make.
+
+**Steps to make it happen again:**
+1. Open the Other projects drawer at the bottom of the sidebar.
+2. There is no New project button at its top or its bottom.
+
+**Evidence:** Only the description above. The placement (top or bottom of the drawer) is pending Aryan's decision.
+
+**Cause:** Not recorded here. The agent that fixes this bug finds the cause itself.
