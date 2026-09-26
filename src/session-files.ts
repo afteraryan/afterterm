@@ -172,6 +172,8 @@ export interface SessionParseState {
   pendingShells: Map<string, ShellWindow>;
   files: Map<string, ChangedFile>;
   edits: EditEvent[];
+  /** Files the chat read (Read) or sent to the user (SendUserFile), newest last, for file links. */
+  refs: EditEvent[];
   pasted: PastedImage[];
   windows: ShellWindow[];
   latestCwd: string | null;
@@ -183,6 +185,7 @@ export function newParseState(): SessionParseState {
     pendingShells: new Map(),
     files: new Map(),
     edits: [],
+    refs: [],
     pasted: [],
     windows: [],
     latestCwd: null,
@@ -191,7 +194,22 @@ export function newParseState(): SessionParseState {
 
 const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
 const SHELL_TOOLS = new Set(['Bash', 'PowerShell']);
-const TOOL_NAME_RE = /"name"\s*:\s*"(Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell)"/;
+const REF_TOOLS = new Set(['Read', 'SendUserFile']);
+const TOOL_NAME_RE = /"name"\s*:\s*"(Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell|Read|SendUserFile)"/;
+export const MAX_REFS = 5000;
+
+/** The file paths a Read or SendUserFile call names. */
+function refPaths(name: string, input: Record<string, unknown> | undefined): string[] {
+  if (!input) return [];
+  if (name === 'Read') return typeof input.file_path === 'string' ? [input.file_path] : [];
+  const out: string[] = [];
+  for (const key of ['files', 'file_paths', 'paths']) {
+    const v = input[key];
+    if (Array.isArray(v)) for (const p of v) if (typeof p === 'string') out.push(p);
+  }
+  for (const key of ['file', 'file_path', 'path']) if (typeof input[key] === 'string') out.push(input[key] as string);
+  return out;
+}
 /** Enough edit events for Phase 3's time matching without growing forever. */
 export const MAX_EDIT_EVENTS = 5000;
 export const MAX_WINDOWS = 20000;
@@ -273,6 +291,14 @@ export function ingestLine(state: SessionParseState, line: string, offset = 0, s
         const path = normalizePath(raw, cwd);
         if (!path) continue;
         state.pendingEdits.set(p.id, { path, at, source: side ? 'subagent' : 'tool' });
+      } else if (REF_TOOLS.has(p.name)) {
+        // Not changes: what the chat opened or sent, so a name it writes later
+        // (a screenshot it sent, a file it read) links to the right file.
+        for (const raw of refPaths(p.name, p.input)) {
+          const path = normalizePath(raw, cwd);
+          if (path) state.refs.push({ path, at });
+        }
+        if (state.refs.length > MAX_REFS) state.refs.splice(0, state.refs.length - MAX_REFS);
       } else if (SHELL_TOOLS.has(p.name)) {
         const command = typeof p.input?.command === 'string' ? p.input.command : '';
         const win: ShellWindow = { start: at, end: null, cwd, bulk: isBulkCommand(command) };
@@ -369,9 +395,11 @@ export interface SessionFiles {
   pasted: Omit<PastedImage, 'offset' | 'index' | 'size'>[];
   /** Every edit tool call in order, for matching an Update(...) line by time. */
   edits: EditEvent[];
+  /** Files the chat read or sent to the user, for file links only. */
+  refs: EditEvent[];
 }
 
-export const EMPTY_SESSION_FILES: SessionFiles = { exists: false, changed: [], pasted: [], edits: [] };
+export const EMPTY_SESSION_FILES: SessionFiles = { exists: false, changed: [], pasted: [], edits: [], refs: [] };
 
 /**
  * One list from Claude's own edits and, from Phase 2, the files its commands
@@ -410,6 +438,7 @@ export function sessionFilesView(state: SessionParseState, commandFiles: Changed
       .sort((a, b) => b.at - a.at || b.n - a.n)
       .map(({ key, n, at, times, mediaType, cwd }) => ({ key, n, at, times, mediaType, cwd })),
     edits: [...state.edits],
+    refs: [...state.refs],
   };
 }
 

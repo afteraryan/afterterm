@@ -348,6 +348,7 @@ export function App() {
       home: window.afterterm.app.homeDir || undefined,
       changed: files?.changed ?? [],
       edits: files?.edits ?? [],
+      refs: files?.refs ?? [],
     };
   }, []);
 

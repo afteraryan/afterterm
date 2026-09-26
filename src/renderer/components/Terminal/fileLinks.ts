@@ -6,7 +6,7 @@
 import type { IBufferLine, ILink, ILinkProvider, IMarker, Terminal } from '@xterm/xterm';
 import type { ChangedFile, EditEvent } from '../../../session-files';
 import {
-  findPathCandidates, resolveCandidates, isBareName, matchChangedName, continuation, openKind, elidedTail,
+  findPathCandidates, resolveCandidates, isBareName, matchChangedName, continuation, openKind, elidedTail, hasExtension, narrowByTail,
   type PathCandidate,
 } from '../../filePaths';
 import './fileLinks.css';
@@ -18,6 +18,8 @@ export interface FileLinkContext {
   home?: string;
   changed: Pick<ChangedFile, 'path' | 'at'>[];
   edits: EditEvent[];
+  /** Files the chat read or sent to the user. */
+  refs: EditEvent[];
 }
 
 export interface FileLinkTarget {
@@ -52,6 +54,33 @@ async function statMany(paths: string[]): Promise<Map<string, Kind>> {
       const kind = got[p] ?? null;
       statCache.set(p.toLowerCase(), { kind, at: Date.now() });
       out.set(p, kind);
+    }
+  }
+  return out;
+}
+
+// Names looked up on disk (main's files:find), per folder set, for a short while:
+// a hover over the same reply asks again for every line it crosses.
+const findCache = new Map<string, { paths: string[]; at: number }>();
+const FIND_TTL = 20_000;
+
+async function findMany(names: string[], roots: string[]): Promise<Map<string, string[]>> {
+  const now = Date.now();
+  const scope = roots.map(r => r.toLowerCase()).join('|');
+  const out = new Map<string, string[]>();
+  const ask: string[] = [];
+  for (const name of names) {
+    const hit = findCache.get(`${scope}::${name.toLowerCase()}`);
+    if (hit && now - hit.at < FIND_TTL) out.set(name, hit.paths);
+    else if (!ask.includes(name)) ask.push(name);
+  }
+  if (ask.length) {
+    let got: Record<string, string[]> = {};
+    try { got = await window.afterterm.files.find(ask, roots); } catch { /* nothing found */ }
+    for (const name of ask) {
+      const paths = got[name] ?? [];
+      findCache.set(`${scope}::${name.toLowerCase()}`, { paths, at: Date.now() });
+      out.set(name, paths);
     }
   }
   return out;
@@ -235,33 +264,57 @@ export function createFileLinkProvider(
       }
       if (pending.length === 0) { callback(undefined); return; }
 
-      // Every path each candidate could mean, checked on disk in one call.
+      // Every path each candidate could mean, checked on disk in one call. Since
+      // 2026-09-26 every file name with an extension links (Aryan: an image an
+      // agent sent could not be opened), found in this order: for a bare name,
+      // the files this chat touched (changed, written, read or sent; newest), then
+      // the chat's and the project's folders; for a path, those folders first.
+      // What is still not found is looked up by name under those folders (disk).
+      const touched = [...ctx.changed, ...ctx.edits, ...ctx.refs];
       const options = pending.map(p => {
         // A path Claude Code shortened with "…" is matched by what follows it.
         const elided = elidedTail(p.text);
         const lookup = elided ?? p.text;
-        const direct = elided || isBareName(lookup) ? [] : resolveCandidates(lookup, ctx);
-        // A bare name, or an edit line whose path does not resolve, is looked up
-        // among the files this chat changed (by the time its line was drawn).
-        const named = matchChangedName(lookup, ctx.changed, ctx.edits, p.cand.tool ? p.lineTime : undefined);
-        return { p, direct, named };
+        const bare = isBareName(lookup);
+        const direct = elided ? [] : resolveCandidates(lookup, ctx);
+        const named = matchChangedName(lookup, touched, ctx.edits, p.cand.tool ? p.lineTime : undefined);
+        return { p, lookup, bare, direct, named };
       });
       const all = options.flatMap(o => [...o.direct, ...(o.named ? [o.named.path] : [])]);
-      statMany(all).then(found => {
+      statMany(all).then(async found => {
+        // The last resort, only for names with an extension nothing above found.
+        const roots = [ctx.threadFolder, ctx.projectFolder].filter((r): r is string => !!r);
+        const unfound = options.filter(o =>
+          hasExtension(o.lookup)
+          && !o.direct.some(d => found.get(d))
+          && !(o.named && found.get(o.named.path)));
+        const onDisk = unfound.length && roots.length ? await findMany(unfound.map(o => o.lookup), roots) : new Map<string, string[]>();
         const links: ILink[] = [];
         const taken: { start: number; end: number; y: number }[] = [];
-        for (const { p, direct, named } of options) {
+        for (const { p, lookup, bare, direct, named } of options) {
           // The joined candidate was pushed before its partial; once it links,
           // the partial on the same cells is skipped.
           const startY = p.range.start.y;
           if (taken.some(t => t.y === startY && p.range.start.x >= t.start && p.range.start.x <= t.end)) continue;
-          let path = direct.find(d => found.get(d));
+          const byName = named && found.get(named.path) ? named : null;
+          const inFolder = direct.find(d => found.get(d));
+          let path: string | undefined;
           let note: string | undefined;
-          if (!path && named && found.get(named.path)) {
-            path = named.path;
-            // Which file a name opens, relative to the chat's folder when inside it.
-            const shown = shortPath(path, ctx.threadFolder);
-            note = named.others > 0 ? `Opens ${shown}, the newest of ${named.others + 1} with this name` : `Opens ${shown}`;
+          // Which file a name opens, relative to the chat's folder when inside it.
+          const say = (target: string, others: number, how: string) =>
+            others > 0 ? `Opens ${shortPath(target, ctx.threadFolder)}, ${how} of ${others + 1} with this name` : `Opens ${shortPath(target, ctx.threadFolder)}`;
+          if (byName && (bare || !inFolder)) {
+            path = byName.path;
+            note = say(path, byName.others, 'the newest');
+          } else if (inFolder) {
+            path = inFolder;
+          } else {
+            const hits = narrowByTail(lookup, onDisk.get(lookup) ?? []);
+            if (hits.length) {
+              path = hits[0];
+              found.set(path, 'file');
+              note = say(path, hits.length - 1, 'the nearest');
+            }
           }
           if (!path) continue;
           const kind = found.get(path)!;
