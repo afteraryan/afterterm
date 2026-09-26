@@ -2,7 +2,7 @@
 
 Running list of observed bugs that are **not yet fixed**. When a bug is fixed, its entry is deleted from here and a short entry is added to [`bugs-fixed.md`](bugs-fixed.md) in the same change (what was wrong, what the fix does, the PR), and the fix goes in `CHANGELOG.md`'s Fixed list. For inherent *platform limitations* (input lag, Wispr, etc.) see the **Known Limitations** section in [`../CLAUDE.md`](../CLAUDE.md) — those are constraints, not bugs on a fix-list.
 
-Format per bug: a short title, the date observed, what happens, repro if known, and any hypothesis about the cause.
+Format per bug: a short title, the date observed, what happens, the steps to make it happen again when known, and the evidence Aryan gave (screenshots, quoted text, names). No causes: from 2026-09-26 the agent recording a bug does not investigate or write down a cause, even where older entries below have one; the agent that fixes the bug finds the cause itself (`.claude/commands/bug-record.md`).
 
 This one file is where every bug goes, and `docs/screenshots/manual-testing/` is where every screenshot that comes with a bug goes (numbered, named for what it shows, committed, never deleted). A bug found during Aryan's manual testing after the projects-and-threads phases also carries the phase it belongs to and a link to its screenshot. Agreed with Aryan on 2026-09-08.
 
@@ -273,3 +273,21 @@ There is no way to take a chat's Claude Code session out of afterterm. Aryan wan
 2. Open the chat and click the header's three-dot menu: no such item there either.
 
 **Cause:** not built yet. The two menus are `buildThreadMenu` and `buildHeaderMenu` in `src/renderer/threadMenu.tsx`, which share their items. The data is already there: a chat carries `claudeSessionId` and `claudeCwd` (`Tab` in `components/TabBar/types.ts`), and waking types `claude --resume <id>` in that folder (`Terminal/index.tsx`, around line 350). Fix direction: a shared item for chats with a session id, calling a new main-process IPC that starts an external terminal (Windows Terminal, else a new console window) in `threadFolder(tab)` running `claude --resume <id>`, with the session id validated the same way as on wake; decide with Aryan whether the afterterm thread should sleep first, so the same session is not live in two places.
+
+---
+
+## A thread whose turn ended while it was not open keeps showing the background status until it is opened
+
+**Observed:** 2026-09-26 by Aryan during manual testing · **Phase:** 7 (attention: thread states and the badges that clear when seen) · **Status:** open · **Severity:** medium (the sidebar says background work is running when the thread is done) · **Screenshot:** none attached
+
+**What happens:**
+A thread's turn has ended and Aryan has not opened it yet, but its row still shows that a background process is running. When he opens it, it says the thread is done and there is nothing running in it. The moment he opens it, the status corrects itself. He expects the row to show the right status without having to open the thread.
+
+**Steps to make it happen again:**
+1. Let a chat's turn end while you are looking at another thread.
+2. Its row shows the background status (the hourglass) although nothing is running any more.
+3. Open the chat: it reads as done, with nothing in it, and the status changes at once.
+
+**Evidence:** Only the description above.
+
+**Cause:** Not recorded here. The agent that fixes this bug finds the cause itself.
