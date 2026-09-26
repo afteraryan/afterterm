@@ -5,7 +5,7 @@
 
 import {
   threadFolder, threadFolderTarget, insertNewThread, projectLookChanges, applyProjectLook, threadKind, threadState, stateLabel, stateBreathes, displayTitle,
-  threadName, modelLabel, kindWord, runningLabel, localhostUrl, openLocalhostLabel,
+  threadName, modelLabel, kindWord, runningLabel, statusText, localhostUrl, openLocalhostLabel,
   needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText,
   foldThreads, projectCounts, toastMessage,
   initialScreen, nextActiveTabAfterArchive,
@@ -496,6 +496,18 @@ console.log('\nthreadView: nextActiveTabAfterArchive\n');
     nextActiveTabAfterArchive(tabs, 'gone', ['A']) === 'gone');
   check('a General thread is never treated as archived',
     nextActiveTabAfterArchive([tab('g'), tab('a', { groupId: 'A' })], 'g', ['A']) === 'g');
+}
+
+console.log('\nthreadView: statusText (the hover card Status row)\n');
+{
+  check('a quiet thread has no status', statusText(tab('q')) === undefined);
+  check('an asleep thread reads Asleep with no age', statusText(tab('a', { asleep: true, sleptAt: 1 })) === 'Asleep');
+  check('a server reads Running on its port', statusText(tab('s', { port: 5173 })) === 'Running on :5173');
+  check('a working chat reads Working', statusText(tab('w', { notification: 'working' })) === 'Working');
+  check('background reads Background tasks', statusText(tab('b', { notification: 'background' })) === 'Background tasks');
+  check('needs-you reads Needs you', statusText(tab('n', { notification: 'attention' })) === 'Needs you');
+  check('an asleep thread marked unread reads Unread', statusText(tab('u', { asleep: true, unread: true })) === 'Unread');
+  check('an asleep server reads Asleep, not its port', statusText(tab('x', { asleep: true, port: 5173 })) === 'Asleep');
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

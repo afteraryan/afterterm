@@ -155,3 +155,58 @@ On Home, under the pinned cards, the Projects list shows the projects by recent 
 2. To reach one that is further down, expand Show more and scan the list, or leave Home for the search palette; there is nothing to type into on Home itself.
 
 **Cause:** Home has no query at all. `components/Home/index.tsx` renders the pinned cards and then a plain `.list` of rows from `homeSections` in `homeView.ts` (which sorts and splits pinned, unpinned and archived), with a `.more` toggle for the rest; `homeView.ts` has a `filterThreads` helper but nothing that filters projects, and no row animation beyond the page's entrance stagger. The sidebar already has the pattern to copy: an in-place `.srch` box whose value runs through `filterPanel` (`panelView.ts`) and narrows the list as you type. Fix direction: a `filterProjects` in `homeView.ts` (pure, unit-tested, matching the sidebar's case-insensitive substring rule), a search box in Home's Projects section header, and enter and exit animations on the rows; the animation is a look decision, so a mock page with one question for Aryan before it is built.
+
+---
+
+## The white bar is back above the toast stack, and it also shows when no toast is on screen
+
+**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 9 (the notifier white bar fix) · **Status:** open · **Severity:** low (cosmetic, but on top of every other window) · **Screenshot:** `docs/screenshots/manual-testing/10-white-bar-above-the-toast-stack.png`
+
+**What happens:**
+A white bar spans the full width of the overlay, above the top toast card. In the screenshot two toasts are stacked and the bar sits in the padding above the first one. Aryan also sees it appear when there is no notification at all: no toast on screen, just the bar.
+
+This is the same artefact Phase 9 fixed on 2026-09-20; that fix held for the cases tested then (a toast up, the main window activated from another app, and hide-and-show cycles), so this is a case it does not cover.
+
+**Repro:**
+As observed; the exact trigger is not known. Two circumstances are recorded: with more than one toast stacked (the screenshot), and with no toast showing.
+
+**Cause:** the Phase 9 fix repaints the overlay at three moments (`repaintNotifier()` in `src/main.ts`, called after the `showInactive` on a push, on the `WM_DWMNCRENDERINGCHANGED` message, and on the main window's `focus` event), because DWM paints the caption strip into the transparent window whenever it touches the frame. It does not repaint after a bounds change: `positionNotifier` calls `setBounds` on every `notifier:resize` from the renderer, which is exactly what happens when a second toast joins the stack and the window grows, and a bounds change is another moment DWM can paint the frame. That fits the screenshot, where the bar sits at the top of a window that had just been made taller. The no-toast case is a second thread to pull: the overlay is meant to be hidden when the last toast clears (`notifier:hide` from `NotifierApp.tsx`), so a bar with no toast means either the hide did not happen or the window was left visible at a small height with the caption strip painted into it. Fix direction: call `repaintNotifier()` after every `setBounds` in `positionNotifier`, then reproduce the empty case in the harness (push two toasts, dismiss both, watch `isVisible()` and the window height) before deciding whether the hide path needs its own fix.
+
+---
+
+## A rail tile cannot say which of a project's waiting threads to open
+
+**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 8 (the rail and its tiles) · **Status:** open · **Severity:** low (Aryan says it is not high priority) · **Screenshot:** `docs/screenshots/manual-testing/11-rail-tile-with-two-waiting-and-two-finished-threads.png`
+
+**What happens:**
+A rail tile shows its counts, in the screenshot one waiting and two finished. When more than one thread in that project wants Aryan, he would like to choose which one to go to from the rail itself, without opening the panel first. Today the tile takes the decision for him.
+
+**Repro:**
+1. Get a project into a state where two or more of its threads are waiting or finished, so its rail tile shows a count above one.
+2. Click the tile: it opens one of them, with no way from the rail to pick a different one.
+
+**Cause:** the tile is a single button: `components/Rail/index.tsx` renders it with `onClick={() => onOpenProject(group.id)}`, and `app.tsx`'s `openProjectFromRail` picks the thread through `firstThreadToOpen` in `attention.ts` (the first waiting thread, else the first finished one, else the most recently active awake one). The badges next to the tile are plain counts (`.bd` spans with a tooltip), not controls. Fix direction: give the tile a way to expand the choice, for example a hover or right-click list of that project's waiting and finished threads, each row opening its own thread, with the plain click keeping today's behaviour; the rail's tooltip already anchors to the right (`data-tip-side="right"`), so there is a place for such a list to sit. A look decision for Aryan (one mock page) before it is built.
+
+---
+
+## After the laptop sleeps and wakes, the window and its toasts move to the primary screen and stay there
+
+**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 9 (the notifier follows the main window's display); the window's own placement is pre-existing · **Status:** open · **Severity:** medium (the app leaves the monitor it was on and does not come back) · **Screenshot:** none attached
+
+**What happens:**
+With the secondary monitor on, toasts were appearing on the secondary monitor, which is right. Aryan shut the laptop lid and opened it again. After that the toasts came out on the right side of the screen once, and from then on every toast appeared on the primary screen, and the afterterm window itself had moved to the primary screen too. He wants to know whether this is a known problem, whether it can be fixed, and what can be done.
+
+**Repro:**
+1. Run afterterm with the main window on the secondary monitor and confirm toasts appear there.
+2. Close the laptop lid, wait for it to sleep, open it again.
+3. The window is on the primary screen, and toasts follow it there.
+
+**Cause:** partly Windows, partly afterterm, and the two need separating.
+
+The window moving is Windows: when a display sleeps or is disconnected, Windows moves the windows that were on it to the remaining display, and it does not move them back when the display returns. afterterm never repositions its main window after startup (`harnessWindowPlacement` in `src/main.ts` only applies when `AFTERTERM_DISPLAY` is set, at creation), so once Windows has moved it, it stays where Windows put it.
+
+The toasts then follow the window, which is the Phase 9 rule working as designed: `notifierDisplay()` returns `screen.getDisplayMatching(mainWindow.getBounds())`, so a main window on the primary screen means toasts on the primary screen. Placement is re-run on `display-added`, `display-removed` and `display-metrics-changed` (`createNotifierWindow`), which is why the toast placement corrects itself, but it corrects to wherever the main window now is.
+
+The one toast that came out "on the right side" before the pattern settled is unexplained and worth catching in the act: it may be a placement that ran while Windows was still rearranging the displays, with stale work area numbers.
+
+Fix direction, in order: remember the main window's bounds and the display it was on (in `prefs.json`, the way `lastOpenedAt` and `editorPath` already live there), restore them at startup, and on `display-added` offer to move the window back to the display it came from if that display has returned and the window has not been moved by hand since. Electron's `powerMonitor` has `resume` and `unlock-screen` events, which give a moment to re-check the display layout after a wake, and `screen.getAllDisplays()` can say whether the old display is back. Before building any of that, reproduce it once in the harness on the secondary display with a sleep and wake, logging `screen.getAllDisplays()` and the window bounds at each step, so the fix is aimed at what Windows actually does rather than at a guess.
