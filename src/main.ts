@@ -29,6 +29,8 @@ import { EMPTY_SESSION_FILES, isAbsolutePath, normalizePath, ownsTempFile, paste
 import type { ChangedFile, ShellWindow } from './session-files.ts';
 import { attributeCommandChanges, isIgnoredChange, mergeSaved, pruneChanges } from './command-files.ts';
 import type { FsChange } from './command-files.ts';
+import { buildNameIndex, findByName } from './file-index.ts';
+import type { IndexFs, NameIndex } from './file-index.ts';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -1742,6 +1744,49 @@ ipcMain.handle('files:stat', async (_event, paths: unknown) => {
       result[p] = null;
     }
   }));
+  return result;
+});
+
+// File links' last resort (2026-09-26): a bare file name found under the chat's or
+// the project's folder. One index per folder (file-index.ts), rebuilt when older
+// than 30s, shared by every hover; folders the watch never covers whole (the home
+// folder, a drive root, %TEMP%) are never indexed either.
+const nameIndexes = new Map<string, { index?: NameIndex; building?: Promise<NameIndex> }>();
+const NAME_INDEX_TTL_MS = 30_000;
+const indexFs: IndexFs = {
+  list: (dir) => fs.promises.readdir(dir, { withFileTypes: true })
+    .then(ents => ents.map(e => ({ name: e.name, dir: e.isDirectory() })), () => []),
+};
+
+async function nameIndexFor(folder: string): Promise<NameIndex | null> {
+  if (!watchableFolder(folder)) return null;
+  const key = normalizePath(folder).toLowerCase();
+  let entry = nameIndexes.get(key);
+  if (!entry) { entry = {}; nameIndexes.set(key, entry); }
+  if (entry.index && Date.now() - entry.index.builtAt < NAME_INDEX_TTL_MS) return entry.index;
+  if (!entry.building) {
+    const e = entry;
+    e.building = buildNameIndex(normalizePath(folder), indexFs).then(idx => {
+      e.index = idx;
+      e.building = undefined;
+      if (process.env.AFTERTERM_HARNESS === '1') console.log(`[harness] files:index ${idx.root} names=${idx.byName.size}${idx.truncated ? ' (partial)' : ''}`);
+      return idx;
+    }, err => { e.building = undefined; throw err; });
+  }
+  try { return (await entry.building) ?? null; } catch { return entry.index ?? null; }
+}
+
+ipcMain.handle('files:find', async (_event, names: unknown, roots: unknown) => {
+  const result: Record<string, string[]> = {};
+  if (!Array.isArray(names) || !Array.isArray(roots)) return result;
+  const folders = roots.filter((r): r is string => typeof r === 'string' && isAbsolutePath(r)).slice(0, 3);
+  const indexes = (await Promise.all(folders.map(nameIndexFor))).filter((i): i is NameIndex => !!i);
+  for (const name of names.slice(0, 50)) {
+    if (typeof name !== 'string' || !name || name.length > 260) continue;
+    const found: string[] = [];
+    for (const idx of indexes) for (const p of findByName(idx, name)) if (!found.includes(p)) found.push(p);
+    result[name] = found.slice(0, 20);
+  }
   return result;
 });
 

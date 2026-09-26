@@ -6,6 +6,17 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
+## Branch file-links-any-extension (2026-09-26)
+
+### Any file name with an extension in the terminal is a link, images included
+**Status:** waiting for Aryan
+1. In a chat where an agent made or sent you screenshots, hover a bare image name in its reply (for example `03-operator-home.png`): it is underlined, and a note says which file it opens.
+2. Click it: the image opens in your image viewer.
+3. A name like `v4/burger.png` opens the file in that folder when there are several `burger.png` files.
+4. Bare `README.md` or `notes.md` in a reply open too, whether or not the chat changed them.
+
+---
+
 ## Build after PR #43 (2026-09-26)
 
 The thread names below were checked in a replica of your data; in your own build use the same threads if you still have them, or any chat that changed documents and code.

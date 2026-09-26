@@ -130,13 +130,19 @@ export const LINE_BEFORE_EDIT_MS = 1000;
 /** How long after an edit's recorded time its tool line may still appear on screen. */
 export const LINE_AFTER_EDIT_MS = 60_000;
 
+/** True when the text ends in a file extension ("shot.png", "src/a.ts"). */
+export function hasExtension(text: string): boolean {
+  return EXTENSION.test(String(text ?? ''));
+}
+
 /**
- * The file a bare name (or a tool line) means among the files this chat changed.
- * Only files the chat changed are candidates (design: "A bare name links only when
- * it matches a file this chat changed"). With `lineTime`, the edit made just
- * before the line appeared wins, so two Update(...) lines naming two different
- * index.tsx files each open their own; without it, the newest change wins.
- * `others` is how many other changed files share the name, for the hover.
+ * The file a name (or a tool line) means among the files this chat touched: the
+ * ones it changed, wrote (images too), read or sent to the user. With `lineTime`,
+ * the edit made just before the line appeared wins, so two Update(...) lines
+ * naming two different index.tsx files each open their own; without it, the
+ * newest touch wins. `others` is how many other files share the name, for the
+ * hover. (Until 2026-09-26 only changed files counted, so a screenshot an agent
+ * sent never linked; Aryan asked for every file name with an extension.)
  */
 export function matchChangedName(
   name: string,
@@ -164,7 +170,21 @@ export function matchChangedName(
   }
   if (files.length === 0) return null;
   const newest = [...files].sort((a, b) => b.at - a.at)[0];
-  return { path: newest.path, others: files.length - 1 };
+  // The same file touched several times (edited, then read, then sent) is one file.
+  return { path: newest.path, others: keys.size - 1 };
+}
+
+/**
+ * Among files found on disk by name, the ones whose path ends with what was
+ * written ("v4/burger.png" narrows "burger.png"), on a folder boundary.
+ */
+export function narrowByTail(text: string, paths: string[]): string[] {
+  const tail = text.replace(/\//g, '\\').replace(/^\.[\\/]/, '').toLowerCase();
+  const want = baseName(tail);
+  return paths.filter(p => {
+    const lower = p.toLowerCase();
+    return baseName(lower) === want && (tail === want || lower.endsWith('\\' + tail));
+  });
 }
 
 /**
