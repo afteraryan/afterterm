@@ -243,22 +243,6 @@ There is no way to take a chat's Claude Code session out of afterterm. Aryan wan
 
 ---
 
-## A thread whose turn ended while it was not open keeps showing the background status until it is opened
-
-**Observed:** 2026-09-26 by Aryan during manual testing · **Phase:** 7 (attention: thread states and the badges that clear when seen) · **Status:** open · **Severity:** medium (the sidebar says background work is running when the thread is done) · **Screenshot:** none attached
-
-**What happens:**
-A thread's turn has ended and Aryan has not opened it yet, but its row still shows that a background process is running. When he opens it, it says the thread is done and there is nothing running in it. The moment he opens it, the status corrects itself. He expects the row to show the right status without having to open the thread.
-
-**Steps to make it happen again:**
-1. Let a chat's turn end while you are looking at another thread.
-2. Its row shows the background status (the hourglass) although nothing is running any more.
-3. Open the chat: it reads as done, with nothing in it, and the status changes at once.
-
-**Evidence:** Only the description above.
-
----
-
 ## The Other projects drawer in the sidebar has no New project button
 
 **Observed:** 2026-09-26 by Aryan during manual testing · **Phase:** 8 (the panel and its docked Other projects row) · **Status:** open · **Severity:** low (a missing button, nothing is broken or lost) · **Screenshot:** none attached

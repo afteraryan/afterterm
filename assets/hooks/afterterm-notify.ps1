@@ -22,6 +22,7 @@ States (event -> title emitted):
   UserPromptSubmit                   -> "▶ <project> - working"          (spinner)
   Notification (permission_prompt)   -> "⚠ <project> - needs permission" (+ bell)
   Stop, background_tasks running > 0 -> "⏳ <project> - bg (N running)"
+                                        (an artifact's live-updates watch is not counted)
   Stop, nothing running              -> "✅ <project> - done"
   PreCompact                         -> "⚙ <project> - compacting"
 
@@ -135,9 +136,21 @@ switch ($event) {
         # Count only background_tasks still "running"; the array can carry
         # completed/failed entries we don't want to alarm on. Add any
         # session-scoped crons still scheduled.
+        #
+        # An artifact watch is not counted. Publishing (or reading, or watching)
+        # an artifact starts a live-updates subscription that Claude Code lists
+        # as a running task for the rest of the session:
+        #   { type: "monitor", status: "running",
+        #     description: "live updates for artifact https://claude.ai/artifact/..." }
+        # It is not work: it never finishes, and it never starts a turn, so no
+        # later Stop would ever replace the hourglass. Counting it left a finished
+        # thread showing "bg (1 running)" until it was opened (docs/bugs-fixed.md).
         $runningTasks = @()
         if ($payload.background_tasks) {
-            $runningTasks = @($payload.background_tasks | Where-Object { $_.status -eq 'running' })
+            $runningTasks = @($payload.background_tasks | Where-Object {
+                $_.status -eq 'running' -and
+                -not ($_.type -eq 'monitor' -and ([string]$_.description) -like 'live updates for *')
+            })
         }
         $cronCount = if ($payload.session_crons) { @($payload.session_crons).Count } else { 0 }
         $total = $runningTasks.Count + $cronCount
