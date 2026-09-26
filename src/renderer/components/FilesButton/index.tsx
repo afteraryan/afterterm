@@ -276,6 +276,7 @@ export function FilesButton(props: FilesButtonProps) {
                     >
                       <span className="big">
                         {thumbs[p.key] ? <img src={thumbs[p.key]!} alt={`Pasted image #${p.n}`} draggable={false} /> : <IconImage size={20} />}
+                        {p.repeat && <span className="frepeat" data-repeat={p.repeat}>{p.repeat}</span>}
                       </span>
                       <span className="cap">{p.label}</span>
                     </button>

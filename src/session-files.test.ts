@@ -156,9 +156,23 @@ console.log('pasted images');
   check('offset not exposed to the renderer', !('offset' in v.pasted[0]));
   check('a line read twice does not duplicate', (() => { ingestLine(s, paste('u1', 10, [3])); return sessionFilesView(s).pasted.length === 4; })());
   check('images do not count as changed files', v.changed.length === 0);
-  check('one paste logged twice (same number, same bytes) is listed once', (() => {
+  check('a single paste counts once', sessionFilesView(s).pasted.every(p => p.times === 1));
+  check('the same image pasted again (same number, same bytes) is listed once, counted twice', (() => {
     ingestLine(s, paste('u4', 40, [3]));
-    return sessionFilesView(s).pasted.filter(p => p.n === 3).length === 1;
+    const same = sessionFilesView(s).pasted.filter(p => p.n === 3);
+    return same.length === 1 && same[0].times === 2;
+  })());
+  check('it takes the time of its latest paste, so it sorts first', (() => {
+    const v2 = sessionFilesView(s).pasted;
+    return v2[0].n === 3 && v2[0].at === T0 + 40000;
+  })());
+  check('a third paste counts three', (() => {
+    ingestLine(s, paste('u4b', 45, [3]));
+    return sessionFilesView(s).pasted.find(p => p.n === 3)?.times === 3;
+  })());
+  check('the counted image still owns the temp file (it is the newest #3)', (() => {
+    const k = sessionFilesView(s).pasted.find(p => p.n === 3)!.key;
+    return ownsTempFile(s.pasted, k);
   })());
   check('the same number with different bytes is a second image', (() => {
     ingestLine(s, paste('u5', 50, [3]).replace('iVBORw0KGgo=', 'iVBORw0KGgoAAAA='));

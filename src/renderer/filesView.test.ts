@@ -4,7 +4,7 @@
 //   node src/renderer/filesView.test.ts
 // Exits 0 if all pass, 1 on any failure.
 
-import { filesButtonLabel, shortAgo, folderLabel, pastedLabel, filesListView, hasFilesButton } from './filesView.ts';
+import { filesButtonLabel, shortAgo, folderLabel, pastedLabel, filesListView, hasFilesButton, repeatTag } from './filesView.ts';
 import type { ChangedFile } from '../session-files.ts';
 
 let pass = 0, fail = 0;
@@ -68,8 +68,8 @@ console.log('the list');
       file('src\\claude-transcript.ts', 3),
     ],
     pasted: [
-      { key: 'a', n: 3, at: NOW - 13 * MIN, mediaType: 'image/png', cwd: null },
-      { key: 'b', n: 6, at: NOW - 10 * MIN, mediaType: 'image/png', cwd: null },
+      { key: 'a', n: 3, at: NOW - 13 * MIN, times: 1, mediaType: 'image/png', cwd: null },
+      { key: 'b', n: 6, at: NOW - 10 * MIN, times: 2, mediaType: 'image/png', cwd: null },
     ],
   }, FOLDER, HOME, NOW);
   check('count is documents and code only', v.count === 4);
@@ -79,6 +79,9 @@ console.log('the list');
   check('folder and time on a row', v.docs[0].folder === 'docs' && v.docs[0].ago === '2m');
   check('pasted newest first', show(v.pasted.map(p => p.n)) === show([6, 3]));
   check('pasted label', v.pasted[0].label.startsWith('#6 \u00b7 '));
+  check('an image pasted twice carries \u00d72', v.pasted[0].repeat === '\u00d72');
+  check('an image pasted once carries nothing', v.pasted[1].repeat === null);
+  check('repeat tag: three times', repeatTag(3) === '\u00d73' && repeatTag(1) === null && repeatTag(undefined) === null && repeatTag(0) === null);
   check('code starts folded when there are documents', v.codeStartsOpen === false);
   check('there is a button', hasFilesButton(v));
 }
@@ -88,7 +91,7 @@ console.log('the list');
   check('only code: no documents', v.docs.length === 0 && v.count === 2);
 }
 {
-  const v = filesListView({ changed: [], pasted: [{ key: 'a', n: 1, at: NOW, mediaType: 'image/png', cwd: null }] }, FOLDER, HOME, NOW);
+  const v = filesListView({ changed: [], pasted: [{ key: 'a', n: 1, at: NOW, times: 1, mediaType: 'image/png', cwd: null }] }, FOLDER, HOME, NOW);
   check('only pasted images: nothing counted, so no button', v.count === 0 && !hasFilesButton(v));
   check('only pasted images: the Code row does not start open', v.codeStartsOpen === false);
 }

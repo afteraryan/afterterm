@@ -17,7 +17,7 @@ The replica is a copy of your data at `%TEMP%\afterterm-agent-harness\aryan-edit
 3. Click Code, then Images you pasted: each unfolds in place (thumbnails load). Click a document: it opens in VS Code and the list closes. Click an image: it opens full size.
 4. Right-click a document: Open in VS Code, Show in File Explorer, Copy path. Esc and a click outside close the list.
 5. Open "what things are uncommited?" (dl-bwmi): only code changed, so Code starts unfolded under "No documents in this chat yet".
-6. Open "In an old session a claude isntance connected to chrome…" (dl-bwmi): its 6 pasted images show and open although Claude Code's own copies are gone (one of them was logged twice by Claude Code and is listed once).
+6. Open "In an old session a claude isntance connected to chrome…" (dl-bwmi): its 6 pasted images show and open although Claude Code's own copies are gone. #8 was pasted twice: it is listed once, with "×2" in the corner of its picture.
 7. Open "Source code extraction from APK" (Revy App): 07-old-code-behaviour.md, written by a subagent, is in the list.
 
 ### Files a chat changed with shell commands are in the list too

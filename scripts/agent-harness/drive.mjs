@@ -1331,7 +1331,7 @@ async function cmdFiles() {
       code: fold('code'),
       codeRows: rows('[data-file-row="code"]'),
       pasted: fold('pasted'),
-      pastedRows: Array.from(pop.querySelectorAll('[data-pasted]')).map(p => ({ label: text(p.querySelector('.cap')), thumb: !!p.querySelector('img') })),
+      pastedRows: Array.from(pop.querySelectorAll('[data-pasted]')).map(p => ({ label: text(p.querySelector('.cap')), thumb: !!p.querySelector('img'), repeat: text(p.querySelector('.frepeat')) || null })),
     };
   })()`);
   if (!data.button) { console.log('(no Files button)'); return; }
@@ -1346,7 +1346,7 @@ async function cmdFiles() {
   }
   if (data.pasted) {
     console.log(`  ${data.pasted.label} [${data.pasted.open ? 'unfolded' : 'folded'}]`);
-    if (data.pasted.open) for (const p of data.pastedRows) console.log(`    - ${p.label} ${p.thumb ? '(thumbnail)' : '(no thumbnail yet)'}`);
+    if (data.pasted.open) for (const p of data.pastedRows) console.log(`    - ${p.label}${p.repeat ? ` [${p.repeat}]` : ''} ${p.thumb ? '(thumbnail)' : '(no thumbnail yet)'}`);
   }
 }
 

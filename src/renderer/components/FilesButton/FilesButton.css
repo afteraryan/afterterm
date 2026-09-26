@@ -252,6 +252,26 @@
   color: var(--text4);
 }
 
+/* The same screenshot pasted more than once: listed once, with its count in
+   the corner (option A of docs/mockups/edited-files-repeated-paste.html). */
+.fpi .big { position: relative; }
+
+.fpi .frepeat {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 15px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: rgba(20, 20, 20, .82);
+  border: 1px solid #555;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
 .fpi .big img {
   width: 100%;
   height: 100%;

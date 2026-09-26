@@ -24,6 +24,8 @@ export interface PastedRow {
   /** "#3 · 17:17", or "#3 · 24 Sep" when it was not pasted today. */
   label: string;
   at: number;
+  /** "×2" when the same image was pasted more than once, else null. */
+  repeat: string | null;
 }
 
 export interface FilesListView {
@@ -95,6 +97,11 @@ export function pastedLabel(n: number, at: number, now: number): string {
   return `#${n} · ${when}`;
 }
 
+/** The corner tag on a pasted image pasted more than once: "×2", "×3". Null for one paste. */
+export function repeatTag(times: number | undefined): string | null {
+  return typeof times === 'number' && Number.isFinite(times) && times > 1 ? `×${Math.floor(times)}` : null;
+}
+
 function toRow(f: ChangedFile, threadFolder: string | undefined, home: string | undefined, now: number, projectFolder?: string): FileRow {
   return {
     path: f.path,
@@ -120,7 +127,7 @@ export function filesListView(
   const code = changed.filter(f => f.kind === 'code').map(f => toRow(f, threadFolder, home, now, projectFolder));
   const pasted = [...(files?.pasted ?? [])]
     .sort((a, b) => b.at - a.at || b.n - a.n)
-    .map(p => ({ key: p.key, n: p.n, at: p.at, label: pastedLabel(p.n, p.at, now) }));
+    .map(p => ({ key: p.key, n: p.n, at: p.at, label: pastedLabel(p.n, p.at, now), repeat: repeatTag(p.times) }));
   return {
     count: docs.length + code.length,
     docs,

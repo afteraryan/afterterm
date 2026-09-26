@@ -119,9 +119,12 @@ export interface PastedImage {
   key: string;
   /** The N of "[Image #N]". */
   n: number;
+  /** The latest paste of this image. */
   at: number;
+  /** How many times this same image was pasted (same number, same bytes). */
+  times: number;
   mediaType: string;
-  /** Length of the base64 data, used to spot one paste logged twice. */
+  /** Length of the base64 data, used to spot the same image pasted again. */
   size: number;
   /** The folder the chat was in when it was pasted; Claude Code's temp copy is keyed by it. */
   cwd: string | null;
@@ -315,15 +318,23 @@ export function ingestLine(state: SessionParseState, line: string, offset = 0, s
   images.forEach(({ part, index }, i) => {
     const key = `${uuid}:${index}`;
     if (state.pasted.some(img => img.key === key)) return;
-    // Claude Code sometimes logs one paste twice (two entries, same [Image #N], the
-    // same bytes): the same number with the same data size is the same image.
+    // The same screenshot pasted again (same [Image #N], same bytes; Claude Code
+    // also logs some pastes twice) is one image with a count: listed once at the
+    // time of its latest paste, with "×2" on it (Aryan, 2026-09-26, option A of
+    // docs/mockups/edited-files-repeated-paste.html).
     const size = typeof part.source?.data === 'string' ? part.source.data.length : 0;
     const n = ids[i] ?? i + 1;
-    if (size > 0 && state.pasted.some(img => img.n === n && img.size === size)) return;
+    const same = size > 0 ? state.pasted.find(img => img.n === n && img.size === size) : undefined;
+    if (same) {
+      same.times += 1;
+      same.at = Math.max(same.at, at);
+      return;
+    }
     state.pasted.push({
       key,
       n,
       at,
+      times: 1,
       size,
       mediaType: typeof part.source?.media_type === 'string' ? part.source.media_type : 'image/png',
       cwd,
@@ -397,7 +408,7 @@ export function sessionFilesView(state: SessionParseState, commandFiles: Changed
     changed: mergeChanged([...state.files.values()].filter(keep), commandFiles.filter(keep)),
     pasted: [...state.pasted]
       .sort((a, b) => b.at - a.at || b.n - a.n)
-      .map(({ key, n, at, mediaType, cwd }) => ({ key, n, at, mediaType, cwd })),
+      .map(({ key, n, at, times, mediaType, cwd }) => ({ key, n, at, times, mediaType, cwd })),
     edits: [...state.edits],
   };
 }
