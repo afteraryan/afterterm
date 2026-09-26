@@ -12,7 +12,7 @@ Format: the bug as it was titled, the date it was fixed, the PR or commit, then 
 
 ### A thread whose turn ended while it was not open keeps showing the background status until it is opened
 
-PR pending (branch `worktree-fix-stale-background-status`). Publishing, reading or watching an artifact starts a live-updates watch that Claude Code reports in every later Stop payload as a running background task (`type: "monitor"`, description `live updates for artifact <url>`). The notify hook counted it, so the turn ended on "⏳ bg (1 running)", and since the watch never ends and never starts a turn, nothing replaced that title until the thread was opened. The hook (`assets/hooks/afterterm-notify.ps1`) now leaves the artifact watch out of the count; four new cases in `test-afterterm-notify.ps1` use the payload Claude Code really sent. Reproduced and checked in the dev build (`docs/screenshots/fix-stale-background-status/`).
+PR #47. Publishing, reading or watching an artifact starts a live-updates watch that Claude Code reports in every later Stop payload as a running background task (`type: "monitor"`, description `live updates for artifact <url>`). The notify hook counted it, so the turn ended on "⏳ bg (1 running)", and since the watch never ends and never starts a turn, nothing replaced that title until the thread was opened. The hook (`assets/hooks/afterterm-notify.ps1`) now leaves the artifact watch out of the count; four new cases in `test-afterterm-notify.ps1` use the payload Claude Code really sent. Reproduced and checked in the dev build (`docs/screenshots/fix-stale-background-status/`).
 
 ### There is no list of the files a chat has edited, and no way to open one without a clickable path in the output
 
