@@ -2,7 +2,7 @@
 
 Running list of observed bugs that are **not yet fixed**. When a bug is fixed, its entry is deleted from here and a short entry is added to [`bugs-fixed.md`](bugs-fixed.md) in the same change (what was wrong, what the fix does, the PR), and the fix goes in `CHANGELOG.md`'s Fixed list. For inherent *platform limitations* (input lag, Wispr, etc.) see the **Known Limitations** section in [`../CLAUDE.md`](../CLAUDE.md) — those are constraints, not bugs on a fix-list.
 
-Format per bug: a short title, the date observed, what happens, the steps to make it happen again when known, and the evidence Aryan gave (screenshots, quoted text, names). No causes: from 2026-09-26 the agent recording a bug does not investigate or write down a cause, even where older entries below have one; the agent that fixes the bug finds the cause itself (`.claude/commands/bug-record.md`).
+Format per bug: a short title, the date observed, what happens, the steps to make it happen again when known, and the evidence Aryan gave (screenshots, quoted text, names). No causes: from 2026-09-26 new entries say nothing about causes, even where older entries below have one (`.claude/commands/bug-record.md`).
 
 This one file is where every bug goes, and `docs/screenshots/manual-testing/` is where every screenshot that comes with a bug goes (numbered, named for what it shows, committed, never deleted). A bug found during Aryan's manual testing after the projects-and-threads phases also carries the phase it belongs to and a link to its screenshot. Agreed with Aryan on 2026-09-08.
 
@@ -257,4 +257,32 @@ A thread's turn has ended and Aryan has not opened it yet, but its row still sho
 
 **Evidence:** Only the description above.
 
-**Cause:** Not recorded here. The agent that fixes this bug finds the cause itself.
+---
+
+## The Other projects drawer in the sidebar has no New project button
+
+**Observed:** 2026-09-26 by Aryan during manual testing · **Phase:** 8 (the panel and its docked Other projects row) · **Status:** open · **Severity:** low (a missing button, nothing is broken or lost) · **Screenshot:** none attached
+
+**What happens:**
+The Other projects drawer at the bottom of the sidebar has no button to create a new project. Aryan wants a New project button in it, either at the top or at the bottom of the drawer. Which of the two is still his decision to make.
+
+**Steps to make it happen again:**
+1. Open the Other projects drawer at the bottom of the sidebar.
+2. There is no New project button at its top or its bottom.
+
+**Evidence:** Only the description above. The placement (top or bottom of the drawer) is pending Aryan's decision.
+
+---
+
+## The project icon picker has too few icons, and some do not look like what they stand for
+
+**Observed:** 2026-09-26 by Aryan during manual testing · **Phase:** 8 (project icons chosen in the New/Edit project dialog) · **Status:** open · **Severity:** low (a limited choice of icons, nothing is broken or lost) · **Screenshot:** none attached
+
+**What happens:**
+The icon library for project icons is too small, and its icons are not good or accurate enough. Aryan wants the library expanded, with better and more accurate icons to choose from.
+
+**Steps to make it happen again:**
+1. Open the New project or Edit project dialog.
+2. Look at the icon picker: the choice is small and the icons are not accurate enough.
+
+**Evidence:** Only the description above.

@@ -4,7 +4,7 @@ description: Record a bug Aryan found during manual testing, with its screenshot
 
 Record the bug described below in the repo, exactly the way `docs/bugs.md` and `docs/screenshots/README.md` say bugs are kept. Do not fix it, do not touch any source file, do not ask questions unless the description is unusable.
 
-**No causes.** Do not get confused by previous bug entries. If they have causes, from now on the agent that is noting down bugs does not care about the causes. It just cares that it understands the bug, and whatever evidence Aryan has given, it puts in the file. Do not read the code, do not guess, do not suggest a fix. The agent that works on the bug figures out the cause itself.
+**No causes.** Write nothing about causes. Some older entries in `docs/bugs.md` have one; new entries do not.
 
 Bug report from Aryan: $ARGUMENTS
 
@@ -18,7 +18,6 @@ Steps, in order:
    - `**What happens:**` in Aryan's words, tidied, with what he expects instead when he said so.
    - `**Steps to make it happen again:**` as numbered steps when they follow from what Aryan said, otherwise "Not known yet; seen as described above."
    - `**Evidence:**` everything Aryan gave: the screenshots (each with a line on what it shows), exact text he quoted, times, thread or project names. Write "Only the description above." when there is nothing more.
-   - `**Cause:**` always exactly this line: "Not recorded here. The agent that fixes this bug finds the cause itself."
    No em dashes anywhere. Headings plain. No abbreviations such as "repro".
 
 3. **Commit and push** on the current branch (it should be `manual-testing-fixes`; if it is not, say so and stop before committing): `git add docs/bugs.md docs/screenshots/manual-testing`, a commit message `docs: log <short bug title> from manual testing (Phase N)` ending with the attribution block this session uses, then `git push`.
