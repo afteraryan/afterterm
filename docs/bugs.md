@@ -275,3 +275,20 @@ The Other projects drawer at the bottom of the sidebar has no button to create a
 **Evidence:** Only the description above. The placement (top or bottom of the drawer) is pending Aryan's decision.
 
 **Cause:** Not recorded here. The agent that fixes this bug finds the cause itself.
+
+---
+
+## The project icon picker has too few icons, and some do not look like what they stand for
+
+**Observed:** 2026-09-26 by Aryan during manual testing · **Phase:** 8 (project icons chosen in the New/Edit project dialog) · **Status:** open · **Severity:** low (a limited choice of icons, nothing is broken or lost) · **Screenshot:** none attached
+
+**What happens:**
+The icon library for project icons is too small, and its icons are not good or accurate enough. Aryan wants the library expanded, with better and more accurate icons to choose from.
+
+**Steps to make it happen again:**
+1. Open the New project or Edit project dialog.
+2. Look at the icon picker: the choice is small and the icons are not accurate enough.
+
+**Evidence:** Only the description above.
+
+**Cause:** Not recorded here. The agent that fixes this bug finds the cause itself.
