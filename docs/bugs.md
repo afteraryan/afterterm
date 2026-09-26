@@ -2,7 +2,7 @@
 
 Running list of observed bugs that are **not yet fixed**. When a bug is fixed, its entry is deleted from here and a short entry is added to [`bugs-fixed.md`](bugs-fixed.md) in the same change (what was wrong, what the fix does, the PR), and the fix goes in `CHANGELOG.md`'s Fixed list. For inherent *platform limitations* (input lag, Wispr, etc.) see the **Known Limitations** section in [`../CLAUDE.md`](../CLAUDE.md) — those are constraints, not bugs on a fix-list.
 
-Format per bug: a short title, the date observed, what happens, repro if known, and any hypothesis about the cause.
+Format per bug: a short title, the date observed, what happens, the steps to make it happen again when known, and the evidence Aryan gave (screenshots, quoted text, names). No causes: from 2026-09-26 new entries say nothing about causes, even where older entries below have one (`.claude/commands/bug-record.md`).
 
 This one file is where every bug goes, and `docs/screenshots/manual-testing/` is where every screenshot that comes with a bug goes (numbered, named for what it shows, committed, never deleted). A bug found during Aryan's manual testing after the projects-and-threads phases also carries the phase it belongs to and a link to its screenshot. Agreed with Aryan on 2026-09-08.
 
@@ -195,3 +195,94 @@ The toasts then follow the window, which is the Phase 9 rule working as designed
 The one toast that came out "on the right side" before the pattern settled is unexplained and worth catching in the act: it may be a placement that ran while Windows was still rearranging the displays, with stale work area numbers.
 
 Fix direction, in order: remember the main window's bounds and the display it was on (in `prefs.json`, the way `lastOpenedAt` and `editorPath` already live there), restore them at startup, and on `display-added` offer to move the window back to the display it came from if that display has returned and the window has not been moved by hand since. Electron's `powerMonitor` has `resume` and `unlock-screen` events, which give a moment to re-check the display layout after a wake, and `screen.getAllDisplays()` can say whether the old display is back. Before building any of that, reproduce it once in the harness on the secondary display with a sleep and wake, logging `screen.getAllDisplays()` and the window bounds at each step, so the fix is aimed at what Windows actually does rather than at a guess.
+
+---
+
+## The rail leaves out a project whose only thread is working, then shows a working count once another thread finishes
+
+**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 8 (the rail and the attention aggregate) · **Status:** open · **Severity:** medium (the rail's two rules disagree, so its counts mislead) · **Screenshot:** none attached
+
+**What happens:**
+When a project has one thread working and nothing else, the rail shows nothing for it. The moment a second thread in the same project finishes, the project's tile appears on the rail with two badges: the finished count and the working count. Aryan says that is inconsistent: if the tile shows a working count, the tile should have been on the rail while the thread was only working, before anything finished. Either the working count goes from the tile, or a project with a working thread gets a tile. That is a decision to take with him before it is fixed.
+
+**Repro:**
+1. In a project with no pending threads, start a chat so it is working. The rail shows no tile for the project.
+2. In the same project, run a second thread until it finishes, and do not view it.
+3. The project's tile appears on the rail with a finished badge and a working badge.
+
+**Cause:** the rail decides membership and badges from different rules. `railProjects` in `src/renderer/attention.ts` keeps a project only when `waiting`, `finished` or `compacting` is above zero (working is left out, as design-03 decision 1 says: "one tile per project that has a thread waiting for you ... or a thread that finished and has not been viewed"), while `components/Rail/index.tsx` draws a badge for every non-zero count, including `working`, as design-03's badge column also says. Fix direction, once Aryan picks: either drop the working badge from the rail tile (keeping the rail for "needs you"), or add `working > 0` to `railProjects` so a working project gets a tile of its own; update `attention.test.ts` and design-03's decision 1 to match either way.
+
+---
+
+## A thread's toast stayed on screen after the thread was opened from the sidebar
+
+**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 1 (the toast cards) · **Status:** open · **Severity:** medium (a toast for something already seen keeps asking for attention) · **Screenshot:** none attached
+
+**What happens:**
+A toast for a thread was up. Aryan opened that thread from the sidebar, and the toast did not go away. He expects opening the thread to dismiss its toast. He does not know what was special about that moment, so the case has to be recreated before it can be fixed.
+
+**Repro:**
+As observed; repro not yet known.
+
+**Cause:** not confirmed. Opening a thread row dismisses its toast: `handleActivate` in `src/renderer/app.tsx` calls `clearThreadBadges`, which sends `notify:dismiss-tab` for that tab id, and `NotifierApp.tsx` drops every toast with that id. One path found in a quick look does not match: opening a project (`openProject` in `app.tsx`, around line 282) clears badges and the toast of the project's *first* thread (`tabs.find(t => t.groupId === groupId)`), while `openProject` actually lands on the last-worked thread, so opening a project from its sidebar row can leave the toast of the thread it really shows on screen. Fix direction: recreate the case (thread row click versus project row click, and with the window focused or not), and make the project-open path dismiss the toast of the thread that `openProject` selects.
+
+---
+
+## The thread menus have no item to open a chat's Claude Code session in a regular terminal outside afterterm
+
+**Observed:** 2026-09-26 by Aryan during manual testing · **Phase:** 4 (resuming a chat's Claude Code session) · **Status:** open · **Severity:** low (a missing menu item, nothing is broken or lost) · **Screenshot:** none attached
+
+**What happens:**
+There is no way to take a chat's Claude Code session out of afterterm. Aryan wants a menu item that opens the thread's Claude Code session in a regular terminal outside afterterm. It should be in both thread menus: the one shown on right-clicking a thread in the sidebar, and the header's three-dot menu when the thread is open.
+
+**Repro:**
+1. Right-click a chat thread in the sidebar: no item opens its session outside afterterm.
+2. Open the chat and click the header's three-dot menu: no such item there either.
+
+**Cause:** not built yet. The two menus are `buildThreadMenu` and `buildHeaderMenu` in `src/renderer/threadMenu.tsx`, which share their items. The data is already there: a chat carries `claudeSessionId` and `claudeCwd` (`Tab` in `components/TabBar/types.ts`), and waking types `claude --resume <id>` in that folder (`Terminal/index.tsx`, around line 350). Fix direction: a shared item for chats with a session id, calling a new main-process IPC that starts an external terminal (Windows Terminal, else a new console window) in `threadFolder(tab)` running `claude --resume <id>`, with the session id validated the same way as on wake; decide with Aryan whether the afterterm thread should sleep first, so the same session is not live in two places.
+
+---
+
+## A thread whose turn ended while it was not open keeps showing the background status until it is opened
+
+**Observed:** 2026-09-26 by Aryan during manual testing · **Phase:** 7 (attention: thread states and the badges that clear when seen) · **Status:** open · **Severity:** medium (the sidebar says background work is running when the thread is done) · **Screenshot:** none attached
+
+**What happens:**
+A thread's turn has ended and Aryan has not opened it yet, but its row still shows that a background process is running. When he opens it, it says the thread is done and there is nothing running in it. The moment he opens it, the status corrects itself. He expects the row to show the right status without having to open the thread.
+
+**Steps to make it happen again:**
+1. Let a chat's turn end while you are looking at another thread.
+2. Its row shows the background status (the hourglass) although nothing is running any more.
+3. Open the chat: it reads as done, with nothing in it, and the status changes at once.
+
+**Evidence:** Only the description above.
+
+---
+
+## The Other projects drawer in the sidebar has no New project button
+
+**Observed:** 2026-09-26 by Aryan during manual testing · **Phase:** 8 (the panel and its docked Other projects row) · **Status:** open · **Severity:** low (a missing button, nothing is broken or lost) · **Screenshot:** none attached
+
+**What happens:**
+The Other projects drawer at the bottom of the sidebar has no button to create a new project. Aryan wants a New project button in it, either at the top or at the bottom of the drawer. Which of the two is still his decision to make.
+
+**Steps to make it happen again:**
+1. Open the Other projects drawer at the bottom of the sidebar.
+2. There is no New project button at its top or its bottom.
+
+**Evidence:** Only the description above. The placement (top or bottom of the drawer) is pending Aryan's decision.
+
+---
+
+## The project icon picker has too few icons, and some do not look like what they stand for
+
+**Observed:** 2026-09-26 by Aryan during manual testing · **Phase:** 8 (project icons chosen in the New/Edit project dialog) · **Status:** open · **Severity:** low (a limited choice of icons, nothing is broken or lost) · **Screenshot:** none attached
+
+**What happens:**
+The icon library for project icons is too small, and its icons are not good or accurate enough. Aryan wants the library expanded, with better and more accurate icons to choose from.
+
+**Steps to make it happen again:**
+1. Open the New project or Edit project dialog.
+2. Look at the icon picker: the choice is small and the icons are not accurate enough.
+
+**Evidence:** Only the description above.
