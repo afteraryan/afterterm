@@ -79,6 +79,9 @@ contextBridge.exposeInMainWorld('afterterm', {
       ipcRenderer.invoke('files:stat', paths),
     openFolder: (folder: string): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke('files:openFolder', folder),
+    // Every file with each name under these folders, shallowest first.
+    find: (names: string[], roots: string[]): Promise<Record<string, string[]>> =>
+      ipcRenderer.invoke('files:find', names, roots),
   },
 
   // The files a chat changed and the images pasted into it, from its transcript.

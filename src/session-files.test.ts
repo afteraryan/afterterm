@@ -230,6 +230,23 @@ console.log('robustness');
   check('the list still has one row per path', sessionFilesView(s2).changed.length === 3);
 }
 
+console.log('files the chat read or sent (for links)');
+{
+  const s = newParseState();
+  ingestText(s, [
+    toolUse('r1', 'Read', { file_path: 'docs\\a.md' }, 1),
+    toolUse('r2', 'SendUserFile', { files: ['docs/screenshots/03-operator-home.png', 'D:\\x\\report.pdf'], status: 'normal' }, 2),
+    toolUse('r3', 'Write', { file_path: 'D:\\p\\made.png' }, 3),
+    toolResult('r3', 4, { type: 'create' }),
+  ].join('\n'));
+  const v = sessionFilesView(s);
+  check('a Read path is a ref, resolved against the cwd', v.refs.some(r => r.path === 'D:\\Pitara\\Work\\afterterm\\docs\\a.md'), show(v.refs));
+  check('every file SendUserFile sent is a ref', v.refs.some(r => r.path.endsWith('03-operator-home.png')) && v.refs.some(r => r.path === 'D:\\x\\report.pdf'));
+  check('refs are not changed files', v.changed.length === 0, show(v.changed));
+  check('an image Claude wrote stays out of the list but is an edit event, so it links', v.edits.some(e => e.path === 'D:\\p\\made.png'));
+  check('a Read with no path adds nothing', (() => { ingestLine(s, toolUse('r4', 'Read', {}, 5)); return sessionFilesView(s).refs.length === 3; })());
+}
+
 console.log('mergeChanged');
 {
   const a: ChangedFile[] = [{ path: 'D:\\a.md', kind: 'doc', created: false, at: 10, source: 'tool' }];

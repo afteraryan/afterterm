@@ -56,7 +56,7 @@ The sidebar is no longer tab groups. It is projects and threads, with a Home scr
 
 - A chat's header has a Files button with the number of files the chat changed. It opens a list: the documents first (newest first, with a New tag on the ones the chat created), then the code and the images you pasted into the chat, each folded to one row with its count. A click opens a file in VS Code and a pasted image full size; right-click offers Open in VS Code, Show in File Explorer and Copy path. A screenshot pasted more than once shows once, with "×2" on it. An asleep chat keeps its button.
 - The list includes files Claude changed with its own tools, files its subagents changed, and files it changed with shell commands (`cat >`, `sed -i`, scripts), found by watching the chat's folder while its commands run. Files you change yourself are left out.
-- File paths in the terminal are links, like web addresses: hover underlines a path that exists, a click opens it (at the line, for `file.ts:42`). Claude's Write and Update lines, paths inside its commands and paths in its replies all work, a path broken over two lines links whole, and a bare name such as `index.tsx` links to the file this chat changed.
+- File paths in the terminal are links, like web addresses: hover underlines a path that exists, a click opens it (at the line, for `file.ts:42`; an image in its viewer). Claude's Write and Update lines, paths inside its commands and paths in its replies all work, and a path broken over two lines links whole. Any file name with an extension links, even written bare: `03-operator-home.png` opens the file the chat wrote, read or sent, else the one in its folder, else the nearest one found under its folder, and the hover says which.
 
 ### Long output
 

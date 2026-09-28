@@ -4,7 +4,7 @@
 //   node src/renderer/filePaths.test.ts
 // Exits 0 if all pass, 1 on any failure.
 
-import { looksLikePath, splitLineSuffix, findPathCandidates, isBareName, resolveCandidates, matchChangedName, continuation, openKind, elidedTail } from './filePaths.ts';
+import { looksLikePath, splitLineSuffix, findPathCandidates, isBareName, resolveCandidates, matchChangedName, continuation, openKind, elidedTail, hasExtension, narrowByTail } from './filePaths.ts';
 
 let pass = 0, fail = 0;
 function check(name: string, cond: boolean, detail = '') {
@@ -64,6 +64,15 @@ check('a URL in the same line is left alone', show(texts('  from https://x.com/a
 check('an ordinary sentence has none', texts('  All tests pass and the build is clean.').length === 0);
 check('a trailing ellipsis dot is dropped', texts('  editing README.md...')[0] === 'README.md');
 
+console.log('paths that start with a dot (2026-09-26)');
+check('a dot folder keeps its dot', show(texts('  - New page (same path as before): .temp/docs/aryan-video-generator-decisions.html')) === show(['.temp/docs/aryan-video-generator-decisions.html']));
+check('.claude/commands keeps its dot', show(texts('  It was step 2 of .claude/commands/bug-record.md, word for word:')) === show(['.claude/commands/bug-record.md']));
+check('a backup file in a dot folder', texts('  - Backup: .temp/docs/a.backup-v1.html')[0] === '.temp/docs/a.backup-v1.html');
+check('./ still works', texts('  see ./a.md now')[0] === './a.md');
+check('an ellipsis in front is still dropped', texts('  ...docs/b.md')[0] === 'docs/b.md');
+check('a comma in front is still dropped', texts('  x,docs/c.md')[0] === 'x' || texts(',docs/c.md')[0] === 'docs/c.md');
+check('it resolves inside the chat folder', show(resolveCandidates('.temp/docs/a.html', { threadFolder: 'D:\\p' })) === show(['D:\\p\\.temp\\docs\\a.html']));
+
 console.log('bare names');
 check('index.tsx is bare', isBareName('index.tsx'));
 check('src/index.tsx is not', !isBareName('src/index.tsx'));
@@ -101,6 +110,28 @@ console.log('bare names and tool lines matched to the chat\'s own edits');
   check('a tail cut mid-folder-name matches nothing', matchChangedName('eader/index.tsx', changed, edits) === null);
   check('a partial path narrows it', matchChangedName('Header/index.tsx', changed, edits)?.path === 'D:\\p\\src\\Header\\index.tsx');
   check('a line long after every edit falls back to the newest', matchChangedName('index.tsx', changed, edits, 10_000_000)?.path === 'D:\\p\\src\\Home\\index.tsx');
+}
+
+console.log('every file name with an extension (2026-09-26)');
+check('an image name has an extension', hasExtension('03-operator-home.png') && hasExtension('assets/v4/burger.png'));
+check('a PDF and a JSON file too', hasExtension('report.pdf') && hasExtension('package.json'));
+check('a folder name has none', !hasExtension('docs') && !hasExtension('edited-files-design'));
+{
+  const touched = [
+    { path: 'D:\\p\\docs\\shots\\03-home.png', at: 10 },   // sent (a ref)
+    { path: 'D:\\p\\docs\\shots\\03-home.png', at: 20 },   // written later, same file
+    { path: 'D:\\p\\old\\03-home.png', at: 5 },
+  ];
+  const m = matchChangedName('03-home.png', touched, []);
+  check('an image the chat sent or wrote links by its bare name, newest first', m?.path === 'D:\\p\\docs\\shots\\03-home.png', show(m));
+  check('one file touched twice counts once in the note', m?.others === 1);
+}
+{
+  const disk = ['D:\\p\\assets\\v4\\burger.png', 'D:\\p\\assets\\v3\\burger.png'];
+  check('on disk, a written folder narrows the matches', show(narrowByTail('v4/burger.png', disk)) === show(['D:\\p\\assets\\v4\\burger.png']));
+  check('a bare name keeps them all (shallowest first as main returns them)', narrowByTail('burger.png', disk).length === 2);
+  check('a tail cut mid-folder matches nothing', narrowByTail('4/burger.png', disk).length === 0);
+  check('./ in front is ignored', narrowByTail('./v3/burger.png', disk).length === 1);
 }
 
 console.log('a path split over two lines');

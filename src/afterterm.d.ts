@@ -51,6 +51,8 @@ interface AftertermFilesAPI {
   stat(paths: string[]): Promise<Record<string, 'file' | 'dir' | null>>;
   // A folder a file link points at, in File Explorer.
   openFolder(folder: string): Promise<{ ok: boolean; error?: string }>;
+  // Every file with each name under these folders (at most 3), shallowest first.
+  find(names: string[], roots: string[]): Promise<Record<string, string[]>>;
 }
 
 type SessionFiles = import('./session-files.ts').SessionFiles;
