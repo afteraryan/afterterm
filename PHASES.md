@@ -285,6 +285,32 @@ Decisions from Aryan on 2026-09-19, before any code: the dimmed snapshot is drop
 
 Done when: `docs/bugs.md` has no open entry from the manual-testing round, a woken thread shows its fresh prompt with no dimmed snapshot left on screen, and the asleep pane opens at its last lines. Verified 2026-09-19 (see the Log).
 
+## Release 0.9.0: what is fixed before it and what waits for the next one
+
+Agreed with Aryan on 2026-09-29, to be cut the same day. The first release since 0.8.1: it carries Phases 0 to 9, edited files and the fixes since. Branch `release-0.9.0` from `main` at 9e70b6f.
+
+**Fixed before the release** (each title is its entry in `docs/bugs.md`):
+
+| # | Bug | Status |
+|---|---|---|
+| 1 | A thread whose turn ended while it was not open keeps showing the background status until it is opened | fixed in PR #47, waiting for Aryan to merge |
+| 2 | A thread's toast stayed on screen after the thread was opened from the sidebar | in progress |
+| 3 | The white bar is back above the toast stack (the half that comes from the overlay growing; the bar with no toast at all only if a reproduction shows the same cause) | in progress |
+| 4 | The rail leaves out a project whose only thread is working, then shows a working count once another thread finishes | in progress |
+| 5 | Pop-up notifications stay on screen while the afterterm window is open, instead of vanishing after a few seconds | in progress |
+
+**The release steps:** the six bug-log commits on `manual-testing-fixes` merged to `main` (Aryan); `package.json` to 0.9.0; `CHANGELOG.md`'s Unreleased section becomes 0.9.0; the build made from a worktree so the running afterterm stays open (as for 0.8.0 and 0.8.1), then the tag and the GitHub release.
+
+**Decisions taken with Aryan on 2026-09-29:**
+- A project with a thread that is working gets its own rail tile, so the tile's working count and the rail's membership agree (option a of the bug entry).
+- A pop-up vanishes 5 seconds after it arrives while the afterterm window is in use (focused). The timer pauses while the pointer is on a pop-up. A pop-up that arrived while he was away starts its 5 seconds when he comes back to the window. With the window not in use, a pop-up stays until closed, as today. The rail and the sidebar keep the thread's state either way.
+- Thread states lost on a restart ("Rail badges and sidebar thread states are lost when afterterm is restarted") are fixed in the next release, properly: the real state is kept and shown over Asleep. The quick version that turns them into Unread was turned down.
+- The version is 0.9.0.
+
+**Left for the next release** (entries in `docs/bugs.md`):
+- Needs a design or a decision from Aryan first: the background agent hidden behind the server state; restoring the previous session a few threads at a time; a list of the awake threads to switch between; the sidebar's drag and drop (five gestures, one piece of work); the Search and New thread rows folded into the sidebar's top; a search box on Home's project list; the Other projects drawer's type-to-search and New project button (one piece of work); more and better project icons and uploading an image as one (one piece of work); choosing which waiting thread a rail tile opens; opening a chat's Claude session in a terminal outside afterterm; file links opening in the file type's default app with Open file location (which types go to the default app needs a rule: Windows often maps `.ts` to a video player); thread states kept across a restart.
+- Needs a reproduction first: the window and toasts moving to the primary screen after the laptop sleeps; a block of Claude's output printed twice; the top of a submitted prompt greyed out (checked against Windows Terminal first, likely Claude Code's own rendering).
+
 ## Unphased backlog
 
 Things we know we want and have not placed.
