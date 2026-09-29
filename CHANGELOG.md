@@ -2,7 +2,7 @@
 
 What changed for the person using afterterm, release by release. Each release lists what was added and changed by area, then what was fixed. Every fixed bug, with the PR it landed in, is also in `docs/bugs-fixed.md`. Code-level detail lives in the commit history, `PHASES.md` and `CLAUDE.md`.
 
-## Unreleased, everything since 0.8.1
+## 0.9.0 (2026-09-29), everything since 0.8.1
 
 The sidebar is no longer tab groups. It is projects and threads, with a Home screen, sleep and wake, a rail that shows what needs you, servers that know their port, and shell integration for every shell.
 

@@ -34,6 +34,7 @@ stranger." Mnemonic: **break it → X, add to it → Y, fix it → Z.**
 | `v0.7.0` | Sidebar: restorable-session ✳ marker + bottom padding |
 | `v0.8.0` | Project groups: new/edit group modal + Projects shelf for groups with no terminals |
 | `v0.8.1` | Session capture gated to real user turns (daemon spare sessions no longer hijack a tab) |
+| `v0.9.0` | Projects and threads: Home, sleep and wake, the rail, servers by port, shell integration for every shell, the Files button and clickable file paths |
 
 (`v0.1.0`–`v0.4.1` were backfilled onto the existing history; releases from `v0.5.0` on were cut with `npm run release`.)
 
