@@ -318,3 +318,20 @@ This is a feature request, not a defect. A file path in the terminal output is a
 3. Right-click it: there is no "Open file location" item.
 
 **Evidence:** Only the description above. The menu item name Aryan asked for: "Open file location".
+
+---
+
+## Rail badges and sidebar thread states are lost when afterterm is restarted, only Mark as unread survives
+
+**Observed:** 2026-09-29 by Aryan during manual testing · **Phase:** 7 (attention state: needs-you, finished and unread, shown on the Phase 8 rail tiles and on the sidebar thread rows) · **Status:** open · **Severity:** medium (a waiting or finished thread no longer shows it after a restart, so it can be missed) · **Screenshot:** none attached
+
+**What happens:**
+The notification badges beside the project tiles on the rail do not survive closing and restarting afterterm. Of all the thread states, only a thread marked with "Mark as unread" still carries its mark after the restart. Aryan expects the other states to survive the restart too, both on the rail and as the state highlight on each thread's row in the sidebar.
+
+**Steps to make it happen again:**
+1. Have threads with states showing: at least one waiting for you or finished, so their project has badges on the rail and the threads show their state on their sidebar rows.
+2. Mark one chat with "Mark as unread".
+3. Close afterterm and open it again.
+4. The rail badges and the sidebar row states are gone; only the chat marked unread still shows its mark.
+
+**Evidence:** Only the description above. The item Aryan named as the one that survives: "Mark as unread".
