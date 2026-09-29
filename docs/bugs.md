@@ -351,3 +351,21 @@ A pop-up notification that arrives while the afterterm window is open stays on s
 3. Wait: the pop-up stays on screen until it is closed by hand, rather than vanishing after a few seconds.
 
 **Evidence:** Only the description above.
+
+---
+
+## A chat running a background agent shows only its server as running, with nothing for the background agent
+
+**Observed:** 2026-09-29 by Aryan during manual testing · **Phase:** 5 (servers: the port pill and the "Running on" chip; the background state on the row and the header came in PR #40) · **Status:** open · **Severity:** medium (a background agent at work is invisible in the sidebar and the header) · **Screenshot:** `docs/screenshots/manual-testing/13-server-running-shown-while-background-agent-runs-unmarked.png`
+
+**What happens:**
+A chat has a background agent running, but the UI does not show it: the sidebar row and the header show only that a server is running. A server is indeed running in this thread. Aryan is not sure a server that Claude Code started should be highlighted in the UI at all. How to solve this in the UI is still open: show both the server and the background task, or find another solution. That choice is Aryan's to make.
+
+**Steps to make it happen again:**
+1. In a chat, have Claude Code start something that listens on a port, so the thread shows a port pill and "Running on :<port>".
+2. Have Claude Code start a background agent in the same chat, so its footer shows the agent running and "Waiting for 1 background agent to finish".
+3. The sidebar row and the header still show only the running server; nothing shows the background agent.
+
+**Evidence:**
+- `13-server-running-shown-while-background-agent-runs-unmarked.png`: the thread "Revy Phase 4 rebuild" in the project "Revy App" (Opus 5.5, branch and worktree `phase-4-all-plant-types`), at 14:10 on 29-09-2026. Its sidebar row, underlined in red, shows `:5554` and the green play icon; the header shows "Running on :5554". The terminal ends with "Waiting for 1 background agent to finish", and Claude Code's footer, also underlined in red, shows a `general-purpose` agent at work ("Scrolling to STP dosing details"). The commands in the output address an Android emulator named `emulator-5554`.
+- Aryan's words: "there is a background agent running but UI doesn't show it, UI shows a server is running".
