@@ -709,6 +709,15 @@ function createWindow() {
   // frame and can leave the white bar (see createNotifierWindow); repaint it.
   mainWindow.on('focus', () => repaintNotifier());
 
+  // The overlay's toasts go on their own only while this window is focused
+  // (toastExpiry.ts), so it hears every focus change. A foreground change is also
+  // a moment DWM can paint the caption strip into the overlay, hence the repaint.
+  mainWindow.on('focus', () => sendMainFocus(true));
+  mainWindow.on('blur', () => {
+    sendMainFocus(false);
+    repaintNotifier();
+  });
+
   mainWindow.on('close', (e) => {
     if (isQuitting || ptys.size === 0) return;
     // A harness run (scripts/agent-harness, AFTERTERM_HARNESS=1) quits through
@@ -817,11 +826,29 @@ ipcMain.on('notify:project-updated', (_event, look) => {
 // Notifier → main window: user clicked a toast → focus app + switch tab
 ipcMain.on('notify:tab-click', (_event, tabId: string) => {
   if (mainWindow) {
-    mainWindow.show();
-    mainWindow.focus();
+    // Under the agent harness, taking OS focus would pull it away from the person
+    // working on the other monitor, so the click only logs that part.
+    if (harnessOnlyLogsExternal()) {
+      console.log(`[harness] notify:tab-click ${tabId} (window not shown or focused)`);
+    } else {
+      mainWindow.show();
+      mainWindow.focus();
+    }
     mainWindow.webContents.send('notify:activate-tab', tabId);
   }
 });
+
+// Main window → notifier: whether the main window is focused, which decides
+// whether toasts count down to going on their own (toastExpiry.ts). The overlay
+// asks once when it loads, then hears every change.
+function sendMainFocus(focused: boolean) {
+  if (process.env.AFTERTERM_HARNESS === '1') console.log(`[harness] notifier:main-focus ${focused}`);
+  if (notifierWindow && !notifierWindow.isDestroyed()) {
+    notifierWindow.webContents.send('notifier:main-focus', focused);
+  }
+}
+
+ipcMain.handle('notifier:main-focused', () => !!mainWindow?.isFocused());
 
 // Notifier → self: toggle mouse passthrough
 ipcMain.on('notifier:set-ignore-mouse', (_event, ignore: boolean) => {

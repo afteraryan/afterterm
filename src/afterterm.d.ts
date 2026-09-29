@@ -161,6 +161,9 @@ interface AftertermNotifierAPI {
   setIgnoreMouse(ignore: boolean): void;
   hide(): void;
   resize(height: number): void;
+  // Whether the main window is focused (asked once), and every change after.
+  mainFocused(): Promise<boolean>;
+  onMainFocus(callback: (focused: boolean) => void): void;
 }
 
 // Inline import so this file stays a global declaration file (a top-level import
