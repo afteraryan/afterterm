@@ -99,6 +99,8 @@ The sidebar is no longer tab groups. It is projects and threads, with a Home scr
 
 ### Fixed
 
+- A project whose only thread was working had no tile on the rail, then got one showing the working count as soon as another of its threads finished; a project with a working thread now has its tile from the start, and loses it when the work stops.
+- Opening a project from Home, the search palette or its page cleared the toast of the project's first thread rather than the thread it opened on, so that thread's toast stayed on screen; it now clears the one you land on.
 - There was no list of the files a chat had changed, and a file could only be opened when its path happened to be a link; the header's Files button and clickable file paths now cover both.
 - The thread hover card showed two ages that looked like they disagreed ("Asleep · 1d" and "Active 2d ago"); it now shows the kind on its own row, a Status row with the same icon the sidebar uses, no sleep age, and "Last used".
 - A thread you were looking at kept its spinner and a "Background tasks" chip after Claude's turn ended with background tasks still running, until you switched away and back; it now goes quiet at once, the same as a finished turn. A thread you are not looking at still shows it until you open it.

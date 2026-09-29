@@ -6,6 +6,28 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
+## Release 0.9.0 (2026-09-29)
+
+### A project with a working thread has its own tile on the rail
+**Status:** waiting for Aryan
+1. Pick a project with nothing waiting or finished, so it has no tile on the rail.
+2. Send a prompt in one of its chats and switch to a thread in another project.
+3. While Claude works, the project has a tile on the rail with a grey working count beside it.
+4. When the turn ends and you have not looked at it, the tile stays with a green finished count instead; once you open the thread, the tile goes.
+
+### Opening a project clears the toast of the thread it opens on
+**Status:** waiting for Aryan
+1. With afterterm in the background, let two chats in the same project finish, so two toasts are up.
+2. Go to Home and click that project's card (or open it from Ctrl+Shift+P).
+3. afterterm opens the chat you last worked in, and its toast goes. The other chat's toast is still there until you open that chat.
+
+### The white bar above the toasts (not reproduced, hardened)
+**Status:** waiting for Aryan
+1. Use afterterm as usual for a day with toasts coming and going, including two or more stacked, and after the laptop sleeps and wakes.
+2. Say whether the white bar above the toasts, or a bar with no toast, shows up again. The bug stays open in `bugs.md` until you say it is gone.
+
+---
+
 ## Branch file-links-any-extension (2026-09-26)
 
 ### Any file name with an extension in the terminal is a link, images included
