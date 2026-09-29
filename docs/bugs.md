@@ -369,3 +369,19 @@ A chat has a background agent running, but the UI does not show it: the sidebar 
 **Evidence:**
 - `13-server-running-shown-while-background-agent-runs-unmarked.png`: the thread "Revy Phase 4 rebuild" in the project "Revy App" (Opus 5.5, branch and worktree `phase-4-all-plant-types`), at 14:10 on 29-09-2026. Its sidebar row, underlined in red, shows `:5554` and the green play icon; the header shows "Running on :5554". The terminal ends with "Waiting for 1 background agent to finish", and Claude Code's footer, also underlined in red, shows a `general-purpose` agent at work ("Scrolling to STP dosing details"). The commands in the output address an Android emulator named `emulator-5554`.
 - Aryan's words: "there is a background agent running but UI doesn't show it, UI shows a server is running".
+
+---
+
+## MP4 and HTML file links in a chat's terminal output open in VS Code instead of their own apps
+
+**Observed:** 2026-09-29 by Aryan during manual testing · **Phase:** Edited files Phase 3 (file paths in the terminal output are links, `docs/edited-files/`; any file name with an extension became a link in PR #44) · **Status:** open · **Severity:** medium (a link opens the file in the wrong app) · **Screenshot:** none attached
+
+**What happens:**
+A file path highlighted as a link in a chat's terminal output opens in VS Code when clicked, even when the file is an MP4 video or an HTML page. Aryan expects such files not to open in VS Code.
+
+**Steps to make it happen again:**
+1. In a chat, have Claude mention the path of an MP4 file and of an HTML file in its output, so each is highlighted as a link.
+2. Click the MP4 link: it opens in VS Code.
+3. Click the HTML link: it opens in VS Code.
+
+**Evidence:** Only the description above. Aryan's words: "even MP4 and HTML files are openeing in vs code from the chat highlights". Related open entry: "Clicking a file link in the terminal should open the file in its default app, and right-clicking it should offer Open file location" (2026-09-26).
