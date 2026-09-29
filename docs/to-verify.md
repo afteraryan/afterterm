@@ -8,6 +8,13 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ## Release 0.9.0 (2026-09-29)
 
+### Pop-ups go away on their own after 5 seconds while you are in afterterm
+**Status:** waiting for Aryan
+1. With afterterm focused, let a thread in the background finish a Claude turn. Its pop-up appears and goes away by itself after about 5 seconds, while the thread's row keeps its green check and the rail keeps its badge.
+2. When the next pop-up appears, rest the pointer on it. It stays as long as the pointer is there, then goes about 5 seconds after you move away.
+3. Switch to another app and let a thread finish meanwhile. Its pop-up stays up. Come back to afterterm and it goes about 5 seconds later.
+4. Click a pop-up before it goes: afterterm switches to that thread as before. The x on a pop-up still just closes it.
+
 ### A project with a working thread has its own tile on the rail
 **Status:** waiting for Aryan
 1. Pick a project with nothing waiting or finished, so it has no tile on the rail.
