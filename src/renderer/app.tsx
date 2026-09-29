@@ -412,14 +412,12 @@ export function App() {
       if (!group) return;
       // Opening an archived project is the user saying they want it back.
       if (group.archived) stateRef.current.setGroupArchived(groupId, false);
-      const first = stateRef.current.tabs.find(t => t.groupId === groupId);
       // A project with nothing running is still one click from a terminal: if it
-      // has no thread to focus, opening it opens one.
-      if (stateRef.current.openProject(groupId)) {
-        if (first) clearThreadBadges(first.id);
-      } else {
-        stateRef.current.addTab(groupId);
-      }
+      // has no thread to focus, opening it opens one. Badges and the toast are
+      // cleared for the thread openProject lands on, not the project's first one.
+      const opened = stateRef.current.openProject(groupId);
+      if (opened) clearThreadBadges(opened);
+      else stateRef.current.addTab(groupId);
       goScreen('workspace');
       panelRef.current?.revealProject(groupId);
     },
