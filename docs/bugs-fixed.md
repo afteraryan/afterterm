@@ -12,11 +12,11 @@ Format: the bug as it was titled, the date it was fixed, the PR or commit, then 
 
 ### The rail leaves out a project whose only thread is working, then shows a working count once another thread finishes
 
-PR-RELEASE-0.9.0. The rail put a project on it only for a thread waiting, finished or compacting, while its tile drew a working count too. Aryan chose to keep the count: a project with a thread that is working now gets its own tile (`railProjects` in `attention.ts`), and the tile goes when the work stops. Background tasks and running servers still do not put a project on the rail.
+PR #48. The rail put a project on it only for a thread waiting, finished or compacting, while its tile drew a working count too. Aryan chose to keep the count: a project with a thread that is working now gets its own tile (`railProjects` in `attention.ts`), and the tile goes when the work stops. Background tasks and running servers still do not put a project on the rail.
 
 ### A thread's toast stayed on screen after the thread was opened from the sidebar
 
-PR-RELEASE-0.9.0. Opening a project (a Home card, the search palette, the project page's Open, a rail tile with nothing waiting) lands on the thread last worked in, but cleared the toast and badges of the project's first thread in tab order instead, so the toast of the thread actually shown stayed up. `openProject` now returns the thread it opened and that is the one cleared. Clicking a thread's own row already cleared its toast, and the exact moment Aryan saw was not reproduced; with the same release's 5 second auto-hide, a toast left over while the window is in use goes on its own.
+PR #48. Opening a project (a Home card, the search palette, the project page's Open, a rail tile with nothing waiting) lands on the thread last worked in, but cleared the toast and badges of the project's first thread in tab order instead, so the toast of the thread actually shown stayed up. `openProject` now returns the thread it opened and that is the one cleared. Clicking a thread's own row already cleared its toast, and the exact moment Aryan saw was not reproduced; with the same release's 5 second auto-hide, a toast left over while the window is in use goes on its own.
 
 ## Fixed on 2026-09-26
 
