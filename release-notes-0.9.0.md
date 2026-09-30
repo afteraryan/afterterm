@@ -94,7 +94,6 @@ The sidebar is no longer tab groups. It is projects and threads, with a Home scr
 - A chat whose turn had ended kept showing background tasks running after Claude published, read or watched an artifact, until you opened it. Claude Code lists an artifact's live-updates watch as a running background task for the rest of the session; it is no longer counted, so the thread shows done. Real background work (a shell command, a subagent, a monitor) still shows until it ends.
 - A thread you were looking at kept its spinner and "Background tasks" after Claude's turn ended with background tasks still running, until you switched away and back; it now goes quiet at once, the same as a finished turn. A thread you are not looking at still shows it until you open it.
 - A toast on screen kept a project's old name after the project was edited; it now updates straight away, colour and icon included.
-- A white bar sometimes appeared above a toast when coming back to afterterm.
 - Toasts appeared on the primary monitor even when afterterm was on another one.
 
 ### Removed or changed on purpose
