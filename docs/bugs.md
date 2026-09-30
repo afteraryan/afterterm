@@ -310,22 +310,6 @@ The notification badges beside the project tiles on the rail do not survive clos
 
 ---
 
-## Pop-up notifications stay on screen while the afterterm window is open, instead of vanishing after a few seconds
-
-**Observed:** 2026-09-29 by Aryan during manual testing · **Phase:** pre-existing (the overlay pop-up notifications; the rail they make redundant is Phase 8) · **Status:** open · **Severity:** medium (the pop-ups crowd the screen and make the rail's notifications pointless while the window is open) · **Screenshot:** none attached
-
-**What happens:**
-A pop-up notification that arrives while the afterterm window is open stays on screen until it is closed by hand. Aryan expects it to vanish after a few seconds, like a regular pop-up notification, since the rail already shows the same notification. When the afterterm window is not open, the pop-up should keep persisting until the user closes it, which is how it behaves today. Because pop-ups persist while the window is open, they make the rail notifications useless.
-
-**Steps to make it happen again:**
-1. Have the afterterm window open.
-2. Let a thread raise a notification (for example a chat finishing a turn or waiting for you) so a pop-up appears.
-3. Wait: the pop-up stays on screen until it is closed by hand, rather than vanishing after a few seconds.
-
-**Evidence:** Only the description above.
-
----
-
 ## A chat running a background agent shows only its server as running, with nothing for the background agent
 
 **Observed:** 2026-09-29 by Aryan during manual testing · **Phase:** 5 (servers: the port pill and the "Running on" chip; the background state on the row and the header came in PR #40) · **Status:** open · **Severity:** medium (a background agent at work is invisible in the sidebar and the header) · **Screenshot:** `docs/screenshots/manual-testing/13-server-running-shown-while-background-agent-runs-unmarked.png`
