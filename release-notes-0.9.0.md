@@ -1,6 +1,6 @@
 ## 0.9.0 (2026-09-29), everything since 0.8.1
 
-The sidebar is no longer tab groups. It is projects and threads, with a Home screen, sleep and wake, a rail that shows what needs you, servers that know their port, and shell integration for every shell.
+This release changes what afterterm is built around. It used to show you a list of terminals; now it shows you your work: the projects you care about, and the Claude Code chats and shells inside each one. It tells you which of them need you, and anything you are not using sleeps until you ask for it, so a restart no longer starts every old terminal at once.
 
 ### Home screen
 
