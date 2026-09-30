@@ -2,7 +2,7 @@
 // the thread's identity without opening it. Mounted by the sidebar (this module
 // only builds the card itself); positioning follows the mock's showHover
 // (docs/mockups/afterterm-next.html, .hover / showHover) with the extra Project
-// row PHASES.md Phase 3 asks for.
+// row docs/phases-01-projects-and-threads.md Phase 3 asks for.
 import React from 'react';
 import { Tab, Group } from './TabBar/types';
 import { FolderIcon, StateIcon } from './Icons';

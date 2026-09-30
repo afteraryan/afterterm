@@ -4,7 +4,7 @@
 // titleBarOverlay (see main.ts createWindow). It sits above every screen and
 // nothing else ever shares its row, so nothing can collide with those
 // buttons. It is the window's only drag region. See "Workspace" -> "Title
-// bar" in docs/design-02-projects-and-threads.md and PHASES.md Phase 1.1.
+// bar" in docs/design-02-projects-and-threads.md and docs/phases-01-projects-and-threads.md Phase 1.1.
 import React from 'react';
 import './TitleBar.css';
 

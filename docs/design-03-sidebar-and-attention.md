@@ -4,20 +4,20 @@
 - Compacting on the rail is a corner icon on the tile, not a count in the badge column this
   design's decision 1 describes; separately, compacting is its own third pill on a project's row
   and on Home's totals, rather than counted with working. Both decided with Aryan at the Phase 8
-  handoff, 2026-09-19, recorded in `PHASES.md`.
+  handoff, 2026-09-19, recorded in `docs/phases-01-projects-and-threads.md`.
 - The rail badges' exact colours are not this design's amber, grey and green as written: a
   brighter set and a translucent tint were both tried and rejected as too loud before landing on
-  the solid "set B" shown to Aryan at the Phase 8 handoff, 2026-09-19 (`PHASES.md`).
+  the solid "set B" shown to Aryan at the Phase 8 handoff, 2026-09-19 (`docs/phases-01-projects-and-threads.md`).
 - Decision 12 leaves the sidebar rows, Home cards and project page showing the coloured folder,
   with only the rail tile carrying a project's chosen icon. Aryan asked for the icon on the
   sidebar rows too at the Phase 8 handoff, and Phase 9 (2026-09-19) extended it everywhere a
-  project is drawn, including Home cards and the project page (`PHASES.md`).
+  project is drawn, including Home cards and the project page (`docs/phases-01-projects-and-threads.md`).
 - The rail badges do not move: an animated halo, then an in-place breath, were both tried at
-  Aryan's request at the Phase 8 handoff and dropped the same day, 2026-09-19 (`PHASES.md`).
+  Aryan's request at the Phase 8 handoff and dropped the same day, 2026-09-19 (`docs/phases-01-projects-and-threads.md`).
 
 This design extends the sidebar from [`design-02-projects-and-threads.md`](design-02-projects-and-threads.md): a rail that always shows which projects need you, a sidebar that lists only pinned and recent projects, a needs-you that stays until it is answered, a way to mark a chat unread, one aggregate every count reads from, per-group collapse buttons, a real search box, activity ordering and a keyboard cycle through threads. It is Cluster 1 of [`plan-01-sidebar-attention-and-manual-testing-fixes.md`](plan-01-sidebar-attention-and-manual-testing-fixes.md).
 
-Status: agreed with Aryan on 2026-09-19 against the pages in `docs/mockups/`. Execution is Phases 7 and 8 in [`../PHASES.md`](../PHASES.md). Nothing in the app has changed yet.
+Status: agreed with Aryan on 2026-09-19 against the pages in `docs/mockups/`. Execution is Phases 7 and 8 in [`phases-01-projects-and-threads.md`](phases-01-projects-and-threads.md). Nothing in the app has changed yet.
 
 Constraints carried in and kept: design-02's Pinned rule (pinned is explicit and only explicit, nothing pins or unpins on its own); design-02's rejections (no Sleep all, no rename in afterterm, no derived subheadings, no typed notes); research-02 bucket 4 (no message snippets anywhere, no chat UI, no drastic redesign); Phase 1.1's title bar (the 32px strip is the drag region and nothing shares its row).
 
@@ -134,7 +134,7 @@ Branch `phase-7-attention-state`, worktree `.claude/worktrees/phase-7-attention-
 - [ ] `src/renderer/attention.ts`, pure and unit-tested: per-project and total counts (waiting, working, running, finished), the rail list, the Recent and Other lists with the 3-day rule; `projectCounts` and Home's totals read from it.
 - [ ] Harness: `drive.mjs` `sidebar` prints the unread mark; a `counts` reader for the aggregate.
 - [ ] Self-test on the secondary monitor with screenshots and recordings in `docs/screenshots/phase-7/`: a needs-you that survives a click, clears on Enter, on Esc and on the hook's next title, and does not clear on arrows; mark unread, relaunch, still unread, opens and clears.
-- [ ] CLAUDE.md and PHASES.md updated.
+- [ ] CLAUDE.md and docs/phases-01-projects-and-threads.md updated.
 
 Done when: a permission prompt in a background thread stays needs-you after it is clicked into and looked at, and clears the moment it is answered; a chat marked unread on one launch still carries the bell on the next.
 
@@ -157,6 +157,6 @@ Branch `phase-8-sidebar-rail-and-panel`, worktree `.claude/worktrees/phase-8-sid
 - [x] Compacting as its own state: icon on the row, chip and hover card, a compacting badge on the rail tile, a `compacting` count in `attention.ts` (added 2026-09-19).
 - [x] The five-row fold stays open while a hidden row is waiting for you (added 2026-09-19, `docs/bugs.md`).
 - [x] Harness: `rail`, `dock` and `search` readers in `drive.mjs`.
-- [x] Self-test with screenshots and recordings in `docs/screenshots/phase-8/`; CLAUDE.md and PHASES.md updated.
+- [x] Self-test with screenshots and recordings in `docs/screenshots/phase-8/`; CLAUDE.md and docs/phases-01-projects-and-threads.md updated.
 
 Done when: from Home, the rail shows exactly the projects with a thread waiting or finished, with the three numbers beside each tile; clicking a tile lands on the thread that needs you; the panel shows Pinned and Recent only, with Other projects docked at the bottom; typing in Search narrows the list in place; Ctrl+Shift+Down crosses from one project's last thread to the next project's first.

@@ -15,7 +15,7 @@ A simple terminal emulator for Windows with **Chrome-style tab groups**. No exis
 
 Projects and threads, not tabs. A project is a folder with a name, a colour, an icon and a default shell. Inside it are threads: chats (a terminal running Claude Code, named after its conversation, showing its model, branch and worktree) and shells. The app opens on a Home screen of pinned and recent projects; a rail on the left shows only the projects with something waiting for you. Every thread restored from a previous launch starts asleep, showing its last output, and wakes only when asked (a chat resumes its Claude Code session). Servers are detected by port, every shell reports its folder, and Claude Code's notifications arrive as toasts in an always-on-top overlay.
 
-`CHANGELOG.md` says what changed for the user, release by release. `PHASES.md` is the execution record of the projects-and-threads work and the round after it, with every decision and its date.
+`CHANGELOG.md` says what changed for the user, release by release. `PHASES.md` holds what is still open: no round of work is in progress, and its unphased backlog lists the bugs and requests waiting on Aryan, the bugs waiting on a reproduction, and the ideas not yet placed. The projects-and-threads round (Phases 0 to 9, released as 0.9.0 on 2026-09-30) is recorded, with every decision and its date, in `docs/phases-01-projects-and-threads.md`.
 
 ## Architecture
 
@@ -346,8 +346,9 @@ Procedures an agent follows while working on this repo (not product docs, not re
 
 - `docs/research-00-terminal-landscape-and-stack-validation.md` — pre-build stack/landscape research
 - `docs/design-01-persistent-pty-host.md` — design for a detached PTY-host daemon so terminals survive an app update (not yet built)
-- `docs/design-02-projects-and-threads.md` — the projects-and-threads redesign (Home screen, pinned projects, named threads, sleep/wake, history); agreed 2026-09-06 against `docs/mockups/afterterm-next.html`. Execution plan in `PHASES.md` at the repo root.
-- `docs/design-03-sidebar-and-attention.md`: the always-on rail, the Pinned and Recent panel, needs-you until answered, mark as unread, project icons, in-place search, the keyboard cycle; agreed 2026-09-19 against `docs/mockups/design-03-final-sidebar.html`. Phases 7 and 8 in `PHASES.md`.
+- `docs/design-02-projects-and-threads.md` — the projects-and-threads redesign (Home screen, pinned projects, named threads, sleep/wake, history); agreed 2026-09-06 against `docs/mockups/afterterm-next.html`. Its execution record is `docs/phases-01-projects-and-threads.md`.
+- `docs/design-03-sidebar-and-attention.md`: the always-on rail, the Pinned and Recent panel, needs-you until answered, mark as unread, project icons, in-place search, the keyboard cycle; agreed 2026-09-19 against `docs/mockups/design-03-final-sidebar.html`. Phases 7 and 8 in `docs/phases-01-projects-and-threads.md`.
+- `docs/phases-01-projects-and-threads.md`: the closed record of the projects-and-threads round, Phases 0 to 9 and the 0.9.0 release: every phase's checklist, every decision with its date, and the log. It was `PHASES.md` at the repo root until 2026-09-30.
 - `docs/plan-01-sidebar-attention-and-manual-testing-fixes.md`: the round of work after the projects-and-threads phases, ranked; design-03 is its Cluster 1.
 - `docs/edited-files/`: everything for the edited-files feature (design-04, phases, build notes, testing and handoff). `design-04-edited-files.md` there: the header Files button (documents first, code and pasted images folded to a count) and clickable file paths in the terminal output; agreed 2026-09-25 against `docs/mockups/edited-files-button.html`; built in PR #43.
 - `docs/guide-01-distributable-build.md` — shrink the portable build into a ~67 MB self-extracting `.exe` for sharing (7-Zip LZMA2 + pruning)
