@@ -401,3 +401,22 @@ In the Recent section of the sidebar, just opening a chat from some other projec
 3. That project jumps to the top of Recent at once, with no animation.
 
 **Evidence:** Only the description above. Aryan's words: "just opening a chat from some other project bring it to the top. This is weird, if I input something, then they should come on top. Also, there should be animation for it".
+
+---
+
+## Some file paths in a chat's reply are highlighted as links and others are not
+
+**Observed:** 2026-09-30 by Aryan during manual testing · **Phase:** Edited files Phase 3 (file paths in the terminal output are links, `docs/edited-files/`) · **Status:** open · **Severity:** medium (paths Claude gives in a reply cannot be opened from the terminal) · **Screenshot:** `docs/screenshots/manual-testing/14-chat-reply-screenshot-paths-some-link-some-do-not.png`
+
+**What happens:**
+Aryan asked a chat for the paths of test screenshots. In Claude's reply, some of the file and folder paths work with the link highlight (underlined on hover, open on click) and some do not. He expects every path in the reply to work as a link.
+
+**Steps to make it happen again:**
+1. In a chat, ask Claude for the paths of some files, so its reply lists them (full paths, paths relative to a folder the reply names, and bare file names).
+2. Hover each path in the reply: some are highlighted as links and some are not.
+
+**Evidence:**
+- `14-chat-reply-screenshot-paths-some-link-some-do-not.png`: the thread "Revy Phase 4 rebuild" in the project "Revy App" (Opus 5.5, branch and worktree `phase-4-all-plant-types`, header showing "35 files" and "Working"). The reply, written on 2026-09-30 at about 13:02, starts "1. Animation screenshots folder" with the full path `D:\Pitara\Work\For Friends\Revy App\.claude\worktrees\phase-4-all-plant-types\docs\testing\phase-4\phase-3-changes\screenshots\animations\`, then names `17-open-deleted-card-t0.05.png` to `t0.80.png`, then says "All screenshot paths below start from `D:\Pitara\Work\For Friends\Revy App\.claude\worktrees\phase-4-all-plant-types\docs\testing\phase-4\`" and lists paths such as `screenshots\revy-admin\24-stp-parameter-list-still-lists-biogas-parameters.png` and `screenshots\edge-cases\23-trend-chart-after-rapid-period-and-toggle-taps.png` under each issue.
+- Further down, the same reply says "All paths here start with `phase-3-changes\screenshots\`" and lists paths such as `plant-supervisor\39-etp-delete-dialog-landscape-top.png`.
+- The reply before it in the same chat (2026-09-29) gave paths from the worktree's root, such as `docs/testing/phase-4/bugs.md`.
+- Aryan's words: "in the messagee where I asked for screenshot links in the chat, some links work with the highlight feature, some don't."
