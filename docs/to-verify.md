@@ -6,7 +6,7 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
-## Branch file-links-spaces-and-folders (2026-09-30)
+## Branch file-links-spaces-and-folders, PR #49 (2026-09-30)
 
 ### Paths with spaces, and paths written from the top of a worktree, are links wherever Claude is
 **Status:** waiting for Aryan
