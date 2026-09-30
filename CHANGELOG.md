@@ -2,142 +2,117 @@
 
 What changed for the person using afterterm, release by release. Each release lists what was added and changed by area, then what was fixed. Every fixed bug, with the PR it landed in, is also in `docs/bugs-fixed.md`. Code-level detail lives in the commit history, `PHASES.md` and `CLAUDE.md`.
 
-## 0.9.0 (2026-09-29), everything since 0.8.1
+## Unreleased
 
-The sidebar is no longer tab groups. It is projects and threads, with a Home screen, sleep and wake, a rail that shows what needs you, servers that know their port, and shell integration for every shell.
+Nothing yet.
 
-### Home screen
+## 0.9.0 (2026-09-30)
 
-- The app opens on Home: the date, pinned project cards, a list of the other projects by recent activity, and an "Archived" section.
-- A project can be pinned (it gets a card at the top) and archived (it leaves the sidebar, its threads keep running, it can be restored). Both are explicit actions with a short toast.
-- Opening a project from Home lands on the thread you last worked in, or opens a new one if the project has none.
-- A quiet "Last here 2d ago" line under the date, shown only when the gap since the previous launch is over an hour.
-- Counters at the top total the threads waiting for you and the threads working across every project.
+This release changes what afterterm is built around. It used to show you a list of terminals; now it shows you your work: the projects you care about, and the Claude Code chats and shells inside each one. It tells you which of them need you, and anything you are not using sleeps until you ask for it.
 
-### Projects
+Three words used below: a **thread** is a Claude Code chat or a shell inside a project (0.8.1 called it a tab). A thread is **asleep** when nothing runs in it: afterterm keeps its last output and starts it again when you wake it. The **rail** is the narrow strip at the left edge, with a tile for each project that has something going on.
 
-- A project is a folder, a name, a colour, an icon and a default shell, edited in one dialog. Picking the folder fills in the name.
-- A project with no threads is still a row; the plus on it opens a terminal in its folder.
-- Each project has its own page: folder and shell, Open, New thread, Pin, Edit, Archive, plus Open in File Explorer and Open in your editor (VS Code, Cursor and others are detected; the menu offers each one found, or "Choose editor…").
-- The project's icon shows wherever the project is drawn: Home, the sidebar, the rail, the header, the hover card, the chooser, the palette, the project page and toasts.
-- The sidebar shows Pinned, Recent (worked in within three days) and, docked at the bottom, Other projects. Collapse buttons sit on the group headings.
-- Search in place: a box at the top of the sidebar filters projects and threads as you type. Ctrl+Shift+P still opens the search palette over projects, threads and closed threads.
-- Ctrl+Shift+Down and Ctrl+Shift+Up move to the next and previous thread in sidebar order, crossing from one project into the next (Ctrl+Tab still cycles in the order threads were opened).
+### The biggest changes
 
-### Threads
+- **Projects and threads.** Pin the projects you are working on; each holds its chats and shells. A chat is named after its conversation and shows its model, branch and worktree.
+- **Everything starts asleep.** After a restart every thread shows its last output and runs nothing until you wake it; waking a chat resumes its Claude Code session.
+- **See what needs you.** A chat asking for permission stays marked until you answer it, and the rail shows every project with a thread waiting, working or finished.
+- **Files a chat changed.** A Files button lists the documents, code and pasted images a chat changed, and file paths in Claude's replies are clickable.
+- **Servers by their port.** A thread running a dev server shows its port, opens it in your browser, and starts it again when you wake it.
 
-- A thread is a chat (a terminal running Claude Code) or a shell. A chat is named after its conversation (the title Claude gives it, else the first prompt); the header shows its project, model, branch and worktree.
-- Every thread restored from a previous launch starts asleep: nothing is spawned until you wake it. An asleep thread shows its last output, dimmed, opened at its newest lines, with a Wake button. Waking a chat resumes its Claude session; waking a shell opens a fresh prompt in the same folder.
-- Sleep any thread from its menu. Its last output is kept and shown while it sleeps.
-- Closing a thread in a project files it in the project's History tab; a chat can be resumed from there.
-- Hovering a thread row shows a card with its type, its status (with the same icon as the sidebar row), project, model, branch, worktree, last command and when it was last used.
-- Right-click a thread for Sleep or Wake, Mark as unread, Move to project, Open localhost (for a server), Open project page, Open in File Explorer and Open in VS Code (or your editor; both open the thread's own folder, which for a chat is the worktree it works in) and Close.
-- In the header, the project and the worktree items are clickable and open their folders in File Explorer.
-- The header has an Open in VS Code button beside the dots menu (your editor's logo if you use Cursor, Windsurf or VS Code Insiders). It opens the folder the thread is actually in: the worktree for a chat that runs in one, the project folder for a chat that runs there, the current folder for a shell. It is greyed out with "Folder not found" when that folder is gone.
-- The header's second line stays on one row; a long worktree name is shortened with an ellipsis instead of wrapping into the terminal.
-- A chat that switched worktree outside afterterm shows its new branch and worktree at the next launch, before it is even woken, and resumes in that folder.
+![Home: pinned projects as cards, the others by recent activity, and the rail at the left with a tile for each project that has a chat waiting](https://raw.githubusercontent.com/afteraryan/afterterm/main/docs/screenshots/release-0.9.0-notes/01-home-with-pinned-projects-and-the-rail.png)
 
-### Attention
+![A project open on an asleep chat: the sidebar with pinned and recent projects, the chat's last output with a Wake button, and its model and branch in the header](https://raw.githubusercontent.com/afteraryan/afterterm/main/docs/screenshots/release-0.9.0-notes/02-a-project-open-on-an-asleep-chat-with-its-last-output.png)
 
-- A thread that needs you (a permission prompt, a question) stays marked until you answer it, not merely until you look at it. A finished turn shows as done until you open the thread.
-- Mark a chat as unread to come back to it later; the mark survives a relaunch and clears when you type in the thread.
-- The rail on the left is always visible and lists only the projects with something pending: a tile per project with counts for waiting, working and finished, and a mark for compacting. Clicking a tile opens the thread that most needs you.
-- Project rows in the sidebar show the same counts as small pills. Nothing is shown at zero.
-- A thread whose turn ended with background tasks still running shows a grey hourglass that flips a half turn at a time, not the working spinner, on its row and in the header. Projects and Home's totals count these threads in their own hourglass pill, apart from the spinner pill.
+### Upgrading from 0.8.1
 
-### Servers
+- Your tab groups become projects and your tabs become threads. afterterm converts your saved session the first time it starts. Tab groups and the Projects shelf are gone.
+- Every thread opens asleep. Threads carried over from 0.8.1 show no saved output the first time, since 0.8.1 kept none; press Wake to resume a chat's Claude Code session or to open a fresh shell in its folder.
+- Nothing resumes on its own any more. 0.8.1 resumed the chat that was open when you quit, and each other one the first time you clicked it; now opening a thread only shows it, and it resumes when you wake it.
+- Ctrl+Shift+T now opens a chooser for the new thread's project and shell, instead of opening a tab straight away.
 
-- A thread running a dev server shows its port on its row and "Running on :5173" in the header. The port appears within about a second of the server starting.
-- "Open localhost:5173" in the thread menu opens it in your browser.
-- The thread is named after the command that started the server.
-- Closing or sleeping a server thread asks first, since it stops the server. Waking it runs the last command again.
+### Installing
 
-### Files a chat changed
+Download `afterterm-0.9.0-setup.exe` below and run it. It asks for a folder and unpacks `afterterm-win32-x64` there; start `afterterm.exe` from inside it. To replace an older copy, close afterterm first and unpack to the same place. Your projects and settings are kept in `%APPDATA%\afterterm`, so they carry over.
 
-- A chat's header has a Files button with the number of files the chat changed. It opens a list: the documents first (newest first, with a New tag on the ones the chat created), then the code and the images you pasted into the chat, each folded to one row with its count. A click opens a file in VS Code and a pasted image full size; right-click offers Open in VS Code, Show in File Explorer and Copy path. A screenshot pasted more than once shows once, with "×2" on it. An asleep chat keeps its button.
-- The list includes files Claude changed with its own tools, files its subagents changed, and files it changed with shell commands (`cat >`, `sed -i`, scripts), found by watching the chat's folder while its commands run. Files you change yourself are left out.
-- File paths in the terminal are links, like web addresses: hover underlines a path that exists, a click opens it (at the line, for `file.ts:42`; an image in its viewer). Claude's Write and Update lines, paths inside its commands and paths in its replies all work, and a path broken over two lines links whole. Any file name with an extension links, even written bare: `03-operator-home.png` opens the file the chat wrote, read or sent, else the one in its folder, else the nearest one found under its folder, and the hover says which.
+### All changes, by area
 
-### Long output
+#### Projects and Home
 
-- The asleep pane opens at its newest lines.
-- One round jump button, at the centre of the terminal or the pane, appears while you scroll away from an end and points the way you are scrolling. A click scrolls there with an animation. It only appears for your own scrolling, never when output arrives, and scrolling over the button still scrolls the content.
+- The app opens on Home: your pinned projects as cards, the others by recent activity, and an Archived section.
+- Pin a project to keep it at the top; archive one to take it out of the sidebar without deleting it.
+- A project has a folder, a name, a colour, an icon and a default shell, all set in one dialog.
+- Each project has a page listing its threads (live, asleep and closed), with buttons to open its folder in File Explorer or in your editor (VS Code, Cursor and others are detected).
+- The sidebar shows your pinned projects, then the ones used in the last three days, with the rest folded into Other projects at the bottom. A search box at its top filters it as you type.
+- Ctrl+Shift+P searches every project, thread and closed thread.
 
-### Shells
+#### Threads
 
-- Every shell reports its folder and its prompt to afterterm: cmd, PowerShell 7, Windows PowerShell, Git Bash and WSL. A thread reopens in the folder you were in, the header's branch follows a `cd`, and a server's last command is captured in any of them. Custom prompts (oh-my-posh, starship, your own) are preserved.
-- A server started in Git Bash is found and stopped correctly when its thread closes or sleeps.
-- Opt out per shell in `%APPDATA%\afterterm\prefs.json` under `shellIntegration`.
+- A chat's header shows its project, model, branch and worktree.
+- Sleep any thread from its menu; its last output stays on screen until you wake it.
+- Closing a thread files it in its project's history, where a chat can be resumed.
+- Hovering a thread shows its status, model, branch, last command and when it was last used.
+- A thread's menu and its header open the thread's own folder in File Explorer or your editor; for a chat working in a worktree, that is the worktree.
+- A chat that moved to another worktree outside afterterm shows the new branch and resumes there.
 
-### Notifications
+#### What needs you
 
-- Toasts appear on the display that holds the afterterm window, not always the primary one.
-- The white strip that sometimes appeared above a toast is gone.
-- A toast is a card with the thread's name, the project with its icon and colour, and the message.
+- A chat asking for permission or asking a question stays marked until you answer it, not just until you look at it. A finished turn shows as done until you open the chat.
+- Mark a chat as unread to come back to it later.
+- The rail shows a tile for every project with a thread waiting, working, finished or compacting, with counts beside it. Clicking a tile opens the thread that most needs you.
+- A chat whose turn ended with background tasks still running shows an hourglass instead of the working spinner.
 
-### Look
+#### Files a chat changed
 
-- A 32px title bar with the app name and version; the sidebar and the main pane read as one surface with the pane inset on it.
-- The header's project, model and branch line is brighter and easier to read.
-- The hover card fits a long unbroken title on two lines.
-- Scrollbars stop short of the rounded corners of the terminal card and the asleep pane.
-- Screens slide and rise on entry; all animation is off when Windows is set to reduce motion.
+- A chat's Files button lists the documents it changed first, then its code and the images you pasted into it, including files changed by its subagents and by its shell commands.
+- File paths in the terminal are links: a click opens the file, at the line for `file.ts:42`. Bare file names, paths with spaces and paths broken over two lines work too.
 
-### Keyboard
+#### Servers
 
-| Shortcut | Action |
+- A thread running a dev server shows its port, and Open localhost opens it in your browser.
+- Closing or sleeping a server thread asks first; waking it runs the server's command again.
+
+#### Shells
+
+- Command Prompt, PowerShell 7, Windows PowerShell, Git Bash and WSL all tell afterterm which folder they are in, so a thread reopens where you left it and its branch follows `cd`. Custom prompts are kept. To turn this off for a shell, use `shellIntegration` in `%APPDATA%\afterterm\prefs.json`.
+
+#### Pop-up notifications
+
+- A pop-up shows the thread's name and its project, in the project's colour and icon.
+
+#### Long output
+
+- A round button appears while you scroll through long output, to jump to the top or the bottom.
+
+#### Look
+
+- A new look throughout. Its animations turn off when Windows is set to reduce motion.
+
+### New and changed keyboard shortcuts
+
+| Shortcut | What it does |
 |---|---|
-| Ctrl+Shift+T | New thread chooser (project and shell) |
-| Ctrl+Shift+P | Search palette over projects and threads |
-| Ctrl+Shift+W | Close the current thread |
-| Ctrl+Tab, Ctrl+Shift+Tab | Next and previous thread |
-| Ctrl+Shift+Down, Ctrl+Shift+Up | Next and previous thread in sidebar order, across projects |
-| Ctrl+Shift+B | Show or hide the sidebar |
-| Ctrl+Shift+F | Find in the current thread's scrollback |
-| Ctrl+Shift+A | Select all scrollback |
-| Ctrl+scroll | Zoom the font, per thread |
+| Ctrl+Shift+T | Changed: opens the chooser for a new thread's project and shell |
+| Ctrl+Shift+P | New: searches projects, threads and closed threads |
+| Ctrl+Shift+Down, Ctrl+Shift+Up | New: the next and previous thread in sidebar order, across projects |
 
-### Fixed
+### Bugs from 0.8.1 that are fixed
 
-- A chat whose turn had ended kept its hourglass ("background tasks running") after Claude published, read or watched an artifact, until you opened it. Claude Code lists an artifact's live-updates watch as a running background task for the rest of the session; it is no longer counted, so the thread shows done. Real background work (a shell command, a subagent, a monitor) still shows the hourglass until it ends.
-- File paths in a chat's reply linked only some of the time. A path with a space in it, such as one under "For Friends", never linked; it now links whole, also when it runs over several lines. A path written from the top of a worktree stopped linking once Claude moved into a subfolder; it now links wherever Claude is.
-- Pop-up notifications stayed on screen while you were using afterterm, repeating what the rail already shows; each one now goes on its own 5 seconds after it arrives (resting the pointer on it holds it), and one that arrived while you were in another app waits until you come back. The thread keeps its state on the rail and in the sidebar.
-- A project whose only thread was working had no tile on the rail, then got one showing the working count as soon as another of its threads finished; a project with a working thread now has its tile from the start, and loses it when the work stops.
-- Opening a project from Home, the search palette or its page cleared the toast of the project's first thread rather than the thread it opened on, so that thread's toast stayed on screen; it now clears the one you land on.
-- There was no list of the files a chat had changed, and a file could only be opened when its path happened to be a link; the header's Files button and clickable file paths now cover both.
-- The thread hover card showed two ages that looked like they disagreed ("Asleep · 1d" and "Active 2d ago"); it now shows the kind on its own row, a Status row with the same icon the sidebar uses, no sleep age, and "Last used".
-- A thread you were looking at kept its spinner and a "Background tasks" chip after Claude's turn ended with background tasks still running, until you switched away and back; it now goes quiet at once, the same as a finished turn. A thread you are not looking at still shows it until you open it.
-- The sidebar toggle appeared on the rail only while the sidebar was closed, so after opening the sidebar the same spot held the Home button; the toggle now stays first on the rail in one place, and the sidebar starts with Search.
-- The project page's thread menu offered "Open project page" while already on that page; it no longer does.
-- A project showed a green play pill both when Claude was working in one of its threads and when a thread was running a server; it now shows a spinner pill for working threads and the play pill only for servers, on the sidebar and on Home.
-- The thread menus had an "Open" item that did nothing for the thread already open; it is gone, and the header's dots menu is now its own menu.
-- New threads landed at the bottom of a project, behind "Show more"; they now go first, so the newest threads are the ones on show.
-- A toast on screen kept a project's old name, colour and icon after the project was edited; it now updates straight away.
-- Opening a project from Home, the rail, the search palette or the Other projects drawer left the sidebar where it was; it now scrolls to the project and highlights it for a moment.
-- The jump button stayed on screen after scrolling stopped; it now goes away about a second later, unless the pointer is resting on it.
-- Pressing Enter in the search palette on a project whose last thread was asleep also woke that thread (for a chat, it resumed the Claude session); it now only opens it.
-- The header had no way to open a chat's folder in VS Code; it now has an Open in VS Code button beside the dots, opening the worktree when the chat runs in one.
-- The header's second line could wrap into the terminal on a narrower window; it stays on one row now.
-- The header kept showing the old worktree after a chat moved to another one.
-- A white square showed at the bottom right of the asleep pane.
-- The Wake box was hard to read over the saved output; it is a bordered white button now.
-- Opening a project from Home landed on its first thread instead of the one you last worked in.
-- The jump button appeared when an asleep thread was opened, and scrolling over it stopped at the button.
-- A white bar sometimes appeared above a toast when coming back to afterterm.
-- Toasts appeared on the primary monitor even when afterterm was on another one.
-- The toast shadow was cut off at the edge of its window.
-- The hover card heading overflowed the card for a long title with no spaces.
-- The asleep pane opened scrolled to the top of the saved output.
-- Old output replayed on wake stayed on screen after the terminal came back.
-- The header's project, model and branch line was too faint to read.
-- A thread's own folder or worktree could not be opened in File Explorer.
-- A thread that needed you could be hidden inside a project's five-row fold.
+- Pop-up notifications stayed until you closed them. While you are using afterterm they now go after 5 seconds (resting the pointer on one keeps it), and one that arrives while you are in another app waits until you come back.
+- A chat that published or watched an artifact kept showing background tasks after its turn ended. It now shows done.
+- The chat you were looking at kept showing background tasks after Claude's turn ended. It now clears at once.
+- A pop-up kept a project's old name after you renamed the project. It now updates.
+- Pop-ups appeared on the main monitor when afterterm was on another one. They now appear on afterterm's monitor.
 
-### Removed or changed on purpose
+### Known problems in this release
 
-- Tab groups and the Projects shelf are gone; projects and threads replace them (dragging one thread onto another still creates a project, now with its name field open). An existing `session.json` is migrated automatically.
-- Nothing resumes at launch any more. Every thread starts asleep and is woken by you, which is what keeps a relaunch with many Claude sessions from starting them all at once.
-- A thread's old output is no longer replayed into the fresh terminal on wake; it stays on the asleep pane until you wake.
+- A white bar sometimes appears above the pop-ups, most often when several are stacked.
+- After a restart, threads lose their waiting and finished marks; only Mark as unread survives.
+- Clicking a file link opens it in VS Code, even when it is a video or a web page.
+- Opening a chat moves its project to the top of the recent projects, even if you typed nothing.
+- After the laptop sleeps, the afterterm window can move to the main monitor and stay there.
+
+Full list of changes: https://github.com/afteraryan/afterterm/compare/v0.8.1...v0.9.0
 
 ## 0.8.1
 
