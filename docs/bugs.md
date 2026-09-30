@@ -443,3 +443,19 @@ Aryan is not sure step 2 is needed.
 - Aryan's words: "sub-agent is running but the thread doesn't show that in the status. Also I put the laptop on sleep earlier when the subagent was running and then I opened it againa and claude automatically started the subagent to conitnue. This might have caused the bug, but I am not sure."
 - Where to read it: in Aryan's afterterm the thread is `tab-190`, Claude session `479d09d7-0cb9-4ba1-aae1-5c9302fa98b1`, folder `D:\Pitara\Work\For Friends\Revy App\.claude\worktrees\phase-4-all-plant-types`. Transcript: `%USERPROFILE%\.claude\projects\D--Pitara-Work-For-Friends-Revy-App--claude-worktrees-phase-4-all-plant-types\479d09d7-0cb9-4ba1-aae1-5c9302fa98b1.jsonl`; its subagents' transcripts are in the folder of the same name, under `subagents\`: `agent-a6baa9852bf60d325.jsonl` (the fixture 2 run) and `agent-a93f862640bb0ef85.jsonl` (the fixture 1 run in the screenshot). Read them only; the session was live when this was logged.
 - Timeline from that transcript (UTC, with India time in brackets): the session starts at 09:52 (15:22). At 09:57 and 09:58 (15:27, 15:28) Claude starts an agent "Test Phase 4 fixes on fixture 2" (transcript lines 240 and 253). Then nothing is written for 4 hours 14 minutes, which matches the laptop's sleep. At 14:12:57 (19:42) three `<task-notification>` entries arrive, the first for agent `a6baa9852bf60d325` (lines 296 to 298), and at 14:20:39 (19:50) a message from that agent arrives (line 435). At 14:25:22 (19:55) Claude starts "Test Phase 4 chart fixes on fixture 1" (line 572), agent `a93f862640bb0ef85`, the one the screenshot shows at 14m 51s, so the screenshot is from about 14:40 (20:10).
+
+---
+
+## Pressing Ctrl+Shift+R sends afterterm to Home and puts every thread to sleep
+
+**Observed:** 2026-09-30 by Aryan during manual testing · **Phase:** 4 (sleep and wake: threads restored asleep; Home on opening is Phase 2) · **Status:** open · **Severity:** high (every running shell, server and chat is stopped by one key press) · **Screenshot:** none attached
+
+**What happens:**
+Pressing Ctrl+Shift+R suddenly takes Aryan to the Home screen and puts all his threads to sleep. He did not expect the key press to do anything like this.
+
+**Steps to make it happen again:**
+1. Have some threads awake in the workspace.
+2. Press Ctrl+Shift+R.
+3. afterterm switches to Home, and every thread is asleep.
+
+**Evidence:** Only the description above. Aryan's words: "doing ctrl+shit+R suddenly takes me to home and puts all sessions to sleep. WTF!"
