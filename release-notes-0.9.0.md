@@ -10,6 +10,10 @@ Three words used below: a **thread** is a Claude Code chat or a shell inside a p
 - **Files a chat changed.** A Files button lists the documents, code and pasted images a chat changed, and file paths in Claude's replies are clickable.
 - **Servers by their port.** A thread running a dev server shows its port, opens it in your browser, and starts it again when you wake it.
 
+![Home: pinned projects as cards, the others by recent activity, and the rail at the left with a tile for each project that has a chat waiting](https://raw.githubusercontent.com/afteraryan/afterterm/main/docs/screenshots/release-0.9.0-notes/01-home-with-pinned-projects-and-the-rail.png)
+
+![A project open on an asleep chat: the sidebar with pinned and recent projects, the chat's last output with a Wake button, and its model and branch in the header](https://raw.githubusercontent.com/afteraryan/afterterm/main/docs/screenshots/release-0.9.0-notes/02-a-project-open-on-an-asleep-chat-with-its-last-output.png)
+
 ## Upgrading from 0.8.1
 
 - Your tab groups become projects and your tabs become threads. afterterm converts your saved session the first time it starts. Tab groups and the Projects shelf are gone.
