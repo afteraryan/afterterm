@@ -99,6 +99,7 @@ The sidebar is no longer tab groups. It is projects and threads, with a Home scr
 
 ### Fixed
 
+- A chat whose turn had ended kept its hourglass ("background tasks running") after Claude published, read or watched an artifact, until you opened it. Claude Code lists an artifact's live-updates watch as a running background task for the rest of the session; it is no longer counted, so the thread shows done. Real background work (a shell command, a subagent, a monitor) still shows the hourglass until it ends.
 - File paths in a chat's reply linked only some of the time. A path with a space in it, such as one under "For Friends", never linked; it now links whole, also when it runs over several lines. A path written from the top of a worktree stopped linking once Claude moved into a subfolder; it now links wherever Claude is.
 - Pop-up notifications stayed on screen while you were using afterterm, repeating what the rail already shows; each one now goes on its own 5 seconds after it arrives (resting the pointer on it holds it), and one that arrived while you were in another app waits until you come back. The thread keeps its state on the rail and in the sidebar.
 - A project whose only thread was working had no tile on the rail, then got one showing the working count as soon as another of its threads finished; a project with a working thread now has its tile from the start, and loses it when the work stops.

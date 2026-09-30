@@ -293,7 +293,7 @@ Agreed with Aryan on 2026-09-29, to be cut the same day. The first release since
 
 | # | Bug | Status |
 |---|---|---|
-| 1 | A thread whose turn ended while it was not open keeps showing the background status until it is opened | fixed in PR #47, waiting for Aryan to merge |
+| 1 | A thread whose turn ended while it was not open keeps showing the background status until it is opened | fixed in PR #47, merged to `main` on 2026-09-30 |
 | 2 | A thread's toast stayed on screen after the thread was opened from the sidebar | fixed on `release-0.9.0`, self-tested (the one mismatched path found: opening a project cleared its first thread's toast, not the one it opened) |
 | 3 | The white bar is back above the toast stack (the half that comes from the overlay growing; the bar with no toast at all only if a reproduction shows the same cause) | hardened on `release-0.9.0`, not reproduced, stays open until Aryan says the bar is gone |
 | 4 | The rail leaves out a project whose only thread is working, then shows a working count once another thread finishes | fixed on `release-0.9.0`, self-tested |

@@ -8,6 +8,13 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ## Release 0.9.0 (2026-09-29)
 
+### A chat that published or watched an artifact shows done when its turn ends, not the hourglass
+**Status:** waiting for Aryan
+The fix is in the Claude Code hook, which afterterm copies into `~/.claude/hooks` when it starts, so it takes effect once this build has been started once. Chats already open keep using the old copy until then.
+1. In a chat, ask Claude to publish any artifact (or to watch one you already have), then switch to another thread while it answers.
+2. When its turn ends, its row shows done (the tick), not the hourglass. Opening it changes nothing.
+3. In the same chat, ask for a shell command in the background (for example `sleep 30`) and switch away: the row shows the hourglass until the command ends, then done.
+
 ### Paths with spaces, and paths written from the top of a worktree, are links wherever Claude is
 **Status:** waiting for Aryan
 1. Open "Revy Phase 4 rebuild" and scroll to its 30 Sep reply that starts "1. Animation screenshots folder".
