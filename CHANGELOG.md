@@ -99,6 +99,7 @@ The sidebar is no longer tab groups. It is projects and threads, with a Home scr
 
 ### Fixed
 
+- File paths in a chat's reply linked only some of the time. A path with a space in it, such as one under "For Friends", never linked; it now links whole, also when it runs over several lines. A path written from the top of a worktree stopped linking once Claude moved into a subfolder; it now links wherever Claude is.
 - Pop-up notifications stayed on screen while you were using afterterm, repeating what the rail already shows; each one now goes on its own 5 seconds after it arrives (resting the pointer on it holds it), and one that arrived while you were in another app waits until you come back. The thread keeps its state on the rail and in the sidebar.
 - A project whose only thread was working had no tile on the rail, then got one showing the working count as soon as another of its threads finished; a project with a working thread now has its tile from the start, and loses it when the work stops.
 - Opening a project from Home, the search palette or its page cleared the toast of the project's first thread rather than the thread it opened on, so that thread's toast stayed on screen; it now clears the one you land on.

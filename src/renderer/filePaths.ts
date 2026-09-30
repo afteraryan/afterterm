@@ -100,6 +100,13 @@ export function findPathCandidates(line: string): PathCandidate[] {
 
 export interface ResolveContext {
   threadFolder?: string;
+  /**
+   * The top of the git working tree the chat's folder is in (its worktree's own
+   * folder). Claude moves between subfolders with `cd` while it works, but it
+   * writes paths from the top of the worktree, so a path is tried from there too
+   * (Aryan, 2026-09-30: a reply's paths did not link while Claude sat in a subfolder).
+   */
+  worktreeTop?: string;
   projectFolder?: string;
   home?: string;
 }
@@ -112,7 +119,8 @@ export function isBareName(text: string): boolean {
 /**
  * The absolute paths a candidate could mean, in the order to try them: as
  * written when absolute, ~ as the home folder, otherwise inside the chat's own
- * folder then the project's (design decision 4, "Resolving it").
+ * folder, then the top of its worktree, then the project's (design decision 4,
+ * "Resolving it"; the worktree's top since 2026-09-30).
  */
 export function resolveCandidates(text: string, ctx: ResolveContext): string[] {
   const t = text.trim();
@@ -121,7 +129,7 @@ export function resolveCandidates(text: string, ctx: ResolveContext): string[] {
   if (isAbsolutePath(t)) return [normalizePath(t)];
   if (/^\//.test(t)) return []; // a POSIX path (WSL, a URL path): not a Windows file
   const out: string[] = [];
-  for (const base of [ctx.threadFolder, ctx.projectFolder]) {
+  for (const base of [ctx.threadFolder, ctx.worktreeTop, ctx.projectFolder]) {
     if (!base) continue;
     const p = normalizePath(t, base);
     if (p && !out.some(o => o.toLowerCase() === p.toLowerCase())) out.push(p);
@@ -219,6 +227,87 @@ export function continuation(
   if (!piece) return null;
   const nextStart = m[1].length;
   return { text: candidate.text + piece, nextStart, nextEnd: nextStart + piece.length };
+}
+
+/** How many more words a path with spaces may run on for: "For Friends\Revy App\x" is two. */
+export const SPACED_WORDS = 6;
+
+const CLOSERS: Record<string, string> = { ')': '(', ']': '[', '}': '{' };
+const count = (text: string, ch: string) => text.split(ch).length - 1;
+
+/** Sentence punctuation, quotes and an unmatched closing bracket off the end of a joined path. */
+function trimJoined(text: string): string {
+  let t = text;
+  for (;;) {
+    const before = t;
+    t = t.replace(/[.,:;!?"'`]+$/, '');
+    const last = t[t.length - 1];
+    if (last && CLOSERS[last] && count(t, last) > count(t, CLOSERS[last])) t = t.slice(0, -1);
+    if (t === before) return t;
+  }
+}
+
+/**
+ * A path with spaces in it ("D:\Work\For Friends\Revy App\notes.md") comes out of
+ * findPathCandidates cut at every space, and none of the pieces exists (Aryan,
+ * 2026-09-30: no path into a project under "For Friends" ever linked). These are
+ * the longer readings of a path that stops at a space: it joined with the next
+ * words on `line`, one space apart, longest first. `from` is where the path so far
+ * ends on this line and its whole text (which may have started on the line above).
+ * Only a reading that exists on disk is used, so one running on into the sentence
+ * ("D:\a\b and more") costs a few checks and links nothing. A path with an
+ * extension or a trailing separator is already whole and is not extended, and a
+ * bare word is not a path to begin with.
+ */
+export function spacedVariants(
+  line: string,
+  from: Pick<PathCandidate, 'end' | 'text' | 'tool' | 'line'>,
+  maxWords = SPACED_WORDS,
+): { text: string; end: number }[] {
+  if (from.tool || from.line !== undefined) return [];
+  if (isBareName(from.text) || /[\\/]$/.test(from.text) || hasExtension(from.text)) return [];
+  const out: { text: string; end: number }[] = [];
+  let pos = from.end;
+  for (let k = 0; k < maxWords; k++) {
+    // Exactly one space, then a word: a wider gap is a column, not a name.
+    if (line[pos] !== ' ' || !line[pos + 1] || /\s/.test(line[pos + 1])) break;
+    const word = /^\S+/.exec(line.slice(pos + 1))![0];
+    if (/[<>"|?*]/.test(word)) break; // characters no Windows path has
+    pos += 1 + word.length;
+    const tail = trimJoined(line.slice(from.end, pos));
+    const text = from.text + tail;
+    if (text.length > 400) break;
+    if (tail.trim()) out.push({ text, end: from.end + tail.length });
+  }
+  // Longest first; two words that trim to the same text are one reading.
+  return out.reverse().filter((v, i, all) => all.findIndex(o => o.text === v.text) === i);
+}
+
+/**
+ * Claude Code wraps a reply at spaces, so a path with spaces in it breaks at one of
+ * them: "D:\Work\For Friends\Revy" ends one line and "App\notes.md" starts the
+ * next, the space itself dropped, often far from the right edge. When the path so
+ * far ends its line and the next line's first word would not have fitted after it
+ * (which is why it wrapped), the two may be one path with a space between: the
+ * joined text and where the second part sits. Like `continuation`, a wrong join
+ * costs nothing, since only a path that exists is used.
+ */
+export function wrappedAtSpace(
+  from: Pick<PathCandidate, 'end' | 'text' | 'tool' | 'line'>,
+  lineText: string,
+  cols: number,
+  nextLine: string,
+): { text: string; nextStart: number; nextEnd: number } | null {
+  if (from.tool || from.line !== undefined) return null;
+  if (isBareName(from.text) || /[\\/]$/.test(from.text) || hasExtension(from.text)) return null;
+  if (lineText.slice(from.end).trim() !== '') return null;
+  const m = /^(\s*)(\S+)/.exec(nextLine);
+  if (!m || /[<>"|?*]/.test(m[2])) return null;
+  if (from.end + 1 + m[2].length <= cols - EDGE_SLACK) return null; // it would have fitted: a real line break
+  const piece = trimJoined(m[2]);
+  if (!piece) return null;
+  const nextStart = m[1].length;
+  return { text: `${from.text} ${piece}`, nextStart, nextEnd: nextStart + piece.length };
 }
 
 /**

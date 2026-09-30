@@ -8,6 +8,12 @@ Format: the bug as it was titled, the date it was fixed, the PR or commit, then 
 
 ---
 
+## Fixed on 2026-09-30
+
+### Some file paths in a chat's reply are highlighted as links and others are not
+
+PR #49, into release 0.9.0. Two causes. A path with a space in it (every path under "D:\Pitara\Work\For Friends\Revy App") was read as pieces cut at each space, none of which exists; it is now also read joined across its spaces, including when it breaks over several lines at the edge or at one of its own spaces, and only a reading that exists links. A path written from the top of the worktree was looked for only from the folder Claude had last moved into with `cd`; it is now also tried from the worktree's top, and a name is searched for across the whole worktree. Shorthand such as `t0.80.png` and a folder written relative to one the reply named still do not link, by Aryan's choice.
+
 ## Fixed on 2026-09-29
 
 ### Pop-up notifications stay on screen while the afterterm window is open, instead of vanishing after a few seconds

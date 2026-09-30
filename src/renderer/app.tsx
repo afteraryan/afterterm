@@ -332,10 +332,13 @@ export function App() {
   }, []);
 
   // What a terminal's file links resolve against (Phase 3): the thread's own
-  // folder, its project's, the home folder, and for a chat the files it changed.
-  // Read through refs because the terminal asks on every hover.
+  // folder, the top of its worktree, its project's, the home folder, and for a
+  // chat the files it changed. Read through refs because the terminal asks on
+  // every hover. The worktree's top comes with each git read (noteGitInfo) and is
+  // not saved: the first read after a launch fills it again.
   const filesByTabRef = useRef(filesByTab);
   filesByTabRef.current = filesByTab;
+  const gitTopsRef = useRef(new Map<string, string>());
   const fileContextFor = useCallback((tabId: string): FileLinkContext | null => {
     const tab = stateRef.current.tabs.find(t => t.id === tabId);
     if (!tab) return null;
@@ -344,6 +347,7 @@ export function App() {
     const files = entry && entry.sessionId === tab.claudeSessionId ? entry.files : undefined;
     return {
       threadFolder: threadFolder(tab),
+      worktreeTop: gitTopsRef.current.get(tabId),
       projectFolder: project?.cwd,
       home: window.afterterm.app.homeDir || undefined,
       changed: files?.changed ?? [],
@@ -548,14 +552,20 @@ export function App() {
     });
   }, []);
 
-  // Read branch and worktree for one thread and put them on the tab. setGitInfo
-  // no-ops when nothing changed, so calling this more often than needed is free.
+  // One thread's git read: branch and worktree onto the tab (setGitInfo no-ops when
+  // nothing changed), and the worktree's top kept for its file links.
+  const noteGitInfo = useCallback((tabId: string, info: GitInfo) => {
+    if (info.top) gitTopsRef.current.set(tabId, info.top);
+    else gitTopsRef.current.delete(tabId);
+    stateRef.current.setGitInfo(tabId, { branch: info.branch, worktree: info.worktree });
+  }, []);
+
+  // Read one thread's git info (noteGitInfo). Calling it more often than needed is
+  // free.
   const refreshGit = useCallback((tabId: string, cwd: string | undefined) => {
     if (!cwd) return;
-    window.afterterm.git.info(cwd).then(info => {
-      stateRef.current.setGitInfo(tabId, { branch: info.branch, worktree: info.worktree });
-    });
-  }, []);
+    window.afterterm.git.info(cwd).then(info => noteGitInfo(tabId, info));
+  }, [noteGitInfo]);
 
   // Read the session transcript for one thread (first prompt + model). Returns the
   // promise so the startup pass can await one read before starting the next.
@@ -636,7 +646,7 @@ export function App() {
         if (cancelled) return;
         withCwd.forEach((t, i) => {
           const info = infos[i];
-          if (info) stateRef.current.setGitInfo(t.id, { branch: info.branch, worktree: info.worktree });
+          if (info) noteGitInfo(t.id, info);
         });
       });
     }
@@ -659,7 +669,7 @@ export function App() {
       window.afterterm.git.infoMany(withCwd.map(t => t.cwd)).then(infos => {
         withCwd.forEach((t, i) => {
           const info = infos[i];
-          if (info) stateRef.current.setGitInfo(t.id, { branch: info.branch, worktree: info.worktree });
+          if (info) noteGitInfo(t.id, info);
         });
       });
     }, GIT_POLL_MS);
