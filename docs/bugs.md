@@ -420,3 +420,24 @@ Aryan asked a chat for the paths of test screenshots. In Claude's reply, some of
 - Further down, the same reply says "All paths here start with `phase-3-changes\screenshots\`" and lists paths such as `plant-supervisor\39-etp-delete-dialog-landscape-top.png`.
 - The reply before it in the same chat (2026-09-29) gave paths from the worktree's root, such as `docs/testing/phase-4/bugs.md`.
 - Aryan's words: "in the messagee where I asked for screenshot links in the chat, some links work with the highlight feature, some don't."
+
+---
+
+## A chat whose background subagent is running shows no running state on its thread
+
+**Observed:** 2026-09-30 by Aryan during manual testing · **Phase:** 7 (attention: thread states on the row, the header, the project and the rail; the background state came in PR #40) · **Status:** open · **Severity:** medium (a subagent at work is invisible outside the terminal) · **Screenshot:** `docs/screenshots/manual-testing/15-subagent-running-but-thread-shows-no-status.png`
+
+**What happens:**
+A subagent is running in a chat, but the thread's status does not show it. Earlier, while that subagent was running, Aryan put the laptop to sleep. When he opened it again, Claude started the subagent again by itself to continue. He thinks this might be connected, but he is not sure.
+
+**Steps to make it happen again:**
+1. In a chat, have Claude start a subagent in the background.
+2. While it runs, put the laptop to sleep.
+3. Open the laptop again: Claude starts the subagent again by itself to continue.
+4. While the subagent runs, the thread's sidebar row, its header and its project show no running or background state.
+
+Aryan is not sure step 2 is needed.
+
+**Evidence:**
+- `15-subagent-running-but-thread-shows-no-status.png`: the thread "Phase 4 fixes testing on Android emulator" in the project "Revy App" (Opus 5.5, branch and worktree `phase-4-all-plant-types`), open in the workspace. The terminal shows `Agent(Test Phase 4 chart fixes on fixture 1)` with "Backgrounded agent", then `Monitor(emulator stops answering during run 2)` with "Monitor started", and Claude's reply "The second tester run (fixture 1: plant list and every Trend Charts fix) is going" ending "I'll report everything once run 2 finishes." Claude Code's footer shows "auto mode on · 1 monitor" and "1 agent", and a `general-purpose` agent at work ("Checking Silica 30-day chart dates", 14m 51s, 154.9k tokens). The prompt is empty and waiting. Meanwhile the header has no state chip, only "17 files"; the thread's sidebar row has no state icon; the Revy App project row has no counter pill; and the rail has no Revy App tile.
+- Aryan's words: "sub-agent is running but the thread doesn't show that in the status. Also I put the laptop on sleep earlier when the subagent was running and then I opened it againa and claude automatically started the subagent to conitnue. This might have caused the bug, but I am not sure."
