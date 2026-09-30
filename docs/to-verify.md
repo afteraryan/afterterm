@@ -6,15 +6,47 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
-## Build after the stale-hourglass fix (2026-09-26)
-
-The fix is in the Claude Code hook, which afterterm copies into `~/.claude/hooks` when it starts, so it takes effect once this build has been started once. Chats already open keep using the old copy until then.
+## Release 0.9.0 (2026-09-29)
 
 ### A chat that published or watched an artifact shows done when its turn ends, not the hourglass
 **Status:** waiting for Aryan
+The fix is in the Claude Code hook, which afterterm copies into `~/.claude/hooks` when it starts, so it takes effect once this build has been started once. Chats already open keep using the old copy until then.
 1. In a chat, ask Claude to publish any artifact (or to watch one you already have), then switch to another thread while it answers.
 2. When its turn ends, its row shows done (the tick), not the hourglass. Opening it changes nothing.
 3. In the same chat, ask for a shell command in the background (for example `sleep 30`) and switch away: the row shows the hourglass until the command ends, then done.
+
+### Paths with spaces, and paths written from the top of a worktree, are links wherever Claude is
+**Status:** waiting for Aryan
+1. Open "Revy Phase 4 rebuild" and scroll to its 30 Sep reply that starts "1. Animation screenshots folder".
+2. Hover the full path under that heading (`D:\Pitara\Work\For Friends\Revy App\...\animations\`): the whole path is underlined, across the line break too. Click it: the folder opens in File Explorer.
+3. Hover a screenshot under A1 (`screenshots\revy-admin\24-...png`): it is underlined and a note says "Opens docs\testing\phase-4\screenshots\...". Click it: the image opens.
+4. Hover a second tester's screenshot (`plant-supervisor\39-...png`, under B1): it links too.
+5. Still plain, as you chose: `t0.80.png` and `-c.png` (shorthand for a longer name) and the folder `phase-3-changes\screenshots\`.
+
+### Pop-ups go away on their own after 5 seconds while you are in afterterm
+**Status:** waiting for Aryan
+1. With afterterm focused, let a thread in the background finish a Claude turn. Its pop-up appears and goes away by itself after about 5 seconds, while the thread's row keeps its green check and the rail keeps its badge.
+2. When the next pop-up appears, rest the pointer on it. It stays as long as the pointer is there, then goes about 5 seconds after you move away.
+3. Switch to another app and let a thread finish meanwhile. Its pop-up stays up. Come back to afterterm and it goes about 5 seconds later.
+4. Click a pop-up before it goes: afterterm switches to that thread as before. The x on a pop-up still just closes it.
+
+### A project with a working thread has its own tile on the rail
+**Status:** waiting for Aryan
+1. Pick a project with nothing waiting or finished, so it has no tile on the rail.
+2. Send a prompt in one of its chats and switch to a thread in another project.
+3. While Claude works, the project has a tile on the rail with a grey working count beside it.
+4. When the turn ends and you have not looked at it, the tile stays with a green finished count instead; once you open the thread, the tile goes.
+
+### Opening a project clears the toast of the thread it opens on
+**Status:** waiting for Aryan
+1. With afterterm in the background, let two chats in the same project finish, so two toasts are up.
+2. Go to Home and click that project's card (or open it from Ctrl+Shift+P).
+3. afterterm opens the chat you last worked in, and its toast goes. The other chat's toast is still there until you open that chat.
+
+### The white bar above the toasts (not reproduced, hardened)
+**Status:** waiting for Aryan
+1. Use afterterm as usual for a day with toasts coming and going, including two or more stacked, and after the laptop sleeps and wakes.
+2. Say whether the white bar above the toasts, or a bar with no toast, shows up again. The bug stays open in `bugs.md` until you say it is gone.
 
 ---
 

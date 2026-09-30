@@ -110,6 +110,8 @@ interface GitInfo {
   branch: string | null;
   worktree: string | null;
   repoRoot: string | null;
+  /** The folder holding .git: a linked worktree's own folder, or the checkout's. */
+  top: string | null;
 }
 
 interface AftertermClaudeSessionAPI {
@@ -161,6 +163,9 @@ interface AftertermNotifierAPI {
   setIgnoreMouse(ignore: boolean): void;
   hide(): void;
   resize(height: number): void;
+  // Whether the main window is focused (asked once), and every change after.
+  mainFocused(): Promise<boolean>;
+  onMainFocus(callback: (focused: boolean) => void): void;
 }
 
 // Inline import so this file stays a global declaration file (a top-level import

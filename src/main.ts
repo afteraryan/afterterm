@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, screen, shell, nativeImage } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, screen, shell, nativeImage, powerMonitor } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
@@ -553,11 +553,6 @@ function notifierDisplay(): Electron.Display {
   return getTargetDisplay();
 }
 
-// Resize/reposition the overlay so it's anchored to the bottom-right of the work
-// area and exactly as tall as the rendered toast stack (the renderer measures and
-// reports `contentHeight`). Because the window is never larger than its visible
-// content, there is no invisible dead zone swallowing clicks, and nothing for DWM
-// to paint a white bar over above the toasts.
 // A full repaint of the overlay, the white-bar cure (see createNotifierWindow).
 // Deferred a tick so it lands after the frame paint it is there to overwrite.
 function repaintNotifier() {
@@ -568,6 +563,13 @@ function repaintNotifier() {
   }, 0);
 }
 
+// Resize/reposition the overlay so it's anchored to the bottom-right of the work
+// area and exactly as tall as the rendered toast stack (the renderer measures and
+// reports `contentHeight`). Because the window is never larger than its visible
+// content, there is no invisible dead zone swallowing clicks, and nothing for DWM
+// to paint a white bar over above the toasts. A bounds change is one more moment
+// DWM can touch the frame (a second toast joining the stack grows the window,
+// which is where Aryan saw the bar come back on 2026-09-25), so it repaints too.
 function positionNotifier(contentHeight: number = notifierHeight) {
   if (!notifierWindow || notifierWindow.isDestroyed()) return;
   notifierHeight = contentHeight;
@@ -576,6 +578,7 @@ function positionNotifier(contentHeight: number = notifierHeight) {
   const x = wa.x + wa.width - NOTIFIER_WIDTH - NOTIFIER_MARGIN;
   const y = wa.y + wa.height - h - NOTIFIER_MARGIN;
   notifierWindow.setBounds({ x, y, width: NOTIFIER_WIDTH, height: h });
+  repaintNotifier();
 }
 
 function createNotifierWindow() {
@@ -643,6 +646,12 @@ function createNotifierWindow() {
   screen.on('display-added', replace);
   screen.on('display-removed', replace);
   screen.on('display-metrics-changed', replace);
+  // Waking the machine and unlocking it redraw every window, and the displays
+  // may come back in a different order; re-place the overlay (which repaints it)
+  // rather than leave a toast that was up across the sleep with a frame painted
+  // into it.
+  powerMonitor.on('resume', replace);
+  powerMonitor.on('unlock-screen', replace);
 }
 
 // Only when AFTERTERM_DISPLAY is set: size the main window to fit the target
@@ -699,6 +708,15 @@ function createWindow() {
   // Coming back to afterterm with a toast up is when DWM revisits the overlay's
   // frame and can leave the white bar (see createNotifierWindow); repaint it.
   mainWindow.on('focus', () => repaintNotifier());
+
+  // The overlay's toasts go on their own only while this window is focused
+  // (toastExpiry.ts), so it hears every focus change. A foreground change is also
+  // a moment DWM can paint the caption strip into the overlay, hence the repaint.
+  mainWindow.on('focus', () => sendMainFocus(true));
+  mainWindow.on('blur', () => {
+    sendMainFocus(false);
+    repaintNotifier();
+  });
 
   mainWindow.on('close', (e) => {
     if (isQuitting || ptys.size === 0) return;
@@ -808,11 +826,29 @@ ipcMain.on('notify:project-updated', (_event, look) => {
 // Notifier → main window: user clicked a toast → focus app + switch tab
 ipcMain.on('notify:tab-click', (_event, tabId: string) => {
   if (mainWindow) {
-    mainWindow.show();
-    mainWindow.focus();
+    // Under the agent harness, taking OS focus would pull it away from the person
+    // working on the other monitor, so the click only logs that part.
+    if (harnessOnlyLogsExternal()) {
+      console.log(`[harness] notify:tab-click ${tabId} (window not shown or focused)`);
+    } else {
+      mainWindow.show();
+      mainWindow.focus();
+    }
     mainWindow.webContents.send('notify:activate-tab', tabId);
   }
 });
+
+// Main window → notifier: whether the main window is focused, which decides
+// whether toasts count down to going on their own (toastExpiry.ts). The overlay
+// asks once when it loads, then hears every change.
+function sendMainFocus(focused: boolean) {
+  if (process.env.AFTERTERM_HARNESS === '1') console.log(`[harness] notifier:main-focus ${focused}`);
+  if (notifierWindow && !notifierWindow.isDestroyed()) {
+    notifierWindow.webContents.send('notifier:main-focus', focused);
+  }
+}
+
+ipcMain.handle('notifier:main-focused', () => !!mainWindow?.isFocused());
 
 // Notifier → self: toggle mouse passthrough
 ipcMain.on('notifier:set-ignore-mouse', (_event, ignore: boolean) => {
@@ -1910,7 +1946,7 @@ ipcMain.handle('threads:prune', (_event, keepIds: unknown): number => {
 
 // Reads .git/HEAD (and a worktree's .git file), never runs git. See src/git-info.ts.
 ipcMain.handle('git:info', (_event, cwd: unknown) => {
-  if (typeof cwd !== 'string' || !cwd) return { branch: null, worktree: null, repoRoot: null };
+  if (typeof cwd !== 'string' || !cwd) return { branch: null, worktree: null, repoRoot: null, top: null };
   return gitInfo(cwd, fs);
 });
 
@@ -1920,7 +1956,7 @@ const GIT_INFO_MANY_MAX = 500;
 ipcMain.handle('git:infoMany', (_event, cwds: unknown) => {
   if (!Array.isArray(cwds)) return [];
   return cwds.slice(0, GIT_INFO_MANY_MAX).map(cwd =>
-    typeof cwd === 'string' && cwd ? gitInfo(cwd, fs) : { branch: null, worktree: null, repoRoot: null }
+    typeof cwd === 'string' && cwd ? gitInfo(cwd, fs) : { branch: null, worktree: null, repoRoot: null, top: null }
   );
 });
 

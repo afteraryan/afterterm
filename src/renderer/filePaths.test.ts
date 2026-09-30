@@ -4,7 +4,7 @@
 //   node src/renderer/filePaths.test.ts
 // Exits 0 if all pass, 1 on any failure.
 
-import { looksLikePath, splitLineSuffix, findPathCandidates, isBareName, resolveCandidates, matchChangedName, continuation, openKind, elidedTail, hasExtension, narrowByTail } from './filePaths.ts';
+import { looksLikePath, splitLineSuffix, findPathCandidates, isBareName, resolveCandidates, matchChangedName, continuation, openKind, elidedTail, hasExtension, narrowByTail, spacedVariants, wrappedAtSpace } from './filePaths.ts';
 
 let pass = 0, fail = 0;
 function check(name: string, cond: boolean, detail = '') {
@@ -154,6 +154,70 @@ console.log('a path split over two lines');
   const cand = findPathCandidates(l1).pop()!;
   const j = continuation(cand, l1, cols, '     nt-with-a-long-name.md');
   check('a tool block wrapped short of the edge still joins', j?.text === 'docs\\very-long-folder-name-for-wrapping-tests\\another-long-subfolder-name\\final-document-with-a-long-name.md', show({ end: cand.end, j }));
+}
+
+console.log('paths with spaces in them (2026-09-30)');
+{
+  const B = String.fromCharCode(92);
+  const P = (s: string) => s.replace(/\//g, B);
+  const readings = (line: string) => {
+    const cand = findPathCandidates(line)[0];
+    return spacedVariants(line, cand).map(v => v.text);
+  };
+  const full = P('D:/Pitara/Work/For Friends/Revy App/.claude/worktrees/wt/docs/');
+  check('a full path is rejoined across its spaces, longest first',
+    show(readings(`  ${full}`)) === show([full, P('D:/Pitara/Work/For Friends/Revy')]), show(readings(`  ${full}`)));
+  {
+    const line = `All paths below start from ${P('D:/a b/c d/')}. Both testers ran.`;
+    const cand = findPathCandidates(line)[0];
+    const got = spacedVariants(line, cand).map(v => v.text);
+    check('the full stop after a folder path is not part of it', got.includes(P('D:/a b/c d/')), show(got));
+    const v = spacedVariants(line, cand).find(r => r.text === P('D:/a b/c d/'))!;
+    check('a reading\'s end is where its text stops in the line', line.slice(cand.start, v.end) === P('D:/a b/c d/'), show(v));
+    check('at most six more words are tried', got.length <= 6, show(got));
+  }
+  check('a folder with brackets in its name', readings(P('  C:/Program Files (x86)/App/x.exe')).includes(P('C:/Program Files (x86)/App/x.exe')));
+  check('a closing bracket around the whole path is dropped', readings(P('  (see D:/My Docs/a.md)')).includes(P('D:/My Docs/a.md')), show(readings(P('  (see D:/My Docs/a.md)'))));
+  check('a relative path with a space in a folder name', readings(P('  docs/My Folder/a.md')).includes(P('docs/My Folder/a.md')));
+  check('a path with an extension is already whole', readings(P('  see docs/a.md and more')).length === 0);
+  check('a path ending in a separator is already whole', readings(P('  D:/a/ then more')).length === 0);
+  check('a gap wider than one space is not a name', readings(P('  D:/a/b    c')).length === 0);
+  check('a word with a character no path has stops it', show(readings(P('  D:/a/b c|d e'))) === show([]));
+  check('a path with a :line suffix is not extended', spacedVariants('  src/a:12 more', findPathCandidates('  src/a:12 more')[0]).length === 0);
+  check('a tool line keeps its spaces already, and is not extended',
+    spacedVariants(P('● Update(D:/My Docs/a b.md)'), findPathCandidates(P('● Update(D:/My Docs/a b.md)'))[0]).length === 0);
+}
+
+console.log('a path with spaces wrapped at one of them (2026-09-30)');
+{
+  const B = String.fromCharCode(92);
+  const P = (s: string) => s.replace(/\//g, B);
+  const cols = 60;
+  const l1 = P('  D:/Pitara/Work/For Friends/Revy');
+  const l2 = P('  App/.claude/worktrees/phase-4-all-plant-types/docs/testing/phase-4/');
+  const cand = findPathCandidates(l1)[0];
+  const r = spacedVariants(l1, cand)[0];
+  const w = wrappedAtSpace({ ...cand, end: r.end, text: r.text }, l1, cols, l2);
+  check('joined with the space the wrap dropped', w?.text === P('D:/Pitara/Work/For Friends/Revy App/.claude/worktrees/phase-4-all-plant-types/docs/testing/phase-4/'), show(w));
+  check('the second part starts after the indent', w?.nextStart === 2 && w?.nextEnd === l2.length, show(w));
+  check('not joined when the next word would have fitted (a real line break)',
+    wrappedAtSpace({ end: 8, text: P('D:/a/b') }, P('  D:/a/b'), 100, '  c') === null);
+  check('not joined when the line goes on after the path',
+    wrappedAtSpace({ end: 8, text: P('D:/a/b') }, P('  D:/a/b and'), 12, '  ' + 'c'.repeat(20)) === null);
+  check('not joined after a path with an extension',
+    wrappedAtSpace({ end: 10, text: P('D:/a/b.md') }, P('  D:/a/b.md'), 12, '  ' + 'c'.repeat(20)) === null);
+  check('not joined after a bare word',
+    wrappedAtSpace({ end: 6, text: 'word' }, '  word', 8, '  ' + 'c'.repeat(20)) === null);
+}
+
+console.log('the top of the chat\'s worktree (2026-09-30)');
+{
+  const wt = { threadFolder: 'D:\\p\\wt\\docs\\testing', worktreeTop: 'D:\\p\\wt', projectFolder: 'D:\\p' };
+  check('the chat folder, then the worktree top, then the project folder',
+    show(resolveCandidates('docs/a.md', wt)) === show(['D:\\p\\wt\\docs\\testing\\docs\\a.md', 'D:\\p\\wt\\docs\\a.md', 'D:\\p\\docs\\a.md']), show(resolveCandidates('docs/a.md', wt)));
+  check('a chat at its worktree top tries that folder once',
+    resolveCandidates('a.md', { threadFolder: 'D:\\p\\wt', worktreeTop: 'd:\\p\\wt', projectFolder: 'D:\\p' }).length === 2);
+  check('an absolute path ignores the folders', show(resolveCandidates('D:\\x\\y.md', wt)) === show(['D:\\x\\y.md']));
 }
 
 console.log('paths Claude Code shortened with …');

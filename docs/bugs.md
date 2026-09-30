@@ -157,6 +157,8 @@ As observed; the exact trigger is not known. Two circumstances are recorded: wit
 
 **Cause:** the Phase 9 fix repaints the overlay at three moments (`repaintNotifier()` in `src/main.ts`, called after the `showInactive` on a push, on the `WM_DWMNCRENDERINGCHANGED` message, and on the main window's `focus` event), because DWM paints the caption strip into the transparent window whenever it touches the frame. It does not repaint after a bounds change: `positionNotifier` calls `setBounds` on every `notifier:resize` from the renderer, which is exactly what happens when a second toast joins the stack and the window grows, and a bounds change is another moment DWM can paint the frame. That fits the screenshot, where the bar sits at the top of a window that had just been made taller. The no-toast case is a second thread to pull: the overlay is meant to be hidden when the last toast clears (`notifier:hide` from `NotifierApp.tsx`), so a bar with no toast means either the hide did not happen or the window was left visible at a small height with the caption strip painted into it. Fix direction: call `repaintNotifier()` after every `setBounds` in `positionNotifier`, then reproduce the empty case in the harness (push two toasts, dismiss both, watch `isVisible()` and the window height) before deciding whether the hide path needs its own fix.
 
+**2026-09-29, before release 0.9.0 (stays open until Aryan says the bar is gone):** neither half reproduced in the harness. Six runs of a second toast joining the stack and six runs of a push dismissed in the same tick, on the secondary display, found no new near-white pixels above the first card and never left the overlay shown with no toast (`docs/screenshots/release-0.9.0-fixes/`). The gaps the code shows were closed anyway, since each costs only a repaint: the overlay now repaints after every bounds change (`positionNotifier`), after the machine resumes from sleep or unlocks (`powerMonitor`, which also re-places it), and when the main window loses focus; and hiding the empty overlay no longer depends on the toast count changing (the hide effect in `NotifierApp.tsx` runs on every change to the list, so a push and a dismiss batched into one render still end in a hide). Pop-ups that vanish after 5 seconds while the window is in use (same release) also shorten the time any bar could stay on screen.
+
 ---
 
 ## A rail tile cannot say which of a project's waiting threads to open
@@ -195,36 +197,6 @@ The toasts then follow the window, which is the Phase 9 rule working as designed
 The one toast that came out "on the right side" before the pattern settled is unexplained and worth catching in the act: it may be a placement that ran while Windows was still rearranging the displays, with stale work area numbers.
 
 Fix direction, in order: remember the main window's bounds and the display it was on (in `prefs.json`, the way `lastOpenedAt` and `editorPath` already live there), restore them at startup, and on `display-added` offer to move the window back to the display it came from if that display has returned and the window has not been moved by hand since. Electron's `powerMonitor` has `resume` and `unlock-screen` events, which give a moment to re-check the display layout after a wake, and `screen.getAllDisplays()` can say whether the old display is back. Before building any of that, reproduce it once in the harness on the secondary display with a sleep and wake, logging `screen.getAllDisplays()` and the window bounds at each step, so the fix is aimed at what Windows actually does rather than at a guess.
-
----
-
-## The rail leaves out a project whose only thread is working, then shows a working count once another thread finishes
-
-**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 8 (the rail and the attention aggregate) · **Status:** open · **Severity:** medium (the rail's two rules disagree, so its counts mislead) · **Screenshot:** none attached
-
-**What happens:**
-When a project has one thread working and nothing else, the rail shows nothing for it. The moment a second thread in the same project finishes, the project's tile appears on the rail with two badges: the finished count and the working count. Aryan says that is inconsistent: if the tile shows a working count, the tile should have been on the rail while the thread was only working, before anything finished. Either the working count goes from the tile, or a project with a working thread gets a tile. That is a decision to take with him before it is fixed.
-
-**Repro:**
-1. In a project with no pending threads, start a chat so it is working. The rail shows no tile for the project.
-2. In the same project, run a second thread until it finishes, and do not view it.
-3. The project's tile appears on the rail with a finished badge and a working badge.
-
-**Cause:** the rail decides membership and badges from different rules. `railProjects` in `src/renderer/attention.ts` keeps a project only when `waiting`, `finished` or `compacting` is above zero (working is left out, as design-03 decision 1 says: "one tile per project that has a thread waiting for you ... or a thread that finished and has not been viewed"), while `components/Rail/index.tsx` draws a badge for every non-zero count, including `working`, as design-03's badge column also says. Fix direction, once Aryan picks: either drop the working badge from the rail tile (keeping the rail for "needs you"), or add `working > 0` to `railProjects` so a working project gets a tile of its own; update `attention.test.ts` and design-03's decision 1 to match either way.
-
----
-
-## A thread's toast stayed on screen after the thread was opened from the sidebar
-
-**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 1 (the toast cards) · **Status:** open · **Severity:** medium (a toast for something already seen keeps asking for attention) · **Screenshot:** none attached
-
-**What happens:**
-A toast for a thread was up. Aryan opened that thread from the sidebar, and the toast did not go away. He expects opening the thread to dismiss its toast. He does not know what was special about that moment, so the case has to be recreated before it can be fixed.
-
-**Repro:**
-As observed; repro not yet known.
-
-**Cause:** not confirmed. Opening a thread row dismisses its toast: `handleActivate` in `src/renderer/app.tsx` calls `clearThreadBadges`, which sends `notify:dismiss-tab` for that tab id, and `NotifierApp.tsx` drops every toast with that id. One path found in a quick look does not match: opening a project (`openProject` in `app.tsx`, around line 282) clears badges and the toast of the project's *first* thread (`tabs.find(t => t.groupId === groupId)`), while `openProject` actually lands on the last-worked thread, so opening a project from its sidebar row can leave the toast of the thread it really shows on screen. Fix direction: recreate the case (thread row click versus project row click, and with the window focused or not), and make the project-open path dismiss the toast of the thread that `openProject` selects.
 
 ---
 
@@ -270,3 +242,102 @@ The icon library for project icons is too small, and its icons are not good or a
 2. Look at the icon picker: the choice is small and the icons are not accurate enough.
 
 **Evidence:** Only the description above.
+
+---
+
+## There is no way to reopen the previous session's terminals after afterterm is restarted
+
+**Observed:** 2026-09-26 by Aryan during manual testing · **Phase:** 4 (sleep, wake and session restore: every restored thread starts asleep) · **Status:** open · **Severity:** medium (the previous session has to be woken thread by thread after every restart) · **Screenshot:** none attached
+
+**What happens:**
+When Aryan restarts afterterm, or shuts it down and opens it again, there is no way to resume the previous session as a whole. An earlier version reopened everything at launch, and afterterm crashed because so many processes started at once. He wants a different approach: restore the session a few terminals at a time (one, two or three), queue the rest, and show progress as each one opens ("opening this one", then the next, then the next). The UI for this is still to be designed.
+
+**Steps to make it happen again:**
+1. Work in afterterm with several threads open.
+2. Quit afterterm and open it again.
+3. There is no action that reopens the previous session's threads; each one has to be woken on its own.
+
+**Evidence:** Only the description above. Aryan's wording on the earlier attempt: "AfterTerm would literally crash because so many processes ran at once."
+
+---
+
+## Clicking a file link in the terminal should open the file in its default app, and right-clicking it should offer Open file location
+
+**Observed:** 2026-09-26 by Aryan during manual testing · **Phase:** Edited files Phase 3 (file paths in the terminal output are links, `docs/edited-files/`) · **Status:** open · **Severity:** low (a feature request: nothing is broken or lost) · **Screenshot:** none attached
+
+**What happens:**
+This is a feature request, not a defect. A file path in the terminal output is a file link: underlined on hover, and a click opens it (markdown and code in VS Code today). Aryan wants a click on a file link to open the file in the native tool for it, meaning the app Windows uses for that file type. He also wants a right-click menu on a file link with an "Open file location" item that shows the file in File Explorer.
+
+**Steps to make it happen again:**
+1. In a chat, hover a file path Claude wrote in the terminal until it is underlined.
+2. Click it: it opens in VS Code, not in the file type's default app.
+3. Right-click it: there is no "Open file location" item.
+
+**Evidence:** Only the description above. The menu item name Aryan asked for: "Open file location".
+
+---
+
+## Rail badges and sidebar thread states are lost when afterterm is restarted, only Mark as unread survives
+
+**Observed:** 2026-09-29 by Aryan during manual testing · **Phase:** 7 (attention state: needs-you, finished and unread, shown on the Phase 8 rail tiles and on the sidebar thread rows) · **Status:** open · **Severity:** medium (a waiting or finished thread no longer shows it after a restart, so it can be missed) · **Screenshot:** none attached
+
+**What happens:**
+The notification badges beside the project tiles on the rail do not survive closing and restarting afterterm. Of all the thread states, only a thread marked with "Mark as unread" still carries its mark after the restart. Aryan expects the other states to survive the restart too, both on the rail and as the state highlight on each thread's row in the sidebar.
+
+**Steps to make it happen again:**
+1. Have threads with states showing: at least one waiting for you or finished, so their project has badges on the rail and the threads show their state on their sidebar rows.
+2. Mark one chat with "Mark as unread".
+3. Close afterterm and open it again.
+4. The rail badges and the sidebar row states are gone; only the chat marked unread still shows its mark.
+
+**Evidence:** Only the description above. The item Aryan named as the one that survives: "Mark as unread".
+
+---
+
+## A chat running a background agent shows only its server as running, with nothing for the background agent
+
+**Observed:** 2026-09-29 by Aryan during manual testing · **Phase:** 5 (servers: the port pill and the "Running on" chip; the background state on the row and the header came in PR #40) · **Status:** open · **Severity:** medium (a background agent at work is invisible in the sidebar and the header) · **Screenshot:** `docs/screenshots/manual-testing/13-server-running-shown-while-background-agent-runs-unmarked.png`
+
+**What happens:**
+A chat has a background agent running, but the UI does not show it: the sidebar row and the header show only that a server is running. A server is indeed running in this thread. Aryan is not sure a server that Claude Code started should be highlighted in the UI at all. How to solve this in the UI is still open: show both the server and the background task, or find another solution. That choice is Aryan's to make.
+
+**Steps to make it happen again:**
+1. In a chat, have Claude Code start something that listens on a port, so the thread shows a port pill and "Running on :<port>".
+2. Have Claude Code start a background agent in the same chat, so its footer shows the agent running and "Waiting for 1 background agent to finish".
+3. The sidebar row and the header still show only the running server; nothing shows the background agent.
+
+**Evidence:**
+- `13-server-running-shown-while-background-agent-runs-unmarked.png`: the thread "Revy Phase 4 rebuild" in the project "Revy App" (Opus 5.5, branch and worktree `phase-4-all-plant-types`), at 14:10 on 29-09-2026. Its sidebar row, underlined in red, shows `:5554` and the green play icon; the header shows "Running on :5554". The terminal ends with "Waiting for 1 background agent to finish", and Claude Code's footer, also underlined in red, shows a `general-purpose` agent at work ("Scrolling to STP dosing details"). The commands in the output address an Android emulator named `emulator-5554`.
+- Aryan's words: "there is a background agent running but UI doesn't show it, UI shows a server is running".
+
+---
+
+## MP4 and HTML file links in a chat's terminal output open in VS Code instead of their own apps
+
+**Observed:** 2026-09-29 by Aryan during manual testing · **Phase:** Edited files Phase 3 (file paths in the terminal output are links, `docs/edited-files/`; any file name with an extension became a link in PR #44) · **Status:** open · **Severity:** medium (a link opens the file in the wrong app) · **Screenshot:** none attached
+
+**What happens:**
+A file path highlighted as a link in a chat's terminal output opens in VS Code when clicked, even when the file is an MP4 video or an HTML page. Aryan expects such files not to open in VS Code.
+
+**Steps to make it happen again:**
+1. In a chat, have Claude mention the path of an MP4 file and of an HTML file in its output, so each is highlighted as a link.
+2. Click the MP4 link: it opens in VS Code.
+3. Click the HTML link: it opens in VS Code.
+
+**Evidence:** Only the description above. Aryan's words: "even MP4 and HTML files are openeing in vs code from the chat highlights". Related open entry: "Clicking a file link in the terminal should open the file in its default app, and right-clicking it should offer Open file location" (2026-09-26).
+
+---
+
+## Opening a chat from another project moves that project to the top of Recent in the sidebar, without typing anything and without an animation
+
+**Observed:** 2026-09-30 by Aryan during manual testing · **Phase:** 8 (the panel's Pinned and Recent split and Recent's order by activity) · **Status:** open · **Severity:** medium (the Recent list reorders on a plain click) · **Screenshot:** none attached
+
+**What happens:**
+In the Recent section of the sidebar, just opening a chat from some other project brings that project to the top of the list. Aryan finds this weird: a project should only come to the top when he types something into one of its threads, not when he only opens a chat. He also wants the move to the top to be animated when it happens.
+
+**Steps to make it happen again:**
+1. Have two or more projects in the sidebar's Recent section.
+2. Click a chat in a project that is not at the top of Recent, without typing anything into it.
+3. That project jumps to the top of Recent at once, with no animation.
+
+**Evidence:** Only the description above. Aryan's words: "just opening a chat from some other project bring it to the top. This is weird, if I input something, then they should come on top. Also, there should be animation for it".
