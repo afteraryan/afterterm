@@ -12,7 +12,21 @@ Format: the bug as it was titled, the date it was fixed, the PR or commit, then 
 
 ### Some file paths in a chat's reply are highlighted as links and others are not
 
-PR #49. Two causes. A path with a space in it (every path under "D:\Pitara\Work\For Friends\Revy App") was read as pieces cut at each space, none of which exists; it is now also read joined across its spaces, including when it breaks over several lines at the edge or at one of its own spaces, and only a reading that exists links. A path written from the top of the worktree was looked for only from the folder Claude had last moved into with `cd`; it is now also tried from the worktree's top, and a name is searched for across the whole worktree. Shorthand such as `t0.80.png` and a folder written relative to one the reply named still do not link, by Aryan's choice.
+PR #49, into release 0.9.0. Two causes. A path with a space in it (every path under "D:\Pitara\Work\For Friends\Revy App") was read as pieces cut at each space, none of which exists; it is now also read joined across its spaces, including when it breaks over several lines at the edge or at one of its own spaces, and only a reading that exists links. A path written from the top of the worktree was looked for only from the folder Claude had last moved into with `cd`; it is now also tried from the worktree's top, and a name is searched for across the whole worktree. Shorthand such as `t0.80.png` and a folder written relative to one the reply named still do not link, by Aryan's choice.
+
+## Fixed on 2026-09-29
+
+### Pop-up notifications stay on screen while the afterterm window is open, instead of vanishing after a few seconds
+
+PR #48. While the afterterm window is focused, a toast now goes 5 seconds after it arrives; the pointer on a toast pauses every toast, and a toast that arrived while afterterm was not focused waits until it is focused again, then gets its 5 seconds (`toastExpiry.ts`, driven by `NotifierApp.tsx` and a `notifier:main-focus` message from main). Going on its own only takes the toast off the overlay; the thread's state on the rail and in the sidebar stays.
+
+### The rail leaves out a project whose only thread is working, then shows a working count once another thread finishes
+
+PR #48. The rail put a project on it only for a thread waiting, finished or compacting, while its tile drew a working count too. Aryan chose to keep the count: a project with a thread that is working now gets its own tile (`railProjects` in `attention.ts`), and the tile goes when the work stops. Background tasks and running servers still do not put a project on the rail.
+
+### A thread's toast stayed on screen after the thread was opened from the sidebar
+
+PR #48. Opening a project (a Home card, the search palette, the project page's Open, a rail tile with nothing waiting) lands on the thread last worked in, but cleared the toast and badges of the project's first thread in tab order instead, so the toast of the thread actually shown stayed up. `openProject` now returns the thread it opened and that is the one cleared. Clicking a thread's own row already cleared its toast, and the exact moment Aryan saw was not reproduced; with the same release's 5 second auto-hide, a toast left over while the window is in use goes on its own.
 
 ## Fixed on 2026-09-26
 

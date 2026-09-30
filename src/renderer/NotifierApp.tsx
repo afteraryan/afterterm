@@ -3,6 +3,10 @@ import './NotifierApp.css';
 import { IconBell, IconCheck, IconHourglass, IconCompact, IconX, IconFolder, ProjectIcon } from './components/Icons';
 import { isProjectIconId } from './components/TabBar/types';
 import { applyProjectLook } from './threadView';
+import {
+  initialToastClock, syncToasts, setMainFocus, setHoveredToast, expiredToasts, nextDeadline,
+} from './toastExpiry';
+import type { ToastClock } from './toastExpiry';
 
 export type NotifType = 'done' | 'attention' | 'background' | 'compacting';
 
@@ -50,6 +54,8 @@ function ToastCard({ toast, onDismiss }: ToastCardProps) {
       data-project={toast.projectId}
       data-color={toast.projectColor}
       data-icon={toast.projectIcon}
+      // Which toast the pointer is on, for the expiry clock (toastExpiry.ts).
+      data-toast-id={toast.id}
       onClick={handleClick}
     >
       <span className="notif-state">
@@ -86,6 +92,12 @@ function ToastCard({ toast, onDismiss }: ToastCardProps) {
 
 export function NotifierApp() {
   const [toasts, setToasts] = useState<NotifierToast[]>([]);
+  // When each toast goes on its own (toastExpiry.ts): 5 seconds while the main
+  // window is focused and the pointer is off the cards.
+  const [clock, setClock] = useState<ToastClock>(() => initialToastClock());
+  const clockRef = useRef(clock);
+  clockRef.current = clock;
+  const hoveredRef = useRef<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const ignoringRef = useRef(true);
 
@@ -105,13 +117,51 @@ export function NotifierApp() {
       });
     });
     window.afterterm.notifier.onDismissTab((tabId) => {
-      setToasts(prev => prev.filter(t => t.tabId !== tabId));
+      // The same array when the thread has no toast: every new array re-runs the
+      // hide-when-empty effect below.
+      setToasts(prev => prev.some(t => t.tabId === tabId) ? prev.filter(t => t.tabId !== tabId) : prev);
     });
     // A project edited while its toast is up: redraw with the new look.
     window.afterterm.notifier.onProjectUpdated((look) => {
       setToasts(prev => applyProjectLook(prev, look));
     });
   }, []);
+
+  // Whether the main window is focused: asked once, then kept up to date by main.
+  // An event that lands before the answer is newer, so the answer is dropped then.
+  useEffect(() => {
+    let heard = false;
+    const apply = (focused: boolean) => setClock(c => setMainFocus(c, focused, Date.now()));
+    window.afterterm.notifier.onMainFocus((focused) => { heard = true; apply(focused); });
+    window.afterterm.notifier.mainFocused().then((focused) => { if (!heard) apply(focused); });
+    // For the agent harness, whose window never has real focus: read the clock,
+    // and play a focus change as if main had sent it.
+    const win = window as unknown as { __afterterm?: Record<string, unknown> };
+    win.__afterterm = {
+      ...(win.__afterterm ?? {}),
+      toastClock: () => ({ ...clockRef.current, now: Date.now() }),
+      mainFocus: (focused: boolean) => apply(!!focused),
+    };
+  }, []);
+
+  // Every toast that arrives starts its clock, every toast that goes leaves it.
+  useEffect(() => {
+    setClock(c => syncToasts(c, toasts.map(t => t.id), Date.now()));
+  }, [toasts]);
+
+  // One timer, to the soonest deadline. It judges at the deadline itself even if
+  // it fires a little early, so the toast it was set for always goes. Expiry only
+  // takes the toast off the overlay: the thread keeps its state in the main
+  // window (no notify:dismiss-tab).
+  useEffect(() => {
+    const due = nextDeadline(clock);
+    if (due === null) return;
+    const timer = setTimeout(() => {
+      const gone = new Set(expiredToasts(clock, Math.max(Date.now(), due)));
+      setToasts(prev => prev.some(t => gone.has(t.id)) ? prev.filter(t => !gone.has(t.id)) : prev);
+    }, Math.max(0, due - Date.now()));
+    return () => clearTimeout(timer);
+  }, [clock]);
 
   // Report the toast stack's exact pixel height to main so the window can size
   // itself to fit. ResizeObserver catches every change, toasts added/removed,
@@ -128,9 +178,12 @@ export function NotifierApp() {
 
   // Hide the window when there are no toasts (nothing to show, nothing for DWM to
   // paint a bar over). Showing is triggered from main (showInactive) on push.
+  // Runs on every new list, not on the count: main shows the window on every
+  // push, and a push and a dismiss for the same thread that land in one render
+  // leave the count at 0, which would leave the window shown and empty.
   useEffect(() => {
     if (toasts.length === 0) window.afterterm.notifier.hide();
-  }, [toasts.length]);
+  }, [toasts]);
 
   // Per-region click-through: the window starts mouse-transparent (forward:true),
   // so we still receive move events. Flip interactivity on only while the cursor
@@ -141,11 +194,21 @@ export function NotifierApp() {
       ignoringRef.current = ignore;
       window.afterterm.notifier.setIgnoreMouse(ignore);
     };
-    const onMove = (e: MouseEvent) => {
-      const overCard = !!(e.target as HTMLElement | null)?.closest?.('.notif-card');
-      setIgnore(!overCard);
+    // The card under the pointer also pauses the expiry clock.
+    const setHovered = (id: string | null) => {
+      if (hoveredRef.current === id) return;
+      hoveredRef.current = id;
+      setClock(c => setHoveredToast(c, id, Date.now()));
     };
-    const onLeave = () => setIgnore(true);
+    const onMove = (e: MouseEvent) => {
+      const card = (e.target as HTMLElement | null)?.closest?.('.notif-card') as HTMLElement | null | undefined;
+      setIgnore(!card);
+      setHovered(card?.dataset.toastId ?? null);
+    };
+    const onLeave = () => {
+      setIgnore(true);
+      setHovered(null);
+    };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseleave', onLeave);
     return () => {

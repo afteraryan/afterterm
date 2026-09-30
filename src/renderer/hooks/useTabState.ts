@@ -504,19 +504,20 @@ export function useTabState() {
     }
   }, []);
 
-  // Open a project in the workspace: expand it in the sidebar and focus its first
-  // thread in tab order. Returns false when the project has no threads at all, which
-  // is the caller's cue to open one (a project with nothing running should still be
-  // one click from a terminal).
+  // Open a project in the workspace: expand it in the sidebar and focus a thread.
+  // Returns the activated tab id, or null when the project has no threads at all,
+  // which is the caller's cue to open one (a project with nothing running should
+  // still be one click from a terminal). The id is what the caller clears badges
+  // and the toast for, so it must be the thread actually shown.
   // Opening a project lands on the thread last worked in (lastWorkedThread in
   // attention.ts; Aryan, 2026-09-19), not the first in tab order. It is only
   // shown, never woken, the same as clicking its row.
-  const openProject = useCallback((groupId: string): boolean => {
+  const openProject = useCallback((groupId: string): string | null => {
     setGroups(prev => prev.map(g => g.id === groupId && g.collapsed ? { ...g, collapsed: false } : g));
     const last = lastWorkedThread(tabsRef.current.filter(t => t.groupId === groupId));
-    if (!last) return false;
+    if (!last) return null;
     activateTab(last.id);
-    return true;
+    return last.id;
   }, [activateTab]);
 
   // Bringing a project in from the panel's docked "Other projects" row

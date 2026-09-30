@@ -178,6 +178,12 @@ contextBridge.exposeInMainWorld('afterterm', {
       ipcRenderer.send('notifier:hide'),
     resize: (height: number): void =>
       ipcRenderer.send('notifier:resize', height),
+    // Whether the main window is focused: toasts go on their own only then.
+    mainFocused: (): Promise<boolean> =>
+      ipcRenderer.invoke('notifier:main-focused'),
+    onMainFocus: (callback: (focused: boolean) => void): void => {
+      ipcRenderer.on('notifier:main-focus', (_event, focused) => callback(focused));
+    },
   },
 
   pty: {
