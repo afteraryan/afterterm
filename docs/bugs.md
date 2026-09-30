@@ -286,3 +286,137 @@ The icon library for project icons is too small, and its icons are not good or a
 2. Look at the icon picker: the choice is small and the icons are not accurate enough.
 
 **Evidence:** Only the description above.
+
+---
+
+## There is no way to reopen the previous session's terminals after afterterm is restarted
+
+**Observed:** 2026-09-26 by Aryan during manual testing · **Phase:** 4 (sleep, wake and session restore: every restored thread starts asleep) · **Status:** open · **Severity:** medium (the previous session has to be woken thread by thread after every restart) · **Screenshot:** none attached
+
+**What happens:**
+When Aryan restarts afterterm, or shuts it down and opens it again, there is no way to resume the previous session as a whole. An earlier version reopened everything at launch, and afterterm crashed because so many processes started at once. He wants a different approach: restore the session a few terminals at a time (one, two or three), queue the rest, and show progress as each one opens ("opening this one", then the next, then the next). The UI for this is still to be designed.
+
+**Steps to make it happen again:**
+1. Work in afterterm with several threads open.
+2. Quit afterterm and open it again.
+3. There is no action that reopens the previous session's threads; each one has to be woken on its own.
+
+**Evidence:** Only the description above. Aryan's wording on the earlier attempt: "AfterTerm would literally crash because so many processes ran at once."
+
+---
+
+## Clicking a file link in the terminal should open the file in its default app, and right-clicking it should offer Open file location
+
+**Observed:** 2026-09-26 by Aryan during manual testing · **Phase:** Edited files Phase 3 (file paths in the terminal output are links, `docs/edited-files/`) · **Status:** open · **Severity:** low (a feature request: nothing is broken or lost) · **Screenshot:** none attached
+
+**What happens:**
+This is a feature request, not a defect. A file path in the terminal output is a file link: underlined on hover, and a click opens it (markdown and code in VS Code today). Aryan wants a click on a file link to open the file in the native tool for it, meaning the app Windows uses for that file type. He also wants a right-click menu on a file link with an "Open file location" item that shows the file in File Explorer.
+
+**Steps to make it happen again:**
+1. In a chat, hover a file path Claude wrote in the terminal until it is underlined.
+2. Click it: it opens in VS Code, not in the file type's default app.
+3. Right-click it: there is no "Open file location" item.
+
+**Evidence:** Only the description above. The menu item name Aryan asked for: "Open file location".
+
+---
+
+## Rail badges and sidebar thread states are lost when afterterm is restarted, only Mark as unread survives
+
+**Observed:** 2026-09-29 by Aryan during manual testing · **Phase:** 7 (attention state: needs-you, finished and unread, shown on the Phase 8 rail tiles and on the sidebar thread rows) · **Status:** open · **Severity:** medium (a waiting or finished thread no longer shows it after a restart, so it can be missed) · **Screenshot:** none attached
+
+**What happens:**
+The notification badges beside the project tiles on the rail do not survive closing and restarting afterterm. Of all the thread states, only a thread marked with "Mark as unread" still carries its mark after the restart. Aryan expects the other states to survive the restart too, both on the rail and as the state highlight on each thread's row in the sidebar.
+
+**Steps to make it happen again:**
+1. Have threads with states showing: at least one waiting for you or finished, so their project has badges on the rail and the threads show their state on their sidebar rows.
+2. Mark one chat with "Mark as unread".
+3. Close afterterm and open it again.
+4. The rail badges and the sidebar row states are gone; only the chat marked unread still shows its mark.
+
+**Evidence:** Only the description above. The item Aryan named as the one that survives: "Mark as unread".
+
+---
+
+## Pop-up notifications stay on screen while the afterterm window is open, instead of vanishing after a few seconds
+
+**Observed:** 2026-09-29 by Aryan during manual testing · **Phase:** pre-existing (the overlay pop-up notifications; the rail they make redundant is Phase 8) · **Status:** open · **Severity:** medium (the pop-ups crowd the screen and make the rail's notifications pointless while the window is open) · **Screenshot:** none attached
+
+**What happens:**
+A pop-up notification that arrives while the afterterm window is open stays on screen until it is closed by hand. Aryan expects it to vanish after a few seconds, like a regular pop-up notification, since the rail already shows the same notification. When the afterterm window is not open, the pop-up should keep persisting until the user closes it, which is how it behaves today. Because pop-ups persist while the window is open, they make the rail notifications useless.
+
+**Steps to make it happen again:**
+1. Have the afterterm window open.
+2. Let a thread raise a notification (for example a chat finishing a turn or waiting for you) so a pop-up appears.
+3. Wait: the pop-up stays on screen until it is closed by hand, rather than vanishing after a few seconds.
+
+**Evidence:** Only the description above.
+
+---
+
+## A chat running a background agent shows only its server as running, with nothing for the background agent
+
+**Observed:** 2026-09-29 by Aryan during manual testing · **Phase:** 5 (servers: the port pill and the "Running on" chip; the background state on the row and the header came in PR #40) · **Status:** open · **Severity:** medium (a background agent at work is invisible in the sidebar and the header) · **Screenshot:** `docs/screenshots/manual-testing/13-server-running-shown-while-background-agent-runs-unmarked.png`
+
+**What happens:**
+A chat has a background agent running, but the UI does not show it: the sidebar row and the header show only that a server is running. A server is indeed running in this thread. Aryan is not sure a server that Claude Code started should be highlighted in the UI at all. How to solve this in the UI is still open: show both the server and the background task, or find another solution. That choice is Aryan's to make.
+
+**Steps to make it happen again:**
+1. In a chat, have Claude Code start something that listens on a port, so the thread shows a port pill and "Running on :<port>".
+2. Have Claude Code start a background agent in the same chat, so its footer shows the agent running and "Waiting for 1 background agent to finish".
+3. The sidebar row and the header still show only the running server; nothing shows the background agent.
+
+**Evidence:**
+- `13-server-running-shown-while-background-agent-runs-unmarked.png`: the thread "Revy Phase 4 rebuild" in the project "Revy App" (Opus 5.5, branch and worktree `phase-4-all-plant-types`), at 14:10 on 29-09-2026. Its sidebar row, underlined in red, shows `:5554` and the green play icon; the header shows "Running on :5554". The terminal ends with "Waiting for 1 background agent to finish", and Claude Code's footer, also underlined in red, shows a `general-purpose` agent at work ("Scrolling to STP dosing details"). The commands in the output address an Android emulator named `emulator-5554`.
+- Aryan's words: "there is a background agent running but UI doesn't show it, UI shows a server is running".
+
+---
+
+## MP4 and HTML file links in a chat's terminal output open in VS Code instead of their own apps
+
+**Observed:** 2026-09-29 by Aryan during manual testing · **Phase:** Edited files Phase 3 (file paths in the terminal output are links, `docs/edited-files/`; any file name with an extension became a link in PR #44) · **Status:** open · **Severity:** medium (a link opens the file in the wrong app) · **Screenshot:** none attached
+
+**What happens:**
+A file path highlighted as a link in a chat's terminal output opens in VS Code when clicked, even when the file is an MP4 video or an HTML page. Aryan expects such files not to open in VS Code.
+
+**Steps to make it happen again:**
+1. In a chat, have Claude mention the path of an MP4 file and of an HTML file in its output, so each is highlighted as a link.
+2. Click the MP4 link: it opens in VS Code.
+3. Click the HTML link: it opens in VS Code.
+
+**Evidence:** Only the description above. Aryan's words: "even MP4 and HTML files are openeing in vs code from the chat highlights". Related open entry: "Clicking a file link in the terminal should open the file in its default app, and right-clicking it should offer Open file location" (2026-09-26).
+
+---
+
+## Opening a chat from another project moves that project to the top of Recent in the sidebar, without typing anything and without an animation
+
+**Observed:** 2026-09-30 by Aryan during manual testing · **Phase:** 8 (the panel's Pinned and Recent split and Recent's order by activity) · **Status:** open · **Severity:** medium (the Recent list reorders on a plain click) · **Screenshot:** none attached
+
+**What happens:**
+In the Recent section of the sidebar, just opening a chat from some other project brings that project to the top of the list. Aryan finds this weird: a project should only come to the top when he types something into one of its threads, not when he only opens a chat. He also wants the move to the top to be animated when it happens.
+
+**Steps to make it happen again:**
+1. Have two or more projects in the sidebar's Recent section.
+2. Click a chat in a project that is not at the top of Recent, without typing anything into it.
+3. That project jumps to the top of Recent at once, with no animation.
+
+**Evidence:** Only the description above. Aryan's words: "just opening a chat from some other project bring it to the top. This is weird, if I input something, then they should come on top. Also, there should be animation for it".
+
+---
+
+## Some file paths in a chat's reply are highlighted as links and others are not
+
+**Observed:** 2026-09-30 by Aryan during manual testing · **Phase:** Edited files Phase 3 (file paths in the terminal output are links, `docs/edited-files/`) · **Status:** open · **Severity:** medium (paths Claude gives in a reply cannot be opened from the terminal) · **Screenshot:** `docs/screenshots/manual-testing/14-chat-reply-screenshot-paths-some-link-some-do-not.png`
+
+**What happens:**
+Aryan asked a chat for the paths of test screenshots. In Claude's reply, some of the file and folder paths work with the link highlight (underlined on hover, open on click) and some do not. He expects every path in the reply to work as a link.
+
+**Steps to make it happen again:**
+1. In a chat, ask Claude for the paths of some files, so its reply lists them (full paths, paths relative to a folder the reply names, and bare file names).
+2. Hover each path in the reply: some are highlighted as links and some are not.
+
+**Evidence:**
+- `14-chat-reply-screenshot-paths-some-link-some-do-not.png`: the thread "Revy Phase 4 rebuild" in the project "Revy App" (Opus 5.5, branch and worktree `phase-4-all-plant-types`, header showing "35 files" and "Working"). The reply, written on 2026-09-30 at about 13:02, starts "1. Animation screenshots folder" with the full path `D:\Pitara\Work\For Friends\Revy App\.claude\worktrees\phase-4-all-plant-types\docs\testing\phase-4\phase-3-changes\screenshots\animations\`, then names `17-open-deleted-card-t0.05.png` to `t0.80.png`, then says "All screenshot paths below start from `D:\Pitara\Work\For Friends\Revy App\.claude\worktrees\phase-4-all-plant-types\docs\testing\phase-4\`" and lists paths such as `screenshots\revy-admin\24-stp-parameter-list-still-lists-biogas-parameters.png` and `screenshots\edge-cases\23-trend-chart-after-rapid-period-and-toggle-taps.png` under each issue.
+- Further down, the same reply says "All paths here start with `phase-3-changes\screenshots\`" and lists paths such as `plant-supervisor\39-etp-delete-dialog-landscape-top.png`.
+- The reply before it in the same chat (2026-09-29) gave paths from the worktree's root, such as `docs/testing/phase-4/bugs.md`.
+- Aryan's words: "in the messagee where I asked for screenshot links in the chat, some links work with the highlight feature, some don't."
