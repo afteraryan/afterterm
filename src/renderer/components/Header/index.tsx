@@ -2,7 +2,7 @@
 // (and, from Phase 3 on, model / branch / worktree) on line 2, the state
 // chip, the editor button and the thread's dots menu on the right. See
 // "Workspace" -> "Main pane" in docs/design-02-projects-and-threads.md and
-// PHASES.md Phase 1.
+// docs/phases-01-projects-and-threads.md Phase 1.
 import React, { useCallback, useRef, useState } from 'react';
 import { Tab, Group } from '../TabBar/types';
 import { EditorLogo, FolderIcon, IconBranch, IconModel, IconMore, IconTerm, IconWorktree, KindIcon, StateIcon } from '../Icons';
