@@ -385,3 +385,19 @@ A file path highlighted as a link in a chat's terminal output opens in VS Code w
 3. Click the HTML link: it opens in VS Code.
 
 **Evidence:** Only the description above. Aryan's words: "even MP4 and HTML files are openeing in vs code from the chat highlights". Related open entry: "Clicking a file link in the terminal should open the file in its default app, and right-clicking it should offer Open file location" (2026-09-26).
+
+---
+
+## Opening a chat from another project moves that project to the top of Recent in the sidebar, without typing anything and without an animation
+
+**Observed:** 2026-09-30 by Aryan during manual testing · **Phase:** 8 (the panel's Pinned and Recent split and Recent's order by activity) · **Status:** open · **Severity:** medium (the Recent list reorders on a plain click) · **Screenshot:** none attached
+
+**What happens:**
+In the Recent section of the sidebar, just opening a chat from some other project brings that project to the top of the list. Aryan finds this weird: a project should only come to the top when he types something into one of its threads, not when he only opens a chat. He also wants the move to the top to be animated when it happens.
+
+**Steps to make it happen again:**
+1. Have two or more projects in the sidebar's Recent section.
+2. Click a chat in a project that is not at the top of Recent, without typing anything into it.
+3. That project jumps to the top of Recent at once, with no animation.
+
+**Evidence:** Only the description above. Aryan's words: "just opening a chat from some other project bring it to the top. This is weird, if I input something, then they should come on top. Also, there should be animation for it".
