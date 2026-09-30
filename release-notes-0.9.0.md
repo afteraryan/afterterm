@@ -1,6 +1,6 @@
 ## 0.9.0 (2026-09-29), everything since 0.8.1
 
-This release changes what afterterm is built around. It used to show you a list of terminals; now it shows you your work: the projects you care about, and the Claude Code chats and shells inside each one. It tells you which of them need you, and anything you are not using sleeps until you ask for it, so a restart no longer starts every old terminal at once.
+This release changes what afterterm is built around. It used to show you a list of terminals; now it shows you your work: the projects you care about, and the Claude Code chats and shells inside each one. It tells you which of them need you, and anything you are not using sleeps until you ask for it.
 
 ### Home screen
 
@@ -99,5 +99,5 @@ This release changes what afterterm is built around. It used to show you a list 
 ### Removed or changed on purpose
 
 - Tab groups and the Projects shelf are gone; projects and threads replace them (dragging one thread onto another still creates a project, now with its name field open). An existing `session.json` is migrated automatically.
-- Nothing resumes at launch any more. Every thread starts asleep and is woken by you, which is what keeps a relaunch with many Claude sessions from starting them all at once.
+- Nothing resumes on its own any more. 0.8.1 resumed the Claude session of the tab that was open when you quit, and each other one the first time you clicked it; now every thread starts asleep, opening one shows its last output, and it resumes only when you wake it.
 
