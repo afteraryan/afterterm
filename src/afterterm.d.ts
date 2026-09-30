@@ -110,6 +110,8 @@ interface GitInfo {
   branch: string | null;
   worktree: string | null;
   repoRoot: string | null;
+  /** The folder holding .git: a linked worktree's own folder, or the checkout's. */
+  top: string | null;
 }
 
 interface AftertermClaudeSessionAPI {

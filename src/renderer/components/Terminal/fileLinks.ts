@@ -7,6 +7,7 @@ import type { IBufferLine, ILink, ILinkProvider, IMarker, Terminal } from '@xter
 import type { ChangedFile, EditEvent } from '../../../session-files';
 import {
   findPathCandidates, resolveCandidates, isBareName, matchChangedName, continuation, openKind, elidedTail, hasExtension, narrowByTail,
+  spacedVariants, wrappedAtSpace,
   type PathCandidate,
 } from '../../filePaths';
 import './fileLinks.css';
@@ -14,6 +15,8 @@ import './fileLinks.css';
 /** What a thread's links resolve against, read fresh on every hover. */
 export interface FileLinkContext {
   threadFolder?: string;
+  /** The top of the worktree the thread folder is in (see ResolveContext). */
+  worktreeTop?: string;
   projectFolder?: string;
   home?: string;
   changed: Pick<ChangedFile, 'path' | 'at'>[];
@@ -36,6 +39,8 @@ const statCache = new Map<string, { kind: Kind; at: number }>();
 // after a few seconds, since Claude often prints a path just before writing it.
 const FOUND_TTL = 60_000;
 const MISSING_TTL = 4_000;
+/** main.ts's MAX_STAT_PATHS. */
+const STAT_BATCH = 200;
 
 async function statMany(paths: string[]): Promise<Map<string, Kind>> {
   const now = Date.now();
@@ -48,8 +53,12 @@ async function statMany(paths: string[]): Promise<Map<string, Kind>> {
     else if (!ask.includes(p)) ask.push(p);
   }
   if (ask.length) {
+    // Main answers at most STAT_BATCH paths a call; a row of paths with spaces
+    // can ask for more, so larger asks go in several calls.
     let got: Record<string, Kind> = {};
-    try { got = await window.afterterm.files.stat(ask); } catch { /* treat as missing */ }
+    const batches: string[][] = [];
+    for (let i = 0; i < ask.length; i += STAT_BATCH) batches.push(ask.slice(i, i + STAT_BATCH));
+    try { got = Object.assign({}, ...await Promise.all(batches.map(b => window.afterterm.files.stat(b)))); } catch { /* treat as missing */ }
     for (const p of ask) {
       const kind = got[p] ?? null;
       statCache.set(p.toLowerCase(), { kind, at: Date.now() });
@@ -196,8 +205,10 @@ function hideTip() {
   tip?.classList.remove('show');
 }
 
-function shortPath(path: string, folder: string | undefined): string {
-  if (folder) {
+/** The path relative to the first of `folders` it is inside, or whole. */
+function shortPath(path: string, folders: (string | undefined)[]): string {
+  for (const folder of folders) {
+    if (!folder) continue;
     const base = folder.replace(/[\\/]+$/, '');
     if (path.toLowerCase().startsWith(base.toLowerCase() + '\\')) return path.slice(base.length + 1);
   }
@@ -205,6 +216,9 @@ function shortPath(path: string, folder: string | undefined): string {
 }
 
 // ── the provider ────────────────────────────────────────────────────────────
+
+/** How many rows one path may run over: a long path with spaces in a narrow terminal. */
+const MAX_PATH_ROWS = 4;
 
 interface Pending {
   cand: PathCandidate;
@@ -226,41 +240,59 @@ export function createFileLinkProvider(
       if (!ctx) { callback(undefined); return; }
       const buf = term.buffer.active;
       const cols = term.cols;
-      const here = readLine(buf.getLine(y - 1), cols);
       const pending: Pending[] = [];
-      const lineTime = toolTimes.timeAt(y - 1);
+      // The rows around this one (1-based): a path that reaches this row may start
+      // up to MAX_PATH_ROWS - 1 rows above it and run on below it.
+      const top = Math.max(1, y - (MAX_PATH_ROWS - 1));
+      const bottom = Math.min(buf.length, y + (MAX_PATH_ROWS - 1));
+      const rows: LineText[] = [];
+      for (let r = top; r <= bottom; r++) rows.push(readLine(buf.getLine(r - 1), cols));
+      const at = (row: number) => rows[row - top];
+      // How far into a row the second half of a path broken at the edge above
+      // it reaches, so that half is not offered as a path of its own.
+      const covered = new Map<number, number>();
 
-      // A path from the line above that runs over the edge into this one. Its
-      // second half is not offered again as a path of its own.
-      let coveredUpTo = -1;
-      if (y > 1) {
-        const above = readLine(buf.getLine(y - 2), cols);
-        const last = findPathCandidates(above.text).pop();
-        if (last) {
-          const j = continuation(last, above.text, cols, here.text);
-          if (j) {
-            pending.push({
-              cand: last,
-              text: j.text,
-              lineTime: toolTimes.timeAt(y - 2),
-              range: { start: span(above, last.start, last.end, y - 1).start, end: span(here, j.nextStart, j.nextEnd, y).end },
-            });
-            coveredUpTo = j.nextEnd;
+      // Every reading of a path from `from` on `row`: rejoined across its spaces
+      // (spacedVariants), longest first, then as it is. Each also goes on into
+      // the row below when the path does, broken at the right edge (continuation)
+      // or wrapped at one of its own spaces (wrappedAtSpace), for up to `rowsLeft`
+      // rows; the longer readings come first. A reading whose text goes on below
+      // with a separator ("...\For Friends" then "\Revy App\...") is only part of
+      // a path and is never offered alone, or it would open the wrong folder.
+      type Reading = { text: string; row: number; end: number };
+      const readings = (row: number, from: Pick<PathCandidate, 'text' | 'end' | 'tool' | 'line'>, rowsLeft: number): Reading[] => {
+        const out: Reading[] = [];
+        const l = at(row);
+        const below = row < bottom ? at(row + 1) : null;
+        for (const r of [...spacedVariants(l.text, from), { text: from.text, end: from.end }]) {
+          let partial = false;
+          if (below && rowsLeft > 1) {
+            const edge = continuation({ end: r.end, text: r.text }, l.text, cols, below.text);
+            const wrapped = wrappedAtSpace({ ...from, end: r.end, text: r.text }, l.text, cols, below.text);
+            for (const j of [edge, wrapped]) if (j) out.push(...readings(row + 1, { ...from, text: j.text, end: j.nextEnd }, rowsLeft - 1));
+            if (edge) {
+              covered.set(row + 1, Math.max(covered.get(row + 1) ?? -1, edge.nextEnd));
+              partial = /^[\\/]/.test(edge.text.slice(r.text.length));
+            }
+          }
+          if (!partial) out.push({ text: r.text, row, end: r.end });
+        }
+        return out;
+      };
+
+      // Paths that start on the rows above and reach this one first, then this
+      // row's own. A reading pushed earlier wins the cells it covers once it links.
+      for (let row = top; row <= y; row++) {
+        const l = at(row);
+        const time = toolTimes.timeAt(row - 1);
+        for (const cand of findPathCandidates(l.text)) {
+          if (cand.start < (covered.get(row) ?? -1)) continue;
+          const start = span(l, cand.start, cand.end, row).start;
+          for (const r of readings(row, cand, MAX_PATH_ROWS)) {
+            if (r.row < y) continue; // ends above this row: that row's own hover offers it
+            pending.push({ cand, text: r.text, lineTime: time, range: { start, end: span(at(r.row), 0, r.end, r.row).end } });
           }
         }
-      }
-
-      const next = y < buf.length ? readLine(buf.getLine(y), cols) : null;
-      for (const cand of findPathCandidates(here.text)) {
-        if (cand.start < coveredUpTo) continue;
-        const j = next ? continuation(cand, here.text, cols, next.text) : null;
-        if (j) {
-          pending.push({
-            cand, text: j.text, lineTime,
-            range: { start: span(here, cand.start, cand.end, y).start, end: span(next!, j.nextStart, j.nextEnd, y + 1).end },
-          });
-        }
-        pending.push({ cand, text: cand.text, lineTime, range: span(here, cand.start, cand.end, y) });
       }
       if (pending.length === 0) { callback(undefined); return; }
 
@@ -282,27 +314,33 @@ export function createFileLinkProvider(
       });
       const all = options.flatMap(o => [...o.direct, ...(o.named ? [o.named.path] : [])]);
       statMany(all).then(async found => {
-        // The last resort, only for names with an extension nothing above found.
-        const roots = [ctx.threadFolder, ctx.projectFolder].filter((r): r is string => !!r);
+        // The last resort, only for names with an extension nothing above found:
+        // a search by name under the chat's folder (nearest first), the whole of
+        // its worktree (Claude may have moved into a subfolder since), then the
+        // project's folder.
+        const roots = [ctx.threadFolder, ctx.worktreeTop, ctx.projectFolder]
+          .filter((r, i, all): r is string => !!r && all.findIndex(o => o?.toLowerCase() === r.toLowerCase()) === i);
         const unfound = options.filter(o =>
           hasExtension(o.lookup)
           && !o.direct.some(d => found.get(d))
           && !(o.named && found.get(o.named.path)));
         const onDisk = unfound.length && roots.length ? await findMany(unfound.map(o => o.lookup), roots) : new Map<string, string[]>();
         const links: ILink[] = [];
-        const taken: { start: number; end: number; y: number }[] = [];
+        const taken: ILink['range'][] = [];
+        const within = (at: ILink['range']['start'], r: ILink['range']) =>
+          (at.y > r.start.y || (at.y === r.start.y && at.x >= r.start.x))
+          && (at.y < r.end.y || (at.y === r.end.y && at.x <= r.end.x));
         for (const { p, lookup, bare, direct, named } of options) {
-          // The joined candidate was pushed before its partial; once it links,
-          // the partial on the same cells is skipped.
-          const startY = p.range.start.y;
-          if (taken.some(t => t.y === startY && p.range.start.x >= t.start && p.range.start.x <= t.end)) continue;
+          // A joined reading was pushed before its pieces; once it links, a
+          // piece starting on its cells (on either line) is skipped.
+          if (taken.some(r => within(p.range.start, r))) continue;
           const byName = named && found.get(named.path) ? named : null;
           const inFolder = direct.find(d => found.get(d));
           let path: string | undefined;
           let note: string | undefined;
           // Which file a name opens, relative to the chat's folder when inside it.
           const say = (target: string, others: number, how: string) =>
-            others > 0 ? `Opens ${shortPath(target, ctx.threadFolder)}, ${how} of ${others + 1} with this name` : `Opens ${shortPath(target, ctx.threadFolder)}`;
+            others > 0 ? `Opens ${shortPath(target, [ctx.threadFolder, ctx.worktreeTop])}, ${how} of ${others + 1} with this name` : `Opens ${shortPath(target, [ctx.threadFolder, ctx.worktreeTop])}`;
           if (byName && (bare || !inFolder)) {
             path = byName.path;
             note = say(path, byName.others, 'the newest');
@@ -319,7 +357,7 @@ export function createFileLinkProvider(
           if (!path) continue;
           const kind = found.get(path)!;
           const target: FileLinkTarget = { path, line: p.cand.line, how: openKind(path, kind === 'dir') };
-          taken.push({ start: p.range.start.x, end: p.range.end.y === startY ? p.range.end.x : cols, y: startY });
+          taken.push(p.range);
           links.push({
             range: p.range,
             text: p.text,

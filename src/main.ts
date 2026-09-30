@@ -1910,7 +1910,7 @@ ipcMain.handle('threads:prune', (_event, keepIds: unknown): number => {
 
 // Reads .git/HEAD (and a worktree's .git file), never runs git. See src/git-info.ts.
 ipcMain.handle('git:info', (_event, cwd: unknown) => {
-  if (typeof cwd !== 'string' || !cwd) return { branch: null, worktree: null, repoRoot: null };
+  if (typeof cwd !== 'string' || !cwd) return { branch: null, worktree: null, repoRoot: null, top: null };
   return gitInfo(cwd, fs);
 });
 
@@ -1920,7 +1920,7 @@ const GIT_INFO_MANY_MAX = 500;
 ipcMain.handle('git:infoMany', (_event, cwds: unknown) => {
   if (!Array.isArray(cwds)) return [];
   return cwds.slice(0, GIT_INFO_MANY_MAX).map(cwd =>
-    typeof cwd === 'string' && cwd ? gitInfo(cwd, fs) : { branch: null, worktree: null, repoRoot: null }
+    typeof cwd === 'string' && cwd ? gitInfo(cwd, fs) : { branch: null, worktree: null, repoRoot: null, top: null }
   );
 });
 

@@ -6,6 +6,18 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
+## Branch file-links-spaces-and-folders (2026-09-30)
+
+### Paths with spaces, and paths written from the top of a worktree, are links wherever Claude is
+**Status:** waiting for Aryan
+1. Open "Revy Phase 4 rebuild" and scroll to its 30 Sep reply that starts "1. Animation screenshots folder".
+2. Hover the full path under that heading (`D:\Pitara\Work\For Friends\Revy App\...\animations\`): the whole path is underlined, across the line break too. Click it: the folder opens in File Explorer.
+3. Hover a screenshot under A1 (`screenshots\revy-admin\24-...png`): it is underlined and a note says "Opens docs\testing\phase-4\screenshots\...". Click it: the image opens.
+4. Hover a second tester's screenshot (`plant-supervisor\39-...png`, under B1): it links too.
+5. Still plain, as you chose: `t0.80.png` and `-c.png` (shorthand for a longer name) and the folder `phase-3-changes\screenshots\`.
+
+---
+
 ## Branch file-links-any-extension (2026-09-26)
 
 ### Any file name with an extension in the terminal is a link, images included
