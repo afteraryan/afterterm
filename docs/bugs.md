@@ -459,3 +459,19 @@ Pressing Ctrl+Shift+R suddenly takes Aryan to the Home screen and puts all his t
 3. afterterm switches to Home, and every thread is asleep.
 
 **Evidence:** Only the description above. Aryan's words: "doing ctrl+shit+R suddenly takes me to home and puts all sessions to sleep. WTF!"
+
+---
+
+## The order of project tiles on the rail follows a rule Aryan cannot see and never chose
+
+**Observed:** 2026-10-01 by Aryan during manual testing · **Phase:** 8 (the always-on rail and its project tiles) · **Status:** open · **Severity:** medium (the rail decides which project comes on top, and Aryan cannot predict or set it) · **Screenshot:** none attached
+
+**What happens:**
+When notifications arrive and projects appear on the rail, Aryan cannot tell how the tiles are arranged or why one project sits above another. He does not know whether the order is by recency, by pinning or by something else; to him it is a black box. He expects to know the rule and to decide consciously which project comes on top, so the order can be designed rather than left as it is.
+
+**Steps to make it happen again:**
+1. Have threads in two or more projects reach a state that puts their project on the rail (waiting, finished or compacting).
+2. Look at the rail's tiles.
+3. Nothing on screen says why the tiles are in that order, and there is no way to choose which one comes on top.
+
+**Evidence:** Only the description above. Aryan's words: "When notifications come on the rail, how are they arranged? I need to consciously work on that. I need to consciously decide which comes on top. Are we doing it on the basis of recency, or are we pinning them? How are we doing it? Need to know that and work on it. Right now, it is a black box to me."
