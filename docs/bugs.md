@@ -557,3 +557,27 @@ Most of the time, when Aryan clicks the plus on a project to open a new thread, 
 3. Claude Code is not running; it has to be started by typing its command in the thread.
 
 **Evidence:** Only the description above. Aryan's words: "Usually, when I click plus on a project and open a new thread, I just want to start another Claude session. I have to manually, in the thread, open a terminal and type whatever I have to type in Claude." and "If we can fast-forward it so that the default behavior is opening a thread and starting a Claude session, but if I want to open a shell, or if I want to open CMD or PowerShell, blah, blah, blah, then we do something else. I don't know the solution. This is the problem."
+
+---
+
+## afterterm's window froze and then went blank while the PC was low on memory, and the only way back was ending a process by hand
+
+**Observed:** 2026-10-02 by Aryan during manual testing · **Phase:** pre-existing (the main window and the terminal renderer; nothing in afterterm recovers a broken window) · **Status:** open · **Severity:** high (the whole window was unusable while every session in it was still running, and closing the app to get it back would have stopped them all) · **Screenshot:** none attached
+
+**What happens:**
+The afterterm window froze. The Claude Code sessions inside it kept working (one of them opened a Claude artifact on the web while the window showed nothing new), but the window did not respond or redraw. Minimising it for about a minute and restoring it changed nothing. Resetting the graphics driver with Win+Ctrl+Shift+B changed nothing, and the window then went completely blank. Ending afterterm's GPU process brought the window back, but with no text in any terminal: only the red and green marks of Claude Code's diffs were drawn. Changing the font size once (Ctrl+scroll up one notch, then down one notch) brought a terminal's text back, and that had to be done in each terminal separately.
+
+Closing afterterm was not an option, because it would have stopped every running shell and Claude session in it. Aryan expects afterterm to have crash recovery of its own: it should get its window back without the user closing the app or ending processes by hand. He is not sure that covering graphics failures alone is enough, and wants the recovery to be broader than that.
+
+**Steps to make it happen again:**
+Not known yet; seen as described above. It happened while the PC was low on memory, after afterterm had been running for about two days.
+
+**Evidence:**
+- Aryan's words, on the freeze: "At this very moment, my afterterm window is frozen, but I know the Claude sessions have not broken. They're still working. I know it is working because one of the agents opened a Claude artifact on the web, which was not open." and "Do not close the fucking app. It'll break things."
+- Aryan's words, after minimising: "I minimized afterterm for about a minute, but then I expanded it, and it's still the same."
+- Aryan's words, after the driver reset: "afterterm has gone completely blank, and it did not even fix after I did Win+Ctrl+Shift+B."
+- Aryan's words, after the GPU process was ended: "now no text is rendering. I can see some green and red marks when a terminal deletes some code and brings it back, but text is not rendering once again."
+- Aryan's words, on the request: "I think afterterm should have some sort of crash-recovery thing. Don't know if exactly just graphic break failures will be enough but more intensive."
+- Measured on 2026-10-02 at about 16:40 India time, while the window was frozen: 369 MB of 16 GB RAM free. afterterm had been running since 2026-09-30 14:19 (main process 37384, GPU process 32620, the window's renderer 24116). All of them used almost no CPU over five seconds, and Windows reported the window as responding. The renderer had 332 MB of private memory but only 21 MB of it in RAM, later 3 MB. The rest of the machine: 29 `claude` processes (12.6 GB), 18 `relay_win.exe` Unity relays started by Claude sessions (9.8 GB, about 600 MB each), Chrome 33 processes (7.5 GB).
+- After Aryan closed other apps, free RAM rose to 2.6 GB, and the window still did not redraw.
+- What brought it back, in order: ending only afterterm's GPU process (32620). A new GPU process (42272) started by itself, the renderer started using CPU again, and the window drew again, without text. Then Ctrl+scroll up and down in each terminal brought its text back. All 17 shells under the main process were still running at each step, so no session was lost.
