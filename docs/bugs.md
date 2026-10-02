@@ -475,3 +475,21 @@ When notifications arrive and projects appear on the rail, Aryan cannot tell how
 3. Nothing on screen says why the tiles are in that order, and there is no way to choose which one comes on top.
 
 **Evidence:** Only the description above. Aryan's words: "When notifications come on the rail, how are they arranged? I need to consciously work on that. I need to consciously decide which comes on top. Are we doing it on the basis of recency, or are we pinning them? How are we doing it? Need to know that and work on it. Right now, it is a black box to me."
+
+---
+
+## The rail's project icons and coloured number badges do not say what they mean
+
+**Observed:** 2026-10-02 by Aryan during manual testing · **Phase:** 8 (the always-on rail, its project tiles and their badges) · **Status:** open · **Severity:** medium (the rail is there to show what needs attention first, and Aryan cannot read it) · **Screenshot:** `docs/screenshots/manual-testing/16-rail-tiles-and-badges-with-no-names-or-meanings.png`
+
+**What happens:**
+Aryan looks at the rail and cannot tell what its icons and badges are: which project each icon stands for, and what each coloured number means. Because of that he cannot use the rail to decide what to deal with first, so to him the rail is useless at this point. He expects the rail to make clear what each icon and each badge means, so he can prioritise from it.
+
+**Steps to make it happen again:**
+1. Have threads in several projects waiting, working or finished, so their projects appear as tiles on the rail.
+2. Look at the rail.
+3. Each tile is a project icon with one or two coloured number badges beside it, and nothing on the rail says which project it is or what each badge colour and number stands for.
+
+**Evidence:**
+- `16-rail-tiles-and-badges-with-no-names-or-meanings.png`: afterterm v0.8.1 with the rail and the panel open. Below the Home and Workspace pill the rail has seven project tiles and no names: a blue robot with a green 1; a red bell with a grey 1 and a green 1; a yellow pencil with an amber 1 and a grey 1; a red film strip with a green 1; a blue film strip with an amber 1; an orange robot with a green 1; a pink robot with a green 1. The panel beside it shows the projects "Revy App" (7), "Outscal full-l..." (with a bell 1 pill and a spinner 1 pill; its threads "Course creation dec..." with a bell and "Video generator ..." with a spinner), and under Recent "afterterm" (thread "Monday work in Aft..." with a tick), "Tinkering", "OpenMousBot" (1), "contentchecker" (1), "afterbot" (1) and "manus video" (1, with a bell 1 pill), then "Other projects" (8).
+- Aryan's words (spoken, so "reel" is the rail and "privatize" is most likely "prioritize"): "At this point, the reel is useless because I don't fucking know what all these logos and icons and all that are. I don't know what this icon means, and I don't know how to privatize shit."
