@@ -493,3 +493,19 @@ Aryan looks at the rail and cannot tell what its icons and badges are: which pro
 **Evidence:**
 - `16-rail-tiles-and-badges-with-no-names-or-meanings.png`: afterterm v0.8.1 with the rail and the panel open. Below the Home and Workspace pill the rail has seven project tiles and no names: a blue robot with a green 1; a red bell with a grey 1 and a green 1; a yellow pencil with an amber 1 and a grey 1; a red film strip with a green 1; a blue film strip with an amber 1; an orange robot with a green 1; a pink robot with a green 1. The panel beside it shows the projects "Revy App" (7), "Outscal full-l..." (with a bell 1 pill and a spinner 1 pill; its threads "Course creation dec..." with a bell and "Video generator ..." with a spinner), and under Recent "afterterm" (thread "Monday work in Aft..." with a tick), "Tinkering", "OpenMousBot" (1), "contentchecker" (1), "afterbot" (1) and "manus video" (1, with a bell 1 pill), then "Other projects" (8).
 - Aryan's words (spoken, so "reel" is the rail and "privatize" is most likely "prioritize"): "At this point, the reel is useless because I don't fucking know what all these logos and icons and all that are. I don't know what this icon means, and I don't know how to privatize shit."
+
+---
+
+## There is no way to star a thread so it stays at the top of its project
+
+**Observed:** 2026-10-02 by Aryan during manual testing · **Phase:** 8 (the panel's thread order inside a project and its five-row fold) · **Status:** open · **Severity:** low (a feature request: nothing is broken or lost) · **Screenshot:** none attached
+
+**What happens:**
+This is a feature request, not a defect. Aryan cannot mark a thread as important inside its project: the threads move as others are added or used, so a thread he keeps coming back to does not stay in one place. He wants to star a thread so that it stays at the top of its project.
+
+**Steps to make it happen again:**
+1. Open a project in the panel that has several threads.
+2. Look for a way to star a thread (the row's right-click menu, the header's dots menu).
+3. There is none, and no thread can be kept at the top of its project.
+
+**Evidence:** Only the description above. Aryan's words: "need a feature to star threads so they remain on top of the project"
