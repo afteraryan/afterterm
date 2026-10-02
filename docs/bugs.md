@@ -509,3 +509,19 @@ This is a feature request, not a defect. Aryan cannot mark a thread as important
 3. There is none, and no thread can be kept at the top of its project.
 
 **Evidence:** Only the description above. Aryan's words: "need a feature to star threads so they remain on top of the project"
+
+---
+
+## The sidebar panel cannot be resized by dragging its edge
+
+**Observed:** 2026-10-02 by Aryan during manual testing · **Phase:** 8 (the panel beside the rail) · **Status:** open · **Severity:** low (a feature request: nothing is broken or lost) · **Screenshot:** none attached
+
+**What happens:**
+The sidebar panel has a fixed width. Aryan expects to be able to drag its edge to make it wider or narrower.
+
+**Steps to make it happen again:**
+1. Open the workspace with the panel shown.
+2. Put the pointer on the edge between the panel and the terminal and try to drag it.
+3. Nothing happens: the panel keeps its width.
+
+**Evidence:** Only the description above. Aryan's words: "I should be able to drag and resize the sidebar."
