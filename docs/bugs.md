@@ -581,3 +581,19 @@ Not known yet; seen as described above. It happened while the PC was low on memo
 - Measured on 2026-10-02 at about 16:40 India time, while the window was frozen: 369 MB of 16 GB RAM free. afterterm had been running since 2026-09-30 14:19 (main process 37384, GPU process 32620, the window's renderer 24116). All of them used almost no CPU over five seconds, and Windows reported the window as responding. The renderer had 332 MB of private memory but only 21 MB of it in RAM, later 3 MB. The rest of the machine: 29 `claude` processes (12.6 GB), 18 `relay_win.exe` Unity relays started by Claude sessions (9.8 GB, about 600 MB each), Chrome 33 processes (7.5 GB).
 - After Aryan closed other apps, free RAM rose to 2.6 GB, and the window still did not redraw.
 - What brought it back, in order: ending only afterterm's GPU process (32620). A new GPU process (42272) started by itself, the renderer started using CPU again, and the window drew again, without text. Then Ctrl+scroll up and down in each terminal brought its text back. All 17 shells under the main process were still running at each step, so no session was lost.
+
+---
+
+## The rail shows pinned projects' tiles the same as the others, with no divider, and pinning a project after its tile appears should move it into that pinned group
+
+**Observed:** 2026-10-02 by Aryan during manual testing · **Phase:** 8 (the always-on rail and its project tiles), with pinning from Phase 2 · **Status:** open · **Severity:** low (a feature request: nothing is broken or lost) · **Screenshot:** none attached
+
+**What happens:**
+This is a feature request, not a defect. On the rail, a pinned project's tile looks the same as any other project's tile, and nothing separates them. Aryan wants the tiles of pinned projects to look different and to be set apart from the rest by a divider, so he can see at a glance that these are his high-priority projects. He also expects the rail to follow a pin made later: if a project's tile is already on the rail and he then pins that project, its tile should change to the pinned look and move to the pinned side of the divider.
+
+**Steps to make it happen again:**
+1. Have threads in a pinned project and in an unpinned project reach a state that puts both projects on the rail (waiting, finished or compacting).
+2. Look at the rail: the two tiles look alike and there is no divider between pinned and unpinned projects.
+3. Pin the unpinned project while its tile is on the rail: the rail should show it with the pinned projects, in the pinned look.
+
+**Evidence:** Only the description above. Aryan's words (spoken, so "Rails" is the rail and "pay a project" is most likely "pin a project"): "On Rails, the notifications for pinned projects should look different and should be divided by a divider so that I know these are my high-priority things. And of course, if a notification has come on the rail, then after the notification has come, I decide to pay a project. Its notifications on the rail also should change accordingly." Related open entries: "The order of project tiles on the rail follows a rule Aryan cannot see and never chose" (2026-10-01) and "The rail's project icons and coloured number badges do not say what they mean" (2026-10-02).
