@@ -541,3 +541,19 @@ Aryan archived a project that was under Recent in the sidebar, expecting it to m
 3. The project leaves Recent but does not appear in the Other projects drawer; it is listed only in the Archived section on Home.
 
 **Evidence:** Only the description above. Aryan's words: "If a project is in Recent and I put it in Archive, I thought it would go to Other Projects, but it does not. I can only access archived projects through the homepage, which is very weird." and "I don't want an archive project. If the project just goes into the Other Projects dropdown, that is what I wanted. Need to fix the terminology here and need to kill the entire archive functionality. I just want them to move into Other Projects so they are off the project bar."
+
+---
+
+## A new thread from a project's plus button opens a plain shell, so starting Claude Code takes typing it by hand every time
+
+**Observed:** 2026-10-02 by Aryan during manual testing · **Phase:** 2 (new thread in a project), opened from the plus on the project's row in the Phase 8 panel · **Status:** open · **Severity:** low (a feature request: nothing is broken or lost, but the most common action takes extra steps every time) · **Screenshot:** none attached
+
+**What happens:**
+Most of the time, when Aryan clicks the plus on a project to open a new thread, he wants another Claude Code session. Instead the thread opens as a plain shell, and he has to type the command to start Claude in it himself every time. He wants the default to be a new thread with a Claude session already starting, with a separate way to open a plain shell (cmd, PowerShell and so on) when that is what he wants. He has not decided how this should look; he is describing the problem, not a solution.
+
+**Steps to make it happen again:**
+1. In the sidebar panel, hover a project's row and click its plus (New thread in the project).
+2. A new thread opens with the project's shell at a prompt.
+3. Claude Code is not running; it has to be started by typing its command in the thread.
+
+**Evidence:** Only the description above. Aryan's words: "Usually, when I click plus on a project and open a new thread, I just want to start another Claude session. I have to manually, in the thread, open a terminal and type whatever I have to type in Claude." and "If we can fast-forward it so that the default behavior is opening a thread and starting a Claude session, but if I want to open a shell, or if I want to open CMD or PowerShell, blah, blah, blah, then we do something else. I don't know the solution. This is the problem."
