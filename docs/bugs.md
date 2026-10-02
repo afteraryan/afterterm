@@ -525,3 +525,19 @@ The sidebar panel has a fixed width. Aryan expects to be able to drag its edge t
 3. Nothing happens: the panel keeps its width.
 
 **Evidence:** Only the description above. Aryan's words: "I should be able to drag and resize the sidebar."
+
+---
+
+## Archiving a project from the sidebar hides it everywhere except Home, instead of moving it into Other projects
+
+**Observed:** 2026-10-02 by Aryan during manual testing · **Phase:** 2 (archive and restore), with the panel's Other projects drawer from Phase 8 · **Status:** open · **Severity:** medium (the feature does something other than what Aryan expected, and the project becomes hard to reach) · **Screenshot:** none attached
+
+**What happens:**
+Aryan archived a project that was under Recent in the sidebar, expecting it to move into the Other projects drawer at the bottom of the panel. It did not go there: an archived project can only be reached from the Archived section on Home, which he finds very odd. What he wants is not an archive at all: a way to take a project off the sidebar's project list so it sits in Other projects. He asks for the whole archive feature to be removed, and for the action and its wording to become "move to Other projects" instead.
+
+**Steps to make it happen again:**
+1. Have a project listed under Recent in the sidebar panel.
+2. Right-click it and choose Archive.
+3. The project leaves Recent but does not appear in the Other projects drawer; it is listed only in the Archived section on Home.
+
+**Evidence:** Only the description above. Aryan's words: "If a project is in Recent and I put it in Archive, I thought it would go to Other Projects, but it does not. I can only access archived projects through the homepage, which is very weird." and "I don't want an archive project. If the project just goes into the Other Projects dropdown, that is what I wanted. Need to fix the terminology here and need to kill the entire archive functionality. I just want them to move into Other Projects so they are off the project bar."
