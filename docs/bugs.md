@@ -597,3 +597,21 @@ This is a feature request, not a defect. On the rail, a pinned project's tile lo
 3. Pin the unpinned project while its tile is on the rail: the rail should show it with the pinned projects, in the pinned look.
 
 **Evidence:** Only the description above. Aryan's words (spoken, so "Rails" is the rail and "pay a project" is most likely "pin a project"): "On Rails, the notifications for pinned projects should look different and should be divided by a divider so that I know these are my high-priority things. And of course, if a notification has come on the rail, then after the notification has come, I decide to pay a project. Its notifications on the rail also should change accordingly." Related open entries: "The order of project tiles on the rail follows a rule Aryan cannot see and never chose" (2026-10-01) and "The rail's project icons and coloured number badges do not say what they mean" (2026-10-02).
+
+---
+
+## The [Image #N] tags in a chat's terminal output do not preview the image on hover or open it on click
+
+**Observed:** 2026-10-04 by Aryan during manual testing · **Phase:** Edited files Phase 3 (file paths in the terminal output are links, `docs/edited-files/`) · **Status:** open · **Severity:** low (a feature request: nothing is broken or lost) · **Screenshot:** `docs/screenshots/manual-testing/17-image-tags-in-a-chat-message-with-no-preview-or-click.png`
+
+**What happens:**
+This is a feature request, not a defect. When images are pasted into a message in a chat, Claude Code shows each one as an `[Image #N]` tag, inside the message text and again in a list under the message. In afterterm these tags are plain text. Aryan expects them to work like links too: hovering a tag should show a preview of that image, and clicking a tag should open the image.
+
+**Steps to make it happen again:**
+1. In a chat, paste one or more images into a message and send it.
+2. The message shows `[Image #1]`, `[Image #2]` and so on in its text, and the same tags in a list under it.
+3. Hover a tag: no preview of the image appears. Click a tag: the image does not open.
+
+**Evidence:**
+- `17-image-tags-in-a-chat-message-with-no-preview-or-click.png`: a chat in afterterm with a sent message that has `[Image #1]` to `[Image #5]` inside its lines, and under the message a list of the five tags, `[Image #1]` to `[Image #5]`, one per line, which Aryan marked with a red bracket.
+- Aryan's words: "These image tags should also "preview" images on hovering and open them on clicking".
