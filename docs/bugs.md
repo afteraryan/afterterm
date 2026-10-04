@@ -615,3 +615,18 @@ This is a feature request, not a defect. When images are pasted into a message i
 **Evidence:**
 - `17-image-tags-in-a-chat-message-with-no-preview-or-click.png`: a chat in afterterm with a sent message that has `[Image #1]` to `[Image #5]` inside its lines, and under the message a list of the five tags, `[Image #1]` to `[Image #5]`, one per line, which Aryan marked with a red bracket.
 - Aryan's words: "These image tags should also "preview" images on hovering and open them on clicking".
+
+---
+
+## The jump button sits at the centre of a thread as a small round chevron, and Aryan wants it at the bottom, slightly wider, with an arrow and short text
+
+**Observed:** 2026-10-04 by Aryan during manual testing · **Phase:** 9 (long output: the jump button in a thread's terminal and on the asleep pane) · **Status:** open · **Severity:** low (a change to how the button looks and where it sits: nothing is broken or lost) · **Screenshot:** none attached
+
+**What happens:**
+This is a request to change the design, not a defect. The jump button that appears while scrolling a thread's long output is a small round button with only a chevron, placed at the centre of the thread. Aryan feels it should be at the bottom of the thread, and be a slightly wider button that has an arrow icon plus a short text, the way this kind of button classically looks in other apps.
+
+**Steps to make it happen again:**
+1. Open a thread with long output and scroll it.
+2. The jump button appears at the centre of the thread, as a small round button with a chevron and no text.
+
+**Evidence:** Only the description above. Aryan's words (spoken, so "the classes UI" is most likely "the classic UI"): "I feel the scroll buttons should be at bottom of thread with a slightly wider button like the classes UI for these things look. I should have an arrow icon plus short text".
