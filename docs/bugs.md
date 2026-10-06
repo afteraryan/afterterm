@@ -630,3 +630,20 @@ This is a request to change the design, not a defect. The jump button that appea
 2. The jump button appears at the centre of the thread, as a small round button with a chevron and no text.
 
 **Evidence:** Only the description above. Aryan's words (spoken, so "the classes UI" is most likely "the classic UI"): "I feel the scroll buttons should be at bottom of thread with a slightly wider button like the classes UI for these things look. I should have an arrow icon plus short text".
+
+---
+
+## The open Other projects drawer in the panel does not close when clicking outside it
+
+**Observed:** 2026-10-06 by Aryan during manual testing · **Phase:** 8 (the panel: Other projects docked at the bottom) · **Status:** open · **Severity:** medium (the drawer misbehaves: it stays open until closed by hand) · **Screenshot:** none attached
+
+**What happens:**
+After opening the Other projects drawer at the bottom of the panel (it opens upwards, the opposite of a dropdown), clicking anywhere outside it does not close it. This is true whether the click lands inside a thread's terminal or on any other part of the app. Aryan expects a click anywhere outside the open drawer to close it.
+
+**Steps to make it happen again:**
+1. Open the workspace with the panel showing.
+2. Click the Other projects row at the bottom of the panel so its drawer opens.
+3. Click inside the active thread's terminal: the drawer stays open.
+4. Click on another part of the app, such as the header or the rail: the drawer still stays open.
+
+**Evidence:** Only the description above. Aryan called it the "other projects tab" and then corrected himself: "It's not a tab, it's a dropdown or whatever (the opposite of a dropdown, whatever), but it should close."
