@@ -679,3 +679,19 @@ After installing afterterm, it does not appear in the Windows Start menu. The in
 3. At no point during the install was there a question about adding it to the Start menu.
 
 **Evidence:** Only the description above. Aryan's words: "afterterm not in start menu, why? Shouldn't it have some comfirmation for this while isntalling?"
+
+---
+
+## The rail does not show which projects have threads marked as unread, and its numbers and colours are hard to remember
+
+**Observed:** 2026-10-08 by Aryan during manual testing · **Phase:** 8 (the rail and its badges, with mark as unread from Phase 7) · **Status:** open · **Severity:** low (the rail works, but unread threads have no indicator of their own and the badges are hard to read) · **Screenshot:** none attached
+
+**What happens:**
+When a project has threads marked as unread, its tile on the rail looks no different from a project whose threads are simply waiting. Unread is not the same as waiting, so Aryan wants unread to have its own indicator on the tile, perhaps a small bell with the number of unread threads beside it (he is not sure of the exact form). He also says he has forgotten how many different numbers the rail shows and what each colour means, so the rail's badges need to be laid out again and redesigned so they are easy to remember and read.
+
+**Steps to make it happen again:**
+1. In a project, right-click a chat thread and choose Mark as unread.
+2. Look at that project's tile on the rail.
+3. Nothing on the tile says it has an unread thread, distinct from the badges for waiting or working threads.
+
+**Evidence:** Only the description above. Aryan's words: "it should have a different visual representation that says, 'Hey, there is something unread.'" and "probably a small bell sign somewhere along with the number of threads there" and "I have forgotten how many different numbers we show, what colors mean what, so I need to remember it again and design it in a better way." He wrote "reel" for the rail.
