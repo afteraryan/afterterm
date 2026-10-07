@@ -663,3 +663,19 @@ Archived projects do not show up in the search palette opened with Ctrl+Shift+P.
 3. The project is not in the results.
 
 **Evidence:** Only the description above. Aryan's words: "archived products don't show up in ctrl+shift+P" ("products" is most likely "projects").
+
+---
+
+## Installing afterterm with the setup .exe does not add it to the Start menu, and the installer never asks about it
+
+**Observed:** 2026-10-07 by Aryan during manual testing · **Phase:** pre-existing (the shareable self-extracting `afterterm-setup.exe`, see `docs/guide-01-distributable-build.md`) · **Status:** open · **Severity:** medium (installing works but leaves the app with no Start menu entry, so it cannot be found the usual way) · **Screenshot:** none attached
+
+**What happens:**
+After installing afterterm, it does not appear in the Windows Start menu. The installer also never asks whether to add it there. Aryan expects the installer to offer this as a choice (a confirmation while installing), and the app to be in the Start menu when he says yes.
+
+**Steps to make it happen again:**
+1. Run `afterterm-setup.exe` and go through the install.
+2. Open the Start menu and search for afterterm: it is not there.
+3. At no point during the install was there a question about adding it to the Start menu.
+
+**Evidence:** Only the description above. Aryan's words: "afterterm not in start menu, why? Shouldn't it have some comfirmation for this while isntalling?"
