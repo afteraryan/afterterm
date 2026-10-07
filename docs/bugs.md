@@ -647,3 +647,19 @@ After opening the Other projects drawer at the bottom of the panel (it opens upw
 4. Click on another part of the app, such as the header or the rail: the drawer still stays open.
 
 **Evidence:** Only the description above. Aryan called it the "other projects tab" and then corrected himself: "It's not a tab, it's a dropdown or whatever (the opposite of a dropdown, whatever), but it should close."
+
+---
+
+## The search palette (Ctrl+Shift+P) does not list archived projects
+
+**Observed:** 2026-10-07 by Aryan during manual testing · **Phase:** 2 (the search palette, and archive and restore) · **Status:** open · **Severity:** medium (the palette misbehaves: an archived project cannot be found from it) · **Screenshot:** none attached
+
+**What happens:**
+Archived projects do not show up in the search palette opened with Ctrl+Shift+P. Searching for an archived project by name finds nothing, so the palette cannot be used to reach it.
+
+**Steps to make it happen again:**
+1. Archive a project (right-click it and choose Archive).
+2. Press Ctrl+Shift+P and type the start of that project's name.
+3. The project is not in the results.
+
+**Evidence:** Only the description above. Aryan's words: "archived products don't show up in ctrl+shift+P" ("products" is most likely "projects").
