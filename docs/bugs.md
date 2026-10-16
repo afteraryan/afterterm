@@ -712,3 +712,20 @@ Not known yet; seen as described above. What is known of the setup:
 3. The toasts arrive behind those windows and stay there, unseen, until the user finds them.
 
 **Evidence:** Only the description above. Aryan's words: "All of them were hidden behind the windows. They did not come on top of the windows I was showing." and "They just silently came behind all the windows." and "Usually, I use a two-monitor layout, and now I'm on a single-monitor layout. Maybe that caused it, or maybe something different." The three toasts were still open, unclosed, at the time of the report.
+
+---
+
+## A chat's compacting icon stays on the rail and the sidebar row after the compaction is cancelled, until another thread is opened
+
+**Observed:** 2026-10-16 by Aryan during manual testing · **Phase:** 8 (compacting as its own state, with its icon on the sidebar row and the header chip and its corner mark on the rail tile) · **Status:** open · **Severity:** low (the state shown is stale, and it clears on the next thread switch) · **Screenshot:** none attached
+
+**What happens:**
+A chat was compacting and the compacting state showed everywhere it should: the mark on the rail tile, the icon on the sidebar thread row, the rest. Aryan cancelled the compaction. The compacting icons stayed on the rail and on the sidebar thread row as if the chat were still compacting. The moment he opened a new thread, they went away. He expects the compacting state to clear when the compaction is cancelled, without having to open another thread. He says if this can be solved, fine; if not, the two of you will figure out what to do.
+
+**Steps to make it happen again:**
+1. In a chat thread, start a compaction in Claude Code so the compacting mark appears on the rail tile and the icon on the sidebar row.
+2. Cancel the compaction.
+3. The compacting mark and icon stay on the rail and the sidebar row.
+4. Open a new thread: the marks go away.
+
+**Evidence:** Only the description above. Aryan's words: "I cancelled it, but the compacting icons were still on the rail and the sidebar thread. The moment I opened a new thread, it went away." and "Probably, when I cancelled it, the UI did not refresh."
