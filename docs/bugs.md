@@ -695,3 +695,20 @@ When a project has threads marked as unread, its tile on the rail looks no diffe
 3. Nothing on the tile says it has an unread thread, distinct from the badges for waiting or working threads.
 
 **Evidence:** Only the description above. Aryan's words: "it should have a different visual representation that says, 'Hey, there is something unread.'" and "probably a small bell sign somewhere along with the number of threads there" and "I have forgotten how many different numbers we show, what colors mean what, so I need to remember it again and design it in a better way." He wrote "reel" for the rail.
+
+---
+
+## Notification toasts appear behind other windows instead of on top of them, so they go unnoticed
+
+**Observed:** 2026-10-16 by Aryan during manual testing · **Phase:** pre-existing (the always-on-top notifier overlay window; its toast cards were restyled in Phase 1 and its placement on the main window's display adjusted in Phase 9) · **Status:** open · **Severity:** medium (the notifications misbehave: they arrive but are hidden, so the user does not learn that a thread needs him) · **Screenshot:** none attached
+
+**What happens:**
+Three notification toasts from afterterm arrived at different times and all of them appeared behind the windows Aryan had in front of him, not on top of them. He did not realise they had come and found all three still open later, since he never closed them. Aryan expects every toast to appear above all other windows, as the overlay is meant to. He usually works with two monitors and was on a single monitor when this happened; he does not know whether that is related.
+
+**Steps to make it happen again:**
+Not known yet; seen as described above. What is known of the setup:
+1. Run afterterm on a single-monitor layout (Aryan's usual layout is two monitors).
+2. Have other windows in front of afterterm while a Claude Code thread raises notifications.
+3. The toasts arrive behind those windows and stay there, unseen, until the user finds them.
+
+**Evidence:** Only the description above. Aryan's words: "All of them were hidden behind the windows. They did not come on top of the windows I was showing." and "They just silently came behind all the windows." and "Usually, I use a two-monitor layout, and now I'm on a single-monitor layout. Maybe that caused it, or maybe something different." The three toasts were still open, unclosed, at the time of the report.
