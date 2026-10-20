@@ -751,3 +751,19 @@ A subagent was running in the second chat of the Revy project, and the sidebar s
 - This is the same root as the open entry "A chat whose background subagent is running shows no running state on its thread" (2026-09-30, screenshot 15): there the chat was already open when the agent started, so there was never a `⏳` to show. Fixing both means keeping background as a live state while the agent runs (cleared by the hook's next `Stop` with nothing running, or by `SubagentStop`), not a badge that clears on view.
 
 **Evidence:** Only the description above and the code trace. Aryan's words: "a subagent is running in the second chat in the Revy project, but still, it showed me on the sidebar that there is a subagent working. Then I opened it, went to Other, then went to Other Threads. Now it does not show that there is a background agent running anymore in the sidebar, although it actually is."
+
+---
+
+## Text cannot be selected in the terminal after a search with the find bar has been used
+
+**Observed:** 2026-10-21 by Aryan during manual testing · **Phase:** pre-existing (find in scrollback and text selection in the terminal, from before the projects-and-threads redesign) · **Status:** open · **Severity:** medium (selecting text in the terminal stops working once a search has been made) · **Screenshot:** none attached
+
+**What happens:**
+Aryan cannot select text in the terminal. Once he has searched for something with the find bar (he names the shortcut as Ctrl+Shift+S; the app documents find in scrollback as Ctrl+Shift+F), he is no longer able to select any other text. He expects to be able to select text as usual after a search.
+
+**Steps to make it happen again:**
+1. In a thread with output in it, open the find bar and search for some text.
+2. Try to select any other text in the terminal with the mouse.
+3. The text cannot be selected.
+
+**Evidence:** Only the description above. Aryan's words: "I cannot select a text. If I have already searched for something using Ctrl+Shift+S, then I am not able to select any other text."
