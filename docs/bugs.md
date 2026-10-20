@@ -729,3 +729,25 @@ A chat was compacting and the compacting state showed everywhere it should: the 
 4. Open a new thread: the marks go away.
 
 **Evidence:** Only the description above. Aryan's words: "I cancelled it, but the compacting icons were still on the rail and the sidebar thread. The moment I opened a new thread, it went away." and "Probably, when I cancelled it, the UI did not refresh."
+
+---
+
+## Opening a chat whose background subagent is still running clears its background state from the sidebar and the rail
+
+**Observed:** 2026-10-20 by Aryan during manual testing · **Phase:** 7 (attention: the badges that clear when a thread is seen; the background state and its hourglass came in PR #40) · **Status:** open · **Severity:** medium (the sidebar stops saying a subagent is running while it still is) · **Screenshot:** none attached
+
+**What happens:**
+A subagent was running in the second chat of the Revy project, and the sidebar showed it: the row carried the background state. Aryan opened that chat, went to Other, then to other threads. The sidebar no longer shows that a background agent is running in that chat, although the subagent still is. He expects the background state to stay on the row for as long as the agent is running.
+
+**Steps to make it happen again:**
+1. In a chat, have Claude start a background subagent and let the turn end, so the chat's row shows the hourglass (and its project a background pill and a rail tile).
+2. Open that chat.
+3. Move to other threads: the hourglass is gone from the row, the pill from the project and the tile from the rail, while the subagent is still running.
+
+**Why it happens (traced in the code at Aryan's request):**
+- The background state is only ever set by the hook's `Stop` event: when a turn ends with background tasks still running, the hook emits the `⏳` title (`assets/hooks/afterterm-notify.ps1`, the `'Stop'` case). No later event says "still running"; the next title the hook sends is the next turn's `▶`, `✅` or `⏳`.
+- Opening a thread clears its background state by design. `handleActivate` in `src/renderer/app.tsx` calls `clearThreadBadges`, which clears any state for which `clearsWhenSeen` is true, and `clearsWhenSeen` in `src/renderer/spinnerState.ts` returns true for both `done` and `background`: "Seeing the thread is all either asks for, so both clear when it is looked at." The same rule clears a `⏳` that lands on the viewed thread at once (`onViewedTitle`), a change made 2026-09-25 for the opposite complaint, a viewed thread that kept spinning (PR #39, docs/bugs-fixed.md).
+- So the hourglass is treated as a "something finished while you were away" badge, like the green check, not as a live "an agent is running" state. Once the thread is opened the badge is gone, and since nothing re-sends `⏳` until the agent's turn ends, the row stays quiet for the rest of the agent's run. Going to Other and to other threads did not clear anything extra; the clear happened the moment the chat was opened.
+- This is the same root as the open entry "A chat whose background subagent is running shows no running state on its thread" (2026-09-30, screenshot 15): there the chat was already open when the agent started, so there was never a `⏳` to show. Fixing both means keeping background as a live state while the agent runs (cleared by the hook's next `Stop` with nothing running, or by `SubagentStop`), not a badge that clears on view.
+
+**Evidence:** Only the description above and the code trace. Aryan's words: "a subagent is running in the second chat in the Revy project, but still, it showed me on the sidebar that there is a subagent working. Then I opened it, went to Other, then went to Other Threads. Now it does not show that there is a background agent running anymore in the sidebar, although it actually is."
