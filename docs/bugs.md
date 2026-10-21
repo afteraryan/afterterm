@@ -767,3 +767,21 @@ Aryan cannot select text in the terminal. Once he has searched for something wit
 3. The text cannot be selected.
 
 **Evidence:** Only the description above. Aryan's words: "I cannot select a text. If I have already searched for something using Ctrl+Shift+S, then I am not able to select any other text."
+
+---
+
+## The header's worktree item and editor button open a subfolder inside the worktree instead of the worktree folder
+
+**Observed:** 2026-10-22 by Aryan during manual testing · **Phase:** 9 (the thread's own folder in Explorer and the header's editor button, from the post-Phase 9 fix sweep) · **Status:** open · **Severity:** medium (both folder actions on a worktree chat land in the wrong folder, which defeats their purpose) · **Screenshot:** docs/screenshots/manual-testing/18-header-worktree-and-editor-buttons-open-a-subfolder-of-the-worktree.png
+
+**What happens:**
+In the chat "Phase 6 findings page redo" in the Revy App project, whose header shows the worktree `.claude\worktrees\phase-6-firebase`, the worktree item at the top (the folder button, which should open the worktree folder) and the VS Code button both open a folder inside the worktree (Aryan calls it the apps folder) rather than the worktree folder itself. He guesses the Claude agent's current working directory is inside that folder. He expects both to always open the worktree folder, never a folder inside it: "That just breaks the entire purpose of these features."
+
+**Steps to make it happen again:**
+1. Open a chat that runs in a git worktree and whose Claude Code session has its working directory in a subfolder of that worktree.
+2. Click the worktree item in the header: File Explorer opens the subfolder, not the worktree folder.
+3. Click the editor button in the header: the editor opens the same subfolder.
+
+**Evidence:**
+- Screenshot 18: the chat "Phase 6 findings page redo" open in the Revy App project, header line 2 reading "Revy App · Fable 5.1 · phase-6-firebase · .claude\worktrees\phase-6-firebase", with the Files button (204 files), the VS Code button and the dots menu at the right.
+- Aryan's words: "the folder button on top, which should open the folder inside the work tree, and the VS Code button both open the project inside the apps folder. Maybe the Claude agent's CWD is inside the apps folder, but it should always open in the work tree folder."
