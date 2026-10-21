@@ -785,3 +785,24 @@ In the chat "Phase 6 findings page redo" in the Revy App project, whose header s
 **Evidence:**
 - Screenshot 18: the chat "Phase 6 findings page redo" open in the Revy App project, header line 2 reading "Revy App · Fable 5.1 · phase-6-firebase · .claude\worktrees\phase-6-firebase", with the Files button (204 files), the VS Code button and the dots menu at the right.
 - Aryan's words: "the folder button on top, which should open the folder inside the work tree, and the VS Code button both open the project inside the apps folder. Maybe the Claude agent's CWD is inside the apps folder, but it should always open in the work tree folder."
+
+---
+
+## A path with spaces links in a Write line but not in the "Wrote N lines to" line below it, and a path written from the worktree's top in a reply does not link
+
+**Observed:** 2026-10-22 by Aryan during manual testing on v0.8.1 · **Phase:** Edited files Phase 3 (file paths in the terminal output are links, `docs/edited-files/`) · **Status:** already fixed in release 0.9.0 (PR #49, "Some file paths in a chat's reply are highlighted as links and others are not" in `docs/bugs-fixed.md`), which Aryan's build does not have yet; waiting for him to move to v0.9.0 or later and check it against these three paths · **Severity:** medium (paths Claude prints cannot be opened from the terminal) · **Screenshot:** `docs/screenshots/manual-testing/19-path-with-spaces-links-in-the-write-line-but-not-in-the-wrote-line-below-it.png`, `docs/screenshots/manual-testing/20-md-path-written-from-the-worktree-top-in-a-chat-reply-is-not-a-link.png`
+
+**What happens:**
+In the chat "Phase 6 findings page redo" in the Revy App project (worktree `.claude\worktrees\phase-6-firebase`), Claude's `Write(...)` tool line shows the full path of the file it wrote, and the line under it, "Wrote 23 lines to", shows the same full path. The first is clickable, the second is not. Further up the same chat, a reply names `docs/testing/phase-6/existing-data-real.md` (a path from the top of the worktree, drawn in blue by Claude Code), and that path is not clickable and does not open either. Aryan expects all three to be links.
+
+**Steps to make it happen again:**
+1. In a chat in a project whose folder has spaces in its path, have Claude write a file, so the terminal shows a `Write(D:\...\file.md)` line and under it "Wrote N lines to D:\...\file.md".
+2. Hover both paths: the one inside `Write(...)` underlines and opens, the one after "Wrote N lines to" does not.
+3. In the same chat, with Claude's working directory in a subfolder of the worktree, have a reply name a file by its path from the top of the worktree, such as `docs/testing/phase-6/existing-data-real.md`.
+4. Hover and click it: it does not underline or open.
+
+**Evidence:**
+- Screenshot 19 (marked 1 and 2 in red by Aryan): the tool line `Write(D:\Pitara\Work\For Friends\Revy App\.claude\worktrees\phase-6-firebase\docs\testing\phase-6\fix-decisions-round-5.md)` (1, clickable) and under it `Wrote 23 lines to D:\Pitara\Work\For Friends\Revy App\.claude\worktrees\phase-6-firebase\docs\testing\phase-6\fix-decisions-round-5.md` (2, not clickable), followed by the file's first ten lines ("# Phase 6 fixes, round 5"). Taken at about 01:07.
+- Screenshot 20 (marked 3 in red): the reply "The logins and their passwords are in the phase 6 worktree at docs/testing/phase-6/existing-data-real.md." in the same chat, the path in blue, after the line "Cooked for 33m 37s · done Wednesday 10:52 PM". The prompt below holds `docs/testing/phase-6/existing-data-real`.
+- The file in screenshot 20 is at `D:\Pitara\Work\For Friends\Revy App\.claude\worktrees\phase-6-firebase\docs\testing\phase-6\existing-data-real.md`; the chat's saved Claude folder is the worktree's `app` subfolder (see the entry above on the header's worktree item).
+- Aryan's words: "I have written: 1. On an image 2. On an image. The first is clickable, and the second is not clickable. I don't know why. Then I'll give you another screenshot from that chat where I'll write third. That .md file is also not clickable and open."
