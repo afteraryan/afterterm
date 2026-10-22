@@ -806,3 +806,21 @@ In the chat "Phase 6 findings page redo" in the Revy App project (worktree `.cla
 - Screenshot 20 (marked 3 in red): the reply "The logins and their passwords are in the phase 6 worktree at docs/testing/phase-6/existing-data-real.md." in the same chat, the path in blue, after the line "Cooked for 33m 37s · done Wednesday 10:52 PM". The prompt below holds `docs/testing/phase-6/existing-data-real`.
 - The file in screenshot 20 is at `D:\Pitara\Work\For Friends\Revy App\.claude\worktrees\phase-6-firebase\docs\testing\phase-6\existing-data-real.md`; the chat's saved Claude folder is the worktree's `app` subfolder (see the entry above on the header's worktree item).
 - Aryan's words: "I have written: 1. On an image 2. On an image. The first is clickable, and the second is not clickable. I don't know why. Then I'll give you another screenshot from that chat where I'll write third. That .md file is also not clickable and open."
+
+---
+
+## Right-clicking a file path link in the terminal has no menu to open it, open its folder or copy its full path
+
+**Observed:** 2026-10-22 by Aryan during manual testing · **Phase:** Edited files Phase 3 (file paths in the terminal output are links, `docs/edited-files/`) · **Status:** open (a feature request) · **Severity:** low (the link still opens on click; the missing menu only takes away the other actions) · **Screenshot:** none
+
+**What happens:**
+A file name or path in the terminal that can be clicked to open the file has nothing of its own on right-click. Aryan wants right-clicking such a link to show a menu with:
+- Open, which opens the file.
+- Open file location, which opens the file's folder.
+- Copy file path, which copies the file's full, absolute path (not the path as written in the terminal).
+
+**Steps to make it happen again:**
+1. In a chat or shell, print output that contains a file path the terminal shows as a link.
+2. Right-click the link: no menu with Open, Open file location or Copy file path appears.
+
+**Evidence:** Only the description above. Aryan's words: "whenever there is a file name in the terminal and I can click to open it, right-clicking on it should give me a menu with two options: Open, which opens the file; Open file location aur copy file path, which will be the global file path, of course." ("aur" is Hindi for "and", so the list reads as Open, Open file location and Copy file path.)
