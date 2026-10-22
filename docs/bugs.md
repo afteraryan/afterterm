@@ -840,3 +840,26 @@ While Aryan works on threads in two projects at once, the two projects keep swap
 3. Go back to a thread of the other project and work in it: the two swap again.
 
 **Evidence:** Only the description above. Aryan's words: "I'm working on two projects simultaneously, and they are flipping back and forth based on which thread I'm working on. Very fucking annoying." and "Whenever did we decide to make this change? I don't like it anymore. We'll have to fix this."
+
+---
+
+## The New project dialog shows the chosen icon too small, lists the shells as a long column with an unclear "Default shell" option, and asks for the folder before the name
+
+**Observed:** 2026-10-22 by Aryan during manual testing · **Phase:** 2 (the New/Edit project dialog), with the icon picker from Phase 8 · **Status:** open · **Severity:** low (the dialog works; it is hard to read and takes too much space) · **Screenshot:** `docs/screenshots/manual-testing/21-new-project-dialog-small-icon-row-and-long-default-shell-list.png`
+
+**What happens:**
+In the New project dialog:
+- The selected icon is shown at the same small size as every other icon in the row. Aryan wants the selected icon to appear bigger, with a bigger preview that changes as he switches between icons and colours ("also for default shells", in his words).
+- The shell section is headed "Default shell" and its first option is also "Default shell". He does not know what that option means.
+- The shell list takes six full rows (Default shell, Command Prompt, PowerShell 7, Windows PowerShell, Git Bash, WSL). He expects a dropdown instead, and the dialog redesigned to use its space better.
+- The Folder field comes first and Name second. He expects the project name above the project folder.
+
+**Steps to make it happen again:**
+1. Open the New project dialog.
+2. Pick a colour and an icon: the chosen icon stays the size of the others, with no larger preview.
+3. Look at the shell section: the heading and its first option both read "Default shell", and every shell has its own full-width row.
+4. Note the order of the fields: Folder above Name.
+
+**Evidence:**
+- Screenshot 21: the New project dialog for `D:\Pitara\Work\Tinkering\minimi-windows`, Folder first with a Change button, then Name "minimi-windows", the Colour row with pink selected, the Icon row with the robot selected (small, tinted pink), the "Default shell" heading over six rows starting with "Default shell" (highlighted), "Open a terminal in it now" ticked, and Cancel and Create.
+- Aryan's words: "I feel the icon which is default selected should appear bigger. When I switch between icons and colors, I should get a bigger preview also for default shells." and "the title is "Default Shell", and the first option is "Default Shell". I don't know what "Default Shell" is, and I feel this is too space-consuming. This could be a fucking dropdown, right? We can redesign this to be more efficient. Project name should be above project folder."
