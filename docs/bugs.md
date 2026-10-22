@@ -341,3 +341,446 @@ In the Recent section of the sidebar, just opening a chat from some other projec
 3. That project jumps to the top of Recent at once, with no animation.
 
 **Evidence:** Only the description above. Aryan's words: "just opening a chat from some other project bring it to the top. This is weird, if I input something, then they should come on top. Also, there should be animation for it".
+
+---
+
+## A chat whose background subagent is running shows no running state on its thread
+
+**Observed:** 2026-09-30 by Aryan during manual testing · **Phase:** 7 (attention: thread states on the row, the header, the project and the rail; the background state came in PR #40) · **Status:** open · **Severity:** medium (a subagent at work is invisible outside the terminal) · **Screenshot:** `docs/screenshots/manual-testing/15-subagent-running-but-thread-shows-no-status.png`
+
+**What happens:**
+A subagent is running in a chat, but the thread's status does not show it. Earlier, while that subagent was running, Aryan put the laptop to sleep. When he opened it again, Claude started the subagent again by itself to continue. He thinks this might be connected, but he is not sure.
+
+**Steps to make it happen again:**
+1. In a chat, have Claude start a subagent in the background.
+2. While it runs, put the laptop to sleep.
+3. Open the laptop again: Claude starts the subagent again by itself to continue.
+4. While the subagent runs, the thread's sidebar row, its header and its project show no running or background state.
+
+Aryan is not sure step 2 is needed.
+
+**Evidence:**
+- `15-subagent-running-but-thread-shows-no-status.png`: the thread "Phase 4 fixes testing on Android emulator" in the project "Revy App" (Opus 5.5, branch and worktree `phase-4-all-plant-types`), open in the workspace. The terminal shows `Agent(Test Phase 4 chart fixes on fixture 1)` with "Backgrounded agent", then `Monitor(emulator stops answering during run 2)` with "Monitor started", and Claude's reply "The second tester run (fixture 1: plant list and every Trend Charts fix) is going" ending "I'll report everything once run 2 finishes." Claude Code's footer shows "auto mode on · 1 monitor" and "1 agent", and a `general-purpose` agent at work ("Checking Silica 30-day chart dates", 14m 51s, 154.9k tokens). The prompt is empty and waiting. Meanwhile the header has no state chip, only "17 files"; the thread's sidebar row has no state icon; the Revy App project row has no counter pill; and the rail has no Revy App tile.
+- Aryan's words: "sub-agent is running but the thread doesn't show that in the status. Also I put the laptop on sleep earlier when the subagent was running and then I opened it againa and claude automatically started the subagent to conitnue. This might have caused the bug, but I am not sure."
+- Where to read it: in Aryan's afterterm the thread is `tab-190`, Claude session `479d09d7-0cb9-4ba1-aae1-5c9302fa98b1`, folder `D:\Pitara\Work\For Friends\Revy App\.claude\worktrees\phase-4-all-plant-types`. Transcript: `%USERPROFILE%\.claude\projects\D--Pitara-Work-For-Friends-Revy-App--claude-worktrees-phase-4-all-plant-types\479d09d7-0cb9-4ba1-aae1-5c9302fa98b1.jsonl`; its subagents' transcripts are in the folder of the same name, under `subagents\`: `agent-a6baa9852bf60d325.jsonl` (the fixture 2 run) and `agent-a93f862640bb0ef85.jsonl` (the fixture 1 run in the screenshot). Read them only; the session was live when this was logged.
+- Timeline from that transcript (UTC, with India time in brackets): the session starts at 09:52 (15:22). At 09:57 and 09:58 (15:27, 15:28) Claude starts an agent "Test Phase 4 fixes on fixture 2" (transcript lines 240 and 253). Then nothing is written for 4 hours 14 minutes, which matches the laptop's sleep. At 14:12:57 (19:42) three `<task-notification>` entries arrive, the first for agent `a6baa9852bf60d325` (lines 296 to 298), and at 14:20:39 (19:50) a message from that agent arrives (line 435). At 14:25:22 (19:55) Claude starts "Test Phase 4 chart fixes on fixture 1" (line 572), agent `a93f862640bb0ef85`, the one the screenshot shows at 14m 51s, so the screenshot is from about 14:40 (20:10).
+
+---
+
+## Pressing Ctrl+Shift+R sends afterterm to Home and puts every thread to sleep
+
+**Observed:** 2026-09-30 by Aryan during manual testing · **Phase:** 4 (sleep and wake: threads restored asleep; Home on opening is Phase 2) · **Status:** open · **Severity:** high (every running shell, server and chat is stopped by one key press) · **Screenshot:** none attached
+
+**What happens:**
+Pressing Ctrl+Shift+R suddenly takes Aryan to the Home screen and puts all his threads to sleep. He did not expect the key press to do anything like this.
+
+**Steps to make it happen again:**
+1. Have some threads awake in the workspace.
+2. Press Ctrl+Shift+R.
+3. afterterm switches to Home, and every thread is asleep.
+
+**Evidence:** Only the description above. Aryan's words: "doing ctrl+shit+R suddenly takes me to home and puts all sessions to sleep. WTF!"
+
+---
+
+## The order of project tiles on the rail follows a rule Aryan cannot see and never chose
+
+**Observed:** 2026-10-01 by Aryan during manual testing · **Phase:** 8 (the always-on rail and its project tiles) · **Status:** open · **Severity:** medium (the rail decides which project comes on top, and Aryan cannot predict or set it) · **Screenshot:** none attached
+
+**What happens:**
+When notifications arrive and projects appear on the rail, Aryan cannot tell how the tiles are arranged or why one project sits above another. He does not know whether the order is by recency, by pinning or by something else; to him it is a black box. He expects to know the rule and to decide consciously which project comes on top, so the order can be designed rather than left as it is.
+
+**Steps to make it happen again:**
+1. Have threads in two or more projects reach a state that puts their project on the rail (waiting, finished or compacting).
+2. Look at the rail's tiles.
+3. Nothing on screen says why the tiles are in that order, and there is no way to choose which one comes on top.
+
+**Evidence:** Only the description above. Aryan's words: "When notifications come on the rail, how are they arranged? I need to consciously work on that. I need to consciously decide which comes on top. Are we doing it on the basis of recency, or are we pinning them? How are we doing it? Need to know that and work on it. Right now, it is a black box to me."
+
+---
+
+## The rail's project icons and coloured number badges do not say what they mean
+
+**Observed:** 2026-10-02 by Aryan during manual testing · **Phase:** 8 (the always-on rail, its project tiles and their badges) · **Status:** open · **Severity:** medium (the rail is there to show what needs attention first, and Aryan cannot read it) · **Screenshot:** `docs/screenshots/manual-testing/16-rail-tiles-and-badges-with-no-names-or-meanings.png`
+
+**What happens:**
+Aryan looks at the rail and cannot tell what its icons and badges are: which project each icon stands for, and what each coloured number means. Because of that he cannot use the rail to decide what to deal with first, so to him the rail is useless at this point. He expects the rail to make clear what each icon and each badge means, so he can prioritise from it.
+
+**Steps to make it happen again:**
+1. Have threads in several projects waiting, working or finished, so their projects appear as tiles on the rail.
+2. Look at the rail.
+3. Each tile is a project icon with one or two coloured number badges beside it, and nothing on the rail says which project it is or what each badge colour and number stands for.
+
+**Evidence:**
+- `16-rail-tiles-and-badges-with-no-names-or-meanings.png`: afterterm v0.8.1 with the rail and the panel open. Below the Home and Workspace pill the rail has seven project tiles and no names: a blue robot with a green 1; a red bell with a grey 1 and a green 1; a yellow pencil with an amber 1 and a grey 1; a red film strip with a green 1; a blue film strip with an amber 1; an orange robot with a green 1; a pink robot with a green 1. The panel beside it shows the projects "Revy App" (7), "Outscal full-l..." (with a bell 1 pill and a spinner 1 pill; its threads "Course creation dec..." with a bell and "Video generator ..." with a spinner), and under Recent "afterterm" (thread "Monday work in Aft..." with a tick), "Tinkering", "OpenMousBot" (1), "contentchecker" (1), "afterbot" (1) and "manus video" (1, with a bell 1 pill), then "Other projects" (8).
+- Aryan's words (spoken, so "reel" is the rail and "privatize" is most likely "prioritize"): "At this point, the reel is useless because I don't fucking know what all these logos and icons and all that are. I don't know what this icon means, and I don't know how to privatize shit."
+
+---
+
+## There is no way to star a thread so it stays at the top of its project
+
+**Observed:** 2026-10-02 by Aryan during manual testing · **Phase:** 8 (the panel's thread order inside a project and its five-row fold) · **Status:** open · **Severity:** low (a feature request: nothing is broken or lost) · **Screenshot:** none attached
+
+**What happens:**
+This is a feature request, not a defect. Aryan cannot mark a thread as important inside its project: the threads move as others are added or used, so a thread he keeps coming back to does not stay in one place. He wants to star a thread so that it stays at the top of its project.
+
+**Steps to make it happen again:**
+1. Open a project in the panel that has several threads.
+2. Look for a way to star a thread (the row's right-click menu, the header's dots menu).
+3. There is none, and no thread can be kept at the top of its project.
+
+**Evidence:** Only the description above. Aryan's words: "need a feature to star threads so they remain on top of the project"
+
+---
+
+## The sidebar panel cannot be resized by dragging its edge
+
+**Observed:** 2026-10-02 by Aryan during manual testing · **Phase:** 8 (the panel beside the rail) · **Status:** open · **Severity:** low (a feature request: nothing is broken or lost) · **Screenshot:** none attached
+
+**What happens:**
+The sidebar panel has a fixed width. Aryan expects to be able to drag its edge to make it wider or narrower.
+
+**Steps to make it happen again:**
+1. Open the workspace with the panel shown.
+2. Put the pointer on the edge between the panel and the terminal and try to drag it.
+3. Nothing happens: the panel keeps its width.
+
+**Evidence:** Only the description above. Aryan's words: "I should be able to drag and resize the sidebar."
+
+---
+
+## Archiving a project from the sidebar hides it everywhere except Home, instead of moving it into Other projects
+
+**Observed:** 2026-10-02 by Aryan during manual testing · **Phase:** 2 (archive and restore), with the panel's Other projects drawer from Phase 8 · **Status:** open · **Severity:** medium (the feature does something other than what Aryan expected, and the project becomes hard to reach) · **Screenshot:** none attached
+
+**What happens:**
+Aryan archived a project that was under Recent in the sidebar, expecting it to move into the Other projects drawer at the bottom of the panel. It did not go there: an archived project can only be reached from the Archived section on Home, which he finds very odd. What he wants is not an archive at all: a way to take a project off the sidebar's project list so it sits in Other projects. He asks for the whole archive feature to be removed, and for the action and its wording to become "move to Other projects" instead.
+
+**Steps to make it happen again:**
+1. Have a project listed under Recent in the sidebar panel.
+2. Right-click it and choose Archive.
+3. The project leaves Recent but does not appear in the Other projects drawer; it is listed only in the Archived section on Home.
+
+**Evidence:** Only the description above. Aryan's words: "If a project is in Recent and I put it in Archive, I thought it would go to Other Projects, but it does not. I can only access archived projects through the homepage, which is very weird." and "I don't want an archive project. If the project just goes into the Other Projects dropdown, that is what I wanted. Need to fix the terminology here and need to kill the entire archive functionality. I just want them to move into Other Projects so they are off the project bar."
+
+---
+
+## A new thread from a project's plus button opens a plain shell, so starting Claude Code takes typing it by hand every time
+
+**Observed:** 2026-10-02 by Aryan during manual testing · **Phase:** 2 (new thread in a project), opened from the plus on the project's row in the Phase 8 panel · **Status:** open · **Severity:** low (a feature request: nothing is broken or lost, but the most common action takes extra steps every time) · **Screenshot:** none attached
+
+**What happens:**
+Most of the time, when Aryan clicks the plus on a project to open a new thread, he wants another Claude Code session. Instead the thread opens as a plain shell, and he has to type the command to start Claude in it himself every time. He wants the default to be a new thread with a Claude session already starting, with a separate way to open a plain shell (cmd, PowerShell and so on) when that is what he wants. He has not decided how this should look; he is describing the problem, not a solution.
+
+**Steps to make it happen again:**
+1. In the sidebar panel, hover a project's row and click its plus (New thread in the project).
+2. A new thread opens with the project's shell at a prompt.
+3. Claude Code is not running; it has to be started by typing its command in the thread.
+
+**Evidence:** Only the description above. Aryan's words: "Usually, when I click plus on a project and open a new thread, I just want to start another Claude session. I have to manually, in the thread, open a terminal and type whatever I have to type in Claude." and "If we can fast-forward it so that the default behavior is opening a thread and starting a Claude session, but if I want to open a shell, or if I want to open CMD or PowerShell, blah, blah, blah, then we do something else. I don't know the solution. This is the problem."
+
+---
+
+## afterterm's window froze and then went blank while the PC was low on memory, and the only way back was ending a process by hand
+
+**Observed:** 2026-10-02 by Aryan during manual testing · **Phase:** pre-existing (the main window and the terminal renderer; nothing in afterterm recovers a broken window) · **Status:** open · **Severity:** high (the whole window was unusable while every session in it was still running, and closing the app to get it back would have stopped them all) · **Screenshot:** none attached
+
+**What happens:**
+The afterterm window froze. The Claude Code sessions inside it kept working (one of them opened a Claude artifact on the web while the window showed nothing new), but the window did not respond or redraw. Minimising it for about a minute and restoring it changed nothing. Resetting the graphics driver with Win+Ctrl+Shift+B changed nothing, and the window then went completely blank. Ending afterterm's GPU process brought the window back, but with no text in any terminal: only the red and green marks of Claude Code's diffs were drawn. Changing the font size once (Ctrl+scroll up one notch, then down one notch) brought a terminal's text back, and that had to be done in each terminal separately.
+
+Closing afterterm was not an option, because it would have stopped every running shell and Claude session in it. Aryan expects afterterm to have crash recovery of its own: it should get its window back without the user closing the app or ending processes by hand. He is not sure that covering graphics failures alone is enough, and wants the recovery to be broader than that.
+
+**Steps to make it happen again:**
+Not known yet; seen as described above. It happened while the PC was low on memory, after afterterm had been running for about two days.
+
+**Evidence:**
+- Aryan's words, on the freeze: "At this very moment, my afterterm window is frozen, but I know the Claude sessions have not broken. They're still working. I know it is working because one of the agents opened a Claude artifact on the web, which was not open." and "Do not close the fucking app. It'll break things."
+- Aryan's words, after minimising: "I minimized afterterm for about a minute, but then I expanded it, and it's still the same."
+- Aryan's words, after the driver reset: "afterterm has gone completely blank, and it did not even fix after I did Win+Ctrl+Shift+B."
+- Aryan's words, after the GPU process was ended: "now no text is rendering. I can see some green and red marks when a terminal deletes some code and brings it back, but text is not rendering once again."
+- Aryan's words, on the request: "I think afterterm should have some sort of crash-recovery thing. Don't know if exactly just graphic break failures will be enough but more intensive."
+- Measured on 2026-10-02 at about 16:40 India time, while the window was frozen: 369 MB of 16 GB RAM free. afterterm had been running since 2026-09-30 14:19 (main process 37384, GPU process 32620, the window's renderer 24116). All of them used almost no CPU over five seconds, and Windows reported the window as responding. The renderer had 332 MB of private memory but only 21 MB of it in RAM, later 3 MB. The rest of the machine: 29 `claude` processes (12.6 GB), 18 `relay_win.exe` Unity relays started by Claude sessions (9.8 GB, about 600 MB each), Chrome 33 processes (7.5 GB).
+- After Aryan closed other apps, free RAM rose to 2.6 GB, and the window still did not redraw.
+- What brought it back, in order: ending only afterterm's GPU process (32620). A new GPU process (42272) started by itself, the renderer started using CPU again, and the window drew again, without text. Then Ctrl+scroll up and down in each terminal brought its text back. All 17 shells under the main process were still running at each step, so no session was lost.
+
+---
+
+## The rail shows pinned projects' tiles the same as the others, with no divider, and pinning a project after its tile appears should move it into that pinned group
+
+**Observed:** 2026-10-02 by Aryan during manual testing · **Phase:** 8 (the always-on rail and its project tiles), with pinning from Phase 2 · **Status:** open · **Severity:** low (a feature request: nothing is broken or lost) · **Screenshot:** none attached
+
+**What happens:**
+This is a feature request, not a defect. On the rail, a pinned project's tile looks the same as any other project's tile, and nothing separates them. Aryan wants the tiles of pinned projects to look different and to be set apart from the rest by a divider, so he can see at a glance that these are his high-priority projects. He also expects the rail to follow a pin made later: if a project's tile is already on the rail and he then pins that project, its tile should change to the pinned look and move to the pinned side of the divider.
+
+**Steps to make it happen again:**
+1. Have threads in a pinned project and in an unpinned project reach a state that puts both projects on the rail (waiting, finished or compacting).
+2. Look at the rail: the two tiles look alike and there is no divider between pinned and unpinned projects.
+3. Pin the unpinned project while its tile is on the rail: the rail should show it with the pinned projects, in the pinned look.
+
+**Evidence:** Only the description above. Aryan's words (spoken, so "Rails" is the rail and "pay a project" is most likely "pin a project"): "On Rails, the notifications for pinned projects should look different and should be divided by a divider so that I know these are my high-priority things. And of course, if a notification has come on the rail, then after the notification has come, I decide to pay a project. Its notifications on the rail also should change accordingly." Related open entries: "The order of project tiles on the rail follows a rule Aryan cannot see and never chose" (2026-10-01) and "The rail's project icons and coloured number badges do not say what they mean" (2026-10-02).
+
+---
+
+## The [Image #N] tags in a chat's terminal output do not preview the image on hover or open it on click
+
+**Observed:** 2026-10-04 by Aryan during manual testing · **Phase:** Edited files Phase 3 (file paths in the terminal output are links, `docs/edited-files/`) · **Status:** open · **Severity:** low (a feature request: nothing is broken or lost) · **Screenshot:** `docs/screenshots/manual-testing/17-image-tags-in-a-chat-message-with-no-preview-or-click.png`
+
+**What happens:**
+This is a feature request, not a defect. When images are pasted into a message in a chat, Claude Code shows each one as an `[Image #N]` tag, inside the message text and again in a list under the message. In afterterm these tags are plain text. Aryan expects them to work like links too: hovering a tag should show a preview of that image, and clicking a tag should open the image.
+
+**Steps to make it happen again:**
+1. In a chat, paste one or more images into a message and send it.
+2. The message shows `[Image #1]`, `[Image #2]` and so on in its text, and the same tags in a list under it.
+3. Hover a tag: no preview of the image appears. Click a tag: the image does not open.
+
+**Evidence:**
+- `17-image-tags-in-a-chat-message-with-no-preview-or-click.png`: a chat in afterterm with a sent message that has `[Image #1]` to `[Image #5]` inside its lines, and under the message a list of the five tags, `[Image #1]` to `[Image #5]`, one per line, which Aryan marked with a red bracket.
+- Aryan's words: "These image tags should also "preview" images on hovering and open them on clicking".
+
+---
+
+## The jump button sits at the centre of a thread as a small round chevron, and Aryan wants it at the bottom, slightly wider, with an arrow and short text
+
+**Observed:** 2026-10-04 by Aryan during manual testing · **Phase:** 9 (long output: the jump button in a thread's terminal and on the asleep pane) · **Status:** open · **Severity:** low (a change to how the button looks and where it sits: nothing is broken or lost) · **Screenshot:** none attached
+
+**What happens:**
+This is a request to change the design, not a defect. The jump button that appears while scrolling a thread's long output is a small round button with only a chevron, placed at the centre of the thread. Aryan feels it should be at the bottom of the thread, and be a slightly wider button that has an arrow icon plus a short text, the way this kind of button classically looks in other apps.
+
+**Steps to make it happen again:**
+1. Open a thread with long output and scroll it.
+2. The jump button appears at the centre of the thread, as a small round button with a chevron and no text.
+
+**Evidence:** Only the description above. Aryan's words (spoken, so "the classes UI" is most likely "the classic UI"): "I feel the scroll buttons should be at bottom of thread with a slightly wider button like the classes UI for these things look. I should have an arrow icon plus short text".
+
+---
+
+## The open Other projects drawer in the panel does not close when clicking outside it
+
+**Observed:** 2026-10-06 by Aryan during manual testing · **Phase:** 8 (the panel: Other projects docked at the bottom) · **Status:** open · **Severity:** medium (the drawer misbehaves: it stays open until closed by hand) · **Screenshot:** none attached
+
+**What happens:**
+After opening the Other projects drawer at the bottom of the panel (it opens upwards, the opposite of a dropdown), clicking anywhere outside it does not close it. This is true whether the click lands inside a thread's terminal or on any other part of the app. Aryan expects a click anywhere outside the open drawer to close it.
+
+**Steps to make it happen again:**
+1. Open the workspace with the panel showing.
+2. Click the Other projects row at the bottom of the panel so its drawer opens.
+3. Click inside the active thread's terminal: the drawer stays open.
+4. Click on another part of the app, such as the header or the rail: the drawer still stays open.
+
+**Evidence:** Only the description above. Aryan called it the "other projects tab" and then corrected himself: "It's not a tab, it's a dropdown or whatever (the opposite of a dropdown, whatever), but it should close."
+
+---
+
+## The search palette (Ctrl+Shift+P) does not list archived projects
+
+**Observed:** 2026-10-07 by Aryan during manual testing · **Phase:** 2 (the search palette, and archive and restore) · **Status:** open · **Severity:** medium (the palette misbehaves: an archived project cannot be found from it) · **Screenshot:** none attached
+
+**What happens:**
+Archived projects do not show up in the search palette opened with Ctrl+Shift+P. Searching for an archived project by name finds nothing, so the palette cannot be used to reach it.
+
+**Steps to make it happen again:**
+1. Archive a project (right-click it and choose Archive).
+2. Press Ctrl+Shift+P and type the start of that project's name.
+3. The project is not in the results.
+
+**Evidence:** Only the description above. Aryan's words: "archived products don't show up in ctrl+shift+P" ("products" is most likely "projects").
+
+---
+
+## Installing afterterm with the setup .exe does not add it to the Start menu, and the installer never asks about it
+
+**Observed:** 2026-10-07 by Aryan during manual testing · **Phase:** pre-existing (the shareable self-extracting `afterterm-setup.exe`, see `docs/guide-01-distributable-build.md`) · **Status:** open · **Severity:** medium (installing works but leaves the app with no Start menu entry, so it cannot be found the usual way) · **Screenshot:** none attached
+
+**What happens:**
+After installing afterterm, it does not appear in the Windows Start menu. The installer also never asks whether to add it there. Aryan expects the installer to offer this as a choice (a confirmation while installing), and the app to be in the Start menu when he says yes.
+
+**Steps to make it happen again:**
+1. Run `afterterm-setup.exe` and go through the install.
+2. Open the Start menu and search for afterterm: it is not there.
+3. At no point during the install was there a question about adding it to the Start menu.
+
+**Evidence:** Only the description above. Aryan's words: "afterterm not in start menu, why? Shouldn't it have some comfirmation for this while isntalling?"
+
+---
+
+## The rail does not show which projects have threads marked as unread, and its numbers and colours are hard to remember
+
+**Observed:** 2026-10-08 by Aryan during manual testing · **Phase:** 8 (the rail and its badges, with mark as unread from Phase 7) · **Status:** open · **Severity:** low (the rail works, but unread threads have no indicator of their own and the badges are hard to read) · **Screenshot:** none attached
+
+**What happens:**
+When a project has threads marked as unread, its tile on the rail looks no different from a project whose threads are simply waiting. Unread is not the same as waiting, so Aryan wants unread to have its own indicator on the tile, perhaps a small bell with the number of unread threads beside it (he is not sure of the exact form). He also says he has forgotten how many different numbers the rail shows and what each colour means, so the rail's badges need to be laid out again and redesigned so they are easy to remember and read.
+
+**Steps to make it happen again:**
+1. In a project, right-click a chat thread and choose Mark as unread.
+2. Look at that project's tile on the rail.
+3. Nothing on the tile says it has an unread thread, distinct from the badges for waiting or working threads.
+
+**Evidence:** Only the description above. Aryan's words: "it should have a different visual representation that says, 'Hey, there is something unread.'" and "probably a small bell sign somewhere along with the number of threads there" and "I have forgotten how many different numbers we show, what colors mean what, so I need to remember it again and design it in a better way." He wrote "reel" for the rail.
+
+---
+
+## Notification toasts appear behind other windows instead of on top of them, so they go unnoticed
+
+**Observed:** 2026-10-16 by Aryan during manual testing · **Phase:** pre-existing (the always-on-top notifier overlay window; its toast cards were restyled in Phase 1 and its placement on the main window's display adjusted in Phase 9) · **Status:** open · **Severity:** medium (the notifications misbehave: they arrive but are hidden, so the user does not learn that a thread needs him) · **Screenshot:** none attached
+
+**What happens:**
+Three notification toasts from afterterm arrived at different times and all of them appeared behind the windows Aryan had in front of him, not on top of them. He did not realise they had come and found all three still open later, since he never closed them. Aryan expects every toast to appear above all other windows, as the overlay is meant to. He usually works with two monitors and was on a single monitor when this happened; he does not know whether that is related.
+
+**Steps to make it happen again:**
+Not known yet; seen as described above. What is known of the setup:
+1. Run afterterm on a single-monitor layout (Aryan's usual layout is two monitors).
+2. Have other windows in front of afterterm while a Claude Code thread raises notifications.
+3. The toasts arrive behind those windows and stay there, unseen, until the user finds them.
+
+**Evidence:** Only the description above. Aryan's words: "All of them were hidden behind the windows. They did not come on top of the windows I was showing." and "They just silently came behind all the windows." and "Usually, I use a two-monitor layout, and now I'm on a single-monitor layout. Maybe that caused it, or maybe something different." The three toasts were still open, unclosed, at the time of the report.
+
+---
+
+## A chat's compacting icon stays on the rail and the sidebar row after the compaction is cancelled, until another thread is opened
+
+**Observed:** 2026-10-16 by Aryan during manual testing · **Phase:** 8 (compacting as its own state, with its icon on the sidebar row and the header chip and its corner mark on the rail tile) · **Status:** open · **Severity:** low (the state shown is stale, and it clears on the next thread switch) · **Screenshot:** none attached
+
+**What happens:**
+A chat was compacting and the compacting state showed everywhere it should: the mark on the rail tile, the icon on the sidebar thread row, the rest. Aryan cancelled the compaction. The compacting icons stayed on the rail and on the sidebar thread row as if the chat were still compacting. The moment he opened a new thread, they went away. He expects the compacting state to clear when the compaction is cancelled, without having to open another thread. He says if this can be solved, fine; if not, the two of you will figure out what to do.
+
+**Steps to make it happen again:**
+1. In a chat thread, start a compaction in Claude Code so the compacting mark appears on the rail tile and the icon on the sidebar row.
+2. Cancel the compaction.
+3. The compacting mark and icon stay on the rail and the sidebar row.
+4. Open a new thread: the marks go away.
+
+**Evidence:** Only the description above. Aryan's words: "I cancelled it, but the compacting icons were still on the rail and the sidebar thread. The moment I opened a new thread, it went away." and "Probably, when I cancelled it, the UI did not refresh."
+
+---
+
+## Opening a chat whose background subagent is still running clears its background state from the sidebar and the rail
+
+**Observed:** 2026-10-20 by Aryan during manual testing · **Phase:** 7 (attention: the badges that clear when a thread is seen; the background state and its hourglass came in PR #40) · **Status:** open · **Severity:** medium (the sidebar stops saying a subagent is running while it still is) · **Screenshot:** none attached
+
+**What happens:**
+A subagent was running in the second chat of the Revy project, and the sidebar showed it: the row carried the background state. Aryan opened that chat, went to Other, then to other threads. The sidebar no longer shows that a background agent is running in that chat, although the subagent still is. He expects the background state to stay on the row for as long as the agent is running.
+
+**Steps to make it happen again:**
+1. In a chat, have Claude start a background subagent and let the turn end, so the chat's row shows the hourglass (and its project a background pill and a rail tile).
+2. Open that chat.
+3. Move to other threads: the hourglass is gone from the row, the pill from the project and the tile from the rail, while the subagent is still running.
+
+**Why it happens (traced in the code at Aryan's request):**
+- The background state is only ever set by the hook's `Stop` event: when a turn ends with background tasks still running, the hook emits the `⏳` title (`assets/hooks/afterterm-notify.ps1`, the `'Stop'` case). No later event says "still running"; the next title the hook sends is the next turn's `▶`, `✅` or `⏳`.
+- Opening a thread clears its background state by design. `handleActivate` in `src/renderer/app.tsx` calls `clearThreadBadges`, which clears any state for which `clearsWhenSeen` is true, and `clearsWhenSeen` in `src/renderer/spinnerState.ts` returns true for both `done` and `background`: "Seeing the thread is all either asks for, so both clear when it is looked at." The same rule clears a `⏳` that lands on the viewed thread at once (`onViewedTitle`), a change made 2026-09-25 for the opposite complaint, a viewed thread that kept spinning (PR #39, docs/bugs-fixed.md).
+- So the hourglass is treated as a "something finished while you were away" badge, like the green check, not as a live "an agent is running" state. Once the thread is opened the badge is gone, and since nothing re-sends `⏳` until the agent's turn ends, the row stays quiet for the rest of the agent's run. Going to Other and to other threads did not clear anything extra; the clear happened the moment the chat was opened.
+- This is the same root as the open entry "A chat whose background subagent is running shows no running state on its thread" (2026-09-30, screenshot 15): there the chat was already open when the agent started, so there was never a `⏳` to show. Fixing both means keeping background as a live state while the agent runs (cleared by the hook's next `Stop` with nothing running, or by `SubagentStop`), not a badge that clears on view.
+
+**Evidence:** Only the description above and the code trace. Aryan's words: "a subagent is running in the second chat in the Revy project, but still, it showed me on the sidebar that there is a subagent working. Then I opened it, went to Other, then went to Other Threads. Now it does not show that there is a background agent running anymore in the sidebar, although it actually is."
+
+---
+
+## Text cannot be selected in the terminal after a search with the find bar has been used
+
+**Observed:** 2026-10-21 by Aryan during manual testing · **Phase:** pre-existing (find in scrollback and text selection in the terminal, from before the projects-and-threads redesign) · **Status:** open · **Severity:** medium (selecting text in the terminal stops working once a search has been made) · **Screenshot:** none attached
+
+**What happens:**
+Aryan cannot select text in the terminal. Once he has searched for something with the find bar (he names the shortcut as Ctrl+Shift+S; the app documents find in scrollback as Ctrl+Shift+F), he is no longer able to select any other text. He expects to be able to select text as usual after a search.
+
+**Steps to make it happen again:**
+1. In a thread with output in it, open the find bar and search for some text.
+2. Try to select any other text in the terminal with the mouse.
+3. The text cannot be selected.
+
+**Evidence:** Only the description above. Aryan's words: "I cannot select a text. If I have already searched for something using Ctrl+Shift+S, then I am not able to select any other text."
+
+---
+
+## The header's worktree item and editor button open a subfolder inside the worktree instead of the worktree folder
+
+**Observed:** 2026-10-22 by Aryan during manual testing · **Phase:** 9 (the thread's own folder in Explorer and the header's editor button, from the post-Phase 9 fix sweep) · **Status:** open · **Severity:** medium (both folder actions on a worktree chat land in the wrong folder, which defeats their purpose) · **Screenshot:** docs/screenshots/manual-testing/18-header-worktree-and-editor-buttons-open-a-subfolder-of-the-worktree.png
+
+**What happens:**
+In the chat "Phase 6 findings page redo" in the Revy App project, whose header shows the worktree `.claude\worktrees\phase-6-firebase`, the worktree item at the top (the folder button, which should open the worktree folder) and the VS Code button both open a folder inside the worktree (Aryan calls it the apps folder) rather than the worktree folder itself. He guesses the Claude agent's current working directory is inside that folder. He expects both to always open the worktree folder, never a folder inside it: "That just breaks the entire purpose of these features."
+
+**Steps to make it happen again:**
+1. Open a chat that runs in a git worktree and whose Claude Code session has its working directory in a subfolder of that worktree.
+2. Click the worktree item in the header: File Explorer opens the subfolder, not the worktree folder.
+3. Click the editor button in the header: the editor opens the same subfolder.
+
+**Evidence:**
+- Screenshot 18: the chat "Phase 6 findings page redo" open in the Revy App project, header line 2 reading "Revy App · Fable 5.1 · phase-6-firebase · .claude\worktrees\phase-6-firebase", with the Files button (204 files), the VS Code button and the dots menu at the right.
+- Aryan's words: "the folder button on top, which should open the folder inside the work tree, and the VS Code button both open the project inside the apps folder. Maybe the Claude agent's CWD is inside the apps folder, but it should always open in the work tree folder."
+
+---
+
+## A path with spaces links in a Write line but not in the "Wrote N lines to" line below it, and a path written from the worktree's top in a reply does not link
+
+**Observed:** 2026-10-22 by Aryan during manual testing on v0.8.1 · **Phase:** Edited files Phase 3 (file paths in the terminal output are links, `docs/edited-files/`) · **Status:** already fixed in release 0.9.0 (PR #49, "Some file paths in a chat's reply are highlighted as links and others are not" in `docs/bugs-fixed.md`), which Aryan's build does not have yet; waiting for him to move to v0.9.0 or later and check it against these three paths · **Severity:** medium (paths Claude prints cannot be opened from the terminal) · **Screenshot:** `docs/screenshots/manual-testing/19-path-with-spaces-links-in-the-write-line-but-not-in-the-wrote-line-below-it.png`, `docs/screenshots/manual-testing/20-md-path-written-from-the-worktree-top-in-a-chat-reply-is-not-a-link.png`
+
+**What happens:**
+In the chat "Phase 6 findings page redo" in the Revy App project (worktree `.claude\worktrees\phase-6-firebase`), Claude's `Write(...)` tool line shows the full path of the file it wrote, and the line under it, "Wrote 23 lines to", shows the same full path. The first is clickable, the second is not. Further up the same chat, a reply names `docs/testing/phase-6/existing-data-real.md` (a path from the top of the worktree, drawn in blue by Claude Code), and that path is not clickable and does not open either. Aryan expects all three to be links.
+
+**Steps to make it happen again:**
+1. In a chat in a project whose folder has spaces in its path, have Claude write a file, so the terminal shows a `Write(D:\...\file.md)` line and under it "Wrote N lines to D:\...\file.md".
+2. Hover both paths: the one inside `Write(...)` underlines and opens, the one after "Wrote N lines to" does not.
+3. In the same chat, with Claude's working directory in a subfolder of the worktree, have a reply name a file by its path from the top of the worktree, such as `docs/testing/phase-6/existing-data-real.md`.
+4. Hover and click it: it does not underline or open.
+
+**Evidence:**
+- Screenshot 19 (marked 1 and 2 in red by Aryan): the tool line `Write(D:\Pitara\Work\For Friends\Revy App\.claude\worktrees\phase-6-firebase\docs\testing\phase-6\fix-decisions-round-5.md)` (1, clickable) and under it `Wrote 23 lines to D:\Pitara\Work\For Friends\Revy App\.claude\worktrees\phase-6-firebase\docs\testing\phase-6\fix-decisions-round-5.md` (2, not clickable), followed by the file's first ten lines ("# Phase 6 fixes, round 5"). Taken at about 01:07.
+- Screenshot 20 (marked 3 in red): the reply "The logins and their passwords are in the phase 6 worktree at docs/testing/phase-6/existing-data-real.md." in the same chat, the path in blue, after the line "Cooked for 33m 37s · done Wednesday 10:52 PM". The prompt below holds `docs/testing/phase-6/existing-data-real`.
+- The file in screenshot 20 is at `D:\Pitara\Work\For Friends\Revy App\.claude\worktrees\phase-6-firebase\docs\testing\phase-6\existing-data-real.md`; the chat's saved Claude folder is the worktree's `app` subfolder (see the entry above on the header's worktree item).
+- Aryan's words: "I have written: 1. On an image 2. On an image. The first is clickable, and the second is not clickable. I don't know why. Then I'll give you another screenshot from that chat where I'll write third. That .md file is also not clickable and open."
+
+---
+
+## Right-clicking a file path link in the terminal has no menu to open it, open its folder or copy its full path
+
+**Observed:** 2026-10-22 by Aryan during manual testing · **Phase:** Edited files Phase 3 (file paths in the terminal output are links, `docs/edited-files/`) · **Status:** open (a feature request) · **Severity:** low (the link still opens on click; the missing menu only takes away the other actions) · **Screenshot:** none
+
+**What happens:**
+A file name or path in the terminal that can be clicked to open the file has nothing of its own on right-click. Aryan wants right-clicking such a link to show a menu with:
+- Open, which opens the file.
+- Open file location, which opens the file's folder.
+- Copy file path, which copies the file's full, absolute path (not the path as written in the terminal).
+
+**Steps to make it happen again:**
+1. In a chat or shell, print output that contains a file path the terminal shows as a link.
+2. Right-click the link: no menu with Open, Open file location or Copy file path appears.
+
+**Evidence:** Only the description above. Aryan's words: "whenever there is a file name in the terminal and I can click to open it, right-clicking on it should give me a menu with two options: Open, which opens the file; Open file location aur copy file path, which will be the global file path, of course." ("aur" is Hindi for "and", so the list reads as Open, Open file location and Copy file path.)
+
+---
+
+## Projects in the panel's Recent group swap places whenever a thread in another project is used
+
+**Observed:** 2026-10-22 by Aryan during manual testing · **Phase:** 8 (the panel's Pinned and Recent groups, design-03, where "Recent by activity" was agreed on 2026-09-19) · **Status:** open · **Severity:** medium (the panel reorders under him while he works, so rows are never where he left them) · **Screenshot:** none
+
+**What happens:**
+While Aryan works on threads in two projects at once, the two projects keep swapping places in the Recent group of the panel, depending on which project's thread he is working in. He expects the order to stay put. He no longer wants projects or threads to change their order based on how recently they were used: "I don't want projects or threads changing their order based on recency of activity."
+
+**Steps to make it happen again:**
+1. Have two unpinned projects in the Recent group of the panel, each with a thread.
+2. Work in a thread of the lower project: that project moves above the other one.
+3. Go back to a thread of the other project and work in it: the two swap again.
+
+**Evidence:** Only the description above. Aryan's words: "I'm working on two projects simultaneously, and they are flipping back and forth based on which thread I'm working on. Very fucking annoying." and "Whenever did we decide to make this change? I don't like it anymore. We'll have to fix this."
+
+---
+
+## The New project dialog shows the chosen icon too small, lists the shells as a long column with an unclear "Default shell" option, and asks for the folder before the name
+
+**Observed:** 2026-10-22 by Aryan during manual testing · **Phase:** 2 (the New/Edit project dialog), with the icon picker from Phase 8 · **Status:** open · **Severity:** low (the dialog works; it is hard to read and takes too much space) · **Screenshot:** `docs/screenshots/manual-testing/21-new-project-dialog-small-icon-row-and-long-default-shell-list.png`
+
+**What happens:**
+In the New project dialog:
+- The selected icon is shown at the same small size as every other icon in the row. Aryan wants the selected icon to appear bigger, with a bigger preview that changes as he switches between icons and colours ("also for default shells", in his words).
+- The shell section is headed "Default shell" and its first option is also "Default shell". He does not know what that option means.
+- The shell list takes six full rows (Default shell, Command Prompt, PowerShell 7, Windows PowerShell, Git Bash, WSL). He expects a dropdown instead, and the dialog redesigned to use its space better.
+- The Folder field comes first and Name second. He expects the project name above the project folder.
+
+**Steps to make it happen again:**
+1. Open the New project dialog.
+2. Pick a colour and an icon: the chosen icon stays the size of the others, with no larger preview.
+3. Look at the shell section: the heading and its first option both read "Default shell", and every shell has its own full-width row.
+4. Note the order of the fields: Folder above Name.
+
+**Evidence:**
+- Screenshot 21: the New project dialog for `D:\Pitara\Work\Tinkering\minimi-windows`, Folder first with a Change button, then Name "minimi-windows", the Colour row with pink selected, the Icon row with the robot selected (small, tinted pink), the "Default shell" heading over six rows starting with "Default shell" (highlighted), "Open a terminal in it now" ticked, and Cancel and Create.
+- Aryan's words: "I feel the icon which is default selected should appear bigger. When I switch between icons and colors, I should get a bigger preview also for default shells." and "the title is "Default Shell", and the first option is "Default Shell". I don't know what "Default Shell" is, and I feel this is too space-consuming. This could be a fucking dropdown, right? We can redesign this to be more efficient. Project name should be above project folder."
