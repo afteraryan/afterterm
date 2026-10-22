@@ -138,6 +138,7 @@ assets/
     test-afterterm-notify.ps1          ← standalone test harness for the hook (22 cases)
 forge.config.ts                        ← ASAR unpack, rebuild skip, Vite plugin config (extraResource: ['assets'] bundles the hook)
 scripts/
+  update-build.mjs                     ← The one command for switching Aryan's production build: reads the awake threads, closes afterterm, swaps out\afterterm-win32-x64 for the newest worktree build, restarts through WMI, wakes those threads over CDP. Refuses to run from inside afterterm. Procedure in docs/agent-workflow/replica-and-build-swap.md.
   agent-harness/
     README.md                          ← how an agent launches, drives, screenshots and stops the dev build (safety rules included)
     launch.mjs                         ← Seeds a throwaway AFTERTERM_USER_DATA_DIR, starts the dev build with CDP on; --prefs seeds prefs.json; --env sets env vars; --open-external allows real launches.
@@ -272,6 +273,12 @@ what `npm run release` hits.)
 **To build without closing the app**, use a separate copy whose `out\` is a different path:
 `git worktree add`, copy `node_modules` into it, and build there, then move the artifacts
 into the standard `out\` folder afterwards. This is how `v0.8.0` and `v0.8.1` were cut.
+
+**To switch Aryan's running app to that build**, the practice since 2026-10-22 is one command,
+run by him from a PowerShell window outside afterterm (never from a Claude session inside it):
+`node scripts\update-build.mjs`. It closes the app, swaps the folders, restarts the new build
+and wakes every thread that was awake. Details and flags in
+`docs/agent-workflow/replica-and-build-swap.md`.
 
 Session data (`%APPDATA%\afterterm\`) is shared between dev and portable builds.
 
