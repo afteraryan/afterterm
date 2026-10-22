@@ -174,3 +174,22 @@ always hits it. Still to verify: that `--plugin-dir` hooks fire for the interact
 headless mode (ten minutes in the harness). A middle option, registering the plugin once so
 settings.json holds a single `"enabledPlugins"` line, only moves the clutter into
 `~/.claude/plugins`, so it is not worth doing.
+
+---
+
+## In-app update: a "Restart to update" button that swaps the build and brings the threads back
+
+Asked by Aryan on 2026-10-22, right after the first run of `scripts/update-build.mjs` (the one command that closes afterterm, swaps `out\afterterm-win32-x64`, restarts and wakes the threads that were awake). He wants the same thing without a separate command, the way desktop apps show "there is an update", download it, and on "Install update" close, install and restart themselves. Not now; recorded so it can be done later.
+
+**Two cases, one feature.** The shared part is in-app, and is the real work:
+- A "Restart to update" button (header or Home) shown when a newer build is available.
+- A detached updater the app starts on click: it waits for the app to exit, swaps the folders, starts the new build. The script already does this; it moves into the app.
+- Wake on launch: the app records which threads were awake at quit (a list in `session.json`, a new field through `sessionMigration.ts`) and wakes them on the next launch, chats through `claude --resume`, servers through their last command. This replaces the script's remote-debugging trick (notifier tab-click plus the Wake button over CDP), which is the fragile part.
+
+The two cases differ only in where the new build comes from:
+1. **Local, for Aryan.** The source is a folder on disk: the app watches `.claude\worktrees\*\out` (or one staging folder agents drop builds into) and shows the button when a newer build appears. Clicking it runs what the script does today, from inside the app. About a day, mostly reuse. No installer change.
+2. **For everyone, from GitHub.** The source is GitHub Releases. Needs a real Windows installer (Squirrel through Forge's maker, already in the dev dependencies, or NSIS through electron-builder), a release workflow that uploads the installer and its update metadata to each release, and Electron's `autoUpdater` (or `electron-updater`) pointed at that feed. Changes the install location and `npm run release`, and raises code signing: unsigned auto-updates trip SmartScreen. A few days plus a signing decision.
+
+**Order.** Build the shared in-app part first with the local folder as the source, designed so the GitHub feed is a second source added later, not a rewrite. Write it up as a design doc with phases before building, the way the other rounds were done.
+
+**What it still cannot do.** Keep a process alive across the swap: a Claude turn mid-run is interrupted and has to be sent again, a shell loses what it was running. That needs `docs/design-01-persistent-pty-host.md`.
