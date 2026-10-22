@@ -824,3 +824,19 @@ A file name or path in the terminal that can be clicked to open the file has not
 2. Right-click the link: no menu with Open, Open file location or Copy file path appears.
 
 **Evidence:** Only the description above. Aryan's words: "whenever there is a file name in the terminal and I can click to open it, right-clicking on it should give me a menu with two options: Open, which opens the file; Open file location aur copy file path, which will be the global file path, of course." ("aur" is Hindi for "and", so the list reads as Open, Open file location and Copy file path.)
+
+---
+
+## Projects in the panel's Recent group swap places whenever a thread in another project is used
+
+**Observed:** 2026-10-22 by Aryan during manual testing · **Phase:** 8 (the panel's Pinned and Recent groups, design-03, where "Recent by activity" was agreed on 2026-09-19) · **Status:** open · **Severity:** medium (the panel reorders under him while he works, so rows are never where he left them) · **Screenshot:** none
+
+**What happens:**
+While Aryan works on threads in two projects at once, the two projects keep swapping places in the Recent group of the panel, depending on which project's thread he is working in. He expects the order to stay put. He no longer wants projects or threads to change their order based on how recently they were used: "I don't want projects or threads changing their order based on recency of activity."
+
+**Steps to make it happen again:**
+1. Have two unpinned projects in the Recent group of the panel, each with a thread.
+2. Work in a thread of the lower project: that project moves above the other one.
+3. Go back to a thread of the other project and work in it: the two swap again.
+
+**Evidence:** Only the description above. Aryan's words: "I'm working on two projects simultaneously, and they are flipping back and forth based on which thread I'm working on. Very fucking annoying." and "Whenever did we decide to make this change? I don't like it anymore. We'll have to fix this."
