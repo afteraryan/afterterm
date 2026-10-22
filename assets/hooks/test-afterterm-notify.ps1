@@ -6,7 +6,11 @@ it), feeds crafted hook payloads on stdin, and asserts the emitted OSC-0 title.
 No afterterm, no Claude Code, no human needed — just `pwsh -File` this.
 
 Exit code 0 = all pass, 1 = a failure (so CI / a build step can gate on it).
+
+Pass -Shell powershell.exe to run the hook under Windows PowerShell 5.1, the host
+Claude Code's registered hook entry actually uses (the default is pwsh).
 #>
+param([string]$Shell = 'pwsh')
 
 $ErrorActionPreference = 'Stop'
 $script = Join-Path $PSScriptRoot 'afterterm-notify.ps1'
@@ -27,7 +31,7 @@ function Invoke-Hook {
     if ($TabId)      { $env:AFTERTERM_TAB_ID = $TabId }       else { Remove-Item Env:AFTERTERM_TAB_ID -ErrorAction SilentlyContinue }
     if ($SessionDir) { $env:AFTERTERM_SESSION_DIR = $SessionDir } else { Remove-Item Env:AFTERTERM_SESSION_DIR -ErrorAction SilentlyContinue }
     try {
-        $out = $Json | & pwsh -NoProfile -File $script
+        $out = $Json | & $Shell -NoProfile -ExecutionPolicy Bypass -File $script
     } finally {
         if ($null -eq $prev)    { Remove-Item Env:AFTERTERM -ErrorAction SilentlyContinue }             else { $env:AFTERTERM = $prev }
         if ($null -eq $prevTab) { Remove-Item Env:AFTERTERM_TAB_ID -ErrorAction SilentlyContinue }      else { $env:AFTERTERM_TAB_ID = $prevTab }
@@ -119,6 +123,32 @@ $bgcron = "{`"hook_event_name`":`"Stop`",`"cwd`":`"$cwd`"," +
           "`"session_crons`":[{`"id`":`"c1`"}]}"
 Assert-Title 'Stop (1 task + 1 cron) -> bg (2 running)' $bgcron `
     "$E_HOUR afterterm - bg (2 running)"
+
+# 8a-8d. An artifact's live-updates watch is a subscription, not work: it never
+# ends and never starts a turn, so counting it left a finished thread on the
+# hourglass until it was opened. The task below is the one Claude Code 2.1.283
+# really sent in the Stop payload after an artifact watch (2026-09-26).
+$watchTask = "{`"id`":`"skvfqxfth`",`"type`":`"monitor`",`"status`":`"running`"," +
+         "`"description`":`"live updates for artifact https://claude.ai/artifact/NX2aSKyfeHH58NDQZGbTgk (watch requested)`"}"
+$shellTask = "{`"id`":`"bgy4liaar`",`"type`":`"shell`",`"status`":`"running`"," +
+         "`"description`":`"Wait 40 seconds then print finished`",`"command`":`"sleep 40 && echo finished`"}"
+
+Assert-Title 'Stop (only an artifact watch) -> done' `
+    "{`"hook_event_name`":`"Stop`",`"cwd`":`"$cwd`",`"background_tasks`":[$watchTask]}" `
+    "$E_DONE afterterm - done"
+
+Assert-Title 'Stop (artifact watch + a real shell task) -> bg (1 running)' `
+    "{`"hook_event_name`":`"Stop`",`"cwd`":`"$cwd`",`"background_tasks`":[$watchTask,$shellTask]}" `
+    "$E_HOUR afterterm - bg (1 running)"
+
+Assert-Title 'Stop (artifact watch + a cron) -> bg (1 running)' `
+    "{`"hook_event_name`":`"Stop`",`"cwd`":`"$cwd`",`"background_tasks`":[$watchTask],`"session_crons`":[{`"id`":`"c1`"}]}" `
+    "$E_HOUR afterterm - bg (1 running)"
+
+# Only the artifact watch is left out: any other running monitor task still counts.
+Assert-Title 'Stop (some other running monitor) -> bg (1 running)' `
+    "{`"hook_event_name`":`"Stop`",`"cwd`":`"$cwd`",`"background_tasks`":[{`"type`":`"monitor`",`"status`":`"running`",`"description`":`"tail the build log`"}]}" `
+    "$E_HOUR afterterm - bg (1 running)"
 
 # 9. PreCompact -> compacting.
 Assert-Title 'PreCompact -> compacting' `

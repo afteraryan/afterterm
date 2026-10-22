@@ -4,7 +4,7 @@ Written 2026-09-18, from Aryan's notes after trying the enjoy.dev demo and insta
 on this machine. This file is the one place these notes live. Nothing here is decided or
 scheduled: it is the raw list, sorted into buckets, so it can be turned into design work and
 backlog items later. It is deliberately not merged into `docs/ideas.md`, `docs/bugs.md` or
-`PHASES.md`.
+`docs/phases-01-projects-and-threads.md`.
 
 ![Enjoy's collapsed rail: one tile per project with attention badges](screenshots/enjoy-dev/01-enjoy-rail-with-project-attention-badges.png)
 

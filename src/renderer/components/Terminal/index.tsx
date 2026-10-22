@@ -585,7 +585,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       // scrolled back to it once ConPTY's first paint had settled; Aryan chose on
       // 2026-09-19 to drop that, since the asleep pane has already shown the same
       // tail and the replay stayed on screen after the terminal came back (the
-      // Phase 9 log in PHASES.md). tab.wokeAt still marks "woken this launch" for
+      // Phase 9 log in docs/phases-01-projects-and-threads.md). tab.wokeAt still marks "woken this launch" for
       // the rest of the app; nothing here reads it any more.
 
       // Waking respawns where the thread was: claudeCwd over cwd, because

@@ -126,18 +126,28 @@ console.log('\nattention: railProjects\n');
   const tabs = [
     tab('t1', { groupId: 'A', notification: 'attention' }), // A: waiting
     tab('t2', { groupId: 'B', notification: 'done' }),      // B: finished
-    tab('t3', { groupId: 'C', notification: 'working' }),   // C: working only, not on the rail
+    tab('t3', { groupId: 'C', notification: 'working' }),   // C: working only, on the rail (2026-09-29)
     tab('t4', { groupId: 'D', notification: 'attention' }), // D archived: excluded regardless
     tab('t5', { groupId: 'F', notification: 'compacting' }), // F: compacting only, on the rail (Phase 8)
+    tab('t6', { groupId: 'G', notification: 'background' }), // G: background only, not on the rail
+    tab('t7', { groupId: 'H', port: 5173 }),                 // H: a server only, not on the rail
+    tab('t8', { groupId: 'I', notification: 'working' }),   // I archived: excluded regardless
   ];
-  const groups = [group('C'), group('A'), group('B'), group('D', { archived: true }), group('E'), group('F')];
+  const groups = [group('C'), group('A'), group('B'), group('D', { archived: true }), group('E'), group('F'),
+    group('G'), group('H'), group('I', { archived: true })];
   const rail = railProjects(groups, tabs);
-  check('only projects with something waiting, finished or compacting are on the rail',
-    rail.map(g => g.id).join(',') === 'A,B,F', show(rail.map(g => g.id)));
+  check('only projects with something waiting, finished, working or compacting are on the rail',
+    rail.map(g => g.id).join(',') === 'C,A,B,F', show(rail.map(g => g.id)));
   check('an archived project with a needs-you thread never appears on the rail',
     !rail.some(g => g.id === 'D'));
-  check('a project with only a working thread is not on the rail',
-    !rail.some(g => g.id === 'C'));
+  check('a project with only a working thread is on the rail (Aryan 2026-09-29: its tile shows the working count)',
+    rail.some(g => g.id === 'C'));
+  check('an archived project with a working thread never appears on the rail',
+    !rail.some(g => g.id === 'I'));
+  check('a project with only background tasks is not on the rail',
+    !rail.some(g => g.id === 'G'));
+  check('a project with only a running server is not on the rail',
+    !rail.some(g => g.id === 'H'));
   check('a project with nothing pending is not on the rail',
     !rail.some(g => g.id === 'E'));
   check('a project with only a compacting thread is on the rail (Phase 8, Aryan 2026-09-19)',

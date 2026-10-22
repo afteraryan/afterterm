@@ -79,6 +79,9 @@ contextBridge.exposeInMainWorld('afterterm', {
       ipcRenderer.invoke('files:stat', paths),
     openFolder: (folder: string): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke('files:openFolder', folder),
+    // Every file with each name under these folders, shallowest first.
+    find: (names: string[], roots: string[]): Promise<Record<string, string[]>> =>
+      ipcRenderer.invoke('files:find', names, roots),
   },
 
   // The files a chat changed and the images pasted into it, from its transcript.
@@ -175,6 +178,12 @@ contextBridge.exposeInMainWorld('afterterm', {
       ipcRenderer.send('notifier:hide'),
     resize: (height: number): void =>
       ipcRenderer.send('notifier:resize', height),
+    // Whether the main window is focused: toasts go on their own only then.
+    mainFocused: (): Promise<boolean> =>
+      ipcRenderer.invoke('notifier:main-focused'),
+    onMainFocus: (callback: (focused: boolean) => void): void => {
+      ipcRenderer.on('notifier:main-focus', (_event, focused) => callback(focused));
+    },
   },
 
   pty: {

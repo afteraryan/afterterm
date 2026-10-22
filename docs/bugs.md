@@ -8,7 +8,7 @@ This one file is where every bug goes, and `docs/screenshots/manual-testing/` is
 
 ---
 
-Every entry from the manual-testing round after the projects-and-threads phases (seven bugs plus the thread-folder Explorer ask) was closed in Phase 9 on 2026-09-19; see PHASES.md's Phase 9 section and Log for what each fix was and how it was verified. Entries below are from Aryan's use of the Phase 9 build.
+Every entry from the manual-testing round after the projects-and-threads phases (seven bugs plus the thread-folder Explorer ask) was closed in Phase 9 on 2026-09-19; see docs/phases-01-projects-and-threads.md's Phase 9 section and Log for what each fix was and how it was verified. Entries below are from Aryan's use of the Phase 9 build.
 
 ---
 
@@ -157,6 +157,8 @@ As observed; the exact trigger is not known. Two circumstances are recorded: wit
 
 **Cause:** the Phase 9 fix repaints the overlay at three moments (`repaintNotifier()` in `src/main.ts`, called after the `showInactive` on a push, on the `WM_DWMNCRENDERINGCHANGED` message, and on the main window's `focus` event), because DWM paints the caption strip into the transparent window whenever it touches the frame. It does not repaint after a bounds change: `positionNotifier` calls `setBounds` on every `notifier:resize` from the renderer, which is exactly what happens when a second toast joins the stack and the window grows, and a bounds change is another moment DWM can paint the frame. That fits the screenshot, where the bar sits at the top of a window that had just been made taller. The no-toast case is a second thread to pull: the overlay is meant to be hidden when the last toast clears (`notifier:hide` from `NotifierApp.tsx`), so a bar with no toast means either the hide did not happen or the window was left visible at a small height with the caption strip painted into it. Fix direction: call `repaintNotifier()` after every `setBounds` in `positionNotifier`, then reproduce the empty case in the harness (push two toasts, dismiss both, watch `isVisible()` and the window height) before deciding whether the hide path needs its own fix.
 
+**2026-09-29, before release 0.9.0 (stays open until Aryan says the bar is gone):** neither half reproduced in the harness. Six runs of a second toast joining the stack and six runs of a push dismissed in the same tick, on the secondary display, found no new near-white pixels above the first card and never left the overlay shown with no toast (`docs/screenshots/release-0.9.0-fixes/`). The gaps the code shows were closed anyway, since each costs only a repaint: the overlay now repaints after every bounds change (`positionNotifier`), after the machine resumes from sleep or unlocks (`powerMonitor`, which also re-places it), and when the main window loses focus; and hiding the empty overlay no longer depends on the toast count changing (the hide effect in `NotifierApp.tsx` runs on every change to the list, so a push and a dismiss batched into one render still end in a hide). Pop-ups that vanish after 5 seconds while the window is in use (same release) also shorten the time any bar could stay on screen.
+
 ---
 
 ## A rail tile cannot say which of a project's waiting threads to open
@@ -198,36 +200,6 @@ Fix direction, in order: remember the main window's bounds and the display it wa
 
 ---
 
-## The rail leaves out a project whose only thread is working, then shows a working count once another thread finishes
-
-**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 8 (the rail and the attention aggregate) · **Status:** open · **Severity:** medium (the rail's two rules disagree, so its counts mislead) · **Screenshot:** none attached
-
-**What happens:**
-When a project has one thread working and nothing else, the rail shows nothing for it. The moment a second thread in the same project finishes, the project's tile appears on the rail with two badges: the finished count and the working count. Aryan says that is inconsistent: if the tile shows a working count, the tile should have been on the rail while the thread was only working, before anything finished. Either the working count goes from the tile, or a project with a working thread gets a tile. That is a decision to take with him before it is fixed.
-
-**Repro:**
-1. In a project with no pending threads, start a chat so it is working. The rail shows no tile for the project.
-2. In the same project, run a second thread until it finishes, and do not view it.
-3. The project's tile appears on the rail with a finished badge and a working badge.
-
-**Cause:** the rail decides membership and badges from different rules. `railProjects` in `src/renderer/attention.ts` keeps a project only when `waiting`, `finished` or `compacting` is above zero (working is left out, as design-03 decision 1 says: "one tile per project that has a thread waiting for you ... or a thread that finished and has not been viewed"), while `components/Rail/index.tsx` draws a badge for every non-zero count, including `working`, as design-03's badge column also says. Fix direction, once Aryan picks: either drop the working badge from the rail tile (keeping the rail for "needs you"), or add `working > 0` to `railProjects` so a working project gets a tile of its own; update `attention.test.ts` and design-03's decision 1 to match either way.
-
----
-
-## A thread's toast stayed on screen after the thread was opened from the sidebar
-
-**Observed:** 2026-09-25 by Aryan during manual testing · **Phase:** 1 (the toast cards) · **Status:** open · **Severity:** medium (a toast for something already seen keeps asking for attention) · **Screenshot:** none attached
-
-**What happens:**
-A toast for a thread was up. Aryan opened that thread from the sidebar, and the toast did not go away. He expects opening the thread to dismiss its toast. He does not know what was special about that moment, so the case has to be recreated before it can be fixed.
-
-**Repro:**
-As observed; repro not yet known.
-
-**Cause:** not confirmed. Opening a thread row dismisses its toast: `handleActivate` in `src/renderer/app.tsx` calls `clearThreadBadges`, which sends `notify:dismiss-tab` for that tab id, and `NotifierApp.tsx` drops every toast with that id. One path found in a quick look does not match: opening a project (`openProject` in `app.tsx`, around line 282) clears badges and the toast of the project's *first* thread (`tabs.find(t => t.groupId === groupId)`), while `openProject` actually lands on the last-worked thread, so opening a project from its sidebar row can leave the toast of the thread it really shows on screen. Fix direction: recreate the case (thread row click versus project row click, and with the window focused or not), and make the project-open path dismiss the toast of the thread that `openProject` selects.
-
----
-
 ## The thread menus have no item to open a chat's Claude Code session in a regular terminal outside afterterm
 
 **Observed:** 2026-09-26 by Aryan during manual testing · **Phase:** 4 (resuming a chat's Claude Code session) · **Status:** open · **Severity:** low (a missing menu item, nothing is broken or lost) · **Screenshot:** none attached
@@ -240,22 +212,6 @@ There is no way to take a chat's Claude Code session out of afterterm. Aryan wan
 2. Open the chat and click the header's three-dot menu: no such item there either.
 
 **Cause:** not built yet. The two menus are `buildThreadMenu` and `buildHeaderMenu` in `src/renderer/threadMenu.tsx`, which share their items. The data is already there: a chat carries `claudeSessionId` and `claudeCwd` (`Tab` in `components/TabBar/types.ts`), and waking types `claude --resume <id>` in that folder (`Terminal/index.tsx`, around line 350). Fix direction: a shared item for chats with a session id, calling a new main-process IPC that starts an external terminal (Windows Terminal, else a new console window) in `threadFolder(tab)` running `claude --resume <id>`, with the session id validated the same way as on wake; decide with Aryan whether the afterterm thread should sleep first, so the same session is not live in two places.
-
----
-
-## A thread whose turn ended while it was not open keeps showing the background status until it is opened
-
-**Observed:** 2026-09-26 by Aryan during manual testing · **Phase:** 7 (attention: thread states and the badges that clear when seen) · **Status:** open · **Severity:** medium (the sidebar says background work is running when the thread is done) · **Screenshot:** none attached
-
-**What happens:**
-A thread's turn has ended and Aryan has not opened it yet, but its row still shows that a background process is running. When he opens it, it says the thread is done and there is nothing running in it. The moment he opens it, the status corrects itself. He expects the row to show the right status without having to open the thread.
-
-**Steps to make it happen again:**
-1. Let a chat's turn end while you are looking at another thread.
-2. Its row shows the background status (the hourglass) although nothing is running any more.
-3. Open the chat: it reads as done, with nothing in it, and the status changes at once.
-
-**Evidence:** Only the description above.
 
 ---
 
@@ -338,22 +294,6 @@ The notification badges beside the project tiles on the rail do not survive clos
 
 ---
 
-## Pop-up notifications stay on screen while the afterterm window is open, instead of vanishing after a few seconds
-
-**Observed:** 2026-09-29 by Aryan during manual testing · **Phase:** pre-existing (the overlay pop-up notifications; the rail they make redundant is Phase 8) · **Status:** open · **Severity:** medium (the pop-ups crowd the screen and make the rail's notifications pointless while the window is open) · **Screenshot:** none attached
-
-**What happens:**
-A pop-up notification that arrives while the afterterm window is open stays on screen until it is closed by hand. Aryan expects it to vanish after a few seconds, like a regular pop-up notification, since the rail already shows the same notification. When the afterterm window is not open, the pop-up should keep persisting until the user closes it, which is how it behaves today. Because pop-ups persist while the window is open, they make the rail notifications useless.
-
-**Steps to make it happen again:**
-1. Have the afterterm window open.
-2. Let a thread raise a notification (for example a chat finishing a turn or waiting for you) so a pop-up appears.
-3. Wait: the pop-up stays on screen until it is closed by hand, rather than vanishing after a few seconds.
-
-**Evidence:** Only the description above.
-
----
-
 ## A chat running a background agent shows only its server as running, with nothing for the background agent
 
 **Observed:** 2026-09-29 by Aryan during manual testing · **Phase:** 5 (servers: the port pill and the "Running on" chip; the background state on the row and the header came in PR #40) · **Status:** open · **Severity:** medium (a background agent at work is invisible in the sidebar and the header) · **Screenshot:** `docs/screenshots/manual-testing/13-server-running-shown-while-background-agent-runs-unmarked.png`
@@ -401,25 +341,6 @@ In the Recent section of the sidebar, just opening a chat from some other projec
 3. That project jumps to the top of Recent at once, with no animation.
 
 **Evidence:** Only the description above. Aryan's words: "just opening a chat from some other project bring it to the top. This is weird, if I input something, then they should come on top. Also, there should be animation for it".
-
----
-
-## Some file paths in a chat's reply are highlighted as links and others are not
-
-**Observed:** 2026-09-30 by Aryan during manual testing · **Phase:** Edited files Phase 3 (file paths in the terminal output are links, `docs/edited-files/`) · **Status:** open · **Severity:** medium (paths Claude gives in a reply cannot be opened from the terminal) · **Screenshot:** `docs/screenshots/manual-testing/14-chat-reply-screenshot-paths-some-link-some-do-not.png`
-
-**What happens:**
-Aryan asked a chat for the paths of test screenshots. In Claude's reply, some of the file and folder paths work with the link highlight (underlined on hover, open on click) and some do not. He expects every path in the reply to work as a link.
-
-**Steps to make it happen again:**
-1. In a chat, ask Claude for the paths of some files, so its reply lists them (full paths, paths relative to a folder the reply names, and bare file names).
-2. Hover each path in the reply: some are highlighted as links and some are not.
-
-**Evidence:**
-- `14-chat-reply-screenshot-paths-some-link-some-do-not.png`: the thread "Revy Phase 4 rebuild" in the project "Revy App" (Opus 5.5, branch and worktree `phase-4-all-plant-types`, header showing "35 files" and "Working"). The reply, written on 2026-09-30 at about 13:02, starts "1. Animation screenshots folder" with the full path `D:\Pitara\Work\For Friends\Revy App\.claude\worktrees\phase-4-all-plant-types\docs\testing\phase-4\phase-3-changes\screenshots\animations\`, then names `17-open-deleted-card-t0.05.png` to `t0.80.png`, then says "All screenshot paths below start from `D:\Pitara\Work\For Friends\Revy App\.claude\worktrees\phase-4-all-plant-types\docs\testing\phase-4\`" and lists paths such as `screenshots\revy-admin\24-stp-parameter-list-still-lists-biogas-parameters.png` and `screenshots\edge-cases\23-trend-chart-after-rapid-period-and-toggle-taps.png` under each issue.
-- Further down, the same reply says "All paths here start with `phase-3-changes\screenshots\`" and lists paths such as `plant-supervisor\39-etp-delete-dialog-landscape-top.png`.
-- The reply before it in the same chat (2026-09-29) gave paths from the worktree's root, such as `docs/testing/phase-4/bugs.md`.
-- Aryan's words: "in the messagee where I asked for screenshot links in the chat, some links work with the highlight feature, some don't."
 
 ---
 

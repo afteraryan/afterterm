@@ -85,6 +85,8 @@ console.log('\ngit-info: an ordinary checkout\n');
 
   const sub = gitInfo(path.join(repo, 'src', 'renderer'), deps);
   check('a subfolder walks up to the repo', sub.branch === 'main' && sub.repoRoot === repo, show(sub));
+  check('a checkout\'s top is its own folder', got.top === repo, show(got));
+  check('a subfolder\'s top is the checkout', sub.top === repo, show(sub));
 
   const detached = gitInfo(repo, fakeFs({
     dirs: [repo, path.join(repo, '.git')],
@@ -143,6 +145,8 @@ console.log('\ngit-info: a linked worktree\n');
   const inside = gitInfo(path.join(wt, 'src', 'renderer'), withFile(`gitdir: ${gitdir}\n`));
   check('a subfolder of a worktree walks up to the worktree',
     inside.branch === 'phase-3-thread-identity' && inside.worktree === WANT_WORKTREE, show(inside));
+  check('a worktree\'s top is its own folder, not the main repo', abs.top === wt, show(abs));
+  check('a subfolder of a worktree has the worktree as its top', inside.top === wt, show(inside));
 
   const crlf = gitInfo(wt, (() => {
     const t = tree(`gitdir: ${gitdir}\r\n`);
@@ -168,13 +172,14 @@ console.log('\ngit-info: a linked worktree\n');
   const junk = gitInfo(wt, withFile('this is not a gitdir pointer\n'));
   check('a .git file that is not a gitdir pointer gives nulls',
     junk.branch === null && junk.worktree === null && junk.repoRoot === null, show(junk));
+  check('a .git file that is not a gitdir pointer still marks the top', junk.top === wt, show(junk));
 }
 
 console.log('\ngit-info: no repository\n');
 {
   const got = gitInfo(j('nowhere', 'at', 'all'), fakeFs({ dirs: [j('nowhere')] }));
   check('a folder with no .git anywhere gives all nulls',
-    got.branch === null && got.worktree === null && got.repoRoot === null, show(got));
+    got.branch === null && got.worktree === null && got.repoRoot === null && got.top === null, show(got));
   const empty = gitInfo('', fakeFs({}));
   check('an empty cwd gives all nulls', empty.branch === null && empty.repoRoot === null, show(empty));
   const notAString = gitInfo(undefined as unknown as string, fakeFs({}));

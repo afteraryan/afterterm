@@ -118,7 +118,7 @@ export function splitLiveAsleep(tabs: Tab[]): { live: Tab[]; asleep: Tab[] } {
   };
 }
 
-// The last-opened Home experiment (PHASES.md Phase 3, CLAUDE.md "Experiment:
+// The last-opened Home experiment (docs/phases-01-projects-and-threads.md Phase 3, CLAUDE.md "Experiment:
 // last opened on Home"): one quiet line under the date reading "Last here 2d
 // ago", built from the app's previous launch time. Aryan runs this as a user;
 // whenever work on afterterm resumes, ask him whether it was useful, then keep

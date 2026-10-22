@@ -91,18 +91,22 @@ export function totalAttention(groups: Group[], tabs: Tab[]): AttentionCounts {
 }
 
 // The rail (Phase 8) shows only projects with something pending: a thread
-// waiting for you, one that finished and has not been viewed, or one that is
-// compacting (Aryan, 2026-09-19: a compacting chat gets its own rail badge, so
-// its project must be on the rail to show it, even with nothing else
-// pending). Caller order (the panel's own group order) is kept rather than
-// re-sorted, since the rail is a subset of that same list, not a ranking of
-// its own.
+// waiting for you, one that finished and has not been viewed, one that is
+// working, or one that is compacting (Aryan, 2026-09-19: a compacting chat gets
+// its own rail badge, so its project must be on the rail to show it, even with
+// nothing else pending). Working joined on 2026-09-29 (Aryan): the tile already
+// drew a working count, so a project whose only thread was working had no tile
+// until another thread finished, and then showed the working count after all.
+// Every badge the tile draws now also puts the project on the rail. Background
+// and running (a server) still do not. Caller order (the panel's own group
+// order) is kept rather than re-sorted, since the rail is a subset of that same
+// list, not a ranking of its own.
 export function railProjects(groups: Group[], tabs: Tab[]): Group[] {
   const counts = projectAttention(groups, tabs);
   return groups.filter(g => {
     if (g.archived) return false;
     const c = counts.get(g.id);
-    return !!c && (c.waiting > 0 || c.finished > 0 || c.compacting > 0);
+    return !!c && (c.waiting > 0 || c.finished > 0 || c.working > 0 || c.compacting > 0);
   });
 }
 

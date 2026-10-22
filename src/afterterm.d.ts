@@ -51,6 +51,8 @@ interface AftertermFilesAPI {
   stat(paths: string[]): Promise<Record<string, 'file' | 'dir' | null>>;
   // A folder a file link points at, in File Explorer.
   openFolder(folder: string): Promise<{ ok: boolean; error?: string }>;
+  // Every file with each name under these folders (at most 3), shallowest first.
+  find(names: string[], roots: string[]): Promise<Record<string, string[]>>;
 }
 
 type SessionFiles = import('./session-files.ts').SessionFiles;
@@ -108,6 +110,8 @@ interface GitInfo {
   branch: string | null;
   worktree: string | null;
   repoRoot: string | null;
+  /** The folder holding .git: a linked worktree's own folder, or the checkout's. */
+  top: string | null;
 }
 
 interface AftertermClaudeSessionAPI {
@@ -159,6 +163,9 @@ interface AftertermNotifierAPI {
   setIgnoreMouse(ignore: boolean): void;
   hide(): void;
   resize(height: number): void;
+  // Whether the main window is focused (asked once), and every change after.
+  mainFocused(): Promise<boolean>;
+  onMainFocus(callback: (focused: boolean) => void): void;
 }
 
 // Inline import so this file stays a global declaration file (a top-level import

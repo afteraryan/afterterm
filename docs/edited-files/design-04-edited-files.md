@@ -47,6 +47,7 @@ Any file path in the terminal behaves like a web link does today: hovering under
 - **Resolving it**: absolute as written; relative against the chat's own folder (`threadFolder`, so a worktree chat resolves inside its worktree), then the project's folder; `~` is the home folder.
 - **Only real files link.** The path is checked on disk before it is underlined, so a worktree name or a lone `.md` stays plain.
 - **A bare name** such as `index.tsx` links only when it matches a file this chat changed. If two changed files share the name, it opens the newest and the hover shows which; afterterm never asks.
+  **Changed 2026-09-26 (Aryan):** every file name with an extension links, images included ("I am not able to open images if an agent has sent me images"). A bare name is looked for among the files the chat touched (changed, written, read or sent with SendUserFile, images included; newest wins), then in the chat's and the project's folders, then by name anywhere under those folders (the nearest wins); the hover says which file opens whenever a name was matched.
 - **Each `Update(...)` or `Write(...)` line opens its own file**, matched to its own edit in the chat's record by the time the line appeared, so two files with the same name never get confused.
 - **A path split over two lines** (Claude Code breaks long lines itself) is joined when it runs to the right edge and the next line continues it.
 - **Where it opens**: markdown and code in VS Code, an image in the default app, a folder in File Explorer.

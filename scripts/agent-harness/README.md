@@ -35,6 +35,14 @@ Plain Node (24+) and PowerShell. No new dependencies: Node's global `fetch` and
   `[data-wake]` button or chosen from a thread's ⋯/right-click menu, so
   `--claude-resume`'s default of `none` (and care with `background`/`all`)
   still matters: only `wake` a thread you mean to actually resume.
+- **Never give a harness thread a real Claude session id**, by seed or by writing
+  its `<data-dir>\claude-sessions\<tab>.json` to make a shell look like a chat.
+  Editing renderer code while the dev build runs hot-reloads the terminals, and
+  on 2026-09-30 that typed `claude --resume <id>` into such a shell, resuming a
+  real session inside the dev build until the run was stopped. To test anything
+  that reads a transcript, copy it to a fixture folder under a made-up id and
+  point the build at it with `--env AFTERTERM_CLAUDE_PROJECTS_DIR=<fixture>`; and
+  do not edit renderer code during a run that has a chat awake.
 
 ## What each part does
 

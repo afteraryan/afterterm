@@ -4,7 +4,7 @@
 `phase-8-sidebar-rail-and-panel`, `phase-9-output-and-visual-fixes`), merged to `main` through
 PR #23 on 2026-09-19, with follow-ups merged through PR #31 on 2026-09-20. No release has been
 cut yet: Aryan is using the build first. Section 3's fifteen questions were all answered; the
-answers are recorded in `PHASES.md`'s Phase 7, 8 and 9 sections and its Log. `docs/bugs.md` is
+answers are recorded in `docs/phases-01-projects-and-threads.md`'s Phase 7, 8 and 9 sections and its Log. `docs/bugs.md` is
 empty.
 
 Written 2026-09-18 against branch `manual-testing-fixes`, which holds Phases 0 to 6 of
@@ -16,13 +16,13 @@ This is a plan, not a design and not a phase. It ranks clusters of work by effec
 rule: the changes that close the most logged problems and remove the most daily friction come
 first, whatever their size), proposes a phase order, lists the questions only Aryan can answer,
 and says what was left out. The next round follows the working agreement in
-[`../PHASES.md`](../PHASES.md) unchanged: one orchestrator session per phase, one worktree and
+[`phases-01-projects-and-threads.md`](phases-01-projects-and-threads.md) unchanged: one orchestrator session per phase, one worktree and
 branch per phase chained off the previous one (the first new branch comes off
 `manual-testing-fixes`), self-testing through the agent harness on the secondary monitor,
 screenshots and recordings kept under `docs/screenshots/<phase>/`, and Aryan tests nothing until a
 phase is finished and polished.
 
-Inputs read: `CLAUDE.md`, `PHASES.md`, `design-02`, `docs/bugs.md` (eleven open bugs as of
+Inputs read: `CLAUDE.md`, `docs/phases-01-projects-and-threads.md`, `design-02`, `docs/bugs.md` (eleven open bugs as of
 2026-09-18: the ten from 2026-06-30 to 2026-09-14 plus the faint header line logged on
 2026-09-18), `docs/research-02-enjoy-dev-ideas-for-afterterm.md`, `docs/ideas.md`, and the
 renderer files where the sidebar and attention logic lives (`threadView.ts`, `sidebarWalk.ts`,
@@ -30,7 +30,7 @@ renderer files where the sidebar and attention logic lives (`threadView.ts`, `si
 
 ## Section 1: the clusters, ranked by effectiveness
 
-Size uses the PHASES.md scale for main-process (backend) work: none, small, medium, large. Since
+Size uses the docs/phases-01-projects-and-threads.md scale for main-process (backend) work: none, small, medium, large. Since
 most of this round is renderer work, a renderer size is given beside it.
 
 ### Cluster 1: the sidebar shows what needs you, and needs-you means what it says
@@ -220,7 +220,7 @@ them changes how the app is used.
 - "Toast shadow spreads far past the card and is clipped at the overlay window's edge"
 - "Hover card heading overflows the card for a long unbroken title"
 - "Notification overlay appears on the wrong monitor in a multi-monitor setup" (also in
-  PHASES.md's unphased backlog as "Notification overlay placement on multi-monitor setups")
+  docs/phases-01-projects-and-threads.md's unphased backlog as "Notification overlay placement on multi-monitor setups")
 
 From `docs/ideas.md`: "Notification Pop-up UI" is otherwise built (the Phase 1 toast cards); the
 shadow is what is left of it.
@@ -246,12 +246,12 @@ placement only), `scripts/agent-harness/screenshot-display.ps1` for the multi-mo
 straight to a phase, most likely the same phase as Cluster 2.
 
 **Dependencies:** none. The multi-monitor bug carries a "document, don't fix yet" note from
-2026-06-30; the later backlog entry in PHASES.md lists it as wanted, so it is planned here and
+2026-06-30; the later backlog entry in docs/phases-01-projects-and-threads.md lists it as wanted, so it is planned here and
 Section 3 asks Aryan to confirm.
 
 ## Section 2: the proposed phase order
 
-Numbering continues from PHASES.md. Branches chain off `manual-testing-fixes`, each from the one
+Numbering continues from docs/phases-01-projects-and-threads.md. Branches chain off `manual-testing-fixes`, each from the one
 before it, per the working agreement.
 
 0. **Design 03: the sidebar, the rail and the attention model.** Reason: it is the biggest lever
@@ -328,7 +328,7 @@ reports at the handoff, as before.
 13. The header line: brighter text at the same size, slightly larger, or each item as a small
     chip? Any of the three is a CSS-only change; the choice is yours.
 14. The multi-monitor notifier bug was logged "document, don't fix yet" on 2026-06-30 and later
-    listed as wanted in PHASES.md's backlog. Fix it in this round?
+    listed as wanted in docs/phases-01-projects-and-threads.md's backlog. Fix it in this round?
 15. The "Last here 2d ago" line under the Home date, the experiment from 2026-09-07 that you
     said you would decide on during this manual testing: keep it or remove it? (Asked now
     because the testing is under way; it was not to be asked before.)
@@ -347,7 +347,7 @@ reports at the handoff, as before.
 - research-02 bucket 3 "Resume a closed chat from the UI": built in Phase 4 (the project page's
   History tab with Resume, and history rows in the palette). Aryan's own note says to check this
   first; it is what he described, and only a closed thread in General is gone for good.
-- PHASES.md backlog "Drag a thread between projects in the sidebar": already works. The sidebar's
+- docs/phases-01-projects-and-threads.md backlog "Drag a thread between projects in the sidebar": already works. The sidebar's
   drag-and-drop moves a thread onto a project row or between rows of another project
   (`handleDragEnd` in `SidePanel/index.tsx`, joining the drop target's project through
   `onMoveTab` and `onAddToGroup`).
@@ -355,7 +355,7 @@ reports at the handoff, as before.
 **Parked or explicitly not wanted, so not planned:**
 - `ideas.md` "Zero-config Claude Code hooks through a bundled plugin and a PATH shim": parked
   by Aryan on 2026-09-18, per the brief.
-- `ideas.md` "Project Notes Tab" and PHASES.md backlog "Project notes": as written (bold, italic,
+- `ideas.md` "Project Notes Tab" and docs/phases-01-projects-and-threads.md backlog "Project notes": as written (bold, italic,
   checkboxes, lists, a Notion-like editor) it is the "full docs editor with fonts and sizes"
   that research-02 bucket 4 rules out, and design-02 rejected the typed status note. The
   view-only variant in research-02 bucket 3 ("Docs per project, viewing only") is something
@@ -371,7 +371,7 @@ reports at the handoff, as before.
 - `ideas.md` "Dependency check on first launch": small and self-contained, but it helps other
   people's machines, not Aryan's daily use, and the same self-install path may change. Better
   placed right before the first release that goes to someone else.
-- `ideas.md` "Multiple Terminal Windows on Screen at Once" and PHASES.md backlog "Multi-window:
+- `ideas.md` "Multiple Terminal Windows on Screen at Once" and docs/phases-01-projects-and-threads.md backlog "Multi-window:
   one window per pinned project": large, spans session persistence and the PTY map in main, and
   nobody asked for it during manual testing. It also overlaps the multi-pane worktree that
   already exists (`worktree-multi-pane-layout`), which needs a decision of its own first.
@@ -379,10 +379,10 @@ reports at the handoff, as before.
   erroring, a background process exiting, taskbar flash): they would make a shell able to need
   you, which widens the state model design-02 fixed as Claude-only. Worth raising once design-03
   has settled what needs-you means, not before.
-- PHASES.md backlog "Worktree grouping on the project page", "Daily check-in as an optional Home
+- docs/phases-01-projects-and-threads.md backlog "Worktree grouping on the project page", "Daily check-in as an optional Home
   mode", "Keep closed General threads somewhere": none surfaced in manual testing and none
   closes a logged problem. They stay in the backlog.
-- PHASES.md backlog "Rename Group and Tab to Project and Thread in code": a mechanical change
+- docs/phases-01-projects-and-threads.md backlog "Rename Group and Tab to Project and Thread in code": a mechanical change
   with no user-visible effect; it would collide with every branch in this round and is best done
   in a quiet gap between rounds.
 - The Chrome-style tab strip named in the mid-turn bug: not left out, but not planned as a

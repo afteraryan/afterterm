@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, screen, shell, nativeImage } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, screen, shell, nativeImage, powerMonitor } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
@@ -29,6 +29,8 @@ import { EMPTY_SESSION_FILES, isAbsolutePath, normalizePath, ownsTempFile, paste
 import type { ChangedFile, ShellWindow } from './session-files.ts';
 import { attributeCommandChanges, isIgnoredChange, mergeSaved, pruneChanges } from './command-files.ts';
 import type { FsChange } from './command-files.ts';
+import { buildNameIndex, findByName } from './file-index.ts';
+import type { IndexFs, NameIndex } from './file-index.ts';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -551,11 +553,6 @@ function notifierDisplay(): Electron.Display {
   return getTargetDisplay();
 }
 
-// Resize/reposition the overlay so it's anchored to the bottom-right of the work
-// area and exactly as tall as the rendered toast stack (the renderer measures and
-// reports `contentHeight`). Because the window is never larger than its visible
-// content, there is no invisible dead zone swallowing clicks, and nothing for DWM
-// to paint a white bar over above the toasts.
 // A full repaint of the overlay, the white-bar cure (see createNotifierWindow).
 // Deferred a tick so it lands after the frame paint it is there to overwrite.
 function repaintNotifier() {
@@ -566,6 +563,13 @@ function repaintNotifier() {
   }, 0);
 }
 
+// Resize/reposition the overlay so it's anchored to the bottom-right of the work
+// area and exactly as tall as the rendered toast stack (the renderer measures and
+// reports `contentHeight`). Because the window is never larger than its visible
+// content, there is no invisible dead zone swallowing clicks, and nothing for DWM
+// to paint a white bar over above the toasts. A bounds change is one more moment
+// DWM can touch the frame (a second toast joining the stack grows the window,
+// which is where Aryan saw the bar come back on 2026-09-25), so it repaints too.
 function positionNotifier(contentHeight: number = notifierHeight) {
   if (!notifierWindow || notifierWindow.isDestroyed()) return;
   notifierHeight = contentHeight;
@@ -574,6 +578,7 @@ function positionNotifier(contentHeight: number = notifierHeight) {
   const x = wa.x + wa.width - NOTIFIER_WIDTH - NOTIFIER_MARGIN;
   const y = wa.y + wa.height - h - NOTIFIER_MARGIN;
   notifierWindow.setBounds({ x, y, width: NOTIFIER_WIDTH, height: h });
+  repaintNotifier();
 }
 
 function createNotifierWindow() {
@@ -641,6 +646,12 @@ function createNotifierWindow() {
   screen.on('display-added', replace);
   screen.on('display-removed', replace);
   screen.on('display-metrics-changed', replace);
+  // Waking the machine and unlocking it redraw every window, and the displays
+  // may come back in a different order; re-place the overlay (which repaints it)
+  // rather than leave a toast that was up across the sleep with a frame painted
+  // into it.
+  powerMonitor.on('resume', replace);
+  powerMonitor.on('unlock-screen', replace);
 }
 
 // Only when AFTERTERM_DISPLAY is set: size the main window to fit the target
@@ -697,6 +708,15 @@ function createWindow() {
   // Coming back to afterterm with a toast up is when DWM revisits the overlay's
   // frame and can leave the white bar (see createNotifierWindow); repaint it.
   mainWindow.on('focus', () => repaintNotifier());
+
+  // The overlay's toasts go on their own only while this window is focused
+  // (toastExpiry.ts), so it hears every focus change. A foreground change is also
+  // a moment DWM can paint the caption strip into the overlay, hence the repaint.
+  mainWindow.on('focus', () => sendMainFocus(true));
+  mainWindow.on('blur', () => {
+    sendMainFocus(false);
+    repaintNotifier();
+  });
 
   mainWindow.on('close', (e) => {
     if (isQuitting || ptys.size === 0) return;
@@ -806,11 +826,29 @@ ipcMain.on('notify:project-updated', (_event, look) => {
 // Notifier → main window: user clicked a toast → focus app + switch tab
 ipcMain.on('notify:tab-click', (_event, tabId: string) => {
   if (mainWindow) {
-    mainWindow.show();
-    mainWindow.focus();
+    // Under the agent harness, taking OS focus would pull it away from the person
+    // working on the other monitor, so the click only logs that part.
+    if (harnessOnlyLogsExternal()) {
+      console.log(`[harness] notify:tab-click ${tabId} (window not shown or focused)`);
+    } else {
+      mainWindow.show();
+      mainWindow.focus();
+    }
     mainWindow.webContents.send('notify:activate-tab', tabId);
   }
 });
+
+// Main window → notifier: whether the main window is focused, which decides
+// whether toasts count down to going on their own (toastExpiry.ts). The overlay
+// asks once when it loads, then hears every change.
+function sendMainFocus(focused: boolean) {
+  if (process.env.AFTERTERM_HARNESS === '1') console.log(`[harness] notifier:main-focus ${focused}`);
+  if (notifierWindow && !notifierWindow.isDestroyed()) {
+    notifierWindow.webContents.send('notifier:main-focus', focused);
+  }
+}
+
+ipcMain.handle('notifier:main-focused', () => !!mainWindow?.isFocused());
 
 // Notifier → self: toggle mouse passthrough
 ipcMain.on('notifier:set-ignore-mouse', (_event, ignore: boolean) => {
@@ -1745,6 +1783,49 @@ ipcMain.handle('files:stat', async (_event, paths: unknown) => {
   return result;
 });
 
+// File links' last resort (2026-09-26): a bare file name found under the chat's or
+// the project's folder. One index per folder (file-index.ts), rebuilt when older
+// than 30s, shared by every hover; folders the watch never covers whole (the home
+// folder, a drive root, %TEMP%) are never indexed either.
+const nameIndexes = new Map<string, { index?: NameIndex; building?: Promise<NameIndex> }>();
+const NAME_INDEX_TTL_MS = 30_000;
+const indexFs: IndexFs = {
+  list: (dir) => fs.promises.readdir(dir, { withFileTypes: true })
+    .then(ents => ents.map(e => ({ name: e.name, dir: e.isDirectory() })), () => []),
+};
+
+async function nameIndexFor(folder: string): Promise<NameIndex | null> {
+  if (!watchableFolder(folder)) return null;
+  const key = normalizePath(folder).toLowerCase();
+  let entry = nameIndexes.get(key);
+  if (!entry) { entry = {}; nameIndexes.set(key, entry); }
+  if (entry.index && Date.now() - entry.index.builtAt < NAME_INDEX_TTL_MS) return entry.index;
+  if (!entry.building) {
+    const e = entry;
+    e.building = buildNameIndex(normalizePath(folder), indexFs).then(idx => {
+      e.index = idx;
+      e.building = undefined;
+      if (process.env.AFTERTERM_HARNESS === '1') console.log(`[harness] files:index ${idx.root} names=${idx.byName.size}${idx.truncated ? ' (partial)' : ''}`);
+      return idx;
+    }, err => { e.building = undefined; throw err; });
+  }
+  try { return (await entry.building) ?? null; } catch { return entry.index ?? null; }
+}
+
+ipcMain.handle('files:find', async (_event, names: unknown, roots: unknown) => {
+  const result: Record<string, string[]> = {};
+  if (!Array.isArray(names) || !Array.isArray(roots)) return result;
+  const folders = roots.filter((r): r is string => typeof r === 'string' && isAbsolutePath(r)).slice(0, 3);
+  const indexes = (await Promise.all(folders.map(nameIndexFor))).filter((i): i is NameIndex => !!i);
+  for (const name of names.slice(0, 50)) {
+    if (typeof name !== 'string' || !name || name.length > 260) continue;
+    const found: string[] = [];
+    for (const idx of indexes) for (const p of findByName(idx, name)) if (!found.includes(p)) found.push(p);
+    result[name] = found.slice(0, 20);
+  }
+  return result;
+});
+
 // A folder a file link points at: the same Explorer launch as a project folder's.
 ipcMain.handle('files:openFolder', async (_event, folder: unknown) => {
   if (typeof folder !== 'string' || !isAbsolutePath(folder) || !isUsableFolder(folder)) return { ok: false, error: 'Folder not found' };
@@ -1865,7 +1946,7 @@ ipcMain.handle('threads:prune', (_event, keepIds: unknown): number => {
 
 // Reads .git/HEAD (and a worktree's .git file), never runs git. See src/git-info.ts.
 ipcMain.handle('git:info', (_event, cwd: unknown) => {
-  if (typeof cwd !== 'string' || !cwd) return { branch: null, worktree: null, repoRoot: null };
+  if (typeof cwd !== 'string' || !cwd) return { branch: null, worktree: null, repoRoot: null, top: null };
   return gitInfo(cwd, fs);
 });
 
@@ -1875,7 +1956,7 @@ const GIT_INFO_MANY_MAX = 500;
 ipcMain.handle('git:infoMany', (_event, cwds: unknown) => {
   if (!Array.isArray(cwds)) return [];
   return cwds.slice(0, GIT_INFO_MANY_MAX).map(cwd =>
-    typeof cwd === 'string' && cwd ? gitInfo(cwd, fs) : { branch: null, worktree: null, repoRoot: null }
+    typeof cwd === 'string' && cwd ? gitInfo(cwd, fs) : { branch: null, worktree: null, repoRoot: null, top: null }
   );
 });
 

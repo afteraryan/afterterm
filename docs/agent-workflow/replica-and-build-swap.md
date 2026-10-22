@@ -31,19 +31,14 @@ After a phase's self-test, a dev build seeded with a full copy of Aryan's real d
 
 Aryan runs `D:\Pitara\Work\Tinkering\afterterm\out\afterterm-win32-x64\afterterm.exe` from a taskbar shortcut, and a Claude session often lives inside it. `npm run build` in the main checkout renames that folder first and fails while the app runs from it (see "Portable Build" in `CLAUDE.md`), so the build is done elsewhere and swapped in afterwards, when he has closed the app. No version bump and no tag: he uses the build for a few days first, and `npm run release` (see `docs/guide-02-releases.md`) comes later. The version badge keeps the old number until then.
 
-1. Merge the branch to `main` through a PR (direct pushes to `main` are blocked), then build in the phase worktree, whose `out\` is its own path: `npm run build` there. Stop any harness run first: the package step writes `.vite/build`, which the dev server also uses.
-2. Once Aryan has closed afterterm, swap the folders. A script for this was left at `%TEMP%\afterterm-agent-harness\swap-build.ps1`; its whole content is:
+1. Merge the branch to `main` through a PR (direct pushes to `main` are blocked), then build in a worktree, whose `out\` is its own path: `npm run build` there. Stop any harness run first: the package step writes `.vite/build`, which the dev server also uses. The worktree can be a throwaway one at `main` (`git worktree add .claude/worktrees/build-<version> origin/main --detach`, copy `node_modules` in with robocopy, build).
+2. Tell Aryan the build is ready and give him the one command. **The switch is his to run, from a PowerShell window outside afterterm** (Windows Terminal, or Win+R then `powershell`), never from a Claude session inside the app, which the close would kill (that is what happened on 2026-10-22 the first time, and the swap never ran):
 
    ```powershell
-   $cur = 'D:\Pitara\Work\Tinkering\afterterm\out\afterterm-win32-x64'
-   $new = 'D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\<worktree>\out\afterterm-win32-x64'
-   if (Get-Process afterterm -ErrorAction SilentlyContinue) { Write-Host 'afterterm is still running. Close it, then run this again.'; exit 1 }
-   if (-not (Test-Path "$new\afterterm.exe")) { Write-Host "new build not found at $new"; exit 1 }
-   $old = "D:\Pitara\Work\Tinkering\afterterm\out\afterterm-old-$([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())"
-   Move-Item $cur $old
-   Move-Item $new $cur
-   Write-Host "done. old build kept at $old"
+   node D:\Pitara\Work\Tinkering\afterterm\scripts\update-build.mjs
    ```
 
-   The standard path is kept, so the taskbar shortcut keeps working; the old build stays beside it as `afterterm-old-<timestamp>` and the next `npm run build` cleans those up. If the agent's own session runs inside afterterm, the swap is his to run after closing it; if he has already closed it, the agent runs the swap.
-3. He starts afterterm from the taskbar. Session data is shared (`%APPDATA%\afterterm`), so nothing is lost; every thread starts asleep as after any relaunch.
+   `scripts/update-build.mjs` is the whole procedure, decided with Aryan on 2026-10-22 after its first run ("This should be the practice from now on whenever I have to switch a build"): it reads which threads are awake from `session.json`, closes afterterm cleanly (the renderer's quit flush saves every tail and the session), moves the current build aside as `out\afterterm-old-<timestamp>`, moves the newest worktree build into `out\afterterm-win32-x64` (the taskbar shortcut keeps working; the next `npm run build` cleans the old folders up), starts the new build through WMI so it is not a child of the window the script ran in, and wakes every thread that was awake, through the notifier's tab-click channel and the asleep pane's Wake button over the remote debugging port. A chat comes back through `claude --resume`, a server through its last command. Flags: `--new <folder>` to name the build instead of taking the newest, `--no-wake` to leave every thread asleep, `--dry-run` to see the build and the threads without touching anything. It refuses to run when its own shell is inside afterterm.
+
+   What it cannot do: keep a process alive across the swap. A Claude turn that was mid-run is interrupted and has to be sent again; a chat that never had a turn (no session id captured yet) wakes as a plain shell. The fix for that is `docs/design-01-persistent-pty-host.md`, not built.
+3. The old hand procedure, for reference: close afterterm, `Move-Item` the current build to `out\afterterm-old-<timestamp>`, `Move-Item` the worktree build to `out\afterterm-win32-x64`, start from the taskbar, every thread asleep.

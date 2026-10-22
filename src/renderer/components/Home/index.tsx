@@ -36,7 +36,7 @@ export function Home({ groups, tabs, now, editors, folderExists, actions, onNewP
   });
   const totals = homeTotals(groups, tabs);
 
-  // The last-opened experiment (PHASES.md Phase 3, CLAUDE.md "Experiment: last
+  // The last-opened experiment (docs/phases-01-projects-and-threads.md Phase 3, CLAUDE.md "Experiment: last
   // opened on Home"). Aryan runs this as a user; whenever work on afterterm
   // resumes, ask him whether it was useful, then keep or remove it. Deliberately
   // this small: one quiet line, nothing else changes because of it. Guarded so a

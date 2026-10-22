@@ -89,7 +89,7 @@ Improve UI of notification pop-ups. Need more context and better information hie
 
 ## Scrollback Snapshot
 
-Built: in Phase 4, as the scrollback tail. Changed since: Phase 4 replayed the tail dimmed above a "Woke just now" divider on wake; Phase 9 dropped that replay, so the tail is shown on the asleep pane only, scrolled to its newest lines, and a woken thread now opens with a clean prompt. See "Sleep, wake, history and the scrollback tail (Phase 4)" in `CLAUDE.md` and Phase 9's entry in `PHASES.md` for what changed.
+Built: in Phase 4, as the scrollback tail. Changed since: Phase 4 replayed the tail dimmed above a "Woke just now" divider on wake; Phase 9 dropped that replay, so the tail is shown on the asleep pane only, scrolled to its newest lines, and a woken thread now opens with a clean prompt. See "Sleep, wake, history and the scrollback tail (Phase 4)" in `CLAUDE.md` and Phase 9's entry in `docs/phases-01-projects-and-threads.md` for what changed.
 
 ---
 

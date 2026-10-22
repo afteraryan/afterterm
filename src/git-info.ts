@@ -29,9 +29,15 @@ export interface GitInfo {
   worktree: string | null;
   /** The main repository folder, or null when the cwd is not in a repo. */
   repoRoot: string | null;
+  /**
+   * The top of the working tree the cwd is in: the folder holding the .git entry,
+   * so a linked worktree's own folder rather than the main repo. File links try a
+   * relative path from here too, whichever subfolder the chat has moved into.
+   */
+  top: string | null;
 }
 
-const NONE: GitInfo = { branch: null, worktree: null, repoRoot: null };
+const NONE: GitInfo = { branch: null, worktree: null, repoRoot: null, top: null };
 
 /**
  * The branch from a HEAD file: "ref: refs/heads/feat/threads" is "feat/threads"
@@ -117,20 +123,20 @@ export function gitInfo(cwd: string, fsLike: GitFs = nodeFs as unknown as GitFs)
   try {
     isDir = fsLike.statSync(found.gitPath).isDirectory();
   } catch {
-    return NONE;
+    return { ...NONE, top: found.dir };
   }
 
   // An ordinary checkout: .git is a directory and HEAD sits in it.
   if (isDir) {
     const head = readText(path.join(found.gitPath, 'HEAD'), fsLike);
-    return { branch: head === null ? null : parseHead(head), worktree: null, repoRoot: found.dir };
+    return { branch: head === null ? null : parseHead(head), worktree: null, repoRoot: found.dir, top: found.dir };
   }
 
   // A linked worktree: .git is a file pointing at <mainRepo>/.git/worktrees/<name>,
   // which is where this worktree's own HEAD lives.
   const gitFile = readText(found.gitPath, fsLike);
   const target = gitFile === null ? null : parseGitFile(gitFile);
-  if (!target) return { branch: null, worktree: null, repoRoot: null };
+  if (!target) return { ...NONE, top: found.dir };
 
   let gitdir: string;
   try {
@@ -138,7 +144,7 @@ export function gitInfo(cwd: string, fsLike: GitFs = nodeFs as unknown as GitFs)
     // git writes it with forward slashes on Windows.
     gitdir = path.resolve(found.dir, target.replace(/\//g, path.sep));
   } catch {
-    return { branch: null, worktree: null, repoRoot: null };
+    return { ...NONE, top: found.dir };
   }
 
   const repoRoot = repoRootFromGitdir(gitdir);
@@ -156,5 +162,5 @@ export function gitInfo(cwd: string, fsLike: GitFs = nodeFs as unknown as GitFs)
   worktree = worktree.replace(/\//g, '\\');
 
   const head = readText(path.join(gitdir, 'HEAD'), fsLike);
-  return { branch: head === null ? null : parseHead(head), worktree, repoRoot };
+  return { branch: head === null ? null : parseHead(head), worktree, repoRoot, top: found.dir };
 }
