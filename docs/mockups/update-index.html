@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seven questions about updates</title>
+<link rel="stylesheet" href="update-shared.css">
+<style>
+  .idx{max-width:760px;margin:0 auto;padding:40px 16px 80px;display:flex;flex-direction:column;gap:14px}
+  .idx h1{font-size:22px;font-weight:500;margin:0}
+  .idx p{color:var(--text2);margin:0;line-height:1.55}
+  .idx a.card{display:flex;flex-direction:column;gap:4px;padding:16px 18px;border-radius:14px;background:#161616;border:1px solid #242424;color:var(--text);text-decoration:none}
+  .idx a.card:hover{background:#1c1c1c}
+  .idx a.card.done{border-color:#2f4a36}
+  .idx a.card b{font-weight:500}
+  .idx a.card span{color:var(--text3);font-size:13px}
+  .idx a.card .state{color:var(--live)}
+  .summary{padding:16px 18px;border-radius:14px;background:#161616;border:1px solid #242424;display:flex;flex-direction:column;gap:10px}
+  .summary .sumhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .summary pre{margin:0;font:13px/1.6 var(--mono);color:var(--text2);white-space:pre-wrap}
+</style>
+</head>
+<body>
+<div class="idx">
+  <h1>Seven questions about updates</h1>
+  <p>afterterm will tell you when a new version is out, download it and install it when you say so. Each question opens a page with two or three answers on a working copy of afterterm. Click the answers at the top to compare, press <b>This is my pick</b>, then <b>Next</b>. When all seven are answered, press <b>Copy answers</b> here and paste the text into the chat.</p>
+  <div class="summary" id="summary"></div>
+  <div id="qlist" style="display:flex;flex-direction:column;gap:10px"></div>
+</div>
+<script src="update-shared.js"></script>
+<script>initIndex();</script>
+</body>
+</html>
