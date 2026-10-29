@@ -4,6 +4,10 @@ What changed for the person using afterterm, release by release. Each release li
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.10.0 (2026-10-30)
+
 ### Installing afterterm
 
 - **A real installer.** afterterm now comes as one `afterterm-<version>-setup.exe`: pick the folder, choose a desktop and a Start menu shortcut, and it installs for you alone, with no admin prompt. It appears in Settings > Apps with an uninstaller. Your projects and threads stay where they were, so installing over an earlier copy keeps them.
