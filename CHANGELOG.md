@@ -4,7 +4,24 @@ What changed for the person using afterterm, release by release. Each release li
 
 ## Unreleased
 
-Nothing yet.
+### Installing afterterm
+
+- **A real installer.** afterterm now comes as one `afterterm-<version>-setup.exe`: pick the folder, choose a desktop and a Start menu shortcut, and it installs for you alone, with no admin prompt. It appears in Settings > Apps with an uninstaller. Your projects and threads stay where they were, so installing over an earlier copy keeps them.
+- **It checks Claude Code before it finishes.** If Claude Code is installed, the last step tests that afterterm's helper runs on this PC and that a chat can be saved, and says so. If something blocks it, it names the cause and offers **Report issue**, which opens a GitHub issue filled in with what went wrong (never your files or chats).
+- **No Claude Code, no question.** Without Claude Code installed, setup says nothing about it.
+
+### Starting afterterm
+
+- **Nothing starts on its own.** A fresh install opens on Home with no terminal running; closing your last thread returns to Home instead of opening a new one.
+- **Create your first project.** With no project yet, Home shows one large button to create it.
+- **No more empty Recent heading** in the sidebar. The New project button moves to Pinned when there is no recent project, or becomes its own row when there are no projects at all.
+- **The logo** has clean rounded corners at every size.
+
+### Fixed
+
+- A chat did not come back after Sleep and Wake on a PC where Windows blocks scripts by default, which is most home PCs. afterterm's helper for Claude Code now runs there, and installing or starting this version repairs the helper set up by earlier versions.
+- A chat opened with `/resume` and left without a message was lost on Sleep.
+- afterterm froze for a few seconds after starting, the mouse included, while it looked for your code editor.
 
 ## 0.9.0 (2026-09-30)
 

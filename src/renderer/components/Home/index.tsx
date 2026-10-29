@@ -8,7 +8,7 @@ import { Tab, Group } from '../TabBar/types';
 import { Menu, MenuItem } from '../Menu';
 import { FolderIcon, IconPage, IconPin, IconPinOn, IconPlus, StateIcon } from '../Icons';
 import { threadState, projectCounts } from '../../threadView';
-import { dateHeading, relativeTime, homeSections, homeTotals, lastHereLine } from '../../homeView';
+import { dateHeading, relativeTime, homeSections, homeTotals, lastHereLine, hasNoProjects } from '../../homeView';
 import { buildProjectMenu, ProjectActions } from '../../projectMenu';
 import type { EditorInfo } from '../../../editors';
 import './Home.css';
@@ -35,6 +35,7 @@ export function Home({ groups, tabs, now, editors, folderExists, actions, onNewP
     limit: PROJECT_LIMIT,
   });
   const totals = homeTotals(groups, tabs);
+  const noProjects = hasNoProjects(groups);
 
   // The last-opened experiment (docs/phases-01-projects-and-threads.md Phase 3, CLAUDE.md "Experiment: last
   // opened on Home"). Aryan runs this as a user; whenever work on afterterm
@@ -193,28 +194,40 @@ export function Home({ groups, tabs, now, editors, folderExists, actions, onNewP
           {lastHere && <div className="home-lasthere">{lastHere}</div>}
         </div>
 
-        <div>
-          <div className="lbl">Pinned</div>
-          {pinned.length > 0 ? (
-            <div className="cards">{pinned.map(renderCard)}</div>
-          ) : (
-            <div className="nothing">Pin a project to keep it here</div>
-          )}
-        </div>
+        {!noProjects && (
+          <div>
+            <div className="lbl">Pinned</div>
+            {pinned.length > 0 ? (
+              <div className="cards">{pinned.map(renderCard)}</div>
+            ) : (
+              <div className="nothing">Pin a project to keep it here</div>
+            )}
+          </div>
+        )}
 
         <div>
           <div className="lbl lblrow">
             <span>Projects</span>
-            <button
-              type="button"
-              className="ib"
-              data-newproj=""
-              data-tip="New project"
-              onClick={onNewProject}
-            >
-              <IconPlus size={16} />
-            </button>
+            {!noProjects && (
+              <button
+                type="button"
+                className="ib"
+                data-newproj=""
+                data-tip="New project"
+                onClick={onNewProject}
+              >
+                <IconPlus size={16} />
+              </button>
+            )}
           </div>
+          {/* No project yet: one large button in the middle of the section, the
+              one thing to do on a fresh install (Aryan, 2026-10-29). */}
+          {noProjects && (
+            <button type="button" className="first-project" data-first-project="" onClick={onNewProject}>
+              <span className="plus"><IconPlus size={20} /></span>
+              <span className="t1">Create your first project</span>
+            </button>
+          )}
           <div className="list">
             {shownProjects.map(g => renderRow(g, false))}
             {projects.length > PROJECT_LIMIT && (

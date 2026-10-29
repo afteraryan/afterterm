@@ -8,6 +8,30 @@ Format: the bug as it was titled, the date it was fixed, the PR or commit, then 
 
 ---
 
+## Fixed on 2026-10-29
+
+All reported in conversation, from Yogansh's session with 0.9.0 (Wispr Flow, 29 Oct), on the `worktree-installer` branch.
+
+### A chat does not come back after Sleep and Wake (Yogansh's laptop)
+
+afterterm registered its Claude Code hook as `powershell -NoProfile -File <script>`. Windows PowerShell's default execution policy on a home PC is Restricted, which refuses every `.ps1`, so the hook never ran, no session id was saved, and Wake opened a plain shell. Confirmed on his machine with a diagnosis prompt. The hook now runs with `-ExecutionPolicy Bypass`, entries written by 0.9.x are rewritten in place on every start (`claude-hook-install.ts`), and the installer's setup check (`setup-check.ts`) tests the hook as Claude Code runs it, switching to running the script's text when even Bypass is overridden.
+
+### A chat opened with /resume and left without a message is lost on Sleep
+
+The hook saved a chat only on UserPromptSubmit and Stop. It now also saves on SessionStart with source "resume" when the session's transcript exists, which keeps Claude Code's throwaway spare sessions out (`afterterm-notify.ps1`).
+
+### afterterm freezes, mouse included, for seconds after it starts
+
+Editor detection ran `where code` and four `reg query /s` scans synchronously on the main thread (3.4 s on Aryan's PC), and the toast overlay held a system-wide mouse hook answered on that thread from launch. Detection is now asynchronous and its result saved between launches, shell detection reads PATH instead of starting `where.exe`, and the mouse hook is installed only while a toast is on screen. The worst main-thread stall in the first 15 s went from 3,416 ms to 206 ms (`AFTERTERM_LAG_PROBE=1`).
+
+### A General thread opens on first launch
+
+An empty session got a new thread, and so did closing the last one. Now nothing starts: a fresh install opens on Home, closing the last thread goes to Home, and a session with projects but no threads is saved and restored (it used to be dropped).
+
+### The sidebar's Recent heading shows with nothing under it
+
+It stayed to hold the New project plus. It now shows only over projects; the plus moves to Pinned's heading, or to a New project row when there are no projects.
+
 ## Fixed on 2026-09-30
 
 ### Some file paths in a chat's reply are highlighted as links and others are not

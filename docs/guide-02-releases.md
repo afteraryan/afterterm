@@ -43,9 +43,9 @@ stranger." Mnemonic: **break it → X, add to it → Y, fix it → Z.**
 ```powershell
 # 1. Decide + bump the version in package.json (one line edit) and commit it.
 # 2. From the MAIN repo checkout (so output lands in the standard out\ folder):
-npm run release           # builds portable folder + out\afterterm-<version>-setup.exe, tags vX.Y.Z
+npm run release           # builds the app folder + out\installer\afterterm-<version>-setup.exe, tags vX.Y.Z
 git push origin vX.Y.Z    # publish the tag
-gh release create vX.Y.Z out\afterterm-<version>-setup.exe --title "afterterm X.Y.Z" --notes "..."   # the notes come from CHANGELOG.md: rename its Unreleased section to the version first
+gh release create vX.Y.Z out\installer\afterterm-<version>-setup.exe --title "afterterm X.Y.Z" --notes "..."   # the notes come from CHANGELOG.md: rename its Unreleased section to the version first
 ```
 
 `npm run release` (`scripts/release.js`) **refuses** to run if the version is already
@@ -64,10 +64,10 @@ tagged — the guard against shipping a stale build under an old number. Bump fi
 
 - **`out/afterterm-win32-x64/`** — the portable folder, the build you actually run.
   It's overwritten each build (the *current* build), not archived.
-- **`out/afterterm-<version>-setup.exe`** — the **versioned installer** (~67 MB
-  self-extracting). This is the archival artifact: keep these / attach them to the
-  **GitHub Release** for the tag. The installer regenerates the folder, so there's
-  no need to archive the 200 MB folders.
+- **`out/installer/afterterm-<version>-setup.exe`**: the **installer** (about 85 MB),
+  built by `scripts/build-installer.js` since 0.10.0 (before that, a 7-Zip
+  self-extracting archive). This is the artifact to attach to the **GitHub Release**
+  for the tag. How it is built and what it does: [`guide-01-distributable-build.md`](guide-01-distributable-build.md).
 - **Git tag `vX.Y.Z`** — ties the release to the exact commit. The real identity of
   a build is its tag/commit, not the folder name.
 
@@ -86,7 +86,7 @@ so your tabs/sessions carry over — and Claude sessions auto-resume.)
 
 **Updating in place requires the app to be closed.** `npm run build` moves the current
 build aside and writes a fresh one, but that rename fails while afterterm is running
-from that folder, and `npm run release` refuses outright (`make-shareable.ps1`'s guard).
+from that folder, and `npm run release` stops the same way (it builds through `build.js`).
 A running `.exe` does not block its own folder being renamed; a process whose *current
 directory* is that folder does, and launching `afterterm.exe` from Explorer or a pinned
 taskbar shortcut sets exactly that. So in practice: close it, build, reopen.
@@ -101,6 +101,6 @@ npm run release
 ```
 
 The tag lands in the shared repo either way. Afterwards copy
-`out\afterterm-<version>-setup.exe` into the main checkout's `out\`, and swap the built
+`out\installer\afterterm-<version>-setup.exe` into the main checkout's `out\`, and swap the built
 `afterterm-win32-x64` folder in whenever the app is next closed. `v0.8.0` and `v0.8.1`
 were both cut this way.

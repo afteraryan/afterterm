@@ -799,9 +799,17 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
   };
 
   const showPinned = view.pinned.length > 0;
-  // The Recent heading is the panel's home for the New project plus, so it shows
-  // even with no recent project, unless a search is narrowing the list.
-  const showRecent = view.recent.length > 0 || !filtered;
+  // A heading shows only over projects: an empty Recent read as broken (Aryan,
+  // 2026-10-29). The New project plus sits on Recent's heading, on Pinned's when
+  // Recent is not there, and becomes its own row under New thread when neither is.
+  const showRecent = view.recent.length > 0;
+  const plusOn: 'recent' | 'pinned' | 'row' | null = filtered ? null
+    : showRecent ? 'recent' : showPinned ? 'pinned' : 'row';
+  const newProjectPlus = (
+    <button className="ib" data-tip="New project" data-new-project="" onClick={onNewProject}>
+      <IconPlus size={14} />
+    </button>
+  );
   const others = view.other;
 
   return (
@@ -847,6 +855,13 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
             </button>
           )}
 
+          {plusOn === 'row' && (
+            <button className="srow" data-new-project="" onClick={onNewProject}>
+              <span className="g"><FolderIcon size={16} /></span>
+              New project
+            </button>
+          )}
+
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
@@ -875,7 +890,10 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
                 <div className="sec pinned-sec" data-sec="pinned">
                   <div className="lbl lblrow">
                     <span className="hd"><span className="pin"><IconPinOn size={12} /></span>Pinned</span>
-                    <span className="acts">{collapseButton('pinned', view.pinned)}</span>
+                    <span className="acts">
+                      {collapseButton('pinned', view.pinned)}
+                      {plusOn === 'pinned' && newProjectPlus}
+                    </span>
                   </div>
                   {view.pinned.map(entry => renderProject(entry, true))}
                 </div>
@@ -889,9 +907,7 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
                     <span className="hd">Recent</span>
                     <span className="acts">
                       {collapseButton('recent', view.recent)}
-                      <button className="ib" data-tip="New project" data-new-project="" onClick={onNewProject}>
-                        <IconPlus size={14} />
-                      </button>
+                      {plusOn === 'recent' && newProjectPlus}
                     </span>
                   </div>
                   {view.recent.map(entry => renderProject(entry, false))}
