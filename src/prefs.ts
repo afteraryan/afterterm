@@ -13,6 +13,9 @@ import fs from 'fs';
 export interface AftertermPrefs {
   claudeNotifications?: 'enabled' | 'disabled';
   claudeHookToastShown?: boolean;
+  // How the Claude Code hook runs its script, 'file' unless the setup check found
+  // that only 'command' works on this machine (claude-hook-install.ts).
+  claudeHookMode?: 'file' | 'command';
   // Time the app was last opened, in ms since epoch. Written at every startup,
   // read one startup later so Home can say how long you were away.
   lastOpenedAt?: number;

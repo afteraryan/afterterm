@@ -170,5 +170,81 @@ console.log('\nreconcileClaudeHook tests\n');
   check('version-bump: settings unchanged (already-current)', r.status === 'already-current');
 }
 
+// 10. Fresh entries run the script with -ExecutionPolicy Bypass (a stock Windows
+//     machine's Restricted policy refused the plain -File form, 2026-10-29).
+{
+  const b = sandbox();
+  reconcileClaudeHook(opts(b));
+  const s = readSettings(b.claudeDir);
+  const args = groupsFor(s, 'UserPromptSubmit')[0]?.hooks?.[0]?.args ?? [];
+  const scriptDest = path.join(b.claudeDir, 'hooks', HOOK_SCRIPT_NAME);
+  check('bypass: fresh args are -NoProfile -ExecutionPolicy Bypass -File <script>',
+    JSON.stringify(args) === JSON.stringify(['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptDest]),
+    JSON.stringify(args));
+}
+
+// 11. Upgrade: entries from 0.9.x (no -ExecutionPolicy) are rewritten in place,
+//     keeping their matcher and command, without duplicating and without a toast.
+{
+  const b = sandbox();
+  const scriptDest = path.join(b.claudeDir, 'hooks', HOOK_SCRIPT_NAME);
+  const old = (matcher: string) => [{ matcher, hooks: [{ type: 'command', command: 'powershell', args: ['-NoProfile', '-File', scriptDest] }] }];
+  const userStop = { matcher: '', hooks: [{ type: 'command', command: 'pwsh', args: ['-File', 'C:\\mine\\my-hook.ps1'] }] };
+  fs.writeFileSync(path.join(b.claudeDir, 'settings.json'), JSON.stringify({
+    hooks: {
+      SessionStart: old(''), UserPromptSubmit: old(''), Notification: old('permission_prompt'),
+      Stop: [...old(''), userStop], PreCompact: old(''),
+    },
+  }, null, 2), 'utf-8');
+  fs.writeFileSync(b.prefsPath, JSON.stringify({ claudeNotifications: 'enabled', claudeHookToastShown: true }), 'utf-8');
+  const r = reconcileClaudeHook(opts(b));
+  const s = readSettings(b.claudeDir);
+  check('upgrade: status upgraded, changed, no toast', r.status === 'upgraded' && r.changed && !r.showToast, r.status);
+  check('upgrade: every event now passes Bypass',
+    ['SessionStart', 'UserPromptSubmit', 'Notification', 'Stop', 'PreCompact'].every((e) =>
+      groupsFor(s, e).filter((g: any) => hasOurEntry({ hooks: { [e]: [g] } }, e))
+        .every((g: any) => g.hooks[0].args.includes('Bypass'))));
+  check('upgrade: command kept as it was', groupsFor(s, 'Stop')[0].hooks[0].command === 'powershell');
+  check('upgrade: Notification matcher kept', groupsFor(s, 'Notification')[0].matcher === 'permission_prompt');
+  check('upgrade: no duplicates (Stop still has 2 groups)', groupsFor(s, 'Stop').length === 2);
+  check('upgrade: the user\'s own Stop hook untouched',
+    JSON.stringify(groupsFor(s, 'Stop')[1]) === JSON.stringify(userStop));
+  const r2 = reconcileClaudeHook(opts(b));
+  check('upgrade: second run is already-current', r2.status === 'already-current' && !r2.changed, r2.status);
+}
+
+// 12. A hand-written entry that already passes -ExecutionPolicy (Aryan's own,
+//     with a full path to powershell.exe) is left byte-for-byte alone.
+{
+  const b = sandbox();
+  const scriptDest = path.join(b.claudeDir, 'hooks', HOOK_SCRIPT_NAME);
+  const mine = (matcher: string) => [{ matcher, hooks: [{ type: 'command', command: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe', args: ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptDest] }] }];
+  const settings = { hooks: { SessionStart: mine(''), UserPromptSubmit: mine(''), Notification: mine('permission_prompt'), Stop: mine(''), PreCompact: mine('') } };
+  const sp = path.join(b.claudeDir, 'settings.json');
+  fs.writeFileSync(sp, JSON.stringify(settings, null, 2), 'utf-8');
+  const before = fs.readFileSync(sp, 'utf-8');
+  const r = reconcileClaudeHook(opts(b));
+  check('hand-written: already-current', r.status === 'already-current', r.status);
+  check('hand-written: file untouched', fs.readFileSync(sp, 'utf-8') === before);
+}
+
+// 13. 'command' mode (set by the setup check when -File is blocked even with
+//     Bypass): every entry of ours, Bypass ones included, is rewritten to run the
+//     script's text, and stays recognised as ours afterwards.
+{
+  const b = sandbox();
+  reconcileClaudeHook(opts(b)); // file mode first
+  fs.writeFileSync(b.prefsPath, JSON.stringify({ claudeNotifications: 'enabled', claudeHookToastShown: true, claudeHookMode: 'command' }), 'utf-8');
+  const r = reconcileClaudeHook(opts(b));
+  const s = readSettings(b.claudeDir);
+  const args = groupsFor(s, 'Stop')[0].hooks[0].args;
+  check('command mode: upgraded', r.status === 'upgraded', r.status);
+  check('command mode: args run the script text',
+    args[1] === '-Command' && args[2].includes('Invoke-Expression') && args[2].includes(HOOK_SCRIPT_NAME), JSON.stringify(args));
+  check('command mode: still one entry of ours per event', groupsFor(s, 'Stop').length === 1);
+  const r2 = reconcileClaudeHook(opts(b));
+  check('command mode: rerun already-current', r2.status === 'already-current', r2.status);
+}
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail > 0 ? 1 : 0);

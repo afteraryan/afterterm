@@ -5,6 +5,8 @@ import os from 'os';
 import { execFile, execFileSync, execSync, spawn } from 'child_process';
 import * as pty from 'node-pty';
 import { reconcileClaudeHook, HOOK_SCRIPT_NAME } from './claude-hook-install';
+import { runSetupCheck, issueUrl, failureNote, ISSUES_URL } from './setup-check.ts';
+import type { Runner } from './setup-check.ts';
 import { detectEditors } from './editor-detect.ts';
 import type { DetectDeps } from './editor-detect.ts';
 import type { EditorInfo } from './editors.ts';
@@ -35,12 +37,74 @@ import type { IndexFs, NameIndex } from './file-index.ts';
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
 
+// The test installer ("afterterm (test)", `npm run installer -- --sandbox`) ships
+// resources\afterterm-sandbox.json, which turns that build into a throwaway copy
+// that can run beside the real one: its own data folder, its own Claude Code
+// settings folder (CLAUDE_CONFIG_DIR, which its terminals inherit, so its hook
+// never touches the real ~/.claude) and, optionally, an execution policy forced on
+// everything it starts, to reproduce a stock Windows machine (PSExecutionPolicyPreference
+// is the Process scope). A normal build has no such file, and none of this runs.
+interface SandboxConfig {
+  userDataDir?: string;
+  claudeDir?: string;
+  executionPolicy?: string;
+  appId?: string;
+  // Start the sandbox's Claude settings with the hook entries 0.9.x wrote (no
+  // -ExecutionPolicy Bypass), so a test install begins where Yogansh's machine did.
+  seedLegacyHook?: boolean;
+}
+function expandEnvVars(s: string): string {
+  return s.replace(/%([^%]+)%/g, (m, name) => process.env[name] ?? m);
+}
+function readSandboxConfig(): SandboxConfig | null {
+  if (!app.isPackaged) return null;
+  try {
+    return JSON.parse(fs.readFileSync(path.join(process.resourcesPath, 'afterterm-sandbox.json'), 'utf-8')) as SandboxConfig;
+  } catch {
+    return null;
+  }
+}
+const sandbox = readSandboxConfig();
+if (sandbox?.userDataDir) app.setPath('userData', expandEnvVars(sandbox.userDataDir));
+if (sandbox?.claudeDir) {
+  const dir = expandEnvVars(sandbox.claudeDir);
+  process.env.CLAUDE_CONFIG_DIR = dir;
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    const settingsPath = path.join(dir, 'settings.json');
+    if (sandbox.seedLegacyHook && !fs.existsSync(settingsPath)) {
+      const script = path.join(dir, 'hooks', HOOK_SCRIPT_NAME);
+      const entry = (matcher: string) => [{ matcher, hooks: [{ type: 'command', command: 'powershell', args: ['-NoProfile', '-File', script] }] }];
+      const hooks = { SessionStart: entry(''), UserPromptSubmit: entry(''), Notification: entry('permission_prompt'), Stop: entry(''), PreCompact: entry('') };
+      fs.writeFileSync(settingsPath, JSON.stringify({ hooks }, null, 2) + '\n', 'utf-8');
+    }
+  } catch { /* the sandbox runs without it */ }
+}
+if (sandbox?.executionPolicy) process.env.PSExecutionPolicyPreference = sandbox.executionPolicy;
+
+// The id Windows groups windows, taskbar pins and Start menu shortcuts by. The
+// installer stamps the same id on the shortcuts it creates (electron-builder's
+// appId), so a pinned shortcut and the running window are one taskbar icon. Before
+// 0.10.0 none was set. Packaged builds only: a dev run must not join the real app's
+// taskbar button.
+const APP_USER_MODEL_ID = sandbox?.appId ?? 'com.afterterm.app';
+if (app.isPackaged) app.setAppUserModelId(APP_USER_MODEL_ID);
+
 // Dev/test isolation: point userData (session.json, prefs.json) at a throwaway dir
 // so a dev run can't clobber the user's real, possibly-running build. Must be set
 // before any app.getPath('userData') call. No-op in normal use.
 if (process.env.AFTERTERM_USER_DATA_DIR) {
   app.setPath('userData', process.env.AFTERTERM_USER_DATA_DIR);
 }
+
+// Installer mode. The installer runs `afterterm.exe --setup-check=<file>` once,
+// after copying the app: register the Claude Code hook, test that it runs, write
+// the answer for its "Checking Claude Code" page, and exit without a window. And
+// `--open-issue=<file>` opens the filled-in GitHub issue its "Report issue" button
+// asks for. See runSetupCheckCli below.
+const setupCheckOut = process.argv.find(a => a.startsWith('--setup-check='))?.slice('--setup-check='.length);
+const openIssueFile = process.argv.find(a => a.startsWith('--open-issue='))?.slice('--open-issue='.length);
+if (setupCheckOut || openIssueFile) app.disableHardwareAcceleration();
 
 // Agent harness: expose the Chrome DevTools Protocol so scripts/agent-harness can
 // drive and screenshot the renderer. Opt-in only: an open debugging port lets any
@@ -493,11 +557,17 @@ function getHookScriptSource() {
 // Register (or reconcile) afterterm's Claude Code notifier hook on startup, then
 // fire a one-time toast the first time it's installed so the user knows their
 // Claude config was touched. Idempotent + opt-out aware — see claude-hook-install.ts.
+// Claude Code's own folder: CLAUDE_CONFIG_DIR when set (Claude Code honours it, and
+// the sandbox build sets it), else ~/.claude.
+function getClaudeDir() {
+  return process.env.CLAUDE_CONFIG_DIR || path.join(app.getPath('home'), '.claude');
+}
+
 function reconcileNotifierHook() {
   try {
     const result = reconcileClaudeHook({
       scriptSource: getHookScriptSource(),
-      claudeDir: path.join(app.getPath('home'), '.claude'),
+      claudeDir: getClaudeDir(),
       prefsPath: path.join(app.getPath('userData'), 'prefs.json'),
     });
     console.log(`[claude-hook] ${result.status} — ${result.detail}`);
@@ -1416,7 +1486,7 @@ const CLAUDE_CWD_RE = /^[A-Za-z]:\\[^\r\n;&|`$<>"'*?\t]*$/;
 // afterterm never writes anything under it. AFTERTERM_CLAUDE_PROJECTS_DIR is the test
 // override, so a harness run can point at a fixture folder instead of the real one.
 function getClaudeProjectsDir() {
-  return process.env.AFTERTERM_CLAUDE_PROJECTS_DIR || path.join(os.homedir(), '.claude', 'projects');
+  return process.env.AFTERTERM_CLAUDE_PROJECTS_DIR || path.join(getClaudeDir(), 'projects');
 }
 
 // The first user prompt and the current model for one session, or the not-found
@@ -2008,9 +2078,98 @@ app.on('before-quit', async (e) => {
   app.quit();
 });
 
+// ─── Installer mode: the setup check ─────────────────────────────────────────
+
+// A process runner for setup-check.ts: stdin in, stdout and stderr out, a hard
+// timeout, never a console window, never a throw.
+const runProcess: Runner = (command, args, { env, input, timeoutMs }) => new Promise((resolve) => {
+  let child: ReturnType<typeof spawn>;
+  try {
+    child = spawn(command, args, { env: (env ?? process.env) as NodeJS.ProcessEnv, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+  } catch (err) {
+    resolve({ code: null, stdout: '', stderr: '', error: String(err) });
+    return;
+  }
+  let stdout = '';
+  let stderr = '';
+  let settled = false;
+  let timedOut = false;
+  const timer = setTimeout(() => { timedOut = true; try { child.kill(); } catch { /* gone */ } }, timeoutMs);
+  child.stdout?.on('data', (d) => { stdout += d; });
+  child.stderr?.on('data', (d) => { stderr += d; });
+  child.once('error', (err) => {
+    if (settled) return;
+    settled = true; clearTimeout(timer);
+    resolve({ code: null, stdout, stderr, error: String(err) });
+  });
+  child.once('close', (code) => {
+    if (settled) return;
+    settled = true; clearTimeout(timer);
+    resolve({ code, stdout, stderr, timedOut });
+  });
+  child.stdin?.on('error', () => { /* the child exited before reading */ });
+  child.stdin?.end(input ?? '');
+});
+
+// Register the hook, test it, and switch it to the second way when only that
+// works here. Writes three files beside `out` for the installer's Check page:
+//   <out>            [check] claude, notifications, resume, reason (key=value lines)
+//   <out>.report.txt the report, opened by "See what's sent"
+//   <out>.issue.txt  the filled-in GitHub URL, opened by `--open-issue`
+async function runSetupCheckCli(out: string): Promise<void> {
+  const prefsPath = getPrefsPath();
+  reconcileNotifierHook();
+  const opts = {
+    claudeDir: getClaudeDir(),
+    scriptSource: getHookScriptSource(),
+    userDataDir: app.getPath('userData'),
+    aftertermVersion: app.getVersion(),
+    installKind: (app.isPackaged ? 'installer' : 'dev') as 'installer' | 'dev',
+  };
+  const deps = { run: runProcess, fs, env: process.env, homeDir: app.getPath('home'), tmpDir: os.tmpdir() };
+  let result = await runSetupCheck(opts, deps);
+  if (result.workingMode === 'command' && readPrefs(prefsPath).prefs.claudeHookMode !== 'command') {
+    updatePrefs(prefsPath, { claudeHookMode: 'command' });
+    reconcileNotifierHook();
+    result = await runSetupCheck(opts, deps); // confirm the rewritten entries pass as registered
+  }
+  console.log(`[setup-check] claude=${result.claude.found} notifications=${result.notifications} resume=${result.resume} mode=${result.workingMode}`);
+  const ini = [
+    '[check]',
+    `claude=${result.claude.found ? 'found' : 'missing'}`,
+    `notifications=${result.notifications}`,
+    `resume=${result.resume}`,
+    `reason=${result.claude.found && !result.workingMode ? failureNote(result) : ''}`,
+    '',
+  ].join('\r\n');
+  fs.writeFileSync(out, ini, 'utf-8');
+  fs.writeFileSync(`${out}.report.txt`, result.report.replace(/\n/g, '\r\n'), 'utf-8');
+  fs.writeFileSync(`${out}.issue.txt`, result.report ? issueUrl(result) : '', 'utf-8');
+}
+
+// `--open-issue=<file>`: open the URL the setup check wrote, and only ever a new
+// issue on afterterm's own repository (the file sits in a temp folder anyone on
+// the machine could write to).
+async function openIssueFromFile(file: string): Promise<void> {
+  try {
+    const url = fs.readFileSync(file, 'utf-8').trim();
+    if (url.startsWith(`${ISSUES_URL}?`)) await shell.openExternal(url);
+  } catch { /* nothing to open */ }
+}
+
 // ─── App lifecycle ────────────────────────────────────────────────────────────
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  if (setupCheckOut || openIssueFile) {
+    try {
+      if (setupCheckOut) await runSetupCheckCli(setupCheckOut);
+      if (openIssueFile) await openIssueFromFile(openIssueFile);
+    } catch (err) {
+      console.error('[setup-check] failed:', err);
+    }
+    app.exit(0);
+    return;
+  }
   // Before any window loads: the preload reads app:last-opened-at synchronously.
   initLastOpenedAt();
   createNotifierWindow();

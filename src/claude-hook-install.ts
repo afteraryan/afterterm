@@ -32,15 +32,25 @@ const HOOK_EVENTS: { event: string; matcher: string }[] = [
 export interface Prefs {
   claudeNotifications?: 'enabled' | 'disabled';
   claudeHookToastShown?: boolean;
+  // How the hook entry runs the script. 'file' (the default) is `-File` with
+  // -ExecutionPolicy Bypass. 'command' reads the script's text and runs it, which no
+  // execution policy applies to; the setup check (setup-check.ts) switches a machine
+  // to it only when 'file' failed there and 'command' worked, for example a work PC
+  // whose Group Policy overrides Bypass.
+  claudeHookMode?: HookMode;
 }
+
+export type HookMode = 'file' | 'command';
 
 export interface ReconcileResult {
   // registered  : we added entries this run (fresh install / user wiped settings)
+  // upgraded    : entries were present but ran the script in a way Windows can
+  //               block (no -ExecutionPolicy Bypass); rewritten in place
   // already-current : entries already present, nothing to do
   // removed     : user opted out, we stripped our entries
   // disabled-noop : user opted out, nothing of ours was present
   // skipped     : preconditions not met (no ~/.claude, or unparseable settings)
-  status: 'registered' | 'already-current' | 'removed' | 'disabled-noop' | 'skipped';
+  status: 'registered' | 'upgraded' | 'already-current' | 'removed' | 'disabled-noop' | 'skipped';
   changed: boolean; // settings.json was written
   showToast: boolean; // fire the one-time "notifications enabled" toast
   detail: string;
@@ -76,19 +86,52 @@ function detectPowershell(): string {
   }
 }
 
+// The arguments every afterterm hook entry runs the script with. -ExecutionPolicy
+// Bypass is what makes it run on a stock Windows machine: Windows PowerShell's
+// default policy there is Restricted, which refuses every .ps1 file, so without it
+// the hook failed silently and no chat could ever be resumed (Yogansh's machine,
+// 2026-10-29, docs/bugs-fixed.md). It applies to this one process only and changes
+// no setting on the machine. A Group Policy still wins over it; the setup check
+// (setup-check.ts) is what notices that case.
+export function hookArgs(scriptDest: string, mode: HookMode = 'file'): string[] {
+  if (mode === 'command') {
+    const quoted = scriptDest.replace(/'/g, "''");
+    return ['-NoProfile', '-Command', `Get-Content -Raw -LiteralPath '${quoted}' | Invoke-Expression`];
+  }
+  return ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptDest];
+}
+
+function hasArg(hook: { args?: unknown[] }, flag: string): boolean {
+  return Array.isArray(hook.args) && hook.args.some((a) => typeof a === 'string' && a.toLowerCase() === flag);
+}
+
+// An entry of ours written before 0.10.0 ran `-NoProfile -File <script>`. In
+// 'file' mode any hook of ours that passes neither -ExecutionPolicy nor -Command is
+// rewritten; one that does is left exactly as it is, whatever else it says (a
+// hand-written entry with a full path to powershell.exe keeps working and is not
+// churned). In 'command' mode every hook of ours without -Command is rewritten.
+function needsUpgrade(hook: { args?: unknown[] }, mode: HookMode): boolean {
+  if (!Array.isArray(hook.args)) return false;
+  if (mode === 'command') return !hasArg(hook, '-command');
+  return !hasArg(hook, '-executionpolicy') && !hasArg(hook, '-command');
+}
+
 // A matcher-group is "ours" if any of its hooks invokes afterterm-notify.ps1.
 // Matching on the script filename (not the full path) survives the user moving
 // their home dir or afterterm re-copying to a slightly different absolute path.
+// The script's name appears at the end of a 'file' entry's last argument and
+// inside a 'command' entry's command text, so match it anywhere in an argument.
+export function isAftertermHook(h: { args?: unknown[] } | null | undefined): boolean {
+  return (
+    Array.isArray(h?.args) &&
+    h!.args!.some((a) => typeof a === 'string' && a.toLowerCase().includes(HOOK_SCRIPT_NAME.toLowerCase()))
+  );
+}
+
 function isAftertermGroup(group: unknown): boolean {
   const g = group as { hooks?: { args?: unknown[] }[] };
   if (!g || !Array.isArray(g.hooks)) return false;
-  return g.hooks.some(
-    (h) =>
-      Array.isArray(h?.args) &&
-      h.args.some(
-        (a) => typeof a === 'string' && a.toLowerCase().endsWith(HOOK_SCRIPT_NAME.toLowerCase()),
-      ),
-  );
+  return g.hooks.some(isAftertermHook);
 }
 
 // Strip afterterm's entries from settings.json; leave every other hook intact.
@@ -151,20 +194,32 @@ export function reconcileClaudeHook(opts: ReconcileOpts): ReconcileResult {
   };
   settings.hooks = settings.hooks ?? {};
   const ps = opts.powershell ?? detectPowershell();
+  const mode: HookMode = prefs.claudeHookMode === 'command' ? 'command' : 'file';
 
   let added = 0;
+  let upgraded = 0;
   for (const { event, matcher } of HOOK_EVENTS) {
     const arr = Array.isArray(settings.hooks[event]) ? settings.hooks[event] : (settings.hooks[event] = []);
-    if (arr.some(isAftertermGroup)) continue;
-    arr.push({ matcher, hooks: [{ type: 'command', command: ps, args: ['-NoProfile', '-File', scriptDest] }] });
+    const ours = arr.filter(isAftertermGroup) as { hooks: { command?: unknown; args?: unknown[] }[] }[];
+    if (ours.length > 0) {
+      for (const group of ours) {
+        for (const hook of group.hooks) {
+          if (!isAftertermHook(hook) || !needsUpgrade(hook, mode)) continue;
+          hook.args = hookArgs(scriptDest, mode);
+          upgraded++;
+        }
+      }
+      continue;
+    }
+    arr.push({ matcher, hooks: [{ type: 'command', command: ps, args: hookArgs(scriptDest, mode) }] });
     added++;
   }
 
-  const changed = added > 0;
+  const changed = added > 0 || upgraded > 0;
   if (changed) writeJson(settingsPath, settings);
 
   // One-time toast: only the first time we ever register on this machine.
-  const showToast = changed && !prefs.claudeHookToastShown;
+  const showToast = added > 0 && !prefs.claudeHookToastShown;
 
   // Persist prefs: record that notifications are enabled + that the toast fired.
   const nextPrefs: Prefs = { ...prefs, claudeNotifications: 'enabled' };
@@ -172,9 +227,13 @@ export function reconcileClaudeHook(opts: ReconcileOpts): ReconcileResult {
   if (JSON.stringify(nextPrefs) !== JSON.stringify(prefs)) writeJson(prefsPath, nextPrefs);
 
   return {
-    status: changed ? 'registered' : 'already-current',
+    status: added > 0 ? 'registered' : upgraded > 0 ? 'upgraded' : 'already-current',
     changed,
     showToast,
-    detail: changed ? `registered ${added} hook event(s) using ${ps}` : 'already registered',
+    detail: added > 0
+      ? `registered ${added} hook event(s) using ${ps}`
+      : upgraded > 0
+        ? `rewrote ${upgraded} existing hook entr${upgraded === 1 ? 'y' : 'ies'} for ${mode} mode`
+        : 'already registered',
   };
 }

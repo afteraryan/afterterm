@@ -86,7 +86,15 @@ $SessionId = if ($payload.session_id) { [string]$payload.session_id } else { '' 
 # the real session refreshes the mapping on every turn.
 $CaptureEvents = @('UserPromptSubmit', 'Stop')
 
-if ($SessionId -and $CaptureEvents -contains $event -and
+# One SessionStart is let in: a chat opened with /resume (or --resume, --continue)
+# reports source "resume", and before this a chat resumed and then left without a
+# message was never captured, so it was lost on Sleep (Yogansh, 2026-10-29). A
+# resumed session already has its transcript on disk; a spare never writes one, so
+# requiring the transcript file keeps the spares out even if one ever said resume.
+$IsResume = ($event -eq 'SessionStart' -and [string]$payload.source -eq 'resume' -and
+    $payload.transcript_path -and (Test-Path -LiteralPath ([string]$payload.transcript_path)))
+
+if ($SessionId -and ($CaptureEvents -contains $event -or $IsResume) -and
     $env:AFTERTERM_TAB_ID -and $env:AFTERTERM_SESSION_DIR) {
     try {
         $sessFile = Join-Path $env:AFTERTERM_SESSION_DIR ($env:AFTERTERM_TAB_ID + '.json')

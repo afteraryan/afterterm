@@ -262,6 +262,26 @@ if ($kept -eq $sid) {
     $fail++
 }
 
+# 23-26. A chat opened with /resume is captured from SessionStart (source "resume")
+# without waiting for a message, but only when its transcript really exists: a
+# spare never writes one, so a spare cannot get in this way either.
+$transcript = Join-Path $tmpDir "$sid.jsonl"
+Set-Content -LiteralPath $transcript -Value '{}' -NoNewline
+$transcriptJson = $transcript.Replace('\', '\\')
+$resumeSid = '22222222-3333-4444-5555-666666666666'
+
+Assert-SessionFile 'SessionStart resume + transcript on disk -> writes session file' `
+    "{`"hook_event_name`":`"SessionStart`",`"source`":`"resume`",`"cwd`":`"$cwd`",`"session_id`":`"$resumeSid`",`"transcript_path`":`"$transcriptJson`"}" 'tab-10' $resumeSid $cwdDecoded
+
+Assert-NoSessionFile 'SessionStart resume, transcript missing -> no file' `
+    "{`"hook_event_name`":`"SessionStart`",`"source`":`"resume`",`"cwd`":`"$cwd`",`"session_id`":`"$resumeSid`",`"transcript_path`":`"C:\\nowhere\\missing.jsonl`"}" 'tab-11' $tmpDir
+
+Assert-NoSessionFile 'SessionStart startup + transcript on disk -> no file' `
+    "{`"hook_event_name`":`"SessionStart`",`"source`":`"startup`",`"cwd`":`"$cwd`",`"session_id`":`"$resumeSid`",`"transcript_path`":`"$transcriptJson`"}" 'tab-12' $tmpDir
+
+Assert-Title 'SessionStart resume -> title still the bare project' `
+    "{`"hook_event_name`":`"SessionStart`",`"source`":`"resume`",`"cwd`":`"$cwd`",`"session_id`":`"$resumeSid`",`"transcript_path`":`"$transcriptJson`"}" 'afterterm'
+
 Remove-Item $tmpDir -Recurse -Force -ErrorAction SilentlyContinue
 
 Write-Host "`n$pass passed, $fail failed`n"
