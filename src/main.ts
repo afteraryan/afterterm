@@ -106,6 +106,17 @@ const setupCheckOut = process.argv.find(a => a.startsWith('--setup-check='))?.sl
 const openIssueFile = process.argv.find(a => a.startsWith('--open-issue='))?.slice('--open-issue='.length);
 if (setupCheckOut || openIssueFile) app.disableHardwareAcceleration();
 
+// One running copy per data folder. A second launch (a second taskbar pin, a
+// double click on the exe while afterterm is open) only brings the open window
+// forward and exits: two copies on one session.json overwrite each other's
+// projects and threads (seen after 0.10.0 changed the app id, 2026-10-30).
+// Electron keys the lock to the userData folder, which is set above, so a harness
+// run or the "afterterm (test)" build, each with its own folder, still runs beside
+// the real app. The installer's --setup-check and --open-issue runs take no lock:
+// they run while afterterm may be open and exit on their own.
+const isPrimaryCopy = setupCheckOut || openIssueFile ? true : app.requestSingleInstanceLock();
+if (!isPrimaryCopy) app.exit(0);
+
 // Test probe for launch lag: AFTERTERM_LAG_PROBE=1 logs every stall of the main
 // thread over 30 ms during the first 15 seconds, then the worst one. The main
 // thread also answers Windows' system-wide mouse hook (the toast overlay's
@@ -2235,7 +2246,16 @@ async function openIssueFromFile(file: string): Promise<void> {
 
 // ─── App lifecycle ────────────────────────────────────────────────────────────
 
+// A second launch was refused the lock (see isPrimaryCopy): bring this window forward.
+app.on('second-instance', () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+});
+
 app.whenReady().then(async () => {
+  if (!isPrimaryCopy) return;
   if (setupCheckOut || openIssueFile) {
     try {
       if (setupCheckOut) await runSetupCheckCli(setupCheckOut);

@@ -8,6 +8,12 @@ Format: the bug as it was titled, the date it was fixed, the PR or commit, then 
 
 ---
 
+## Fixed on 2026-10-30
+
+### Launching afterterm while it is open starts a second copy
+
+Reported in conversation (Aryan, after moving to 0.10.0: his old taskbar pin, from before the app id, opened a second 0.10.0 window). There was no single-instance lock, so a second launch ran a full second app on the same `session.json`, and whichever saved last overwrote the other. `main.ts` now takes Electron's single-instance lock, which is keyed to the data folder: a second launch brings the open window forward and exits, while a harness run or the "afterterm (test)" build, each with its own folder, still runs beside it. The installer's `--setup-check` and `--open-issue` runs take no lock. Checked on the packaged build: a second launch on the same folder exited with code 0, a launch on another folder ran alongside.
+
 ## Fixed on 2026-10-29
 
 All reported in conversation, from Yogansh's session with 0.9.0 (Wispr Flow, 29 Oct), on the `worktree-installer` branch.
