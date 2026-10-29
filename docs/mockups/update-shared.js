@@ -667,7 +667,8 @@ function initIndex() {
   sum.innerHTML = `<div class="sumhead"><b>${answered} of ${QUESTIONS.length} answered</b>
     <button class="pb" id="copy">Copy answers</button><button class="pb ghost" id="clear">Clear answers</button></div><pre>${text}</pre>`;
   document.getElementById('copy').onclick = () => {
-    navigator.clipboard.writeText(text).then(() => { document.getElementById('copy').textContent = 'Copied'; }, () => {});
+    const selectText = () => { const r = document.createRange(); r.selectNodeContents(sum.querySelector('pre')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); document.getElementById('copy').textContent = 'Selected: press Ctrl+C'; };
+    try { navigator.clipboard.writeText(text).then(() => { document.getElementById('copy').textContent = 'Copied'; }, selectText); } catch { selectText(); }
   };
   document.getElementById('clear').onclick = () => { clearPicks(); initIndex(); };
 }
