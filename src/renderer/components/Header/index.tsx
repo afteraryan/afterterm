@@ -41,9 +41,12 @@ export interface HeaderProps {
   // The Files button (docs/edited-files): a chat's changed files and pasted
   // images. Undefined for a shell; the button itself hides at zero files.
   files?: FilesButtonProps;
+  // What the header says with no thread selected; "Pick a thread" by default,
+  // "No threads open" when there are none at all.
+  emptyText?: string;
 }
 
-export function Header({ tab, group, groups, actions, projectExplorer, editor, now, files }: HeaderProps) {
+export function Header({ tab, group, groups, actions, projectExplorer, editor, now, files, emptyText }: HeaderProps) {
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -57,7 +60,7 @@ export function Header({ tab, group, groups, actions, projectExplorer, editor, n
   if (!tab) {
     return (
       <div className="header">
-        <span className="header-empty">Pick a thread</span>
+        <span className="header-empty">{emptyText ?? 'Pick a thread'}</span>
       </div>
     );
   }

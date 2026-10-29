@@ -6,7 +6,7 @@
 
 import {
   dateHeading, relativeTime, homeSections, homeTotals, filterThreads, splitLiveAsleep,
-  lastHereLine,
+  lastHereLine, hasNoProjects,
 } from './homeView.ts';
 import type { Tab, Group } from './components/TabBar/types.ts';
 
@@ -221,6 +221,15 @@ console.log('\nhomeView: lastHereLine\n');
   check('a future timestamp shows nothing', lastHereLine(now + 60 * 60_000, now) === null);
   check('NaN shows nothing', lastHereLine(NaN, now) === null);
   check('Infinity shows nothing', lastHereLine(Infinity, now) === null);
+}
+
+console.log('\nhomeView: hasNoProjects (the "Create your first project" button)\n');
+{
+  check('no groups at all: empty state', hasNoProjects([]));
+  check('only archived projects: empty state', hasNoProjects([group('a', { archived: true })]));
+  check('one live project: no empty state', !hasNoProjects([group('a')]));
+  check('one pinned project: no empty state', !hasNoProjects([group('a', { pinned: true })]));
+  check('live beside archived: no empty state', !hasNoProjects([group('a', { archived: true }), group('b')]));
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

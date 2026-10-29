@@ -20,7 +20,7 @@
     "package": "electron-forge package",
     "build": "node scripts/build.js",
     "release": "node scripts/release.js",
-    "make-shareable": "pwsh -File scripts/make-shareable.ps1",
+    "installer": "node scripts/build-installer.js",
     "make": "electron-forge make",
     "postinstall": "electron-rebuild",
     "harness": "node scripts/agent-harness/launch.mjs",

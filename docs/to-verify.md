@@ -6,6 +6,49 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
+## Installer and Yogansh's feedback (PR from `worktree-installer`, not released yet)
+
+### The test installer installs, checks Claude Code and uninstalls cleanly
+**Status:** waiting for Aryan
+Uses the test build ("afterterm (test)"), which keeps its data in `%LOCALAPPDATA%\afterterm-test` and never touches your real afterterm or `~/.claude`.
+1. Build it with `node scripts\build-installer.js --sandbox` in the worktree (or use the one already in `out\installer\`) and run `afterterm-test-0.9.0-setup.exe`.
+2. The first page shows the logo, the version, the folder with Change, and two ticked shortcut boxes. Click Install.
+3. The bar starts moving at once and fills in about 10 seconds. "Checking Claude Code" follows, with spinners, then three ticks.
+4. "afterterm (test) is ready": Finish opens it. It has its own taskbar icon, separate from your afterterm.
+5. Settings > Apps lists "afterterm (test)"; uninstalling it removes the app and both shortcuts.
+
+### A fresh start opens on Home with nothing running, and Home offers to create your first project
+**Status:** waiting for Aryan
+1. Open the test build from above for the first time: Home shows only the date and one large "Create your first project" button in the middle of the Projects section. No terminal starts.
+2. Click it: the New project dialog opens. Create a project.
+3. The large button is gone; the project is listed under Projects.
+
+### Closing your last thread goes to Home, and stays closed after a restart
+**Status:** waiting for Aryan
+1. In the test build, open one thread, then close it with its x.
+2. afterterm switches to Home. No new thread is started.
+3. Quit and reopen the test build: still no thread, your projects still there.
+
+### The sidebar shows no empty Recent heading
+**Status:** waiting for Aryan
+1. With no projects, open the sidebar: under New thread there is a New project row, and no Recent heading.
+2. Create a project: it shows under Recent, with the New project plus on Recent's heading (on hover).
+3. Pin it: Recent disappears, and the plus moves to the Pinned heading.
+
+### afterterm no longer freezes the mouse a few seconds after it starts
+**Status:** waiting for Aryan
+1. Start the build and keep moving the mouse in a circle for the first ten seconds.
+2. The pointer never stops; before, it froze for up to 3 seconds about 5 seconds in.
+
+### Chats come back after Sleep on a PC that blocks scripts (Yogansh's case)
+**Status:** waiting for Aryan (or Yogansh)
+1. On Yogansh's laptop, install this version over his old copy.
+2. The setup's check page shows three ticks.
+3. In a chat, send a message, then Sleep and Wake the thread: the chat comes back.
+4. In a fresh chat, run `/resume`, pick an old chat, send nothing, then Sleep and Wake: that chat comes back too.
+
+---
+
 ## Release 0.9.0 (2026-09-29)
 
 ### A chat that published or watched an artifact shows done when its turn ends, not the hourglass

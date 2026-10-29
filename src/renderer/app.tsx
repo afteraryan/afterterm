@@ -483,22 +483,25 @@ export function App() {
       // The file may predate the current format (0.8.1 wrote no version field and
       // none of the project/thread fields); migrate fills defaults or rejects it.
       const session = migrateSession(saved, Date.now());
-      if (session && session.tabs.length > 0) {
+      // Restored even with no threads at all: projects can exist without one. A
+      // fresh profile starts with nothing running (no General thread spawned on
+      // first launch, Yogansh 2026-10-29); either way the app opens on Home.
+      if (session) {
         state.restoreSession(session);
         setPanelHidden(!!session.ui?.panelHidden);
         setScreen(initialScreen(session.groups));
       } else {
-        state.addTab();
-        // A fresh profile has no session at all; the rule is the same (always Home).
         setScreen(initialScreen([]));
       }
       setInitialized(true);
     });
   }, []);
 
-  // Auto-save session (2s debounce after any state change)
+  // Auto-save session (2s debounce after any state change). No threads at all is
+  // a state worth saving too (the last one was closed); only an unloaded session
+  // is not.
   useEffect(() => {
-    if (!initialized || state.tabs.length === 0) return;
+    if (!initialized) return;
     const timer = setTimeout(() => {
       const data = serializeSession(state.tabs, state.groups, state.activeTabId, { panelHidden });
       window.afterterm.session.save(JSON.stringify(data));
@@ -1005,10 +1008,14 @@ export function App() {
 
   // Flush a synchronous save on window close, the debounced save's pending timer is
   // cleared on unmount, so the last <2s of changes (e.g. a fresh cwd) would be lost.
+  const initializedRef = useRef(false);
+  initializedRef.current = initialized;
   useEffect(() => {
     const flush = () => {
       const s = stateRef.current;
-      if (!s.tabs.length) return;
+      // Before the session has loaded there is nothing of the user's to save, and
+      // saving would overwrite the file with an empty one.
+      if (!initializedRef.current) return;
       // Screens first: once the window is gone the buffers are gone with it, and a
       // thread with no saved tail wakes into a blank terminal.
       window.afterterm.threads.saveTailsSync(terminalRef.current?.readAllTails() ?? {});
@@ -1023,12 +1030,19 @@ export function App() {
     return () => window.removeEventListener('beforeunload', flush);
   }, []);
 
-  // Always keep at least one tab
+  // Closing the last thread hands over to Home. (Until 0.10.0 a fresh General
+  // thread was spawned here instead, which is why a first launch, and closing the
+  // last thread, started a terminal nobody asked for.) Opening the workspace on
+  // purpose with no threads stays there: its panel holds New thread and New
+  // project, and the main pane says what to do.
+  const prevTabCountRef = useRef(0);
   useEffect(() => {
-    if (initialized && state.tabs.length === 0) {
-      state.addTab();
+    const prev = prevTabCountRef.current;
+    prevTabCountRef.current = state.tabs.length;
+    if (initialized && prev > 0 && state.tabs.length === 0 && screenRef.current === 'workspace') {
+      goScreen('home');
     }
-  }, [initialized, state.tabs.length, state.addTab]);
+  }, [initialized, state.tabs.length, goScreen]);
 
   // Play the entrance for whichever screen is now showing: on every switch, and
   // once on the first paint after the restored session has loaded (never on the
@@ -1321,6 +1335,7 @@ export function App() {
         <div className="terminal-area">
           <Header
             tab={activeTab}
+            emptyText={state.tabs.length === 0 ? 'No threads open' : undefined}
             group={activeGroup}
             groups={state.groups}
             now={now}
@@ -1341,6 +1356,12 @@ export function App() {
               openProjectPage: activeTab.groupId ? () => goScreen('project', activeTab.groupId) : undefined,
             } : undefined}
           />
+          {initialized && state.tabs.length === 0 && (
+            <div className="no-threads">
+              <button className="b p" data-new-thread="" onClick={() => openChooserFromShortcut()}>New thread</button>
+              <span className="k">Ctrl Shift T</span>
+            </div>
+          )}
           {/* An asleep thread has no terminal at all, so its pane stands in for one:
               the saved tail, dimmed, and a Wake button. */}
           {activeTab?.asleep && (
@@ -1357,7 +1378,7 @@ export function App() {
               tabs={tabInfos}
               activeTabId={state.activeTabId}
               visible={screen === 'workspace'}
-              hidden={!!activeTab?.asleep}
+              hidden={!!activeTab?.asleep || state.tabs.length === 0}
               onTitleChange={state.renameTab}
               onCwdChange={handleCwdChange}
               onNotification={handleNotification}

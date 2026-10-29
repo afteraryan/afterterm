@@ -193,7 +193,10 @@ export function reconcileClaudeHook(opts: ReconcileOpts): ReconcileResult {
     hooks?: Record<string, unknown[]>;
   };
   settings.hooks = settings.hooks ?? {};
-  const ps = opts.powershell ?? detectPowershell();
+  // Looked up only when an entry is added: `where.exe` is a process start, and
+  // this runs on every launch (launch lag, 2026-10-29).
+  let ps: string | undefined = opts.powershell;
+  const powershell = () => (ps ??= detectPowershell());
   const mode: HookMode = prefs.claudeHookMode === 'command' ? 'command' : 'file';
 
   let added = 0;
@@ -211,7 +214,7 @@ export function reconcileClaudeHook(opts: ReconcileOpts): ReconcileResult {
       }
       continue;
     }
-    arr.push({ matcher, hooks: [{ type: 'command', command: ps, args: hookArgs(scriptDest, mode) }] });
+    arr.push({ matcher, hooks: [{ type: 'command', command: powershell(), args: hookArgs(scriptDest, mode) }] });
     added++;
   }
 

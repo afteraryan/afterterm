@@ -5,6 +5,8 @@
 //                                              (see installer/electron-builder.cjs)
 //   --skip-package                             reuse out\afterterm-win32-x64 as it is
 //
+// `npm run installer` runs it; `npm run release` runs it and then tags the version.
+//
 // Steps: package the app with Forge (out\afterterm-win32-x64, unless --skip-package),
 // copy it to a staging folder, drop what never runs (debug symbols, the arm64
 // node-pty files), and hand the folder to electron-builder, which wraps it in the
@@ -29,8 +31,10 @@ const skipPackage = args.includes('--skip-package');
 const built = path.join(root, 'out', 'afterterm-win32-x64');
 const stage = path.join(root, 'out', 'installer-stage', sandbox ? 'afterterm-test-win32-x64' : 'afterterm-win32-x64');
 
+// build.js packages with Forge, after moving the previous build aside, and stops
+// with a clear message when afterterm is running from that folder.
 if (!skipPackage) {
-  execFileSync('npx', ['electron-forge', 'package'], { stdio: 'inherit', cwd: root, shell: true });
+  execFileSync(process.execPath, [path.join(root, 'scripts', 'build.js')], { stdio: 'inherit', cwd: root });
 }
 if (!fs.existsSync(path.join(built, 'afterterm.exe'))) {
   console.error(`No packaged app at ${built}. Run without --skip-package.`);

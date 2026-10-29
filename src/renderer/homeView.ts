@@ -88,6 +88,13 @@ export function homeSections(
   return { pinned, projects, shownProjects, hiddenCount, archived };
 }
 
+// Home's empty state: no project to show, pinned or not (archived ones are tucked
+// away, so they do not count). Home then shows one large "Create your first
+// project" button in place of its Pinned and Projects lists.
+export function hasNoProjects(groups: Pick<Group, 'archived'>[]): boolean {
+  return groups.every(g => g.archived);
+}
+
 // Totals for the pills under the Home date heading: how many tabs are
 // waiting for you (needs-you plus unread), and how many are working or
 // running, across every non-archived project plus General (a tab with no

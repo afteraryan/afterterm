@@ -96,6 +96,8 @@ export function useTabState() {
       if (activeTabId === tabId && next.length > 0) {
         const newActive = next[Math.min(idx, next.length - 1)];
         setActiveTabId(newActive.id);
+      } else if (next.length === 0) {
+        setActiveTabId('');
       }
       return next;
     });

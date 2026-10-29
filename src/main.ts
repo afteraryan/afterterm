@@ -106,6 +106,28 @@ const setupCheckOut = process.argv.find(a => a.startsWith('--setup-check='))?.sl
 const openIssueFile = process.argv.find(a => a.startsWith('--open-issue='))?.slice('--open-issue='.length);
 if (setupCheckOut || openIssueFile) app.disableHardwareAcceleration();
 
+// Test probe for launch lag: AFTERTERM_LAG_PROBE=1 logs every stall of the main
+// thread over 30 ms during the first 15 seconds, then the worst one. The main
+// thread also answers Windows' system-wide mouse hook (the toast overlay's
+// click-through), so a stall here freezes the mouse everywhere, which is what
+// Yogansh saw at launch (2026-10-29).
+if (process.env.AFTERTERM_LAG_PROBE === '1') {
+  const start = Date.now();
+  let last = start;
+  let worst = 0;
+  const probe = setInterval(() => {
+    const now = Date.now();
+    const stall = now - last - 10;
+    if (stall > 30) console.log(`[lag] main thread stalled ${stall} ms at +${now - start} ms`);
+    worst = Math.max(worst, stall);
+    last = now;
+    if (now - start > 15000) {
+      clearInterval(probe);
+      console.log(`[lag] worst stall in the first 15 s: ${worst} ms`);
+    }
+  }, 10);
+}
+
 // Agent harness: expose the Chrome DevTools Protocol so scripts/agent-harness can
 // drive and screenshot the renderer. Opt-in only: an open debugging port lets any
 // local process read and script the app, so it must never be on for normal users.
@@ -151,10 +173,11 @@ function detectShells(): ShellProfile[] {
     { id: 'cmd', name: 'Command Prompt', command: 'cmd.exe', args: [] },
   ];
 
-  try {
-    execSync('where pwsh.exe', { stdio: 'ignore' });
+  // Looked up on PATH directly rather than through `where.exe`: starting a process
+  // here held the main thread on every launch (launch lag, 2026-10-29).
+  if (onPath('pwsh.exe')) {
     shells.push({ id: 'pwsh', name: 'PowerShell 7', command: 'pwsh.exe', args: [] });
-  } catch {}
+  }
 
   shells.push({ id: 'powershell', name: 'Windows PowerShell', command: 'powershell.exe', args: [] });
 
@@ -169,13 +192,24 @@ function detectShells(): ShellProfile[] {
     }
   }
 
-  try {
-    execSync('where wsl.exe', { stdio: 'ignore' });
+  if (onPath('wsl.exe')) {
     shells.push({ id: 'wsl', name: 'WSL', command: 'wsl.exe', args: [] });
-  } catch {}
+  }
 
   cachedShells = shells;
   return shells;
+}
+
+// Whether `file` is in a folder on PATH, the way `where.exe` finds it. lstat, not
+// existsSync: a Microsoft Store install (PowerShell 7 from the Store) puts an
+// "app execution alias" on PATH, a link that existsSync and stat report as
+// missing (EACCES) although running it works.
+function onPath(file: string): boolean {
+  const dirs = (process.env.Path ?? process.env.PATH ?? '').replace(/"/g, '').split(';');
+  return dirs.some(dir => {
+    if (!dir.trim()) return false;
+    try { fs.lstatSync(path.join(dir.trim(), file)); return true; } catch { return false; }
+  });
 }
 
 function getShellById(id?: string): ShellProfile {
@@ -584,7 +618,7 @@ function pushSetupToast() {
   if (!win || win.isDestroyed()) return;
   const send = () => {
     if (win.isDestroyed()) return;
-    win.showInactive();
+    showNotifierWindow();
     win.webContents.send('notify:push', {
       id: 'afterterm-setup',
       tabId: '__afterterm_setup__',
@@ -680,7 +714,11 @@ function createNotifierWindow() {
   // Click-through everywhere by default. The renderer flips this off only while
   // the cursor is actually over a toast card (per-region hit-testing via forwarded
   // mouse-move), so clicks reach the app behind the overlay everywhere except a card.
-  notifierWindow.setIgnoreMouseEvents(true, { forward: true });
+  // Forwarding is on only while the overlay shows (showNotifierWindow): Electron
+  // forwards with a system-wide mouse hook answered on this main thread, so while
+  // it is installed any stall here freezes the mouse on the whole PC. With no
+  // toast up there is nothing to hover, so there is no hook (launch lag, 2026-10-29).
+  notifierWindow.setIgnoreMouseEvents(true);
 
   // Chromium copies the loaded document's title onto the native window — that's
   // what drew "index.html" into the DWM caption strip (the "white bar"). Refuse
@@ -873,7 +911,7 @@ ipcMain.on('notify:push', (_event, toast) => {
     // Re-place before showing: the main window may have moved to another monitor
     // since the last toast, and a hidden overlay is never re-measured meanwhile.
     positionNotifier();
-    notifierWindow.showInactive();
+    showNotifierWindow();
     repaintNotifier();
     notifierWindow.webContents.send('notify:push', toast);
   }
@@ -920,15 +958,25 @@ function sendMainFocus(focused: boolean) {
 
 ipcMain.handle('notifier:main-focused', () => !!mainWindow?.isFocused());
 
-// Notifier → self: toggle mouse passthrough
+// Notifier → self: toggle mouse passthrough. Forwarding (and with it the
+// system-wide mouse hook) only while the overlay is up; see createNotifierWindow.
 ipcMain.on('notifier:set-ignore-mouse', (_event, ignore: boolean) => {
-  notifierWindow?.setIgnoreMouseEvents(ignore, { forward: true });
+  if (!notifierWindow || notifierWindow.isDestroyed()) return;
+  notifierWindow.setIgnoreMouseEvents(ignore, notifierWindow.isVisible() ? { forward: true } : undefined);
 });
 
 // Notifier → self: hide window when all toasts are dismissed
 ipcMain.on('notifier:hide', () => {
-  notifierWindow?.hide();
+  if (!notifierWindow || notifierWindow.isDestroyed()) return;
+  notifierWindow.hide();
+  notifierWindow.setIgnoreMouseEvents(true);
 });
+
+function showNotifierWindow() {
+  if (!notifierWindow || notifierWindow.isDestroyed()) return;
+  notifierWindow.setIgnoreMouseEvents(true, { forward: true });
+  notifierWindow.showInactive();
+}
 
 // Notifier → self: renderer reports the measured height of its toast stack;
 // resize the window to match so it's exactly as tall as the visible toasts.
@@ -1100,25 +1148,36 @@ ipcMain.handle('projects:checkFolders', (_event, folders: unknown) => {
 
 // The real, Windows-only side of editor-detect.ts. Every call is wrapped so a
 // permission error or a missing tool degrades to "not found" rather than
-// throwing during startup.
-const realDetectDeps: DetectDeps = {
-  env: process.env as Record<string, string | undefined>,
-  exists: (p) => { try { return fs.existsSync(p); } catch { return false; } },
-  isFile: (p) => { try { return fs.statSync(p).isFile(); } catch { return false; } },
-  listDir: (p) => { try { return fs.readdirSync(p); } catch { return []; } },
-  readText: (p) => { try { return fs.readFileSync(p, 'utf-8'); } catch { return null; } },
-  whereCode: () => {
-    try {
-      const out = execFileSync('where', ['code'], {
-        encoding: 'utf-8', timeout: 4000, windowsHide: true,
-      });
-      return out.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-    } catch {
-      return [];
-    }
-  },
-  registryEditors: () => readUninstallEditors(),
-};
+// throwing during startup. The two slow lookups (`where code` and the uninstall
+// registry) are run beforehand, asynchronously, and handed in: run synchronously
+// they froze the main thread for up to 3.4 s at launch, and with it the mouse on
+// the whole PC (launch lag, Yogansh 2026-10-29).
+function detectDeps(codePaths: string[], registry: RegistryEditor[]): DetectDeps {
+  return {
+    env: process.env as Record<string, string | undefined>,
+    exists: (p) => { try { return fs.existsSync(p); } catch { return false; } },
+    isFile: (p) => { try { return fs.statSync(p).isFile(); } catch { return false; } },
+    listDir: (p) => { try { return fs.readdirSync(p); } catch { return []; } },
+    readText: (p) => { try { return fs.readFileSync(p, 'utf-8'); } catch { return null; } },
+    whereCode: () => codePaths,
+    registryEditors: () => registry,
+  };
+}
+
+type RegistryEditor = { displayName: string; installLocation?: string; displayIcon?: string };
+
+function execFileText(file: string, args: string[], timeout: number): Promise<string> {
+  return new Promise((resolve) => {
+    execFile(file, args, { encoding: 'utf-8', timeout, windowsHide: true, maxBuffer: 32 * 1024 * 1024 }, (err, stdout) => {
+      resolve(err ? '' : String(stdout));
+    });
+  });
+}
+
+async function whereCodeAsync(): Promise<string[]> {
+  const out = await execFileText('where', ['code'], 4000);
+  return out.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+}
 
 const UNINSTALL_KEYS = [
   'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall',
@@ -1129,18 +1188,12 @@ const UNINSTALL_KEYS = [
 
 // Walk the uninstall registry and pull out the three values detection needs.
 // `reg query ... /s` prints one blank-line-separated block per subkey, with
-// values as "    Name    REG_SZ    value".
-function readUninstallEditors(): { displayName: string; installLocation?: string; displayIcon?: string }[] {
-  const entries: { displayName: string; installLocation?: string; displayIcon?: string }[] = [];
-  for (const key of UNINSTALL_KEYS) {
-    let out = '';
-    try {
-      out = execFileSync('reg', ['query', key, '/s'], {
-        encoding: 'utf-8', timeout: 8000, windowsHide: true, maxBuffer: 32 * 1024 * 1024,
-      });
-    } catch {
-      continue; // key absent on this machine, or reg refused it
-    }
+// values as "    Name    REG_SZ    value". The four keys are read in parallel.
+async function readUninstallEditors(): Promise<RegistryEditor[]> {
+  const outputs = await Promise.all(UNINSTALL_KEYS.map(key => execFileText('reg', ['query', key, '/s'], 8000)));
+  const entries: RegistryEditor[] = [];
+  for (const out of outputs) {
+    if (!out) continue; // key absent on this machine, or reg refused it
     let current: { displayName?: string; installLocation?: string; displayIcon?: string } = {};
     const flush = () => {
       if (current.displayName) {
@@ -1168,42 +1221,65 @@ function readUninstallEditors(): { displayName: string; installLocation?: string
   return entries;
 }
 
-// Detection runs once, after the window is up, and is cached for the session. It
-// re-runs when a launch fails or the user picks an editor by hand.
+// Detection runs after the window is up, off the main thread's critical path, and
+// its answer is saved to <userData>\editors-cache.json, so the next launch has
+// its editors at once and only refreshes them in the background. It re-runs when
+// a launch fails or the user picks an editor by hand. One run at a time.
 let cachedEditors: EditorInfo[] = [];
 let editorPrefsPathInvalid = false;
-let editorDetectionRan = false;
+let editorsKnown = false;
+let editorDetection: Promise<void> | null = null;
 
-function runEditorDetection(reason: string): void {
-  editorDetectionRan = true;
-  try {
-    const started = Date.now();
-    const editorPath = readPrefs(getPrefsPath()).prefs.editorPath;
-    const result = detectEditors(typeof editorPath === 'string' ? editorPath : undefined, realDetectDeps);
-    cachedEditors = result.editors;
-    editorPrefsPathInvalid = result.invalidPrefsPath;
-    const found = result.editors.length
-      ? result.editors.map(e => `${e.name} (${e.source})`).join(', ')
-      : 'none found';
-    console.log(`[editors] ${reason}: ${found}${result.invalidPrefsPath ? ', editorPath in prefs.json is not an editor' : ''} in ${Date.now() - started}ms`);
-  } catch (err) {
-    cachedEditors = [];
-    editorPrefsPathInvalid = false;
-    console.error('[editors] detection failed:', err);
-  }
+function editorCachePath() {
+  return path.join(app.getPath('userData'), 'editors-cache.json');
 }
 
-// If the renderer asks before the deferred startup run, detect now rather than
+function loadEditorCache(): void {
+  try {
+    const saved = JSON.parse(fs.readFileSync(editorCachePath(), 'utf-8')) as { editors?: unknown; invalid?: unknown };
+    if (!Array.isArray(saved.editors)) return;
+    cachedEditors = (saved.editors as EditorInfo[]).filter(e => e && typeof e.path === 'string' && fs.existsSync(e.path));
+    editorPrefsPathInvalid = saved.invalid === true;
+    editorsKnown = true;
+  } catch { /* no cache yet: the first detection fills it */ }
+}
+
+function runEditorDetection(reason: string): Promise<void> {
+  if (editorDetection) return editorDetection;
+  editorDetection = (async () => {
+    try {
+      const started = Date.now();
+      const [codePaths, registry] = await Promise.all([whereCodeAsync(), readUninstallEditors()]);
+      const editorPath = readPrefs(getPrefsPath()).prefs.editorPath;
+      const result = detectEditors(typeof editorPath === 'string' ? editorPath : undefined, detectDeps(codePaths, registry));
+      cachedEditors = result.editors;
+      editorPrefsPathInvalid = result.invalidPrefsPath;
+      editorsKnown = true;
+      try { fs.writeFileSync(editorCachePath(), JSON.stringify({ editors: cachedEditors, invalid: editorPrefsPathInvalid })); } catch { /* next launch detects again */ }
+      const found = result.editors.length
+        ? result.editors.map(e => `${e.name} (${e.source})`).join(', ')
+        : 'none found';
+      console.log(`[editors] ${reason}: ${found}${result.invalidPrefsPath ? ', editorPath in prefs.json is not an editor' : ''} in ${Date.now() - started}ms`);
+    } catch (err) {
+      console.error('[editors] detection failed:', err);
+    } finally {
+      editorDetection = null;
+    }
+  })();
+  return editorDetection;
+}
+
+// If the renderer asks before anything is known, wait for a detection rather than
 // answering with an empty list and hiding a button the user does have.
-ipcMain.handle('editors:list', () => {
-  if (!editorDetectionRan) runEditorDetection('first request from the renderer');
+ipcMain.handle('editors:list', async () => {
+  if (!editorsKnown) await runEditorDetection('first request from the renderer');
   return cachedEditors;
 });
 
 // True only when prefs.json holds an editorPath that exists and is not an
 // editor. The renderer shows the "Editor path not valid" toast for this alone.
-ipcMain.handle('editors:prefsPathInvalid', () => {
-  if (!editorDetectionRan) runEditorDetection('first request from the renderer');
+ipcMain.handle('editors:prefsPathInvalid', async () => {
+  if (!editorsKnown) await runEditorDetection('first request from the renderer');
   return editorPrefsPathInvalid;
 });
 
@@ -1218,7 +1294,7 @@ ipcMain.handle('editors:open', async (_event, folder: unknown, editorId?: unknow
   if (typeof editorId === 'string' && editorId !== '') {
     editor = cachedEditors.find(e => e.id === editorId);
     if (!editor) {
-      runEditorDetection('unknown editor id from the renderer');
+      await runEditorDetection('unknown editor id from the renderer');
       editor = cachedEditors.find(e => e.id === editorId);
     }
     if (!editor) return { ok: false, error: 'Editor not found', editors: cachedEditors };
@@ -1257,7 +1333,7 @@ ipcMain.handle('editors:open', async (_event, folder: unknown, editorId?: unknow
   // The editor was there at startup and is not now (uninstalled, moved, blocked).
   // Re-detect so the UI can drop a button that no longer opens anything.
   console.error(`[editors] launch failed for ${editor.path}:`, result.error);
-  runEditorDetection('re-detect after a failed launch');
+  await runEditorDetection('re-detect after a failed launch');
   return { ok: false, error: `Couldn't open ${editor.name}`, editors: cachedEditors };
 });
 
@@ -1279,7 +1355,7 @@ ipcMain.handle('editors:choose', async () => {
   // A hand-picked path wins, whatever the exe is called: an unknown one becomes
   // product 'other' and is named after its file.
   updatePrefs(getPrefsPath(), { editorPath: picked });
-  runEditorDetection('re-detect after the user chose an editor');
+  await runEditorDetection('re-detect after the user chose an editor');
   return { editors: cachedEditors, invalid: editorPrefsPathInvalid };
 });
 
@@ -1805,7 +1881,7 @@ ipcMain.handle('session-files:pastedPath', async (_event, sessionId: unknown, cw
 ipcMain.handle('files:open', async (_event, target: unknown, line?: unknown) => {
   const file = checkedFile(target);
   if (!file) return { ok: false, error: 'File not found' };
-  if (!editorDetectionRan) runEditorDetection('first file open');
+  if (!editorsKnown) await runEditorDetection('first file open');
   const editor = cachedEditors[0];
   if (!editor) return openWithDefaultApp(file);
   const at = typeof line === 'number' && Number.isInteger(line) && line > 0 ? line : null;
@@ -1829,7 +1905,7 @@ ipcMain.handle('files:open', async (_event, target: unknown, line?: unknown) => 
   });
   if (result.ok) return { ok: true };
   console.error(`[editors] could not open ${file} in ${editor.path}:`, result.error);
-  runEditorDetection('re-detect after a failed file open');
+  void runEditorDetection('re-detect after a failed file open');
   return { ok: false, error: `Couldn't open ${editor.name}` };
 });
 
@@ -2176,11 +2252,10 @@ app.whenReady().then(async () => {
   createWindow();
   reconcileNotifierHook();
   startClaudeSessionWatch();
-  // Editor detection reads the registry through `reg query`, which is synchronous
-  // and can take a second. Deferred so the window paints and the first terminal
-  // spawns before the main process is busy. The renderer asks for the list after
-  // this; if it asks sooner, editors:list runs detection itself.
-  setTimeout(() => { if (!editorDetectionRan) runEditorDetection('startup'); }, 1200);
+  // Editors: last launch's list at once, then a fresh detection in the background
+  // (asynchronous, so it never holds the main thread; see detectDeps).
+  loadEditorCache();
+  setTimeout(() => { void runEditorDetection('startup'); }, 1200);
 });
 
 app.on('window-all-closed', () => {
