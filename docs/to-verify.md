@@ -41,11 +41,11 @@ Uses the test build ("afterterm (test)"), which keeps its data in `%LOCALAPPDATA
 2. The pointer never stops; before, it froze for up to 3 seconds about 5 seconds in.
 
 ### Chats come back after Sleep on a PC that blocks scripts (Yogansh's case)
-**Status:** waiting for Aryan (or Yogansh)
+**Status:** waiting for Yogansh
+The `/resume` half (a chat opened with `/resume` and left without a message comes back after Sleep and Wake) was checked by Aryan on 2026-10-30, in a General thread and a project thread: works.
 1. On Yogansh's laptop, install this version over his old copy.
 2. The setup's check page shows three ticks.
 3. In a chat, send a message, then Sleep and Wake the thread: the chat comes back.
-4. In a fresh chat, run `/resume`, pick an old chat, send nothing, then Sleep and Wake: that chat comes back too.
 
 ---
 
