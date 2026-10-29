@@ -784,3 +784,19 @@ In the New project dialog:
 **Evidence:**
 - Screenshot 21: the New project dialog for `D:\Pitara\Work\Tinkering\minimi-windows`, Folder first with a Change button, then Name "minimi-windows", the Colour row with pink selected, the Icon row with the robot selected (small, tinted pink), the "Default shell" heading over six rows starting with "Default shell" (highlighted), "Open a terminal in it now" ticked, and Cancel and Create.
 - Aryan's words: "I feel the icon which is default selected should appear bigger. When I switch between icons and colors, I should get a bigger preview also for default shells." and "the title is "Default Shell", and the first option is "Default Shell". I don't know what "Default Shell" is, and I feel this is too space-consuming. This could be a fucking dropdown, right? We can redesign this to be more efficient. Project name should be above project folder."
+
+---
+
+## After closing and reopening afterterm, Home does not show which thread was used last and offers no way to resume it
+
+**Observed:** 2026-10-30 by Aryan during manual testing · **Phase:** 2 (Home), with the restore-on-launch from Phase 4 · **Status:** open (a feature request) · **Severity:** medium (after a relaunch he cannot tell where he left off) · **Screenshot:** none
+
+**What happens:**
+When Aryan closes afterterm and starts it again, the app opens on Home, and nothing there tells him which thread (session) he was in last. He expects one of two things: a way to resume the last session straight away, or at least Home telling him which session was the last one.
+
+**Steps to make it happen again:**
+1. Work in a thread in afterterm.
+2. Close afterterm and start it again.
+3. Look at Home: nothing shows which thread was used last, and there is no way to resume it from there.
+
+**Evidence:** Only the description above. Aryan's words: "There has to be a way, when I close Afternote and start it, to either resume the last session or at least let me know which was the last session (because from the home screen, there is no way to know right now)". ("Afternote" here means afterterm.)
