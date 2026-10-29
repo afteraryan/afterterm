@@ -4,7 +4,9 @@ What changed for the person using afterterm, release by release. Each release li
 
 ## Unreleased
 
-Nothing yet.
+### Fixed
+
+- Opening afterterm while it was already open started a second copy, and the two overwrote each other's projects and threads. Now it brings the open window forward.
 
 ## 0.10.0 (2026-10-30)
 

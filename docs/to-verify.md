@@ -6,6 +6,15 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
+## Next build after 0.10.0 (single-instance PR, not released yet)
+
+### Opening afterterm while it is open brings the window forward
+**Status:** waiting for Aryan
+1. With afterterm open, start it again (its taskbar pin with the window minimised, its Start menu entry, or `afterterm.exe` in Explorer).
+2. No second window appears: the open one comes to the front, restored if it was minimised.
+
+---
+
 ## Release 0.10.0 (2026-10-30): the installer and Yogansh's feedback
 
 ### The test installer installs, checks Claude Code and uninstalls cleanly

@@ -26,6 +26,7 @@ Projects and threads, not tabs. A project is a folder with a name, a colour, an 
 - Shell profiles detected at startup (cmd.exe, pwsh.exe, powershell.exe, Git Bash, WSL)
 - Session state auto-saved to `%APPDATA%\afterterm\session.json` (2s debounce after changes)
 - A second always-on-top **notifier overlay window** renders toasts above all apps (see Notification System)
+- **One running copy per data folder** (`app.requestSingleInstanceLock`, keyed to userData): a second launch focuses the open window and exits; harness runs and the "afterterm (test)" build have their own folders, so they still run beside the real app
 - `AFTERTERM=1` is set on every spawned PTY's env so the Claude Code hook knows to route notifications to the in-app overlay instead of a Windows popup
 
 ## File Structure
