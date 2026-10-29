@@ -205,23 +205,31 @@
 /* ── No project yet: one large button, centred in the Projects section ───── */
 /* The pinned card's surface (raise, the surface radius, the hover step), with
    the app's light primary button as its plus. */
+/* Micro-interactions: on hover the surface lifts a step and the plus grows and
+   turns a quarter; pressing sinks the card slightly; keyboard focus gets a ring.
+   All off under reduced motion (theme.css). */
 .home .first-project {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 14px;
   width: 100%;
   max-width: 380px;
   margin: 12px auto 0;
-  padding: 32px 24px 28px;
+  padding: 30px 24px;
   background: var(--raise);
   border-radius: var(--radius-surface);
   cursor: pointer;
-  transition: background var(--fast);
+  transition: background var(--fast), transform var(--fast) var(--ease);
 }
 
 .home .first-project:hover {
   background: var(--hover2);
+}
+
+.home .first-project:active {
+  transform: scale(.98);
 }
 
 .home .first-project:focus-visible {
@@ -232,28 +240,22 @@
 .home .first-project .plus {
   width: 44px;
   height: 44px;
-  margin-bottom: 6px;
   border-radius: 50%;
   display: grid;
   place-items: center;
   background: var(--btn);
   color: var(--btn-text);
-  transition: transform var(--fast);
+  transition: transform 220ms var(--ease);
 }
 
 .home .first-project:hover .plus {
-  transform: scale(1.06);
+  transform: scale(1.08) rotate(90deg);
 }
 
 .home .first-project .t1 {
   font-size: 15px;
   font-weight: 500;
   color: var(--text);
-}
-
-.home .first-project .t2 {
-  font-size: 13px;
-  color: var(--text3);
 }
 
 @media (max-width: 860px) {

@@ -226,7 +226,6 @@ export function Home({ groups, tabs, now, editors, folderExists, actions, onNewP
             <button type="button" className="first-project" data-first-project="" onClick={onNewProject}>
               <span className="plus"><IconPlus size={20} /></span>
               <span className="t1">Create your first project</span>
-              <span className="t2">A project is a folder. Its threads open there.</span>
             </button>
           )}
           <div className="list">
