@@ -136,7 +136,7 @@ assets/
     Inter Regular and Medium woff2     ← Bundled in assets/fonts, loaded by theme.css; LICENSE-Inter.txt
   hooks/
     afterterm-notify.ps1               ← bundled, distributable Claude Code hook (no-op unless AFTERTERM=1); copied into ~/.claude/hooks on first run
-    test-afterterm-notify.ps1          ← standalone test harness for the hook (22 cases)
+    test-afterterm-notify.ps1          ← standalone test harness for the hook (30 cases)
 forge.config.ts                        ← ASAR unpack, rebuild skip, Vite plugin config (extraResource: ['assets'] bundles the hook)
 installer/
   electron-builder.cjs                 ← The NSIS engine's settings (one-click, per-user, --prepackaged around Forge's folder); AFTERTERM_INSTALLER_SANDBOX=1 for "afterterm (test)"
@@ -208,7 +208,7 @@ Claude Code's hook events reach afterterm two ways: decorated window titles (`�
 
 ## Session Restore
 
-Windows ConPTY cannot be reconnected after a restart, so `session.json` (`%APPDATA%\afterterm\`, saved 2s after a change through `serializeSession`, loaded through `migrateSession` in `sessionMigration.ts`, `version: 2`) records the layout, and every restored thread starts asleep: nothing is spawned until the user wakes it. A chat's session id and cwd are captured from the hook's file channel on `UserPromptSubmit` and `Stop` only (`claudeSessionId`, `claudeCwd`), and a transcript read at launch and before a wake moves `claudeCwd` to the folder the session is really in. Add new persisted fields in `sessionMigration.ts`. Every shell reports its cwd (see Shell integration), so a thread reopens where it was; do not re-add a title-to-cwd heuristic (cmd's title looks like a path and is not). Full detail: `docs/features-claude-session-resume.md`, `docs/features-shell-integration.md`.
+Windows ConPTY cannot be reconnected after a restart, so `session.json` (`%APPDATA%\afterterm\`, saved 2s after a change through `serializeSession`, loaded through `migrateSession` in `sessionMigration.ts`, `version: 2`) records the layout, and every restored thread starts asleep: nothing is spawned until the user wakes it. A chat's session id and cwd are captured from the hook's file channel on `UserPromptSubmit` and `Stop`, and on `SessionStart` with source `resume` when the session's transcript exists, so a chat opened with `/resume` is kept before its first message (`claudeSessionId`, `claudeCwd`), and a transcript read at launch and before a wake moves `claudeCwd` to the folder the session is really in. Add new persisted fields in `sessionMigration.ts`. Every shell reports its cwd (see Shell integration), so a thread reopens where it was; do not re-add a title-to-cwd heuristic (cmd's title looks like a path and is not). Full detail: `docs/features-claude-session-resume.md`, `docs/features-shell-integration.md`.
 
 ## Keyboard Shortcuts
 
