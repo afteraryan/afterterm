@@ -1,0 +1,56 @@
+/* The restart window (RestartToUpdate). Values from
+   docs/mockups/update-shared.css: .tlist, .dfoot, .dstat, prefixed up-. */
+
+.up-tlist {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: rgba(0, 0, 0, .18);
+  border-radius: 12px;
+  padding: 6px;
+  overflow: auto;
+  min-height: 0;
+}
+.up-tlist .tr {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  flex: none;
+}
+.up-tlist .tr .ki {
+  color: var(--text3);
+  display: grid;
+}
+.up-tlist .tr .n {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+.up-tlist .tr .w {
+  color: var(--text3);
+  white-space: nowrap;
+}
+.up-tlist .tr .w.warn { color: var(--need); }
+
+.up-dfoot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+.up-dfoot .sp { flex: 1; }
+.up-dfoot .b:disabled { opacity: .5; cursor: default; }
+.up-dstat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+}
+.up-dstat.ok { color: #86d9a3; }
+.up-dstat.warn { color: var(--need); }

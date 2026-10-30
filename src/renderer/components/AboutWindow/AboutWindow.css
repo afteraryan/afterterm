@@ -1,0 +1,147 @@
+/* The About window (AboutWindow). Values from docs/mockups/update-shared.css:
+   .about, .aupd, .arow, .al, .ibar, .ipct, .wnb, .reveal, .sw, .links,
+   prefixed or scoped under .up-about. */
+
+.up-dlg.up-about {
+  align-items: center;
+  text-align: center;
+}
+.up-about .ver2 {
+  color: var(--text3);
+  font-size: 13px;
+  margin-top: -10px;
+}
+
+.up-about .aupd {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* One line, one height, in every state. */
+.up-about .arow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 52px;
+  text-align: left;
+  background: rgba(0, 0, 0, .18);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 13.5px;
+  color: var(--text2);
+  white-space: nowrap;
+}
+.up-about button.arow { cursor: pointer; }
+.up-about .arow .grow { flex: 1; }
+.up-about .arow .al {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: fadein 220ms var(--ease);
+}
+.up-about .arow .al b {
+  color: var(--text);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.up-about .arow .b:disabled { opacity: .5; cursor: default; }
+.up-about .ibar {
+  flex: 1;
+  height: 6px;
+  border-radius: 6px;
+  background: #444;
+  overflow: hidden;
+}
+.up-about .ibar i {
+  display: block;
+  height: 100%;
+  background: var(--text);
+  border-radius: 6px;
+  transition: width 120ms linear;
+}
+.up-about .ipct {
+  color: var(--text3);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  width: 34px;
+  text-align: right;
+}
+
+.up-wnb .chev {
+  display: inline-grid;
+  margin-left: 2px;
+  transition: transform 260ms var(--ease);
+}
+.up-wnb.on .chev { transform: rotate(180deg); }
+.up-wnb.on {
+  background: var(--hover2);
+  color: var(--text);
+}
+
+/* What's new slides open under the row, and the window grows with it. */
+.up-reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 340ms var(--ease), opacity 240ms var(--ease);
+}
+.up-reveal.open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.up-reveal > div {
+  overflow: hidden;
+  min-height: 0;
+}
+.up-reveal .up-notes.fold {
+  margin-top: 8px;
+  max-height: 200px;
+}
+
+.up-sw {
+  margin-left: auto;
+  width: 30px;
+  height: 18px;
+  border-radius: 999px;
+  background: #4a4a4a;
+  position: relative;
+  flex: none;
+  transition: background var(--fast);
+}
+.up-sw::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #bbb;
+  transition: transform var(--fast) var(--ease), background var(--fast);
+}
+.up-sw.on { background: var(--live); }
+.up-sw.on::after {
+  transform: translateX(12px);
+  background: #0d0d0d;
+}
+
+.up-about .links {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+}
+.up-about .links a {
+  color: var(--text2);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.up-about .links a:hover { color: var(--text); }
+.up-about .up-dbtns { align-self: stretch; }
