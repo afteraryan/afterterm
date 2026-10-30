@@ -151,6 +151,8 @@ export function App() {
   const afterUpdateRef = useRef<{ wake: string[]; activeThreadId?: string } | null>(null);
   const projectPageIdRef = useRef(projectPageId);
   projectPageIdRef.current = projectPageId;
+  const updateRef = useRef(update);
+  updateRef.current = update;
 
   // The terminal layer, for the one thing only it knows: what is on each screen
   // right now. Read at quit, when every awake thread's tail has to reach disk.
@@ -1258,6 +1260,11 @@ export function App() {
     win.__afterterm = {
       ...(win.__afterterm ?? {}),
       tab: (tabId: string) => stateRef.current.tabs.find(t => t.id === tabId) ?? null,
+      // Automatic updates: wake a thread, and give one a state, so a test can fill
+      // the restart window (a chat mid-turn) without a real Claude Code session.
+      wake: (tabId: string) => wakeThreadRef.current(tabId),
+      setNotification: (tabId: string, n: TabNotification | undefined) => stateRef.current.setTabNotification(tabId, n),
+      update: () => updateRef.current,
       // Phase 8: the same for a project (lastActiveAt, collapsed, icon, pinned).
       group: (groupId: string) => stateRef.current.groups.find(g => g.id === groupId) ?? null,
       // Phase 7: the aggregate every count reads from (attention.ts), per project

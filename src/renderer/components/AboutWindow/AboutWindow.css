@@ -80,7 +80,7 @@
   transition: transform 260ms var(--ease);
 }
 .up-wnb.on .chev { transform: rotate(180deg); }
-.up-wnb.on {
+.up-about .b.q.up-wnb.on {
   background: var(--hover2);
   color: var(--text);
 }
