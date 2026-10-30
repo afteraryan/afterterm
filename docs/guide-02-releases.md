@@ -51,6 +51,14 @@ gh release create vX.Y.Z out\installer\afterterm-<version>-setup.exe --title "af
 `npm run release` (`scripts/release.js`) **refuses** to run if the version is already
 tagged — the guard against shipping a stale build under an old number. Bump first.
 
+**Installed copies update themselves from this release** (from the version after 0.10.0 on;
+`docs/features-updates.md`). They find it through `releases/latest`, so: attach exactly one
+asset named `afterterm-<version>-setup.exe` (the name `npm run release` gives it), never mark
+the release a draft or prerelease when it is meant for everyone, and do not rename or replace
+the asset afterwards. GitHub records the asset's sha256 as its `digest`; an installed copy
+refuses an installer without one, or one that does not match it. The release body is what
+What's new shows: headings, bullets, bold and links render, images are skipped.
+
 **Two notes for whoever cuts it:**
 - **Where you build from matters.** Run from the main repo checkout so the build lands
   in `D:\Tinkering\afterterm\out\` (the standard folder). If you build from a temporary

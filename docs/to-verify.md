@@ -6,6 +6,60 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
+## Automatic updates (Phase 2, branch `worktree-auto-update`, not in a build yet)
+
+All of these use a test feed instead of GitHub, so no public release is needed. Make one once:
+a JSON file in GitHub's release shape (`tag_name` `v0.11.0`, a `body`, and one asset
+`afterterm-0.11.0-setup.exe` whose `browser_download_url` is the path of any file and whose
+`digest` is `sha256:` plus that file's hash). The harness fixture builder used in the Phase 2
+self-test does exactly this (`docs/features-updates.md`, "Testing"). Start a dev build through the
+harness with `--env AFTERTERM_UPDATE_FEED=<that file> --env AFTERTERM_UPDATE_CHECK_DELAY_MS=3000`
+(add `--env AFTERTERM_UPDATE_SLOW_MS=15000` to watch the download). Phase 3 repeats them end to end
+with the installed test build.
+
+### An "Update available" button appears beside the version, and its notice opens under it
+**Status:** waiting for Aryan
+1. About three seconds after the build opens, a green "Update available" button appears beside `v0.10.0`. Nothing else opens.
+2. Click it: the notice reads "afterterm 0.11.0 is available", "You have 0.10.0.", What's new, Update, Later, Skip this version.
+3. Click What's new: the notes fold open inside the notice, the buttons stay underneath. A click outside closes the notice.
+
+### Update downloads with progress, then offers Restart to update
+**Status:** waiting for Aryan
+1. Click Update. The button becomes a small bar and "Downloading 12%"; clicking it shows the bar, "4.2 of 30.0 MB" and Cancel.
+2. When it finishes, the button turns white: "Restart to update".
+
+### A download that does not match the release is deleted
+**Status:** waiting for Aryan
+1. Change the feed's `digest` to `sha256:` and 64 zeros, open the About window (click the version) and press Check for updates, then Update.
+2. When the bar fills, the notice says "The download didn't match the release, so it was deleted." with Try again, and the `updates` folder in the data folder is empty.
+
+### Restart to update lists every awake thread
+**Status:** waiting for Aryan
+1. Wake a chat, a server and a shell, then click "Restart to update".
+2. The window reads "Restart afterterm to update?" with one row each: "Resumes", "Runs again on :<port>", "Opens in its folder"; a chat in the middle of a reply reads "Stops mid-turn" in yellow, and the line by the buttons says "1 chat stops mid-turn" instead of "Safe to restart".
+3. In a dev build, Restart now closes the window and the notice says "Updates install only into an installed copy." afterterm stays open.
+
+### Later hides the button for a day; Skip this version hides that version
+**Status:** waiting for Aryan
+1. Later: the button goes, and comes back 24 hours later, even with afterterm open the whole time.
+2. Skip this version: the button goes and stays gone for 0.11.0; the About window still shows "afterterm 0.11.0 is available". A 0.12.0 in the feed brings the button back.
+
+### The About window keeps its size, and What's new slides open
+**Status:** waiting for Aryan
+1. Click the version number. The window shows the logo, "afterterm", "Version 0.10.0", one update row, the "Check for updates automatically" switch, "afterterm on GitHub" and Close.
+2. Check for updates, Update, the download and "Restart to update" all change only that one row; the window does not change size.
+3. What's new slides the notes open under the row and slides them shut again. Close fades the window out.
+4. Turn the switch off: `prefs.json` gets `"updateChecks": "disabled"` and the build no longer checks by itself; Check for updates still works.
+
+### After an update restart afterterm reopens where you were and wakes what was awake
+**Status:** waiting for Aryan (Phase 3 tests this with a real install; the harness can fake it)
+1. Seed the harness with a session that has `"wakeAfterUpdate": ["<thread id>", ...]` and prefs with `"pendingUpdate": {"from": "0.9.0", "to": "0.10.0", "activeThreadId": "<thread id>", "screen": "workspace"}`.
+2. It opens on the workspace (not Home) on that thread, the listed threads wake (a server runs its command again), the others stay asleep.
+3. A pill at the bottom says "Updated to 0.10.0" with What's new and a small round x on its top-right corner; it goes by itself after about 6 seconds. What's new opens the notes in a window over the app.
+4. Launch again normally: every thread starts asleep, Home, no pill.
+
+---
+
 ## Release 0.10.0 (2026-10-30): the installer and Yogansh's feedback
 
 ### The test installer installs, checks Claude Code and uninstalls cleanly

@@ -39,19 +39,37 @@ A clickable HTML mockup in afterterm's own look, one plain question per page, co
 
 ### Phase 2: Development
 
-Status: not started.
+Status: **built** (2026-10-30), waiting for Aryan's review and the two questions below. The record is [`docs/features-updates.md`](docs/features-updates.md); captures and the recording are in `docs/screenshots/auto-update-phase-2/`.
 
 Everything above, built and unit-tested, in one phase.
 
-- [ ] Update check against `releases/latest`: compare versions, respect Skip and Later (24 hours), never on a dev or harness build, off when the setting says so.
-- [ ] The local override (environment variable) for the release JSON and the installer.
-- [ ] The title bar button and its notice, What's new folding open inside it, the background download with progress, the sha256 check (a mismatch is refused and the file deleted), the restart window listing every awake thread.
-- [ ] The About window from the version number: Check for updates, the update row through every state, What's new, the automatic switch, the GitHub link, the animations.
-- [ ] Reopening where the user was, with the "Updated to" pill.
-- [ ] Setup's quiet update mode: same folder, same shortcuts, no welcome screen, a small progress window, reopens afterterm.
-- [ ] Awake threads saved at quit (a field in `session.json` through `sessionMigration.ts`) and woken on the next launch.
-- [ ] Unit tests for the pure parts (version compare, release parsing, the checksum, the wake list), added to `npm test`.
-- [ ] CHANGELOG.md (Unreleased) and `docs/to-verify.md` entries.
+- [x] Update check against `releases/latest`: compare versions, respect Skip and Later (24 hours), never on a dev or harness build, off when the setting says so. (`src/update-check.ts`, `src/updater.ts`)
+- [x] The local override (environment variable) for the release JSON and the installer: `AFTERTERM_UPDATE_FEED`, with `AFTERTERM_UPDATE_CHECK_DELAY_MS`; `scripts/agent-harness/update-feed.mjs` writes a feed.
+- [x] The title bar button and its notice, What's new folding open inside it, the background download with progress, the sha256 check (a mismatch is refused and the file deleted), the restart window listing every awake thread.
+- [x] The About window from the version number: Check for updates, the update row through every state (375px in every one, checked in the harness), What's new, the automatic switch, the GitHub link, the animations.
+- [x] Reopening where the user was, with the "Updated to" pill.
+- [x] Setup's quiet update mode: same folder, same shortcuts, no welcome screen, a small progress window, reopens afterterm. (The sandbox installer was built once in the worktree to prove it compiles; not installed or run. Running it is Phase 3.)
+- [x] Awake threads saved at quit (`wakeAfterUpdate` in `session.json` through `sessionMigration.ts`, written only by an update restart) and woken on the next launch, only when the update went in.
+- [x] Unit tests for the pure parts (version compare, release parsing, the checksum, the wake list), added to `npm test` (`src/update-check.test.ts`, 107 checks; `wakeAfterUpdate` in `sessionMigration.test.ts`).
+- [x] CHANGELOG.md (Unreleased) and `docs/to-verify.md` entries. Also `docs/features-updates.md`, CLAUDE.md, the release guide and the harness README.
+
+Decided while building (2026-10-30), where design-05 said nothing or the mockup and the design differed:
+
+- The sandbox build ("afterterm (test)") only takes an asset named `afterterm-test-<version>-setup.exe`, so it can never download and run the real installer over itself.
+- The About window in a copy that is not installed (dev, `out\`, harness without a feed) reads "Updates install only into an installed copy." with Check for updates turned off. A check by hand that cannot reach GitHub reads "Couldn't check for updates."; a timed one stays silent.
+- After a failed download the notice's Update button reads "Try again" (the About window's too).
+- The "Ready" notice keeps the mockup's "Restart afterterm to finish." and Later there only closes the notice: the white "Restart to update" button stays, since the download is already done.
+- Pressing Update from the About window on a version held back by Later or Skip shows the title bar button again for the download.
+- The "Updated to" pill stays while the pointer rests on it (like the overlay toasts); the threads after an update wake 250 ms apart.
+- The restart window: Escape is Not now, a click beside it does nothing, and with no awake thread it shows only the heading, the status line and the buttons.
+- Setup's update mode on failure: "afterterm could not be updated", the reason, Close, and "Open afterterm" when the old copy is still there. It waits 60 seconds for afterterm to quit, then 30 more for nothing to run from the folder.
+- A third test variable, `AFTERTERM_UPDATE_SLOW_MS`, spreads a local installer's copy over that long so the progress can be watched and captured. It does nothing to a real download.
+- What's new is left out wherever the release has no notes.
+
+Questions for Aryan:
+
+1. A chat waiting on a permission prompt (needs-you, the bell) loses that prompt on restart just as a chat mid-reply loses its reply. The restart window counts only the spinner state as "Stops mid-turn", as design-05 says. Should a waiting chat also say "Stops mid-turn"?
+2. Push the branch and open the PR?
 
 ### Phase 3: Testing
 

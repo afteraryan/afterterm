@@ -4,7 +4,15 @@ What changed for the person using afterterm, release by release. Each release li
 
 ## Unreleased
 
-Nothing yet.
+### Updating afterterm
+
+- **afterterm updates itself.** An installed afterterm checks GitHub for a new version shortly after it starts and every 6 hours. When one is out, an **Update available** button appears beside the version number at the top left. Nothing opens by itself.
+- **The notice.** Clicking the button shows the new version, **What's new** (it folds open inside the notice), **Update**, **Later** (hides it for a day) and **Skip this version**.
+- **Downloads while you work.** The button shows the download's progress, then becomes **Restart to update**. The download is checked against the checksum GitHub publishes for the release; one that does not match is deleted and never runs.
+- **It asks before it restarts.** "Restart afterterm to update?" lists every awake thread and what happens to it: a chat resumes, a server runs its command again, a shell opens in its folder, and a chat in the middle of a reply is marked "Stops mid-turn" (afterterm resumes the chat, but you send that last message again).
+- **Back where you were.** A small window shows the install's progress, then afterterm opens on the thread that was open, wakes the threads that were awake, and shows "Updated to" with What's new. Only an update restart wakes threads: a normal quit still brings everything back asleep.
+- **About afterterm.** Click the version number for the About window: check for updates by hand, read What's new, or turn **Check for updates automatically** off.
+- Anyone on 0.10.0 or older installs this version by hand, once; updates are automatic from then on.
 
 ## 0.10.0 (2026-10-30)
 
