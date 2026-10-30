@@ -21,13 +21,21 @@ Decided before Phase 1 (Aryan, 2026-10-30):
 
 ### Phase 1: Mockup
 
-Status: **in progress**.
+Status: **done** (2026-10-30).
 
 A clickable HTML mockup in afterterm's own look, one plain question per page, covering the update notice, What's new, the download progress and Restart to update. Aryan agrees to it before any app code is written.
 
 - [x] Read the installer, release and idea docs; worktree entered.
-- [x] Mockup pages: `docs/mockups/update-index.html` and seven questions (`update-1-where.html` to `update-7-turn-off.html`), sharing `update-shared.css` and `update-shared.js`. Each page answers on a working copy of afterterm and uses the answers already picked on the others. Checked in headless Edge; captures in `docs/screenshots/auto-update-phase-1/`.
-- [ ] Aryan's answers to the seven questions, recorded here with the date.
+- [x] Mockup pages: `docs/mockups/update-index.html` and seven questions (`update-1-where.html` to `update-7-turn-off.html`), sharing `update-shared.css` and `update-shared.js`, also published as a private artifact (https://claude.ai/artifact/1HjH2EmUjnA6DkqJhnFka7). Each page answers on a working copy of afterterm and uses the answers already picked on the others. Checked in headless Edge; captures in `docs/screenshots/auto-update-phase-1/`.
+- [x] Aryan's answers, 2026-10-30:
+  1. Where the notice shows: **in the title bar.** An "Update available" button beside the version number; nothing opens by itself; clicking it opens the notice under it. While downloading the button shows a small bar and "Downloading 47%"; when ready it becomes a white "Restart to update" button.
+  2. What's new: **opens inside the notice**, folding open under the title with Update, Later and Skip this version still underneath.
+  3. After Later: **a day later**, even if afterterm stays open.
+  4. Before the restart: **ask every time, and list every awake thread.** Heading "Restart afterterm to update?" (no version number, no paragraph under it); a table, one row per awake thread, the name on the left and a short outcome on the right ("Resumes", "Runs again on :5173", "Opens in its folder", and "Stops mid-turn" in yellow for a chat mid-turn); one small status line left of the buttons, "✓ Safe to restart" or "1 chat stops mid-turn"; buttons Not now and Restart now. The window shows even when nothing is busy.
+  5. Between closing and reopening: **a small window with progress** ("Updating afterterm to 0.11.0", a bar, a percentage), in Setup's look.
+  6. After reopening: **where I was, with a short note.** afterterm opens on the thread that was open, the threads that were awake wake, and a pill at the bottom says "Updated to 0.11.0" with a What's new button; a small round × sits on the pill's top-right corner, outside the pill, and the pill goes by itself after a few seconds.
+  7. Turning checks off and checking by hand: **an About window**, opened by clicking the version number. Logo, name, version; one update row that keeps one height in every state (last checked plus Check for updates; Checking; "afterterm 0.11.0 is available" plus What's new and Update; a download bar plus What's new and Cancel; "afterterm 0.11.0 is ready" plus What's new and Restart to update); What's new slides a panel open under that row and the window grows smoothly, and slides shut the same way; a switch "Check for updates automatically"; one link, "afterterm on GitHub"; Close fades the window out.
+- Also decided while reviewing (2026-10-30): a chat stopped mid-turn is resumed by afterterm itself (`claude --resume`), but Claude does not finish the interrupted reply, so the user sends the message again. Screens say only "Stops mid-turn"; the explanation lives in docs. In-app copy stays minimal: a heading, short rows, one small status line, no explaining paragraphs.
 
 ### Phase 2: Development
 
@@ -35,11 +43,12 @@ Status: not started.
 
 Everything above, built and unit-tested, in one phase.
 
-- [ ] Update check against `releases/latest`: compare versions, respect Skip and Later, never on a dev or harness build, off when the setting says so.
+- [ ] Update check against `releases/latest`: compare versions, respect Skip and Later (24 hours), never on a dev or harness build, off when the setting says so.
 - [ ] The local override (environment variable) for the release JSON and the installer.
-- [ ] The notice, What's new, the background download with progress, the sha256 check (a mismatch is refused and the file deleted), Restart to update with its warning.
-- [ ] The setting that turns the checks off.
-- [ ] Setup's quiet update mode: same folder, same shortcuts, no welcome screen, reopens afterterm.
+- [ ] The title bar button and its notice, What's new folding open inside it, the background download with progress, the sha256 check (a mismatch is refused and the file deleted), the restart window listing every awake thread.
+- [ ] The About window from the version number: Check for updates, the update row through every state, What's new, the automatic switch, the GitHub link, the animations.
+- [ ] Reopening where the user was, with the "Updated to" pill.
+- [ ] Setup's quiet update mode: same folder, same shortcuts, no welcome screen, a small progress window, reopens afterterm.
 - [ ] Awake threads saved at quit (a field in `session.json` through `sessionMigration.ts`) and woken on the next launch.
 - [ ] Unit tests for the pure parts (version compare, release parsing, the checksum, the wake list), added to `npm test`.
 - [ ] CHANGELOG.md (Unreleased) and `docs/to-verify.md` entries.
