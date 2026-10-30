@@ -42,9 +42,9 @@ const QUESTIONS = [
     question: 'You press "Restart to update". What should afterterm say before it closes?',
     short: 'Always ask, ask only when something is busy, or list every thread.',
     variants: [
-      { id: 'always', name: 'Always ask, in a few words', note: 'A short question every time, busy or not: afterterm closes, installs and opens again, and your awake threads come back.', look: 'Press Restart to update. Switch between "A chat is mid-reply" and "Nothing is busy" under the picture.' },
-      { id: 'busy', name: 'Ask only when something is busy', note: 'The notice already says afterterm will close and reopen, so when nothing is busy it restarts straight away. It asks only when a chat is mid-reply.', look: 'Press Restart to update. Switch between "A chat is mid-reply" and "Nothing is busy" under the picture.' },
-      { id: 'list', name: 'Ask, and list every thread', note: 'The question shows every time, busy or not, and lists every awake thread and what happens to it.', look: 'Press Restart to update. Switch between "A chat is mid-reply" and "Nothing is busy" under the picture.' },
+      { id: 'always', name: 'Always ask, in a few words', note: 'A short question every time, busy or not: afterterm closes, installs and opens again, and your awake threads come back.', look: 'Press Restart to update. Switch between "A chat is mid-turn" and "Nothing is busy" under the picture.' },
+      { id: 'busy', name: 'Ask only when something is busy', note: 'The notice already says afterterm will close and reopen, so when nothing is busy it restarts straight away. It asks only when a chat is mid-turn.', look: 'Press Restart to update. Switch between "A chat is mid-turn" and "Nothing is busy" under the picture.' },
+      { id: 'list', name: 'Ask, and list every thread', note: 'The question shows every time, busy or not, and lists every awake thread and what happens to it.', look: 'Press Restart to update. Switch between "A chat is mid-turn" and "Nothing is busy" under the picture.' },
     ],
   },
   {
@@ -93,7 +93,7 @@ const PAGE_CONTROLS = {
     { label: 'A day later', run: () => { if (M.laterUntil === 'day') reappear(); else if (M.hidden) flash('A day passed. The notice stays away.'); } },
   ],
   confirm: [
-    { label: 'A chat is mid-reply', on: () => M.busy, run: () => { M.busy = true; M.threads.t1.state = 'working'; } },
+    { label: 'A chat is mid-turn', on: () => M.busy, run: () => { M.busy = true; M.threads.t1.state = 'working'; } },
     { label: 'Nothing is busy', on: () => !M.busy, run: () => { M.busy = false; M.threads.t1.state = 'quiet'; } },
   ],
   after: [
@@ -497,15 +497,18 @@ function titlePop() {
 
 function awakeList() {
   const rows = [
-    ['t1', 'chat', 'Checkout page redesign', M.busy ? ['Stops in the middle of its reply. afterterm resumes the chat for you, but Claude does not finish that reply: send your message again.', 'warn'] : ['Resumes its Claude Code session', '']],
-    ['t2', 'chat', 'Fix flaky payment tests', ['Resumes its Claude Code session', '']],
-    ['t3', 'server', 'npm run dev', ['Runs npm run dev again on :5173', '']],
-    ['g1', 'shell', 'pwsh.exe', ['Opens a fresh shell in its folder', '']],
+    ['chat', 'Checkout page redesign', M.busy ? ['Stops mid-turn', 'warn'] : ['Resumes', '']],
+    ['chat', 'Fix flaky payment tests', ['Resumes', '']],
+    ['shell', 'npm run dev', ['Runs again on :5173', '']],
+    ['shell', 'pwsh.exe', ['Opens in its folder', '']],
   ];
-  const head = M.busy
-    ? `<div class="tsum warn"><span class="si need">${svg('i-bell', 13)}</span>1 chat is in the middle of a reply.</div>`
-    : `<div class="tsum ok"><span class="si run">${svg('i-check', 14)}</span>Nothing is in the middle of work, so nothing is lost.</div>`;
-  return `${head}<div class="tlist">${rows.map(([, k, n, [w, c]]) => `<div class="tr"><span class="ki">${svg(k === 'chat' ? 'i-chat' : 'i-shell', 14)}</span><div class="tt"><span class="n">${n}</span><span class="w ${c}">${w}</span></div></div>`).join('')}</div>`;
+  return `<div class="tlist">${rows.map(([k, n, [w, c]]) => `<div class="tr"><span class="ki">${svg(k === 'chat' ? 'i-chat' : 'i-shell', 14)}</span><span class="n">${n}</span><span class="w ${c}">${w}</span></div>`).join('')}</div>`;
+}
+function restartFoot(no, yes) {
+  const stat = M.busy
+    ? `<span class="dstat warn">${svg('i-bell', 12)}1 chat stops mid-turn</span>`
+    : `<span class="dstat ok">${svg('i-check', 13)}Nothing is mid-turn</span>`;
+  return `<div class="dfoot">${stat}<span class="sp"></span><button class="b q s" data-act="dlg-close">${no}</button><button class="b p s" data-act="restart-now">${yes}</button></div>`;
 }
 function dialog() {
   if (!M.dialog) return '';
@@ -517,21 +520,9 @@ function dialog() {
     body = `<h2>What's new in afterterm ${NEW}</h2><div class="notes">${NOTES}</div><div class="dbtns">${btns}</div>`;
   } else if (M.dialog === 'confirm') {
     const c = opt('confirm');
-    if (c === 'busy') {
-      body = `<h2>A chat is in the middle of a reply</h2>
-        <p class="dp">"Checkout page redesign" stops if afterterm restarts now. afterterm resumes the chat for you after the update, but Claude does not finish that reply: send your message again.</p>
-        <div class="dbtns"><button class="b q s" data-act="dlg-close">Wait</button><button class="b p s" data-act="restart-now">Restart anyway</button></div>`;
-    } else if (c === 'list') {
-      body = `<h2>Restart afterterm to update to ${NEW}?</h2>
-        <p class="dp">afterterm closes, installs the update and opens again in a few seconds. These threads are awake and wake again:</p>
-        ${awakeList()}
-        <div class="dbtns"><button class="b q s" data-act="dlg-close">Not now</button><button class="b p s" data-act="restart-now">Restart now</button></div>`;
-    } else {
-      body = `<h2>Restart afterterm to update to ${NEW}?</h2>
-        <p class="dp">afterterm closes, installs the update and opens again in a few seconds. Your 4 awake threads wake again.</p>
-        ${M.busy ? `<div class="tsum warn"><span class="si need">${svg('i-bell', 13)}</span><span>"Checkout page redesign" is in the middle of a reply. It stops, afterterm resumes the chat for you, and you send your message again.</span></div>` : `<div class="tsum ok"><span class="si run">${svg('i-check', 14)}</span>Nothing is in the middle of work, so nothing is lost.</div>`}
-        <div class="dbtns"><button class="b q s" data-act="dlg-close">Not now</button><button class="b p s" data-act="restart-now">Restart now</button></div>`;
-    }
+    if (c === 'busy') body = `<h2>Restart afterterm to update?</h2>${restartFoot('Wait', 'Restart anyway')}`;
+    else if (c === 'list') body = `<h2>Restart afterterm to update?</h2>${awakeList()}${restartFoot('Not now', 'Restart now')}`;
+    else body = `<h2>Restart afterterm to update?</h2>${restartFoot('Not now', 'Restart now')}`;
   } else if (M.dialog === 'about') {
     const checking = M.up === 'checking';
     const res = checking ? `<span class="spin"></span>Checking...` : (M.checkMsg || (M.version === NEW ? 'This is the newest version.' : 'Last checked today at 09:12.'));
