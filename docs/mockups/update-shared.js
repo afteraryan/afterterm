@@ -507,7 +507,7 @@ function awakeList() {
 function restartFoot(no, yes) {
   const stat = M.busy
     ? `<span class="dstat warn">${svg('i-bell', 12)}1 chat stops mid-turn</span>`
-    : `<span class="dstat ok">${svg('i-check', 13)}Nothing is mid-turn</span>`;
+    : `<span class="dstat ok">${svg('i-check', 13)}Safe to restart</span>`;
   return `<div class="dfoot">${stat}<span class="sp"></span><button class="b q s" data-act="dlg-close">${no}</button><button class="b p s" data-act="restart-now">${yes}</button></div>`;
 }
 function dialog() {
