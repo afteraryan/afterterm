@@ -72,7 +72,7 @@ const QUESTIONS = [
     short: 'A menu on the version number, or an About window.',
     variants: [
       { id: 'menu', name: 'A menu on the version number', note: 'Click v0.10.0 at the top left. A small menu has "Check for updates" and a switch that turns the automatic checks off.', look: 'Click v0.10.0 at the top left.' },
-      { id: 'about', name: 'An About window', note: 'Click v0.10.0 at the top left. A window shows the version, a Check for updates button, the switch, and links to What\'s new and GitHub.', look: 'Click v0.10.0 at the top left.' },
+      { id: 'about', name: 'An About window', note: 'Click v0.10.0 at the top left. A window shows the version, Check for updates and the automatic switch. When it finds an update, the same row shows What\'s new for that version and an Update button.', look: 'Click v0.10.0, then Check for updates.' },
     ],
   },
 ];
@@ -233,7 +233,8 @@ function flash(text, ms = 3600) {
 
 /* ── Actions ───────────────────────────────────────────────────────────── */
 function startDownload() {
-  M.up = 'downloading'; M.progress = 0; M.folded = false; M.dialog = null;
+  M.up = 'downloading'; M.progress = 0; M.folded = false; M.aboutNotes = false;
+  if (M.dialog !== 'about') M.dialog = null;
   if (opt('where') === 'titlebar') M.open = false;
   const t = setInterval(() => {
     M.progress = Math.min(1, M.progress + 0.022 + Math.random() * 0.012);
@@ -291,7 +292,7 @@ function checkNow() {
   M.up = 'checking'; M.checkMsg = ''; M.manual = true;
   later(1100, () => {
     M.up = 'available'; M.hidden = false; M.skipped = false;
-    if (M.dialog === 'about') { M.checkMsg = `afterterm ${NEW} is available.`; }
+    if (M.dialog === 'about') { /* the About window's row shows the update */ }
     else if (opt('where') !== 'home') M.open = true;
     else { M.screen = 'home'; }
   });
@@ -332,6 +333,8 @@ const ACT = {
   'toast-whatsnew': () => { M.toast = null; if (opt('whatsnew') === 'browser') flash(`Opened the afterterm ${NEW} release page on GitHub in your browser.`); else M.dialog = 'whatsnew-after'; },
   'card-close': () => { M.updatedCard = false; },
   'card-fold': () => { M.cardFold = !M.cardFold; },
+  'about-notes': () => { if (opt('whatsnew') === 'browser') flash(`Opened the afterterm ${NEW} release page on GitHub in your browser.`); else M.aboutNotes = !M.aboutNotes; },
+  'toast-close': () => { M.toast = null; },
 };
 
 /* ── Pieces ────────────────────────────────────────────────────────────── */
@@ -524,15 +527,28 @@ function dialog() {
     else if (c === 'list') body = `<h2>Restart afterterm to update?</h2>${awakeList()}${restartFoot('Not now', 'Restart now')}`;
     else body = `<h2>Restart afterterm to update?</h2>${restartFoot('Not now', 'Restart now')}`;
   } else if (M.dialog === 'about') {
-    const checking = M.up === 'checking';
-    const res = checking ? `<span class="spin"></span>Checking...` : (M.checkMsg || (M.version === NEW ? 'This is the newest version.' : 'Last checked today at 09:12.'));
     body = `<div class="about" style="display:flex;flex-direction:column;gap:14px">${LOGO(56)}<h2>afterterm</h2><div class="ver2">Version ${M.version}</div>
-      <div class="arow"><span style="flex:1;display:flex;align-items:center;gap:8px">${res}</span><button class="b s" data-act="check">Check for updates</button></div>
-      <button class="arow" data-act="auto-toggle"><span style="flex:1">Check for updates when afterterm starts and every few hours</span><span class="sw${M.autoCheck ? ' on' : ''}"></span></button>
-      <div class="links"><a data-act="whatsnew-cur">What's new in ${M.version}</a><a>afterterm on GitHub</a></div>
+      ${aboutUpdate()}
+      <button class="arow" data-act="auto-toggle"><span style="flex:1">Check for updates automatically</span><span class="sw${M.autoCheck ? ' on' : ''}"></span></button>
+      <div class="links"><a>afterterm on GitHub</a></div>
       <div class="dbtns" style="align-self:stretch"><button class="b p s" data-act="dlg-close">Close</button></div></div>`;
   }
   return `<div class="scrim${enter('scrim')}" data-act="scrim"><div class="dlg${enter('dlg-' + M.dialog)}">${body}</div></div>`;
+}
+// The About window's update row: what it says and its one button follow the
+// update from Check for updates to Restart to update.
+function aboutUpdate() {
+  const row = (left, btn) => `<div class="arow"><span class="al">${left}</span>${btn}</div>`;
+  if (M.up === 'checking') return row(`<span class="spin"></span>Checking...`, `<button class="b s" disabled style="opacity:.5">Check for updates</button>`);
+  if (M.up === 'available') {
+    const wn = opt('whatsnew') === 'browser'
+      ? `<button class="wn" data-act="about-notes">What's new on GitHub ${svg('i-ext', 13)}</button>`
+      : `<button class="wn" data-act="about-notes">What's new ${svg(M.aboutNotes ? 'i-chev-d' : 'i-chev-r', 14)}</button>`;
+    return `<div class="arow col"><div class="atop"><span class="al"><b>afterterm ${NEW} is available</b></span><button class="b p s" data-act="update">Update</button></div>${wn}${M.aboutNotes ? `<div class="notes fold">${NOTES}</div>` : ''}</div>`;
+  }
+  if (M.up === 'downloading') return `<div class="arow col"><div class="atop"><span class="al">Downloading afterterm ${NEW}</span><button class="b q s" data-act="cancel">Cancel</button></div><div><div class="bar"><i data-prog="bar" style="width:${M.progress * 100}%"></i></div><div class="barline"><span data-prog="mb">${mb(M.progress)} of ${SIZE_MB} MB</span><span data-prog="pct">${Math.round(M.progress * 100)}%</span></div></div></div>`;
+  if (M.up === 'ready') return row(`<b>afterterm ${NEW} is ready</b>`, `<button class="b p s" data-act="restart">Restart to update</button>`);
+  return row(M.version === NEW || M.manual ? 'You have the newest version.' : 'Last checked today at 09:12.', `<button class="b s" data-act="check">Check for updates</button>`);
 }
 function versionMenu() {
   if (!M.menu) return '';
@@ -546,7 +562,7 @@ function versionMenu() {
 }
 function toast() {
   if (!M.toast) return '';
-  return `<div class="atoast${enter('toast-' + M.toast.text)}"><span>${M.toast.text}</span>${M.toast.whatsnew ? `<button data-act="toast-whatsnew">What's new</button>` : ''}</div>`;
+  return `<div class="atoast${enter('toast-' + M.toast.text)}"><span>${M.toast.text}</span>${M.toast.whatsnew ? `<button data-act="toast-whatsnew">What's new</button>` : ''}<button class="tx" data-act="toast-close" title="Close">${svg('i-x', 14)}</button></div>`;
 }
 function desktop() {
   const win = opt('install') === 'window'

@@ -235,3 +235,13 @@ svg{display:block;flex:none}
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}
 }
+
+/* About window update row (question 7) and the toast's close button (question 6) */
+.about .arow .al{flex:1;display:flex;align-items:center;gap:8px;min-width:0}
+.about .arow .al b{color:var(--text);font-weight:500}
+.about .arow.col{flex-direction:column;align-items:stretch;gap:8px}
+.about .arow .atop{display:flex;align-items:center;gap:12px}
+.about .arow .wn{margin-left:-8px}
+.about .notes.fold{max-height:180px}
+.atoast .tx{display:grid;place-items:center;width:22px;height:22px;margin-right:-8px;border-radius:999px;color:var(--text3)}
+.atoast .tx:hover{background:var(--hover2);color:var(--text)}
