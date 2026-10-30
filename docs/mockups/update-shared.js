@@ -42,9 +42,9 @@ const QUESTIONS = [
     question: 'You press "Restart to update". What should afterterm say before it closes?',
     short: 'Always ask, ask only when something is busy, or list every thread.',
     variants: [
-      { id: 'always', name: 'Always ask, in a few words', note: 'A short question every time: afterterm closes, installs and opens again, and your awake threads come back.', look: 'Press Restart to update.' },
-      { id: 'busy', name: 'Ask only when something is busy', note: 'The notice already says afterterm will close and reopen, so it restarts straight away. It asks only when a chat is mid-reply. Here one is.', look: 'Press Restart to update. Then press "The chat finishes its reply" under the picture and try again.' },
-      { id: 'list', name: 'Ask, and list every thread', note: 'The question lists every awake thread and what happens to it: a chat resumes, a server starts again, a chat mid-reply stops.', look: 'Press Restart to update.' },
+      { id: 'always', name: 'Always ask, in a few words', note: 'A short question every time, busy or not: afterterm closes, installs and opens again, and your awake threads come back.', look: 'Press Restart to update. Switch between "A chat is mid-reply" and "Nothing is busy" under the picture.' },
+      { id: 'busy', name: 'Ask only when something is busy', note: 'The notice already says afterterm will close and reopen, so when nothing is busy it restarts straight away. It asks only when a chat is mid-reply.', look: 'Press Restart to update. Switch between "A chat is mid-reply" and "Nothing is busy" under the picture.' },
+      { id: 'list', name: 'Ask, and list every thread', note: 'The question shows every time, busy or not, and lists every awake thread and what happens to it.', look: 'Press Restart to update. Switch between "A chat is mid-reply" and "Nothing is busy" under the picture.' },
     ],
   },
   {
@@ -93,7 +93,8 @@ const PAGE_CONTROLS = {
     { label: 'A day later', run: () => { if (M.laterUntil === 'day') reappear(); else if (M.hidden) flash('A day passed. The notice stays away.'); } },
   ],
   confirm: [
-    { label: 'The chat finishes its reply', run: () => { M.busy = false; M.threads.t1.state = 'quiet'; } },
+    { label: 'A chat is mid-reply', on: () => M.busy, run: () => { M.busy = true; M.threads.t1.state = 'working'; } },
+    { label: 'Nothing is busy', on: () => !M.busy, run: () => { M.busy = false; M.threads.t1.state = 'quiet'; } },
   ],
   after: [
     { label: 'Show afterterm opening again', run: () => reopen() },
@@ -496,12 +497,15 @@ function titlePop() {
 
 function awakeList() {
   const rows = [
-    ['t1', 'chat', 'Checkout page redesign', M.busy ? ['Stops mid-reply, then resumes', 'warn'] : ['Resumes its Claude Code session', '']],
+    ['t1', 'chat', 'Checkout page redesign', M.busy ? ['Stops in the middle of its reply. afterterm resumes the chat for you, but Claude does not finish that reply: send your message again.', 'warn'] : ['Resumes its Claude Code session', '']],
     ['t2', 'chat', 'Fix flaky payment tests', ['Resumes its Claude Code session', '']],
-    ['t3', 'server', 'npm run dev', ['Starts again on :5173', '']],
-    ['g1', 'shell', 'pwsh.exe', ['Opens again in its folder', '']],
+    ['t3', 'server', 'npm run dev', ['Runs npm run dev again on :5173', '']],
+    ['g1', 'shell', 'pwsh.exe', ['Opens a fresh shell in its folder', '']],
   ];
-  return `<div class="tlist">${rows.map(([, k, n, [w, c]]) => `<div class="tr"><span class="ki">${svg(k === 'chat' ? 'i-chat' : 'i-shell', 14)}</span><span class="n">${n}</span><span class="w ${c}">${w}</span></div>`).join('')}</div>`;
+  const head = M.busy
+    ? `<div class="tsum warn"><span class="si need">${svg('i-bell', 13)}</span>1 chat is in the middle of a reply.</div>`
+    : `<div class="tsum ok"><span class="si run">${svg('i-check', 14)}</span>Nothing is in the middle of work, so nothing is lost.</div>`;
+  return `${head}<div class="tlist">${rows.map(([, k, n, [w, c]]) => `<div class="tr"><span class="ki">${svg(k === 'chat' ? 'i-chat' : 'i-shell', 14)}</span><div class="tt"><span class="n">${n}</span><span class="w ${c}">${w}</span></div></div>`).join('')}</div>`;
 }
 function dialog() {
   if (!M.dialog) return '';
@@ -515,7 +519,7 @@ function dialog() {
     const c = opt('confirm');
     if (c === 'busy') {
       body = `<h2>A chat is in the middle of a reply</h2>
-        <p class="dp">"Checkout page redesign" stops if afterterm restarts now. It wakes again after the update, and you send that message again.</p>
+        <p class="dp">"Checkout page redesign" stops if afterterm restarts now. afterterm resumes the chat for you after the update, but Claude does not finish that reply: send your message again.</p>
         <div class="dbtns"><button class="b q s" data-act="dlg-close">Wait</button><button class="b p s" data-act="restart-now">Restart anyway</button></div>`;
     } else if (c === 'list') {
       body = `<h2>Restart afterterm to update to ${NEW}?</h2>
@@ -524,7 +528,8 @@ function dialog() {
         <div class="dbtns"><button class="b q s" data-act="dlg-close">Not now</button><button class="b p s" data-act="restart-now">Restart now</button></div>`;
     } else {
       body = `<h2>Restart afterterm to update to ${NEW}?</h2>
-        <p class="dp">afterterm closes, installs the update and opens again in a few seconds. Your 4 awake threads wake again. ${M.busy ? 'A chat in the middle of a reply stops, and you send that message again.' : ''}</p>
+        <p class="dp">afterterm closes, installs the update and opens again in a few seconds. Your 4 awake threads wake again.</p>
+        ${M.busy ? `<div class="tsum warn"><span class="si need">${svg('i-bell', 13)}</span><span>"Checkout page redesign" is in the middle of a reply. It stops, afterterm resumes the chat for you, and you send your message again.</span></div>` : `<div class="tsum ok"><span class="si run">${svg('i-check', 14)}</span>Nothing is in the middle of work, so nothing is lost.</div>`}
         <div class="dbtns"><button class="b q s" data-act="dlg-close">Not now</button><button class="b p s" data-act="restart-now">Restart now</button></div>`;
     }
   } else if (M.dialog === 'about') {
@@ -641,11 +646,14 @@ function initPage(key) {
   };
   const ctl = document.getElementById('ctl');
   const controls = [{ label: 'Start again', run: () => reset() }, ...(PAGE_CONTROLS[key] || [])];
-  ctl.innerHTML = controls.map((c, i) => `<button class="pb ghost" data-c="${i}">${c.label}</button>`).join('');
-  ctl.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { controls[+b.dataset.c].run(); render(); });
+  const drawControls = () => {
+    ctl.innerHTML = controls.map((c, i) => `<button class="pb ${c.on && c.on() ? '' : 'ghost'}" data-c="${i}">${c.label}</button>`).join('');
+    ctl.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { controls[+b.dataset.c].run(); render(); drawControls(); });
+  };
 
   drawChrome();
   reset();
+  drawControls();
   render();
   fitFrame();
   window.addEventListener('resize', fitFrame);
