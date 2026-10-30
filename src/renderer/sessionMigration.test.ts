@@ -578,5 +578,22 @@ console.log('\nround trip: serialize then migrate is stable\n');
     reloaded.tabs.find(t => t.id === 'tab-3')!.model === undefined);
 }
 
+console.log('\nwakeAfterUpdate: the threads an update restart wakes\n');
+{
+  const raw = { ...fixture081(), wakeAfterUpdate: ['tab-5', 'tab-7', 'tab-5', 'tab-99', 42, null] };
+  const s = migrateSession(raw, NOW)!;
+  check('kept: ids of threads still in the file, once each, strings only',
+    isDeepStrictEqual(s.wakeAfterUpdate, ['tab-5', 'tab-7']), show(s.wakeAfterUpdate));
+  check('absent when the file has none', !('wakeAfterUpdate' in migrateSession(fixture081(), NOW)!));
+  check('absent when it is not a list', !('wakeAfterUpdate' in migrateSession({ ...fixture081(), wakeAfterUpdate: 'tab-5' }, NOW)!));
+  check('absent when none of its ids survive', !('wakeAfterUpdate' in migrateSession({ ...fixture081(), wakeAfterUpdate: ['tab-99'] }, NOW)!));
+  const tabs = s.tabs as unknown as Tab[];
+  check('a normal save never writes it', !('wakeAfterUpdate' in serializeSession(tabs, s.groups, s.activeTabId, {})));
+  check('an empty list is not written', !('wakeAfterUpdate' in serializeSession(tabs, s.groups, s.activeTabId, {}, [])));
+  const written = JSON.parse(JSON.stringify(serializeSession(tabs, s.groups, s.activeTabId, {}, ['tab-3', 'tab-5'])));
+  check('the update quit writes it', isDeepStrictEqual(written.wakeAfterUpdate, ['tab-3', 'tab-5']));
+  check('and it survives the next load', isDeepStrictEqual(migrateSession(written, NOW + 1)!.wakeAfterUpdate, ['tab-3', 'tab-5']));
+}
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail > 0 ? 1 : 0);

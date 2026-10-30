@@ -140,6 +140,26 @@ contextBridge.exposeInMainWorld('afterterm', {
     infoMany: (cwds: string[]) => ipcRenderer.invoke('git:infoMany', cwds),
   },
 
+  // Automatic updates (src/updater.ts): the state main pushes, and the actions
+  // the title bar button, the notice, the restart window and the About window take.
+  update: {
+    get: (): Promise<any> => ipcRenderer.invoke('update:get'),
+    onState: (callback: (state: any) => void): (() => void) => {
+      const listener = (_event: IpcRendererEvent, s: any) => callback(s);
+      ipcRenderer.on('update:state', listener);
+      return () => { ipcRenderer.removeListener('update:state', listener); };
+    },
+    takeLaunch: (): Promise<any> => ipcRenderer.invoke('update:take-launch'),
+    check: (): Promise<void> => ipcRenderer.invoke('update:check'),
+    download: (): Promise<void> => ipcRenderer.invoke('update:download'),
+    cancel: (): Promise<void> => ipcRenderer.invoke('update:cancel'),
+    later: (): Promise<void> => ipcRenderer.invoke('update:later'),
+    skip: (): Promise<void> => ipcRenderer.invoke('update:skip'),
+    restart: (info: { activeThreadId?: string; screen?: string; projectId?: string }): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke('update:restart', info),
+    setAuto: (on: boolean): Promise<void> => ipcRenderer.invoke('update:set-auto', on),
+  },
+
   shortcuts: {
     onShortcut: (callback: (action: string) => void): void => {
       ipcRenderer.on('shortcut', (_event, action) => callback(action));

@@ -7,6 +7,7 @@ import * as pty from 'node-pty';
 import { reconcileClaudeHook, HOOK_SCRIPT_NAME } from './claude-hook-install';
 import { runSetupCheck, issueUrl, failureNote, ISSUES_URL } from './setup-check.ts';
 import type { Runner } from './setup-check.ts';
+import { initUpdater } from './updater.ts';
 import { detectEditors } from './editor-detect.ts';
 import type { DetectDeps } from './editor-detect.ts';
 import type { EditorInfo } from './editors.ts';
@@ -2248,6 +2249,15 @@ app.whenReady().then(async () => {
   }
   // Before any window loads: the preload reads app:last-opened-at synchronously.
   initLastOpenedAt();
+  // Automatic updates (src/updater.ts): its IPC is there before the renderer
+  // asks; the registry read and the first check run later, off the launch path.
+  initUpdater({
+    getWindow: () => mainWindow,
+    prefsPath: getPrefsPath,
+    productName: sandbox ? 'afterterm (test)' : 'afterterm',
+    assetBase: sandbox ? 'afterterm-test' : 'afterterm',
+    quit: () => app.quit(),
+  });
   createNotifierWindow();
   createWindow();
   reconcileNotifierHook();

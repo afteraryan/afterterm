@@ -24,6 +24,15 @@ export interface AftertermPrefs {
   // Per-shell opt-out for the OSC 133/9;9 prompt integration (Phase 6). A shell
   // missing here, or set to anything but 'off', keeps integration on.
   shellIntegration?: Partial<Record<'cmd' | 'pwsh' | 'powershell' | 'gitbash' | 'wsl', 'on' | 'off'>>;
+  // Automatic updates (design-05, src/updater.ts). The About window's switch
+  // turns the automatic checks off; Skip and Later hold one version back; the
+  // last check time is shown in the About window; pendingUpdate is written just
+  // before an update restart and read once on the next launch.
+  updateChecks?: 'enabled' | 'disabled';
+  updateSkippedVersion?: string;
+  updateLaterUntil?: number;
+  updateLastChecked?: number;
+  pendingUpdate?: unknown;
   [key: string]: unknown;
 }
 

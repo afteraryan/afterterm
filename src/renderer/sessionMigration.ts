@@ -37,6 +37,11 @@ export interface SavedSession {
   // hand-built object (a test, a future caller) need not supply it;
   // migrateSession always fills it in as at least {}.
   ui?: { panelHidden?: boolean };
+  // Automatic updates (design-05): the ids of the threads that were awake when
+  // afterterm closed to install an update. Written only by that quit, read and
+  // dropped on the next launch, which wakes them when the update went in. A
+  // normal quit never writes it, so a normal relaunch keeps every thread asleep.
+  wakeAfterUpdate?: string[];
 }
 
 // The only tab keys that ever reach disk. Anything else on a Tab is transient.
@@ -206,7 +211,18 @@ export function migrateSession(raw: unknown, now: number): SavedSession | null {
     ? raw.activeTabId
     : '';
 
-  return { version: SESSION_FORMAT_VERSION, tabs, groups, activeTabId, ui: asUi(raw.ui) };
+  const session: SavedSession = { version: SESSION_FORMAT_VERSION, tabs, groups, activeTabId, ui: asUi(raw.ui) };
+  const wake = asWakeList(raw.wakeAfterUpdate, tabs);
+  if (wake.length) session.wakeAfterUpdate = wake;
+  return session;
+}
+
+// Only ids of threads that are still in the file, once each, and only strings:
+// anything else could not be woken anyway.
+function asWakeList(v: unknown, tabs: SavedTab[]): string[] {
+  if (!Array.isArray(v)) return [];
+  const ids = new Set(tabs.map(t => t.id));
+  return [...new Set(v.filter((id): id is string => typeof id === 'string' && ids.has(id)))];
 }
 
 /**
@@ -214,14 +230,17 @@ export function migrateSession(raw: unknown, now: number): SavedSession | null {
  * keys; groups carry no transient state and are written whole. `ui` defaults to
  * {} so an existing call site (three arguments, from before Phase 8) still
  * writes a valid, empty `ui` object rather than omitting the key.
+ * `wakeAfterUpdate` is written only when the quit is an update restart and
+ * something was awake; every other save leaves the key out.
  */
 export function serializeSession(
   tabs: Tab[],
   groups: Group[],
   activeTabId: string,
   ui: { panelHidden?: boolean } = {},
+  wakeAfterUpdate?: string[],
 ): SavedSession {
-  return {
+  const session: SavedSession = {
     version: SESSION_FORMAT_VERSION,
     tabs: tabs.map(t => {
       const saved: Record<string, unknown> = {};
@@ -237,4 +256,6 @@ export function serializeSession(
     activeTabId,
     ui,
   };
+  if (wakeAfterUpdate && wakeAfterUpdate.length) session.wakeAfterUpdate = [...wakeAfterUpdate];
+  return session;
 }
