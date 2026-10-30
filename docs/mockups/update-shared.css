@@ -236,12 +236,27 @@ svg{display:block;flex:none}
   *,*::before,*::after{animation:none!important;transition:none!important}
 }
 
-/* About window update row (question 7) and the toast's close button (question 6) */
+/* About window update row (question 7): one height in every state */
+.about .aupd{display:flex;flex-direction:column;width:100%}
+.about .arow{gap:8px}
 .about .arow .al{flex:1;display:flex;align-items:center;gap:8px;min-width:0}
 .about .arow .al b{color:var(--text);font-weight:500}
-.about .arow.col{flex-direction:column;align-items:stretch;gap:8px}
-.about .arow .atop{display:flex;align-items:center;gap:12px}
-.about .arow .wn{margin-left:-8px}
-.about .notes.fold{max-height:180px}
-.atoast .tx{display:grid;place-items:center;width:22px;height:22px;margin-right:-8px;border-radius:999px;color:var(--text3)}
-.atoast .tx:hover{background:var(--hover2);color:var(--text)}
+.about .arow .al.enter{animation:fadein 220ms var(--ease)}
+.about .ibar{flex:1;height:6px;border-radius:6px;background:#444;overflow:hidden}
+.about .ibar i{display:block;height:100%;background:var(--text);border-radius:6px;transition:width 120ms linear}
+.about .ipct{color:var(--text3);font-size:12.5px;font-variant-numeric:tabular-nums;width:34px;text-align:right}
+.wnb .chev{display:inline-grid;margin-left:2px;transition:transform 260ms var(--ease)}
+.wnb.on .chev{transform:rotate(180deg)}
+.wnb.on{background:var(--hover2);color:var(--text)}
+.reveal{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows 340ms var(--ease),opacity 240ms var(--ease)}
+.reveal.open{grid-template-rows:1fr;opacity:1}
+.reveal>div{overflow:hidden;min-height:0}
+.reveal .notes.fold{margin-top:8px;text-align:left;max-height:200px}
+@keyframes fadeout{to{opacity:0}}
+@keyframes sinkout{to{opacity:0;transform:scale(.97) translateY(6px)}}
+.scrim.out{animation:fadeout 170ms var(--ease) forwards}
+.scrim.out .dlg{animation:sinkout 170ms var(--ease) forwards}
+
+/* The updated note's close button sits on the pill's top-right corner (question 6) */
+.atoast .tx{position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:var(--hover2);color:var(--text2);box-shadow:0 2px 8px rgba(0,0,0,.45)}
+.atoast .tx:hover{background:#4a4a4a;color:var(--text)}

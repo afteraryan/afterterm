@@ -233,7 +233,7 @@ function flash(text, ms = 3600) {
 
 /* ── Actions ───────────────────────────────────────────────────────────── */
 function startDownload() {
-  M.up = 'downloading'; M.progress = 0; M.folded = false; M.aboutNotes = false;
+  M.up = 'downloading'; M.progress = 0; M.folded = false;
   if (M.dialog !== 'about') M.dialog = null;
   if (opt('where') === 'titlebar') M.open = false;
   const t = setInterval(() => {
@@ -321,7 +321,14 @@ const ACT = {
   skip: pressSkip,
   restart: pressRestart,
   'restart-now': doRestart,
-  'dlg-close': () => { M.dialog = null; },
+  'dlg-close': () => {
+    // The window fades and sinks out before it goes.
+    const sc = FRAME.querySelector('.scrim');
+    if (!sc) { M.dialog = null; return; }
+    sc.classList.add('out');
+    setTimeout(() => { M.dialog = null; render(); }, 170);
+    return 'keep';
+  },
   whatsnew: openWhatsNew,
   'pill': () => { if (M.up === 'ready') pressRestart(); else M.open = !M.open; },
   'corner-x': pressLater,
@@ -333,7 +340,14 @@ const ACT = {
   'toast-whatsnew': () => { M.toast = null; if (opt('whatsnew') === 'browser') flash(`Opened the afterterm ${NEW} release page on GitHub in your browser.`); else M.dialog = 'whatsnew-after'; },
   'card-close': () => { M.updatedCard = false; },
   'card-fold': () => { M.cardFold = !M.cardFold; },
-  'about-notes': () => { if (opt('whatsnew') === 'browser') flash(`Opened the afterterm ${NEW} release page on GitHub in your browser.`); else M.aboutNotes = !M.aboutNotes; },
+  'about-notes': () => {
+    if (opt('whatsnew') === 'browser') { flash(`Opened the afterterm ${NEW} release page on GitHub in your browser.`); return; }
+    // Toggled in place, not re-rendered, so the panel and the window animate.
+    M.aboutNotes = !M.aboutNotes;
+    FRAME.querySelector('#about-notes')?.classList.toggle('open', M.aboutNotes);
+    FRAME.querySelector('.wnb')?.classList.toggle('on', M.aboutNotes);
+    return 'keep';
+  },
   'toast-close': () => { M.toast = null; },
 };
 
@@ -535,20 +549,24 @@ function dialog() {
   }
   return `<div class="scrim${enter('scrim')}" data-act="scrim"><div class="dlg${enter('dlg-' + M.dialog)}">${body}</div></div>`;
 }
-// The About window's update row: what it says and its one button follow the
-// update from Check for updates to Restart to update.
+// The About window's update row. It keeps one height in every state (one line,
+// buttons on the right) so the window never jumps; What's new opens the notes
+// in a panel under the row that slides open and shut.
 function aboutUpdate() {
-  const row = (left, btn) => `<div class="arow"><span class="al">${left}</span>${btn}</div>`;
-  if (M.up === 'checking') return row(`<span class="spin"></span>Checking...`, `<button class="b s" disabled style="opacity:.5">Check for updates</button>`);
-  if (M.up === 'available') {
-    const wn = opt('whatsnew') === 'browser'
-      ? `<button class="wn" data-act="about-notes">What's new on GitHub ${svg('i-ext', 13)}</button>`
-      : `<button class="wn" data-act="about-notes">What's new ${svg(M.aboutNotes ? 'i-chev-d' : 'i-chev-r', 14)}</button>`;
-    return `<div class="arow col"><div class="atop"><span class="al"><b>afterterm ${NEW} is available</b></span><button class="b p s" data-act="update">Update</button></div>${wn}${M.aboutNotes ? `<div class="notes fold">${NOTES}</div>` : ''}</div>`;
-  }
-  if (M.up === 'downloading') return `<div class="arow col"><div class="atop"><span class="al">Downloading afterterm ${NEW}</span><button class="b q s" data-act="cancel">Cancel</button></div><div><div class="bar"><i data-prog="bar" style="width:${M.progress * 100}%"></i></div><div class="barline"><span data-prog="mb">${mb(M.progress)} of ${SIZE_MB} MB</span><span data-prog="pct">${Math.round(M.progress * 100)}%</span></div></div></div>`;
-  if (M.up === 'ready') return row(`<b>afterterm ${NEW} is ready</b>`, `<button class="b p s" data-act="restart">Restart to update</button>`);
-  return row(M.version === NEW || M.manual ? 'You have the newest version.' : 'Last checked today at 09:12.', `<button class="b s" data-act="check">Check for updates</button>`);
+  const up = M.up;
+  const has = ['available', 'downloading', 'ready'].includes(up);
+  const browser = opt('whatsnew') === 'browser';
+  const wn = !has ? '' : browser
+    ? `<button class="b q s" data-act="about-notes">What's new ${svg('i-ext', 12)}</button>`
+    : `<button class="b q s wnb${M.aboutNotes ? ' on' : ''}" data-act="about-notes">What's new<span class="chev">${svg('i-chev-d', 13)}</span></button>`;
+  let left, btns;
+  if (up === 'checking') { left = `<span class="spin"></span>Checking...`; btns = `<button class="b s" disabled style="opacity:.5">Check for updates</button>`; }
+  else if (up === 'available') { left = `<b>afterterm ${NEW} is available</b>`; btns = `${wn}<button class="b p s" data-act="update">Update</button>`; }
+  else if (up === 'downloading') { left = `<span class="ibar"><i data-prog="bar" style="width:${M.progress * 100}%"></i></span><span class="ipct" data-prog="pct">${Math.round(M.progress * 100)}%</span>`; btns = `${wn}<button class="b q s" data-act="cancel">Cancel</button>`; }
+  else if (up === 'ready') { left = `<b>afterterm ${NEW} is ready</b>`; btns = `${wn}<button class="b p s" data-act="restart">Restart to update</button>`; }
+  else { left = M.version === NEW || M.manual ? 'You have the newest version.' : 'Last checked today at 09:12.'; btns = `<button class="b s" data-act="check">Check for updates</button>`; }
+  const notes = has && !browser ? `<div class="reveal${M.aboutNotes ? ' open' : ''}" id="about-notes"><div><div class="notes fold">${NOTES}</div></div></div>` : '';
+  return `<div class="aupd"><div class="arow"><span class="al${enter('al-' + up)}">${left}</span>${btns}</div>${notes}</div>`;
 }
 function versionMenu() {
   if (!M.menu) return '';
@@ -599,7 +617,7 @@ function bindFrame() {
     const act = el && el.dataset.act;
     if (act === 'scrim') { if (e.target === el && M.dialog !== 'confirm') M.dialog = null; render(); return; }
     if (act === 'whatsnew-cur') { M.dialog = null; flash(`Opened the afterterm ${M.version} release page on GitHub in your browser.`); render(); return; }
-    if (act && ACT[act]) { ACT[act](el); render(); return; }
+    if (act && ACT[act]) { if (ACT[act](el) !== 'keep') render(); return; }
     // A click anywhere else closes the title bar notice and the version menu.
     let changed = false;
     if (M.menu && !e.target.closest('.menu')) { M.menu = false; changed = true; }
