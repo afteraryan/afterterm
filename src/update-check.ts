@@ -273,7 +273,14 @@ export interface AwakeThread {
   rerunPort?: number;
 }
 
-export type RestartOutcome = 'resumes' | 'stops-mid-turn' | 'runs-again' | 'opens-in-folder';
+// Whether a chat is in the middle of a turn, from its notification state: the
+// spinner (working, compacting), or waiting on a permission prompt (attention),
+// whose pending tool call is lost on a restart the same way (Aryan, 2026-10-30).
+export function isMidTurn(notification: string | undefined): boolean {
+  return notification === 'working' || notification === 'compacting' || notification === 'attention';
+}
+
+export type RestartOutcome ='resumes' | 'stops-mid-turn' | 'runs-again' | 'opens-in-folder';
 
 export interface RestartRow {
   id: string;

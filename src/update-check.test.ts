@@ -7,7 +7,7 @@ import {
   downloadSource, autoChecksOn, isSuppressed, LATER_MS, initialUpdateState,
   titleBarButtonShows, percent, megabytes, lastCheckedText, errorText,
   restartRows, restartStatus, asPendingUpdate, updateLanded, parseInline,
-  parseNotes, samePath, installerVersion, staleDownloads,
+  parseNotes, samePath, installerVersion, staleDownloads, isMidTurn,
 } from './update-check.ts';
 import type { UpdateState, AwakeThread } from './update-check.ts';
 import { isDeepStrictEqual } from 'node:util';
@@ -172,6 +172,9 @@ console.log('\nupdate-check: the restart window\n');
   check('two chats mid-turn', restartStatus(restartRows([threads[0], { ...threads[0], id: 't9' }])).text === '2 chats stop mid-turn');
   check('nothing busy: safe', eq(restartStatus(rows.slice(1)), { ok: true, text: 'Safe to restart' }));
   check('nothing awake: safe', restartStatus([]).ok);
+  check('the spinner is mid-turn', isMidTurn('working') && isMidTurn('compacting'));
+  check('waiting on a permission prompt is mid-turn', isMidTurn('attention'));
+  check('done, background and quiet are not', !isMidTurn('done') && !isMidTurn('background') && !isMidTurn(undefined));
 }
 
 console.log('\nupdate-check: after the restart\n');

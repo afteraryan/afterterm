@@ -20,7 +20,7 @@ import { RestartToUpdate } from './components/RestartToUpdate';
 import { UpdatedPill } from './components/UpdatedPill';
 import { WhatsNewDialog } from './components/UpdateDialog';
 import { hasNotes } from './components/UpdateNotes';
-import { initialUpdateState, restartRows } from '../update-check';
+import { initialUpdateState, restartRows, isMidTurn } from '../update-check';
 import type { UpdateState, AwakeThread } from '../update-check';
 import type { Screen } from './components/ScreenNav';
 import { useTabState, threadGitCwd } from './hooks/useTabState';
@@ -1041,7 +1041,7 @@ export function App() {
       name: threadName(t),
       kind: threadKind(t),
       resumes: !!plan.resumeSessionId,
-      midTurn: t.notification === 'working' || t.notification === 'compacting',
+      midTurn: isMidTurn(t.notification),
       rerunPort: plan.runCommand !== null ? t.port : undefined,
     };
   });

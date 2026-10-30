@@ -61,15 +61,15 @@ Opened by the white "Restart to update" button, or by the About window's own. Sh
 | Thread | Row |
 |---|---|
 | A chat whose session can be resumed (`wakePlan` gives a `resumeSessionId`) | "Resumes" |
-| The same chat while its spinner is on (notification `working` or `compacting`) | "Stops mid-turn", in `--need` yellow |
+| The same chat while its spinner is on (notification `working` or `compacting`) or while it waits on a permission prompt (`attention`, the bell); `isMidTurn` | "Stops mid-turn", in `--need` yellow |
 | A server whose last command runs again on wake (`wakePlan` gives a `runCommand`) | "Runs again on :5173" |
 | Anything else | "Opens in its folder" |
 
 The status line: "Safe to restart" (soft green, a check) or "1 chat stops mid-turn" / "2 chats stop mid-turn" (yellow, a bell). The rows follow the threads live while the window is open.
 
-**What "Stops mid-turn" means** (for docs, not the screen): afterterm resumes that chat itself with `claude --resume`, but Claude does not finish the reply it was in the middle of; the user sends that message again.
+**What "Stops mid-turn" means** (for docs, not the screen): afterterm resumes that chat itself with `claude --resume`, but Claude does not finish the reply it was in the middle of, and a permission prompt it was waiting on is gone; the user sends that message again.
 
-A chat waiting on a permission prompt (needs-you) is not counted as mid-turn: the design names the spinner state only. Its pending tool call is lost the same way. Aryan may want it counted; see PHASES.md.
+A chat waiting on a permission prompt counts as mid-turn too (Aryan, 2026-10-30, after the Phase 2 review): its pending tool call is lost the same way.
 
 ## Restart now
 

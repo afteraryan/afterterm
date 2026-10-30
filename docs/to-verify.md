@@ -36,7 +36,7 @@ with the installed test build.
 ### Restart to update lists every awake thread
 **Status:** waiting for Aryan
 1. Wake a chat, a server and a shell, then click "Restart to update".
-2. The window reads "Restart afterterm to update?" with one row each: "Resumes", "Runs again on :<port>", "Opens in its folder"; a chat in the middle of a reply reads "Stops mid-turn" in yellow, and the line by the buttons says "1 chat stops mid-turn" instead of "Safe to restart".
+2. The window reads "Restart afterterm to update?" with one row each: "Resumes", "Runs again on :<port>", "Opens in its folder"; a chat in the middle of a reply, or waiting on a permission prompt (the bell), reads "Stops mid-turn" in yellow, and the line by the buttons says "1 chat stops mid-turn" instead of "Safe to restart".
 3. In a dev build, Restart now closes the window and the notice says "Updates install only into an installed copy." afterterm stays open.
 
 ### Later hides the button for a day; Skip this version hides that version

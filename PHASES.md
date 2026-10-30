@@ -39,7 +39,7 @@ A clickable HTML mockup in afterterm's own look, one plain question per page, co
 
 ### Phase 2: Development
 
-Status: **built** (2026-10-30), waiting for Aryan's review and the two questions below. The record is [`docs/features-updates.md`](docs/features-updates.md); captures and the recording are in `docs/screenshots/auto-update-phase-2/`.
+Status: **built** (2026-10-30), PR open; Aryan's checks are in `docs/to-verify.md`. The record is [`docs/features-updates.md`](docs/features-updates.md); captures and the recording are in `docs/screenshots/auto-update-phase-2/`.
 
 Everything above, built and unit-tested, in one phase.
 
@@ -66,10 +66,10 @@ Decided while building (2026-10-30), where design-05 said nothing or the mockup 
 - A third test variable, `AFTERTERM_UPDATE_SLOW_MS`, spreads a local installer's copy over that long so the progress can be watched and captured. It does nothing to a real download.
 - What's new is left out wherever the release has no notes.
 
-Questions for Aryan:
+Answered by Aryan (2026-10-30):
 
-1. A chat waiting on a permission prompt (needs-you, the bell) loses that prompt on restart just as a chat mid-reply loses its reply. The restart window counts only the spinner state as "Stops mid-turn", as design-05 says. Should a waiting chat also say "Stops mid-turn"?
-2. Push the branch and open the PR?
+1. A chat waiting on a permission prompt (needs-you, the bell) also reads "Stops mid-turn" in the restart window: it loses that prompt on restart just as a chat mid-reply loses its reply. (`isMidTurn` in `src/update-check.ts`.)
+2. Push the branch and open the PR: done.
 
 ### Phase 3: Testing
 
