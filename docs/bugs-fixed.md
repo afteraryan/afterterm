@@ -10,6 +10,10 @@ Format: the bug as it was titled, the date it was fixed, the PR or commit, then 
 
 ## Fixed on 2026-10-31
 
+### Installing into another folder failed while afterterm was open, and left an empty folder
+
+Reported in conversation (Yogansh, 2026-10-31: installing to `D:\Downloads` failed once, left a folder, and worked after he deleted it). Installing into a different folder makes the engine remove the old install first; with that copy open it fails and stops, after creating the new folder. Setup checked only the new folder for a running copy. It now checks the old install's folder too, removes a folder it created when an install fails, says `afterterm.exe` is missing instead of "error 0" when the engine succeeded but the file is gone (most likely Windows Security), and has a Default button beside Change. Reproduced and checked with the test build.
+
 ### The update window's progress bar went from 97% back to about 30%
 
 Reported in conversation (Aryan, the first real update, 0.11.0 to 0.11.1). Setup's bar follows the bytes in the install folder, which starts out full during an update or a reinstall; the engine then moves the old version out, the folder empties and the bar fell with it. The folder's bytes now count only after it has been seen nearly empty, and the bar never moves backwards (`RunInstall` in `installer/setup/Setup.cs`).
