@@ -64,6 +64,13 @@ release with the updater.
 3. A pill at the bottom says "Updated to 0.10.0" with What's new and a small round x on its top-right corner; it goes by itself after about 6 seconds. What's new opens the notes in a window over the app.
 4. Launch again normally: every thread starts asleep, Home, no pill.
 
+## Next build after 0.10.0 (single-instance PR, not released yet)
+
+### Opening afterterm while it is open brings the window forward
+**Status:** waiting for Aryan
+1. With afterterm open, start it again (its taskbar pin with the window minimised, its Start menu entry, or `afterterm.exe` in Explorer).
+2. No second window appears: the open one comes to the front, restored if it was minimised.
+
 ---
 
 ## Release 0.10.0 (2026-10-30): the installer and Yogansh's feedback
