@@ -7,7 +7,7 @@ import {
   downloadSource, autoChecksOn, isSuppressed, LATER_MS, initialUpdateState,
   titleBarButtonShows, percent, megabytes, lastCheckedText, errorText,
   restartRows, restartStatus, asPendingUpdate, updateLanded, parseInline,
-  parseNotes, samePath, installerVersion, staleDownloads, isMidTurn,
+  parseNotes, samePath, installFolder, installerVersion, staleDownloads, isMidTurn,
 } from './update-check.ts';
 import type { UpdateState, AwakeThread } from './update-check.ts';
 import { isDeepStrictEqual } from 'node:util';
@@ -229,6 +229,12 @@ console.log('\nupdate-check: the installed copy\n');
   check('same path ignores case and a trailing slash', samePath('C:\\Users\\A\\Programs\\afterterm\\', 'c:/users/a/programs/afterterm'));
   check('same path with accented letters', samePath('C:\\Users\\Jürgen\\AppData\\Local\\Programs\\afterterm', 'c:\\users\\jürgen\\appdata\\local\\programs\\afterterm\\'));
   check('a different folder is not the same path', !samePath('C:\\x\\afterterm', 'C:\\x\\afterterm-test'));
+  const P = 'C:\\Users\\a\\AppData\\Local\\Programs\\afterterm-test';
+  check('the engine\'s InstallLocation wins', installFolder(P, '"D:\\other\\Uninstall x.exe" /currentuser') === P);
+  check('without it, the uninstaller\'s folder (quoted, with spaces)',
+    installFolder(undefined, `"${P}\\Uninstall afterterm-test.exe" /currentuser`) === P);
+  check('an unquoted uninstaller path', installFolder('', 'C:\\Apps\\afterterm\\Uninstall.exe /S') === 'C:\\Apps\\afterterm');
+  check('nothing usable: null', installFolder(null, null) === null && installFolder('  ', 'msiexec /x {GUID}') === null);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

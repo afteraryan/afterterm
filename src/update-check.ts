@@ -421,9 +421,20 @@ export function parseNotes(md: string): NoteBlock[] {
 
 // ─── Which copy is installed ──────────────────────────────────────────────────
 
-// A copy is installed when its exe's folder is the InstallLocation of its own
-// Settings > Apps entry (updater.ts reads that entry the way Setup does). The
-// entry and process.execPath can differ in case and in a trailing slash.
+// Where an install lives, from what the registry holds for it. electron-builder's
+// engine writes InstallLocation to HKCU\Software\<key> (not to the Settings >
+// Apps entry, HKCU\...\Uninstall\<key>, which has none; found in Phase 3); the
+// Apps entry's UninstallString names the uninstaller inside the install folder,
+// the fallback. Setup.cs (ExistingInstallFolder) follows the same order.
+export function installFolder(installLocation: string | null | undefined, uninstallString: string | null | undefined): string | null {
+  if (installLocation && installLocation.trim()) return installLocation.trim();
+  const m = /^\s*"([^"]+\\)[^"\\]+"/.exec(uninstallString ?? '') ?? /^\s*([A-Za-z]:\\\S*\\)[^\\\s]+\.exe/i.exec(uninstallString ?? '');
+  return m ? m[1].replace(/\\+$/, '') : null;
+}
+
+// A copy is installed when its exe's folder is its own install folder (above).
+// The registry's path and process.execPath can differ in case and in a
+// trailing slash.
 export function samePath(a: string, b: string): boolean {
   const norm = (p: string) => p.replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase();
   return norm(a) === norm(b);

@@ -123,7 +123,11 @@ class SetupWindow
             Find<TextBlock>("UpdateTitle").Text = "Updating " + Config.ProductName + " to " + Config.Version;
             Find<Button>("UpdateOpen").Content = "Open " + Config.ProductName;
             ShowPage("PageUpdate");
-            Window.ContentRendered += delegate { StartUpdate(waitPid); };
+            // Started by an afterterm that is about to quit, so Windows may open it
+            // behind whatever is in front (found in Phase 3). It is a few seconds
+            // of progress: on top, until it finishes or has something to say.
+            Window.Topmost = true;
+            Window.ContentRendered += delegate { Window.Activate(); StartUpdate(waitPid); };
         }
     }
 
@@ -157,7 +161,11 @@ class SetupWindow
 
     // ─── 1. Welcome ────────────────────────────────────────────────────────────
 
-    // A previous install of this product, from its Settings > Apps entry.
+    // A previous install of this product. Its Settings > Apps entry is found by
+    // name, but the engine writes InstallLocation to HKCU\Software\<the entry's
+    // key>, not to the entry itself (found in the automatic-updates Phase 3); the
+    // entry's UninstallString, which names the uninstaller inside the install
+    // folder, is the fallback. src/update-check.ts installFolder follows the same order.
     static string ExistingInstallFolder()
     {
         try
@@ -171,8 +179,23 @@ class SetupWindow
                     {
                         if (k == null) continue;
                         if ((k.GetValue("DisplayName") as string) != Config.ProductName) continue;
-                        var loc = k.GetValue("InstallLocation") as string;
-                        if (!string.IsNullOrEmpty(loc)) return loc;
+                        using (var install = Registry.CurrentUser.OpenSubKey(@"Software\" + sub))
+                        {
+                            var loc = install == null ? null : install.GetValue("InstallLocation") as string;
+                            if (!string.IsNullOrEmpty(loc)) return loc;
+                        }
+                        var legacy = k.GetValue("InstallLocation") as string;
+                        if (!string.IsNullOrEmpty(legacy)) return legacy;
+                        var un = (k.GetValue("UninstallString") as string ?? "").Trim();
+                        if (un.StartsWith("\""))
+                        {
+                            var end = un.IndexOf('"', 1);
+                            if (end > 1)
+                            {
+                                var dir = System.IO.Path.GetDirectoryName(un.Substring(1, end - 1));
+                                if (!string.IsNullOrEmpty(dir)) return dir;
+                            }
+                        }
                     }
                 }
             }
@@ -635,6 +658,7 @@ class SetupWindow
     void UpdateFailed(string reason, bool canOpen)
     {
         busy = false;
+        Window.Topmost = false;
         Find<TextBlock>("UpdateTitle").Text = Config.ProductName + " could not be updated";
         Find<TextBlock>("UpdatePct").Visibility = Visibility.Collapsed;
         var err = Find<TextBlock>("UpdateError");

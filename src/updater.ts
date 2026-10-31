@@ -20,7 +20,7 @@ import fs from 'fs';
 import path from 'path';
 import {
   CHECK_INTERVAL_MS, FIRST_CHECK_DELAY_MS, LATER_MS, RELEASES_URL,
-  asPendingUpdate, autoChecksOn, downloadSource, initialUpdateState, isSuppressed,
+  asPendingUpdate, autoChecksOn, downloadSource, initialUpdateState, installFolder, isSuppressed,
   parseRelease, samePath, staleDownloads, updateLanded,
 } from './update-check.ts';
 import type { PendingUpdate, ReleaseInfo, UpdateError, UpdateState } from './update-check.ts';
@@ -86,16 +86,26 @@ export function initUpdater(opts: UpdaterOptions): void {
   }
 
   // ── Which copy this is ─────────────────────────────────────────────────────
-  // Read through PowerShell rather than reg.exe: reg.exe prints in the console
-  // code page, which would garble an install path under an accented user name.
+  // The Settings > Apps entry is found by its name; the folder is in
+  // HKCU\Software\<the entry's key>, where the engine writes InstallLocation, or
+  // else beside the uninstaller (installFolder). Read through PowerShell rather
+  // than reg.exe: reg.exe prints in the console code page, which would garble an
+  // install path under an accented user name.
   const readInstallLocation = () => new Promise<string | null>(resolve => {
     const name = opts.productName.replace(/'/g, "''");
     const script = "[Console]::OutputEncoding=[Text.Encoding]::UTF8; " +
-      "Get-ItemProperty 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*' -ErrorAction SilentlyContinue | " +
-      `Where-Object { $_.DisplayName -eq '${name}' -and $_.InstallLocation } | Select-Object -First 1 -ExpandProperty InstallLocation`;
+      "$k = Get-ChildItem 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall' -ErrorAction SilentlyContinue | " +
+      `Where-Object { (Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue).DisplayName -eq '${name}' } | Select-Object -First 1; ` +
+      "if ($k) { " +
+      "'install=' + (Get-ItemProperty ('HKCU:\\Software\\' + $k.PSChildName) -ErrorAction SilentlyContinue).InstallLocation; " +
+      "'uninstall=' + (Get-ItemProperty $k.PSPath).UninstallString }";
     execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script],
       { windowsHide: true, timeout: 20_000, encoding: 'utf8' },
-      (err, stdout) => resolve(err ? null : (stdout.trim().split(/\r?\n/)[0] || null)));
+      (err, stdout) => {
+        if (err) { resolve(null); return; }
+        const line = (key: string) => stdout.split(/\r?\n/).find(l => l.startsWith(`${key}=`))?.slice(key.length + 1);
+        resolve(installFolder(line('install'), line('uninstall')));
+      });
   });
 
   const detectInstalled = async (): Promise<boolean> => {
