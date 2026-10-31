@@ -4,6 +4,10 @@ What changed for the person using afterterm, release by release. Each release li
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.11.2 (2026-10-31)
+
 ### Fixed
 
 - The installer's progress bar, during an update or a reinstall, went from nearly full back to about a third before it finished. It now only moves forward.

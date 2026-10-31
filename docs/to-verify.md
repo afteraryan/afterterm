@@ -6,6 +6,13 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
+## Release 0.11.2 (2026-10-31): the update progress bar
+
+### The update window's bar only moves forward
+**Status:** waiting for Aryan
+1. Update to 0.11.2 from the "Update available" button.
+2. The small window's bar goes from 0% to 100% without stepping back (the window comes from the new version's installer, so the fix already shows on this update).
+
 ## Release 0.11.1 (2026-10-31): the first real update
 
 ### afterterm 0.11.0 updates itself to 0.11.1
