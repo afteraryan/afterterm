@@ -4,7 +4,14 @@ What changed for the person using afterterm, release by release. Each release li
 
 ## Unreleased
 
-Nothing yet.
+### Installing afterterm
+
+- **Default** beside Change in the installer puts a changed install folder back to the usual one.
+
+### Fixed
+
+- Installing into a different folder while afterterm was open from its old folder failed and left an empty folder behind. The installer now asks you to close afterterm first, and removes a folder it created when an install fails.
+- When the installer finished but `afterterm.exe` was missing (most likely removed by Windows Security), it said "error 0". It now says the file is missing.
 
 ## 0.11.2 (2026-10-31)
 

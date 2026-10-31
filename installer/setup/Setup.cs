@@ -58,6 +58,9 @@ class SetupWindow
 {
     public Window Window;
     string folder;
+    string defaultFolder;   // %LOCALAPPDATA%\Programs\<FolderName>
+    string existingFolder;  // where this product is installed now, or null
+    bool folderExisted;     // the chosen folder was there before Install
     string tempDir;
     long bytesSoFar;
     double engineCopied;
@@ -82,8 +85,10 @@ class SetupWindow
         Find<TextBlock>("ReadyTitle").Text = Config.ProductName + " is ready";
         Find<CheckBox>("OpenCb").Content = "Open " + Config.ProductName;
 
-        folder = ExistingInstallFolder() ?? System.IO.Path.Combine(
+        defaultFolder = System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", Config.FolderName);
+        existingFolder = ExistingInstallFolder();
+        folder = existingFolder ?? defaultFolder;
         ShowFolder();
 
         // Test runs place the window themselves (on a second display, away from the
@@ -102,6 +107,7 @@ class SetupWindow
         Window.Closed += delegate { CleanUp(); };
 
         Find<Button>("ChangeBtn").Click += delegate { ChangeFolder(); };
+        Find<Button>("DefaultBtn").Click += delegate { folder = defaultFolder; ShowFolder(); };
         Find<Button>("WelcomeCancel").Click += delegate { Window.Close(); };
         Find<Button>("InstallBtn").Click += delegate { StartInstall(); };
         Find<Button>("InstallClose").Click += delegate { Window.Close(); };
@@ -205,10 +211,16 @@ class SetupWindow
     }
 
     // The folder, shortened in the middle when it is long, so both ends stay visible.
+    // Default puts a changed folder back (Aryan, 2026-10-31: Yogansh had no way back
+    // from D:\Downloads, and Setup keeps offering the folder of the existing install);
+    // while it shows, the path has less room.
     void ShowFolder()
     {
+        bool isDefault = string.Equals(folder.TrimEnd('\\'), defaultFolder, StringComparison.OrdinalIgnoreCase);
+        Find<Button>("DefaultBtn").Visibility = isDefault ? Visibility.Collapsed : Visibility.Visible;
+        int max = isDefault ? 50 : 38, head = isDefault ? 18 : 12;
         var t = Find<TextBlock>("FolderText");
-        t.Text = folder.Length <= 50 ? folder : folder.Substring(0, 18) + "…" + folder.Substring(folder.Length - 30);
+        t.Text = folder.Length <= max ? folder : folder.Substring(0, head) + "…" + folder.Substring(folder.Length - (max - head - 1));
         t.ToolTip = folder;
     }
 
@@ -222,8 +234,10 @@ class SetupWindow
         ShowFolder();
     }
 
-    // afterterm running from the folder being installed into: it holds files the
-    // engine would replace, and the user's terminals, so it is never closed for them.
+    // afterterm running from the folder being installed into, or from the folder of
+    // the install it replaces (the engine removes that one first, and fails when it
+    // is open, leaving an empty new folder: Yogansh, 2026-10-31). It holds the
+    // user's terminals, so it is never closed for them.
     bool AppRunningInFolder()
     {
         var name = System.IO.Path.GetFileNameWithoutExtension(Config.ExeName);
@@ -232,11 +246,16 @@ class SetupWindow
             try
             {
                 var path = p.MainModule.FileName;
-                if (path.StartsWith(folder.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase)) return true;
+                if (Inside(path, folder) || (existingFolder != null && Inside(path, existingFolder))) return true;
             }
             catch { }
         }
         return false;
+    }
+
+    static bool Inside(string path, string dir)
+    {
+        return path.StartsWith(dir.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase);
     }
 
     // ─── 2. Installing ─────────────────────────────────────────────────────────
@@ -253,6 +272,7 @@ class SetupWindow
         msg.Visibility = Visibility.Collapsed;
 
         busy = true;
+        folderExisted = Directory.Exists(folder);
         ShowPage("PageInstall");
         bool desktop = Find<CheckBox>("DesktopCb").IsChecked == true;
         bool startMenu = Find<CheckBox>("StartCb").IsChecked == true;
@@ -374,7 +394,12 @@ class SetupWindow
             var err = Find<TextBlock>("InstallError");
             err.Text = engineExit == 2 || AppRunningInFolder()
                 ? Config.ProductName + " is open. Close it and run Setup again."
-                : "The installer stopped with error " + engineExit + ". Nothing else on this PC was changed.";
+                : engineExit == 0
+                    // The engine finished, yet the exe is not there: most likely Windows
+                    // Security removed the new, unsigned file (Yogansh, 2026-10-31).
+                    ? Config.ExeName + " is missing after the install. Windows Security may have removed it."
+                    : "The installer stopped with error " + engineExit + ". Nothing else on this PC was changed.";
+            RemoveNewFolder();
             err.Visibility = Visibility.Visible;
             Find<TextBlock>("Pct").Visibility = Visibility.Collapsed;
             Find<Button>("InstallCancel").Visibility = Visibility.Collapsed;
@@ -568,6 +593,15 @@ class SetupWindow
     {
         if (Find<CheckBox>("OpenCb").IsChecked == true) OpenApp();
         Window.Close();
+    }
+
+    // A folder this install created and left without the app (a failed install) is
+    // removed, so the next attempt starts clean. A folder that was there before is
+    // never touched.
+    void RemoveNewFolder()
+    {
+        if (folderExisted || File.Exists(System.IO.Path.Combine(folder, Config.ExeName))) return;
+        try { Directory.Delete(folder, true); } catch { }
     }
 
     void OpenApp()
