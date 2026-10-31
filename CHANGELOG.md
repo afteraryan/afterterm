@@ -4,6 +4,10 @@ What changed for the person using afterterm, release by release. Each release li
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.11.0 (2026-10-31)
+
 ### Updating afterterm
 
 - **afterterm updates itself.** An installed afterterm checks GitHub for a new version shortly after it starts and every 6 hours. When one is out, an **Update available** button appears beside the version number at the top left. Nothing opens by itself.

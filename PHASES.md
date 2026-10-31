@@ -2,7 +2,7 @@
 
 What is still open in afterterm, and, once a round of work starts, the phases it is split into. Keep it current as work happens: what has to be done, what is done, what is pending.
 
-**In progress: automatic updates** (started 2026-10-30, on the `worktree-auto-update` branch). The last finished round, projects and threads (Phases 0 to 9 and the fixes after them), was released as afterterm 0.9.0 on 2026-09-30; its full record, with every decision and its date, is [`docs/phases-01-projects-and-threads.md`](docs/phases-01-projects-and-threads.md).
+**Last round: automatic updates** (2026-10-30 to 2026-10-31, PR #58), released as afterterm 0.11.0 on 2026-10-31; no round of work is in progress. The last finished round, projects and threads (Phases 0 to 9 and the fixes after them), was released as afterterm 0.9.0 on 2026-09-30; its full record, with every decision and its date, is [`docs/phases-01-projects-and-threads.md`](docs/phases-01-projects-and-threads.md).
 
 ## Automatic updates
 
@@ -93,7 +93,7 @@ End to end with the sandbox build ("afterterm (test)", `npm run installer -- --s
 
 ### Phase 4: Releasing
 
-Status: not started. Only when Aryan says so: the version bump through a PR, then the release.
+Status: **done** (2026-10-31, Aryan: "merge it, release it"). PR #58 merged, the version bump to 0.11.0 through its own PR, then `npm run release` (built in a worktree, so the running build in the main checkout's `out\` was not touched), the tag `v0.11.0` and the GitHub release with `afterterm-0.11.0-setup.exe`. Anyone on 0.10.0 or older installs 0.11.0 by hand, once; the first real update through GitHub will be the release after it.
 
 Two other lists stay where they are: changes waiting for Aryan to check in his build are in [`docs/to-verify.md`](docs/to-verify.md), and the edited-files feature keeps its own status in [`docs/edited-files/phases.md`](docs/edited-files/phases.md).
 
