@@ -6,6 +6,11 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
+## Release 0.11.1 (2026-10-31): the first real update
+
+### afterterm 0.11.0 updates itself to 0.11.1
+**Status:** waiting for Aryan. In your installed afterterm, click the version number, then **Check for updates** (or wait: it checks 10 seconds after it starts).. Update, then Restart to update. It closes, a small window installs 0.11.1, and it opens again on the same thread, showing "Updated to 0.11.1".
+
 ## Release 0.11.0 (2026-10-31): automatic updates and one running copy
 
 All of these use a test feed instead of GitHub, so no public release is needed. Make one once:

@@ -6,6 +6,11 @@ What changed for the person using afterterm, release by release. Each release li
 
 Nothing yet.
 
+## 0.11.1 (2026-10-31)
+
+- The first update afterterm installs by itself: on 0.11.0, this version arrives as **Update available**.
+- The README says how to install, what to do when Windows warns about the installer, and that afterterm updates itself.
+
 ## 0.11.0 (2026-10-31)
 
 ### Updating afterterm
