@@ -14,8 +14,14 @@ a JSON file in GitHub's release shape (`tag_name` `v0.11.0`, a `body`, and one a
 `digest` is `sha256:` plus that file's hash). The harness fixture builder used in the Phase 2
 self-test does exactly this (`docs/features-updates.md`, "Testing"). Start a dev build through the
 harness with `--env AFTERTERM_UPDATE_FEED=<that file> --env AFTERTERM_UPDATE_CHECK_DELAY_MS=3000`
-(add `--env AFTERTERM_UPDATE_SLOW_MS=15000` to watch the download). Phase 3 repeats them end to end
-with the installed test build.
+(add `--env AFTERTERM_UPDATE_SLOW_MS=15000` to watch the download). Phase 3 ran them end to end
+with the installed test build on 2026-10-31 (see PHASES.md); the real proof is the first public
+release with the updater.
+
+### Reinstalling into a folder you chose keeps that folder
+**Status:** waiting for Aryan
+1. Install the test build into a folder of your own (Change on the first page).
+2. Run the same test installer again: "Install to" shows your folder, not `AppData\Local\Programs`.
 
 ### An "Update available" button appears beside the version, and its notice opens under it
 **Status:** waiting for Aryan

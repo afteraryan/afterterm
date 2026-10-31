@@ -14,6 +14,10 @@ What changed for the person using afterterm, release by release. Each release li
 - **About afterterm.** Click the version number for the About window: check for updates by hand, read What's new, or turn **Check for updates automatically** off.
 - Anyone on 0.10.0 or older installs this version by hand, once; updates are automatic from then on.
 
+### Fixed
+
+- Reinstalling afterterm into a folder you had chosen offered the default folder again: Setup did not find the earlier install.
+
 ## 0.10.0 (2026-10-30)
 
 ### Installing afterterm

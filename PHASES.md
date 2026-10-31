@@ -39,7 +39,7 @@ A clickable HTML mockup in afterterm's own look, one plain question per page, co
 
 ### Phase 2: Development
 
-Status: **built** (2026-10-30), PR open; Aryan's checks are in `docs/to-verify.md`. The record is [`docs/features-updates.md`](docs/features-updates.md); captures and the recording are in `docs/screenshots/auto-update-phase-2/`.
+Status: **done** (2026-10-30), in PR #58; Aryan's checks are in `docs/to-verify.md`. The record is [`docs/features-updates.md`](docs/features-updates.md); captures and the recording are in `docs/screenshots/auto-update-phase-2/`.
 
 Everything above, built and unit-tested, in one phase.
 
@@ -73,7 +73,20 @@ Answered by Aryan (2026-10-30):
 
 ### Phase 3: Testing
 
-Status: not started.
+Status: **done** (2026-10-31). Captures and two recordings in `docs/screenshots/auto-update-phase-3/`.
+
+What was run: the test build installed for real (0.10.0 over the 0.9.0 test install, Start menu shortcut unticked), then updated twice from inside the app, 0.10.0 to 0.11.0 and 0.11.0 to 0.12.0, through a local feed; afterwards the test build was uninstalled and the earlier test data put back.
+
+- [x] An installed copy knows it is installed; with no feed it checked the real GitHub `releases/latest` and correctly found nothing for the test build.
+- [x] A download that does not match the release is refused and deleted; the real one is downloaded and its hash verified.
+- [x] The restart window: a chat waiting for permission reads "Stops mid-turn".
+- [x] Restart now: the app quit in 8 seconds, `pendingUpdate` and `wakeAfterUpdate` written, Setup's update window waited for it, installed, and reopened the app (17 seconds from Restart now to the new version on screen, the second time).
+- [x] The Settings > Apps entry and the app both report the new version; the desktop shortcut kept (same file, same date), the unticked Start menu shortcut still absent, after both updates.
+- [x] Reopened on the workspace and the thread that was open; the four threads that were awake woke (a chat typed `claude --resume <id>`, the server ran `node serve.js` again on :5199), the asleep one stayed asleep; "Updated to 0.12.0" shown; the old installer deleted.
+- [x] A reinstall that is not an update restart opens on Home with everything asleep and no pill.
+- [x] **Found and fixed:** the install folder is not in the Settings > Apps entry; electron-builder writes `InstallLocation` to `HKCU\Software\<same key>`. Neither the installed-copy check nor Setup (since 0.10.0) found it, so no installed copy would ever have updated. Both now read it there, with the uninstaller's folder as fallback (`installFolder`, `ExistingInstallFolder`).
+- [x] **Found and fixed:** Setup's update window opened behind the window in front (afterterm itself was not the foreground app in the test). It is now topmost and activated while it works.
+- Not covered: a real Claude Code conversation coming back (the test build's Claude folder is not logged in; afterterm's part, typing `claude --resume <id>`, was checked), and the real GitHub download path end to end (it needs a public release; the first real one is the 0.11.0 release itself).
 
 End to end with the sandbox build ("afterterm (test)", `npm run installer -- --sandbox`): install an older test version, serve a newer one through the local override, and go through the notice, Later, Skip, the download, the checksum check (a corrupted file refused), Restart to update and the threads waking. Screenshots and recordings in `docs/screenshots/auto-update-phase-3/`.
 

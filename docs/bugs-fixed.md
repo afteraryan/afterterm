@@ -8,6 +8,14 @@ Format: the bug as it was titled, the date it was fixed, the PR or commit, then 
 
 ---
 
+## Fixed on 2026-10-31
+
+Found in the automatic-updates Phase 3 test (installing the test build for real), PR #58.
+
+### Setup did not find an earlier install, so reinstalling into a folder you had chosen offered the default folder again
+
+Setup looked for the earlier install's folder (`InstallLocation`) in its Settings > Apps entry, but electron-builder's engine writes it to `HKCU\Software\<the same key name>` instead, so it was never found. Setup (`ExistingInstallFolder`) and the updater's installed-copy check (`installFolder` in `src/update-check.ts`) now read it there, with the uninstaller's folder as the fallback. Without the fix no installed copy would ever have updated itself.
+
 ## Fixed on 2026-10-29
 
 All reported in conversation, from Yogansh's session with 0.9.0 (Wispr Flow, 29 Oct), on the `worktree-installer` branch.
