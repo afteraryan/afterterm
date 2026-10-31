@@ -6,7 +6,7 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
-## Automatic updates (Phase 2, branch `worktree-auto-update`, not in a build yet)
+## Release 0.11.0 (2026-10-31): automatic updates and one running copy
 
 All of these use a test feed instead of GitHub, so no public release is needed. Make one once:
 a JSON file in GitHub's release shape (`tag_name` `v0.11.0`, a `body`, and one asset
@@ -63,8 +63,6 @@ release with the updater.
 2. It opens on the workspace (not Home) on that thread, the listed threads wake (a server runs its command again), the others stay asleep.
 3. A pill at the bottom says "Updated to 0.10.0" with What's new and a small round x on its top-right corner; it goes by itself after about 6 seconds. What's new opens the notes in a window over the app.
 4. Launch again normally: every thread starts asleep, Home, no pill.
-
-## Next build after 0.10.0 (single-instance PR, not released yet)
 
 ### Opening afterterm while it is open brings the window forward
 **Status:** waiting for Aryan
