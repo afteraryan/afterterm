@@ -10,8 +10,8 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ### The update window's bar only moves forward
 **Status:** waiting for Aryan
-1. The update to 0.11.2 still shows the old bar once: the window belongs to the installer being replaced.
-2. On the next update after 0.11.2, the small window's bar goes from 0% to 100% without stepping back.
+1. Update to 0.11.2 from the "Update available" button.
+2. The small window's bar goes from 0% to 100% without stepping back (the window comes from the new version's installer, so the fix already shows on this update).
 
 ## Release 0.11.1 (2026-10-31): the first real update
 
