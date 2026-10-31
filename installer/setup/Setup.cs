@@ -267,6 +267,7 @@ class SetupWindow
         tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "afterterm-setup-" + Guid.NewGuid().ToString("N").Substring(0, 8));
         Directory.CreateDirectory(tempDir);
         var started = DateTime.UtcNow;
+        Interlocked.Exchange(ref bytesSoFar, -1); // not measured yet
 
         Task.Run(() => RunEngine(desktop, startMenu));
         Task.Run(() => MeasureFolder());
@@ -276,19 +277,31 @@ class SetupWindow
         // unpacks its own archive, which nothing can watch, so a slow creep keeps
         // the bar moving there. It never fills faster than 3 seconds and eases
         // toward its target, so it never jumps or stalls.
+        //
+        // It never moves backwards either. Over an earlier install (an update, or
+        // running Setup again) the folder starts out full and the engine first moves
+        // the old version out, so the folder's bytes count only once it has been
+        // seen nearly empty; before this, the bar reached 97% on the old files, then
+        // fell to about 30% (Aryan, the 0.11.0 to 0.11.1 update, 2026-10-31).
         double shown = 0;
+        bool seenEmpty = false;
         var timer = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(16) };
         timer.Tick += delegate
         {
             double secs = (DateTime.UtcNow - started).TotalSeconds;
-            double folderFrac = (double)Interlocked.Read(ref bytesSoFar) / Math.Max(1, Config.ExpectedBytes);
+            long bytes = Interlocked.Read(ref bytesSoFar);
+            if (bytes >= 0 && bytes < Config.ExpectedBytes / 10) seenEmpty = true;
+            double folderFrac = seenEmpty && bytes > 0 ? (double)bytes / Math.Max(1, Config.ExpectedBytes) : 0;
             double real = 0.12 * Interlocked.CompareExchange(ref engineCopied, 0, 0) + 0.88 * Math.Min(1, folderFrac);
             double creep = 0.85 * (1 - Math.Exp(-secs / 10.0));
             double working = engineDone ? 1 : Math.Min(0.97, Math.Max(real, creep));
             double byTime = Math.Min(1, secs / 3.0);
             double target = Math.Min(working, byTime);
-            shown += (target - shown) * 0.12;
-            if (target - shown < 0.002) shown = target;
+            if (target > shown)
+            {
+                shown += (target - shown) * 0.12;
+                if (target - shown < 0.002) shown = target;
+            }
             bar.Width = barWidth * shown;
             pct.Text = ((int)Math.Round(shown * 100)) + "%";
             if (engineDone && shown >= 1)

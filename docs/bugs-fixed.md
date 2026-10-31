@@ -10,6 +10,10 @@ Format: the bug as it was titled, the date it was fixed, the PR or commit, then 
 
 ## Fixed on 2026-10-31
 
+### The update window's progress bar went from 97% back to about 30%
+
+Reported in conversation (Aryan, the first real update, 0.11.0 to 0.11.1). Setup's bar follows the bytes in the install folder, which starts out full during an update or a reinstall; the engine then moves the old version out, the folder empties and the bar fell with it. The folder's bytes now count only after it has been seen nearly empty, and the bar never moves backwards (`RunInstall` in `installer/setup/Setup.cs`).
+
 Found in the automatic-updates Phase 3 test (installing the test build for real), PR #58.
 
 ### Setup did not find an earlier install, so reinstalling into a folder you had chosen offered the default folder again
