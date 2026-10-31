@@ -15,13 +15,20 @@ import { SearchPalette } from './components/SearchPalette';
 import { GroupModal, GroupDraft } from './components/GroupModal';
 import { Toast } from './components/Toast';
 import { ConfirmDialog } from './components/ConfirmDialog';
+import { AboutWindow } from './components/AboutWindow';
+import { RestartToUpdate } from './components/RestartToUpdate';
+import { UpdatedPill } from './components/UpdatedPill';
+import { WhatsNewDialog } from './components/UpdateDialog';
+import { hasNotes } from './components/UpdateNotes';
+import { initialUpdateState, restartRows, isMidTurn } from '../update-check';
+import type { UpdateState, AwakeThread } from '../update-check';
 import type { Screen } from './components/ScreenNav';
 import { useTabState, threadGitCwd } from './hooks/useTabState';
 import { Tab, TabNotification, GROUP_COLORS, nextGroupColor } from './components/TabBar/types';
 import { onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, clearsWhenSeen, initTiming, TabTiming } from './spinnerState';
 import { migrateSession, serializeSession } from './sessionMigration';
-import { sleepAllForShutdown } from './sleepWake';
-import { toastMessage, initialScreen, threadName, needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText, localhostUrl, threadFolder, threadFolderTarget, projectLookChanges } from './threadView';
+import { sleepAllForShutdown, wakePlan } from './sleepWake';
+import { toastMessage, initialScreen, threadName, threadKind, needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText, localhostUrl, threadFolder, threadFolderTarget, projectLookChanges } from './threadView';
 import { ProjectActions } from './projectMenu';
 import { buildThreadMenu } from './threadMenu';
 import { projectAttention, totalAttention, railProjects, firstThreadToOpen } from './attention';
@@ -127,6 +134,25 @@ export function App() {
   // Which tab a project page opens on. Everything that opens a project page shows
   // Live; only the palette's history results open it on History.
   const [projectPageTab, setProjectPageTab] = useState<'live' | 'asleep' | 'history'>('live');
+
+  // Automatic updates (docs/design-05-automatic-updates.md). The state is main's
+  // (src/updater.ts), pushed on every change. `updateWindow` is the About window
+  // or the restart window; `whatsNew` the notes over the app after an update
+  // restart; `updatedPill` the "Updated to" note that restart leaves.
+  const [update, setUpdate] = useState<UpdateState>(() => initialUpdateState(window.afterterm.appVersion));
+  const [updateWindow, setUpdateWindow] = useState<'about' | 'restart' | null>(null);
+  const [whatsNew, setWhatsNew] = useState<{ version: string; notes: string } | null>(null);
+  const [updatedPill, setUpdatedPill] = useState<{ version: string; notes: string } | null>(null);
+  // The threads awake when Restart now was pressed: the quit flush writes them to
+  // session.json (wakeAfterUpdate), and only that quit does.
+  const wakeAfterUpdateRef = useRef<string[]>([]);
+  // On the launch after an update restart: what to reopen and wake, once the
+  // restored session is in state.
+  const afterUpdateRef = useRef<{ wake: string[]; activeThreadId?: string } | null>(null);
+  const projectPageIdRef = useRef(projectPageId);
+  projectPageIdRef.current = projectPageId;
+  const updateRef = useRef(update);
+  updateRef.current = update;
 
   // The terminal layer, for the one thing only it knows: what is on each screen
   // right now. Read at quit, when every awake thread's tail has to reach disk.
@@ -478,7 +504,8 @@ export function App() {
     Promise.all([
       window.afterterm.shells.list(),
       window.afterterm.session.load(),
-    ]).then(([shellList, saved]) => {
+      window.afterterm.update.takeLaunch(),
+    ]).then(([shellList, saved, landed]) => {
       setShells(shellList);
       // The file may predate the current format (0.8.1 wrote no version field and
       // none of the project/thread fields); migrate fills defaults or rejects it.
@@ -493,9 +520,43 @@ export function App() {
       } else {
         setScreen(initialScreen([]));
       }
+      // After an update restart, and only then (Aryan, 2026-10-30): back on the
+      // screen and thread that were open, the threads that were awake woken (the
+      // effect below), and the "Updated to" note. Every other launch keeps the
+      // 0.9.0 rule that everything starts asleep.
+      if (landed) {
+        afterUpdateRef.current = { wake: session?.wakeAfterUpdate ?? [], activeThreadId: landed.activeThreadId };
+        const project = landed.screen === 'project' && landed.projectId && session?.groups.some(g => g.id === landed.projectId);
+        if (project) { setProjectPageId(landed.projectId!); setScreen('project'); }
+        else if (landed.screen === 'home') setScreen('home');
+        else setScreen('workspace');
+        setUpdatedPill({ version: landed.to, notes: landed.notes });
+      }
       setInitialized(true);
     });
   }, []);
+
+  // The update state, from main.
+  useEffect(() => {
+    window.afterterm.update.get().then(setUpdate);
+    return window.afterterm.update.onState(setUpdate);
+  }, []);
+
+  // Waking what was awake before the update restart, once the restored threads
+  // are in state, through the same wake every Wake button uses (a chat resumes
+  // its Claude Code session, a server runs its command again, a shell opens in
+  // its folder). A little apart, so a dozen shells do not all start in one frame.
+  useEffect(() => {
+    if (!initialized || !afterUpdateRef.current) return;
+    const { wake, activeThreadId } = afterUpdateRef.current;
+    afterUpdateRef.current = null;
+    if (activeThreadId && stateRef.current.tabs.some(t => t.id === activeThreadId)) {
+      stateRef.current.setActiveTabId(activeThreadId);
+    }
+    wake.forEach((id, i) => setTimeout(() => {
+      if (stateRef.current.tabs.find(t => t.id === id)?.asleep) void wakeThreadRef.current(id);
+    }, i * 250));
+  }, [initialized]);
 
   // Auto-save session (2s debounce after any state change). No threads at all is
   // a state worth saving too (the last one was closed); only an unloaded session
@@ -965,6 +1026,39 @@ export function App() {
     // has done its job.
     if (stateRef.current.tabs.find(t => t.id === tabId)?.unread) stateRef.current.setUnread(tabId, false);
   }, [refreshClaudeMeta]);
+  const wakeThreadRef = useRef(wakeThread);
+  wakeThreadRef.current = wakeThread;
+
+  // Restart to update. The restart window lists every awake thread and what
+  // happens to it (restartRows in src/update-check.ts); "Restart now" records
+  // them for the quit flush below, then asks main to start Setup and quit. When
+  // main cannot go ahead (a copy that is not installed, Setup not starting) the
+  // window closes and the notice says why.
+  const awakeThreads = (): AwakeThread[] => state.tabs.filter(t => !t.asleep).map(t => {
+    const plan = wakePlan(t);
+    return {
+      id: t.id,
+      name: threadName(t),
+      kind: threadKind(t),
+      resumes: !!plan.resumeSessionId,
+      midTurn: isMidTurn(t.notification),
+      rerunPort: plan.runCommand !== null ? t.port : undefined,
+    };
+  });
+
+  const restartNow = useCallback(async () => {
+    const s = stateRef.current;
+    wakeAfterUpdateRef.current = s.tabs.filter(t => !t.asleep).map(t => t.id);
+    const result = await window.afterterm.update.restart({
+      activeThreadId: s.activeTabId || undefined,
+      screen: screenRef.current,
+      projectId: screenRef.current === 'project' ? projectPageIdRef.current ?? undefined : undefined,
+    });
+    if (!result.ok) {
+      wakeAfterUpdateRef.current = [];
+      setUpdateWindow(null);
+    }
+  }, []);
 
   // Bring a closed thread back from its project's history. The recreated tab carries
   // the closed thread's id, so its saved tail replays, and it comes back awake.
@@ -1023,7 +1117,9 @@ export function App() {
       // on the next launch counts from when the app actually closed.
       // The panel flag rides along here too, or a quit with the panel hidden
       // would come back with it shown (found in the Phase 8 self-test).
-      const data = serializeSession(sleepAllForShutdown(s.tabs, Date.now()), s.groups, s.activeTabId, { panelHidden: panelHiddenRef.current });
+      // An update restart also records which threads were awake, to wake them on
+      // the other side; on any other quit the list is empty and nothing is written.
+      const data = serializeSession(sleepAllForShutdown(s.tabs, Date.now()), s.groups, s.activeTabId, { panelHidden: panelHiddenRef.current }, wakeAfterUpdateRef.current);
       window.afterterm.session.saveSync(JSON.stringify(data));
     };
     window.addEventListener('beforeunload', flush);
@@ -1164,6 +1260,11 @@ export function App() {
     win.__afterterm = {
       ...(win.__afterterm ?? {}),
       tab: (tabId: string) => stateRef.current.tabs.find(t => t.id === tabId) ?? null,
+      // Automatic updates: wake a thread, and give one a state, so a test can fill
+      // the restart window (a chat mid-turn) without a real Claude Code session.
+      wake: (tabId: string) => wakeThreadRef.current(tabId),
+      setNotification: (tabId: string, n: TabNotification | undefined) => stateRef.current.setTabNotification(tabId, n),
+      update: () => updateRef.current,
       // Phase 8: the same for a project (lastActiveAt, collapsed, icon, pinned).
       group: (groupId: string) => stateRef.current.groups.find(g => g.id === groupId) ?? null,
       // Phase 7: the aggregate every count reads from (attention.ts), per project
@@ -1220,7 +1321,11 @@ export function App() {
 
   return (
     <div className={`app${enterClass ? ` ${enterClass}` : ''}`} data-screen={screen}>
-      <TitleBar />
+      <TitleBar
+        update={update}
+        onOpenAbout={() => setUpdateWindow('about')}
+        onRestart={() => setUpdateWindow('restart')}
+      />
 
       <div className="app-body">
       {/* The always-on rail (Phase 8, design-03 decision 1): on every screen, never
@@ -1494,6 +1599,35 @@ export function App() {
           actionLabel={toast.actionLabel}
           onAction={toast.onAction}
           onDone={() => setToast(null)}
+        />
+      )}
+
+      {updateWindow === 'about' && (
+        <AboutWindow
+          update={update}
+          onClose={() => setUpdateWindow(null)}
+          onRestart={() => setUpdateWindow('restart')}
+        />
+      )}
+
+      {updateWindow === 'restart' && (
+        <RestartToUpdate
+          rows={restartRows(awakeThreads())}
+          onCancel={() => setUpdateWindow(null)}
+          onConfirm={restartNow}
+        />
+      )}
+
+      {whatsNew && (
+        <WhatsNewDialog version={whatsNew.version} notes={whatsNew.notes} onClose={() => setWhatsNew(null)} />
+      )}
+
+      {/* Over the app's own toast: it only shows on the launch after an update. */}
+      {updatedPill && !toast && (
+        <UpdatedPill
+          version={updatedPill.version}
+          onWhatsNew={hasNotes(updatedPill.notes) ? () => setWhatsNew(updatedPill) : undefined}
+          onDone={() => setUpdatedPill(null)}
         />
       )}
 

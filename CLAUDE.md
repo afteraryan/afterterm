@@ -36,6 +36,8 @@ src/
   main.ts                              ← Electron main: PTY IPC, session persistence, shortcuts, notifier window/IPC, Claude-hook install, tail files, server watcher, planSpawn, killTree.
   claude-hook-install.ts               ← reconcileClaudeHook(): installs the notifier hook into ~/.claude (or CLAUDE_CONFIG_DIR) with -ExecutionPolicy Bypass, rewrites 0.9.x entries that lack it, 'command' mode when the setup check finds -File blocked (idempotent, prefs.json opt-out). Pure Node, unit-tested.
   setup-check.ts                       ← The Claude Code setup check: runs the registered hook as Claude Code would, falls back to the script's text, reads policy/settings facts, builds the anonymised report, failureNote and the GitHub issue URL. Run by `afterterm.exe --setup-check=<file>` (the installer). Unit-tested. Test file: setup-check.test.ts
+  update-check.ts                      ← Automatic updates, the pure part: versions, parseRelease (the asset, the sha256 digest), downloadSource, isSuppressed (Later, Skip), UpdateState, restartRows/restartStatus, asPendingUpdate/updateLanded, staleDownloads, parseNotes (release notes to headings, bullets, bold, links). Unit-tested. Test file: update-check.test.ts
+  updater.ts                           ← Automatic updates in main: initUpdater (which copy is installed, the 10s/6h timer, the GitHub or test-feed fetch, the download with progress and its hash, Setup's update mode started before quitting, pendingUpdate, the update:* IPC)
   editors.ts                           ← Editor product detection and info (product name from exe, list of installs)
   editor-detect.ts                     ← Finds primary/alternate editors via prefs, code command, install folders, registry. Unit-tested. Test file: editor-detect.test.ts
   claude-transcript.ts                 ← Reads a Claude transcript: first prompt, latest model, modelDisplayName, latestCwd, findTranscript. Unit-tested. Test file: claude-transcript.test.ts
@@ -48,9 +50,9 @@ src/
   server-detect.ts                     ← Pure port-listener detection: parseNetstatListeners, parseProcessList, descendantPids, portForTree, tabPorts, parseMsysPs, applyMsysParents. Unit-tested. Test file: server-detect.test.ts
   shell-integration.ts                 ← planSpawn: pure spawn planner per shell; integrationEnabled (opt-out); PWSH_BOOTSTRAP, BASH_HOOK, appendWslEnv. Unit-tested. Test file: shell-integration.test.ts
   shell-paths.ts                       ← Path translation Windows/WSL/Git Bash: parseOsc7, osc7ToWindowsPath, isWslUncPath, wslUncToLinux, windowsPathToWsl, isWindowsDrivePath. Unit-tested. Test file: shell-paths.test.ts
-  preload.ts                           ← contextBridge: PTY API, session API, shell list, shortcuts, notify APIs, shell.openExternal, projects, editors, claudeSession, git, threads API
-  prefs.ts                             ← readPrefs/updatePrefs: manages %APPDATA%/afterterm/prefs.json (claudeNotifications, lastOpenedAt, editorPath, shellIntegration)
-  afterterm.d.ts                       ← Window.afterterm type declarations: projects, editors, pty API, notify/notifier, shell, files, claudeSession, git, threads APIs
+  preload.ts                           ← contextBridge: PTY API, session API, shell list, shortcuts, notify APIs, shell.openExternal, projects, editors, claudeSession, git, threads, update API
+  prefs.ts                             ← readPrefs/updatePrefs: manages %APPDATA%/afterterm/prefs.json (claudeNotifications, lastOpenedAt, editorPath, shellIntegration, updateChecks, updateSkippedVersion, updateLaterUntil, updateLastChecked, pendingUpdate)
+  afterterm.d.ts                       ← Window.afterterm type declarations: projects, editors, pty API, notify/notifier, shell, files, claudeSession, git, threads, update APIs
   renderer/
     index.tsx                          ← React root; routes to NotifierApp when ?notifier=1, else App
     app.tsx                            ← Screen state, session restore, shortcut dispatch, notification fan-out, wakeThread/resumeThread, closeThread/sleepThread (confirm-gated), openLocalhost, Rail mount, togglePanel, cycleThread, harness hooks.
@@ -98,8 +100,18 @@ src/
         index.tsx                      ← Pane shown while the active thread is asleep: autofocused Wake button, asleepSinceText, the saved dimmed tail, .asleep-scroll, a JumpButton fed by onScrollSample.
         AsleepPane.css                 ← Pane styles: fills the terminal card's area so swapping never shifts header/sidebar; .asleep-scroll; sticky .wakebox is a bordered button over the tail.
       TitleBar/
-        index.tsx                      ← The 32px title bar strip: name and version on the left, the OS caption buttons on the right, the window's drag region
-        TitleBar.css                     ← Strip styles (sidebar grey)
+        index.tsx                      ← The 32px title bar strip: name, the version button (opens the About window), the update button (Update available, Downloading 47%, Restart to update) and its notice (portal, What's new folding open, Update, Later, Skip this version); the OS caption buttons on the right; the window's drag region
+        TitleBar.css                     ← Strip styles (sidebar grey), .up-btn and the notice (.up-pop, .up-notice)
+      AboutWindow/
+        index.tsx                      ← The About window: logo, version, one update row that keeps one height in every state, What's new sliding open under it, the automatic-checks switch, afterterm on GitHub, Close. AboutWindow.css.
+      RestartToUpdate/
+        index.tsx                      ← "Restart afterterm to update?": one row per awake thread (restartRows), the status line, Not now and Restart now. RestartToUpdate.css.
+      UpdatedPill/
+        index.tsx                      ← "Updated to 0.11.0" after an update restart: What's new, the round x on the pill's corner, gone after 6s (held under the pointer). UpdatedPill.css.
+      UpdateDialog/
+        index.tsx                      ← The frame the update windows share (modal-overlay, the .up-dlg card, the 170ms fade-and-sink close) and WhatsNewDialog. UpdateDialog.css.
+      UpdateNotes/
+        index.tsx                      ← Release notes from parseNotes as elements (never HTML), links through shell.openExternal; hasNotes. UpdateNotes.css also holds the shared .up-bar.
       Home/
         index.tsx                      ← Home screen render, date heading, totals, last-here line, pinned cards, projects list, archived section, Show more toggle
         Home.css                       ← Home layout and typography
@@ -126,7 +138,7 @@ src/
         fileLinks.ts                   ← Edited files Phase 3: the xterm link provider for file paths (buffer cells to text, batched files:stat with a cache, tool-line time markers, the hover note). fileLinks.css styles the note.
       FilesButton/
         index.tsx                      ← Edited files: the header's Files button and its list (Documents, the Code and pasted folds, thumbnails, right-click menu with the editor logo and Explorer icon, Esc and outside click). FilesButton.css holds the prototype's look and motion.
-      Icons.tsx                        ← SVG icons: FolderIcon, StateIcon, KindIcon, Spinner, ProjectIcon (ten glyphs), IconCollapseAll/IconExpandAll, IconCompact, IconFiles/IconDoc/IconCode/IconImage/IconFoldChev.
+      Icons.tsx                        ← SVG icons: FolderIcon, StateIcon, KindIcon, Spinner, ProjectIcon (ten glyphs), IconCollapseAll/IconExpandAll, IconCompact, IconFiles/IconDoc/IconCode/IconImage/IconFoldChev, IconDownload/IconRestart/AppLogo (updates).
       Menu.tsx                         ← Positioned menu with submenu and back chevron
       Menu.css                         ← Menu styles
       Tooltip.tsx                      ← The app tooltip; any element with data-tip. data-tip-side="right" shows the tip beside the element for ones at the window edge.
@@ -142,7 +154,7 @@ forge.config.ts                        ← ASAR unpack, rebuild skip, Vite plugi
 installer/
   electron-builder.cjs                 ← The NSIS engine's settings (one-click, per-user, --prepackaged around Forge's folder); AFTERTERM_INSTALLER_SANDBOX=1 for "afterterm (test)"
   installer.nsh                        ← NSIS hooks: Start menu opt-out, a running-app check that asks instead of killing
-  setup/Setup.cs, Setup.xaml           ← afterterm Setup, the WPF screens (welcome, installing, Claude Code check, report issue, ready); runs the engine silently
+  setup/Setup.cs, Setup.xaml           ← afterterm Setup, the WPF screens (welcome, installing, Claude Code check, report issue, ready); runs the engine silently. `--update --wait-pid <pid>` is the quiet update mode (PageUpdate): a small progress window, same folder and shortcuts, reopens afterterm
   setup/app.manifest                   ← asInvoker, per-monitor DPI
 scripts/
   build-installer.js                   ← `npm run installer` (and `release`): package, stage and prune, build the engine, compile Setup with Windows' csc.exe, the engine embedded; --sandbox, --skip-package
@@ -154,6 +166,7 @@ scripts/
     watch-jump.mjs                     ← Clicks the jump button and samples window.__afterterm.viewport() every 50ms, to see a terminal jump animate.
     drive.mjs                          ← CDP client: targets, bounds, screenshot, eval, dom, click, rightclick, hover, unhover, drag, emulate-media, type, key, sidebar, rail, dock, search, screen, home, project, chooser, palette, header, hover-card, pane, tail, confirm, opened, toasts, marks, counts, reload, window, scroll, jump, pane-scroll, record.
     record.mjs                         ← records the page over CDP screencast into an mp4 through ffmpeg; drive record start/stop
+    update-feed.mjs                    ← Writes a test feed (GitHub's release shape, a local installer, --bad-digest) for AFTERTERM_UPDATE_FEED
     stop.mjs                           ← kills exactly the recorded process tree, never by name
     screenshot-display.ps1             ← OS-level capture of one whole display (shows title bar and notifier toasts)
     lib.mjs                            ← shared: run records, process tree walk, WMI spawn, display and window queries, CDP client
@@ -183,6 +196,8 @@ One paragraph per area. The detailed record of each (what was built, when, why, 
 
 **Notifications.** Claude Code's hook (self-installed into `~/.claude` by `claude-hook-install.ts`, a no-op unless `AFTERTERM=1`) sets decorated titles and writes the session id and cwd to a per-tab file. Titles become thread states and toasts; toasts render in a separate always-on-top transparent window placed on the display holding the main window, repainted after every moment DWM can paint its caption (the white bar); a project edited while its toast is up sends `notify:project-updated`, and the toast redraws with the new name, colour and icon. The spinner's stop is decided from PTY output silence (`spinnerState.ts`). `docs/features-notifications.md`, `docs/features-claude-session-resume.md`.
 
+**Automatic updates.** Only an installed copy checks (packaged, not a harness run, and its exe's folder is its install folder: the Settings > Apps entry is found by name, and the folder is the `InstallLocation` electron-builder writes to `HKCU\Software\<that entry's key>`, not to the entry itself; `installFolder`): GitHub's `releases/latest` 10 seconds after launch and every 6 hours (`updater.ts`; the rules are pure in `update-check.ts`). A release is offered only with the asset `afterterm-<version>-setup.exe` and a sha256 `digest`; the download is refused and deleted when the hash differs. The title bar's "Update available" opens the notice (What's new, Update, Later for 24 hours, Skip this version); the button shows the download, then "Restart to update", which opens the restart window (every awake thread: Resumes, Stops mid-turn, Runs again on :port, Opens in its folder). Restart now writes `pendingUpdate` to prefs.json and `wakeAfterUpdate` to session.json (only that quit does), starts Setup's update mode from the updates folder and quits; Setup waits for the pid, installs into the same folder with the shortcuts as they are, and reopens afterterm, which opens on the same screen and thread, wakes what was awake and shows "Updated to". A normal relaunch still starts everything asleep. The version badge opens the About window (check by hand, the automatic switch `updateChecks`). `AFTERTERM_UPDATE_FEED` points the check at a local JSON file in any build, but only an installed copy runs Setup. `docs/features-updates.md`, `docs/design-05-automatic-updates.md`.
+
 ## Default Shell
 
 **cmd.exe** is the default for a thread with no project; a project has its own default shell. The new thread chooser's shell dropdown and the New thread row's right-click offer every detected shell: Command Prompt, PowerShell 7, Windows PowerShell, Git Bash, WSL (WSL is offered even when only the Store stub is installed; left as is by Aryan's decision).
@@ -209,7 +224,7 @@ Claude Code's hook events reach afterterm two ways: decorated window titles (`�
 
 ## Session Restore
 
-Windows ConPTY cannot be reconnected after a restart, so `session.json` (`%APPDATA%\afterterm\`, saved 2s after a change through `serializeSession`, loaded through `migrateSession` in `sessionMigration.ts`, `version: 2`) records the layout, and every restored thread starts asleep: nothing is spawned until the user wakes it. A chat's session id and cwd are captured from the hook's file channel on `UserPromptSubmit` and `Stop`, and on `SessionStart` with source `resume` when the session's transcript exists, so a chat opened with `/resume` is kept before its first message (`claudeSessionId`, `claudeCwd`), and a transcript read at launch and before a wake moves `claudeCwd` to the folder the session is really in. Add new persisted fields in `sessionMigration.ts`. Every shell reports its cwd (see Shell integration), so a thread reopens where it was; do not re-add a title-to-cwd heuristic (cmd's title looks like a path and is not). Full detail: `docs/features-claude-session-resume.md`, `docs/features-shell-integration.md`.
+Windows ConPTY cannot be reconnected after a restart, so `session.json` (`%APPDATA%\afterterm\`, saved 2s after a change through `serializeSession`, loaded through `migrateSession` in `sessionMigration.ts`, `version: 2`) records the layout, and every restored thread starts asleep: nothing is spawned until the user wakes it. The one exception is the launch after an update restart, which wakes the threads listed in `wakeAfterUpdate` (see Automatic updates). A chat's session id and cwd are captured from the hook's file channel on `UserPromptSubmit` and `Stop`, and on `SessionStart` with source `resume` when the session's transcript exists, so a chat opened with `/resume` is kept before its first message (`claudeSessionId`, `claudeCwd`), and a transcript read at launch and before a wake moves `claudeCwd` to the folder the session is really in. Add new persisted fields in `sessionMigration.ts`. Every shell reports its cwd (see Shell integration), so a thread reopens where it was; do not re-add a title-to-cwd heuristic (cmd's title looks like a path and is not). Full detail: `docs/features-claude-session-resume.md`, `docs/features-shell-integration.md`.
 
 ## Keyboard Shortcuts
 
@@ -250,7 +265,7 @@ Registered via Electron `before-input-event` — work even when xterm.js has foc
 npm start
 ```
 
-Unit tests (plain Node 24+, no framework): `npm test` runs thirty files, listed in `package.json`'s `test` script, the source of truth: `src/editor-detect.test.ts`, `src/claude-hook-install.test.ts`, `src/renderer/spinnerState.test.ts`, `src/renderer/sessionMigration.test.ts`, `src/renderer/sidebarWalk.test.ts`, `src/renderer/threadView.test.ts`, `src/renderer/attention.test.ts`, `src/renderer/panelView.test.ts`, `src/renderer/homeView.test.ts`, `src/renderer/chooserView.test.ts`, `src/renderer/paletteView.test.ts`, `src/claude-transcript.test.ts`, `src/git-info.test.ts`, `src/renderer/chatTitle.test.ts`, `src/renderer/sleepWake.test.ts`, `src/renderer/history.test.ts`, `src/thread-tail.test.ts`, `src/server-detect.test.ts`, `src/renderer/commandMarks.test.ts`, `src/shell-paths.test.ts`, `src/shell-integration.test.ts`, `src/renderer/jumpScroll.test.ts`, `src/renderer/toastExpiry.test.ts`, and edited files' `src/session-files.test.ts`, `src/session-files-store.test.ts`, `src/renderer/filesView.test.ts`, `src/command-files.test.ts`, `src/renderer/filePaths.test.ts` and `src/file-index.test.ts` (Phase 6: the latter's real-shell section spawns actual `pwsh.exe`, `powershell.exe` and Git Bash subprocesses, so it needs those installed to exercise fully, and skips gracefully when one is missing), and the installer's `src/setup-check.test.ts`. The hook script has its own harness: `pwsh -File assets\hooks\test-afterterm-notify.ps1` (add `-Shell powershell.exe` to run the hook under Windows PowerShell 5.1). `AFTERTERM_LAG_PROBE=1` logs every main-thread stall over 30 ms in the first 15 seconds (`[lag]` lines in the harness log); the main thread also answers the toast overlay's mouse hook while a toast is up, so a stall there freezes the mouse. To drive the dev build itself, use the agent harness (see "Agent test harness"), never a bare `npm start` while someone is working on the primary monitor.
+Unit tests (plain Node 24+, no framework): `npm test` runs thirty-one files, listed in `package.json`'s `test` script, the source of truth: `src/editor-detect.test.ts`, `src/claude-hook-install.test.ts`, `src/renderer/spinnerState.test.ts`, `src/renderer/sessionMigration.test.ts`, `src/renderer/sidebarWalk.test.ts`, `src/renderer/threadView.test.ts`, `src/renderer/attention.test.ts`, `src/renderer/panelView.test.ts`, `src/renderer/homeView.test.ts`, `src/renderer/chooserView.test.ts`, `src/renderer/paletteView.test.ts`, `src/claude-transcript.test.ts`, `src/git-info.test.ts`, `src/renderer/chatTitle.test.ts`, `src/renderer/sleepWake.test.ts`, `src/renderer/history.test.ts`, `src/thread-tail.test.ts`, `src/server-detect.test.ts`, `src/renderer/commandMarks.test.ts`, `src/shell-paths.test.ts`, `src/shell-integration.test.ts`, `src/renderer/jumpScroll.test.ts`, `src/renderer/toastExpiry.test.ts`, and edited files' `src/session-files.test.ts`, `src/session-files-store.test.ts`, `src/renderer/filesView.test.ts`, `src/command-files.test.ts`, `src/renderer/filePaths.test.ts` and `src/file-index.test.ts` (Phase 6: the latter's real-shell section spawns actual `pwsh.exe`, `powershell.exe` and Git Bash subprocesses, so it needs those installed to exercise fully, and skips gracefully when one is missing), the installer's `src/setup-check.test.ts`, and automatic updates' `src/update-check.test.ts`. The hook script has its own harness: `pwsh -File assets\hooks\test-afterterm-notify.ps1` (add `-Shell powershell.exe` to run the hook under Windows PowerShell 5.1). `AFTERTERM_LAG_PROBE=1` logs every main-thread stall over 30 ms in the first 15 seconds (`[lag]` lines in the harness log); the main thread also answers the toast overlay's mouse hook while a toast is up, so a stall there freezes the mouse. To drive the dev build itself, use the agent harness (see "Agent test harness"), never a bare `npm start` while someone is working on the primary monitor.
 
 > If your network intercepts TLS (corporate proxy / some antivirus), `npm install`
 > or the build may fail with certificate errors. Prefer pointing npm/Node at your
@@ -300,6 +315,15 @@ admin, Start menu and desktop shortcuts, a Settings > Apps entry, and the Claude
 (`afterterm.exe --setup-check`, `src/setup-check.ts`). `--sandbox` builds "afterterm (test)",
 which installs beside the real app with its own data and Claude settings folder. No 7-Zip
 since 0.10.0. Full detail in [`docs/guide-01-distributable-build.md`](docs/guide-01-distributable-build.md).
+
+An installed copy updates itself from the release's installer (see "Automatic updates" above),
+so every release must carry exactly one asset named `afterterm-<version>-setup.exe`; GitHub adds
+its sha256 `digest`, without which the update is not offered. Environment variables for testing
+updates: `AFTERTERM_UPDATE_FEED=<json file>` (a feed in GitHub's release shape, a local installer
+allowed; checks run in any build, Setup runs only in an installed copy; write one with
+`scripts/agent-harness/update-feed.mjs`), `AFTERTERM_UPDATE_CHECK_DELAY_MS` (the first check's
+delay) and `AFTERTERM_UPDATE_SLOW_MS` (spreads a local installer's copy over that long, to watch
+the progress). Detail in [`docs/features-updates.md`](docs/features-updates.md).
 
 ### Versioning & Releases
 
@@ -370,6 +394,8 @@ Procedures an agent follows while working on this repo (not product docs, not re
 - `docs/phases-01-projects-and-threads.md`: the closed record of the projects-and-threads round, Phases 0 to 9 and the 0.9.0 release: every phase's checklist, every decision with its date, and the log. It was `PHASES.md` at the repo root until 2026-09-30.
 - `docs/plan-01-sidebar-attention-and-manual-testing-fixes.md`: the round of work after the projects-and-threads phases, ranked; design-03 is its Cluster 1.
 - `docs/edited-files/`: everything for the edited-files feature (design-04, phases, build notes, testing and handoff). `design-04-edited-files.md` there: the header Files button (documents first, code and pasted images folded to a count) and clickable file paths in the terminal output; agreed 2026-09-25 against `docs/mockups/edited-files-button.html`; built in PR #43.
+- `docs/design-05-automatic-updates.md`: automatic updates (the title bar notice, What's new, Later and Skip, the restart window, Setup's update mode, waking after an update, the About window); agreed 2026-10-30 against `docs/mockups/update-index.html`. Its record is `docs/features-updates.md`; phases in `PHASES.md`.
+- `docs/features-updates.md`: the full record of automatic updates: who checks, the release and its digest, the download, the restart window's rows, Setup's update mode and the shortcuts, waking after an update, the About window, the env vars, how it was tested
 - `docs/guide-01-distributable-build.md`: the installer (`npm run installer`): its screens, how it is built (WPF front end, silent NSIS engine), the test build, SmartScreen and pinning
 - `docs/guide-02-releases.md` — versioning (semver) + how to cut a tagged, version-stamped release (`npm run release`)
 - `docs/ideas.md` — feature ideas backlog

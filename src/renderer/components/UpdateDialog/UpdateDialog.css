@@ -1,0 +1,40 @@
+/* The update windows' frame (UpdateDialog). Values from
+   docs/mockups/update-shared.css: .dlg, .dbtns, and the closing .scrim.out
+   (fade, and the card sinks), prefixed up-. The overlay itself is the app's
+   .modal-overlay (GroupModal.css). */
+
+.up-dlg {
+  width: min(500px, 100%);
+  max-height: min(640px, 92vh);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: #2a2a2a;
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .6);
+  color: var(--text);
+  animation: rise 260ms var(--ease);
+}
+.up-dlg h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+.up-dbtns {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+.up-dlg-notes {
+  overflow: auto;
+  padding-right: 6px;
+  min-height: 0;
+}
+
+@keyframes up-fadeout { to { opacity: 0; } }
+@keyframes up-sinkout { to { opacity: 0; transform: scale(.97) translateY(6px); } }
+.up-scrim.out { animation: up-fadeout 170ms var(--ease) forwards; }
+.up-scrim.out .up-dlg { animation: up-sinkout 170ms var(--ease) forwards; }

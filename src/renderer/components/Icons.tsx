@@ -278,6 +278,39 @@ export function IconX(props: IconProps) {
   );
 }
 
+// Automatic updates (docs/mockups/update-shared.js): the download arrow on the
+// notice and the Update available state, the circular arrow on Restart to update.
+export function IconDownload(props: IconProps) {
+  return (
+    <svg {...svgProps(props)}>
+      <path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function IconRestart(props: IconProps) {
+  return (
+    <svg {...svgProps(props)}>
+      <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// The app logo as the About window draws it (the mockup's LOGO, the same
+// geometry as assets/icon.ico).
+export function AppLogo({ size = 56 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true">
+      <rect x="1" y="1" width="62" height="62" rx="14" fill="#141414" stroke="#3a3a3a" />
+      <circle cx="22" cy="17" r="3" fill="#2dd4bf" />
+      <circle cx="32" cy="17" r="3" fill="#fb923c" />
+      <circle cx="42" cy="17" r="3" fill="#a78bfa" />
+      <path d="m17 27 16 9-16 9" fill="none" stroke="#ececec" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M42 33v12" stroke="#ececec" strokeWidth="4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function IconHourglass(props: IconProps) {
   return (
     <svg {...svgProps(props)}>

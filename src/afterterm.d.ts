@@ -240,6 +240,30 @@ interface AftertermDialogAPI {
   pickFolder(): Promise<string | null>;
 }
 
+// Automatic updates (src/updater.ts, src/update-check.ts).
+interface AftertermUpdateLaunch {
+  to: string;
+  notes: string;
+  activeThreadId?: string;
+  screen?: 'home' | 'workspace' | 'project';
+  projectId?: string;
+}
+
+interface AftertermUpdateAPI {
+  get(): Promise<import('./update-check.ts').UpdateState>;
+  // Returns the unsubscribe function.
+  onState(callback: (state: import('./update-check.ts').UpdateState) => void): () => void;
+  // Once, on the launch after an update restart; null every other time.
+  takeLaunch(): Promise<AftertermUpdateLaunch | null>;
+  check(): Promise<void>;
+  download(): Promise<void>;
+  cancel(): Promise<void>;
+  later(): Promise<void>;
+  skip(): Promise<void>;
+  restart(info: { activeThreadId?: string; screen?: string; projectId?: string }): Promise<{ ok: boolean; error?: string }>;
+  setAuto(on: boolean): Promise<void>;
+}
+
 interface AftertermAPI {
   version: string;
   appVersion: string;
@@ -256,6 +280,7 @@ interface AftertermAPI {
   claudeSession: AftertermClaudeSessionAPI;
   threads: AftertermThreadsAPI;
   git: AftertermGitAPI;
+  update: AftertermUpdateAPI;
   shortcuts: AftertermShortcutsAPI;
   notify: AftertermNotifyAPI;
   notifier: AftertermNotifierAPI;

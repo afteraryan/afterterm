@@ -55,6 +55,7 @@ Plain Node (24+) and PowerShell. No new dependencies: Node's global `fetch` and
 | `screenshot-display.ps1` | Captures a whole physical display to PNG (shows native title bars and the notifier toasts, which CDP cannot). |
 | `record.mjs` | Long-running recorder: CDP screencast of the page content, stitched to mp4 with ffmpeg. Normally started detached by `drive.mjs record start`, not run by hand. See "Recording a test session" below. |
 | `lib.mjs` | Shared: arg parsing, run records, process tree walk, WMI spawn, display and window queries, the CDP client. |
+| `update-feed.mjs` | Automatic updates: writes a test feed in GitHub's release shape (`--out <dir>`, `--version`, `--installer`, `--size-mb`, `--base`, `--bad-digest`, `--notes`) for `--env AFTERTERM_UPDATE_FEED=<feed>`. A dev build checks it but never runs Setup. Hooks for the test: `window.__afterterm.update()`, `wake(id)`, `setNotification(id, 'working')`. See `docs/features-updates.md`, "Testing". |
 
 Main-process support lives in `src/main.ts`:
 

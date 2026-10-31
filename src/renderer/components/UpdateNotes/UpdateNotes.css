@@ -1,0 +1,58 @@
+/* Release notes (UpdateNotes) and the progress bar the update pieces share.
+   Values from docs/mockups/update-shared.css (.notes, .notes.fold, .bar,
+   .barline), prefixed up- so they never meet another component's classes. */
+
+.up-notes {
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.55;
+  text-align: left;
+}
+.up-notes h4 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+.up-notes ul {
+  margin: 0 0 12px;
+  padding-left: 18px;
+}
+.up-notes li { margin: 3px 0; }
+.up-notes p { margin: 0 0 12px; }
+.up-notes b { color: var(--text); font-weight: 500; }
+.up-notes a {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.up-notes.fold {
+  max-height: 220px;
+  overflow: auto;
+  background: rgba(0, 0, 0, .18);
+  border-radius: 12px;
+  padding: 12px 14px 2px;
+}
+
+.up-bar {
+  height: 6px;
+  border-radius: 6px;
+  background: #444;
+  overflow: hidden;
+}
+.up-bar i {
+  display: block;
+  height: 100%;
+  background: var(--text);
+  border-radius: 6px;
+  transition: width 120ms linear;
+}
+.up-barline {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text3);
+  font-size: 12.5px;
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+}
