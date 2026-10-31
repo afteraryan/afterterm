@@ -86,7 +86,8 @@ What was run: the test build installed for real (0.10.0 over the 0.9.0 test inst
 - [x] A reinstall that is not an update restart opens on Home with everything asleep and no pill.
 - [x] **Found and fixed:** the install folder is not in the Settings > Apps entry; electron-builder writes `InstallLocation` to `HKCU\Software\<same key>`. Neither the installed-copy check nor Setup (since 0.10.0) found it, so no installed copy would ever have updated. Both now read it there, with the uninstaller's folder as fallback (`installFolder`, `ExistingInstallFolder`).
 - [x] **Found and fixed:** Setup's update window opened behind the window in front (afterterm itself was not the foreground app in the test). It is now topmost and activated while it works.
-- Not covered: a real Claude Code conversation coming back (the test build's Claude folder is not logged in; afterterm's part, typing `claude --resume <id>`, was checked), and the real GitHub download path end to end (it needs a public release; the first real one is the 0.11.0 release itself).
+- [x] A real conversation comes back (Aryan, 2026-10-31): he logged the test build into Claude Code, told a chat to remember "pineapple", the test build updated 0.11.0 to 0.12.0 (16 seconds), the chat woke through `claude --resume`, and after Claude Code's own folder-trust question it answered "pineapple". The restart window had listed it as "Resumes", "Safe to restart".
+- Not covered: the real GitHub download path end to end (it needs a public release; the first real one is the 0.11.0 release itself).
 
 End to end with the sandbox build ("afterterm (test)", `npm run installer -- --sandbox`): install an older test version, serve a newer one through the local override, and go through the notice, Later, Skip, the download, the checksum check (a corrupted file refused), Restart to update and the threads waking. Screenshots and recordings in `docs/screenshots/auto-update-phase-3/`.
 

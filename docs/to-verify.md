@@ -58,7 +58,7 @@ release with the updater.
 4. Turn the switch off: `prefs.json` gets `"updateChecks": "disabled"` and the build no longer checks by itself; Check for updates still works.
 
 ### After an update restart afterterm reopens where you were and wakes what was awake
-**Status:** waiting for Aryan (Phase 3 tests this with a real install; the harness can fake it)
+**Status:** a real chat coming back checked by Aryan in the test build on 2026-10-31: works. The rest waiting for Aryan
 1. Seed the harness with a session that has `"wakeAfterUpdate": ["<thread id>", ...]` and prefs with `"pendingUpdate": {"from": "0.9.0", "to": "0.10.0", "activeThreadId": "<thread id>", "screen": "workspace"}`.
 2. It opens on the workspace (not Home) on that thread, the listed threads wake (a server runs its command again), the others stay asleep.
 3. A pill at the bottom says "Updated to 0.10.0" with What's new and a small round x on its top-right corner; it goes by itself after about 6 seconds. What's new opens the notes in a window over the app.
