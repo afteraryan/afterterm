@@ -88,32 +88,6 @@ The New thread row, and the Search row above it, sit as two full-width rows at t
 
 ---
 
-## Drag and drop in the sidebar: projects cannot be reordered, dragging to Pinned does not pin, no indicator for a drop at the top, hovered projects highlight during a project drag, and a thread cannot be dragged out of every project
-
-**Observed:** 2026-09-22 by Aryan during manual testing · **Phase:** 8 (the Pinned and Recent split and Recent's activity order); the drag-and-drop itself is Phase 1 and pre-existing · **Status:** open · **Severity:** medium (a whole interaction that does not behave) · **Screenshot:** none attached
-
-**What happens:**
-Five things, all in the sidebar's drag and drop, which Aryan wants worked on as one piece:
-
-1. Dragging a project row to another position inside Pinned does not reorder it, and neither does it inside Recent. He is not sure repositioning is meant to exist at all.
-2. Dragging a project from Recent into the Pinned section should pin it. It does not.
-3. Dragging a project to the top of a section gives no visual indication that it will land first; there is an indication for landing between two projects, nothing for landing on top.
-4. While a project is being dragged, the project row under the pointer highlights as if it were a drop target, and the dragged row is highlighted too. Two highlighted projects reads as "this one goes inside that one", which is not what happens. A project being dragged over should not highlight; that highlight makes sense only when a thread is dragged over a project.
-5. There is no way to drag a thread out of every project, into General.
-
-He also asks whether any of this was designed and built before the redesign, so the record is checked before it is fixed.
-
-**Repro:**
-1. Drag a pinned project's row above another pinned project and release: the order is unchanged. The same in Recent.
-2. Drag a Recent project onto the Pinned section and release: it is not pinned.
-3. Drag a project towards the top of its section: no line or gap appears above the first row.
-4. During the drag, the project under the pointer takes the hover highlight.
-5. Drag a thread out of its project towards General: no target to drop it on.
-
-**Cause:** what the code says today, from `src/renderer/components/SidePanel/index.tsx`: project drags do exist (`handleDragEnd` calls `onMoveGroupAfterGroup(dragged, target)` when a project is dropped on a project row, so the intended gesture is "move after the target"), and design-03 says "Pinned keeps its dragged order" while "Recent is sorted by lastActiveAt descending", so a reorder inside Recent is overridden by the activity sort by design, and a reorder inside Pinned should work but Aryan reports it does not (not investigated further; the Pinned list in `panelView.ts` is built from group order, so the move may not be reaching `groups` or may be landing across the Pinned and Recent boundary). There is no pin-on-drop (`togglePin` is only called from the pin buttons and menus), only an "after the target" drop and so no "before the first row" indicator, the project row's `drop-over` class is applied from `isOver` for any drag kind (line 184), and a thread's only drop targets are other thread rows and project rows (`moveTab` inherits the target's group), so an empty General offers nowhere to drop. Fix direction: a proper drag model for the panel: reorder within Pinned with a before-or-after line indicator (including above the first row), a drop into the Pinned section that pins, no reordering in Recent (it is sorted by activity, say so on hover or allow nothing), project rows not highlighting while a project is dragged, and a General drop zone (the section heading, or an always-present target when the section is empty) that takes a thread out of its project. This is a design decision with Aryan first (one mock page, one question per gesture), then one piece of work.
-
----
-
 ## A block of Claude's output is printed twice in the terminal
 
 **Observed:** 2026-09-25 by Aryan during manual testing (an old problem, still happening) · **Phase:** pre-existing (the terminal's output path) · **Status:** open · **Severity:** medium (the scrollback cannot be trusted to show what was said once) · **Screenshot:** `docs/screenshots/manual-testing/06-claude-output-block-repeated-in-the-terminal.png`
@@ -328,22 +302,6 @@ A file path highlighted as a link in a chat's terminal output opens in VS Code w
 
 ---
 
-## Opening a chat from another project moves that project to the top of Recent in the sidebar, without typing anything and without an animation
-
-**Observed:** 2026-09-30 by Aryan during manual testing · **Phase:** 8 (the panel's Pinned and Recent split and Recent's order by activity) · **Status:** open · **Severity:** medium (the Recent list reorders on a plain click) · **Screenshot:** none attached
-
-**What happens:**
-In the Recent section of the sidebar, just opening a chat from some other project brings that project to the top of the list. Aryan finds this weird: a project should only come to the top when he types something into one of its threads, not when he only opens a chat. He also wants the move to the top to be animated when it happens.
-
-**Steps to make it happen again:**
-1. Have two or more projects in the sidebar's Recent section.
-2. Click a chat in a project that is not at the top of Recent, without typing anything into it.
-3. That project jumps to the top of Recent at once, with no animation.
-
-**Evidence:** Only the description above. Aryan's words: "just opening a chat from some other project bring it to the top. This is weird, if I input something, then they should come on top. Also, there should be animation for it".
-
----
-
 ## A chat whose background subagent is running shows no running state on its thread
 
 **Observed:** 2026-09-30 by Aryan during manual testing · **Phase:** 7 (attention: thread states on the row, the header, the project and the rail; the background state came in PR #40) · **Status:** open · **Severity:** medium (a subagent at work is invisible outside the terminal) · **Screenshot:** `docs/screenshots/manual-testing/15-subagent-running-but-thread-shows-no-status.png`
@@ -446,22 +404,6 @@ The sidebar panel has a fixed width. Aryan expects to be able to drag its edge t
 3. Nothing happens: the panel keeps its width.
 
 **Evidence:** Only the description above. Aryan's words: "I should be able to drag and resize the sidebar."
-
----
-
-## Archiving a project from the sidebar hides it everywhere except Home, instead of moving it into Other projects
-
-**Observed:** 2026-10-02 by Aryan during manual testing · **Phase:** 2 (archive and restore), with the panel's Other projects drawer from Phase 8 · **Status:** open · **Severity:** medium (the feature does something other than what Aryan expected, and the project becomes hard to reach) · **Screenshot:** none attached
-
-**What happens:**
-Aryan archived a project that was under Recent in the sidebar, expecting it to move into the Other projects drawer at the bottom of the panel. It did not go there: an archived project can only be reached from the Archived section on Home, which he finds very odd. What he wants is not an archive at all: a way to take a project off the sidebar's project list so it sits in Other projects. He asks for the whole archive feature to be removed, and for the action and its wording to become "move to Other projects" instead.
-
-**Steps to make it happen again:**
-1. Have a project listed under Recent in the sidebar panel.
-2. Right-click it and choose Archive.
-3. The project leaves Recent but does not appear in the Other projects drawer; it is listed only in the Archived section on Home.
-
-**Evidence:** Only the description above. Aryan's words: "If a project is in Recent and I put it in Archive, I thought it would go to Other Projects, but it does not. I can only access archived projects through the homepage, which is very weird." and "I don't want an archive project. If the project just goes into the Other Projects dropdown, that is what I wanted. Need to fix the terminology here and need to kill the entire archive functionality. I just want them to move into Other Projects so they are off the project bar."
 
 ---
 
@@ -568,22 +510,6 @@ After opening the Other projects drawer at the bottom of the panel (it opens upw
 4. Click on another part of the app, such as the header or the rail: the drawer still stays open.
 
 **Evidence:** Only the description above. Aryan called it the "other projects tab" and then corrected himself: "It's not a tab, it's a dropdown or whatever (the opposite of a dropdown, whatever), but it should close."
-
----
-
-## The search palette (Ctrl+Shift+P) does not list archived projects
-
-**Observed:** 2026-10-07 by Aryan during manual testing · **Phase:** 2 (the search palette, and archive and restore) · **Status:** open · **Severity:** medium (the palette misbehaves: an archived project cannot be found from it) · **Screenshot:** none attached
-
-**What happens:**
-Archived projects do not show up in the search palette opened with Ctrl+Shift+P. Searching for an archived project by name finds nothing, so the palette cannot be used to reach it.
-
-**Steps to make it happen again:**
-1. Archive a project (right-click it and choose Archive).
-2. Press Ctrl+Shift+P and type the start of that project's name.
-3. The project is not in the results.
-
-**Evidence:** Only the description above. Aryan's words: "archived products don't show up in ctrl+shift+P" ("products" is most likely "projects").
 
 ---
 
@@ -745,22 +671,6 @@ A file name or path in the terminal that can be clicked to open the file has not
 2. Right-click the link: no menu with Open, Open file location or Copy file path appears.
 
 **Evidence:** Only the description above. Aryan's words: "whenever there is a file name in the terminal and I can click to open it, right-clicking on it should give me a menu with two options: Open, which opens the file; Open file location aur copy file path, which will be the global file path, of course." ("aur" is Hindi for "and", so the list reads as Open, Open file location and Copy file path.)
-
----
-
-## Projects in the panel's Recent group swap places whenever a thread in another project is used
-
-**Observed:** 2026-10-22 by Aryan during manual testing · **Phase:** 8 (the panel's Pinned and Recent groups, design-03, where "Recent by activity" was agreed on 2026-09-19) · **Status:** open · **Severity:** medium (the panel reorders under him while he works, so rows are never where he left them) · **Screenshot:** none
-
-**What happens:**
-While Aryan works on threads in two projects at once, the two projects keep swapping places in the Recent group of the panel, depending on which project's thread he is working in. He expects the order to stay put. He no longer wants projects or threads to change their order based on how recently they were used: "I don't want projects or threads changing their order based on recency of activity."
-
-**Steps to make it happen again:**
-1. Have two unpinned projects in the Recent group of the panel, each with a thread.
-2. Work in a thread of the lower project: that project moves above the other one.
-3. Go back to a thread of the other project and work in it: the two swap again.
-
-**Evidence:** Only the description above. Aryan's words: "I'm working on two projects simultaneously, and they are flipping back and forth based on which thread I'm working on. Very fucking annoying." and "Whenever did we decide to make this change? I don't like it anymore. We'll have to fix this."
 
 ---
 

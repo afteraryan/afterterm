@@ -73,6 +73,25 @@ export function IconArrow(props: IconProps) {
   );
 }
 
+// The arrow between the two projects on a dragged thread's card
+// (docs/mockups/sidebar-drag-and-drop.html).
+export function IconArrowRight(props: IconProps) {
+  return (
+    <svg {...svgProps(props)}>
+      <path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// General has no project: a dashed outline of the folder, in grey.
+export function IconFolderNone(props: IconProps) {
+  return (
+    <svg {...svgProps(props)}>
+      <path d="M2.5 7A2 2 0 0 1 4.5 5h4.6l2 2h8.4a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeDasharray="3 2.5" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function IconSearch(props: IconProps) {
   return (
     <svg {...svgProps(props)}>

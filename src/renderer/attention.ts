@@ -113,24 +113,82 @@ export function railProjects(groups: Group[], tabs: Tab[]): Group[] {
 // A project counts as "recent" for three days after its last activity, or for
 // as long as it still has an awake thread, whichever is longer: a running
 // server or an open chat should never fall out of the panel just because the
-// clock passed the window.
+// clock passed the window. This decides which projects are in Recent, never
+// their order.
 export const RECENT_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
 
-// The panel's Recent and Other lists (Phase 8): unpinned, non-archived
-// projects split by recency. Recent is sorted by lastActiveAt descending
-// (Array#sort is stable, so a tie keeps the caller's own order rather than
-// shuffling); Other keeps the caller's order as-is, since it is an overflow
-// list, not a ranking. Pinned and archived groups appear in neither: pinned
-// projects have their own section above Recent, and archived projects are
-// nowhere in the panel.
-export function panelLists(groups: Group[], tabs: Tab[], now: number): { recent: Group[]; other: Group[] } {
-  const candidates = groups.filter(g => !g.pinned && !g.archived);
-  const hasAwakeTab = (groupId: string) => tabs.some(t => t.groupId === groupId && !t.asleep);
-  const isRecent = (g: Group) => hasAwakeTab(g.id) || (now - g.lastActiveAt) <= RECENT_WINDOW_MS;
+// Whether a project belongs in the panel's Recent list: unpinned, not archived,
+// and either used in the last three days or holding an awake thread. An
+// archived project is never recent, however new its activity: archiving puts it
+// in Other projects until it is used again (which clears `archived`).
+export function isRecentProject(group: Group, tabs: Tab[], now: number): boolean {
+  if (group.pinned || group.archived) return false;
+  if (now - group.lastActiveAt <= RECENT_WINDOW_MS) return true;
+  return tabs.some(t => t.groupId === group.id && !t.asleep);
+}
 
-  const recent = candidates.filter(isRecent).slice().sort((a, b) => b.lastActiveAt - a.lastActiveAt);
-  const other = candidates.filter(g => !isRecent(g));
+// The panel's Recent and Other lists (Phase 8). Neither is sorted (Aryan,
+// 2026-11-01: nothing in the panel moves because it was used): both keep the
+// caller's order, which is the saved project order (the `groups` array). Where
+// a project sits in that order is set by the moments that place it: entering
+// Recent puts it at the top (enteringRecent and moveGroupsToTop below), a drag
+// puts it where it was dropped (placeProject in panelView.ts), archiving puts
+// it at the top of Other. Pinned projects are in neither list (they have their
+// own section above Recent); archived projects are in Other with the projects
+// that went quiet.
+// `hold` keeps the named projects in Recent whatever the rule says: Archive puts
+// a project's threads to sleep one by one before the project folds away, and the
+// last one going to sleep must not drop it into Other before that fold.
+export function panelLists(
+  groups: Group[],
+  tabs: Tab[],
+  now: number,
+  hold?: ReadonlySet<string>,
+): { recent: Group[]; other: Group[] } {
+  const recent: Group[] = [];
+  const other: Group[] = [];
+  for (const g of groups) {
+    if (g.pinned) continue;
+    if (isRecentProject(g, tabs, now) || (hold?.has(g.id) && !g.archived)) recent.push(g);
+    else other.push(g);
+  }
   return { recent, other };
+}
+
+// The ids of the projects that have just come into Recent: in Recent after a
+// change and in neither Recent nor Pinned before it. Both sides are read at the
+// same `now`, so a project that left the three-day window while the app was
+// idle counts as out before the change that brings it back. A project moving
+// from Pinned to Recent is not entering: it was dropped in a place of its own
+// (or unpinned through the menu, which places it itself). Order: as in `after`.
+export function enteringRecent(
+  before: { groups: Group[]; tabs: Tab[] },
+  after: { groups: Group[]; tabs: Tab[] },
+  now: number,
+): string[] {
+  const was = new Set<string>();
+  for (const g of before.groups) {
+    if (g.pinned && !g.archived) was.add(g.id);
+    else if (isRecentProject(g, before.tabs, now)) was.add(g.id);
+  }
+  return after.groups
+    .filter(g => !was.has(g.id) && isRecentProject(g, after.tabs, now))
+    .map(g => g.id);
+}
+
+// Moves the given projects to the front of the saved order, keeping their own
+// relative order and everyone else's. The front of the array is the top of
+// Recent and the top of Other at once (each list keeps array order), and it
+// never changes Pinned's order among the pinned projects it does not touch.
+// Returns the same array when nothing would move.
+export function moveGroupsToTop(groups: Group[], ids: string[]): Group[] {
+  if (ids.length === 0) return groups;
+  const set = new Set(ids);
+  const moved = groups.filter(g => set.has(g.id));
+  if (moved.length === 0) return groups;
+  const rest = groups.filter(g => !set.has(g.id));
+  const next = [...moved, ...rest];
+  return next.every((g, i) => g === groups[i]) ? groups : next;
 }
 
 // Decision 1's tile-click rule (also usable wherever "open the thread that

@@ -106,7 +106,6 @@ Each one is an open entry in [`docs/bugs.md`](docs/bugs.md).
 - A chat running a background agent shows only its server as running: show both, or something else.
 - Restore the previous session a few threads at a time, with progress, instead of waking each thread by hand.
 - A list of the awake threads, to switch between them when they are spread across Pinned and Recent.
-- The sidebar's drag and drop, as one piece of work: reorder within Pinned, drop into Pinned to pin, a line for a drop at the top, no highlight on projects during a project drag, and a way to drag a thread out into General.
 - Fold the Search and New thread rows into the sidebar's top row.
 - A search box on Home's project list, with matching projects animating in and out.
 - The Other projects drawer: type to search it, and a New project button (one piece of work).
@@ -114,7 +113,6 @@ Each one is an open entry in [`docs/bugs.md`](docs/bugs.md).
 - Choose which waiting thread a rail tile opens.
 - Open a chat's Claude Code session in a terminal outside afterterm, from both thread menus (and decide whether the afterterm thread sleeps first).
 - File links: open a file in its type's default app, and offer Open file location on right-click. Today MP4 and HTML links open in VS Code. Which types go to the default app needs a rule, since Windows often maps `.ts` to a video player.
-- Opening a chat moves its project to the top of Recent; Aryan wants a project to move up only when something is typed in it, and the move animated.
 - Thread states lost on a restart (only Mark as unread survives): keep the real state and show it over Asleep. The quick version that turns them into Unread was turned down on 2026-09-29.
 
 ### Bugs that need to be reproduced first

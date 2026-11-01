@@ -4,7 +4,7 @@
 // Exits 0 if all pass, 1 on any failure.
 
 import {
-  threadFolder, threadFolderTarget, insertNewThread, projectLookChanges, applyProjectLook, threadKind, threadState, stateLabel, stateBreathes, displayTitle,
+  threadFolder, threadFolderTarget, insertNewThread, placeThread, projectLookChanges, applyProjectLook, threadKind, threadState, stateLabel, stateBreathes, displayTitle,
   threadName, modelLabel, kindWord, runningLabel, statusText, localhostUrl, openLocalhostLabel,
   needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText,
   foldThreads, projectCounts, toastMessage,
@@ -508,6 +508,39 @@ console.log('\nthreadView: statusText (the hover card Status row)\n');
   check('needs-you reads Needs you', statusText(tab('n', { notification: 'attention' })) === 'Needs you');
   check('an asleep thread marked unread reads Unread', statusText(tab('u', { asleep: true, unread: true })) === 'Unread');
   check('an asleep server reads Asleep, not its port', statusText(tab('x', { asleep: true, port: 5173 })) === 'Asleep');
+}
+
+console.log('\nthreadView: placeThread (dragging a thread)\n');
+{
+  const list = [
+    tab('g1'),
+    tab('a1', { groupId: 'a' }), tab('a2', { groupId: 'a' }), tab('a3', { groupId: 'a' }),
+    tab('b1', { groupId: 'b' }), tab('b2', { groupId: 'b' }),
+  ];
+  const order = (ts: Tab[]) => ts.map(t => `${t.id}${t.groupId ? ':' + t.groupId : ''}`).join(',');
+
+  check('a thread dragged between two threads of its own project lands there',
+    order(placeThread(list, 'a3', 'a', 'a2')) === 'g1,a1:a,a3:a,a2:a,b1:b,b2:b');
+  check('dragged between two threads of another project, it joins that project there',
+    order(placeThread(list, 'a1', 'b', 'b2')) === 'g1,a2:a,a3:a,b1:b,a1:b,b2:b');
+  check('dropped on a project row (before its first thread) it goes in at the top',
+    order(placeThread(list, 'b2', 'a', 'a1')) === 'g1,b2:a,a1:a,a2:a,a3:a,b1:b');
+  check('after a project\'s last thread',
+    order(placeThread(list, 'a1', 'b', null)) === 'g1,a2:a,a3:a,b1:b,b2:b,a1:b');
+  {
+    const out = placeThread(list, 'a2', undefined, 'g1');
+    check('taken out of its project into General, above the General thread',
+      order(out) === 'a2,g1,a1:a,a3:a,b1:b,b2:b', order(out));
+    check('a General thread carries no groupId key at all', !('groupId' in out[0]));
+  }
+  check('into General with no anchor: after the last General thread',
+    order(placeThread(list, 'b1', undefined, null)) === 'g1,b1,a1:a,a2:a,a3:a,b2:b');
+  check('into a project with no threads: the end of the list',
+    order(placeThread(list, 'a1', 'c', null)) === 'g1,a2:a,a3:a,b1:b,b2:b,a1:c');
+  check('the other threads keep their order', order(placeThread(list, 'a2', 'b', 'b1').filter(t => t.id !== 'a2')) === 'g1,a1:a,a3:a,b1:b,b2:b');
+  check('dropped where it already is changes nothing', placeThread(list, 'a2', 'a', 'a3') === list);
+  check('dropped before itself changes nothing', placeThread(list, 'a2', 'a', 'a2') === list);
+  check('an unknown thread changes nothing', placeThread(list, 'zz', 'a', null) === list);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

@@ -1,0 +1,549 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sidebar drag and drop</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: the question on top, then one afterterm window (scaled to fit) you can drag in.
+   Tokens are afterterm's own (src/renderer/theme.css); the app is dark only, so is this page.
+   This is the agreed design (Aryan, 2026-11-01): the dragged card floats to the right of the
+   pointer, a line shows where it lands, and a thread changing project shows from and to. */
+:root{
+  color-scheme:dark;
+  --need:#fbbf24; --live:#4ade80; --sleep:#a78bfa; --line:#8ab4ff;
+  --page:#0d0d0d; --bg:#212121; --pane:#191919; --side:#171717; --hover:#2f2f2f; --hover2:#383838; --card:#2a2a2a;
+  --text:#ececec; --text2:#b4b4b4; --text3:#8e8e8e; --text4:#5c5c5c;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'Cascadia Code','Cascadia Mono',Consolas,monospace;
+  --ease:cubic-bezier(.2,.8,.2,1); --fast:140ms; --med:200ms;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--page);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0;text-align:left}
+button:focus-visible{outline:2px solid var(--line);outline-offset:2px}
+svg{display:block;flex:none}
+
+@keyframes rot{to{transform:rotate(360deg)}}
+@keyframes risex{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes sinkx{to{opacity:0;transform:translate(-50%,6px)}}
+
+.sheet{display:flex;flex-direction:column;align-items:center;gap:14px;padding-block:22px 40px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+.top{width:1100px;max-width:100%;display:flex;flex-direction:column;gap:8px}
+.top h1{margin:0;font-size:20px;font-weight:500;line-height:1.35;text-wrap:balance}
+.top .look{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;color:var(--text2);font-size:13.5px}
+.top .look ul{margin:0;padding-left:18px;min-width:0;flex:1}
+.top .look li{margin:1px 0}
+.reset{padding:6px 14px;border-radius:999px;background:#1c1c1c;border:1px solid #2a2a2a;color:var(--text2);font-weight:500;font-size:13px}
+.reset:hover{background:#262626;color:var(--text)}
+.fit{width:1100px;max-width:100%;position:relative;overflow:hidden;border-radius:10px}
+.frame{width:1100px;height:660px;background:var(--side);border-radius:10px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6);display:flex;flex-direction:column;position:absolute;top:0;left:0;transform-origin:top left;user-select:none}
+.frame.dragmode,.frame.dragmode *{cursor:grabbing!important}
+
+.titlebar{height:32px;display:flex;align-items:center;gap:8px;padding-left:14px;flex:none}
+.titlebar .tname{font-size:12.5px;font-weight:500;color:var(--text2)}
+.titlebar .ver{font-size:11px;color:var(--text3);background:var(--hover);border-radius:999px;padding:0 7px;line-height:18px}
+.titlebar .sp{flex:1}
+.caption{height:100%;display:flex}
+.caption span{width:46px;height:100%;display:grid;place-items:center;color:var(--text3)}
+.work{display:flex;flex:1;min-height:0}
+.rail{width:76px;flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;padding:11px 0 8px}
+.ic{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;color:var(--text3)}
+.ic.on{background:var(--hover2);color:var(--text)}
+.navpill{display:flex;flex-direction:column;gap:2px;padding:2px;border-radius:11px;background:#0f0f0f}
+.surface{flex:1;min-width:0;display:flex;background:var(--bg);border-top-left-radius:16px;position:relative;overflow:hidden}
+
+.panel{width:264px;flex:none;display:flex;flex-direction:column;padding:8px;min-height:0;position:relative}
+.srch{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;background:var(--hover);color:var(--text3)}
+.srch .k{margin-left:auto;font-size:11px;color:var(--text4)}
+.plist{flex:1;overflow-y:auto;overflow-x:hidden;margin-top:10px;display:flex;flex-direction:column;position:relative;min-height:0}
+.plist>*{flex:none}
+.plist::-webkit-scrollbar{width:8px}
+.plist::-webkit-scrollbar-thumb{background:#3a3a3a;border-radius:8px}
+.plist::-webkit-scrollbar-track{background:transparent}
+.plbl{font-size:13px;color:var(--text3);font-weight:500;padding:8px 12px 4px;display:flex;align-items:center;gap:6px}
+.group{display:flex;flex-direction:column;min-height:4px}
+
+/* General shows only while it holds a thread */
+.gwrap{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows 300ms var(--ease),opacity 220ms var(--ease)}
+.gwrap.open{grid-template-rows:1fr;opacity:1}
+.gwrap>div{overflow:hidden;min-height:0}
+
+.pblock{display:flex;flex-direction:column;position:relative;border-radius:10px}
+.pj{display:flex;align-items:center;gap:9px;padding:6px 10px;border-radius:10px;font-weight:500;cursor:grab;touch-action:none;transition:background var(--fast),box-shadow var(--fast)}
+.frame:not(.dragmode) .pj:hover{background:var(--hover)}
+.pj .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* A thread held over a project's own row: it goes in at the top of that project */
+.pj.drop{background:rgba(138,180,255,.12);box-shadow:inset 0 0 0 1.5px var(--line)}
+.fo{display:grid}
+.th{display:flex;align-items:center;gap:9px;padding:6px 12px 6px 32px;border-radius:10px;color:var(--text2);cursor:grab;touch-action:none;transition:padding 260ms var(--ease),opacity 200ms var(--ease),background var(--fast)}
+.frame:not(.dragmode) .th:hover{background:var(--hover)}
+.th.gen{padding-left:12px}
+.th .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.th .ki{color:var(--text3);display:grid}
+.th.sel{background:var(--hover);color:var(--text)}
+.th.asleep{color:var(--text3)}
+.th .port{font-size:11.5px;color:var(--text3);background:var(--hover2);border-radius:999px;padding:0 7px}
+.st{width:15px;height:15px;display:grid;place-items:center;flex:none}
+.si{display:grid}
+.si.run,.si.ok{color:var(--live)} .si.sleep{color:var(--sleep)}
+.spin{width:11px;height:11px;border-radius:50%;border:1.5px solid var(--text3);border-right-color:transparent;animation:rot 1s linear infinite;display:inline-block}
+/* The row being dragged stays in its place, dimmed */
+.dragging{opacity:.3}
+
+/* The drop line: a thin bar with a dot at its start */
+.dline{position:absolute;left:6px;right:6px;height:2px;border-radius:2px;background:var(--line);pointer-events:none;opacity:0;transition:top 120ms var(--ease),left 120ms var(--ease),opacity 120ms var(--ease);z-index:5}
+.dline::before{content:"";position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:50%;border:2px solid var(--line);background:var(--bg)}
+.dline.on{opacity:1}
+
+/* The dragged card: full size, floating to the right of the pointer so the line stays in view */
+.ghost{position:absolute;z-index:60;pointer-events:none;background:var(--hover2);border-radius:10px;box-shadow:0 14px 34px rgba(0,0,0,.55);transform:scale(1.03) rotate(-1deg);transition:left 90ms var(--ease),top 90ms var(--ease),transform 160ms var(--ease),opacity 160ms var(--ease)}
+.ghost .pj,.ghost .th{background:transparent!important;cursor:grabbing}
+.ghost .more{font-size:12px;color:var(--text3);padding:0 12px 6px 37px}
+.ghost.back{transition:left 220ms var(--ease),top 220ms var(--ease),transform 220ms var(--ease),opacity 220ms var(--ease);transform:none;opacity:0}
+
+/* From and to: a line opening under the thread's name, only once it would change project */
+.ghost .dest{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows 220ms var(--ease),opacity 180ms var(--ease)}
+.ghost .dest.on{grid-template-rows:1fr;opacity:1}
+.ghost .dest>div{overflow:hidden;min-height:0}
+.ghost .ft{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);white-space:nowrap;padding:0 12px 7px 32px;min-width:0}
+.ghost .ft .fo,.ghost .ft>svg{flex:none}
+.ghost .ft .fo svg{width:13px;height:13px}
+.ghost .ft>svg{color:var(--text3)}
+/* Too long for one line: the new project's name gives way first (the pointer is
+   already on it), the old one's last (that is the one the person needs to read).
+   The two folders and the arrow are never cut. */
+.ghost .ft .pn{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.ghost .ft .pn.from{flex:0 1 auto;min-width:48px}
+.ghost .ft .pn.to{flex:0 6 auto;min-width:34px}
+
+.dockwrap{flex:none;border-top:1px solid #262626;margin-top:6px}
+.dock{display:flex;align-items:center;gap:10px;padding:10px 12px;color:var(--text2)}
+.dock .chev{margin-left:auto;color:var(--text3)}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.hdr{display:flex;align-items:center;gap:12px;padding:12px 16px 10px 22px}
+.hdr .t{flex:1;min-width:0}
+.hdr .t1{display:flex;align-items:center;gap:8px;font-weight:500;font-size:15px}
+.hdr .t1 .ki{color:var(--text3);display:grid}
+.hdr .t2{display:flex;align-items:center;gap:14px;font-size:12.5px;color:var(--text2);margin-top:2px}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;background:var(--hover);color:var(--text2);font-size:13px}
+.term{flex:1;margin:0 12px 12px;background:var(--pane);border-radius:16px;padding:18px 22px;font:13px/1.65 var(--mono);color:#cfcfcf;overflow:hidden;white-space:pre}
+.term .dim{color:var(--text3)} .term .ok{color:var(--live)} .term .acc{color:#e5a56b}
+
+.atoast{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:50;display:flex;align-items:center;gap:10px;background:var(--hover);border-radius:999px;padding:10px 18px;box-shadow:0 10px 30px rgba(0,0,0,.4);font-size:13.5px;white-space:nowrap;animation:risex var(--med) var(--ease)}
+.atoast.out{animation:sinkx 170ms var(--ease) forwards}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+
+<div class="sheet">
+  <div class="top">
+    <h1>Dragging in the sidebar moves projects and threads, with a line showing where they land</h1>
+    <div class="look">
+      <ul>
+        <li>Drag a project up or down inside Pinned or Recent, including above the first one.</li>
+        <li>Drag a project from Recent into Pinned to pin it, or back down to unpin it.</li>
+        <li>Drag a thread between two threads, onto another project, or above Pinned to take it out of its project.</li>
+        <li>A thread moving to another project shows where from and where to on its card. Two projects have long names to show how the line shortens.</li>
+        <li>Scroll the list with the wheel, or hold a dragged row near the top or bottom edge.</li>
+      </ul>
+      <button class="reset" id="reset">Reset</button>
+    </div>
+  </div>
+  <div class="fit" id="fit">
+    <div class="frame" id="frame">
+      <div class="titlebar">
+        <span class="tname">afterterm</span><span class="ver">0.11.2</span><span class="sp"></span>
+        <span class="caption"><span><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5h10" stroke="currentColor"/></svg></span><span><svg width="10" height="10" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" fill="none" stroke="currentColor"/></svg></span><span><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 0l10 10M10 0 0 10" stroke="currentColor"/></svg></span></span>
+      </div>
+      <div class="work">
+        <div class="rail">
+          <span class="ic on"><svg width="18" height="18" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="3" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M9.5 4.5v15" stroke="currentColor" stroke-width="1.7"/></svg></span>
+          <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+          <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+          <div class="navpill">
+            <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24"><path d="M4 11 12 4l8 7v8.5a1 1 0 0 1-1 1h-4.5V15h-5v5.5H5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span>
+            <span class="ic on"><svg width="17" height="17" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="m7.5 10 2.5 2-2.5 2M12 14.5h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          </div>
+        </div>
+        <div class="surface" id="surface">
+          <div class="panel" id="panel">
+            <div class="srch"><svg width="15" height="15" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Search<span class="k">Ctrl+Shift+P</span></div>
+            <div class="plist" id="plist">
+              <div class="gwrap" id="gwrap"><div>
+                <div class="plbl">General</div>
+                <div class="group" id="general"></div>
+              </div></div>
+              <div class="plbl" id="lblPinned"><svg width="13" height="13" viewBox="0 0 24 24"><path d="M15 3h-6l1 2v5.5L7 13v2h4v6h2v-6h4v-2l-3-2.5V5z" fill="currentColor"/></svg>Pinned</div>
+              <div class="group" id="pinned"></div>
+              <div class="plbl" id="lblRecent">Recent</div>
+              <div class="group" id="recent"></div>
+              <div class="dline" id="dline"></div>
+            </div>
+            <div class="dockwrap">
+              <div class="dock">
+                <svg width="16" height="16" viewBox="0 0 24 24"><path d="M2.5 7A2 2 0 0 1 4.5 5h4.6l2 2h8.4a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+                <span>Other projects · 3</span>
+                <svg class="chev" width="14" height="14" viewBox="0 0 24 24"><path d="m6 15 6-6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+            </div>
+          </div>
+          <div class="main">
+            <div class="hdr">
+              <div class="t">
+                <div class="t1"><span class="ki" id="hk"></span>Fix the sidebar order</div>
+                <div class="t2"><span>afterterm</span><span>Opus 5.5</span><span>manual-testing-fixes</span></div>
+              </div>
+              <span class="chip"><span class="spin"></span>Working</span>
+            </div>
+<div class="term"><span class="dim">&gt;</span> Let projects be dragged inside Pinned and Recent
+
+<span class="acc">●</span> Reading src/renderer/components/SidePanel/index.tsx
+<span class="acc">●</span> Update(src/renderer/components/SidePanel/index.tsx)
+  <span class="ok">+</span> a drop line above the first row as well
+<span class="acc">●</span> Running npm test
+  <span class="ok">✓</span> 29 files, 0 failed
+
+<span class="dim">* Thinking…</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+const I = {
+  chat:'<svg width="15" height="15" viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 3.5V17H6.5A2.5 2.5 0 0 1 4 14.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>',
+  shell:'<svg width="15" height="15" viewBox="0 0 24 24"><path d="m5 7 5 5-5 5M12 17h7" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  moon:'<span class="si sleep"><svg width="14" height="14" viewBox="0 0 24 24"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7z" fill="currentColor"/></svg></span>',
+  play:'<span class="si run"><svg width="14" height="14" viewBox="0 0 24 24"><path d="M8.5 5.9c0-1.1 1.2-1.8 2.1-1.2l8.4 5.9c.9.6.9 1.9 0 2.5l-8.4 5.9c-.9.6-2.1 0-2.1-1.2z" fill="currentColor"/></svg></span>',
+  check:'<span class="si ok"><svg width="14" height="14" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>',
+  spin:'<span class="spin"></span>',
+  folder:c => `<span class="fo" style="color:${c}"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M2.5 7A2 2 0 0 1 4.5 5h4.6l2 2h8.4a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2z" fill="currentColor"/><path d="M2.5 9.5h19" stroke="rgba(0,0,0,.28)" stroke-width="1.2"/></svg></span>`
+};
+const ARROW = '<svg width="12" height="12" viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+// General has no project: a dashed grey folder
+const NOPROJ = '<span class="fo" style="color:var(--text3)"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M2.5 7A2 2 0 0 1 4.5 5h4.6l2 2h8.4a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="3 2.5" stroke-linejoin="round"/></svg></span>';
+const stateIcon = s => s === 'asleep' ? I.moon : s === 'run' ? I.play : s === 'working' ? I.spin : s === 'done' ? I.check : '';
+
+const START = [
+  {id:'afterterm', name:'afterterm', color:'#60a5fa', pinned:true},
+  {id:'tales', name:'aftertales', color:'#f472b6', pinned:true},
+  {id:'pitara', name:'pitara-site-marketing-redesign', color:'#4ade80'},
+  {id:'notes', name:'notes-app-with-offline-sync-and-tags', color:'#a78bfa'},
+  {id:'tinker', name:'tinker-scripts', color:'#fb923c'}
+];
+let PROJECTS = START.map(p => ({...p}));
+const THREADS = [
+  {id:'t1', p:'afterterm', kind:'chat', name:'Fix the sidebar order', state:'working', sel:true},
+  {id:'t2', p:'afterterm', kind:'shell', name:'npm start', state:'run', port:5173},
+  {id:'t3', p:'tales', kind:'chat', name:'Tale page layout', state:'asleep'},
+  {id:'t3b', p:'tales', kind:'chat', name:'Audio player controls', state:'done'},
+  {id:'t3c', p:'tales', kind:'shell', name:'npm run dev', state:'run', port:3000},
+  {id:'t3d', p:'tales', kind:'chat', name:'Search by author', state:'asleep'},
+  {id:'t4', p:'pitara', kind:'chat', name:'Write the about page', state:'done'},
+  {id:'t5', p:'pitara', kind:'shell', name:'npm run dev', state:'run', port:4321},
+  {id:'t6', p:'notes', kind:'chat', name:'Sync conflict on save', state:'asleep'},
+  {id:'t6b', p:'notes', kind:'chat', name:'Markdown preview', state:'asleep'},
+  {id:'t6c', p:'notes', kind:'shell', name:'PowerShell 7', state:'asleep'},
+  {id:'t6d', p:'notes', kind:'chat', name:'Tags in the sidebar', state:'asleep'},
+  {id:'t7', p:'tinker', kind:'shell', name:'Git Bash', state:'asleep'},
+  {id:'t8', p:'tinker', kind:'chat', name:'Rename the photos', state:'asleep'}
+];
+
+const $ = id => document.getElementById(id);
+const frame = $('frame'), plist = $('plist'), dline = $('dline');
+$('hk').innerHTML = I.chat;
+const k = () => +frame.dataset.k || 1;
+const proj = id => PROJECTS.find(q => q.id === id);
+
+function threadEl(t){
+  const el = document.createElement('div');
+  el.className = `th${t.sel ? ' sel' : ''}${t.state === 'asleep' ? ' asleep' : ''}`;
+  el.dataset.tid = t.id;
+  el.innerHTML = `<span class="ki">${I[t.kind]}</span><span class="n">${t.name}</span>${t.port ? `<span class="port">:${t.port}</span>` : ''}<span class="st">${stateIcon(t.state)}</span>`;
+  return el;
+}
+function blockEl(p){
+  const el = document.createElement('div');
+  el.className = 'pblock'; el.dataset.id = p.id;
+  el.innerHTML = `<div class="pj">${I.folder(p.color)}<span class="n">${p.name}</span></div><div class="ths"></div>`;
+  THREADS.filter(t => t.p === p.id).forEach(t => el.querySelector('.ths').appendChild(threadEl(t)));
+  return el;
+}
+function build(){
+  $('general').replaceChildren();
+  $('pinned').replaceChildren(...PROJECTS.filter(p => p.pinned).map(blockEl));
+  $('recent').replaceChildren(...PROJECTS.filter(p => !p.pinned).map(blockEl));
+  syncGeneral(true);
+}
+// General is shown only while it holds a thread. Inside a drop the change is
+// instant, so the slide that follows starts from the real final layout.
+function syncGeneral(instant){
+  const g = $('gwrap');
+  if (instant) g.style.transition = 'none';
+  g.classList.toggle('open', $('general').children.length > 0);
+  if (instant) { void g.offsetWidth; g.style.transition = ''; }
+}
+
+function fit(){
+  const w = $('fit').clientWidth, s = Math.min(1, w / 1100);
+  frame.style.transform = `scale(${s})`;
+  $('fit').style.height = (660 * s) + 'px';
+  frame.dataset.k = s;
+}
+addEventListener('resize', fit); fit();
+// Screen rect to frame-local rect (the frame may be scaled)
+function local(rect, ref){ const r = ref.getBoundingClientRect(), s = k(); return {top:(rect.top - r.top)/s, left:(rect.left - r.left)/s, width:rect.width/s, height:rect.height/s}; }
+function pt(e){ const r = frame.getBoundingClientRect(), s = k(); return [(e.clientX - r.left)/s, (e.clientY - r.top)/s]; }
+// Where a row sits in the list's layout. It ignores the slide animations, so
+// the target never flickers while rows are still moving.
+function inPl(el){
+  let t = 0, e = el;
+  while (e && e !== plist) { t += e.offsetTop; e = e.offsetParent; }
+  const top = t - plist.scrollTop;
+  return {top, bottom: top + el.offsetHeight, height: el.offsetHeight};
+}
+
+// ── Everything that moves on a drop slides from where it was ──
+function flip(mutate, firstOverride){
+  const sel = '.pblock,.th,.plbl';
+  const first = new Map();
+  frame.querySelectorAll(sel).forEach(e => first.set(e, e.getBoundingClientRect()));
+  if (firstOverride) first.set(firstOverride.el, firstOverride.rect);
+  mutate();
+  const s = k();
+  const deltas = new Map();
+  frame.querySelectorAll(sel).forEach(e => {
+    const f = first.get(e); if (!f) return;
+    const l = e.getBoundingClientRect();
+    deltas.set(e, {dx:(f.left - l.left)/s, dy:(f.top - l.top)/s});
+  });
+  deltas.forEach((d, e) => {
+    // A thread inside a block that also slides moves only by the difference
+    const parent = e.classList.contains('th') ? e.closest('.pblock') : null;
+    const pd = parent && deltas.get(parent);
+    const dx = d.dx - (pd ? pd.dx : 0), dy = d.dy - (pd ? pd.dy : 0);
+    if (Math.abs(dx) < .5 && Math.abs(dy) < .5) return;
+    e.style.transition = 'none';
+    e.style.transform = `translate(${dx}px,${dy}px)`;
+  });
+  void frame.offsetWidth;
+  deltas.forEach((d, e) => {
+    if (!e.style.transform) return;
+    e.style.transition = 'transform 320ms cubic-bezier(.2,.8,.2,1), padding 260ms cubic-bezier(.2,.8,.2,1)';
+    e.style.transform = '';
+    setTimeout(() => { e.style.transition = ''; }, 340);
+  });
+}
+
+// ── Dragging ──
+// A press only becomes a drag after the pointer moves 7px, so a click with a
+// small wobble never flashes the card and the line.
+const DRAG_START_PX = 7;
+let D = null;
+
+frame.addEventListener('pointerdown', e => {
+  if (e.button !== 0 || D) return;
+  const th = e.target.closest('.plist .th'), pj = e.target.closest('.plist .pj');
+  const row = th || pj; if (!row) return;
+  D = {pending:true, kind: th ? 'thread' : 'project', row, src: th ? th : pj.closest('.pblock'), x0:e.clientX, y0:e.clientY};
+  frame.setPointerCapture?.(e.pointerId);
+});
+frame.addEventListener('pointermove', e => {
+  if (!D) return;
+  if (D.pending) {
+    if (Math.hypot(e.clientX - D.x0, e.clientY - D.y0) < DRAG_START_PX) return;
+    startDrag(e);
+  }
+  moveDrag(e);
+});
+frame.addEventListener('pointerup', () => { if (!D) return; if (D.pending) { D = null; return; } endDrag(true); });
+frame.addEventListener('pointercancel', () => { if (D && !D.pending) endDrag(false); D = null; });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && D && !D.pending) endDrag(false); });
+
+function startDrag(e){
+  D.pending = false;
+  const rr = local(D.row.getBoundingClientRect(), frame);
+  const [px, py] = pt(e);
+  const g = document.createElement('div');
+  g.className = 'ghost';
+  g.appendChild(D.row.cloneNode(true));
+  g.style.width = rr.width + 'px';
+  if (D.kind === 'project') {
+    const n = D.src.querySelectorAll('.th').length;
+    if (n) { const m = document.createElement('div'); m.className = 'more'; m.textContent = n === 1 ? '1 thread' : `${n} threads`; g.appendChild(m); }
+  } else {
+    const dest = document.createElement('div'); dest.className = 'dest';
+    dest.innerHTML = '<div><div class="ft"></div></div>';
+    g.appendChild(dest);
+    const home = D.src.closest('.pblock');
+    D.cur = home ? home.dataset.id : 'general';
+    D.indKey = null;
+  }
+  frame.appendChild(g);
+  D.ghost = g; D.home = {left:rr.left, top:rr.top};
+  // The card floats to the right of the pointer, centred on it
+  D.offX = -26; D.offY = g.offsetHeight / 2;
+  g.style.left = (px - D.offX) + 'px'; g.style.top = (py - D.offY) + 'px';
+  D.src.classList.add('dragging');
+  frame.classList.add('dragmode');
+  D.raf = requestAnimationFrame(edgeLoop);
+}
+// Holding a dragged row near the list's top or bottom edge scrolls it
+function edgeLoop(){
+  if (!D || D.pending) return;
+  const pr = plist.getBoundingClientRect(), s = k();
+  const y = (D.cy - pr.top) / s, h = pr.height / s;
+  let v = 0;
+  if (y < 40) v = -Math.min(14, (40 - y) / 3);
+  else if (y > h - 40) v = Math.min(14, (y - (h - 40)) / 3);
+  if (v) plist.scrollTop += v;
+  D.raf = requestAnimationFrame(edgeLoop);
+}
+plist.addEventListener('scroll', () => { if (D && !D.pending) retarget(); });
+
+function moveDrag(e){
+  const [px, py] = pt(e);
+  D.ghost.style.left = (px - D.offX) + 'px';
+  D.ghost.style.top = (py - D.offY) + 'px';
+  D.cy = e.clientY;
+  retarget();
+}
+function retarget(){
+  const pr = plist.getBoundingClientRect(), s = k();
+  const y = (D.cy - pr.top) / s;
+  frame.querySelectorAll('.pj.drop').forEach(x => x.classList.remove('drop'));
+  D.line = false;
+  D.target = D.kind === 'project' ? projectTarget(y) : threadTarget(y);
+  // No line where the row already is: dropping there changes nothing
+  if (D.target && isNoop(D, D.target)) D.line = false;
+  if (!D.line) dline.classList.remove('on');
+  if (D.kind === 'thread') showFromTo();
+}
+
+// The line slides between places; when it first shows it appears in place,
+// instead of sliding in from wherever it was last time.
+function showLine(y, indent){
+  const fresh = !dline.classList.contains('on');
+  if (fresh) dline.style.transition = 'none';
+  dline.style.top = (y - 1 + plist.scrollTop) + 'px';
+  dline.style.left = (indent ? 30 : 6) + 'px';
+  if (fresh) { void dline.offsetWidth; dline.style.transition = ''; }
+  dline.classList.add('on');
+  D.line = true;
+}
+const nextOf = (el, cls) => { let n = el.nextElementSibling; while (n && !n.classList.contains(cls)) n = n.nextElementSibling; return n; };
+function isNoop(d, t){
+  if (d.kind === 'project') return $(t.sec) === d.src.parentNode && t.before === nextOf(d.src, 'pblock');
+  const parent = t.gen ? $('general') : t.block.querySelector('.ths');
+  return parent === d.src.parentNode && (t.before === d.src || t.before === nextOf(d.src, 'th'));
+}
+
+// Project: a slot inside Pinned or Recent. Above Recent's heading counts as Pinned.
+function projectTarget(y){
+  const sec = y < inPl($('lblRecent')).top + 10 ? 'pinned' : 'recent';
+  const blocks = [...$(sec).children].filter(b => b !== D.src);
+  let i = 0;
+  for (const b of blocks) { const r = inPl(b); if (y > r.top + r.height / 2) i++; }
+  let lineY;
+  if (!blocks.length) lineY = inPl(sec === 'pinned' ? $('lblPinned') : $('lblRecent')).bottom + 2;
+  else if (i === 0) lineY = inPl(blocks[0]).top;
+  else lineY = inPl(blocks[i - 1]).bottom;
+  showLine(lineY, false);
+  return {sec, before: blocks[i] || null};
+}
+
+// Thread: above Pinned (out of its project, into General), a project's own row
+// (goes in at the top of that project), or between two threads.
+function threadTarget(y){
+  const pin = inPl($('lblPinned'));
+  if (y <= pin.bottom) {
+    const rows = [...$('general').children].filter(t => t !== D.src);
+    if (!rows.length) { showLine(pin.top + 2, false); return {gen:true, before:null}; }
+    let i = 0; for (const t of rows) { const r = inPl(t); if (y > r.top + r.height / 2) i++; }
+    showLine(i === 0 ? inPl(rows[0]).top : inPl(rows[i - 1]).bottom, false);
+    return {gen:true, before: rows[i] || null};
+  }
+  for (const b of frame.querySelectorAll('.plist .pblock')) {
+    const r = inPl(b); if (y < r.top || y > r.bottom) continue;
+    const pjr = inPl(b.querySelector('.pj'));
+    if (y <= pjr.bottom) { b.querySelector('.pj').classList.add('drop'); return {block:b, before: b.querySelector('.ths').firstElementChild}; }
+    const rows = [...b.querySelectorAll('.th')].filter(t => t !== D.src);
+    let i = 0; for (const t of rows) { const tr = inPl(t); if (y > tr.top + tr.height / 2) i++; }
+    const ly = rows.length ? (i === 0 ? inPl(rows[0]).top : inPl(rows[i - 1]).bottom) : pjr.bottom;
+    showLine(ly, true);
+    return {block:b, before: rows[i] || null};
+  }
+  return null;
+}
+
+// From and to on the card, only while the thread would land in another project
+function showFromTo(){
+  const t = D.target;
+  const dest = (!t || isNoop(D, t)) ? D.cur : (t.gen ? 'general' : t.block.dataset.id);
+  if (dest === D.indKey) return;
+  D.indKey = dest;
+  const moving = dest !== D.cur;
+  const de = D.ghost.querySelector('.dest');
+  const tag = (id, side) => { const p = proj(id); return (p ? I.folder(p.color) : NOPROJ) + `<span class="pn ${side}">${p ? p.name : 'General'}</span>`; };
+  // When it stops moving, the old content stays while the line folds away
+  if (moving) de.querySelector('.ft').innerHTML = tag(D.cur, 'from') + ARROW + tag(dest, 'to');
+  de.classList.toggle('on', moving);
+}
+
+function endDrag(drop){
+  const d = D; D = null;
+  cancelAnimationFrame(d.raf);
+  frame.querySelectorAll('.pj.drop').forEach(x => x.classList.remove('drop'));
+  dline.classList.remove('on');
+  frame.classList.remove('dragmode');
+  const t = drop && d.target && !isNoop(d, d.target) ? d.target : null;
+  if (!t) {
+    // Nowhere to land, Esc, or the same place: the card floats back
+    d.ghost.classList.add('back');
+    d.ghost.style.left = d.home.left + 'px'; d.ghost.style.top = d.home.top + 'px';
+    setTimeout(() => { d.ghost.remove(); d.src.classList.remove('dragging'); }, 220);
+    return;
+  }
+  const gRect = d.ghost.getBoundingClientRect();
+  d.ghost.remove();
+  let note = null;
+  flip(() => {
+    if (d.kind === 'project') {
+      const p = proj(d.src.dataset.id);
+      const wasPinned = !!p.pinned;
+      p.pinned = t.sec === 'pinned';
+      if (p.pinned !== wasPinned) note = p.pinned ? `Pinned ${p.name}` : `Unpinned ${p.name}`;
+      $(t.sec).insertBefore(d.src, t.before);
+    } else if (t.gen) {
+      $('general').insertBefore(d.src, t.before); d.src.classList.add('gen');
+    } else {
+      t.block.querySelector('.ths').insertBefore(d.src, t.before); d.src.classList.remove('gen');
+    }
+    d.src.classList.remove('dragging');
+    syncGeneral(true);
+  }, {el: d.src, rect: gRect});
+  if (note) toast(note);
+}
+
+let toastEl = null, toastT = 0;
+function toast(text){
+  if (toastEl) toastEl.remove();
+  clearTimeout(toastT);
+  const t = document.createElement('div');
+  t.className = 'atoast'; t.textContent = text;
+  $('surface').appendChild(t); toastEl = t;
+  toastT = setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 170); toastEl = null; }, 2200);
+}
+
+$('reset').addEventListener('click', () => { PROJECTS = START.map(p => ({...p})); build(); });
+build();
+})();
+</script>

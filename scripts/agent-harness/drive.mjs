@@ -953,9 +953,13 @@ async function cmdHome() {
     console.log(`    [${p.group}] ${p.name}${pills(p) ? '  ' + pills(p) : ''}${p.time ? '  ' + p.time : ''}`);
   }
   if (data.more) console.log(`    (${data.more})`);
-  console.log('  Archived:');
-  if (data.archivedToggle) console.log(`    (${data.archivedToggle})`);
-  for (const p of data.archivedRows) console.log(`    [${p.group}] ${p.name}${p.time ? '  ' + p.time : ''}`);
+  // Home's Archived section went away on 2026-11-01 (archived projects are rows
+  // in Projects); printed only if a build that still has it is driven.
+  if (data.archivedToggle || data.archivedRows.length) {
+    console.log('  Archived:');
+    if (data.archivedToggle) console.log(`    (${data.archivedToggle})`);
+    for (const p of data.archivedRows) console.log(`    [${p.group}] ${p.name}${p.time ? '  ' + p.time : ''}`);
+  }
 }
 
 async function cmdProject() {

@@ -7,6 +7,11 @@
 // every group renders as a row, whatever its tab count, and later phases build the
 // Pinned and Projects sections on top of this same walk.
 //
+// Since 2026-11-01 the panel no longer uses this walk: its project order is the
+// saved order of `groups` (panelView.ts). The walk stays for one job, reading the
+// order a version 2 session.json's panel showed (legacyProjectOrder in
+// sessionMigration.ts), so an upgrade keeps everyone's Pinned order.
+//
 // Order rules, chosen so every existing session keeps the exact visible order it has
 // today (Phase 0 makes no visual changes):
 //   1. Walk `tabs` in order. An ungrouped tab (no groupId, or a groupId that matches

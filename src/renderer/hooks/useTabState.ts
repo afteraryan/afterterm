@@ -1,13 +1,15 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useLayoutEffect } from 'react';
 import { Tab, Group, GroupColor, nextGroupColor, TabNotification, ProjectIconId } from '../components/TabBar/types';
 import type { SavedSession } from '../sessionMigration';
-import { insertNewThread, nextActiveTabAfterArchive, threadFolder, threadName } from '../threadView';
+import { insertNewThread, placeThread, nextActiveTabAfterArchive, threadFolder, threadName } from '../threadView';
 import { claudeSummaryTitle } from '../chatTitle';
 // Named apart from the hook's own sleepTab/wakeTab callbacks below: these are the
 // pure record transforms, the callbacks are the state actions that apply them.
 import { sleepTab as sleepTabRecord, wakeTab as wakeTabRecord, restoredTab } from '../sleepWake';
 import { historyEntryFor, appendHistory, removeHistoryEntry, tabFromHistory, maxNumericId } from '../history';
-import { lastWorkedThread } from '../attention';
+import { lastWorkedThread, enteringRecent, moveGroupsToTop } from '../attention';
+import { placeProject as placeProjectRecord } from '../panelView';
+import type { ProjectSection } from '../panelView';
 
 // Everything the group modal can set. A group with no tabs is a valid, persisted
 // state (it sits in the sidebar's Projects shelf), so creation no longer needs a tab.
@@ -42,6 +44,16 @@ let groupCounter = 0;
 function makeTabId() { return `tab-${++tabCounter}`; }
 function makeGroupId() { return `group-${++groupCounter}`; }
 
+// A project being used: its activity stamped (never backwards) and, if it was
+// archived, back out of Other projects (2026-11-01: using an archived project
+// brings it back). Whether it then goes to the top of Recent is decided by the
+// order effect in useTabState, not here.
+function projectInUse(groups: Group[], groupId: string, now: number): Group[] {
+  return groups.map(g => g.id === groupId
+    ? { ...g, lastActiveAt: Math.max(g.lastActiveAt, now), archived: false }
+    : g);
+}
+
 export function useTabState() {
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -57,6 +69,23 @@ export function useTabState() {
   const groupsRef = useRef(groups);
   groupsRef.current = groups;
 
+  // The panel's order rule (Aryan, 2026-11-01): a project that comes into
+  // Recent goes to the top of it, and then stays where it is. Every state change
+  // is compared with the one before it at the same clock reading (enteringRecent
+  // in attention.ts); whatever entered moves to the front of the saved order.
+  // Layout effect, so the panel never paints the project in its old place
+  // first. A restored session sets a new baseline instead of counting every
+  // project as just arrived.
+  const orderBaseRef = useRef<{ groups: Group[]; tabs: Tab[] } | null>(null);
+  const resetOrderBaseRef = useRef(false);
+  useLayoutEffect(() => {
+    const before = orderBaseRef.current;
+    orderBaseRef.current = { groups, tabs };
+    if (!before || resetOrderBaseRef.current) { resetOrderBaseRef.current = false; return; }
+    const entering = enteringRecent(before, { groups, tabs }, Date.now());
+    if (entering.length) setGroups(prev => moveGroupsToTop(prev, entering));
+  }, [groups, tabs]);
+
   const addTab = useCallback((groupId?: string, shellId?: string) => {
     const id = makeTabId();
     // A terminal opened inside a group starts in the project folder and, unless the
@@ -69,7 +98,7 @@ export function useTabState() {
     };
     // Opening a terminal in a project is the user acting on that project, so it
     // counts as activity for the group as much as switching to one of its tabs does.
-    if (group) setGroups(prev => prev.map(g => g.id === group.id ? { ...g, lastActiveAt: now } : g));
+    if (group) setGroups(prev => projectInUse(prev, group.id, now));
     // First in its project, so the newest threads are the ones the fold shows.
     setTabs(prev => insertNewThread(prev, newTab));
     setActiveTabId(id);
@@ -118,10 +147,9 @@ export function useTabState() {
   const wakeTab = useCallback((tabId: string) => {
     const now = Date.now();
     setTabs(prev => prev.map(t => t.id === tabId ? wakeTabRecord(t, now) : t));
+    // Waking a thread of an archived project brings the project back (2026-11-01).
     const groupId = tabsRef.current.find(t => t.id === tabId)?.groupId;
-    if (groupId) {
-      setGroups(prev => prev.map(g => g.id === groupId ? { ...g, lastActiveAt: now } : g));
-    }
+    if (groupId) setGroups(prev => projectInUse(prev, groupId, now));
   }, []);
 
   // Resume a closed thread from a project's history. The recreated tab keeps the
@@ -138,8 +166,8 @@ export function useTabState() {
     // Same place as a new thread (insertNewThread): first in its project, since a
     // resumed thread is the one about to be worked in.
     setTabs(prev => insertNewThread(prev, tab));
-    setGroups(prev => prev.map(g => g.id === groupId
-      ? { ...g, history: removeHistoryEntry(g.history, entryId), lastActiveAt: now }
+    setGroups(prev => projectInUse(prev, groupId, now).map(g => g.id === groupId
+      ? { ...g, history: removeHistoryEntry(g.history, entryId) }
       : g));
     // setActiveTabId, not activateTab: the tab is not in `tabs` yet this render, so
     // activateTab's own stamping would find nothing. tabFromHistory already set
@@ -312,34 +340,6 @@ export function useTabState() {
     return id;
   }, []);
 
-  const createGroup = useCallback((tabId1: string, tabId2?: string): string => {
-    const id = makeGroupId();
-    const color = nextGroupColor(groups);
-    const newGroup: Group = {
-      id, label: 'New Group', color, collapsed: false,
-      pinned: false, archived: false, lastActiveAt: Date.now(), history: [],
-    };
-    setGroups(prev => [...prev, newGroup]);
-    setTabs(prev => {
-      if (!tabId2 || tabId2 === tabId1) {
-        return prev.map(t => t.id === tabId1 ? { ...t, groupId: id } : t);
-      }
-      const t1Idx = prev.findIndex(t => t.id === tabId1);
-      const t2Idx = prev.findIndex(t => t.id === tabId2);
-      let next = prev.map(t =>
-        t.id === tabId1 || t.id === tabId2 ? { ...t, groupId: id } : t
-      );
-      if (t1Idx > -1 && t2Idx > -1 && Math.abs(t1Idx - t2Idx) > 1) {
-        const tab1 = next.find(t => t.id === tabId1)!;
-        next = next.filter(t => t.id !== tabId1);
-        const newT2Idx = next.findIndex(t => t.id === tabId2);
-        next.splice(newT2Idx, 0, tab1);
-      }
-      return next;
-    });
-    return id;
-  }, [groups]);
-
   const addToGroup = useCallback((tabId: string, groupId: string) => {
     setTabs(prev => {
       const next = prev.map(t => t.id === tabId ? { ...t, groupId } : t);
@@ -399,60 +399,32 @@ export function useTabState() {
     setTabs(prev => prev.map(t => t.groupId === groupId ? { ...t, groupId: undefined } : t));
   }, []);
 
-  const moveTab = useCallback((tabId: string, anchorTabId: string, position: 'before' | 'after') => {
-    setTabs(prev => {
-      const tab = prev.find(t => t.id === tabId);
-      const anchor = prev.find(t => t.id === anchorTabId);
-      if (!tab || !anchor || tabId === anchorTabId) return prev;
-      const without = prev.filter(t => t.id !== tabId);
-      const anchorIdx = without.findIndex(t => t.id === anchorTabId);
-      if (anchorIdx === -1) return prev;
-      const insertIdx = position === 'before' ? anchorIdx : anchorIdx + 1;
-      // The tab inherits the group of whatever it was dropped next to: drop among a
-      // group's tabs → join that group at that spot; drop next to an ungrouped tab →
-      // leave the group. Inserting adjacent to the anchor keeps every group contiguous.
-      const moved = { ...tab, groupId: anchor.groupId };
-      const next = [...without];
-      next.splice(insertIdx, 0, moved);
-      return next;
-    });
+  // A drop in the panel (docs/mockups/sidebar-drag-and-drop.html). A thread goes
+  // into `groupId` (undefined is General) just above `beforeId`, or at the end of
+  // that list; a project goes into Pinned or Recent just above `beforeId`, or at
+  // the end of that section, pinned or unpinned to match (placeThread in
+  // threadView.ts, placeProject in panelView.ts). Nothing else moves.
+  // placeProject returns whether the project's pinned flag changed, so the
+  // caller can say so ("Pinned afterterm").
+  const placeThreadAt = useCallback((tabId: string, groupId: string | undefined, beforeId: string | null) => {
+    setTabs(prev => placeThread(prev, tabId, groupId, beforeId));
   }, []);
 
-  const moveGroup = useCallback((groupId: string, afterTabId: string | null) => {
-    setTabs(prev => {
-      const groupTabs = prev.filter(t => t.groupId === groupId);
-      const rest = prev.filter(t => t.groupId !== groupId);
-      if (groupTabs.length === 0) return prev;
-      if (afterTabId === null) return [...groupTabs, ...rest];
-      const idx = rest.findIndex(t => t.id === afterTabId);
-      if (idx === -1) return [...rest, ...groupTabs];
-      const next = [...rest];
-      next.splice(idx + 1, 0, ...groupTabs);
-      return next;
-    });
-  }, []);
-
-  const moveGroupAfterGroup = useCallback((groupId: string, afterGroupId: string) => {
-    setTabs(prev => {
-      const groupTabs = prev.filter(t => t.groupId === groupId);
-      const rest = prev.filter(t => t.groupId !== groupId);
-      if (groupTabs.length === 0) return prev;
-      const lastIdx = rest.map(t => t.groupId).lastIndexOf(afterGroupId);
-      if (lastIdx === -1) return prev;
-      const next = [...rest];
-      next.splice(lastIdx + 1, 0, ...groupTabs);
-      return next;
-    });
+  const placeProject = useCallback((groupId: string, section: ProjectSection, beforeId: string | null): boolean => {
+    const was = groupsRef.current.find(g => g.id === groupId)?.pinned;
+    const next = placeProjectRecord(groupsRef.current, tabsRef.current, Date.now(), groupId, section, beforeId);
+    if (next === groupsRef.current) return false;
+    groupsRef.current = next;
+    setGroups(next);
+    return next.find(g => g.id === groupId)?.pinned !== was;
   }, []);
 
   // User-driven activation: focus the tab and record the moment on it and on its
   // group. Only the user's own switching counts here; PTY input and output stamping
   // is Phase 2, so an unattended background process cannot look "recently used".
-  // `keepProjectOrder` (Phase 8) skips the group stamp: the panel's Recent list is
-  // ordered by that stamp, so the keyboard cycle (Ctrl+Shift+Down/Up) must not
-  // reorder the projects it is moving through, or two projects would trade
-  // places under the keys and the cycle would never reach a third. The thread
-  // itself is still stamped; the project rises when the user clicks or types.
+  // `keepProjectOrder` (Phase 8) skips the group stamp. The panel no longer orders
+  // anything by that stamp (2026-11-01), but Home's Projects list still does, and
+  // moving through threads with Ctrl+Shift+Down/Up is not using their projects.
   const activateTab = useCallback((tabId: string, keepProjectOrder = false) => {
     const now = Date.now();
     setActiveTabId(tabId);
@@ -466,20 +438,31 @@ export function useTabState() {
 
   // Pin and unpin a project. Pinning is explicit and only explicit: nothing else in
   // the app sets this flag, so a project reaches the Pinned section only because the
-  // user put it there.
+  // user put it there. From a button or a menu (a drag places it itself): pinned,
+  // it goes at the end of Pinned; unpinned, at the top of Recent, where a
+  // project coming into Recent always goes.
   const togglePin = useCallback((groupId: string) => {
-    setGroups(prev => prev.map(g => g.id === groupId ? { ...g, pinned: !g.pinned } : g));
+    const g = groupsRef.current.find(x => x.id === groupId);
+    if (!g) return;
+    const next = g.pinned
+      ? moveGroupsToTop(groupsRef.current.map(x => x.id === groupId ? { ...x, pinned: false } : x), [groupId])
+      : placeProjectRecord(groupsRef.current, tabsRef.current, Date.now(), groupId, 'pinned', null);
+    groupsRef.current = next;
+    setGroups(next);
   }, []);
 
-  // Archive takes a project off the board: it leaves the sidebar (panelSections in panelView.ts
-  // drops archived groups) and moves to Home's Archived list. Its threads keep
-  // running, they are just no longer reachable from the sidebar, so an active thread
+  // Archive moves a project into the panel's Other projects drawer, at its top
+  // (2026-11-01; it used to hide the project everywhere except Home). Its awake
+  // threads are put to sleep first by the caller (app.tsx), and an active thread
   // inside the project hands over to the first thread outside every archived one.
-  // Archiving also clears `pinned`; restoring leaves the project unpinned, because
-  // pinning is a deliberate act and has to be repeated deliberately.
+  // Archiving also clears `pinned` (Aryan, 2026-11-01). Restoring stamps its
+  // activity, so it comes back at the top of Recent (the order effect above), and
+  // leaves it unpinned: pinning is a deliberate act and is repeated deliberately.
   const setGroupArchived = useCallback((groupId: string, archived: boolean) => {
-    setGroups(prev => prev.map(g =>
-      g.id === groupId ? { ...g, archived, pinned: archived ? false : g.pinned } : g));
+    const now = Date.now();
+    setGroups(prev => archived
+      ? moveGroupsToTop(prev.map(g => g.id === groupId ? { ...g, archived: true, pinned: false } : g), [groupId])
+      : projectInUse(prev, groupId, now));
     if (!archived) return;
     const archivedIds = groupsRef.current
       .filter(g => g.archived || g.id === groupId)
@@ -533,9 +516,7 @@ export function useTabState() {
   // Returns the activated tab id, or null when the project has no threads at
   // all (the caller decides what to do then, same as openProject's `false`).
   const bringProjectIn = useCallback((groupId: string, now: number): string | null => {
-    setGroups(prev => prev.map(g => g.id === groupId
-      ? { ...g, lastActiveAt: Math.max(g.lastActiveAt, now), collapsed: false }
-      : g));
+    setGroups(prev => projectInUse(prev, groupId, now).map(g => g.id === groupId ? { ...g, collapsed: false } : g));
     const last = lastWorkedThread(tabsRef.current.filter(t => t.groupId === groupId));
     if (!last) return null;
     activateTab(last.id);
@@ -572,6 +553,7 @@ export function useTabState() {
     }));
     setGroups(saved.groups);
     setActiveTabId(activeId);
+    resetOrderBaseRef.current = true;
   }, []);
 
   return {
@@ -580,10 +562,10 @@ export function useTabState() {
     addTab, closeTab, renameTab, updateTabCwd, setClaudeSession, setTabNotification, setTabFontSize,
     sleepTab, wakeTab, resumeFromHistory,
     setClaudeMeta, setGitInfo, setPort, setLastCommand, setUnread,
-    createGroup, createConfiguredGroup, addToGroup, removeFromGroup,
+    createConfiguredGroup, addToGroup, removeFromGroup,
     renameGroup, setGroupColor, updateGroup, toggleGroupCollapse, setGroupCollapsedMany, deleteGroup,
     togglePin, setGroupArchived, touchActivity, openProject, bringProjectIn,
-    moveTab, moveGroup, moveGroupAfterGroup,
+    placeThreadAt, placeProject,
     restoreSession,
   };
 }

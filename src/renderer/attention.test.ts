@@ -5,7 +5,7 @@
 
 import {
   countStates, countTabs, projectAttention, totalAttention, railProjects,
-  panelLists, firstThreadToOpen, lastWorkedThread, RECENT_WINDOW_MS, isWaitingState,
+  panelLists, isRecentProject, enteringRecent, moveGroupsToTop, firstThreadToOpen, lastWorkedThread, RECENT_WINDOW_MS, isWaitingState,
 } from './attention.ts';
 import type { AttentionCounts } from './attention.ts';
 import type { ThreadState } from './threadView.ts';
@@ -191,21 +191,32 @@ console.log('\nattention: panelLists\n');
     check('a stale project with no tabs is in other', other.map(x => x.id).join(',') === 'A');
   }
   {
-    // Pinned and archived are excluded from both lists entirely.
+    // Pinned is excluded from both lists; archived goes to Other (2026-11-01).
     const pinned = group('P', { pinned: true, lastActiveAt: NOW });
     const archived = group('X', { archived: true, lastActiveAt: NOW });
-    const { recent, other } = panelLists([pinned, archived], [], NOW);
+    const { recent, other } = panelLists([pinned, archived], [tab('x', { groupId: 'X' })], NOW);
     check('a pinned project is in neither list', !recent.some(g => g.id === 'P') && !other.some(g => g.id === 'P'));
-    check('an archived project is in neither list', !recent.some(g => g.id === 'X') && !other.some(g => g.id === 'X'));
+    check('an archived project is in Other, even with fresh activity and an awake thread',
+      other.map(g => g.id).join(',') === 'X' && !recent.some(g => g.id === 'X'), show({ recent, other }));
   }
   {
-    // Sort order: recent is by lastActiveAt descending; ties keep caller order (stable sort).
+    // Nothing moves because it was used: Recent keeps the saved order, whatever the activity.
     const a = group('A', { lastActiveAt: NOW - 1 * DAY });
     const b = group('B', { lastActiveAt: NOW - 2 * DAY });
-    const c = group('C', { lastActiveAt: NOW }); // most recent
-    const d = group('D', { lastActiveAt: NOW - 1 * DAY }); // tie with A, comes after A in caller order
-    const { recent } = panelLists([a, b, c, d], [], NOW);
-    check('recent sorts newest first', recent.map(g => g.id).join(',') === 'C,A,D,B', show(recent.map(g => g.id)));
+    const c = group('C', { lastActiveAt: NOW }); // the one used last
+    const { recent } = panelLists([a, b, c], [], NOW);
+    check('recent keeps the saved order, not activity order', recent.map(g => g.id).join(',') === 'A,B,C', show(recent.map(g => g.id)));
+    const used = panelLists([a, { ...b, lastActiveAt: NOW + 5 }, c], [], NOW + 10).recent;
+    check('using a project in Recent does not move it', used.map(g => g.id).join(',') === 'A,B,C', show(used.map(g => g.id)));
+  }
+  {
+    // Archive's hold: a quiet project whose last thread just went to sleep stays in Recent until it folds.
+    const g = group('A', { lastActiveAt: NOW - 30 * DAY });
+    const asleep = [tab('t', { groupId: 'A', asleep: true })];
+    check('without the hold it is in Other', panelLists([g], asleep, NOW).other.map(x => x.id).join(',') === 'A');
+    check('held, it stays in Recent', panelLists([g], asleep, NOW, new Set(['A'])).recent.map(x => x.id).join(',') === 'A');
+    check('once archived the hold no longer keeps it',
+      panelLists([{ ...g, archived: true }], asleep, NOW, new Set(['A'])).other.map(x => x.id).join(',') === 'A');
   }
   {
     // Other keeps caller order, not resorted.
@@ -213,6 +224,80 @@ console.log('\nattention: panelLists\n');
     const b = group('B', { lastActiveAt: NOW - 60 * DAY });
     const { other } = panelLists([b, a], [], NOW);
     check('other keeps caller order', other.map(g => g.id).join(',') === 'B,A');
+  }
+}
+
+console.log('\nattention: isRecentProject, enteringRecent, moveGroupsToTop (the order rules)\n');
+{
+  const NOW = 1_757_000_000_000;
+  const DAY = 24 * 60 * 60 * 1000;
+  const old = (id: string, extra: Partial<Group> = {}) => group(id, { lastActiveAt: NOW - 30 * DAY, ...extra });
+
+  check('a project used today is recent', isRecentProject(group('A', { lastActiveAt: NOW }), [], NOW));
+  check('an old project with an awake thread is recent', isRecentProject(old('A'), [tab('t', { groupId: 'A' })], NOW));
+  check('an old project with only asleep threads is not', !isRecentProject(old('A'), [tab('t', { groupId: 'A', asleep: true })], NOW));
+  check('a pinned project is not in Recent', !isRecentProject(group('A', { pinned: true, lastActiveAt: NOW }), [], NOW));
+  check('an archived project is not in Recent', !isRecentProject(group('A', { archived: true, lastActiveAt: NOW }), [], NOW));
+
+  {
+    // Opening a stale project from Home or the drawer stamps its activity: it enters.
+    const before = { groups: [group('R', { lastActiveAt: NOW }), old('O')], tabs: [] };
+    const after = { groups: [group('R', { lastActiveAt: NOW }), old('O', { lastActiveAt: NOW })], tabs: [] };
+    check('a project stamped back into the window is entering', enteringRecent(before, after, NOW).join(',') === 'O');
+  }
+  {
+    // Waking a thread in a stale project brings it in.
+    const groups = [old('O')];
+    const before = { groups, tabs: [tab('t', { groupId: 'O', asleep: true })] };
+    const after = { groups, tabs: [tab('t', { groupId: 'O', asleep: false })] };
+    check('waking a thread in an Other project is entering', enteringRecent(before, after, NOW).join(',') === 'O');
+  }
+  {
+    // A project already in Recent that is used (activity, wake, notification) is not entering.
+    const before = { groups: [group('A', { lastActiveAt: NOW - DAY })], tabs: [tab('t', { groupId: 'A', asleep: true })] };
+    const after = { groups: [group('A', { lastActiveAt: NOW })], tabs: [tab('t', { groupId: 'A', asleep: false, notification: 'done' })] };
+    check('using a project already in Recent is not entering', enteringRecent(before, after, NOW).length === 0);
+  }
+  {
+    // Restoring an archived project with fresh activity: it enters.
+    const before = { groups: [group('X', { archived: true, lastActiveAt: NOW })], tabs: [] };
+    const after = { groups: [group('X', { lastActiveAt: NOW })], tabs: [] };
+    check('an archived project coming back is entering', enteringRecent(before, after, NOW).join(',') === 'X');
+  }
+  {
+    // Moving from Pinned to Recent is a placement of its own, not an entry.
+    const before = { groups: [group('P', { pinned: true, lastActiveAt: NOW })], tabs: [] };
+    const after = { groups: [group('P', { lastActiveAt: NOW })], tabs: [] };
+    check('unpinning is not entering', enteringRecent(before, after, NOW).length === 0);
+  }
+  {
+    // A project created just now (not in before at all) enters at the top.
+    const before = { groups: [group('A', { lastActiveAt: NOW })], tabs: [] };
+    const after = { groups: [group('A', { lastActiveAt: NOW }), group('NEW', { lastActiveAt: NOW })], tabs: [] };
+    check('a new project is entering', enteringRecent(before, after, NOW).join(',') === 'NEW');
+  }
+  {
+    // Both sides at the same now: a project that went quiet while the app was idle counts as out before.
+    const g = group('A', { lastActiveAt: NOW - 4 * DAY });
+    const before = { groups: [g], tabs: [] };
+    const after = { groups: [{ ...g, lastActiveAt: NOW }], tabs: [] };
+    check('a project that aged out and comes back enters again', enteringRecent(before, after, NOW).join(',') === 'A');
+  }
+
+  const ids = (gs: Group[]) => gs.map(g => g.id).join(',');
+  const gs = [group('P', { pinned: true }), group('A'), group('B'), group('C'), group('Q', { pinned: true })];
+  check('moveGroupsToTop puts one project first', ids(moveGroupsToTop(gs, ['C'])) === 'C,P,A,B,Q');
+  check('several keep their own order', ids(moveGroupsToTop(gs, ['C', 'A'])) === 'A,C,P,B,Q');
+  check('the pinned order is untouched', ids(moveGroupsToTop(gs, ['C']).filter(g => g.pinned)) === 'P,Q');
+  check('no ids returns the same array', moveGroupsToTop(gs, []) === gs);
+  check('already at the top returns the same array', moveGroupsToTop(gs, ['P']) === gs);
+  {
+    // End to end: the rows below an entering project each shift down one and keep their order.
+    const groups = [group('A', { lastActiveAt: NOW }), group('B', { lastActiveAt: NOW }), old('O')];
+    const after = groups.map(g => g.id === 'O' ? { ...g, lastActiveAt: NOW } : g);
+    const entering = enteringRecent({ groups, tabs: [] }, { groups: after, tabs: [] }, NOW);
+    const recent = panelLists(moveGroupsToTop(after, entering), [], NOW).recent;
+    check('the entering project is at the top of Recent and the rest keep their order', ids(recent) === 'O,A,B', ids(recent));
   }
 }
 

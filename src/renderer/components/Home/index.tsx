@@ -1,6 +1,6 @@
 // The Home screen (mock #view-home / renderHome): "what am I working on right
 // now" as a date heading, pinned project cards, a compact list of the other
-// projects, and archived projects tucked behind one toggle. No sidebar, and
+// projects (archived ones among them, since 2026-11-01). No sidebar, and
 // since Phase 8 no icon row of its own either: the Home and Workspace icons
 // live on the always-on rail to the left (Rail/).
 import React, { useState } from 'react';
@@ -27,10 +27,9 @@ const PROJECT_LIMIT = 4;
 
 export function Home({ groups, tabs, now, editors, folderExists, actions, onNewProject }: HomeProps) {
   const [showAll, setShowAll] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
 
-  const { pinned, projects, shownProjects, archived } = homeSections(groups, tabs, {
+  const { pinned, projects, shownProjects } = homeSections(groups, tabs, {
     showAll,
     limit: PROJECT_LIMIT,
   });
@@ -132,10 +131,10 @@ export function Home({ groups, tabs, now, editors, folderExists, actions, onNewP
     </div>
   );
 
-  const renderRow = (group: Group, archivedRow: boolean) => (
+  const renderRow = (group: Group) => (
     <div
       key={group.id}
-      className={`pr${archivedRow ? ' archived' : ''}`}
+      className="pr"
       data-group={group.id}
       role="button"
       tabIndex={0}
@@ -149,21 +148,8 @@ export function Home({ groups, tabs, now, editors, folderExists, actions, onNewP
       </div>
       {counterPills(group)}
       <span className="t">{relativeTime(group.lastActiveAt, now)}</span>
-      {archivedRow ? (
-        <button
-          type="button"
-          className="b q s"
-          data-restore={group.id}
-          onClick={e => { e.stopPropagation(); actions.restore(group.id); }}
-        >
-          Restore
-        </button>
-      ) : (
-        <>
-          {pageButton(group)}
-          {pinButton(group)}
-        </>
-      )}
+      {pageButton(group)}
+      {pinButton(group)}
     </div>
   );
 
@@ -229,7 +215,7 @@ export function Home({ groups, tabs, now, editors, folderExists, actions, onNewP
             </button>
           )}
           <div className="list">
-            {shownProjects.map(g => renderRow(g, false))}
+            {shownProjects.map(renderRow)}
             {projects.length > PROJECT_LIMIT && (
               <button type="button" className="more" data-more="" onClick={() => setShowAll(v => !v)}>
                 {showAll ? 'Show less' : 'Show more'}
@@ -237,22 +223,6 @@ export function Home({ groups, tabs, now, editors, folderExists, actions, onNewP
             )}
           </div>
         </div>
-
-        {archived.length > 0 && (
-          <div>
-            <button
-              type="button"
-              className="more"
-              data-archived=""
-              onClick={() => setShowArchived(v => !v)}
-            >
-              {`Archived · ${archived.length}`}
-            </button>
-            {showArchived && (
-              <div className="list">{archived.map(g => renderRow(g, true))}</div>
-            )}
-          </div>
-        )}
       </div>
 
       {menu && <Menu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}

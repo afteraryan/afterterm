@@ -4,7 +4,32 @@ What changed for the person using afterterm, release by release. Each release li
 
 ## Unreleased
 
-Nothing yet.
+### The sidebar keeps its order
+
+- **Nothing moves because you used it.** Opening a chat, typing in a thread, a notification or a wake no longer moves a project or a thread in the sidebar. Each project in Recent keeps its place.
+- **New arrivals go on top.** A project that comes into Recent (opened from Home, Other projects or the search palette, or one of its threads woken) goes at the top, and the rows below slide down. A new or resumed thread goes at the top of its project the same way.
+- The order is kept when afterterm restarts. Home's Projects list still goes by recent activity.
+
+### Drag and drop in the sidebar
+
+- **Move projects.** Drag a project up or down inside Pinned or Recent. Drop one into Pinned to pin it, or drag a pinned one down into Recent to unpin it.
+- **Move threads.** Drag a thread between two threads, in its own project or another, or drop it on a project's row to put it at the top of that project. Drop it on or above the Pinned heading to take it out of its project into General.
+- A line shows where the row will land, including above the first one. The dragged row floats beside the pointer, and a thread moving to another project shows where it comes from and where it goes. Esc, or letting go where it already was, puts it back.
+
+### Archive moves a project to Other projects
+
+- **Archive** now moves the project to the top of the **Other projects** drawer at the bottom of the sidebar, instead of hiding it everywhere except Home.
+- A project with awake threads asks first, listing each one with its status. On **Archive** they go to sleep one after the other, the project folds away, and "Moved to Other projects" says where it went.
+- Opening it, waking one of its threads, or **Restore** in its menu brings it back to the top of Recent. An archived project now has the full project menu.
+- Home's Archived section is gone: archived projects are listed in Projects like any other, and the search palette finds them too.
+
+### Fixed
+
+- Projects in Recent swapped places while you worked in two of them.
+- Opening a chat from another project moved that project to the top of Recent, with no animation.
+- Projects could not be reordered by dragging, dragging into Pinned did not pin, and a thread could not be dragged out of its project.
+- Archiving a project hid it everywhere except Home, instead of moving it into Other projects.
+- The search palette did not list archived projects.
 
 ## 0.11.2 (2026-10-31)
 

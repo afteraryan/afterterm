@@ -420,9 +420,6 @@
   color: var(--text);
 }
 
-.side-panel .pj.dragging {
-  opacity: .4;
-}
 
 /* ── Thread list wrapper (expand and collapse) ─────────────────────────── */
 
@@ -537,9 +534,6 @@
   animation: glow-ok 2.8s ease-in-out infinite;
 }
 
-.side-panel .th.dragging {
-  opacity: .4;
-}
 
 /* ── Close button on a thread row ──────────────────────────────────────── */
 /* Sits in the padding-right space the row opens on hover or when selected.
@@ -609,45 +603,3 @@
   .side-panel .pj.revealed { background: var(--hover2); }
 }
 
-/* ── Drop targets ──────────────────────────────────────────────────────── */
-
-.side-panel .th.drop-target::after,
-.side-panel .pj.drop-over::after {
-  content: '';
-  position: absolute;
-  bottom: -1px;
-  left: 8px;
-  right: 8px;
-  height: 2px;
-  background: rgba(236, 236, 236, .5);
-  border-radius: 1px;
-  z-index: 2;
-}
-
-.side-panel .pj.drop-over {
-  background: var(--hover);
-}
-
-/* Dwell preview: holding a thread over another ungrouped one makes a project. */
-.side-panel .th.group-preview {
-  background: var(--hover2);
-  outline: 1px solid rgba(236, 236, 236, .18);
-  outline-offset: -1px;
-}
-
-/* ── Drag overlay copies ───────────────────────────────────────────────── */
-
-.side-panel .th.drag-overlay,
-.side-panel .pj.drag-overlay {
-  background: var(--hover2);
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, .5);
-  color: var(--text);
-  width: 248px;
-  cursor: grabbing;
-  opacity: .95;
-}
-
-.side-panel .th.drag-overlay {
-  padding-left: 12px;
-}

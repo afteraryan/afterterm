@@ -11,13 +11,17 @@
 
 import type { Tab, Group, HistoryEntry } from './components/TabBar/types';
 import { isProjectIconId } from './components/TabBar/types.ts';
+import { computeSegments } from './sidebarWalk.ts';
 
 // Bump when a saved file needs a shape change a plain "fill defaults" pass cannot
 // express. A file with no version field is treated as version 1 (release 0.8.1).
 // Phase 4 (sleptAt, history) and Phase 5 (port, lastCommand) are still
 // fill-defaults passes, same as Phase 2 and 3 before them, so the version
-// stays 2.
-export const SESSION_FORMAT_VERSION = 2;
+// stayed 2. Version 3 (2026-11-01): the order of `groups` is the panel's
+// project order. Before it, Pinned followed the tab walk and Recent was sorted
+// by activity, so a version 2 file is reordered once on load to the order its
+// panel showed (legacyProjectOrder below).
+export const SESSION_FORMAT_VERSION = 3;
 
 // A tab as written to disk: the in-memory Tab minus the fields that describe a
 // live process, which are meaningless after a relaunch (each tab is a fresh shell).
@@ -205,16 +209,33 @@ export function migrateSession(raw: unknown, now: number): SavedSession | null {
     return group as unknown as Group;
   });
 
+  const version = typeof raw.version === 'number' ? raw.version : 1;
+  const ordered = version < 3 ? legacyProjectOrder(groups, tabs) : groups;
+
   // An active id that points at nothing (dropped entry, hand edit) is as good as
   // none: restoreSession then falls back to the first tab instead of a blank view.
   const activeTabId = typeof raw.activeTabId === 'string' && tabs.some(t => t.id === raw.activeTabId)
     ? raw.activeTabId
     : '';
 
-  const session: SavedSession = { version: SESSION_FORMAT_VERSION, tabs, groups, activeTabId, ui: asUi(raw.ui) };
+  const session: SavedSession = { version: SESSION_FORMAT_VERSION, tabs, groups: ordered, activeTabId, ui: asUi(raw.ui) };
   const wake = asWakeList(raw.wakeAfterUpdate, tabs);
   if (wake.length) session.wakeAfterUpdate = wake;
   return session;
+}
+
+// The project order a version 2 file's panel showed, as the saved order from
+// now on: the pinned projects in tab-walk order (computeSegments, how Pinned
+// was ordered), then every other project newest activity first (how Recent was
+// sorted; Other was an overflow list with no order of its own). Stable, so
+// projects with the same activity keep their walk order.
+export function legacyProjectOrder<G extends Group>(groups: G[], tabs: Pick<Tab, 'id' | 'groupId'>[]): G[] {
+  const walk = computeSegments(tabs as Tab[], groups)
+    .filter((s): s is Extract<typeof s, { type: 'group' }> => s.type === 'group')
+    .map(s => s.group as G);
+  const pinned = walk.filter(g => g.pinned && !g.archived);
+  const rest = walk.filter(g => !(g.pinned && !g.archived)).sort((a, b) => b.lastActiveAt - a.lastActiveAt);
+  return [...pinned, ...rest];
 }
 
 // Only ids of threads that are still in the file, once each, and only strings:
