@@ -6,7 +6,7 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
-## Next build (PR #64): the sidebar's order, drag and drop, and Archive
+## Release 0.12.0 (2026-11-01): the sidebar's order, drag and drop, and Archive (PR #64)
 
 Self-tested in the dev build through the harness on 2026-11-01; captures and four recordings in `docs/screenshots/sidebar-order-drag-archive/`.
 
