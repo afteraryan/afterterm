@@ -10,6 +10,10 @@ Format: the bug as it was titled, the date it was fixed, the PR or commit, then 
 
 ## Fixed on 2026-11-01
 
+### Updating installed an in-between version when a newer one was already out
+
+Reported in conversation (Aryan, updating his installed 0.11.1 an hour after 0.12.0 was published: it went to 0.11.2). Checks run 10 seconds after launch and every 6 hours, and Update downloaded the release from the last check. Update now asks GitHub again first and downloads the newest release (`releaseToDownload` in `update-check.ts`, used by `download` in `updater.ts`); Restart to update is unchanged. PR #66.
+
 All five closed by one piece of work, the sidebar's order, drag and drop, and Archive (decided with Aryan on 2026-11-01, built to `docs/mockups/sidebar-drag-and-drop.html` and `docs/mockups/sidebar-archive-with-awake-threads.html`), PR #64. The record is in `docs/features-attention-and-sidebar.md`, "The panel's order, drag and drop, and Archive".
 
 ### Projects in the panel's Recent group swap places whenever a thread in another project is used
