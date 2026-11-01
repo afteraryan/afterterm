@@ -48,6 +48,8 @@ To `<userData>\updates\<asset>.partial`, hashed while it streams, renamed to `<a
 
 Progress reaches the renderer at most every 100ms through `update:state`.
 
+**Update downloads the newest release (2026-11-01).** Pressing Update asks GitHub for `releases/latest` again before downloading, and downloads whatever is newest then (`releaseToDownload` in `update-check.ts`); the notice switches to that version. Found when Aryan's 0.11.1 installed 0.11.2 with 0.12.0 already out: checks run only every 6 hours, and the button offered the release from the last one. The button shows Downloading from the press, so the extra request adds nothing to see. When the request fails (offline, rate limited) or the latest release has no installer or digest yet, the release already shown is downloaded; when nothing is newer than the running copy any more (the release was pulled), nothing is. Restart to update is unchanged: it installs what was downloaded, without asking again (Aryan's choice). Tested in the dev build with a feed that offered 0.12.1 at the check and 0.12.2 by the time Update was pressed: 0.12.2 downloaded (`docs/screenshots/update-download-latest/`).
+
 ## Later and Skip
 
 - **Later** writes `updateLaterUntil` = now + 24 hours and hides the title bar button; a timer brings it back when the day is up, even if afterterm stays open.

@@ -6,6 +6,15 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
+## Next build (PR #66): Update downloads the newest version
+
+Self-tested in the dev build with a test feed; capture and recording in `docs/screenshots/update-download-latest/`.
+
+### Update checks again and downloads the newest version
+**Status:** waiting for Aryan
+1. This shows only when two releases come out within 6 hours. When "Update available" names a version and a newer one has come out since, press **Update**.
+2. The notice and the download are for the newest version, and that is the version afterterm restarts into.
+
 ## Release 0.12.0 (2026-11-01): the sidebar's order, drag and drop, and Archive (PR #64)
 
 Self-tested in the dev build through the harness on 2026-11-01; captures and four recordings in `docs/screenshots/sidebar-order-drag-archive/`.

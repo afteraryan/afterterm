@@ -8,8 +8,9 @@ import {
   titleBarButtonShows, percent, megabytes, lastCheckedText, errorText,
   restartRows, restartStatus, asPendingUpdate, updateLanded, parseInline,
   parseNotes, samePath, installFolder, installerVersion, staleDownloads, isMidTurn,
+  releaseToDownload,
 } from './update-check.ts';
-import type { UpdateState, AwakeThread } from './update-check.ts';
+import type { UpdateState, AwakeThread, ReleaseInfo } from './update-check.ts';
 import { isDeepStrictEqual } from 'node:util';
 
 let pass = 0, fail = 0;
@@ -235,6 +236,24 @@ console.log('\nupdate-check: the installed copy\n');
     installFolder(undefined, `"${P}\\Uninstall afterterm-test.exe" /currentuser`) === P);
   check('an unquoted uninstaller path', installFolder('', 'C:\\Apps\\afterterm\\Uninstall.exe /S') === 'C:\\Apps\\afterterm');
   check('nothing usable: null', installFolder(null, null) === null && installFolder('  ', 'msiexec /x {GUID}') === null);
+}
+
+console.log('\nupdate-check: releaseToDownload (Update downloads the newest release)\n');
+{
+  const rel = (version: string): ReleaseInfo => ({
+    version, notes: '', assetName: assetNameFor(version), size: 1, url: `https://example.test/${version}`, sha256: 'a'.repeat(64),
+  });
+  const shown = rel('0.11.2');
+  check('a newer release out since the last check is the one downloaded',
+    releaseToDownload(shown, { kind: 'update', release: rel('0.12.0') })?.version === '0.12.0');
+  check('the same release: that one', releaseToDownload(shown, { kind: 'update', release: rel('0.11.2') })?.version === '0.11.2');
+  check('the check failed (offline, rate limited): the release already shown', releaseToDownload(shown, null) === shown);
+  check('the latest has no installer yet: the release already shown',
+    releaseToDownload(shown, { kind: 'none', reason: 'no-asset' }) === shown);
+  check('the latest has no digest: the release already shown',
+    releaseToDownload(shown, { kind: 'none', reason: 'no-digest' }) === shown);
+  check('nothing newer than this copy any more (the release was pulled): nothing to download',
+    releaseToDownload(shown, { kind: 'none', reason: 'not-newer' }) === null);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

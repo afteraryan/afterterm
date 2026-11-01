@@ -21,9 +21,9 @@ import path from 'path';
 import {
   CHECK_INTERVAL_MS, FIRST_CHECK_DELAY_MS, LATER_MS, RELEASES_URL,
   asPendingUpdate, autoChecksOn, downloadSource, initialUpdateState, installFolder, isSuppressed,
-  parseRelease, samePath, staleDownloads, updateLanded,
+  parseRelease, releaseToDownload, samePath, staleDownloads, updateLanded,
 } from './update-check.ts';
-import type { PendingUpdate, ReleaseInfo, UpdateError, UpdateState } from './update-check.ts';
+import type { PendingUpdate, ReleaseInfo, ReleaseVerdict, UpdateError, UpdateState } from './update-check.ts';
 import { readPrefs, updatePrefs } from './prefs.ts';
 
 export interface UpdaterOptions {
@@ -180,14 +180,52 @@ export function initUpdater(opts: UpdaterOptions): void {
   // ── The download ───────────────────────────────────────────────────────────
   const download = async (): Promise<void> => {
     if (!release || state.phase === 'downloading' || state.phase === 'ready') return;
-    const r = release;
-    const src = downloadSource(r.url, !!feed);
-    if (!src) { set({ error: 'network' }); return; }
-    await fs.promises.mkdir(updatesDir, { recursive: true });
-    const partial = `${finalPath(r)}.partial`;
     const ac = new AbortController();
     downloading = ac;
+    // The button shows Downloading at once, while GitHub is asked again for the
+    // latest release (releaseToDownload in update-check.ts): whatever is newest
+    // now is what gets downloaded, and the notice switches to it.
     set({ phase: 'downloading', received: 0, error: null, hidden: false });
+    let fresh: ReleaseVerdict | null = null;
+    try {
+      fresh = parseRelease(await fetchRelease(), current, opts.assetBase);
+      savePrefs({ updateLastChecked: Date.now() });
+    } catch { /* offline or rate limited: the release already shown */ }
+    if (ac.signal.aborted) {
+      if (downloading === ac) downloading = null;
+      set({ phase: 'available', received: 0 });
+      return;
+    }
+    const latest = releaseToDownload(release, fresh);
+    if (!latest) {
+      if (downloading === ac) downloading = null;
+      release = null;
+      installer = null;
+      set({ phase: 'idle', release: null, received: 0, lastChecked: Date.now(), hidden: false, error: null });
+      return;
+    }
+    if (latest.version !== release.version || latest.sha256 !== release.sha256) {
+      release = latest;
+      installer = null;
+      set({ release: shown(latest), lastChecked: Date.now() });
+    }
+    const r = release;
+    // A newer release whose installer is already here (checked earlier and
+    // downloaded) needs no second download.
+    if (await verifiedOnDisk(r)) {
+      if (downloading === ac) downloading = null;
+      installer = finalPath(r);
+      set({ phase: 'ready', received: r.size, error: null });
+      return;
+    }
+    const src = downloadSource(r.url, !!feed);
+    if (!src) {
+      if (downloading === ac) downloading = null;
+      set({ phase: 'available', received: 0, error: 'network' });
+      return;
+    }
+    await fs.promises.mkdir(updatesDir, { recursive: true });
+    const partial = `${finalPath(r)}.partial`;
 
     const hash = crypto.createHash('sha256');
     const out = fs.createWriteStream(partial);

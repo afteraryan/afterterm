@@ -113,6 +113,23 @@ export function parseRelease(json: unknown, currentVersion: string, assetBase = 
   };
 }
 
+// Which release pressing Update downloads (Aryan, 2026-11-01). The button asks
+// GitHub again first, so a version that came out after the last check is the one
+// installed, never the one before it (0.11.1 went to 0.11.2 with 0.12.0 already
+// out, because checks run only every 6 hours). `fresh` is that check's verdict,
+// or null when it failed (offline, rate limited). Rules:
+//   - a newer release: download it;
+//   - the latest is not newer than this copy (the release shown was pulled):
+//     nothing to download (null);
+//   - the check failed, or the latest release is not installable yet (its
+//     installer or digest missing, as while an upload is still going): download
+//     the release already shown.
+export function releaseToDownload(known: ReleaseInfo, fresh: ReleaseVerdict | null): ReleaseInfo | null {
+  if (!fresh) return known;
+  if (fresh.kind === 'update') return fresh.release;
+  return fresh.reason === 'not-newer' ? null : known;
+}
+
 // Where the installer comes from. A real check only ever downloads over https.
 // The test feed (AFTERTERM_UPDATE_FEED) may also point at a local installer, as
 // a file:/// URL or a plain path, so no fake public release is ever needed.
