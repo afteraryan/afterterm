@@ -15,6 +15,7 @@ import { SearchPalette } from './components/SearchPalette';
 import { GroupModal, GroupDraft } from './components/GroupModal';
 import { Toast } from './components/Toast';
 import { ConfirmDialog } from './components/ConfirmDialog';
+import { ArchiveDialog } from './components/ArchiveDialog';
 import { AboutWindow } from './components/AboutWindow';
 import { RestartToUpdate } from './components/RestartToUpdate';
 import { UpdatedPill } from './components/UpdatedPill';
@@ -108,6 +109,12 @@ export function App() {
   // project page, the only screens that show the "Folder not found" state.
   const [folderExists, setFolderExists] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<AppToast | null>(null);
+  // Archive (2026-11-01): the project whose "Archive <name>?" window is open, and
+  // the project being archived right now, which the panel keeps in Recent until
+  // its threads have gone to sleep and its row has folded away.
+  const [archiveAsk, setArchiveAsk] = useState<string | null>(null);
+  const [archiving, setArchiving] = useState<string | null>(null);
+  const archivingRef = useRef(false);
   const [chooser, setChooser] = useState<{ x: number; y: number } | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   // null = closed; groupId absent = creating a new project.
@@ -472,11 +479,15 @@ export function App() {
     },
     chooseEditor,
     edit: (groupId) => setProjectModal({ mode: 'edit', groupId }),
+    // Archive moves the project into the panel's Other projects drawer. With
+    // awake threads it asks first (ArchiveDialog), since they go to sleep;
+    // with none it goes straight away. Either way archiveNow runs the sequence.
     archive: (groupId) => {
       const group = findGroup(groupId);
-      if (!group) return;
-      stateRef.current.setGroupArchived(groupId, true);
-      showToast({ message: `Archived ${group.label}` });
+      if (!group || archivingRef.current) return;
+      const awake = stateRef.current.tabs.some(t => t.groupId === groupId && !t.asleep);
+      if (awake) setArchiveAsk(groupId);
+      else void archiveNow(groupId);
     },
     restore: (groupId) => {
       const group = findGroup(groupId);
@@ -485,6 +496,35 @@ export function App() {
       showToast({ message: `Restored ${group.label}` });
     },
     deleteProject: (groupId) => stateRef.current.deleteGroup(groupId),
+  };
+
+  // The Archive sequence Aryan agreed on (docs/mockups/sidebar-archive-with-awake-threads.html):
+  // the awake threads go to sleep one after the other, about 140ms apart, so each
+  // row's icon turns into the moon in turn; then the project folds out of Recent
+  // and the rows below slide up; then it is archived (the top of Other projects,
+  // whose count bumps) and the toast says where it went. The project is held in
+  // Recent while this runs, so its last thread going to sleep does not drop it
+  // into Other before the fold.
+  const archiveNow = async (groupId: string) => {
+    if (archivingRef.current) return;
+    archivingRef.current = true;
+    setArchiving(groupId);
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    const wait = (ms: number) => (reduce ? Promise.resolve() : new Promise<void>(r => setTimeout(r, ms)));
+    try {
+      const awake = stateRef.current.tabs.filter(t => t.groupId === groupId && !t.asleep);
+      for (const t of awake) {
+        sleepThreadNow(t.id);
+        await wait(140);
+      }
+      if (awake.length) await wait(420);
+      await panelRef.current?.foldOut(groupId);
+      stateRef.current.setGroupArchived(groupId, true);
+      showToast({ message: 'Moved to Other projects' });
+    } finally {
+      archivingRef.current = false;
+      setArchiving(null);
+    }
   };
 
   // Per-tab timing for the working-spinner state machine (see spinnerState.ts).
@@ -785,7 +825,13 @@ export function App() {
 
   // Open a thread and show it: used by the palette and the project page, which can
   // both pick a thread from a screen that is not the workspace.
+  // A thread of an archived project opened this way brings the project back out
+  // of Other projects (2026-11-01: using it brings it back).
   const openThreadInWorkspace = useCallback((tabId: string) => {
+    const groupId = stateRef.current.tabs.find(t => t.id === tabId)?.groupId;
+    if (groupId && stateRef.current.groups.find(g => g.id === groupId)?.archived) {
+      stateRef.current.setGroupArchived(groupId, false);
+    }
     handleActivate(tabId);
     goScreen('workspace');
   }, [handleActivate, goScreen]);
@@ -1424,7 +1470,6 @@ export function App() {
           editors={editors}
           folderExists={folderExists}
           projectActions={projectActions}
-          onCreateGroup={(t1, t2) => state.createGroup(t1, t2)}
           onAddToGroup={state.addToGroup}
           onRemoveFromGroup={state.removeFromGroup}
           onRenameGroup={state.renameGroup}
@@ -1432,9 +1477,14 @@ export function App() {
           onToggleGroupCollapse={state.toggleGroupCollapse}
           onSetGroupsCollapsed={state.setGroupCollapsedMany}
           onBringIn={bringProjectIn}
-          onMoveTab={state.moveTab}
-          onMoveGroup={state.moveGroup}
-          onMoveGroupAfterGroup={state.moveGroupAfterGroup}
+          holdInRecent={archiving}
+          onPlaceThread={state.placeThreadAt}
+          onPlaceProject={(groupId, section, beforeId) => {
+            const group = findGroup(groupId);
+            if (state.placeProject(groupId, section, beforeId) && group) {
+              showToast({ message: `${section === 'pinned' ? 'Pinned' : 'Unpinned'} ${group.label}` });
+            }
+          }}
         />
 
         <div className="terminal-area">
@@ -1588,6 +1638,19 @@ export function App() {
               setPendingConfirm(null);
             }}
             onCancel={() => setPendingConfirm(null)}
+          />
+        );
+      })()}
+
+      {archiveAsk && (() => {
+        const group = state.groups.find(g => g.id === archiveAsk);
+        if (!group) return null;
+        return (
+          <ArchiveDialog
+            group={group}
+            threads={state.tabs.filter(t => t.groupId === archiveAsk && !t.asleep)}
+            onCancel={() => setArchiveAsk(null)}
+            onConfirm={() => { setArchiveAsk(null); void archiveNow(group.id); }}
           />
         );
       })()}

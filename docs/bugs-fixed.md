@@ -8,6 +8,30 @@ Format: the bug as it was titled, the date it was fixed, the PR or commit, then 
 
 ---
 
+## Fixed on 2026-11-01
+
+All five closed by one piece of work, the sidebar's order, drag and drop, and Archive (decided with Aryan on 2026-11-01, built to `docs/mockups/sidebar-drag-and-drop.html` and `docs/mockups/sidebar-archive-with-awake-threads.html`), PR #64. The record is in `docs/features-attention-and-sidebar.md`, "The panel's order, drag and drop, and Archive".
+
+### Projects in the panel's Recent group swap places whenever a thread in another project is used
+
+Recent was sorted by last activity. It now keeps the saved project order (`panelLists` in `attention.ts`): a project that comes into Recent goes to the top and then stays where it is, and using a thread, typing, a notification or a wake moves nothing. The order is saved in `session.json` (version 3; an older file keeps the order its panel showed).
+
+### Opening a chat from another project moves that project to the top of Recent in the sidebar, without typing anything and without an animation
+
+The same fix: opening a chat no longer moves its project. A project that does come into Recent (opened from Home, the drawer or the palette, or one of its threads woken) opens in place at the top while the rows below slide down.
+
+### Drag and drop in the sidebar: projects cannot be reordered, dragging to Pinned does not pin, no indicator for a drop at the top, hovered projects highlight during a project drag, and a thread cannot be dragged out of every project
+
+The panel's drag was rebuilt without dnd-kit (`SidePanel/usePanelDrag.ts`). Projects reorder inside Pinned and Recent, a drop into Pinned pins and a drop into Recent unpins (with a toast), a line shows where a row lands (above the first one too), nothing highlights under a dragged project, and a thread dropped on or above the Pinned heading goes into General. The old dwell-to-make-a-project gesture on two General threads went with dnd-kit.
+
+### Archiving a project from the sidebar hides it everywhere except Home, instead of moving it into Other projects
+
+Archive now moves the project to the top of the Other projects drawer. With awake threads it first asks in a window listing them, then puts them to sleep one after the other before the project folds away; "Moved to Other projects" says where it went. Opening it, waking one of its threads or Restore brings it back to the top of Recent. Home's Archived section is gone: archived projects are rows in Projects.
+
+### The search palette (Ctrl+Shift+P) does not list archived projects
+
+Resolved by the Archive change: an archived project is an ordinary project in Other projects, so the palette lists it, its threads and its history like any other, and opening one brings the project back.
+
 ## Fixed on 2026-10-31
 
 ### The update window's progress bar went from 97% back to about 30%

@@ -66,6 +66,37 @@ export function insertNewThread<T extends Pick<Tab, 'groupId'>>(tabs: T[], tab: 
   return next;
 }
 
+// A thread dropped in the panel (docs/mockups/sidebar-drag-and-drop.html): into
+// project `groupId` (undefined is General), just above thread `beforeId`, or
+// after that list's last thread when `beforeId` is null (a project with no
+// threads yet, or General with none, gets it at the end of the tab list).
+// Nothing else moves: the other threads keep their order. Returns the same
+// array when the thread would land where it already is.
+export function placeThread<T extends Pick<Tab, 'id' | 'groupId'>>(
+  tabs: T[],
+  tabId: string,
+  groupId: string | undefined,
+  beforeId: string | null,
+): T[] {
+  const tab = tabs.find(t => t.id === tabId);
+  if (!tab || beforeId === tabId) return tabs;
+  const moved = { ...tab, groupId } as T;
+  if (groupId === undefined) delete (moved as Partial<T>).groupId;
+  const rest = tabs.filter(t => t.id !== tabId);
+  let at: number;
+  if (beforeId !== null && rest.some(t => t.id === beforeId)) {
+    at = rest.findIndex(t => t.id === beforeId);
+  } else {
+    let last = -1;
+    rest.forEach((t, i) => { if ((t.groupId ?? undefined) === groupId) last = i; });
+    at = last === -1 ? rest.length : last + 1;
+  }
+  const next = [...rest];
+  next.splice(at, 0, moved);
+  const same = next.every((t, i) => t.id === tabs[i].id) && (tab.groupId ?? undefined) === groupId;
+  return same ? tabs : next;
+}
+
 // What a thread's own Open in File Explorer and Open in <editor> act on (the
 // thread menu, the header's editor button): threadFolder, and whether main has
 // checked it and found it gone. Only an explicit false in `folderExists` counts

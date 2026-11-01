@@ -49,7 +49,7 @@ console.log('\npaletteView: paletteResults, empty query\n');
     tab('t3', { lastActiveAt: 200 }), // General
   ];
   const r = paletteResults(groups, tabs, '');
-  check('lists all non-archived projects', r.projects.map(g => g.id).join(',') === 'B,A', show(r.projects.map(g => g.id)));
+  check('lists every project, archived ones too (2026-11-01)', r.projects.map(g => g.id).join(',') === 'C,B,A', show(r.projects.map(g => g.id)));
   check('lists all threads, including General, ordered by lastActiveAt desc',
     r.threads.map(t => t.tab.id).join(',') === 't2,t3,t1', show(r.threads.map(t => t.tab.id)));
 }
@@ -86,13 +86,13 @@ console.log('\npaletteView: paletteResults, prefix ranks above substring\n');
     rt.threads.map(t => t.tab.id).join(',') === 't2,t1', show(rt.threads.map(t => t.tab.id)));
 }
 
-console.log('\npaletteView: paletteResults, archived projects excluded\n');
+console.log('\npaletteView: paletteResults, archived projects are listed like any other (2026-11-01)\n');
 {
   const groups = [group('A', { archived: true, label: 'afterterm' })];
   const tabs = [tab('t1', { groupId: 'A', title: 'afterterm thread' })];
   const r = paletteResults(groups, tabs, '');
-  check('archived project excluded', r.projects.length === 0, show(r.projects));
-  check('threads of an archived project excluded', r.threads.length === 0, show(r.threads));
+  check('an archived project is listed', r.projects.map(g => g.id).join(',') === 'A', show(r.projects));
+  check('threads of an archived project are listed', r.threads.map(t => t.tab.id).join(',') === 't1', show(r.threads));
 }
 
 console.log('\npaletteView: paletteResults, each thread carries its group\n');
@@ -144,10 +144,10 @@ console.log('\npaletteView: paletteResults, history\n');
     r.projects.length === 0 && r.threads.length === 0);
 }
 {
-  // Archived projects' history is excluded, same as their projects and threads.
+  // Archived projects' history is listed, same as their projects and threads.
   const groups = [group('A', { archived: true, label: 'afterterm', history: [historyEntry('h1', { title: 'afterterm thread' })] })];
   const r = paletteResults(groups, [], '');
-  check('archived project history excluded', r.history.length === 0, show(r.history));
+  check('archived project history is listed', r.history.map(h => h.entry.id).join(',') === 'h1', show(r.history));
 }
 {
   // Ranked by prefix match first, then newest closedAt.

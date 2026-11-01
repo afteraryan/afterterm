@@ -1,5 +1,5 @@
 // The one project menu, shared by every place a project can be right-clicked:
-// Home's pinned cards and project rows (including the archived list), and the
+// Home's pinned cards and project rows, the panel's project rows and its Other projects drawer, and the
 // project page header. Built the same way threadMenu.tsx builds the one
 // thread menu: a pure function from data to MenuItem[], so every call site
 // renders it through the same <Menu>.
@@ -31,14 +31,10 @@ export interface ProjectMenuContext {
   folderMissing: boolean;
 }
 
+// An archived project (in the panel's Other projects drawer) gets the same menu
+// as any other, with Restore in the place of Archive (Aryan, 2026-11-01):
+// Restore puts it back at the top of Recent without opening it.
 export function buildProjectMenu(group: Group, ctx: ProjectMenuContext, actions: ProjectActions): MenuItem[] {
-  if (group.archived) {
-    return [
-      { label: 'Restore', onSelect: () => actions.restore(group.id) },
-      { label: 'Delete project', danger: true, onSelect: () => actions.deleteProject(group.id) },
-    ];
-  }
-
   const items: MenuItem[] = [
     { label: 'Open', onSelect: () => actions.open(group.id) },
     { label: 'New thread here', onSelect: () => actions.newThread(group.id) },
@@ -82,7 +78,9 @@ export function buildProjectMenu(group: Group, ctx: ProjectMenuContext, actions:
 
   items.push(
     { label: 'Edit project', onSelect: () => actions.edit(group.id) },
-    { label: 'Archive', onSelect: () => actions.archive(group.id) },
+    group.archived
+      ? { label: 'Restore', onSelect: () => actions.restore(group.id) }
+      : { label: 'Archive', onSelect: () => actions.archive(group.id) },
     { label: 'Delete project', danger: true, onSelect: () => actions.deleteProject(group.id) },
   );
 

@@ -1,6 +1,6 @@
 // Pure logic for the Home screen and the project page's search box: the date
 // heading, "how long ago" wording, which projects go where (pinned, the
-// unpinned list with its four-row fold, archived), the totals under the date,
+// unpinned list with its four-row fold, archived ones included), the totals under the date,
 // and the search filter shared by the project page's Live/Asleep/History tabs.
 //
 // Why this exists: none of these decisions touch React or the DOM, they only
@@ -58,10 +58,9 @@ export interface HomeSectionsResult {
   projects: Group[];
   shownProjects: Group[];
   hiddenCount: number;
-  archived: Group[];
 }
 
-// The three groupings the Home screen draws from, plus the four-row fold over
+// The two groupings the Home screen draws from, plus the four-row fold over
 // the unpinned Projects list. `tabs` is accepted for interface symmetry with
 // the rest of the module (and because a future Home revision may need it to
 // break ties) but this function's own output depends only on `groups`; sort
@@ -72,27 +71,27 @@ export function homeSections(
   _tabs: Tab[],
   { showAll, limit = 4 }: HomeSectionsOptions,
 ): HomeSectionsResult {
+  // Archived projects are ordinary rows in Projects (2026-11-01: Home's Archived
+  // section went away when archiving became "moved to Other projects" in the
+  // panel). Home keeps its own order by recent activity; the panel's saved order
+  // is not used here.
   const pinned = groups.filter(g => g.pinned && !g.archived);
   const projects = groups
-    .filter(g => !g.pinned && !g.archived)
-    .slice()
-    .sort((a, b) => b.lastActiveAt - a.lastActiveAt);
-  const archived = groups
-    .filter(g => g.archived)
+    .filter(g => !(g.pinned && !g.archived))
     .slice()
     .sort((a, b) => b.lastActiveAt - a.lastActiveAt);
 
   const shownProjects = showAll ? projects : projects.slice(0, limit);
   const hiddenCount = showAll ? 0 : Math.max(0, projects.length - limit);
 
-  return { pinned, projects, shownProjects, hiddenCount, archived };
+  return { pinned, projects, shownProjects, hiddenCount };
 }
 
-// Home's empty state: no project to show, pinned or not (archived ones are tucked
-// away, so they do not count). Home then shows one large "Create your first
-// project" button in place of its Pinned and Projects lists.
-export function hasNoProjects(groups: Pick<Group, 'archived'>[]): boolean {
-  return groups.every(g => g.archived);
+// Home's empty state: no project at all, archived or not (an archived project is
+// a row in Projects like any other). Home then shows one large "Create your
+// first project" button in place of its Pinned and Projects lists.
+export function hasNoProjects(groups: unknown[]): boolean {
+  return groups.length === 0;
 }
 
 // Totals for the pills under the Home date heading: how many tabs are

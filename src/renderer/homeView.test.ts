@@ -78,17 +78,16 @@ console.log('\nhomeView: homeSections\n');
   check('pinned holds only the non-archived pinned project',
     sections.pinned.map(g => g.id).join(',') === 'p1', show(sections.pinned.map(g => g.id)));
 
-  check('projects excludes pinned and archived, sorted by lastActiveAt desc',
-    sections.projects.map(g => g.id).join(',') === 'a2,a1,a3', show(sections.projects.map(g => g.id)));
+  check('projects holds every unpinned project, archived ones included, by lastActiveAt desc (2026-11-01)',
+    sections.projects.map(g => g.id).join(',') === 'a2,arch2,a1,a3,arch1', show(sections.projects.map(g => g.id)));
 
   check('ties in lastActiveAt keep the caller\'s array order (sidebar order)',
     sections.projects.findIndex(g => g.id === 'a1') < sections.projects.findIndex(g => g.id === 'a3'));
 
-  check('archived projects (even a pinned one) end up only in archived, sorted by lastActiveAt desc',
-    sections.archived.map(g => g.id).join(',') === 'arch2,arch1', show(sections.archived.map(g => g.id)));
+  check('there is no Archived list any more', !('archived' in sections));
 
-  check('an archived project never appears in pinned or projects',
-    !sections.pinned.some(g => g.id === 'arch2') && !sections.projects.some(g => g.id === 'arch2'));
+  check('an archived project never appears in pinned',
+    !sections.pinned.some(g => g.id === 'arch2'));
 }
 
 console.log('\nhomeView: homeSections Show more fold\n');
@@ -226,7 +225,7 @@ console.log('\nhomeView: lastHereLine\n');
 console.log('\nhomeView: hasNoProjects (the "Create your first project" button)\n');
 {
   check('no groups at all: empty state', hasNoProjects([]));
-  check('only archived projects: empty state', hasNoProjects([group('a', { archived: true })]));
+  check('only archived projects: no empty state (they are rows in Projects)', !hasNoProjects([group('a', { archived: true })]));
   check('one live project: no empty state', !hasNoProjects([group('a')]));
   check('one pinned project: no empty state', !hasNoProjects([group('a', { pinned: true })]));
   check('live beside archived: no empty state', !hasNoProjects([group('a', { archived: true }), group('b')]));

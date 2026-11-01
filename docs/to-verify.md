@@ -6,6 +6,53 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
+## Next build (PR #64): the sidebar's order, drag and drop, and Archive
+
+Self-tested in the dev build through the harness on 2026-11-01; captures and four recordings in `docs/screenshots/sidebar-order-drag-archive/`.
+
+### Nothing in the sidebar moves because it was used
+**Status:** waiting for Aryan
+1. Work in threads of two projects in Recent, clicking, typing and waking in both.
+2. Neither project moves; each keeps its place in Recent.
+
+### A project coming into Recent goes at the top, with a slide
+**Status:** waiting for Aryan
+1. Open a project from Other projects (or from Home, or Ctrl+Shift+P).
+2. It opens at the top of Recent, the rows below slide down, and its row lights up for a moment.
+3. Restart afterterm: Pinned and Recent are in the same order.
+
+### A new thread goes at the top of its project, with a slide
+**Status:** waiting for Aryan
+1. Click a project row's **+**.
+2. The new thread opens at the top of that project and the threads below slide down.
+
+### Projects can be dragged inside and between Pinned and Recent
+**Status:** waiting for Aryan
+1. Drag a project above the first project of Recent: a blue line shows above it, and it lands there.
+2. Drag a Recent project into Pinned: it is pinned, with "Pinned <name>". Drag it back down into Recent: "Unpinned <name>".
+3. While a project is dragged, no other project row lights up, and its card says how many threads it has.
+4. Press Esc mid-drag, or let go where it already was: the card floats back and nothing changes.
+
+### Threads can be dragged between threads, onto a project, and out into General
+**Status:** waiting for Aryan
+1. Drag a thread between two threads of another project: an indented line shows the spot, and the card opens a line with the old project, an arrow and the new one.
+2. Hold a thread over a project's own row: the row gets a blue outline, and the thread lands at the top of that project.
+3. Drop a thread on or above the Pinned heading: General appears with the thread in it. Nothing opens while you drag.
+4. With two long project names, the card's from-and-to stays one line and the new project's name shortens first.
+
+### Archive moves a project to the top of Other projects
+**Status:** waiting for Aryan
+1. Wake a thread or two in a project in Recent (run a server in one), then right-click the project and choose **Archive**.
+2. A window lists those threads with their status ("Running on :port", "Awake"), then "These threads will go to sleep", Cancel and Archive. Esc cancels; a click beside it does nothing.
+3. Archive: the threads turn to the moon one after the other, the project folds out of Recent, the Other projects count bumps, and "Moved to Other projects" shows.
+4. Archive a project with nothing awake: no window, same fold and toast.
+
+### An archived project comes back when it is used
+**Status:** waiting for Aryan
+1. Right-click the archived project in Other projects: the full menu, with **Restore** where Archive was.
+2. Restore, open it from the drawer, find it with Ctrl+Shift+P, or wake one of its threads from its project page: each brings it back to the top of Recent.
+3. On Home there is no Archived section; archived projects are in Projects.
+
 ## Release 0.11.2 (2026-10-31): the update progress bar
 
 ### The update window's bar only moves forward

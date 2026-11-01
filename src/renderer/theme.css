@@ -33,6 +33,9 @@
   --badge-done-ink: #06170b;
   --badge-work: #6b7280;
   --badge-work-ink: #111111;
+  /* The accent blue of the panel's drop line and drop highlight
+     (docs/mockups/sidebar-drag-and-drop.html, --line there). */
+  --drop-line: #8ab4ff;
 
   --bg: #212121;
   --pane: #191919; /* the terminal card and the asleep pane surface (index.css, AsleepPane.css) */

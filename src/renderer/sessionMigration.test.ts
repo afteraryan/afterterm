@@ -56,9 +56,9 @@ console.log('\nsessionMigration: a 0.8.1 file loads with defaults\n');
   check('no tab gets a lastCommand out of nowhere (Phase 5)', s.tabs.every(t => t.lastCommand === undefined));
 }
 
-console.log('\nsessionMigration: SESSION_FORMAT_VERSION stays 2 (Phase 3 is a fill-defaults pass)\n');
+console.log('\nsessionMigration: SESSION_FORMAT_VERSION is 3 (the saved project order, 2026-11-01)\n');
 {
-  check('the version constant has not been bumped', SESSION_FORMAT_VERSION === 2);
+  check('the version constant is 3', SESSION_FORMAT_VERSION === 3);
 }
 
 console.log('\nsessionMigration: model, branch, worktree (Phase 3)\n');
@@ -403,8 +403,10 @@ console.log('\nsessionMigration: existing values are preserved\n');
   raw.groups[0].pinned = true; raw.groups[0].archived = true; raw.groups[0].lastActiveAt = 777;
   const s = migrateSession(raw, NOW)!;
   check('explicit tab lastActiveAt/asleep kept', s.tabs[0].lastActiveAt === 12345 && s.tabs[0].asleep === true);
+  // Looked up by id: a file without a version is reordered once (legacyProjectOrder).
+  const g1 = s.groups.find(g => g.id === 'group-1')!;
   check('explicit group pinned/archived/lastActiveAt kept',
-    s.groups[0].pinned === true && s.groups[0].archived === true && s.groups[0].lastActiveAt === 777);
+    g1.pinned === true && g1.archived === true && g1.lastActiveAt === 777);
 }
 
 console.log('\nsessionMigration: wrong types fall back to defaults\n');
