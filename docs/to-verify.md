@@ -6,7 +6,7 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
-## Next build (PR #66): Update downloads the newest version
+## Release 0.12.1 (2026-11-01): Update downloads the newest version (PR #66)
 
 Self-tested in the dev build with a test feed; capture and recording in `docs/screenshots/update-download-latest/`.
 

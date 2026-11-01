@@ -4,6 +4,10 @@ What changed for the person using afterterm, release by release. Each release li
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.12.1 (2026-11-01)
+
 ### Fixed
 
 - Updating could install an in-between version when a newer one had come out since afterterm last checked (0.11.1 went to 0.11.2 with 0.12.0 already out). **Update** now checks again and downloads the newest version.
