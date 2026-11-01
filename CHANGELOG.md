@@ -4,6 +4,10 @@ What changed for the person using afterterm, release by release. Each release li
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.12.0 (2026-11-01)
+
 ### The sidebar keeps its order
 
 - **Nothing moves because you used it.** Opening a chat, typing in a thread, a notification or a wake no longer moves a project or a thread in the sidebar. Each project in Recent keeps its place.
