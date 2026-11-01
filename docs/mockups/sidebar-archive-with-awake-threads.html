@@ -1,0 +1,476 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Archive with awake threads</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: the question on top, then one afterterm window (scaled to fit) you can use.
+   Tokens are afterterm's own (src/renderer/theme.css); the app is dark only, so is this page. */
+:root{
+  color-scheme:dark;
+  --need:#fbbf24; --live:#4ade80; --sleep:#a78bfa;
+  --page:#0d0d0d; --bg:#212121; --pane:#191919; --side:#171717; --hover:#2f2f2f; --hover2:#383838; --card:#2a2a2a;
+  --text:#ececec; --text2:#b4b4b4; --text3:#8e8e8e; --text4:#5c5c5c;
+  --btn:#ececec; --btn-text:#0d0d0d;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'Cascadia Code','Cascadia Mono',Consolas,monospace;
+  --ease:cubic-bezier(.2,.8,.2,1); --fast:140ms; --med:200ms;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--page);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0;text-align:left}
+button:focus-visible{outline:2px solid #8ab4ff;outline-offset:2px}
+svg{display:block;flex:none}
+
+@keyframes rot{to{transform:rotate(360deg)}}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+@keyframes fadeout{to{opacity:0}}
+@keyframes rise{from{opacity:0;transform:scale(.97) translateY(8px)}to{opacity:1;transform:none}}
+@keyframes sinkout{to{opacity:0;transform:scale(.97) translateY(6px)}}
+@keyframes popin{from{opacity:0;transform:scale(.96) translateY(-4px)}to{opacity:1;transform:none}}
+@keyframes risex{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes sinkx{to{opacity:0;transform:translate(-50%,6px)}}
+@keyframes iconswap{0%{opacity:0;transform:scale(.4)}60%{opacity:1;transform:scale(1.18)}100%{opacity:1;transform:scale(1)}}
+@keyframes bump{0%{transform:scale(1)}40%{transform:scale(1.25)}100%{transform:scale(1)}}
+@keyframes flash{0%{background:var(--hover2)}100%{background:transparent}}
+
+/* ── The page around the window ── */
+.sheet{display:flex;flex-direction:column;align-items:center;gap:14px;padding-block:22px 40px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+.top{width:1100px;max-width:100%;display:flex;flex-direction:column;gap:8px}
+.top h1{margin:0;font-size:20px;font-weight:500;line-height:1.35;text-wrap:balance}
+.top .look{display:flex;align-items:center;gap:12px;flex-wrap:wrap;color:var(--text2);font-size:13.5px}
+.top .look .dot{width:8px;height:8px;border-radius:50%;background:var(--need);flex:none}
+.top .look span{min-width:0}
+.top .look .sp{flex:1}
+.reset{padding:6px 14px;border-radius:999px;background:#1c1c1c;border:1px solid #2a2a2a;color:var(--text2);font-weight:500;font-size:13px}
+.reset:hover{background:#262626;color:var(--text)}
+.fit{width:1100px;max-width:100%;position:relative;overflow:hidden;border-radius:10px}
+.frame{width:1100px;height:660px;background:var(--side);border-radius:10px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6);display:flex;flex-direction:column;position:absolute;top:0;left:0;transform-origin:top left;user-select:none}
+
+/* ── App chrome ── */
+.titlebar{height:32px;display:flex;align-items:center;gap:8px;padding-left:14px;flex:none}
+.titlebar .tname{font-size:12.5px;font-weight:500;color:var(--text2)}
+.titlebar .ver{font-size:11px;color:var(--text3);background:var(--hover);border-radius:999px;padding:0 7px;line-height:18px}
+.titlebar .sp{flex:1}
+.caption{height:100%;display:flex}
+.caption span{width:46px;height:100%;display:grid;place-items:center;color:var(--text3)}
+.work{display:flex;flex:1;min-height:0}
+.rail{width:76px;flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;padding:11px 0 8px}
+.ic{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;color:var(--text3)}
+.ic.on{background:var(--hover2);color:var(--text)}
+.navpill{display:flex;flex-direction:column;gap:2px;padding:2px;border-radius:11px;background:#0f0f0f}
+.surface{flex:1;min-width:0;display:flex;background:var(--bg);border-top-left-radius:16px;position:relative;overflow:hidden}
+
+.panel{width:264px;flex:none;display:flex;flex-direction:column;padding:8px;min-height:0;position:relative}
+.srch{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;background:var(--hover);color:var(--text3)}
+.srch .k{margin-left:auto;font-size:11px;color:var(--text4)}
+.plist{flex:1;overflow:hidden;margin-top:10px;display:flex;flex-direction:column}
+.plbl{font-size:13px;color:var(--text3);font-weight:500;padding:8px 12px 4px;display:flex;align-items:center;gap:6px}
+.group{display:flex;flex-direction:column}
+
+/* A project block collapses and opens through its grid row, so the rows below slide. */
+.pblock{display:grid;grid-template-rows:1fr;opacity:1;transition:grid-template-rows 340ms var(--ease),opacity 240ms var(--ease),transform 340ms var(--ease)}
+.pblock>div{overflow:hidden;min-height:0}
+.pblock.shut{grid-template-rows:0fr;opacity:0;transform:translateX(-10px)}
+.pblock.flash .pj{animation:flash 1.4s var(--ease)}
+
+.pj{display:flex;align-items:center;gap:9px;padding:6px 10px;border-radius:10px;font-weight:500;cursor:default}
+.pj:hover{background:var(--hover)}
+.pj.menuon{background:var(--hover)}
+.pj .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pj .dots{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;color:var(--text3);opacity:0;transition:opacity var(--fast)}
+.pj:hover .dots,.pj.menuon .dots,.pj .dots:focus-visible{opacity:1}
+.pj .dots:hover{background:var(--hover2);color:var(--text)}
+@media (hover:none){.pj .dots{opacity:1}}
+.fo{display:grid}
+
+.th{display:flex;align-items:center;gap:9px;padding:6px 12px 6px 32px;border-radius:10px;color:var(--text2);transition:color 300ms var(--ease)}
+.th .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.th .ki{color:var(--text3);display:grid}
+.th.sel{background:var(--hover);color:var(--text)}
+.th.asleep{color:var(--text3)}
+.th .port{font-size:11.5px;color:var(--text3);background:var(--hover2);border-radius:999px;padding:0 7px;max-width:60px;overflow:hidden;transition:opacity 220ms var(--ease),max-width 260ms var(--ease),padding 260ms var(--ease)}
+.th .port.gone{opacity:0;max-width:0;padding:0}
+.st{width:15px;height:15px;display:grid;place-items:center;flex:none}
+.st.swap{animation:iconswap 380ms var(--ease)}
+.si{display:grid}
+.si.run,.si.ok{color:var(--live)} .si.sleep{color:var(--sleep)} .si.need{color:var(--need)}
+.spin{width:11px;height:11px;border-radius:50%;border:1.5px solid var(--text3);border-right-color:transparent;animation:rot 1s linear infinite;display:inline-block}
+
+/* The Other projects row, docked at the bottom, and its drawer opening upward */
+.dockwrap{flex:none;border-top:1px solid #262626;margin-top:6px;display:flex;flex-direction:column}
+.drawer{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows 300ms var(--ease),opacity 220ms var(--ease)}
+.drawer.open{grid-template-rows:1fr;opacity:1}
+.drawer>div{overflow:hidden;min-height:0}
+.dlist{display:flex;flex-direction:column;padding:6px 0 2px}
+.drow{display:flex;align-items:center;gap:9px;padding:6px 10px;border-radius:10px;font-weight:500;color:var(--text3);opacity:.75}
+.drow:hover{background:var(--hover);color:var(--text);opacity:1}
+.drow .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.drow.new{animation:popin 300ms var(--ease)}
+.dock{display:flex;align-items:center;gap:10px;padding:10px 12px;color:var(--text2);border-radius:10px}
+.dock:hover{background:var(--hover);color:var(--text)}
+.dock .chev{margin-left:auto;transition:transform 260ms var(--ease);color:var(--text3)}
+.dock.open .chev{transform:rotate(180deg)}
+.dock .cnt{display:inline-block;min-width:16px;text-align:center;font-variant-numeric:tabular-nums}
+.dock .cnt.bump{animation:bump 420ms var(--ease)}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.hdr{display:flex;align-items:center;gap:12px;padding:12px 16px 10px 22px}
+.hdr .t{flex:1;min-width:0}
+.hdr .t1{display:flex;align-items:center;gap:8px;font-weight:500;font-size:15px}
+.hdr .t1 .ki{color:var(--text3);display:grid}
+.hdr .t2{display:flex;align-items:center;gap:14px;font-size:12.5px;color:var(--text2);margin-top:2px}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;background:var(--hover);color:var(--text2);font-size:13px}
+.term{flex:1;margin:0 12px 12px;background:var(--pane);border-radius:16px;padding:18px 22px;font:13px/1.65 var(--mono);color:#cfcfcf;overflow:hidden;white-space:pre}
+.term .dim{color:var(--text3)} .term .ok{color:var(--live)} .term .acc{color:#e5a56b}
+
+/* Project menu */
+.menu{position:absolute;width:240px;background:var(--card);border-radius:12px;padding:6px;box-shadow:0 18px 50px rgba(0,0,0,.55);z-index:30;font-size:13.5px;animation:popin var(--med) var(--ease)}
+.menu .mi{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:8px;color:var(--text)}
+.menu .mi:hover,.menu .mi:focus-visible{background:var(--hover2);outline:none}
+.menu .mi.off{color:var(--text3)}
+.menu .msep{height:1px;background:#3a3a3a;margin:4px 6px}
+
+/* The archive window: the Restart to update window's frame */
+.scrim{position:absolute;inset:0;background:rgba(0,0,0,.5);display:grid;place-items:center;z-index:40;animation:fadein var(--med) var(--ease)}
+.dlg{width:440px;display:flex;flex-direction:column;background:var(--card);border-radius:18px;padding:22px;box-shadow:0 24px 70px rgba(0,0,0,.6);gap:14px;animation:rise 260ms var(--ease)}
+.scrim.out{animation:fadeout 170ms var(--ease) forwards}
+.scrim.out .dlg{animation:sinkout 170ms var(--ease) forwards}
+.dlg h2{margin:0;font-size:17px;font-weight:500;line-height:1.35;display:flex;align-items:center;gap:8px;min-width:0}
+.dlg h2 .hn{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tlist{display:flex;flex-direction:column;gap:2px;background:rgba(0,0,0,.18);border-radius:12px;padding:6px}
+.tlist .tr{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;font-size:13px}
+.tlist .tr .ki{color:var(--text3);display:grid}
+.tlist .tr .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.tlist .tr .w{color:var(--text2);white-space:nowrap;display:inline-flex;align-items:center;gap:7px}
+.tlist .tr .w.quiet{color:var(--text3)}
+.dfoot{display:flex;align-items:center;gap:8px;margin-top:2px}
+.dfoot .sp{flex:1}
+.dstat{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--need)}
+.b{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;font-weight:500;font-size:13px;white-space:nowrap;transition:background var(--fast)}
+.b.p{background:var(--btn);color:var(--btn-text)} .b.p:hover{background:#fff}
+.b.q{background:transparent;color:var(--text2)} .b.q:hover{background:var(--hover2);color:var(--text)}
+
+/* In-app toast pill */
+.atoast{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:50;display:flex;align-items:center;gap:10px;background:var(--hover);border-radius:999px;padding:10px 18px;box-shadow:0 10px 30px rgba(0,0,0,.4);font-size:13.5px;white-space:nowrap;animation:risex var(--med) var(--ease)}
+.atoast.out{animation:sinkx 170ms var(--ease) forwards}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+
+<div class="sheet">
+  <div class="top">
+    <h1>Archiving a project with awake threads warns that they will go to sleep</h1>
+    <div class="look">
+      <span class="dot"></span>
+      <span>Right-click a project under Recent (or use its dots) and choose Archive. Open Other projects at the bottom to bring it back.</span>
+      <span class="sp"></span>
+      <button class="reset" id="reset">Reset</button>
+    </div>
+  </div>
+  <div class="fit" id="fit">
+    <div class="frame" id="frame">
+      <div class="titlebar">
+        <span class="tname">afterterm</span><span class="ver">0.11.2</span><span class="sp"></span>
+        <span class="caption"><span><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5h10" stroke="currentColor"/></svg></span><span><svg width="10" height="10" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" fill="none" stroke="currentColor"/></svg></span><span><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 0l10 10M10 0 0 10" stroke="currentColor"/></svg></span></span>
+      </div>
+      <div class="work">
+        <div class="rail">
+          <span class="ic on"><svg width="18" height="18" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="3" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M9.5 4.5v15" stroke="currentColor" stroke-width="1.7"/></svg></span>
+          <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+          <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+          <div class="navpill">
+            <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24"><path d="M4 11 12 4l8 7v8.5a1 1 0 0 1-1 1h-4.5V15h-5v5.5H5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span>
+            <span class="ic on"><svg width="17" height="17" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="m7.5 10 2.5 2-2.5 2M12 14.5h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          </div>
+        </div>
+        <div class="surface" id="surface">
+          <div class="panel">
+            <div class="srch"><svg width="15" height="15" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Search<span class="k">Ctrl+Shift+P</span></div>
+            <div class="plist">
+              <div class="plbl"><svg width="13" height="13" viewBox="0 0 24 24"><path d="M15 3h-6l1 2v5.5L7 13v2h4v6h2v-6h4v-2l-3-2.5V5z" fill="currentColor"/></svg>Pinned</div>
+              <div class="group" id="pinned"></div>
+              <div class="plbl">Recent</div>
+              <div class="group" id="recent"></div>
+            </div>
+            <div class="dockwrap">
+              <div class="drawer" id="drawer"><div><div class="dlist" id="dlist"></div></div></div>
+              <button class="dock" id="dock" aria-expanded="false">
+                <svg width="16" height="16" viewBox="0 0 24 24"><path d="M2.5 7A2 2 0 0 1 4.5 5h4.6l2 2h8.4a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+                <span>Other projects · <span class="cnt" id="ocnt">3</span></span>
+                <svg class="chev" width="14" height="14" viewBox="0 0 24 24"><path d="m6 15 6-6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="main">
+            <div class="hdr">
+              <div class="t">
+                <div class="t1"><span class="ki" id="hk"></span>Fix the sidebar order</div>
+                <div class="t2"><span>afterterm</span><span>Opus 5.5</span><span>manual-testing-fixes</span></div>
+              </div>
+              <span class="chip"><span class="spin"></span>Working</span>
+            </div>
+<div class="term"><span class="dim">&gt;</span> Recent keeps its order when a thread is used
+
+<span class="acc">●</span> Reading src/renderer/attention.ts
+<span class="acc">●</span> Update(src/renderer/attention.ts)
+  <span class="ok">+</span> recent keeps the order projects entered in
+<span class="acc">●</span> Running npm test
+  <span class="ok">✓</span> 29 files, 0 failed
+
+<span class="dim">* Thinking…</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+const I = {
+  chat:'<svg width="15" height="15" viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 3.5V17H6.5A2.5 2.5 0 0 1 4 14.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>',
+  shell:'<svg width="15" height="15" viewBox="0 0 24 24"><path d="m5 7 5 5-5 5M12 17h7" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  moon:'<span class="si sleep"><svg width="14" height="14" viewBox="0 0 24 24"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7z" fill="currentColor"/></svg></span>',
+  play:'<span class="si run"><svg width="14" height="14" viewBox="0 0 24 24"><path d="M8.5 5.9c0-1.1 1.2-1.8 2.1-1.2l8.4 5.9c.9.6.9 1.9 0 2.5l-8.4 5.9c-.9.6-2.1 0-2.1-1.2z" fill="currentColor"/></svg></span>',
+  spin:'<span class="spin"></span>',
+  check:'<span class="si ok"><svg width="14" height="14" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>',
+  bell:'<svg width="12" height="12" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0-6 6v3.6L4.4 15.5A1 1 0 0 0 5.2 17h13.6a1 1 0 0 0 .8-1.5L18 12.6V9a6 6 0 0 0-6-6z" fill="currentColor"/><path d="M9.5 19a2.5 2.5 0 0 0 5 0z" fill="currentColor"/></svg>',
+  dots:'<svg width="14" height="14" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="19" cy="12" r="1.8" fill="currentColor"/></svg>',
+  folder:c => `<span class="fo" style="color:${c}"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M2.5 7A2 2 0 0 1 4.5 5h4.6l2 2h8.4a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2z" fill="currentColor"/><path d="M2.5 9.5h19" stroke="rgba(0,0,0,.28)" stroke-width="1.2"/></svg></span>`
+};
+const stateIcon = s => s === 'asleep' ? I.moon : s === 'run' ? I.play : s === 'working' ? I.spin : s === 'done' ? I.check : '';
+// The words the hover card uses for each state (statusText in threadView.ts)
+const statusWords = t => t.state === 'run' ? `Running on :${t.port}` : t.state === 'working' ? 'Working' : t.state === 'done' ? 'Done' : 'Awake';
+
+function initial(){
+  return {
+    pinned:[
+      {id:'afterterm', name:'afterterm', color:'#60a5fa', threads:[
+        {kind:'chat', name:'Fix the sidebar order', state:'working', sel:true},
+        {kind:'shell', name:'npm start', state:'run', port:5173}]}
+    ],
+    recent:[
+      {id:'pitara', name:'pitara-site', color:'#4ade80', threads:[
+        {kind:'chat', name:'Write the about page', state:'working'},
+        {kind:'shell', name:'npm run dev', state:'run', port:4321},
+        {kind:'chat', name:'Fix the footer links', state:'done'},
+        {kind:'shell', name:'PowerShell 7', state:'quiet'},
+        {kind:'chat', name:'Add a contact form', state:'asleep'}]},
+      {id:'notes', name:'notes-app', color:'#a78bfa', threads:[
+        {kind:'chat', name:'Sync conflict on save', state:'asleep'},
+        {kind:'shell', name:'PowerShell 7', state:'asleep'}]},
+      {id:'tinker', name:'tinker-scripts', color:'#fb923c', threads:[
+        {kind:'shell', name:'Git Bash', state:'asleep'}]}
+    ],
+    other:[
+      {id:'blog', name:'old-blog', color:'#f472b6', threads:[{kind:'chat', name:'Move to Astro', state:'asleep'}]},
+      {id:'resume', name:'resume', color:'#94a3b8', threads:[{kind:'shell', name:'Command Prompt', state:'asleep'}]},
+      {id:'dots', name:'dotfiles', color:'#facc15', threads:[{kind:'shell', name:'Git Bash', state:'asleep'}]}
+    ]
+  };
+}
+
+let S = initial();
+let busy = false;
+const $ = id => document.getElementById(id);
+const frame = $('frame'), surface = $('surface');
+$('hk').innerHTML = I.chat;
+
+const awake = p => p.threads.filter(t => t.state !== 'asleep');
+
+function threadHTML(t){
+  return `<div class="th${t.sel ? ' sel' : ''}${t.state === 'asleep' ? ' asleep' : ''}">
+    <span class="ki">${I[t.kind]}</span><span class="n">${t.name}</span>
+    ${t.port ? `<span class="port">:${t.port}</span>` : ''}
+    <span class="st">${stateIcon(t.state)}</span></div>`;
+}
+function blockEl(p, menu){
+  const el = document.createElement('div');
+  el.className = 'pblock';
+  el.dataset.id = p.id;
+  el.innerHTML = `<div><div class="pj">${I.folder(p.color)}<span class="n">${p.name}</span>${menu ? `<button class="dots" aria-label="Project menu for ${p.name}">${I.dots}</button>` : ''}</div>${p.threads.map(threadHTML).join('')}</div>`;
+  return el;
+}
+function drowEl(p){
+  const b = document.createElement('button');
+  b.className = 'drow';
+  b.dataset.id = p.id;
+  b.innerHTML = `${I.folder(p.color)}<span class="n">${p.name}</span>`;
+  return b;
+}
+function build(){
+  $('pinned').replaceChildren(...S.pinned.map(p => blockEl(p, false)));
+  $('recent').replaceChildren(...S.recent.map(p => blockEl(p, true)));
+  $('dlist').replaceChildren(...S.other.map(drowEl));
+  $('ocnt').textContent = S.other.length;
+}
+build();
+
+// Scale the 1100x660 window to the page width
+function fit(){
+  const w = $('fit').clientWidth, k = Math.min(1, w / 1100);
+  frame.style.transform = `scale(${k})`;
+  $('fit').style.height = (660 * k) + 'px';
+  frame.dataset.k = k;
+}
+addEventListener('resize', fit); fit();
+const toFrame = (x, y) => { const r = frame.getBoundingClientRect(), k = +frame.dataset.k || 1; return [(x - r.left) / k, (y - r.top) / k]; };
+
+// ── Menu ──
+let menuEl = null, menuRow = null;
+function closeMenu(){ if (menuEl) { menuEl.remove(); menuEl = null; } if (menuRow) { menuRow.classList.remove('menuon'); menuRow = null; } }
+function openMenu(id, x, y){
+  closeMenu();
+  const p = S.recent.find(q => q.id === id); if (!p) return;
+  menuRow = document.querySelector(`#recent .pblock[data-id="${id}"] .pj`);
+  menuRow.classList.add('menuon');
+  const m = document.createElement('div');
+  m.className = 'menu'; m.setAttribute('role', 'menu');
+  const items = ['Open','New thread here','Pin','Open project page','Open in File Explorer','Edit','-','Archive','Delete'];
+  m.innerHTML = items.map(t => t === '-' ? '<div class="msep"></div>' : `<button class="mi${t === 'Archive' ? '' : ' off'}" role="menuitem" data-mi="${t}">${t}</button>`).join('');
+  frame.appendChild(m);
+  menuEl = m;
+  const [fx, fy] = toFrame(x, y);
+  m.style.left = Math.min(fx, 1100 - 250) + 'px';
+  m.style.top = Math.min(fy, 660 - 330) + 'px';
+  m.querySelector('[data-mi="Archive"]').focus({preventScroll:true});
+  m.addEventListener('click', e => {
+    const mi = e.target.closest('.mi'); if (!mi) return;
+    closeMenu();
+    if (mi.dataset.mi === 'Archive') archive(id);
+  });
+}
+$('recent').addEventListener('contextmenu', e => {
+  const b = e.target.closest('.pblock'); if (!b || busy) return;
+  if (!e.target.closest('.pj')) return;
+  e.preventDefault(); openMenu(b.dataset.id, e.clientX, e.clientY);
+});
+$('recent').addEventListener('click', e => {
+  const d = e.target.closest('.dots'); if (!d || busy) return;
+  const r = d.getBoundingClientRect();
+  openMenu(d.closest('.pblock').dataset.id, r.left, r.bottom + 4);
+});
+document.addEventListener('mousedown', e => { if (menuEl && !e.target.closest('.menu')) closeMenu(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (menuEl) closeMenu(); else if (dlgEl) closeDlg(false); } });
+
+// ── The archive window ──
+let dlgEl = null, dlgDone = null;
+function confirmArchive(p){
+  return new Promise(res => {
+    dlgDone = res;
+    const rows = awake(p).map(t => `<div class="tr"><span class="ki">${I[t.kind]}</span><span class="n">${t.name}</span><span class="w${t.state === 'quiet' ? ' quiet' : ''}">${stateIcon(t.state)}${statusWords(t)}</span></div>`).join('');
+    const s = document.createElement('div');
+    s.className = 'scrim';
+    s.innerHTML = `<div class="dlg" role="dialog" aria-modal="true" aria-label="Archive ${p.name}?">
+      <h2>Archive ${I.folder(p.color)}<span class="hn">${p.name}</span>?</h2>
+      <div class="tlist">${rows}</div>
+      <div class="dfoot"><span class="dstat">${I.bell}These threads will go to sleep</span><span class="sp"></span>
+      <button class="b q" data-a="no">Cancel</button><button class="b p" data-a="yes">Archive</button></div></div>`;
+    surface.appendChild(s);
+    dlgEl = s;
+    s.querySelector('[data-a="yes"]').focus({preventScroll:true});
+    s.addEventListener('click', e => { const a = e.target.closest('[data-a]'); if (a) closeDlg(a.dataset.a === 'yes'); });
+  });
+}
+function closeDlg(ok){
+  if (!dlgEl) return;
+  const s = dlgEl; dlgEl = null;
+  s.classList.add('out');
+  setTimeout(() => s.remove(), 170);
+  const done = dlgDone; dlgDone = null;
+  setTimeout(() => done && done(ok), 170);
+}
+
+const wait = ms => new Promise(r => setTimeout(r, ms));
+
+async function archive(id){
+  if (busy) return;
+  const p = S.recent.find(q => q.id === id); if (!p) return;
+  const live = awake(p);
+  busy = true;
+  if (live.length) {
+    const ok = await confirmArchive(p);
+    if (!ok) { busy = false; return; }
+    // The awake threads go to sleep first, one after the other
+    const block = document.querySelector(`#recent .pblock[data-id="${id}"]`);
+    const rows = [...block.querySelectorAll('.th')];
+    for (let i = 0; i < p.threads.length; i++) {
+      const t = p.threads[i];
+      if (t.state === 'asleep') continue;
+      const row = rows[i], st = row.querySelector('.st');
+      st.classList.remove('swap'); void st.offsetWidth;
+      st.innerHTML = I.moon; st.classList.add('swap');
+      row.classList.add('asleep');
+      const port = row.querySelector('.port'); if (port) port.classList.add('gone');
+      t.state = 'asleep'; delete t.port;
+      await wait(140);
+    }
+    await wait(420);
+  }
+  // Then the project leaves Recent and joins Other projects
+  const block = document.querySelector(`#recent .pblock[data-id="${id}"]`);
+  block.classList.add('shut');
+  await wait(360);
+  block.remove();
+  S.recent = S.recent.filter(q => q !== p);
+  S.other.unshift(p);
+  const d = drowEl(p); d.classList.add('new');
+  $('dlist').prepend(d);
+  const c = $('ocnt'); c.textContent = S.other.length;
+  c.classList.remove('bump'); void c.offsetWidth; c.classList.add('bump');
+  toast('Moved to Other projects');
+  busy = false;
+}
+
+// ── Other projects drawer ──
+function setDrawer(open){
+  $('drawer').classList.toggle('open', open);
+  $('dock').classList.toggle('open', open);
+  $('dock').setAttribute('aria-expanded', String(open));
+}
+$('dock').addEventListener('click', () => { if (!busy) setDrawer(!$('drawer').classList.contains('open')); });
+$('dlist').addEventListener('click', async e => {
+  const r = e.target.closest('.drow'); if (!r || busy) return;
+  busy = true;
+  const p = S.other.find(q => q.id === r.dataset.id);
+  setDrawer(false);
+  await wait(220);
+  r.remove();
+  S.other = S.other.filter(q => q !== p);
+  $('ocnt').textContent = S.other.length;
+  // Using it brings it back: into Recent, at the top; the rows below slide down
+  S.recent.unshift(p);
+  const b = blockEl(p, true);
+  b.classList.add('shut');
+  $('recent').prepend(b);
+  void b.offsetWidth;
+  b.classList.remove('shut');
+  b.classList.add('flash');
+  setTimeout(() => b.classList.remove('flash'), 1500);
+  await wait(360);
+  busy = false;
+});
+
+// ── Toast ──
+let toastEl = null, toastT = 0;
+function toast(text){
+  if (toastEl) toastEl.remove();
+  clearTimeout(toastT);
+  const t = document.createElement('div');
+  t.className = 'atoast'; t.textContent = text;
+  surface.appendChild(t); toastEl = t;
+  toastT = setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 170); toastEl = null; }, 2600);
+}
+
+$('reset').addEventListener('click', () => {
+  closeMenu(); if (dlgEl) { dlgEl.remove(); dlgEl = null; dlgDone = null; }
+  if (toastEl) { toastEl.remove(); toastEl = null; }
+  busy = false; setDrawer(false); S = initial(); build();
+});
+})();
+</script>

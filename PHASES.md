@@ -2,7 +2,7 @@
 
 What is still open in afterterm, and, once a round of work starts, the phases it is split into. Keep it current as work happens: what has to be done, what is done, what is pending.
 
-**Last round: automatic updates** (2026-10-30 to 2026-10-31, PR #58), released as afterterm 0.11.0 on 2026-10-31; no round of work is in progress. The last finished round, projects and threads (Phases 0 to 9 and the fixes after them), was released as afterterm 0.9.0 on 2026-09-30; its full record, with every decision and its date, is [`docs/phases-01-projects-and-threads.md`](docs/phases-01-projects-and-threads.md).
+**Last round: automatic updates** (2026-10-30 to 2026-10-31, PR #58), released as afterterm 0.11.0 on 2026-10-31; no round of work is in progress. **Decided and waiting to be built:** the sidebar's order, drag and drop, and Archive (Aryan, 2026-11-01), everything in [`docs/handoff-sidebar-order-drag-archive.md`](docs/handoff-sidebar-order-drag-archive.md). The last finished round, projects and threads (Phases 0 to 9 and the fixes after them), was released as afterterm 0.9.0 on 2026-09-30; its full record, with every decision and its date, is [`docs/phases-01-projects-and-threads.md`](docs/phases-01-projects-and-threads.md).
 
 ## Automatic updates
 
