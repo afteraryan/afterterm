@@ -256,14 +256,27 @@ body.dividing * {
   background: rgba(248, 113, 113, .08);
 }
 
+/* A refused drop's label, over the same area as its zone but in a layer of its
+   own above the dragged card (SidePanelMotion.css, .pd-ghost, z-index 60): the
+   card floats beside the pointer and would otherwise hide the label. */
+.dz-text {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 61;
+}
+
 /* With two threads on screen, the refused zone covers both columns. */
-.dz.whole {
+.dz.whole,
+.dz-text.whole {
   left: 12px;
   right: 12px;
   bottom: 12px;
 }
 
-.dz .lab {
+.dz-text .lab {
   background: #2f2f2f;
   color: var(--text);
   font-size: 12.5px;

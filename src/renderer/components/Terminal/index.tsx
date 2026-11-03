@@ -931,18 +931,19 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
   // that has just unmounted.
   useEffect(() => {
     if (!visible) return;
-    const info = termsRef.current.get(activeTabId);
-    if (!info) return;
     const frame = requestAnimationFrame(() => {
+      // Every terminal on screen: in a split the focused half may be asleep
+      // while the other half's terminal still needs its size back.
       fitVisible();
       // Only take the keyboard when nothing else holds it: Ctrl+Shift+T from Home
       // switches to the workspace and opens the new thread chooser in the same
       // breath, and its input must keep focus (Escape and Enter go to it).
+      const info = termsRef.current.get(activeTabId);
       const active = document.activeElement;
-      if (!active || active === document.body) info.term.focus();
+      if (info && (!active || active === document.body)) info.term.focus();
     });
     return () => cancelAnimationFrame(frame);
-  }, [visible, activeTabId]);
+  }, [visible, activeTabId, fitVisible]);
 
   // Resize the terminals on screen when the pane resizes (the window, the
   // panel sliding). The divider does not resize the pane, only its columns, and
@@ -1179,10 +1180,9 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
                 )}
                 {focused && !asleep && findBar}
                 {halfZone && (
-                  <div className={`dz${halfZone.bad ? ' bad' : ` ${halfZone.side}`}`} data-dz={halfZone.bad ? 'bad' : halfZone.side}>
-                    {halfZone.bad && <span className="lab">{halfZone.bad}</span>}
-                  </div>
+                  <div className={`dz${halfZone.bad ? ' bad' : ` ${halfZone.side}`}`} data-dz={halfZone.bad ? 'bad' : halfZone.side} />
                 )}
+                {halfZone?.bad && <div className="dz-text"><span className="lab">{halfZone.bad}</span></div>}
               </div>
             </div>
           </React.Fragment>
@@ -1190,9 +1190,10 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       })}
 
       {split && dropZone?.kind === 'whole' && (
-        <div className="dz bad whole" data-dz="bad">
-          <span className="lab">{dropZone.bad}</span>
-        </div>
+        <>
+          <div className="dz bad whole" data-dz="bad" />
+          <div className="dz-text whole"><span className="lab">{dropZone.bad}</span></div>
+        </>
       )}
     </div>
   );

@@ -1,7 +1,7 @@
 // The pane app.tsx shows in place of the terminal card while the active
 // thread is asleep (design-02 "Workspace": "the old output dimmed, a large
 // Wake button at the top of the pane"). Fills the same area TerminalArea's
-// .terminal-instances fills (index.css: same margin, #191919 background,
+// .term-card holds (index.css: the same #191919 background,
 // 16px radius), so swapping one for the other never shifts the header or the
 // sidebar.
 //

@@ -47,7 +47,7 @@
 //   hover-card                    the thread hover card as a tree (or "(no hover card)")
 //   pane                           the asleep pane as a tree (data-tab-id, wake button,
 //                                  since text, past lines), or "(terminal)" plus whether
-//                                  .terminal-instances is hidden when no thread is asleep
+//                                  the main pane (.term-panes) is empty when no thread is asleep
 //   tail [n]                      last n lines (default 30) of the active tab's xterm
 //                                  buffer via window.__afterterm; add --tab <id> for a
 //                                  specific tab instead of the active one
@@ -272,12 +272,14 @@ const SEL = {
     // bottom-right instead of scrolling away with the content.
     scroll: '.asleep-scroll',
   },
-  // Phase 4: the terminal host carries this class while the asleep pane covers it.
-  terminalHidden: '.terminal-instances.asleep-hidden',
+  // The main pane with nothing on screen. Since design-06 (two threads side by
+  // side) an asleep thread's pane sits inside its own column's card instead of
+  // hiding the terminal area, so only "nothing on screen" hides it.
+  terminalHidden: '.term-panes.empty',
 
   // Phase 9: the jump-to-top / jump-to-bottom button (src/renderer/components/
   // JumpButton/index.tsx), floated over either scroller it is mounted in
-  // (the live terminal's .terminal-instances, or the asleep pane's .asleep-scroll).
+  // (the live terminal's .term-card, or the asleep pane's .asleep-scroll).
   jumpButton: '.jump-btn',
 
   // Phase 5: the close confirm shown when closing a thread that owns a listening
@@ -486,7 +488,7 @@ async function elementCentre(selector, indexArg) {
   })()`);
   if (rect.x === undefined) fail(`no element at index ${index} for ${selector} (${rect.count} match(es))`);
   if (rect.width === 0 || rect.height === 0) fail(`element ${index} for ${selector} has no size (hidden?)`);
-  return { x: Math.round(rect.x), y: Math.round(rect.y), count: rect.count, index };
+  return { x: Math.round(rect.x), y: Math.round(rect.y), count: rect.count, index, width: rect.width, height: rect.height };
 }
 
 async function cmdClick(selector, indexArg, button) {
@@ -586,6 +588,11 @@ async function cmdDrag(args) {
   const holdMs = Number(opts['hold-ms'] ?? 0);
   const from = await elementCentre(fromSelector, fromIndex);
   const to = await elementCentre(toSelector, toIndex);
+  // Two threads side by side (design-06): --to-x <fraction> lands at that
+  // fraction of the target's width instead of its centre (0.25 is the left
+  // half, 0.75 the right), and --shot <png> captures the page during the hold,
+  // before the release, so the lit drop zone is in the picture.
+  if (opts['to-x'] !== undefined) to.x = Math.round(to.x - to.width / 2 + to.width * Number(opts['to-x']));
   await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: from.x, y: from.y, button: 'none' });
   await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: from.x, y: from.y, button: 'left', clickCount: 1 });
   // dnd-kit's PointerSensor has a 6px activation distance, so this first move
@@ -598,6 +605,13 @@ async function cmdDrag(args) {
     await sleep(16);
   }
   if (holdMs > 0) await sleep(holdMs);
+  if (opts.shot) {
+    const file = path.resolve(String(opts.shot));
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    const shot = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+    fs.writeFileSync(file, Buffer.from(shot.data, 'base64'));
+    console.log(`held: ${file}`);
+  }
   await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: to.x, y: to.y, button: 'left', clickCount: 1 });
   console.log(`dragged ${fromSelector}[${fromIndex}] (${from.x}, ${from.y}) to ${toSelector}[${toIndex}] (${to.x}, ${to.y}) in ${steps} steps${holdMs ? `, held ${holdMs}ms` : ''}`);
 }
