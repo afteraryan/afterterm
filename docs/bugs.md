@@ -800,3 +800,21 @@ When Aryan closes afterterm and starts it again, the app opens on Home, and noth
 3. Look at Home: nothing shows which thread was used last, and there is no way to resume it from there.
 
 **Evidence:** Only the description above. Aryan's words: "There has to be a way, when I close Afternote and start it, to either resume the last session or at least let me know which was the last session (because from the home screen, there is no way to know right now)". ("Afternote" here means afterterm.)
+
+---
+
+## The rail cannot say what is new, what is old, what is being worked on and what is done
+
+**Observed:** 2026-11-03 by Aryan during manual testing · **Phase:** 8 (the always-on rail and its project tiles), with the attention states from Phase 7 · **Status:** open · **Severity:** medium (the rail is there to show what to look at next, and with many projects Aryan cannot read anything from it) · **Screenshot:** none
+
+**What happens:**
+The rail has so many tiles that Aryan cannot understand what they are just by looking at them. He cannot tell what is old and what is new, which things he is working on right now, and which are done. To him the rail is useless at this point. He expects the two of us to understand why that is and to fix it, rather than patch its pieces.
+
+**Steps to make it happen again:**
+1. Use afterterm across many projects for a week or more (Aryan's session on 2026-11-03 had 25 projects and 129 threads, with work spread over 7 projects in the last 3 days).
+2. Let threads in several projects finish, wait for an answer, or keep working.
+3. Look at the rail: a column of project icons with coloured numbers, in an order that is not by time, with nothing saying which is new, which is old, which thread is being worked on now and which is done.
+
+**Evidence:** Only the description above. Aryan's words: "I truly feel that side rail is useless right now. I have so many things in the side rail. I am not able to understand what they are just by looking at them. I don't know what is old, what is new, what are the things which I am working on right now, and which are done. Side rail is not very helpful right now. We need to figure out and truly understand why that is and how to fix it."
+
+**Diagnosis and proposed fix:** written up, at Aryan's request, in [`docs/note-02-rail-cannot-say-what-is-new-old-working-or-done.md`](note-02-rail-cannot-say-what-is-new-old-working-or-done.md): why the rail reads as a pile (tiles are projects not threads, no names, creation order, no time recorded, sticky entries, awake threads absent) and the direction for a fix (a time-ordered list of threads in three groups, Needs you, Working now and Finished, with names and ages, the width being the one choice for Aryan). The earlier rail entries of 2026-10-01, 2026-10-02 (two) and 2026-10-08 are symptoms of the same cause.
