@@ -818,3 +818,30 @@ The rail has so many tiles that Aryan cannot understand what they are just by lo
 **Evidence:** Only the description above. Aryan's words: "I truly feel that side rail is useless right now. I have so many things in the side rail. I am not able to understand what they are just by looking at them. I don't know what is old, what is new, what are the things which I am working on right now, and which are done. Side rail is not very helpful right now. We need to figure out and truly understand why that is and how to fix it."
 
 **Diagnosis and proposed fix:** written up, at Aryan's request, in [`docs/note-02-rail-cannot-say-what-is-new-old-working-or-done.md`](note-02-rail-cannot-say-what-is-new-old-working-or-done.md): why the rail reads as a pile (tiles are projects not threads, no names, creation order, no time recorded, sticky entries, awake threads absent) and the direction for a fix (a time-ordered list of threads in three groups, Needs you, Working now and Finished, with names and ages, the width being the one choice for Aryan). The earlier rail entries of 2026-10-01, 2026-10-02 (two) and 2026-10-08 are symptoms of the same cause.
+
+---
+
+## A Claude Code agent in one thread cannot start, prompt, read or follow other threads in afterterm
+
+**Observed:** 2026-11-03 by Aryan during manual testing · **Phase:** none (a new feature; no phase of the projects-and-threads round covers it) · **Status:** open · **Severity:** low (a feature request: nothing is broken or lost) · **Screenshot:** none attached
+
+**What happens:**
+This is a feature request, not a defect. A Claude Code agent running in one afterterm thread has no way to work with other threads. Aryan wants one agent to be able to:
+1. Start new threads in afterterm.
+2. Give those threads prompts and talk to them.
+3. Read their messages.
+4. Subscribe to threads, so that it gets a notification when another thread finishes or anything else happens in it.
+
+If Claude Code already has a built-in way to do this, that would be best. Otherwise he thinks afterterm needs an MCP server or a CLI tool for it; what comes after that is not decided.
+
+**Steps to make it happen again:**
+1. In afterterm, open a chat and ask Claude to start another thread, send it a prompt, read its replies, or tell you when it finishes.
+2. Claude has no afterterm tool to do any of these.
+
+**Evidence:** Only the description above. Aryan's words: "I want the ability so that one Claude agent can spawn or start more threads in Afterton and talk to them, read their messages, and give them prompts. It can subscribe to threads so that when other threads finish or anything, it gets a notification. I don't know. I'm just saying, if there is an inbuilt way for Claude to do it, then great." and "For this, I think we have to create some MCP or some CLI tool. After that, I don't know." ("Afterton" here means afterterm.)
+
+Something close was noted before, on the unmerged `worktree-project-board` branch (the project board, paused 2026-10-04):
+- `docs/project-board/phases.md`, unphased backlog: "A way for Claude Code to use afterterm itself, as a skill, an MCP server or another tool: add a task, mark one started or done, start a thread (Aryan, 2026-10-04)."
+- `docs/project-board/design-05-project-board.md`: "Claude Code gets a way to use afterterm itself: an afterterm skill, an MCP server or some other tool. An agent could then add a task, mark one started or done, or start a thread through afterterm instead of only editing files."
+
+That earlier note covers starting a thread only; prompting other threads, reading their messages and subscribing to their events are new in this request. Nothing about it is in `docs/ideas.md` or `PHASES.md` on `main`.
