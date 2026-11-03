@@ -36,6 +36,8 @@
   /* The accent blue of the panel's drop line and drop highlight
      (docs/mockups/sidebar-drag-and-drop.html, --line there). */
   --drop-line: #8ab4ff;
+  /* A refused drop on the main pane (design-06, the mockup's --bad). */
+  --drop-bad: #f87171;
 
   --bg: #212121;
   --pane: #191919; /* the terminal card and the asleep pane surface (index.css, AsleepPane.css) */

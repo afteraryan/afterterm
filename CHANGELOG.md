@@ -6,6 +6,24 @@ What changed for the person using afterterm, release by release. Each release li
 
 Nothing yet.
 
+## 0.13.0 (2026-11-03)
+
+### Two threads side by side
+
+- **Drag a thread from the sidebar onto either half of the open terminal** to show the two side by side. The half it will take lights up while you drag. Two threads of the same project can go together, or two General threads.
+- **A drop that can't work turns red and says why:** "Same project only" for a thread from another project, "Two at most" when two threads are already on screen. Letting go there does nothing.
+- **Each half is a whole thread:** its own header, menu, editor button, Files button and Wake. A thin outline shows which half you are typing in; click a half to type there.
+- **The other half still tells you things.** It gets its toasts while you work in the focused one, and its Done stays until you click into it.
+- **In the sidebar the two rows stay in their project, joined by a thin line.** Clicking either one shows both. Ctrl+Shift+Down and Ctrl+Tab step through both halves one after the other.
+- **Drag the divider to resize**, between a quarter and three quarters; double-click it for half and half.
+- **Right-click either row and choose Ungroup** to show them apart again; both keep running. Closing either thread, or moving it to another project, also ends the pair.
+- The pair, its sides and the divider come back after a restart, both asleep.
+
+### The header's status is shorter
+
+- A working chat's header shows the spinner alone, without "Working".
+- A running server's header shows the play icon and its port (`:5173`), without "Running on".
+
 ## 0.12.1 (2026-11-01)
 
 ### Fixed

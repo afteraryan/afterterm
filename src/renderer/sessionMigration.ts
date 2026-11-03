@@ -12,6 +12,8 @@
 import type { Tab, Group, HistoryEntry } from './components/TabBar/types';
 import { isProjectIconId } from './components/TabBar/types.ts';
 import { computeSegments } from './sidebarWalk.ts';
+import { restoreSplits } from './splitView.ts';
+import type { Split } from './splitView.ts';
 
 // Bump when a saved file needs a shape change a plain "fill defaults" pass cannot
 // express. A file with no version field is treated as version 1 (release 0.8.1).
@@ -46,6 +48,14 @@ export interface SavedSession {
   // dropped on the next launch, which wakes them when the update went in. A
   // normal quit never writes it, so a normal relaunch keeps every thread asleep.
   wakeAfterUpdate?: string[];
+  // Two threads side by side (design-06): each split's pair, which side each
+  // thread is on (a left, b right) and the divider position. Written only when
+  // there is at least one, so a session without any keeps its old shape (and a
+  // build from before splits simply ignores the key, losing nothing else). On
+  // load a split whose thread is gone, or whose two threads are in different
+  // projects, is dropped (splitView.ts, restoreSplits). Both threads come back
+  // asleep like every restored thread.
+  splits?: Split[];
 }
 
 // The only tab keys that ever reach disk. Anything else on a Tab is transient.
@@ -211,6 +221,9 @@ export function migrateSession(raw: unknown, now: number): SavedSession | null {
 
   const version = typeof raw.version === 'number' ? raw.version : 1;
   const ordered = version < 3 ? legacyProjectOrder(groups, tabs) : groups;
+  // Splits are checked against the threads and projects just validated, and a
+  // split's two threads are put next to each other if a file had them apart.
+  const restored = restoreSplits(raw.splits, tabs, groups);
 
   // An active id that points at nothing (dropped entry, hand edit) is as good as
   // none: restoreSession then falls back to the first tab instead of a blank view.
@@ -218,9 +231,10 @@ export function migrateSession(raw: unknown, now: number): SavedSession | null {
     ? raw.activeTabId
     : '';
 
-  const session: SavedSession = { version: SESSION_FORMAT_VERSION, tabs, groups: ordered, activeTabId, ui: asUi(raw.ui) };
+  const session: SavedSession = { version: SESSION_FORMAT_VERSION, tabs: restored.tabs, groups: ordered, activeTabId, ui: asUi(raw.ui) };
   const wake = asWakeList(raw.wakeAfterUpdate, tabs);
   if (wake.length) session.wakeAfterUpdate = wake;
+  if (restored.splits.length) session.splits = restored.splits;
   return session;
 }
 
@@ -252,7 +266,8 @@ function asWakeList(v: unknown, tabs: SavedTab[]): string[] {
  * {} so an existing call site (three arguments, from before Phase 8) still
  * writes a valid, empty `ui` object rather than omitting the key.
  * `wakeAfterUpdate` is written only when the quit is an update restart and
- * something was awake; every other save leaves the key out.
+ * something was awake; every other save leaves the key out. `splits` likewise
+ * only when there is one.
  */
 export function serializeSession(
   tabs: Tab[],
@@ -260,6 +275,7 @@ export function serializeSession(
   activeTabId: string,
   ui: { panelHidden?: boolean } = {},
   wakeAfterUpdate?: string[],
+  splits?: Split[],
 ): SavedSession {
   const session: SavedSession = {
     version: SESSION_FORMAT_VERSION,
@@ -278,5 +294,6 @@ export function serializeSession(
     ui,
   };
   if (wakeAfterUpdate && wakeAfterUpdate.length) session.wakeAfterUpdate = [...wakeAfterUpdate];
+  if (splits && splits.length) session.splits = splits.map(s => ({ id: s.id, a: s.a, b: s.b, ratio: s.ratio }));
   return session;
 }

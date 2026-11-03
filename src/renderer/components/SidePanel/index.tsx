@@ -26,6 +26,8 @@ import { isWaitingState } from '../../attention';
 import { relativeTime } from '../../homeView';
 import { ThreadHoverCard } from '../ThreadHoverCard';
 import { usePanelDrag, GENERAL } from './usePanelDrag';
+import { foldLimit, partnerOf, splitOf } from '../../splitView';
+import type { Split, PaneTarget } from '../../splitView';
 import type { ListKey } from './usePanelDrag';
 import './SidePanel.css';
 import './SidePanelMotion.css';
@@ -55,6 +57,8 @@ const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce
 interface ThreadRowProps {
   tab: Tab;
   isActive: boolean;
+  // The other half of the split on screen (design-06): a lighter selected look.
+  isPartner?: boolean;
   inProject: boolean;
   // The row being dragged stays in its place, dimmed.
   isDragging?: boolean;
@@ -72,11 +76,11 @@ interface ThreadRowProps {
 }
 
 function ThreadRow({
-  tab, isActive, inProject, isDragging, entering, overlay,
+  tab, isActive, isPartner, inProject, isDragging, entering, overlay,
   onActivate, onContextMenu, onClose, onHoverStart, onHoverEnd,
 }: ThreadRowProps) {
   const state = threadState(tab);
-  const breathe = !isActive && stateBreathes(state)
+  const breathe = !isActive && !isPartner && stateBreathes(state)
     ? (state === 'needs-you' || state === 'unread' ? 'breathe-need' : 'breathe-done')
     : '';
 
@@ -100,6 +104,7 @@ function ThreadRow({
     'th',
     inProject ? '' : 'gen',
     isActive ? 'sel' : '',
+    isPartner ? 'on' : '',
     isDragging ? 'dragging' : '',
     entering ? 'enter' : '',
     overlay ? 'drag-overlay' : '',
@@ -367,6 +372,14 @@ export interface SidePanelProps {
   // or Recent above `beforeId` or at the end of that section.
   onPlaceThread: (tabId: string, groupId: string | undefined, beforeId: string | null) => void;
   onPlaceProject: (groupId: string, section: ProjectSection, beforeId: string | null) => void;
+  // Two threads side by side (design-06): the splits, so a split's two rows are
+  // drawn joined by a line and the fold never cuts them apart; Ungroup in a
+  // split row's menu; and the main pane as a drop target for a dragged thread.
+  splits: Split[];
+  onUngroup: (tabId: string) => void;
+  paneAt: (tabId: string, x: number, y: number) => PaneTarget | null;
+  onPaneHover: (target: PaneTarget | null) => void;
+  onPaneDrop: (tabId: string, target: PaneTarget) => void;
 }
 
 export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function SidePanel(props, ref) {
@@ -378,6 +391,7 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
     onAddToGroup, onRemoveFromGroup,
     onRenameGroup, onToggleGroupCollapse, onSetGroupsCollapsed, onBringIn,
     holdInRecent, onPlaceThread, onPlaceProject,
+    splits, onUngroup, paneAt, onPaneHover, onPaneDrop,
   } = props;
 
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
@@ -534,6 +548,7 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
         openLocalhost: () => onOpenLocalhost(tab.id),
         openInExplorer: threadExplorer(tab),
         openInEditor: threadEditor(tab),
+        ungroup: splitOf(splits, tab.id) ? () => onUngroup(tab.id) : undefined,
       }),
     });
   };
@@ -675,6 +690,9 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
     beforeDrop: (id, kind, cardRect) => captureFlip(kind === 'thread' ? `t:${id}` : `p:${id}`, cardRect),
     dropThread: (tabId, list, beforeId) => onPlaceThread(tabId, list === GENERAL ? undefined : list, beforeId),
     dropProject: (groupId, section, beforeId) => onPlaceProject(groupId, section, beforeId),
+    paneAt,
+    paneHover: onPaneHover,
+    dropOnPane: onPaneDrop,
   });
   draggingRef.current = !!drag;
 
@@ -682,10 +700,10 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
   // minus collapsed projects, minus fold-hidden rows.
   useImperativeHandle(ref, (): SidePanelHandle => ({
     cycleThread: (currentId, dir) => {
-      const ids = visibleThreadIds(view, { activeTabId: currentId, expandedLists, limit: THREAD_FOLD_LIMIT, isWaiting });
+      const ids = visibleThreadIds(view, { activeTabId: currentId, expandedLists, limit: THREAD_FOLD_LIMIT, isWaiting, splits });
       return cycleThreadId(ids, currentId, dir);
     },
-    visibleIds: () => visibleThreadIds(view, { activeTabId, expandedLists, limit: THREAD_FOLD_LIMIT, isWaiting }),
+    visibleIds: () => visibleThreadIds(view, { activeTabId, expandedLists, limit: THREAD_FOLD_LIMIT, isWaiting, splits }),
     focusSearch: () => searchRef.current?.focus(),
     revealProject: (groupId) => {
       if (query) setQuery('');
@@ -698,32 +716,59 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
       setFolding(f => new Set([...f, groupId]));
       setTimeout(resolve, FOLD_MS);
     }),
-  }), [view, expandedLists, activeTabId, query, hidden]);
+  }), [view, expandedLists, activeTabId, query, hidden, splits]);
 
   const clearQuery = () => {
     setQuery('');
     searchRef.current?.focus();
   };
 
+  // The other half of the split on screen, if any: its row gets the lighter
+  // selected look (design-06).
+  const partnerId = partnerOf(splits, activeTabId);
+
   const renderThreadList = (threads: Tab[], key: string, inProject: boolean) => {
-    const { shown, hiddenCount, showMore } = foldThreads(threads, activeTabId, !!expandedLists[key], THREAD_FOLD_LIMIT, isWaiting);
+    // The fold never cuts a split's two rows apart (splitView.ts, foldLimit).
+    const limit = foldLimit(threads, THREAD_FOLD_LIMIT, splits);
+    const { shown, hiddenCount, showMore } = foldThreads(threads, activeTabId, !!expandedLists[key], limit, isWaiting);
+    const row = (tab: Tab) => (
+      <ThreadRow
+        key={tab.id}
+        tab={tab}
+        isActive={tab.id === activeTabId}
+        isPartner={tab.id === partnerId}
+        inProject={inProject}
+        isDragging={drag?.kind === 'thread' && drag.id === tab.id}
+        entering={arrived.threads.has(tab.id)}
+        onActivate={() => onActivate(tab.id)}
+        onContextMenu={e => openThreadMenu(e, tab)}
+        onClose={() => onClose(tab.id)}
+        onHoverStart={rect => startHover(tab.id, rect)}
+        onHoverEnd={hideHover}
+      />
+    );
+    // A split's two rows (always next to each other) are wrapped together and
+    // joined by a thin line on their left: no name, no number (design-06).
+    const items: React.ReactNode[] = [];
+    for (let i = 0; i < shown.length; i++) {
+      const tab = shown[i];
+      const next = shown[i + 1];
+      const s = splitOf(splits, tab.id);
+      if (s && s.a === tab.id && next?.id === s.b) {
+        items.push(
+          <div key={`split:${s.id}`} className={`sgw${inProject ? '' : ' gen'}`} data-split={s.id}>
+            {row(tab)}
+            {row(next)}
+          </div>,
+        );
+        i++;
+      } else {
+        items.push(row(tab));
+      }
+    }
     return (
       <>
-        {shown.map(tab => (
-          <ThreadRow
-            key={tab.id}
-            tab={tab}
-            isActive={tab.id === activeTabId}
-            inProject={inProject}
-            isDragging={drag?.kind === 'thread' && drag.id === tab.id}
-            entering={arrived.threads.has(tab.id)}
-            onActivate={() => onActivate(tab.id)}
-            onContextMenu={e => openThreadMenu(e, tab)}
-            onClose={() => onClose(tab.id)}
-            onHoverStart={rect => startHover(tab.id, rect)}
-            onHoverEnd={hideHover}
-          />
-        ))}
+        {items}
         {showMore && (
           <button
             className="thmore"

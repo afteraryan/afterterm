@@ -597,5 +597,31 @@ console.log('\nwakeAfterUpdate: the threads an update restart wakes\n');
   check('and it survives the next load', isDeepStrictEqual(migrateSession(written, NOW + 1)!.wakeAfterUpdate, ['tab-3', 'tab-5']));
 }
 
+console.log('\nsplits: two threads side by side (design-06)\n');
+{
+  // tab-3 and tab-5 are both in group-1; tab-7 is General.
+  const raw = { ...fixture081(), version: 3, splits: [{ id: 'split-2', a: 'tab-5', b: 'tab-3', ratio: 0.62 }] };
+  const s = migrateSession(raw, NOW)!;
+  check('a split comes back: its pair, its sides and its divider',
+    isDeepStrictEqual(s.splits, [{ id: 'split-2', a: 'tab-5', b: 'tab-3', ratio: 0.62 }]), show(s.splits));
+  check('its two threads are next to each other, left then right',
+    s.tabs.map(t => t.id).join(',') === 'tab-5,tab-3,tab-7', s.tabs.map(t => t.id).join(','));
+  check('absent when the file has none', !('splits' in migrateSession(fixture081(), NOW)!));
+  const gone = migrateSession({ ...raw, splits: [{ id: 'split-2', a: 'tab-5', b: 'tab-99', ratio: 0.5 }] }, NOW)!;
+  check('a split whose thread is gone is dropped', !('splits' in gone));
+  const apart = migrateSession({ ...raw, splits: [{ id: 'split-2', a: 'tab-5', b: 'tab-7', ratio: 0.5 }] }, NOW)!;
+  check('a split across two projects (a project and General) is dropped', !('splits' in apart));
+  check('...and its threads keep their order', apart.tabs.map(t => t.id).join(',') === 'tab-3,tab-5,tab-7');
+  check('a splits value that is not a list is ignored', !('splits' in migrateSession({ ...raw, splits: 'nope' }, NOW)!));
+
+  const tabs = s.tabs as unknown as Tab[];
+  check('a save with no split writes no splits key', !('splits' in serializeSession(tabs, s.groups, s.activeTabId, {}, undefined, [])));
+  const written = JSON.parse(JSON.stringify(serializeSession(tabs, s.groups, s.activeTabId, {}, undefined, s.splits)));
+  check('a save writes the splits', isDeepStrictEqual(written.splits, s.splits));
+  check('and they survive the next load', isDeepStrictEqual(migrateSession(written, NOW + 1)!.splits, s.splits));
+  check('serialize -> migrate -> serialize is stable',
+    JSON.stringify(serializeSession(migrateSession(written, NOW + 1)!.tabs as unknown as Tab[], s.groups, s.activeTabId, {}, undefined, s.splits)) === JSON.stringify(written));
+}
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail > 0 ? 1 : 0);

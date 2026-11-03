@@ -22,8 +22,15 @@
 // sections (general, pinned, recent), each with a `.lbl` heading; a project is a
 // `.pjw[data-pjw=<id>]` block holding its `.pj` row and a `.tlw` thread list
 // (`.closed` when collapsed); every thread row is `.th[data-tid=<id>]`.
+//
+// Two threads side by side (design-06): a thread carried past the panel's right
+// edge, over the main pane, stops targeting the panel and asks the app what the
+// pane would do with it (`paneAt`): a half to take, or a refused drop. The app
+// paints that (`paneHover`) and makes the split on release (`dropOnPane`).
+// Inside the panel everything works exactly as before.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ProjectSection } from '../../panelView';
+import type { PaneTarget } from '../../splitView';
 
 export const DRAG_START_PX = 7;
 // Where the card floats: its left edge this far right of the pointer.
@@ -52,7 +59,9 @@ export interface DragState {
 
 type Target =
   | { kind: 'project'; section: ProjectSection; beforeId: string | null }
-  | { kind: 'thread'; list: ListKey; beforeId: string | null; onRow: boolean };
+  | { kind: 'thread'; list: ListKey; beforeId: string | null; onRow: boolean }
+  // Over the main pane: what dropping there would do, or null for nothing.
+  | { kind: 'pane'; pane: PaneTarget | null };
 
 export interface PanelDragOptions {
   scrollRef: React.RefObject<HTMLDivElement | null>;
@@ -67,7 +76,15 @@ export interface PanelDragOptions {
   dropThread: (tabId: string, list: ListKey, beforeId: string | null) => void;
   dropProject: (groupId: string, section: ProjectSection, beforeId: string | null) => void;
   onStart?: () => void;
+  // The main pane as a drop target (design-06). Without paneAt the pane is no
+  // target and a thread carried over it targets the panel as before.
+  paneAt?: (tabId: string, x: number, y: number) => PaneTarget | null;
+  paneHover?: (target: PaneTarget | null) => void;
+  dropOnPane?: (tabId: string, target: PaneTarget) => void;
 }
+
+// A pane target that a release acts on: a half, not refused.
+const paneDrops = (t: PaneTarget | null): t is PaneTarget => !!t && t.kind === 'half' && !t.bad;
 
 const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
@@ -138,6 +155,7 @@ export function usePanelDrag(opts: PanelDragOptions) {
   // record explicitly: finish() has already cleared live.current when it asks.
   const isNoop = (t: Target, rec = live.current): boolean => {
     const l = rec!;
+    if (t.kind === 'pane') return !paneDrops(t.pane);
     if (t.kind === 'project') {
       if (l.kind !== 'project') return false;
       const sec = l.src.closest<HTMLElement>('.sec')?.dataset.sec;
@@ -240,10 +258,30 @@ export function usePanelDrag(opts: PanelDragOptions) {
   // Each pass either places the line (the target functions call showLine) or,
   // when nothing called it (no target, its own place, a project's own row),
   // hides it.
+  // Whether the pane is lit up right now, so it is cleared exactly once.
+  const paneLit = useRef(false);
+  const lightPane = (t: PaneTarget | null) => {
+    if (!t && !paneLit.current) return;
+    paneLit.current = !!t;
+    optsRef.current.paneHover?.(t);
+  };
+
   const retarget = () => {
     const l = live.current;
     const scroller = optsRef.current.scrollRef.current;
     if (!l || l.pending || !scroller) return;
+    // Past the panel's right edge a thread is over the main pane.
+    const panel = scroller.closest<HTMLElement>('.side-panel') ?? scroller;
+    if (l.kind === 'thread' && optsRef.current.paneAt && l.x > panel.getBoundingClientRect().right) {
+      hideLine();
+      const pane = optsRef.current.paneAt(l.id, l.x, l.y);
+      l.target = { kind: 'pane', pane };
+      lightPane(pane);
+      const from = optsRef.current.listOf(l.id);
+      update({ to: from, overProject: null });
+      return;
+    }
+    lightPane(null);
     const y = l.y - scroller.getBoundingClientRect().top;
     linePlaced.current = false;
     l.target = l.kind === 'project' ? projectTarget(y) : threadTarget(y);
@@ -269,6 +307,7 @@ export function usePanelDrag(opts: PanelDragOptions) {
     const l = live.current;
     const scroller = optsRef.current.scrollRef.current;
     if (!l || l.pending || !scroller) return;
+    if (l.target?.kind === 'pane') { l.raf = requestAnimationFrame(edgeLoop); return; }
     const r = scroller.getBoundingClientRect();
     const y = l.y - r.top;
     let v = 0;
@@ -297,6 +336,7 @@ export function usePanelDrag(opts: PanelDragOptions) {
     live.current = null;
     removeListeners();
     document.body.classList.remove('panel-dragging');
+    lightPane(null);
     if (!l) return;
     if (l.pending) return;
     cancelAnimationFrame(l.raf);
@@ -318,7 +358,8 @@ export function usePanelDrag(opts: PanelDragOptions) {
     const cardRect = ghost ? ghost.getBoundingClientRect() : l.row.getBoundingClientRect();
     optsRef.current.beforeDrop(l.id, l.kind, cardRect);
     setDrag(null);
-    if (t.kind === 'project') optsRef.current.dropProject(l.id, t.section, t.beforeId);
+    if (t.kind === 'pane') { if (paneDrops(t.pane)) optsRef.current.dropOnPane?.(l.id, t.pane); }
+    else if (t.kind === 'project') optsRef.current.dropProject(l.id, t.section, t.beforeId);
     else optsRef.current.dropThread(l.id, t.list, t.beforeId);
   };
 

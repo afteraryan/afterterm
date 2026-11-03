@@ -176,6 +176,18 @@ export function runningLabel(port: number): string {
   return `Running on :${port}`;
 }
 
+// The header chip's words (design-06, decided 2026-11-03 for every header,
+// split or not): a working chat's chip is the spinner alone, no word; a running
+// server's is the play icon and the port alone (":5173"). The other states keep
+// their words ("Needs you", "Done"; the asleep chip's "Asleep · 2d" is
+// asleepLabel in sleepWake.ts). `tip` is what the chip says on hover when it
+// has no word of its own.
+export function chipText(state: ThreadState, port?: number): { text: string; tip?: string } {
+  if (state === 'working') return { text: '', tip: stateLabel('working') };
+  if (state === 'running' && port !== undefined) return { text: `:${port}`, tip: stateLabel('running') };
+  return { text: stateLabel(state) };
+}
+
 // The hover card's Status row (Aryan, 2026-09-25): the state word the sidebar
 // row's icon stands for, "Running on :5173" for a server, and no sleep age,
 // since the card's Last used row already says how long ago. Undefined when the

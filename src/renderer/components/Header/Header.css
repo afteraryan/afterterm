@@ -135,3 +135,38 @@
   color: var(--text3);
   font-size: 14px;
 }
+
+/* The working chip is the spinner alone (design-06): a round chip as tall as
+   the ones with words. */
+.header-chip.only {
+  padding: 6px;
+  min-width: 29px;
+  min-height: 29px;
+  justify-content: center;
+}
+
+/* One half of two threads side by side (design-06, the mockup's
+   .header.compact): tighter gaps, smaller chip and buttons. The column's own
+   padding is set where the halves are laid out (index.css, .term-col). */
+.header.compact {
+  gap: 6px;
+}
+
+.header.compact .chip {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12.5px;
+  gap: 6px;
+}
+
+.header.compact .header-chip.only {
+  width: 28px;
+  min-width: 28px;
+  min-height: 0;
+  padding: 0;
+}
+
+.header.compact .ic {
+  width: 28px;
+  height: 28px;
+}

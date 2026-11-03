@@ -603,3 +603,47 @@
   .side-panel .pj.revealed { background: var(--hover2); }
 }
 
+/* ── Two threads side by side (design-06) ──────────────────────────────────
+   A split's two rows stay in their project, joined by a thin line on their
+   left: no name, no number (the mockup's .gC.bare). The rows step in to make
+   room for the line. */
+.side-panel .sgw {
+  position: relative;
+  padding: 2px 0;
+}
+
+.side-panel .sgw::before {
+  content: '';
+  position: absolute;
+  left: 34px;
+  top: 10px;
+  bottom: 10px;
+  width: 9px;
+  border: 1.5px solid #4a4a4a;
+  border-right: 0;
+  border-radius: 7px 0 0 7px;
+  pointer-events: none;
+}
+
+.side-panel .sgw .th {
+  margin-left: 46px;
+  width: calc(100% - 46px);
+  padding-left: 8px;
+}
+
+.side-panel .sgw.gen::before {
+  left: 14px;
+}
+
+.side-panel .sgw.gen .th {
+  margin-left: 26px;
+  width: calc(100% - 26px);
+}
+
+/* The other half of the split on screen: a lighter selected look than the
+   focused half's row (the mockup's .th.on). */
+.side-panel .th.on {
+  background: #262626;
+  color: var(--text);
+}
+

@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useLayoutEffect } from 'react';
 import { Tab, Group, GroupColor, nextGroupColor, TabNotification, ProjectIconId } from '../components/TabBar/types';
 import type { SavedSession } from '../sessionMigration';
-import { insertNewThread, placeThread, nextActiveTabAfterArchive, threadFolder, threadName } from '../threadView';
+import { insertNewThread, nextActiveTabAfterArchive, threadFolder, threadName } from '../threadView';
 import { claudeSummaryTitle } from '../chatTitle';
 // Named apart from the hook's own sleepTab/wakeTab callbacks below: these are the
 // pure record transforms, the callbacks are the state actions that apply them.
@@ -10,6 +10,11 @@ import { historyEntryFor, appendHistory, removeHistoryEntry, tabFromHistory, max
 import { lastWorkedThread, enteringRecent, moveGroupsToTop } from '../attention';
 import { placeProject as placeProjectRecord } from '../panelView';
 import type { ProjectSection } from '../panelView';
+import {
+  createSplit, dissolveSplitOf, setSplitRatio as setSplitRatioRecord, activeAfterClose,
+  placeThreadKeepingSplits, maxSplitNumber,
+} from '../splitView';
+import type { Split, SplitSide } from '../splitView';
 
 // Everything the group modal can set. A group with no tabs is a valid, persisted
 // state (it sits in the sidebar's Projects shelf), so creation no longer needs a tab.
@@ -40,6 +45,7 @@ export function threadGitCwd(tab: Pick<Tab, 'cwd' | 'claudeCwd'>): string | unde
 
 let tabCounter = 0;
 let groupCounter = 0;
+let splitCounter = 0;
 
 function makeTabId() { return `tab-${++tabCounter}`; }
 function makeGroupId() { return `group-${++groupCounter}`; }
@@ -58,6 +64,20 @@ export function useTabState() {
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [activeTabId, setActiveTabId] = useState<string>('');
+  // Two threads side by side (splitView.ts, design-06). The focused half is
+  // still just activeTabId; a split is on screen when the active thread is in it.
+  const [splits, setSplits] = useState<Split[]>([]);
+  const splitsRef = useRef(splits);
+  splitsRef.current = splits;
+  const activeRef = useRef(activeTabId);
+  activeRef.current = activeTabId;
+  // Every split change goes through here and moves the ref at once, so a second
+  // change in the same tick builds on the first instead of on the last render.
+  const writeSplits = (next: Split[]) => {
+    if (next === splitsRef.current) return;
+    splitsRef.current = next;
+    setSplits(next);
+  };
 
   // Mirror of `tabs` for callbacks that must stay closure-safe: app.tsx registers
   // some handlers once (shortcuts, toast clicks) and they keep the first render's
@@ -119,19 +139,19 @@ export function useTabState() {
       setGroups(prev => prev.map(g =>
         g.id === group.id ? { ...g, history: appendHistory(g.history, entry) } : g));
     }
-    setTabs(prev => {
-      const idx = prev.findIndex(t => t.id === tabId);
-      const next = prev.filter(t => t.id !== tabId);
-      if (activeTabId === tabId && next.length > 0) {
-        const newActive = next[Math.min(idx, next.length - 1)];
-        setActiveTabId(newActive.id);
-      } else if (next.length === 0) {
-        setActiveTabId('');
-      }
-      return next;
-    });
+    // Closing either half of a split ends the split; closing the focused half
+    // leaves the other on screen alone (design-06, rule 3).
+    // The refs are moved on at once, not at the next render: two closes in one
+    // tick (both halves' PTYs exiting together) must each see the other's result,
+    // or the second would hand the focus back to the thread the first just closed.
+    const nextActive = activeAfterClose(tabsRef.current, splitsRef.current, activeRef.current, tabId);
+    tabsRef.current = tabsRef.current.filter(t => t.id !== tabId);
+    activeRef.current = nextActive;
+    setTabs(prev => prev.filter(t => t.id !== tabId));
+    setActiveTabId(nextActive);
+    writeSplits(dissolveSplitOf(splitsRef.current, tabId));
     return !!(tab && group);
-  }, [activeTabId]);
+  }, []);
 
   // Sleep is only a record change here: the terminal layer watches `asleep` and is
   // what actually captures the tail and kills the PTY tree. Keeping the two apart
@@ -340,7 +360,9 @@ export function useTabState() {
     return id;
   }, []);
 
+  // Moving a thread to another project ends its split (design-06, rule 6).
   const addToGroup = useCallback((tabId: string, groupId: string) => {
+    if (tabsRef.current.find(t => t.id === tabId)?.groupId !== groupId) writeSplits(dissolveSplitOf(splitsRef.current, tabId));
     setTabs(prev => {
       const next = prev.map(t => t.id === tabId ? { ...t, groupId } : t);
       const tab = next.find(t => t.id === tabId)!;
@@ -356,6 +378,7 @@ export function useTabState() {
   }, []);
 
   const removeFromGroup = useCallback((tabId: string) => {
+    if (tabsRef.current.find(t => t.id === tabId)?.groupId) writeSplits(dissolveSplitOf(splitsRef.current, tabId));
     setTabs(prev => prev.map(t => t.id === tabId ? { ...t, groupId: undefined } : t));
   }, []);
 
@@ -406,8 +429,42 @@ export function useTabState() {
   // threadView.ts, placeProject in panelView.ts). Nothing else moves.
   // placeProject returns whether the project's pinned flag changed, so the
   // caller can say so ("Pinned afterterm").
+  // A split's two threads stay next to each other: a split thread dropped in
+  // its own project takes its partner along, one dropped in another project
+  // leaves its split, and any other thread dropped between a pair lands below
+  // it (splitView.ts, placeThreadKeepingSplits).
+  // The tab list is changed through an updater, so a rename, a notification or
+  // a port pushed in the same tick is kept rather than overwritten; which split
+  // ends depends only on the moved thread's project, so the splits are worked
+  // out from the current ones.
   const placeThreadAt = useCallback((tabId: string, groupId: string | undefined, beforeId: string | null) => {
-    setTabs(prev => placeThread(prev, tabId, groupId, beforeId));
+    const splitsNow = splitsRef.current;
+    setTabs(prev => placeThreadKeepingSplits(prev, splitsNow, tabId, groupId, beforeId).tabs);
+    writeSplits(placeThreadKeepingSplits(tabsRef.current, splitsNow, tabId, groupId, beforeId).splits);
+  }, []);
+
+  // A thread dropped on a half of the thread on screen (design-06): the two
+  // become a split with the dragged one on that side, its row moves next to the
+  // other's, and it gets the focus.
+  const makeSplit = useCallback((stayId: string, dragId: string, side: SplitSide) => {
+    const splitsNow = splitsRef.current;
+    const id = `split-${++splitCounter}`;
+    const next = createSplit(tabsRef.current, splitsNow, stayId, dragId, side, id);
+    if (next.splits === splitsNow) return;
+    setTabs(prev => createSplit(prev, splitsNow, stayId, dragId, side, id).tabs);
+    writeSplits(next.splits);
+    activateTabRef.current(dragId);
+  }, []);
+
+  // Ungroup (the sidebar row's menu): both threads keep running, the focused
+  // one stays on screen alone.
+  const ungroup = useCallback((tabId: string) => {
+    writeSplits(dissolveSplitOf(splitsRef.current, tabId));
+  }, []);
+
+  // The divider, committed once on release (or reset by a double-click).
+  const setSplitRatio = useCallback((splitId: string, ratio: number) => {
+    writeSplits(setSplitRatioRecord(splitsRef.current, splitId, ratio));
   }, []);
 
   const placeProject = useCallback((groupId: string, section: ProjectSection, beforeId: string | null): boolean => {
@@ -427,6 +484,7 @@ export function useTabState() {
   // moving through threads with Ctrl+Shift+Down/Up is not using their projects.
   const activateTab = useCallback((tabId: string, keepProjectOrder = false) => {
     const now = Date.now();
+    activeRef.current = tabId;
     setActiveTabId(tabId);
     setTabs(prev => prev.map(t => t.id === tabId ? { ...t, lastActiveAt: now } : t));
     if (keepProjectOrder) return;
@@ -435,6 +493,8 @@ export function useTabState() {
       setGroups(prev => prev.map(g => g.id === groupId ? { ...g, lastActiveAt: now } : g));
     }
   }, []);
+  const activateTabRef = useRef(activateTab);
+  activateTabRef.current = activateTab;
 
   // Pin and unpin a project. Pinning is explicit and only explicit: nothing else in
   // the app sets this flag, so a project reaches the Pinned section only because the
@@ -552,13 +612,15 @@ export function useTabState() {
       return claudeTitle ? { ...tab, claudeTitle } : tab;
     }));
     setGroups(saved.groups);
+    writeSplits(saved.splits ?? []);
+    splitCounter = maxSplitNumber(saved.splits ?? []);
     setActiveTabId(activeId);
     resetOrderBaseRef.current = true;
   }, []);
 
   return {
-    tabs, groups, activeTabId,
-    setActiveTabId, activateTab,
+    tabs, groups, activeTabId, splits,
+    setActiveTabId, activateTab, makeSplit, ungroup, setSplitRatio,
     addTab, closeTab, renameTab, updateTabCwd, setClaudeSession, setTabNotification, setTabFontSize,
     sleepTab, wakeTab, resumeFromHistory,
     setClaudeMeta, setGitInfo, setPort, setLastCommand, setUnread,

@@ -5,7 +5,7 @@
 
 import {
   threadFolder, threadFolderTarget, insertNewThread, placeThread, projectLookChanges, applyProjectLook, threadKind, threadState, stateLabel, stateBreathes, displayTitle,
-  threadName, modelLabel, kindWord, runningLabel, statusText, localhostUrl, openLocalhostLabel,
+  threadName, modelLabel, kindWord, runningLabel, statusText, chipText, localhostUrl, openLocalhostLabel,
   needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText,
   foldThreads, projectCounts, toastMessage,
   initialScreen, nextActiveTabAfterArchive,
@@ -151,6 +151,15 @@ console.log('\nthreadView: threadState\n');
     threadState({ asleep: false, unread: false }) === 'quiet');
   check('no unread field at all falls through to the ordinary rules',
     threadState({ asleep: true }) === 'asleep');
+}
+
+console.log('\nthreadView: chipText (the header chip, design-06)\n');
+{
+  check('working: the spinner alone, Working on hover', JSON.stringify(chipText('working')) === JSON.stringify({ text: '', tip: 'Working' }));
+  check('running server: the port alone, Running on hover', JSON.stringify(chipText('running', 5173)) === JSON.stringify({ text: ':5173', tip: 'Running' }));
+  check('needs you keeps its words', chipText('needs-you').text === 'Needs you');
+  check('done keeps its word', chipText('done').text === 'Done');
+  check('running with no port falls back to the word', chipText('running').text === 'Running');
 }
 
 console.log('\nthreadView: stateLabel\n');
