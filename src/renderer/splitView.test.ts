@@ -138,6 +138,19 @@ console.log('\nmoving threads in the panel');
   check('...from above as well', ids(between1.tabs) === '2,3,1,4,5', ids(between1.tabs));
   const fromOther = placeThreadKeepingSplits(tabs, s, '5', 'p', '3');
   check('...and from another project', ids(fromOther.tabs) === '1,2,3,5,4' && fromOther.tabs[3].groupId === 'p', ids(fromOther.tabs));
+
+  // Found in review: the two split branches did not check where they landed.
+  const two = [tab('A', 'p'), tab('B', 'p'), tab('E', 'q'), tab('F', 'q')];
+  const twoSplits = [split('A', 'B', 's1'), split('E', 'F', 's2')];
+  const outBetween = placeThreadKeepingSplits(two, twoSplits, 'A', 'q', 'F');
+  check('a split thread moved to another project between that project\'s pair lands below the pair',
+    ids(outBetween.tabs) === 'B,E,F,A', ids(outBetween.tabs));
+  check('...its own split ends, the other stays', show(outBetween.splits) === show([split('E', 'F', 's2')]));
+  const four = [tab('A', 'p'), tab('B', 'p'), tab('C', 'p'), tab('D', 'p')];
+  const fourSplits = [split('A', 'B', 's1'), split('C', 'D', 's2')];
+  const pairBetween = placeThreadKeepingSplits(four, fourSplits, 'A', 'p', 'D');
+  check('a pair dropped between another pair lands below it, both pairs whole',
+    ids(pairBetween.tabs) === 'C,D,A,B', ids(pairBetween.tabs));
 }
 
 console.log('\nthe divider');

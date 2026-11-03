@@ -174,8 +174,38 @@ export function activeAfterClose(
 // - a split thread dropped in another project leaves its split (rule 6);
 // - a split thread dropped in its own project takes its partner along, the two
 //   staying in their left-right order;
-// - any other thread dropped between a split's two rows lands just below them.
+// - whatever moved (a thread, or a pair) that lands between another split's two
+//   rows goes just below them.
 export function placeThreadKeepingSplits<T extends Pick<Tab, 'id' | 'groupId'>>(
+  tabs: T[],
+  splits: Split[],
+  tabId: string,
+  groupId: string | undefined,
+  beforeId: string | null,
+): { tabs: T[]; splits: Split[] } {
+  const r = placeUnit(tabs, splits, tabId, groupId, beforeId);
+  const unit = splitOf(r.splits, tabId);
+  const lifted = liftOutOfPairs(r.tabs, r.splits, unit ? [unit.a, unit.b] : [tabId]);
+  const same = lifted.length === tabs.length && lifted.every((t, i) => t === tabs[i]);
+  return { tabs: same ? tabs : lifted, splits: r.splits };
+}
+
+// The moved rows (one thread, or a pair a then b, next to each other) sitting
+// between the two rows of some other split: moved to just below that split.
+function liftOutOfPairs<T extends Pick<Tab, 'id'>>(tabs: T[], splits: readonly Split[], unit: string[]): T[] {
+  const start = tabs.findIndex(t => t.id === unit[0]);
+  if (start === -1) return tabs;
+  const end = start + unit.length - 1;
+  const above = tabs[start - 1];
+  const below = tabs[end + 1];
+  if (!above || !below) return tabs;
+  const s = splitOf(splits, above.id);
+  if (!s || s.a !== above.id || s.b !== below.id) return tabs;
+  const moved = tabs.slice(start, end + 1);
+  return [...tabs.slice(0, start), below, ...moved, ...tabs.slice(end + 2)];
+}
+
+function placeUnit<T extends Pick<Tab, 'id' | 'groupId'>>(
   tabs: T[],
   splits: Split[],
   tabId: string,
@@ -206,17 +236,7 @@ export function placeThreadKeepingSplits<T extends Pick<Tab, 'id' | 'groupId'>>(
     const same = next.every((t, i) => t.id === tabs[i].id);
     return { tabs: same ? tabs : next, splits };
   }
-  let next = placeThread(tabs, tabId, groupId, beforeId);
-  const at = next.findIndex(t => t.id === tabId);
-  const above = next[at - 1];
-  const below = next[at + 1];
-  if (above && below) {
-    const s = splitOf(splits, above.id);
-    if (s && s.a === above.id && s.b === below.id) {
-      next = [...next.slice(0, at), below, next[at], ...next.slice(at + 2)];
-    }
-  }
-  return { tabs: next, splits };
+  return { tabs: placeThread(tabs, tabId, groupId, beforeId), splits };
 }
 
 // Splits read from a saved session, made safe to restore: each must name two

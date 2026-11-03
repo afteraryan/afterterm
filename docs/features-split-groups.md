@@ -121,6 +121,18 @@ session ids). Captures and five recordings in `docs/screenshots/split-groups/`:
 - A relaunch (graceful quit, then a launch from the same data): the split, its sides and its
   divider come back, both halves asleep, each waking on its own.
 
+A review of the diff (an Opus subagent, 2026-11-03) found three things, all fixed and re-run in the
+harness (recording 06, capture 26):
+
+- A split thread moved to another project, or a pair moved within its project, could land between
+  another split's two rows. Every branch of `placeThreadKeepingSplits` now ends with the same check
+  (`liftOutOfPairs`), with both cases as unit tests.
+- Two closes in one tick (both halves' PTYs exiting together) could hand the focus back to the
+  thread the first close had just removed. `closeTab` now moves `tabsRef`, `activeRef` and the
+  splits ref at once, and every split change goes through `writeSplits`, which does the same.
+- `placeThreadAt` and `makeSplit` replaced the tab list wholesale, which could drop a rename, a
+  notification or a port pushed in the same tick. Both now change it through an updater.
+
 Not tested in the harness: a toast for the focused half while the window has the focus (the
 harness window on the secondary display does not hold the focus; the code path is the one that
 was already there), and the rail tile and search palette landing on a split thread (they go

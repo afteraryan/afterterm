@@ -71,6 +71,13 @@ export function useTabState() {
   splitsRef.current = splits;
   const activeRef = useRef(activeTabId);
   activeRef.current = activeTabId;
+  // Every split change goes through here and moves the ref at once, so a second
+  // change in the same tick builds on the first instead of on the last render.
+  const writeSplits = (next: Split[]) => {
+    if (next === splitsRef.current) return;
+    splitsRef.current = next;
+    setSplits(next);
+  };
 
   // Mirror of `tabs` for callbacks that must stay closure-safe: app.tsx registers
   // some handlers once (shortcuts, toast clicks) and they keep the first render's
@@ -134,10 +141,15 @@ export function useTabState() {
     }
     // Closing either half of a split ends the split; closing the focused half
     // leaves the other on screen alone (design-06, rule 3).
+    // The refs are moved on at once, not at the next render: two closes in one
+    // tick (both halves' PTYs exiting together) must each see the other's result,
+    // or the second would hand the focus back to the thread the first just closed.
     const nextActive = activeAfterClose(tabsRef.current, splitsRef.current, activeRef.current, tabId);
+    tabsRef.current = tabsRef.current.filter(t => t.id !== tabId);
+    activeRef.current = nextActive;
     setTabs(prev => prev.filter(t => t.id !== tabId));
     setActiveTabId(nextActive);
-    setSplits(prev => dissolveSplitOf(prev, tabId));
+    writeSplits(dissolveSplitOf(splitsRef.current, tabId));
     return !!(tab && group);
   }, []);
 
@@ -350,7 +362,7 @@ export function useTabState() {
 
   // Moving a thread to another project ends its split (design-06, rule 6).
   const addToGroup = useCallback((tabId: string, groupId: string) => {
-    if (tabsRef.current.find(t => t.id === tabId)?.groupId !== groupId) setSplits(prev => dissolveSplitOf(prev, tabId));
+    if (tabsRef.current.find(t => t.id === tabId)?.groupId !== groupId) writeSplits(dissolveSplitOf(splitsRef.current, tabId));
     setTabs(prev => {
       const next = prev.map(t => t.id === tabId ? { ...t, groupId } : t);
       const tab = next.find(t => t.id === tabId)!;
@@ -366,7 +378,7 @@ export function useTabState() {
   }, []);
 
   const removeFromGroup = useCallback((tabId: string) => {
-    if (tabsRef.current.find(t => t.id === tabId)?.groupId) setSplits(prev => dissolveSplitOf(prev, tabId));
+    if (tabsRef.current.find(t => t.id === tabId)?.groupId) writeSplits(dissolveSplitOf(splitsRef.current, tabId));
     setTabs(prev => prev.map(t => t.id === tabId ? { ...t, groupId: undefined } : t));
   }, []);
 
@@ -421,34 +433,38 @@ export function useTabState() {
   // its own project takes its partner along, one dropped in another project
   // leaves its split, and any other thread dropped between a pair lands below
   // it (splitView.ts, placeThreadKeepingSplits).
+  // The tab list is changed through an updater, so a rename, a notification or
+  // a port pushed in the same tick is kept rather than overwritten; which split
+  // ends depends only on the moved thread's project, so the splits are worked
+  // out from the current ones.
   const placeThreadAt = useCallback((tabId: string, groupId: string | undefined, beforeId: string | null) => {
-    const next = placeThreadKeepingSplits(tabsRef.current, splitsRef.current, tabId, groupId, beforeId);
-    if (next.tabs !== tabsRef.current) { tabsRef.current = next.tabs; setTabs(next.tabs); }
-    if (next.splits !== splitsRef.current) { splitsRef.current = next.splits; setSplits(next.splits); }
+    const splitsNow = splitsRef.current;
+    setTabs(prev => placeThreadKeepingSplits(prev, splitsNow, tabId, groupId, beforeId).tabs);
+    writeSplits(placeThreadKeepingSplits(tabsRef.current, splitsNow, tabId, groupId, beforeId).splits);
   }, []);
 
   // A thread dropped on a half of the thread on screen (design-06): the two
   // become a split with the dragged one on that side, its row moves next to the
   // other's, and it gets the focus.
   const makeSplit = useCallback((stayId: string, dragId: string, side: SplitSide) => {
-    const next = createSplit(tabsRef.current, splitsRef.current, stayId, dragId, side, `split-${++splitCounter}`);
-    if (next.splits === splitsRef.current) return;
-    tabsRef.current = next.tabs;
-    splitsRef.current = next.splits;
-    setTabs(next.tabs);
-    setSplits(next.splits);
+    const splitsNow = splitsRef.current;
+    const id = `split-${++splitCounter}`;
+    const next = createSplit(tabsRef.current, splitsNow, stayId, dragId, side, id);
+    if (next.splits === splitsNow) return;
+    setTabs(prev => createSplit(prev, splitsNow, stayId, dragId, side, id).tabs);
+    writeSplits(next.splits);
     activateTabRef.current(dragId);
   }, []);
 
   // Ungroup (the sidebar row's menu): both threads keep running, the focused
   // one stays on screen alone.
   const ungroup = useCallback((tabId: string) => {
-    setSplits(prev => dissolveSplitOf(prev, tabId));
+    writeSplits(dissolveSplitOf(splitsRef.current, tabId));
   }, []);
 
   // The divider, committed once on release (or reset by a double-click).
   const setSplitRatio = useCallback((splitId: string, ratio: number) => {
-    setSplits(prev => setSplitRatioRecord(prev, splitId, ratio));
+    writeSplits(setSplitRatioRecord(splitsRef.current, splitId, ratio));
   }, []);
 
   const placeProject = useCallback((groupId: string, section: ProjectSection, beforeId: string | null): boolean => {
@@ -468,6 +484,7 @@ export function useTabState() {
   // moving through threads with Ctrl+Shift+Down/Up is not using their projects.
   const activateTab = useCallback((tabId: string, keepProjectOrder = false) => {
     const now = Date.now();
+    activeRef.current = tabId;
     setActiveTabId(tabId);
     setTabs(prev => prev.map(t => t.id === tabId ? { ...t, lastActiveAt: now } : t));
     if (keepProjectOrder) return;
@@ -595,7 +612,7 @@ export function useTabState() {
       return claudeTitle ? { ...tab, claudeTitle } : tab;
     }));
     setGroups(saved.groups);
-    setSplits(saved.splits ?? []);
+    writeSplits(saved.splits ?? []);
     splitCounter = maxSplitNumber(saved.splits ?? []);
     setActiveTabId(activeId);
     resetOrderBaseRef.current = true;
