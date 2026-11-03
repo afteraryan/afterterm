@@ -36,6 +36,7 @@ stranger." Mnemonic: **break it → X, add to it → Y, fix it → Z.**
 | `v0.8.1` | Session capture gated to real user turns (daemon spare sessions no longer hijack a tab) |
 | `v0.9.0` | Projects and threads: Home, sleep and wake, the rail, servers by port, shell integration for every shell, the Files button and clickable file paths |
 | `v0.12.0` | The sidebar keeps its order, drag and drop in the panel, Archive moves a project to Other projects |
+| `v0.13.0` | Two threads side by side, a shorter header status chip |
 
 (`v0.1.0`–`v0.4.1` were backfilled onto the existing history; releases from `v0.5.0` on were cut with `npm run release`.)
 

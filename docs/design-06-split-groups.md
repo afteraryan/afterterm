@@ -4,8 +4,9 @@ Agreed with Aryan on 2026-11-03 against `docs/mockups/split-groups-final.html`. 
 from, with every option shown, is `docs/mockups/split-groups.html`; its captures are in
 `docs/screenshots/split-groups-mockup/`. This is not split into phases (Aryan, 2026-11-03).
 
-**Status:** built and self-tested on branch `split-groups` on 2026-11-03, waiting for Aryan's check
-(`docs/to-verify.md`). How it was built, what was decided while building it and how it was tested:
+**Status:** built and self-tested on 2026-11-03, released in 0.13.0. Aryan chose not to check it
+himself the same day ("If you have tested things yourself, then I'm not testing them myself"), so
+it has no entries in `docs/to-verify.md`. How it was built, what was decided while building it and how it was tested:
 `docs/features-split-groups.md`.
 
 ## What it is

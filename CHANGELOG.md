@@ -4,6 +4,10 @@ What changed for the person using afterterm, release by release. Each release li
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.13.0 (2026-11-03)
+
 ### Two threads side by side
 
 - **Drag a thread from the sidebar onto either half of the open terminal** to show the two side by side. The half it will take lights up while you drag. Two threads of the same project can go together, or two General threads.
