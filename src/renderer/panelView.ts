@@ -12,6 +12,8 @@
 import type { Tab, Group } from './components/TabBar/types.ts';
 import { panelLists, isRecentProject } from './attention.ts';
 import { foldThreads } from './threadView.ts';
+import { foldLimit } from './splitView.ts';
+import type { Split } from './splitView.ts';
 
 export interface PanelEntry {
   group: Group;
@@ -142,12 +144,16 @@ export function visibleThreadIds(
     expandedLists: Record<string, boolean>;
     limit: number;
     isWaiting: (t: Tab) => boolean;
+    // Two threads side by side (splitView.ts): the fold never cuts a split's
+    // two rows apart, here exactly as in the panel itself.
+    splits?: readonly Split[];
   },
 ): string[] {
   const ids: string[] = [];
 
   const foldKey = (key: string, tabs: Tab[]) => {
-    const { shown } = foldThreads(tabs, opts.activeTabId, !!opts.expandedLists[key], opts.limit, opts.isWaiting);
+    const limit = foldLimit(tabs, opts.limit, opts.splits ?? []);
+    const { shown } = foldThreads(tabs, opts.activeTabId, !!opts.expandedLists[key], limit, opts.isWaiting);
     ids.push(...shown.map(t => t.id));
   };
 
