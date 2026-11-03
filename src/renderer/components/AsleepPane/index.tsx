@@ -27,9 +27,13 @@ export interface AsleepPaneProps {
   tail: string[] | null;
   now: number;
   onWake: () => void;
+  // Whether this pane's half has the focus (design-06). Only the focused pane
+  // takes the keyboard; in a split the other half's pane leaves it alone.
+  // Absent means focused (a thread on its own).
+  focused?: boolean;
 }
 
-export function AsleepPane({ tab, tail, now, onWake }: AsleepPaneProps) {
+export function AsleepPane({ tab, tail, now, onWake, focused = true }: AsleepPaneProps) {
   const wakeRef = useRef<HTMLButtonElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [jump, setJump] = useState<JumpState>(() => initialJumpState());
@@ -38,10 +42,15 @@ export function AsleepPane({ tab, tail, now, onWake }: AsleepPaneProps) {
   // Autofocus Wake so Enter wakes the thread, the same "don't steal focus from
   // something else" guard Terminal/index.tsx uses when it focuses xterm: a
   // chooser or palette input open over this pane must keep the keystroke.
+  // In a split, focus moving onto this half from the other one also lands here:
+  // a terminal in the other half, or the other half's own Wake, gives it up.
   useEffect(() => {
+    if (!focused) return;
     const active = document.activeElement;
-    if (!active || active === document.body) wakeRef.current?.focus();
-  }, [tab.id]);
+    const yieldable = !active || active === document.body
+      || (active instanceof HTMLElement && !!active.closest('.xterm, .asleep-pane'));
+    if (yieldable) wakeRef.current?.focus();
+  }, [tab.id, focused]);
 
   // Open scrolled to the newest lines: the saved tail reads top to bottom like
   // a transcript, but what matters on landing here is what the thread was

@@ -10,12 +10,13 @@
    bottom-right instead of scrolling away with the content, the same relative-
    host/absolute-child shape .terminal-instances already uses for its find bar. */
 
+/* Since design-06 the pane sits inside its column's terminal card
+   (Terminal/index.tsx, .term-card) and fills it, so a split can show one half
+   asleep beside one awake. */
 .asleep-pane {
-  flex: 1;
-  min-height: 0;
-  position: relative;
+  position: absolute;
+  inset: 0;
   overflow: hidden;
-  margin: 0 12px 12px;
   border-radius: var(--radius-surface);
   background: var(--pane);
 }

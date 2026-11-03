@@ -9,7 +9,7 @@ import { EditorLogo, FolderIcon, IconBranch, IconModel, IconMore, IconTerm, Icon
 import { Menu } from '../Menu';
 import { buildHeaderMenu, HeaderMenuActions, ThreadMenuActions } from '../../threadMenu';
 import { FOLDER_MISSING_TIP } from '../../projectMenu';
-import { threadKind, threadName, threadState, stateLabel, modelLabel, runningLabel } from '../../threadView';
+import { threadKind, threadName, threadState, modelLabel, chipText } from '../../threadView';
 import { asleepLabel } from '../../sleepWake';
 import { FilesButton, FilesButtonProps } from '../FilesButton';
 import './Header.css';
@@ -44,9 +44,12 @@ export interface HeaderProps {
   // What the header says with no thread selected; "Pick a thread" by default,
   // "No threads open" when there are none at all.
   emptyText?: string;
+  // One half of two threads side by side (design-06): the mockup's compact
+  // header, a little tighter so two fit across the pane.
+  compact?: boolean;
 }
 
-export function Header({ tab, group, groups, actions, projectExplorer, editor, now, files, emptyText }: HeaderProps) {
+export function Header({ tab, group, groups, actions, projectExplorer, editor, now, files, emptyText, compact }: HeaderProps) {
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -75,9 +78,12 @@ export function Header({ tab, group, groups, actions, projectExplorer, editor, n
   // menus use, so a dead path is explained rather than silently ignored.
   const explorer = actions?.openInExplorer;
   const primaryEditor = editor?.editors[0];
+  // The chip's words (chipText, design-06): the spinner alone while working,
+  // the play icon and the port for a running server, words for the rest.
+  const chip = state === 'asleep' ? { text: asleepLabel(tab.sleptAt, now) } : chipText(state, tab.port);
 
   return (
-    <div className="header">
+    <div className={`header${compact ? ' compact' : ''}`} data-header-tab={tab.id}>
       <div className="header-title">
         <div className="header-name">
           <KindIcon kind={kind} />
@@ -137,13 +143,9 @@ export function Header({ tab, group, groups, actions, projectExplorer, editor, n
       <div className="header-actions">
         {files && <FilesButton {...files} />}
         {state !== 'quiet' && (
-          <span className="chip header-chip">
+          <span className={`chip header-chip${chip.text ? '' : ' only'}`} data-tip={chip.tip} data-chip={state}>
             <StateIcon state={state} />
-            {state === 'asleep'
-              ? asleepLabel(tab.sleptAt, now)
-              : state === 'running' && tab.port !== undefined
-                ? runningLabel(tab.port)
-                : stateLabel(state)}
+            {chip.text}
           </span>
         )}
         {editor && primaryEditor && (editor.missing ? (

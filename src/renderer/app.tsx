@@ -37,6 +37,8 @@ import type { EditorInfo } from '../editors';
 import type { SessionFiles } from '../session-files';
 import type { FilesButtonProps } from './components/FilesButton';
 import { filesListView } from './filesView';
+import { panesFor, splitOf, paneDropTarget } from './splitView';
+import type { PaneTarget } from './splitView';
 import type { FileLinkContext, FileLinkTarget } from './components/Terminal/fileLinks';
 
 let toastCounter = 0;
@@ -175,6 +177,15 @@ export function App() {
   // Read by the clock effect and the tail-reading effect below, both of which run
   // before `activeTab` is derived further down.
   const activeTabAsleep = !!state.tabs.find(t => t.id === state.activeTabId)?.asleep;
+  // The threads on screen, left to right (design-06): the active thread alone,
+  // or both halves of its split, the active one being the focused half.
+  const panes = state.tabs.some(t => t.id === state.activeTabId)
+    ? panesFor(state.splits, state.activeTabId).filter(id => state.tabs.some(t => t.id === id))
+    : [];
+  const asleepPanesKey = panes.filter(id => state.tabs.find(t => t.id === id)?.asleep).join('|');
+  // Where a thread dragged from the sidebar would land on the main pane: a half
+  // lit up, or the refused drop with its label (Terminal/index.tsx draws it).
+  const [paneDrop, setPaneDrop] = useState<PaneTarget | null>(null);
 
   // Every screen switch goes through here so the entrance class always replays.
   // Phase 8 adds the panel's slide (design-03 decision 1): leaving the workspace
@@ -604,11 +615,11 @@ export function App() {
   useEffect(() => {
     if (!initialized) return;
     const timer = setTimeout(() => {
-      const data = serializeSession(state.tabs, state.groups, state.activeTabId, { panelHidden });
+      const data = serializeSession(state.tabs, state.groups, state.activeTabId, { panelHidden }, undefined, state.splits);
       window.afterterm.session.save(JSON.stringify(data));
     }, 2000);
     return () => clearTimeout(timer);
-  }, [initialized, state.tabs, state.groups, state.activeTabId, panelHidden]);
+  }, [initialized, state.tabs, state.groups, state.activeTabId, state.splits, panelHidden]);
 
   // Keyboard shortcuts from main process
   useEffect(() => {
@@ -1165,7 +1176,7 @@ export function App() {
       // would come back with it shown (found in the Phase 8 self-test).
       // An update restart also records which threads were awake, to wake them on
       // the other side; on any other quit the list is empty and nothing is written.
-      const data = serializeSession(sleepAllForShutdown(s.tabs, Date.now()), s.groups, s.activeTabId, { panelHidden: panelHiddenRef.current }, wakeAfterUpdateRef.current);
+      const data = serializeSession(sleepAllForShutdown(s.tabs, Date.now()), s.groups, s.activeTabId, { panelHidden: panelHiddenRef.current }, wakeAfterUpdateRef.current, s.splits);
       window.afterterm.session.saveSync(JSON.stringify(data));
     };
     window.addEventListener('beforeunload', flush);
@@ -1212,15 +1223,19 @@ export function App() {
   // already in `tails` when the thread slept in this session; a thread restored from
   // disk has to read its file, once (an empty array is stored for a missing file, so
   // a thread that never saved one is not re-read on every render).
+  // Every asleep thread on screen counts, so both halves of a split show theirs.
   useEffect(() => {
-    const tab = stateRef.current.tabs.find(t => t.id === state.activeTabId);
-    if (!tab?.asleep || tails[tab.id] !== undefined) return;
+    const ids = asleepPanesKey ? asleepPanesKey.split('|') : [];
+    const missing = ids.filter(id => tails[id] === undefined);
+    if (missing.length === 0) return;
     let cancelled = false;
-    window.afterterm.threads.readTail(tab.id).then(lines => {
-      if (!cancelled) setTails(prev => ({ ...prev, [tab.id]: lines ?? [] }));
-    });
+    for (const id of missing) {
+      window.afterterm.threads.readTail(id).then(lines => {
+        if (!cancelled) setTails(prev => (prev[id] !== undefined ? prev : { ...prev, [id]: lines ?? [] }));
+      });
+    }
     return () => { cancelled = true; };
-  }, [state.activeTabId, activeTabAsleep, tails]);
+  }, [asleepPanesKey, tails]);
 
   // A toast is drawn from what it was sent, so a project edited while its toast
   // is on screen tells the overlay its new name, colour and icon. The first
@@ -1350,18 +1365,79 @@ export function App() {
   // The Files list of the chat on screen is read when it comes on screen (a
   // restored, asleep chat included: reading needs no wake), and again on every
   // turn through the meta push above.
-  const activeId = state.activeTabId;
-  const activeSession = state.tabs.find(t => t.id === activeId)?.claudeSessionId;
-  const activeClaudeCwd = state.tabs.find(t => t.id === activeId)?.claudeCwd;
+  // Both halves of a split are on screen, so both lists are read.
+  const paneSessionsKey = panes.map(id => {
+    const t = state.tabs.find(x => x.id === id);
+    return t?.claudeSessionId && t.claudeCwd ? `${id}\0${t.claudeSessionId}\0${t.claudeCwd}` : '';
+  }).filter(Boolean).join('|');
   useEffect(() => {
-    if (!initialized || !activeSession || !activeClaudeCwd) return;
-    refreshFiles(activeId);
-  }, [initialized, activeId, activeSession, activeClaudeCwd, refreshFiles]);
+    if (!initialized || !paneSessionsKey) return;
+    for (const entry of paneSessionsKey.split('|')) refreshFiles(entry.split('\0')[0]);
+  }, [initialized, paneSessionsKey, refreshFiles]);
+
+  // Dragging a thread from the sidebar over the main pane (design-06): what a
+  // release there would do. Over the pane at all is the sidebar's call (past
+  // its right edge); this decides which half, or which refusal.
+  const paneTargetAt = useCallback((dragId: string, x: number, y: number): PaneTarget | null => {
+    if (screenRef.current !== 'workspace') return null;
+    const area = document.querySelector('.workspace .terminal-area');
+    const panesEl = document.querySelector('.workspace .term-panes');
+    if (!area || !panesEl) return null;
+    const a = area.getBoundingClientRect();
+    if (x < a.left || x > a.right || y < a.top || y > a.bottom) return null;
+    const r = panesEl.getBoundingClientRect();
+    if (r.width === 0) return null;
+    const s = stateRef.current;
+    return paneDropTarget(s.tabs, s.groups, s.splits, s.activeTabId, dragId, x < r.left + r.width / 2 ? 'a' : 'b');
+  }, []);
+  const onPaneHover = useCallback((t: PaneTarget | null) => {
+    setPaneDrop(prev => (JSON.stringify(prev) === JSON.stringify(t) ? prev : t));
+  }, []);
+  // A drop on a half: the dragged thread goes on that side and gets the focus.
+  const onPaneDrop = useCallback((dragId: string, t: PaneTarget) => {
+    setPaneDrop(null);
+    if (t.kind !== 'half' || t.bad) return;
+    const s = stateRef.current;
+    s.makeSplit(s.activeTabId, dragId, t.side);
+    clearThreadBadges(dragId);
+  }, [clearThreadBadges]);
+
+  // One column's header (Terminal/index.tsx draws one per thread on screen):
+  // a whole thread view's header, with its own dots menu, editor button and
+  // Files button, compact when it is one half of two.
+  const headerFor = (tab: Tab, compact: boolean) => {
+    const group = tab.groupId ? state.groups.find(g => g.id === tab.groupId) : undefined;
+    return (
+      <Header
+        tab={tab}
+        compact={compact}
+        group={group}
+        groups={state.groups}
+        now={now}
+        projectExplorer={group?.cwd ? {
+          missing: folderMissing(group),
+          open: () => openFolderInExplorer(group.cwd!),
+        } : undefined}
+        editor={threadEditor(tab)}
+        files={filesButtonFor(tab)}
+        actions={{
+          moveToGroup: (id) => id ? state.addToGroup(tab.id, id) : state.removeFromGroup(tab.id),
+          close: () => closeThread(tab.id),
+          sleep: () => sleepThread(tab.id),
+          wake: () => wakeThread(tab.id),
+          setUnread: unread => state.setUnread(tab.id, unread),
+          openLocalhost: () => openLocalhost(tab.id),
+          openInExplorer: threadExplorer(tab),
+          openProjectPage: tab.groupId ? () => goScreen('project', tab.groupId) : undefined,
+        }}
+      />
+    );
+  };
 
   const tabInfos = state.tabs.map(t => ({ id: t.id, shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize, claudeSessionId: t.claudeSessionId, claudeCwd: t.claudeCwd, asleep: t.asleep, wokeAt: t.wokeAt, port: t.port, lastCommand: t.lastCommand }));
 
   const activeTab = state.tabs.find(t => t.id === state.activeTabId);
-  const activeGroup = activeTab?.groupId ? state.groups.find(g => g.id === activeTab.groupId) : undefined;
+  const activeSplit = splitOf(state.splits, state.activeTabId);
   const pageGroup = projectPageId ? state.groups.find(g => g.id === projectPageId) : undefined;
   const folderMissing = (group: { cwd?: string }) => !!group.cwd && folderExists[group.cwd] === false;
 
@@ -1485,47 +1561,28 @@ export function App() {
               showToast({ message: `${section === 'pinned' ? 'Pinned' : 'Unpinned'} ${group.label}` });
             }
           }}
+          splits={state.splits}
+          onUngroup={state.ungroup}
+          paneAt={paneTargetAt}
+          onPaneHover={onPaneHover}
+          onPaneDrop={onPaneDrop}
         />
 
         <div className="terminal-area">
-          <Header
-            tab={activeTab}
-            emptyText={state.tabs.length === 0 ? 'No threads open' : undefined}
-            group={activeGroup}
-            groups={state.groups}
-            now={now}
-            projectExplorer={activeGroup?.cwd ? {
-              missing: folderMissing(activeGroup),
-              open: () => openFolderInExplorer(activeGroup.cwd!),
-            } : undefined}
-            editor={activeTab ? threadEditor(activeTab) : undefined}
-            files={activeTab ? filesButtonFor(activeTab) : undefined}
-            actions={activeTab ? {
-              moveToGroup: (id) => id ? state.addToGroup(activeTab.id, id) : state.removeFromGroup(activeTab.id),
-              close: () => closeThread(activeTab.id),
-              sleep: () => sleepThread(activeTab.id),
-              wake: () => wakeThread(activeTab.id),
-              setUnread: unread => state.setUnread(activeTab.id, unread),
-              openLocalhost: () => openLocalhost(activeTab.id),
-              openInExplorer: threadExplorer(activeTab),
-              openProjectPage: activeTab.groupId ? () => goScreen('project', activeTab.groupId) : undefined,
-            } : undefined}
-          />
+          {panes.length === 0 && (
+            <Header
+              tab={undefined}
+              emptyText={state.tabs.length === 0 ? 'No threads open' : undefined}
+              group={undefined}
+              groups={state.groups}
+              now={now}
+            />
+          )}
           {initialized && state.tabs.length === 0 && (
             <div className="no-threads">
               <button className="b p" data-new-thread="" onClick={() => openChooserFromShortcut()}>New thread</button>
               <span className="k">Ctrl Shift T</span>
             </div>
-          )}
-          {/* An asleep thread has no terminal at all, so its pane stands in for one:
-              the saved tail, dimmed, and a Wake button. */}
-          {activeTab?.asleep && (
-            <AsleepPane
-              tab={activeTab}
-              tail={tails[activeTab.id] ?? null}
-              now={now}
-              onWake={() => wakeThread(activeTab.id)}
-            />
           )}
           {initialized && (
             <TerminalArea
@@ -1533,7 +1590,29 @@ export function App() {
               tabs={tabInfos}
               activeTabId={state.activeTabId}
               visible={screen === 'workspace'}
-              hidden={!!activeTab?.asleep || state.tabs.length === 0}
+              panes={panes}
+              ratio={activeSplit?.ratio ?? 0.5}
+              renderHeader={(id, split) => {
+                const tab = state.tabs.find(t => t.id === id);
+                return tab ? headerFor(tab, split) : null;
+              }}
+              // An asleep thread has no terminal at all, so its pane stands in
+              // for one inside its card: the saved tail, dimmed, and Wake.
+              renderAsleep={(id, focused) => {
+                const tab = state.tabs.find(t => t.id === id);
+                return tab ? (
+                  <AsleepPane
+                    tab={tab}
+                    tail={tails[id] ?? null}
+                    now={now}
+                    focused={focused}
+                    onWake={() => wakeThread(id)}
+                  />
+                ) : null;
+              }}
+              onFocusPane={id => handleActivate(id)}
+              onRatio={r => { if (activeSplit) state.setSplitRatio(activeSplit.id, r); }}
+              dropZone={paneDrop}
               onTitleChange={state.renameTab}
               onCwdChange={handleCwdChange}
               onNotification={handleNotification}

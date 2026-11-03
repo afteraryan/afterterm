@@ -39,10 +39,14 @@ export interface ThreadMenuActions {
   // primary first. Only the row menu shows these; the header carries its own
   // editor button right beside the dots. Absent (or no editors) leaves them out.
   openInEditor?: { editors: EditorInfo[]; missing: boolean; open: (editorId: string) => void };
+  // Ungroup (design-06): ends the split this thread is in. Only the sidebar
+  // row's menu passes it, and only for a thread in a split; the header's menu
+  // never has it, and nothing in the main pane does it (Aryan, 2026-11-03).
+  ungroup?: () => void;
 }
 
-// The header's dots menu has no editor entries, so it takes no editor action.
-export type HeaderMenuActions = Omit<ThreadMenuActions, 'openInEditor'>;
+// The header's dots menu has no editor entries and no Ungroup.
+export type HeaderMenuActions = Omit<ThreadMenuActions, 'openInEditor' | 'ungroup'>;
 
 function sleepOrWakeItem(tab: Tab, actions: HeaderMenuActions): MenuItem {
   return tab.asleep ? { label: 'Wake', onSelect: actions.wake } : { label: 'Sleep', onSelect: actions.sleep };
@@ -121,6 +125,7 @@ export function buildThreadMenu(tab: Tab, groups: Group[], actions: ThreadMenuAc
     ...projectPageItems(tab, actions),
     ...explorerItems(actions),
     ...editorItems(actions),
+    ...(actions.ungroup ? [{ label: 'Ungroup', onSelect: actions.ungroup }] : []),
     closeItem(actions),
   ];
 }
