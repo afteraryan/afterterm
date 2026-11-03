@@ -4,6 +4,10 @@ Agreed with Aryan on 2026-11-03 against `docs/mockups/split-groups-final.html`. 
 from, with every option shown, is `docs/mockups/split-groups.html`; its captures are in
 `docs/screenshots/split-groups-mockup/`. This is not split into phases (Aryan, 2026-11-03).
 
+**Status:** built and self-tested on branch `split-groups` on 2026-11-03, waiting for Aryan's check
+(`docs/to-verify.md`). How it was built, what was decided while building it and how it was tested:
+`docs/features-split-groups.md`.
+
 ## What it is
 
 Two threads of the same project, or two General threads, can be shown side by side in the main

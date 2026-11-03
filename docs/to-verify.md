@@ -6,6 +6,57 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
+## Dev build (replica), 2026-11-03: two threads side by side (branch split-groups, not merged)
+
+Self-tested in the dev build through the harness on 2026-11-03; captures and five recordings in `docs/screenshots/split-groups/`. Full record in `docs/features-split-groups.md`.
+
+### Drag a thread onto the open terminal to show the two side by side
+**Status:** waiting for Aryan
+1. Open a thread. Drag another thread of the same project from the sidebar over the terminal: the half under the pointer lights up blue.
+2. Let go on the right half: the dragged thread is on the right, the open one on the left, and the dragged one has the outline.
+3. In the sidebar the two rows sit next to each other in their project, joined by a thin line on their left. The outlined half's row has the selected look, the other's a lighter one.
+
+### Drops that can't work turn red with a reason
+**Status:** waiting for Aryan
+1. With one thread open, drag a thread from another project (or a General one onto a project thread) over the terminal: red, "Same project only". Let go: nothing changes.
+2. With two threads on screen, drag any third one over them: red over both, "Two at most". Let go: nothing changes.
+
+### Typing goes to the outlined half only
+**Status:** waiting for Aryan
+1. With two threads on screen, click into the right one and type: the letters appear there only.
+2. Click the left one's header or terminal: the outline moves, and typing goes there.
+
+### The other half still gets its toasts and keeps its Done
+**Status:** waiting for Aryan
+1. With two chats on screen, work in the left one while the right one's Claude finishes a turn.
+2. A toast comes for the right one, and its row keeps the Done tick until you click into the right half.
+
+### The divider resizes the two halves
+**Status:** waiting for Aryan
+1. Drag the small bar between the halves: the halves follow; the terminals reflow when you let go.
+2. It stops at a quarter and at three quarters. Double-click it: half and half.
+
+### Ungroup, close and sleep each half
+**Status:** waiting for Aryan
+1. Right-click either row of the pair: **Ungroup** is there, just above Close (and not in the header's ⋯ menu). Choose it: the outlined thread stays on screen alone, both keep running.
+2. Put two back together and press Ctrl+Shift+W: the outlined one closes and the other stays on screen alone.
+3. Put two back together and sleep one from its header's ⋯: only that half shows the asleep pane with its own Wake; the other keeps running. Wake it from its own button.
+
+### Moving through threads steps through both halves
+**Status:** waiting for Aryan
+1. In a project with threads 1 to 4, put 2 and 3 together. Click 1.
+2. Ctrl+Shift+Down: 2 and 3 on screen, 2 outlined. Again: still both, 3 outlined. Again: 4 alone. Ctrl+Shift+Up goes back the same way.
+
+### The pair comes back after a restart
+**Status:** waiting for Aryan
+1. Put two threads together and move the divider off the middle. Quit afterterm and start it again.
+2. Click either row: both are on screen, asleep, on the same sides and at the same width, each with its own Wake.
+
+### The header's status chip is shorter (every thread, not only pairs)
+**Status:** waiting for Aryan
+1. While Claude is working in a chat, its header shows the spinner alone, no "Working"; hovering it says Working.
+2. A thread running a server shows the green play icon and `:5173` alone, no "Running on". Needs you, Done and Asleep keep their words.
+
 ## Release 0.12.1 (2026-11-01): Update downloads the newest version (PR #66)
 
 Self-tested in the dev build with a test feed; capture and recording in `docs/screenshots/update-download-latest/`.
