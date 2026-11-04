@@ -845,3 +845,19 @@ Something close was noted before, on the unmerged `worktree-project-board` branc
 - `docs/project-board/design-05-project-board.md`: "Claude Code gets a way to use afterterm itself: an afterterm skill, an MCP server or some other tool. An agent could then add a task, mark one started or done, or start a thread through afterterm instead of only editing files."
 
 That earlier note covers starting a thread only; prompting other threads, reading their messages and subscribing to their events are new in this request. Nothing about it is in `docs/ideas.md` or `PHASES.md` on `main`.
+
+---
+
+## afterterm has no button or setting to download updates automatically
+
+**Observed:** 2026-11-04 by Aryan during manual testing · **Phase:** none of the numbered phases (the automatic updates round, released as 0.11.0; the About window is from that round's Phase 2) · **Status:** open · **Severity:** low (a feature request: nothing is broken or lost) · **Screenshot:** none attached
+
+**What happens:**
+This is a feature request, not a defect. There is no button or setting that makes afterterm download updates automatically. Aryan expects a button for it, and a place to configure it, where auto-downloading updates can be chosen.
+
+**Steps to make it happen again:**
+1. In an installed afterterm, click the version number at the top left to open the About window.
+2. The only automatic option there is **Check for updates automatically**; nothing covers downloading.
+3. When **Update available** appears beside the version number, the download starts only after clicking it and then **Update**.
+
+**Evidence:** Only the description above. Aryan's words: "There should be a button to auto-download updates. There has to be a configurator in it where I can suggest auto-downloading updates or some shit."
