@@ -26,7 +26,8 @@ import { initialUpdateState, restartRows, isMidTurn } from '../update-check';
 import type { UpdateState, AwakeThread } from '../update-check';
 import type { Screen } from './components/ScreenNav';
 import { useTabState, threadGitCwd } from './hooks/useTabState';
-import { Tab, TabNotification, GROUP_COLORS, nextGroupColor } from './components/TabBar/types';
+import { Tab, TabNotification, nextGroupColor } from './components/TabBar/types';
+import { groupColors } from './projectColour';
 import { onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, clearsWhenSeen, initTiming, TabTiming } from './spinnerState';
 import { migrateSession, serializeSession } from './sessionMigration';
 import { sleepAllForShutdown, wakePlan } from './sleepWake';
@@ -924,7 +925,7 @@ export function App() {
       type,
       primaryLabel: tab ? threadName(tab) : projectName,
       secondaryLabel: group?.label,
-      projectColor: group ? GROUP_COLORS[group.color].border : undefined,
+      projectColor: group ? groupColors(group.color).border : undefined,
       projectIcon: group?.icon,
       projectId: group?.id,
       message: toastMessage(type),
@@ -1253,7 +1254,7 @@ export function App() {
       window.afterterm.notify.projectUpdated({
         projectId: look.projectId,
         label: look.label,
-        color: GROUP_COLORS[look.color].border,
+        color: groupColors(look.color).border,
         icon: look.icon,
       });
     }

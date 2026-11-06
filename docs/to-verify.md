@@ -6,16 +6,26 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
-## Not in a build yet: the smaller project dialog and Rename
+## Not in a build yet: the smaller project dialog, any colour for a project, and Rename
 
-Self-tested in the dev build through the harness on 2026-11-06; captures and two recordings in `docs/screenshots/project-dialog-and-rename/`.
+Self-tested in the dev build through the harness on 2026-11-06; captures and four recordings in `docs/screenshots/project-dialog-and-rename/`.
 
-### The project dialog is smaller, with a large icon preview and a shell dropdown
+### The project dialog is smaller, with colours and icons behind the large icon
 **Status:** waiting for Aryan
-1. Right-click a project and choose **Edit project**: Name is above Folder, with a large icon beside them.
-2. Click colours and icons: the large icon changes with each click.
+1. Right-click a project and choose **Edit project**: the large icon with a pencil sits beside Name, with Folder and Shell one line each below.
+2. Click the large icon: a pop-up shows ten colour circles on one line and the icons below them. Click some: the large icon changes each time and the pop-up stays open.
 3. Click the Shell row: a dropdown opens, with no "Default shell" in it. Escape closes only the dropdown.
-4. Open **New project**: the same dialog, with "Open a terminal in it now" beside the buttons.
+4. Choose a project with a long folder: the start of the path shows, cut at the end, and hovering shows all of it.
+5. Open **New project**: the same dialog, with "Open a terminal in it now" beside the buttons.
+
+### Any colour for a project, and white
+**Status:** waiting for Aryan
+1. In the pop-up, click the last circle: a colour wheel opens at the project's current colour, and nothing changes until you use it.
+2. Drag on the wheel and on the brightness bar: the large icon follows as you move, and nothing covers it.
+3. Type a colour code one key at a time, and try `#fff`: the large icon changes on every key.
+4. The last circle now shows your colour with a small rainbow mark. Click a set colour: the wheel closes and the circle is the plain rainbow again.
+5. Pick white: its selection ring shows. Pick a custom colour and Save: the project shows it on Home, the sidebar, the rail, the header and toasts, and still after a relaunch.
+6. Press Escape with the wheel open: the wheel closes first, then the pop-up, then the dialog.
 
 ### Rename a thread
 **Status:** waiting for Aryan

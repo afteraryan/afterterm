@@ -128,6 +128,18 @@ console.log('\nsessionMigration: a name given with Rename\n');
   check('customName is written back', written.tabs[1].customName === 'Spinner');
 }
 
+console.log('\nsessionMigration: a project colour from the wheel, and white\n');
+{
+  const raw = fixture081() as any;
+  raw.groups[0].color = '#e11d48';
+  raw.groups[1].color = 'white';
+  const s = migrateSession(raw, NOW)!;
+  check('a colour code is kept', s.groups[0].color === '#e11d48');
+  check('white is kept', s.groups[1].color === 'white');
+  const written = serializeSession(s.tabs as unknown as Tab[], s.groups, s.activeTabId);
+  check('a colour code is written back', written.groups[0].color === '#e11d48');
+}
+
 console.log('\nsessionMigration: sleptAt and history (Phase 4)\n');
 {
   // A version-2 file with asleep tabs and a sleptAt keeps both.

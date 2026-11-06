@@ -75,6 +75,7 @@ src/
     filePaths.ts                       ← Pure: file paths in terminal text: findPathCandidates, resolveCandidates, matchChangedName, continuation, spacedVariants and wrappedAtSpace (a path with spaces, joined across them and across lines), elidedTail, openKind. Unit-tested. Test file: filePaths.test.ts
     sleepWake.ts                       ← Pure: sleepTab, wakeTab, restoredTab, sleepAllForShutdown, asleepLabel, asleepSinceText, wakePlan. Unit-tested. Test file: sleepWake.test.ts
     history.ts                         ← Pure: historyEntryFor, appendHistory (HISTORY_MAX 100), removeHistoryEntry, isResumable, tabFromHistory, maxNumericId. Unit-tested. Test file: history.test.ts
+    projectColour.ts                   ← A project's colour, a set name or any #rrggbb: groupColors (everything draws through it), the wheel's arithmetic, readHexInput. Pure, unit-tested. Test file: projectColour.test.ts
     threadMenu.tsx                     ← Two thread menus over shared items, no Open item in either: buildThreadMenu (sidebar right-click, project page rows) and buildHeaderMenu (header dots, no editor entries). Sleep/Wake, Mark as unread/read, Move to project, Open localhost:port, Open project page, Open in File Explorer, Open in <editor>, Rename, Close.
     projectMenu.tsx                    ← buildProjectMenu: Open, New thread here, Pin/Unpin, Open project page, Open in File Explorer, Open in <editor> per detected editor, Edit, Archive/Restore, Rename, Delete
     NotifierApp.tsx                    ← The floating overlay window's React root: toast cards, hide-when-empty logic, the auto-hide timer (toastExpiry.ts); draws the project's chosen icon (projectIcon) in place of the folder.
@@ -136,7 +137,8 @@ src/
         index.tsx                      ← "Archive <project>?" in the Restart to update window's frame (UpdateDialog): the awake threads with their status (statusText), "These threads will go to sleep", Cancel and Archive. app.tsx's archiveNow runs the sequence after it.
         ArchiveDialog.css              ← Its width, heading and status colours, on top of RestartToUpdate.css's up-tlist and up-dfoot
       GroupModal/
-        index.tsx                      ← New/Edit project dialog: a large preview of the icon beside name and folder, then one-line colour, icon (PROJECT_ICON_IDS swatches) and shell dropdown rows, open-terminal-now beside the buttons.
+        index.tsx                      ← New/Edit project dialog: the large icon (live preview, opens the colours and icons in one pop-up) beside name, one-line folder and shell dropdown rows, open-terminal-now beside the buttons.
+        ColourWheel.tsx                ← The colour wheel in that pop-up: wheel, brightness bar, colour code field typed live.
         GroupModal.css                 ← Modal overlay + form styles, the icon swatch grid
       JumpButton/
         index.tsx                      ← Flipping jump button: 32px chevron centred in its scroller; mousedown prevented so it never steals focus; wheel passes through via onWheel; hides JUMP_IDLE_MS after the host's last poke() unless the pointer moved onto it after the scroll paused.

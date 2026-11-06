@@ -145,7 +145,7 @@ export interface HistoryEntry {
   closedAt: number;
 }
 
-export type GroupColor =
+export type PresetColor =
   | 'teal'
   | 'blue'
   | 'purple'
@@ -153,9 +153,16 @@ export type GroupColor =
   | 'red'
   | 'green'
   | 'pink'
-  | 'yellow';
+  | 'yellow'
+  | 'white';
 
-export const GROUP_COLORS: Record<GroupColor, { bg: string; border: string; text: string }> = {
+// A colour chosen on the colour wheel, as '#rrggbb'.
+export type CustomColor = `#${string}`;
+
+// Draw a project's colour through groupColors in projectColour.ts, which handles both.
+export type GroupColor = PresetColor | CustomColor;
+
+export const GROUP_COLORS: Record<PresetColor, { bg: string; border: string; text: string }> = {
   teal:   { bg: 'rgba(45,212,191,0.15)', border: '#2dd4bf', text: '#2dd4bf' },
   blue:   { bg: 'rgba(96,165,250,0.15)', border: '#60a5fa', text: '#60a5fa' },
   purple: { bg: 'rgba(167,139,250,0.15)', border: '#a78bfa', text: '#a78bfa' },
@@ -164,15 +171,16 @@ export const GROUP_COLORS: Record<GroupColor, { bg: string; border: string; text
   green:  { bg: 'rgba(74,222,128,0.15)', border: '#4ade80', text: '#4ade80' },
   pink:   { bg: 'rgba(244,114,182,0.15)', border: '#f472b6', text: '#f472b6' },
   yellow: { bg: 'rgba(250,204,21,0.15)', border: '#facc15', text: '#facc15' },
+  white:  { bg: 'rgba(255,255,255,0.15)', border: '#ffffff', text: '#ffffff' },
 };
 
-export const COLOR_CYCLE: GroupColor[] = [
-  'teal', 'blue', 'purple', 'orange', 'red', 'green', 'pink', 'yellow',
+export const COLOR_CYCLE: PresetColor[] = [
+  'teal', 'blue', 'purple', 'orange', 'red', 'green', 'pink', 'yellow', 'white',
 ];
 
 // First unused colour in the cycle, so two groups don't look alike until every
 // colour is taken. Shared by the drag gesture and the new-group modal.
-export function nextGroupColor(existing: { color: GroupColor }[]): GroupColor {
+export function nextGroupColor(existing: { color: GroupColor }[]): PresetColor {
   const used = existing.map(g => g.color);
   return COLOR_CYCLE.find(c => !used.includes(c)) ?? COLOR_CYCLE[existing.length % COLOR_CYCLE.length];
 }

@@ -6,9 +6,14 @@ What changed for the person using afterterm, release by release. Each release li
 
 ### The project dialog is smaller
 
-- **New project and Edit project take much less room.** The name now comes first, then the folder, and colour, icon and shell are one line each.
-- **A large preview of the icon sits beside the name** and changes as you click colours and icons.
+- **New project and Edit project take much less room.** The name comes first, then the folder and the shell, one line each.
+- **Colours and icons are behind the large icon.** Click it to choose them; it changes as you click.
 - **The shell is a dropdown**, and the "Default shell" option is gone. A project that was on it still opens Command Prompt, and now says so.
+
+### Any colour for a project
+
+- **The last colour circle opens a colour wheel.** Drag on the wheel or the brightness bar, or type a colour code, and the large icon follows as you go. A custom colour shows on the circle with a small rainbow mark, and shows everywhere the project does.
+- **White** joins the set colours, beside yellow.
 
 ### Rename threads and projects
 

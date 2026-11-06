@@ -14,7 +14,7 @@
 // copies rather than its markup.
 import React, { useState } from 'react';
 import type { Tab, Group } from '../TabBar/types';
-import { GROUP_COLORS } from '../TabBar/types';
+import { groupColors } from '../../projectColour';
 import { IconHome, IconTerm, IconPanel, IconSearch, IconPlus, IconFolder, IconCompact, ProjectIcon } from '../Icons';
 import { railProjects, projectAttention } from '../../attention';
 import { buildProjectMenu, ProjectActions } from '../../projectMenu';
@@ -147,7 +147,7 @@ export function Rail({
       <div className="tiles">
         {tiles.map(group => {
           const c = counts.get(group.id);
-          const tc = GROUP_COLORS[group.color].border;
+          const tc = groupColors(group.color).border;
           return (
             <div className="l1" data-tile={group.id} key={group.id}>
               <button
