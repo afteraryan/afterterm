@@ -861,3 +861,22 @@ This is a feature request, not a defect. There is no button or setting that make
 3. When **Update available** appears beside the version number, the download starts only after clicking it and then **Update**.
 
 **Evidence:** Only the description above. Aryan's words: "There should be a button to auto-download updates. There has to be a configurator in it where I can suggest auto-downloading updates or some shit."
+
+---
+
+## Threads cannot be renamed, the project right-click menu has no Rename item, and the project dialog has no colour picker
+
+**Observed:** 2026-11-06 by Aryan during manual testing · **Phase:** 2 (the project menu and the project dialog), with thread names from Phase 3 · **Status:** open · **Severity:** low (read as a feature request: nothing is reported broken or lost) · **Screenshot:** none attached
+
+**What happens:**
+Aryan's report names three things and does not say what is wrong with each. This entry reads them as three things he wants that the app does not offer; that reading needs checking with him before anything is built.
+1. Renaming a thread. No thread menu has a Rename item. A chat's name changes only through `/rename` in Claude Code, and a shell thread has no way to set a name.
+2. Renaming a project through the right-click menu. The project menu has no Rename item. A project's name can be changed through **Edit project** or by double-clicking its row in the panel.
+3. The colour of a project in the project edit dialog. His "colour picked" is read as "colour picker": the dialog offers a fixed row of colour swatches and no way to choose any other colour. If he meant that a colour he picked does not take effect, that is a different defect and this item has to be rewritten.
+
+**Steps to make it happen again:**
+1. Right-click a thread row in the panel, or open the dots menu in the main pane's header: neither has a Rename item.
+2. Right-click a project row: the menu has no Rename item.
+3. In that menu choose **Edit project** and look at the Colour row: a fixed row of swatches, with nothing to choose another colour.
+
+**Evidence:** Only the description above. Aryan's words, in full: "renaming a thread, renaming a project through right click menu, colour picked in project edit menu for colour of project". What the app offers today was read from the source on `main` (af14d9c) on 2026-11-06, not tried in the running app. The Phase 1 checklist in `docs/phases-01-projects-and-threads.md` records: "No rename: `/rename` in Claude Code is the only rename." Related open entry on the same dialog: "The New project dialog shows the chosen icon too small, lists the shells as a long column with an unclear "Default shell" option, and asks for the folder before the name" (2026-10-22, Phase 2).
