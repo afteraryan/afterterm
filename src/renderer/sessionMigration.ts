@@ -62,7 +62,7 @@ export interface SavedSession {
 const PERSISTED_TAB_KEYS = [
   'id', 'title', 'groupId', 'shellId', 'cwd', 'fontSize',
   'claudeSessionId', 'claudeCwd', 'lastActiveAt', 'asleep', 'sleptAt',
-  'model', 'branch', 'worktree', 'claudeTitle', 'port', 'lastCommand', 'unread',
+  'model', 'branch', 'worktree', 'claudeTitle', 'customName', 'port', 'lastCommand', 'unread',
 ] as const;
 
 // Fields that describe a running process or a value re-derived on every launch,
@@ -165,6 +165,7 @@ function asHistoryEntry(v: unknown): HistoryEntry | null {
   const entry: HistoryEntry = { id: v.id, title: v.title, kind: v.kind, closedAt: v.closedAt };
   if (typeof v.sessionId === 'string') entry.sessionId = v.sessionId;
   if (typeof v.cwd === 'string') entry.cwd = v.cwd;
+  if (typeof v.customName === 'string' && v.customName) entry.customName = v.customName;
   return entry;
 }
 
@@ -196,6 +197,7 @@ export function migrateSession(raw: unknown, now: number): SavedSession | null {
     setOptionalString(tab, 'branch', t.branch);
     setOptionalString(tab, 'worktree', t.worktree);
     setOptionalString(tab, 'claudeTitle', t.claudeTitle);
+    setOptionalString(tab, 'customName', t.customName);
     setOptionalPort(tab, 'port', t.port);
     setOptionalString(tab, 'lastCommand', t.lastCommand);
     setUnreadFlag(tab, t.unread);

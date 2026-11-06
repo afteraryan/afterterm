@@ -21,6 +21,7 @@ export interface ProjectActions {
   openInEditor: (groupId: string, editorId: string) => void;
   chooseEditor: () => void;
   edit: (groupId: string) => void;
+  rename: (groupId: string) => void;
   archive: (groupId: string) => void;
   restore: (groupId: string) => void;
   deleteProject: (groupId: string) => void;
@@ -81,6 +82,7 @@ export function buildProjectMenu(group: Group, ctx: ProjectMenuContext, actions:
     group.archived
       ? { label: 'Restore', onSelect: () => actions.restore(group.id) }
       : { label: 'Archive', onSelect: () => actions.archive(group.id) },
+    { label: 'Rename', onSelect: () => actions.rename(group.id) },
     { label: 'Delete project', danger: true, onSelect: () => actions.deleteProject(group.id) },
   );
 

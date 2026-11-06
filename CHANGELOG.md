@@ -6,6 +6,36 @@ What changed for the person using afterterm, release by release. Each release li
 
 Nothing yet.
 
+## 0.15.0 (2026-11-06)
+
+### You can now give a project any colour you want
+
+Before, a project could only use one of eight set colours.
+
+- **To try it:** right-click a project, choose **Edit project**, then click the large icon at the top of the window.
+- **To pick any colour:** click the rainbow circle at the end of the row, then drag on the wheel. The large icon changes as you drag.
+- **To make it brighter or darker:** drag the bar beside the wheel.
+- **If you know the exact colour:** type its code in the box under that bar, like `#22c55e`.
+- **White** is also new, next to yellow.
+
+### The window for creating or editing a project is now much smaller
+
+It used to show every option at once and filled most of the screen.
+
+- **Colours and icons** stay hidden until you click the large icon.
+- **The project's name** now comes first, above its folder.
+- **The shell** is now a dropdown instead of a long list. The shell is the kind of terminal a new thread opens, like Command Prompt or PowerShell.
+- **The "Default shell" option is gone.** It only ever opened Command Prompt, so projects that used it still do.
+
+### You can now rename a thread or a project
+
+A thread is one chat or terminal in the sidebar.
+
+- **To rename a thread:** right-click it in the sidebar, choose **Rename**, type a name and press Enter.
+- **Your name stays.** Claude Code usually changes a chat's name as it goes, but it won't change one you named yourself.
+- **To get the automatic name back:** choose **Rename** again, clear the box and press Enter.
+- **To rename a project:** right-click it and choose **Rename**.
+
 ## 0.14.0 (2026-11-06)
 
 ### Clicking a file in the terminal now opens it in the right app

@@ -38,6 +38,7 @@ stranger." Mnemonic: **break it → X, add to it → Y, fix it → Z.**
 | `v0.12.0` | The sidebar keeps its order, drag and drop in the panel, Archive moves a project to Other projects |
 | `v0.13.0` | Two threads side by side, a shorter header status chip |
 | `v0.14.0` | File links open in the file's own app, a right-click menu on them, image tags open, opening a file never runs it |
+| `v0.15.0` | Any colour for a project, a smaller project window, rename a thread or a project |
 
 (`v0.1.0`–`v0.4.1` were backfilled onto the existing history; releases from `v0.5.0` on were cut with `npm run release`.)
 
@@ -83,6 +84,11 @@ riddles."
   then what happens now.
 - Assume the reader was not here. No names of internal things, no code terms and no file
   extensions a non-developer would not know.
+- Write for someone who has just started using afterterm: they know the basics, not everything.
+  Say where to click, and say in a few words what a word like "thread" or "shell" means.
+- Keep it short. One short line under a heading at most, then bullets; no long paragraphs
+  (Aryan, 2026-11-06, on the 0.14.0 notes: better than 0.13.0, "but I think they can be shorter,
+  especially the long paragraphs. I still like the bullet points.").
 - Aryan does not need to see them first (same date). Publish them.
 
 ## Artifacts & what's preserved

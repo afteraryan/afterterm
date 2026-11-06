@@ -291,10 +291,12 @@ export function displayTitle(title: string): string {
 // server, so a shell with a captured port and a non-empty lastCommand is named
 // by that command instead. Whether the thread is asleep or awake makes no
 // difference, since the port persists through sleep and is itself what marks
-// the shell as a server. Decided by Aryan on 2026-09-07.
+// the shell as a server. Decided by Aryan on 2026-09-07. A name given with Rename
+// comes before all of that, on chats and shells alike (Aryan, 2026-11-06).
 export function threadName(
-  tab: Pick<Tab, 'title' | 'claudeSessionId' | 'claudeTitle' | 'firstPrompt' | 'port' | 'lastCommand'>,
+  tab: Pick<Tab, 'title' | 'customName' | 'claudeSessionId' | 'claudeTitle' | 'firstPrompt' | 'port' | 'lastCommand'>,
 ): string {
+  if (tab.customName) return tab.customName;
   if (tab.claudeSessionId) {
     if (tab.claudeTitle) return tab.claudeTitle;
     const summary = claudeSummaryTitle(tab.title);
@@ -306,6 +308,20 @@ export function threadName(
     return tab.lastCommand;
   }
   return displayTitle(tab.title);
+}
+
+// The name a thread goes back to with no Rename name: the Rename dialog's placeholder.
+export function automaticThreadName(tab: Parameters<typeof threadName>[0]): string {
+  return threadName({ ...tab, customName: undefined });
+}
+
+// What the Rename dialog's text leaves on the thread: the trimmed text, or nothing
+// when it is empty or just repeats the automatic name, so saving without a real
+// change never freezes a name that would otherwise keep updating.
+export function nextCustomName(tab: Parameters<typeof threadName>[0], input: string): string | undefined {
+  const name = input.trim();
+  if (!name || name === automaticThreadName(tab)) return undefined;
+  return name;
 }
 
 // The model shown on header line 2 for a chat thread ("Opus 5", "Opus 5 · 1M"),

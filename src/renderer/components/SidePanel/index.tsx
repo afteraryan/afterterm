@@ -329,6 +329,8 @@ export interface SidePanelProps {
   onWake: (tabId: string) => void;
   // Mark as unread / Mark as read (threadMenu's setUnread), chats only.
   onSetUnread: (tabId: string, unread: boolean) => void;
+  // Rename in the thread menu: opens the Rename dialog for this thread.
+  onRenameThread: (tabId: string) => void;
   // Opens the running server's port in the browser (threadMenu's "Open
   // localhost:port"); only ever offered on an awake thread with a captured port.
   onOpenLocalhost: (tabId: string) => void;
@@ -385,7 +387,7 @@ export interface SidePanelProps {
 export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function SidePanel(props, ref) {
   const {
     tabs, groups, activeTabId, hidden, now, shells,
-    onActivate, onClose, onSleep, onWake, onSetUnread, onOpenLocalhost, threadExplorer, threadEditor, onNewTab,
+    onActivate, onClose, onSleep, onWake, onSetUnread, onRenameThread, onOpenLocalhost, threadExplorer, threadEditor, onNewTab,
     onOpenChooser, onOpenProjectPage, onTogglePin,
     onNewProject, editors, folderExists, projectActions,
     onAddToGroup, onRemoveFromGroup,
@@ -541,6 +543,7 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
       items: buildThreadMenu(tab, groups, {
         moveToGroup: id => (id ? onAddToGroup(tab.id, id) : onRemoveFromGroup(tab.id)),
         close: () => onClose(tab.id),
+        rename: () => onRenameThread(tab.id),
         sleep: () => onSleep(tab.id),
         wake: () => onWake(tab.id),
         setUnread: unread => onSetUnread(tab.id, unread),

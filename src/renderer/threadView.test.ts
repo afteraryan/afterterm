@@ -5,7 +5,7 @@
 
 import {
   threadFolder, threadFolderTarget, insertNewThread, placeThread, projectLookChanges, applyProjectLook, threadKind, threadState, stateLabel, stateBreathes, displayTitle,
-  threadName, modelLabel, kindWord, runningLabel, statusText, chipText, localhostUrl, openLocalhostLabel,
+  threadName, automaticThreadName, nextCustomName, modelLabel, kindWord, runningLabel, statusText, chipText, localhostUrl, openLocalhostLabel,
   needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText,
   foldThreads, projectCounts, toastMessage,
   initialScreen, nextActiveTabAfterArchive,
@@ -201,6 +201,26 @@ console.log('\nthreadView: displayTitle\n');
   check('a title with no glyph is untouched', displayTitle('Terminal') === 'Terminal');
   check('empty title falls back to Terminal', displayTitle('') === 'Terminal');
   check('a glyph with nothing after it falls back to Terminal', displayTitle('\u25B6') === 'Terminal');
+}
+
+console.log('\nthreadView: a name given with Rename\n');
+{
+  const CHAT = '3d71b0f2-26cb-4ad3-8371-6504ab2e37e2';
+  const chat = { title: 'cmd.exe', claudeSessionId: CHAT, claudeTitle: 'Fix the spinner' };
+  const server = { title: 'cmd.exe', port: 5173, lastCommand: 'npm start' };
+
+  check('it wins over a chat\'s claudeTitle', threadName({ ...chat, customName: 'Spinner' }) === 'Spinner');
+  check('it wins over a server\'s last command', threadName({ ...server, customName: 'Site' }) === 'Site');
+  check('it wins over a shell\'s live title', threadName({ title: 'cmd.exe', customName: 'Logs' }) === 'Logs');
+  check('automaticThreadName ignores it', automaticThreadName({ ...chat, customName: 'Spinner' }) === 'Fix the spinner');
+
+  check('nextCustomName trims the text', nextCustomName(chat, '  Spinner  ') === 'Spinner');
+  check('an empty text removes the name', nextCustomName({ ...chat, customName: 'Spinner' }, '') === undefined);
+  check('blank text removes the name', nextCustomName({ ...chat, customName: 'Spinner' }, '   ') === undefined);
+  check('saving the automatic name unchanged sets nothing', nextCustomName(chat, 'Fix the spinner') === undefined);
+  check('typing the automatic name over a given name removes it',
+    nextCustomName({ ...chat, customName: 'Spinner' }, 'Fix the spinner') === undefined);
+  check('a new name replaces the old one', nextCustomName({ ...chat, customName: 'Spinner' }, 'Other') === 'Other');
 }
 
 console.log('\nthreadView: threadName\n');

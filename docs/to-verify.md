@@ -6,6 +6,40 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
+## Release 0.15.0 (2026-11-06): the smaller project dialog, any colour for a project, and Rename (PR #71)
+
+Self-tested in the dev build through the harness on 2026-11-06; captures and four recordings in `docs/screenshots/project-dialog-and-rename/`.
+
+### The project dialog is smaller, with colours and icons behind the large icon
+**Status:** waiting for Aryan
+1. Right-click a project and choose **Edit project**: the large icon with a pencil sits beside Name, with Folder and Shell one line each below.
+2. Click the large icon: a pop-up shows ten colour circles on one line and the icons below them. Click some: the large icon changes each time and the pop-up stays open.
+3. Click the Shell row: a dropdown opens, with no "Default shell" in it. Escape closes only the dropdown.
+4. Choose a project with a long folder: the start of the path shows, cut at the end, and hovering shows all of it.
+5. Open **New project**: the same dialog, with "Open a terminal in it now" beside the buttons.
+
+### Any colour for a project, and white
+**Status:** waiting for Aryan
+1. In the pop-up, click the last circle: a colour wheel opens at the project's current colour, and nothing changes until you use it.
+2. Drag on the wheel and on the brightness bar: the large icon follows as you move, and nothing covers it.
+3. Type a colour code one key at a time, and try `#fff`: the large icon changes on every key.
+4. The last circle now shows your colour with a small rainbow mark. Click a set colour: the wheel closes and the circle is the plain rainbow again.
+5. Pick white: its selection ring shows. Pick a custom colour and Save: the project shows it on Home, the sidebar, the rail, the header and toasts, and still after a relaunch.
+6. Press Escape with the wheel open: the wheel closes first, then the pop-up, then the dialog.
+
+### Rename a thread
+**Status:** waiting for Aryan
+1. Right-click a thread in the sidebar: **Rename** is just above **Close**. The header's dots menu and the project page's rows have it in the same place.
+2. Type a name and press Enter: the sidebar, the header, the hover card and the search palette all show it, and it is still there after a relaunch.
+3. In a live thread, keep typing straight after saving: the keys reach the terminal.
+4. Choose **Rename** again, clear the field and press Enter: the automatic name comes back.
+
+### Rename a project
+**Status:** waiting for Aryan
+1. Right-click a project: **Rename** is just above **Delete project**.
+2. Type a name and press Enter: the new name shows everywhere. An empty name cannot be saved.
+
+---
 ## Release 0.14.0 (2026-11-06): file links open their own app, a right-click menu, image tags (PR #70)
 
 Self-tested in the dev build through the harness on 2026-11-06, with the real Revy paths; captures and recordings in `docs/screenshots/file-links-open-and-menu/`. Nothing was really launched in the self-test (the harness only logs an open), so the apps themselves opening is the one thing to see here.

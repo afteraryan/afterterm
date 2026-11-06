@@ -3,7 +3,8 @@
 // (sheet A, "solid glyphs", final) and docs/mockups/toasts.html (hourglass, compacting, x).
 // Each icon is a plain inline SVG using currentColor so it inherits the caller's color.
 import React from 'react';
-import { GroupColor, GROUP_COLORS, ProjectIconId } from './TabBar/types';
+import { GroupColor, ProjectIconId } from './TabBar/types';
+import { groupColors } from '../projectColour';
 import type { EditorProduct } from '../../editors';
 
 export interface IconProps {
@@ -171,6 +172,16 @@ export function IconExpandAll(props: IconProps) {
   return (
     <svg {...svgProps(props)}>
       <path d="m7 4 5 5 5-5M7 20l5-5 5 5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// Lucide's "pencil" (lucide-static 0.460.0, ISC licence: assets/LICENSE-Lucide.txt).
+export function IconPencil(props: IconProps) {
+  return (
+    <svg {...svgProps(props)} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
+      <path d="m15 5 4 4" />
     </svg>
   );
 }
@@ -481,7 +492,7 @@ export interface FolderIconProps {
 // A project's folder glyph, coloured by its group colour, or var(--text3) for
 // projectless (General) rows.
 export function FolderIcon({ color, open, size = 18, icon }: FolderIconProps) {
-  const tint = color ? GROUP_COLORS[color].border : 'var(--text3)';
+  const tint = color ? groupColors(color).border : 'var(--text3)';
   return (
     <span className="fo" style={{ color: tint }} data-icon={icon ?? 'folder'}>
       {icon ? <ProjectIcon icon={icon} size={size} /> : open ? <IconFolderOpen size={size} /> : <IconFolder size={size} />}
