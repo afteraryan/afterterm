@@ -882,3 +882,42 @@ The same report also named a colour picker for the project's colour (the project
 2. Right-click a project row: the menu has no Rename item.
 
 **Evidence:** Only the description above. Aryan's words, in full: "renaming a thread, renaming a project through right click menu, colour picked in project edit menu for colour of project". What the app offers today was read from the source on `main` (af14d9c) on 2026-11-06, not tried in the running app. The Phase 1 checklist in `docs/phases-01-projects-and-threads.md` records: "No rename: `/rename` in Claude Code is the only rename."
+
+---
+
+## Update can install a newer version than the notice offered without saying so
+
+**Observed:** 2026-11-06 by Aryan during manual testing · **Phase:** none of the numbered phases (the automatic updates round, released as 0.11.0; Update downloading the newest release is from 0.12.1) · **Status:** open · **Severity:** medium (the update works, but the app installs a version it did not offer and does not say so) · **Screenshot:** none attached
+
+**What happens:**
+On version 13 the notice offers version 14. If version 15 has come out since the last check, pressing **Update** downloads and installs 15, and nothing says the version changed. The notice closes on the press and the title bar shows "Downloading 40%" with no version number. The only place 15 appears is the notice, if it is opened again: "Downloading afterterm 15".
+
+A second case with the same silence: with 14 already downloaded and the button showing **Restart to update**, the next check after 15 comes out turns the button back into **Update available**, with no message, and 15 has to be downloaded.
+
+Aryan expects this to be transparent: pressing **Update** should first say that a newer version than the one offered exists, and then update. What it should say and do is still to be decided with Aryan, as part of the whole update experience.
+
+**Steps to make it happen again:**
+1. In an installed afterterm, wait for **Update available** to offer the next version.
+2. Let a newer release come out before pressing anything.
+3. Click **Update available**, then **Update**. The title bar shows the download's percentage with no version.
+4. Click the title bar button: the notice names the newer version, and nothing says it is not the one offered.
+
+**Evidence:** Aryan's words: "if I'm on version 13 and I see there is an update for version 14, but at the backend there is an update for version 15 ... when I update version 13 to 14, it actually does update to 15, right? I want this to be more transparent. When I click on Update, it should first check, 'Hey, even for 13, there is another newer 15,' and then you update it, right? We'll have to decide and discuss the entire user experience with this." What the app does was read from the source on `main` (19b6129) on 2026-11-06, not tried in the running app. `docs/features-updates.md` records the switch to the newer version being tested on 2026-11-01 with a test feed (`docs/screenshots/update-download-latest/`). The **Restart to update** case comes from the source only and has not been run.
+
+---
+
+## What's new shows only the newest release when an update skips versions
+
+**Observed:** 2026-11-06 by Aryan during manual testing · **Phase:** none of the numbered phases (the automatic updates round, released as 0.11.0) · **Status:** open · **Severity:** low (a feature request: nothing is broken or lost) · **Screenshot:** none attached
+
+**What happens:**
+What's new shows the notes of one release only, the version being installed. Going from 13 to 15, the notes for 14 are never shown, before the update or after it.
+
+Aryan wants the notes shown cumulatively: the version you are on, and all the release notes from that version to the new one. How that should work is still to be decided with Aryan.
+
+**Steps to make it happen again:**
+1. In an installed afterterm that is two or more releases behind, click **Update available**.
+2. Open **What's new** in the notice: only the newest release's notes are there.
+3. Update and restart, then open What's new from the "Updated to" pill: again only that one release's notes.
+
+**Evidence:** Aryan's words: "maybe we have to cumulatively show: you're on this version, and in all these versions, these are all the release notes from this to this. I am not sure how it will work, but we need to do that too." What the app does was read from the source on `main` (19b6129) on 2026-11-06, not tried in the running app.
