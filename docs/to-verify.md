@@ -14,6 +14,7 @@ Self-tested in the dev build through the harness on 2026-11-06, with the real Re
 **Status:** waiting for Aryan
 1. In a chat, click a link to an MP4 and to an HTML file: the video player and the browser open, not VS Code.
 2. Click a link to a `.ts` or `.md` file: it opens in VS Code. Click one with a line number (`src/main.ts:12`): VS Code opens at that line.
+3. Click a link to a `.bat` or `.js` file: it opens in VS Code and does not run.
 
 ### Right-click a file link for Open, Open file location and Copy file path
 **Status:** waiting for Aryan

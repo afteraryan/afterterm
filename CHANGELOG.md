@@ -8,11 +8,13 @@ What changed for the person using afterterm, release by release. Each release li
 
 - **A file link opens in the file's own app.** Video, audio, images, web pages, PDFs, Office documents, text files, archives and fonts open in the app Windows uses for them, so an MP4 plays and an HTML file opens in the browser.
 - **Code and markdown still open in VS Code**, because Windows would run a script and can treat a `.ts` file as a video. A path with a line number always opens in VS Code at that line.
+- **A file you open from afterterm never runs.** Without VS Code, code files open in Notepad.
 - **Right-click a file link** for Open, Open file location and Copy file path, which copies the full path whatever the terminal shows.
 - **`[Image #N]` tags in a chat are links.** A click opens the image you pasted, and right-click has the same menu.
 
 ### Fixed
 
+- With no editor detected, clicking a link to a script no longer runs it.
 - A `Write(...)` line whose path has spaces is a link when the path wraps onto a second row, which split view's narrower panes made common.
 - The newest image pasted under a reused number opens that image, not the older one with the same number.
 

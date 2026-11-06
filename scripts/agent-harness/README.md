@@ -118,6 +118,10 @@ Options:
   the values, a value could be private) are recorded in the run record as
   `extraEnv` and printed in the launch summary.
 
+`--env AFTERTERM_NO_EDITORS=1` makes a harness run behave as if no editor were
+installed, so a machine with VS Code can test that case (a code file goes to
+Notepad, logged as `[harness] files:open Notepad <file>`).
+
 The dev build does not inherit the launching agent's Claude Code session
 variables (`CLAUDECODE`, `CLAUDE_CODE_*`, `CLAUDE_PID`, `CLAUDE_EFFORT`): with
 them, a `claude` started inside the dev build counts as a child of the agent's

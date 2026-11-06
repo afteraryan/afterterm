@@ -7,7 +7,7 @@
 import {
   baseName, extensionOf, fileKind, normalizePath, pathKey, isInside, isAbsolutePath,
   newParseState, ingestLine, ingestText, sessionFilesView, mergeChanged,
-  pastedTempPath, ownsTempFile, MAX_EDIT_EVENTS,
+  pastedTempPath, ownsTempFile, MAX_EDIT_EVENTS, isSafeForDefaultApp,
   type ChangedFile,
 } from './session-files.ts';
 
@@ -36,6 +36,29 @@ const paste = (uuid: string, s: number, n: number[], useIds = true) =>
       ...n.map(() => ({ type: 'image', source: { type: 'base64', media_type: 'image/png', data: 'iVBORw0KGgo=' } })),
     ] },
   });
+
+console.log('what may go to Windows\' default app');
+// Everything Windows can run, plus code and config. None may ever go: the default
+// app for these is the program that runs them, or no app at all.
+for (const ext of [
+  'exe', 'com', 'bat', 'cmd', 'scr', 'pif', 'msi', 'msp', 'msu', 'msix', 'appx', 'application', 'appref-ms', 'gadget', 'cpl', 'msc', 'dll', 'sys', 'lnk', 'url', 'website', 'hta', 'reg', 'inf', 'scf',
+  'ps1', 'psm1', 'psd1', 'vbs', 'vbe', 'js', 'jse', 'mjs', 'cjs', 'wsf', 'wsh', 'ws', 'jar', 'jnlp', 'py', 'pyw', 'pyc', 'rb', 'pl', 'php', 'lua', 'sh', 'bash', 'ahk', 'au3', 'pwa',
+  'ts', 'tsx', 'jsx', 'mts', 'css', 'json', 'yaml', 'yml', 'toml', 'xml', 'env', 'md', 'mdx', 'docm', 'xlsm', 'pptm', 'iso', 'img', 'vhd',
+]) {
+  check(`.${ext} never goes to the default app`, !isSafeForDefaultApp(`D:\\p\\file.${ext}`));
+  check(`.${ext.toUpperCase()} neither`, !isSafeForDefaultApp(`D:\\p\\file.${ext.toUpperCase()}`));
+}
+for (const name of ['clip.mp4', 'CLIP.MP4', 'song.mp3', 'page.html', 'report.pdf', 'sheet.xlsx', 'shot.png', 'notes.txt', 'run.log', 'a.tar.gz']) {
+  check(`${name} may`, isSafeForDefaultApp(`D:\\p\\${name}`));
+}
+check('only the real ending counts', !isSafeForDefaultApp('D:\\p\\clip.mp4.bat'));
+check('a video named like a script is a video', isSafeForDefaultApp('D:\\p\\run.bat.mp4'));
+check('an NTFS stream is not the type it is named as', !isSafeForDefaultApp('D:\\p\\setup.exe:x.mp4'));
+check('a trailing dot is not the type', !isSafeForDefaultApp('D:\\p\\clip.mp4.'));
+check('a trailing space is not the type', !isSafeForDefaultApp('D:\\p\\clip.mp4 '));
+check('no ending at all', !isSafeForDefaultApp('D:\\p\\Dockerfile'));
+check('a dotfile', !isSafeForDefaultApp('D:\\p\\.env'));
+check('the folder\'s ending does not count', !isSafeForDefaultApp('D:\\clip.mp4\\run.bat'));
 
 console.log('classification');
 check('md is a document', fileKind('docs/a.md') === 'doc');

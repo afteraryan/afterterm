@@ -10,7 +10,7 @@
 //
 // Pure: no xterm, no DOM. The terminal feeds it one line at a time.
 
-import { baseName, isAbsolutePath, normalizePath, pathKey, type ChangedFile, type EditEvent } from '../session-files.ts';
+import { baseName, isAbsolutePath, isSafeForDefaultApp, normalizePath, pathKey, type ChangedFile, type EditEvent } from '../session-files.ts';
 
 export interface PathCandidate {
   /** Where the text starts and ends in the line (end exclusive), string indices. */
@@ -324,32 +324,16 @@ export function elidedTail(text: string): string | null {
   return tail || null;
 }
 
-// What a click hands to Windows' default app. This lists what is safe to hand over
-// rather than what to hold back, because Windows' default can mean running the file:
-// .js, .py and .bat run, .ts is a video, and .json may have no app at all (all seen
-// on Aryan's machine, 2026-11-06). Anything not listed goes to the editor, which
-// never runs it. Never add a type that executes (.hta, .exe, .lnk, .msi, a script).
-const DEFAULT_APP_TYPES = [
-  'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'avif', 'svg', 'tif', 'tiff', 'heic', 'heif',
-  'mp4', 'm4v', 'mov', 'avi', 'mkv', 'webm', 'wmv', 'mpg', 'mpeg', 'ogv', '3gp', 'flv',
-  'mp3', 'wav', 'flac', 'aac', 'ogg', 'oga', 'opus', 'm4a', 'wma', 'aif', 'aiff', 'mid', 'midi',
-  'html', 'htm', 'xhtml', 'mhtml',
-  'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp', 'rtf', 'epub', 'csv', 'tsv', 'txt', 'log',
-  'psd', 'ai', 'sketch', 'fig', 'xd',
-  'zip', '7z', 'rar', 'tar', 'gz', 'tgz', 'bz2', 'xz',
-  'ttf', 'otf', 'woff', 'woff2',
-];
-const DEFAULT_APP = new RegExp(`\\.(${DEFAULT_APP_TYPES.join('|')})$`, 'i');
-
 /**
  * How a found file opens: a folder in Explorer; media, pages and documents in the
- * app Windows uses for them; code, markdown and anything unknown in the editor.
- * A path with a line number always goes to the editor, the one app that can land on it.
+ * app Windows uses for them (isSafeForDefaultApp); code, markdown and anything
+ * unknown in the editor. A path with a line number always goes to the editor, the
+ * one app that can land on it.
  */
 export function openKind(path: string, isDir: boolean, line?: number): 'editor' | 'default' | 'explorer' {
   if (isDir) return 'explorer';
   if (line) return 'editor';
-  return DEFAULT_APP.test(path) ? 'default' : 'editor';
+  return isSafeForDefaultApp(path) ? 'default' : 'editor';
 }
 
 /** Every "[Image #N]" tag Claude Code wrote on a row, for a pasted image. */

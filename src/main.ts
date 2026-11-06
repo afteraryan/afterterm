@@ -28,7 +28,7 @@ import {
 } from './server-detect.ts';
 import type { MsysProc, Proc as ServerProc } from './server-detect.ts';
 import { createSessionFilesStore } from './session-files-store.ts';
-import { EMPTY_SESSION_FILES, isAbsolutePath, normalizePath, ownsTempFile, pastedTempPath } from './session-files.ts';
+import { EMPTY_SESSION_FILES, isAbsolutePath, isSafeForDefaultApp, normalizePath, ownsTempFile, pastedTempPath } from './session-files.ts';
 import type { ChangedFile, ShellWindow } from './session-files.ts';
 import { attributeCommandChanges, isIgnoredChange, mergeSaved, pruneChanges } from './command-files.ts';
 import type { FsChange } from './command-files.ts';
@@ -1264,7 +1264,8 @@ function runEditorDetection(reason: string): Promise<void> {
       const [codePaths, registry] = await Promise.all([whereCodeAsync(), readUninstallEditors()]);
       const editorPath = readPrefs(getPrefsPath()).prefs.editorPath;
       const result = detectEditors(typeof editorPath === 'string' ? editorPath : undefined, detectDeps(codePaths, registry));
-      cachedEditors = result.editors;
+      // AFTERTERM_NO_EDITORS: a harness run on a machine with VS Code can still test having none.
+      cachedEditors = process.env.AFTERTERM_HARNESS === '1' && process.env.AFTERTERM_NO_EDITORS === '1' ? [] : result.editors;
       editorPrefsPathInvalid = result.invalidPrefsPath;
       editorsKnown = true;
       try { fs.writeFileSync(editorCachePath(), JSON.stringify({ editors: cachedEditors, invalid: editorPrefsPathInvalid })); } catch { /* next launch detects again */ }
@@ -1875,7 +1876,13 @@ ipcMain.handle('session-files:thumb', async (_event, sessionId: unknown, cwd: un
 
 // Under the agent harness nothing may open on the person's screen, so each opener
 // logs what it would have opened (after its checks), like shell:openExternal.
+//
+// This is the one place a file reaches Windows' default app, and for a script that
+// default is to run it. A file that afterterm opens must never run (Aryan, 2026-11-06:
+// "They should not run. They should always open."), so the check is here and not only
+// in the renderer's choice, and nothing that calls this can get round it.
 async function openWithDefaultApp(file: string): Promise<{ ok: boolean; error?: string }> {
+  if (!isSafeForDefaultApp(file)) return { ok: false, error: 'Could not open the file' };
   if (harnessOnlyLogsExternal()) {
     console.log(`[harness] files:openDefault ${file}`);
     return { ok: true };
@@ -1898,14 +1905,25 @@ ipcMain.handle('session-files:pastedPath', async (_event, sessionId: unknown, cw
   return pastedImageFile(sessionId, cwd, key);
 });
 
-// Open a file in the primary detected editor (VS Code), at a line when one is
-// given. With no editor detected the file goes to its default app instead.
+// With no editor detected, a file safe to hand over goes to its own app and anything
+// else to Notepad, which is on every Windows and only ever shows a file.
+async function openWithoutEditor(file: string): Promise<{ ok: boolean; error?: string }> {
+  if (isSafeForDefaultApp(file)) return openWithDefaultApp(file);
+  if (harnessOnlyLogsExternal()) {
+    console.log(`[harness] files:open Notepad ${file}`);
+    return { ok: true };
+  }
+  const result = await spawnDetached('notepad.exe', [file]);
+  return result.ok ? { ok: true } : { ok: false, error: 'Could not open the file' };
+}
+
+// Open a file in the primary detected editor (VS Code), at a line when one is given.
 ipcMain.handle('files:open', async (_event, target: unknown, line?: unknown) => {
   const file = checkedFile(target);
   if (!file) return { ok: false, error: 'File not found' };
   if (!editorsKnown) await runEditorDetection('first file open');
   const editor = cachedEditors[0];
-  if (!editor) return openWithDefaultApp(file);
+  if (!editor) return openWithoutEditor(file);
   const at = typeof line === 'number' && Number.isInteger(line) && line > 0 ? line : null;
   // Every detected product but 'other' is VS Code or a fork of it, which all take
   // -g file:line. An unknown editor gets the plain path.

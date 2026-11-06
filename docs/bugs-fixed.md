@@ -14,6 +14,10 @@ Format: the bug as it was titled, the date it was fixed, the PR or commit, then 
 
 A click now opens video, audio, images, web pages, PDFs, Office documents, text files, archives and fonts in the app Windows uses for them. Code and markdown stay in the editor, because Windows would run a `.js`, `.py` or `.bat` file and on Aryan's machine plays a `.ts` file in VLC, and a path with a line number always goes to the editor. PR #70.
 
+### With no editor detected, clicking a link to a script ran it
+
+Found while checking Aryan's rule on 2026-11-06: "They should not run. They should always open." When no editor was detected, a file link or a Files list row sent the file to Windows' default app, which for a `.bat`, `.js` or `.py` file means running it. Nothing that afterterm opens can run now: the one function that hands a file to Windows refuses anything not on the safe list (`isSafeForDefaultApp` in `session-files.ts`, checked in `openWithDefaultApp` in `main.ts`), and with no editor a code file opens in Notepad. PR #70.
+
 ### MP4 and HTML file links in a chat's terminal output open in VS Code instead of their own apps
 
 The same change: an MP4 opens in the video player and an HTML file in the browser. An HTML path with a line number (`page.html:42`) still opens in VS Code at that line. PR #70.
