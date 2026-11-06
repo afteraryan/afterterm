@@ -4,19 +4,37 @@ What changed for the person using afterterm, release by release. Each release li
 
 ## Unreleased
 
-### Opening files from the terminal
+Nothing yet.
 
-- **A file link opens in the file's own app.** Video, audio, images, web pages, PDFs, Office documents, text files, archives and fonts open in the app Windows uses for them, so an MP4 plays and an HTML file opens in the browser.
-- **Code and markdown still open in VS Code**, because Windows would run a script and can treat a `.ts` file as a video. A path with a line number always opens in VS Code at that line.
-- **A file you open from afterterm never runs.** Without VS Code, code files open in Notepad.
-- **Right-click a file link** for Open, Open file location and Copy file path, which copies the full path whatever the terminal shows.
-- **`[Image #N]` tags in a chat are links.** A click opens the image you pasted, and right-click has the same menu.
+## 0.14.0 (2026-11-06)
+
+### Clicking a file in the terminal now opens it in the right app
+
+When Claude mentions a file in the terminal, you can click its name to open it. Before this, nearly everything opened in VS Code, even videos and web pages. Now:
+
+- **Videos, music, pictures, web pages, PDFs and Office documents** open in the app you normally use for them. A video plays in your video player, and a web page opens in your browser.
+- **Code files and Markdown notes** still open in VS Code. If you don't have VS Code, they open in Notepad.
+- **Opening a file never runs it.** A script opens so you can read it. It does not start.
+
+### Right-click a file in the terminal for more options
+
+Right-clicking a file name in the terminal now shows a small menu:
+
+- **Open** opens the file.
+- **Open file location** shows the file in File Explorer.
+- **Copy file path** copies the file's full location, ready to paste somewhere else.
+
+Right-clicking anywhere else in the terminal still pastes, the same as before.
+
+### Click an image tag to see the image
+
+When you paste an image into a chat, Claude Code shows it as a tag like `[Image #1]`. You can now click that tag to open the image. Right-clicking the tag shows the same menu as above.
 
 ### Fixed
 
-- With no editor detected, clicking a link to a script no longer runs it.
-- A `Write(...)` line whose path has spaces is a link when the path wraps onto a second row, which split view's narrower panes made common.
-- The newest image pasted under a reused number opens that image, not the older one with the same number.
+- **Without VS Code, clicking a script started it.** Now it opens in Notepad and does not run.
+- **A long file location with spaces in it stopped being clickable when it ran onto a second line.** You can now click it on either line.
+- **Clicking a pasted image could open the wrong one.** If two images in a chat had the same number, you got the older one. Now you get the newest.
 
 ## 0.13.0 (2026-11-03)
 

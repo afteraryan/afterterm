@@ -6,7 +6,7 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
-## Unreleased (2026-11-06): file links open their own app, a right-click menu, image tags (PR #70)
+## Release 0.14.0 (2026-11-06): file links open their own app, a right-click menu, image tags (PR #70)
 
 Self-tested in the dev build through the harness on 2026-11-06, with the real Revy paths; captures and recordings in `docs/screenshots/file-links-open-and-menu/`. Nothing was really launched in the self-test (the harness only logs an open), so the apps themselves opening is the one thing to see here.
 
