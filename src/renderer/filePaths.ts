@@ -10,7 +10,7 @@
 //
 // Pure: no xterm, no DOM. The terminal feeds it one line at a time.
 
-import { baseName, isAbsolutePath, normalizePath, pathKey, type ChangedFile, type EditEvent } from '../session-files.ts';
+import { baseName, isAbsolutePath, isSafeForDefaultApp, normalizePath, pathKey, type ChangedFile, type EditEvent } from '../session-files.ts';
 
 export interface PathCandidate {
   /** Where the text starts and ends in the line (end exclusive), string indices. */
@@ -298,7 +298,9 @@ export function wrappedAtSpace(
   cols: number,
   nextLine: string,
 ): { text: string; nextStart: number; nextEnd: number } | null {
-  if (from.tool || from.line !== undefined) return null;
+  // A tool line is included: one that closes on its own row has ")" after the path,
+  // so it stops at the check below; one that wraps runs on like any other path.
+  if (from.line !== undefined) return null;
   if (isBareName(from.text) || /[\\/]$/.test(from.text) || hasExtension(from.text)) return null;
   if (lineText.slice(from.end).trim() !== '') return null;
   const m = /^(\s*)(\S+)/.exec(nextLine);
@@ -322,8 +324,33 @@ export function elidedTail(text: string): string | null {
   return tail || null;
 }
 
-/** How a found file opens: markdown and code in the editor, an image in its app, a folder in Explorer. */
-export function openKind(path: string, isDir: boolean): 'editor' | 'default' | 'explorer' {
+/**
+ * How a found file opens: a folder in Explorer; media, pages and documents in the
+ * app Windows uses for them (isSafeForDefaultApp); code, markdown and anything
+ * unknown in the editor. A path with a line number always goes to the editor, the
+ * one app that can land on it.
+ */
+export function openKind(path: string, isDir: boolean, line?: number): 'editor' | 'default' | 'explorer' {
   if (isDir) return 'explorer';
-  return /\.(png|jpe?g|gif|webp|bmp|ico|avif|svg)$/i.test(path) ? 'default' : 'editor';
+  if (line) return 'editor';
+  return isSafeForDefaultApp(path) ? 'default' : 'editor';
+}
+
+/** Every "[Image #N]" tag Claude Code wrote on a row, for a pasted image. */
+export function findImageTags(text: string): { n: number; start: number; end: number }[] {
+  return [...text.matchAll(/\[Image #(\d+)\]/g)].map(m => ({ n: Number(m[1]), start: m.index, end: m.index + m[0].length }));
+}
+
+/** A tag wrapped at its one space: "[Image" ends this row and "#3]" starts the next. */
+export function wrappedImageTag(text: string, below: string): { n: number; start: number; nextEnd: number } | null {
+  const head = /\[Image\s*$/.exec(text);
+  const tail = /^\s*#(\d+)\]/.exec(below);
+  if (!head || !tail) return null;
+  return { n: Number(tail[1]), start: head.index, nextEnd: tail[0].length };
+}
+
+/** The image a tag means: the newest with that number, since a resumed chat can reuse one. */
+export function pastedForTag<T extends { n: number; at: number }>(pasted: T[], n: number): { image: T; others: number } | null {
+  const same = pasted.filter(p => p.n === n).sort((a, b) => b.at - a.at);
+  return same.length ? { image: same[0], others: same.length - 1 } : null;
 }

@@ -20,6 +20,36 @@ What changed for the person using afterterm, release by release. Each release li
 - **Thread menus have Rename, just above Close:** in the sidebar, on the project page and in the header's dots menu. The name stays until you change it, even if Claude Code's title changes or you use `/rename`. Save it empty and the automatic name comes back.
 - **The project menu has Rename, just above Delete project.**
 
+## 0.14.0 (2026-11-06)
+
+### Clicking a file in the terminal now opens it in the right app
+
+When Claude mentions a file in the terminal, you can click its name to open it. Before this, nearly everything opened in VS Code, even videos and web pages. Now:
+
+- **Videos, music, pictures, web pages, PDFs and Office documents** open in the app you normally use for them. A video plays in your video player, and a web page opens in your browser.
+- **Code files and Markdown notes** still open in VS Code. If you don't have VS Code, they open in Notepad.
+- **Opening a file never runs it.** A script opens so you can read it. It does not start.
+
+### Right-click a file in the terminal for more options
+
+Right-clicking a file name in the terminal now shows a small menu:
+
+- **Open** opens the file.
+- **Open file location** shows the file in File Explorer.
+- **Copy file path** copies the file's full location, ready to paste somewhere else.
+
+Right-clicking anywhere else in the terminal still pastes, the same as before.
+
+### Click an image tag to see the image
+
+When you paste an image into a chat, Claude Code shows it as a tag like `[Image #1]`. You can now click that tag to open the image. Right-clicking the tag shows the same menu as above.
+
+### Fixed
+
+- **Without VS Code, clicking a script started it.** Now it opens in Notepad and does not run.
+- **A long file location with spaces in it stopped being clickable when it ran onto a second line.** You can now click it on either line.
+- **Clicking a pasted image could open the wrong one.** If two images in a chat had the same number, you got the older one. Now you get the newest.
+
 ## 0.13.0 (2026-11-03)
 
 ### Two threads side by side

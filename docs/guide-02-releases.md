@@ -37,6 +37,7 @@ stranger." Mnemonic: **break it → X, add to it → Y, fix it → Z.**
 | `v0.9.0` | Projects and threads: Home, sleep and wake, the rail, servers by port, shell integration for every shell, the Files button and clickable file paths |
 | `v0.12.0` | The sidebar keeps its order, drag and drop in the panel, Archive moves a project to Other projects |
 | `v0.13.0` | Two threads side by side, a shorter header status chip |
+| `v0.14.0` | File links open in the file's own app, a right-click menu on them, image tags open, opening a file never runs it |
 
 (`v0.1.0`–`v0.4.1` were backfilled onto the existing history; releases from `v0.5.0` on were cut with `npm run release`.)
 
@@ -69,6 +70,20 @@ What's new shows: headings, bullets, bold and links render, images are skipped.
 - **A Claude Code session can't push the version-bump commit straight to `main`** — the
   auto-mode classifier blocks direct pushes to the default branch. Open a one-line bump
   PR, merge it, then run the release. Aryan running it locally can just commit to `main`.
+
+## Writing the notes
+
+The notes are what people read in What's new, usually with no idea what changed or why. Aryan,
+2026-11-06: "very straightforward, hand-holding, like, 'Hey, this is what we built, these are
+these things,' or 'Okay, this was the bug, these are the...' Very simple, straightforward, no
+riddles."
+
+- A heading says what you can now do, as a whole sentence someone can understand alone.
+- Say what it was like before if that helps, then what happens now. For a bug, what went wrong,
+  then what happens now.
+- Assume the reader was not here. No names of internal things, no code terms and no file
+  extensions a non-developer would not know.
+- Aryan does not need to see them first (same date). Publish them.
 
 ## Artifacts & what's preserved
 

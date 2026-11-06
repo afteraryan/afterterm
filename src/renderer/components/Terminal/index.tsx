@@ -15,8 +15,8 @@ import { TAIL_MAX_LINES } from '../../../thread-tail';
 import { JUMP_THRESHOLD_LINES, JumpState, JumpTarget, initialJumpState, onScrollSample, jumpDurationMs, jumpLineAt, prefersReducedMotion, wheelToLines, isUserScroll } from '../../jumpScroll';
 import { JumpButton, JumpButtonHandle } from '../JumpButton';
 import { isWindowsDrivePath, osc7ToWindowsPath } from '../../../shell-paths';
-import { createFileLinkProvider, trackToolLines, type FileLinkContext, type FileLinkTarget } from './fileLinks';
-import type { ILinkProvider } from '@xterm/xterm';
+import { createFileLinkProvider, trackToolLines, hideTip, type FileLinkContext, type FileLinkProvider, type FileLinkTarget } from './fileLinks';
+import { Menu, type MenuItem } from '../Menu';
 import { SPLIT_MIN, SPLIT_MAX, SPLIT_DEFAULT } from '../../splitView';
 import type { PaneTarget } from '../../splitView';
 
@@ -117,6 +117,8 @@ interface TerminalAreaProps {
   // click on one does. Without them no file links are made.
   fileContext?: (tabId: string) => FileLinkContext | null;
   onOpenFileLink?: (target: FileLinkTarget) => void;
+  // The right-click menu on a file link.
+  fileLinkMenu?: (target: FileLinkTarget) => MenuItem[];
 }
 
 // SECURITY: claudeSessionId is read from persisted session.json (a plain file that
@@ -180,6 +182,20 @@ function formatTabTitle(raw: string): string {
   }
 
   return raw;
+}
+
+/** How long a right-click waits to learn whether it landed on a file link. */
+const LINK_AT_WAIT_MS = 500;
+
+/** The 1-based buffer cell under a point on the page, or null when it is off the grid. */
+function cellAt(term: Terminal, clientX: number, clientY: number): { x: number; y: number } | null {
+  const screen = term.element?.querySelector('.xterm-screen');
+  if (!screen) return null;
+  const r = screen.getBoundingClientRect();
+  const col = Math.floor((clientX - r.left) / (r.width / term.cols));
+  const row = Math.floor((clientY - r.top) / (r.height / term.rows));
+  if (col < 0 || col >= term.cols || row < 0 || row >= term.rows) return null;
+  return { x: col + 1, y: term.buffer.active.viewportY + row + 1 };
 }
 
 // The last `max` rows of a terminal, as plain strings. `translateToString(true)`
@@ -252,7 +268,7 @@ const THEME = {
 };
 
 export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(function TerminalArea(
-  { tabs: tabInfos, activeTabId, visible, panes, ratio, renderHeader, renderAsleep, onFocusPane, onRatio, dropZone, onTitleChange, onCwdChange, onNotification, onUserInput, onAnswer, onTyped, onOutput, onFontSizeChange, onExit, onTail, onCommand, fileContext, onOpenFileLink },
+  { tabs: tabInfos, activeTabId, visible, panes, ratio, renderHeader, renderAsleep, onFocusPane, onRatio, dropZone, onTitleChange, onCwdChange, onNotification, onUserInput, onAnswer, onTyped, onOutput, onFontSizeChange, onExit, onTail, onCommand, fileContext, onOpenFileLink, fileLinkMenu },
   ref,
 ) {
   // Where every terminal that is not on screen waits (display: none). A
@@ -298,9 +314,24 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
   fileContextRef.current = fileContext;
   const onOpenFileLinkRef = useRef(onOpenFileLink);
   onOpenFileLinkRef.current = onOpenFileLink;
+  const fileLinkMenuRef = useRef(fileLinkMenu);
+  fileLinkMenuRef.current = fileLinkMenu;
   // Each terminal's file-link provider, kept so the harness can ask one for the
   // links on a row without moving a mouse (window.__afterterm.fileLinks).
-  const fileLinkProvidersRef = useRef(new Map<string, ILinkProvider>());
+  const fileLinkProvidersRef = useRef(new Map<string, FileLinkProvider>());
+
+  // The menu a right-click on a file link opens. The terminal gives up the keyboard
+  // while it is up, so an Esc to close it does not reach the shell, where it would
+  // interrupt Claude Code; closing hands the keyboard back.
+  const [linkMenu, setLinkMenu] = useState<{ tabId: string; x: number; y: number; items: MenuItem[] } | null>(null);
+  const linkMenuRef = useRef(linkMenu);
+  linkMenuRef.current = linkMenu;
+  const closeLinkMenu = useCallback(() => {
+    const open = linkMenuRef.current;
+    if (!open) return;
+    setLinkMenu(null);
+    termsRef.current.get(open.tabId)?.term.focus();
+  }, []);
 
   // OSC 133 prompt-mark state per terminal, kept beside the terminals rather than
   // inside TermInfo so the OSC handler and the onData handler (both closures made
@@ -519,6 +550,10 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       // Ctrl+Shift+F find. The find/select-all combos live here (not main.ts's
       // before-input-event) because they act on this terminal's xterm instance.
       term.attachCustomKeyEventHandler((event) => {
+        // While the link menu is up nothing reaches the shell. An Esc to close it
+        // would interrupt Claude Code, and focus can land back here while it opens
+        // (a click into the other half of a split focuses this terminal late).
+        if (linkMenuRef.current) return false;
         if (event.type !== 'keydown') return true;
 
         if (event.ctrlKey && !event.shiftKey && event.key === 'v') {
@@ -550,18 +585,43 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         return true;
       });
 
-      // Right-click: copy the selection (and clear it) if there is one, otherwise
-      // paste, the classic Windows console QuickEdit behavior.
+      // A press that closes the link menu only closes it: without this, a right-click
+      // to dismiss the menu would go on to paste into the terminal.
+      let pressClosedMenu = false;
+      container.addEventListener('mousedown', () => {
+        pressClosedMenu = linkMenuRef.current !== null;
+      }, { capture: true });
+
+      // Right-click: copy the selection (and clear it) if there is one; on a file
+      // link, its menu; otherwise paste, the classic Windows console QuickEdit behavior.
       container.addEventListener('contextmenu', (event) => {
         event.preventDefault();
+        if (pressClosedMenu) {
+          pressClosedMenu = false;
+          return;
+        }
         if (term.hasSelection()) {
           navigator.clipboard.writeText(term.getSelection());
           term.clearSelection();
-        } else {
-          navigator.clipboard.readText().then(text => {
-            if (text) term.paste(text);
-          });
+          return;
         }
+        const { clientX: x, clientY: y } = event;
+        const cell = cellAt(term, x, y);
+        // Asking main can take a moment on a row it has not seen. A paste should not
+        // wait long for that, so after LINK_AT_WAIT_MS the click counts as off a link.
+        const giveUp = new Promise<null>(resolve => setTimeout(() => resolve(null), LINK_AT_WAIT_MS));
+        void Promise.race([cell ? fileLinks.linkAt(cell.x, cell.y) : null, giveUp]).then(link => {
+          const items = link ? fileLinkMenuRef.current?.(link) : undefined;
+          if (items) {
+            hideTip();
+            term.blur();
+            setLinkMenu({ tabId, x, y, items });
+          } else {
+            navigator.clipboard.readText().then(text => {
+              if (text) term.paste(text);
+            });
+          }
+        });
       });
 
       // Ctrl+scroll → zoom this tab's font size (per-tab, persisted via session.json).
@@ -1040,6 +1100,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         viewport(tabId?: string): { viewportY: number; baseY: number } | null;
         fileLinks(tabId: string, row: number): Promise<{ text: string; range: unknown }[]>;
         openFileLink(tabId: string, row: number, index?: number): Promise<boolean>;
+        cellCentre(tabId: string, row: number, col: number): { x: number; y: number } | null;
         findRow(tabId: string, text: string): number;
       };
     };
@@ -1076,6 +1137,17 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
           resolve(true);
         });
       }),
+      // Where one 1-based buffer cell is on the page, so `drive cell` can point a real
+      // mouse at it. Null when the row is scrolled out of view.
+      cellCentre: (tabId, row, col) => {
+        const info = termsRef.current.get(tabId);
+        const screen = info?.term.element?.querySelector('.xterm-screen');
+        if (!info || !screen) return null;
+        const y = row - 1 - info.term.buffer.active.viewportY;
+        if (y < 0 || y >= info.term.rows) return null;
+        const r = screen.getBoundingClientRect();
+        return { x: r.left + (col - 0.5) * (r.width / info.term.cols), y: r.top + (y + 0.5) * (r.height / info.term.rows) };
+      },
       // The last 1-based buffer row whose text contains `text`, or 0.
       findRow: (tabId, text) => {
         const info = termsRef.current.get(tabId);
@@ -1198,6 +1270,8 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
           <div className="dz-text whole"><span className="lab">{dropZone.bad}</span></div>
         </>
       )}
+
+      {linkMenu && <Menu x={linkMenu.x} y={linkMenu.y} items={linkMenu.items} onClose={closeLinkMenu} />}
     </div>
   );
 });

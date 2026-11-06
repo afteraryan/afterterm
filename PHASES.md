@@ -112,7 +112,6 @@ Each one is an open entry in [`docs/bugs.md`](docs/bugs.md).
 - Project icons: more and better built-in icons, and uploading an image as an icon (one piece of work).
 - Choose which waiting thread a rail tile opens.
 - Open a chat's Claude Code session in a terminal outside afterterm, from both thread menus (and decide whether the afterterm thread sleeps first).
-- File links: open a file in its type's default app, and offer Open file location on right-click. Today MP4 and HTML links open in VS Code. Which types go to the default app needs a rule, since Windows often maps `.ts` to a video player.
 - Thread states lost on a restart (only Mark as unread survives): keep the real state and show it over Asleep. The quick version that turns them into Unread was turned down on 2026-09-29.
 
 ### Bugs that need to be reproduced first

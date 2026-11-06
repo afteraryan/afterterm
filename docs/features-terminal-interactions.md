@@ -13,8 +13,20 @@ Conveniences that plain conhost/cmd has and afterterm now matches. All wired in
 
 ## Right-click
 
-Copies the selection (and clears it) if one exists, otherwise pastes — the classic Windows
-console QuickEdit behavior. The native context menu is suppressed.
+Copies the selection (and clears it) if one exists; on a file link, opens its menu (Open, Open
+file location, Copy file path); otherwise pastes, the classic Windows console QuickEdit behavior.
+The native context menu is suppressed.
+
+The link is worked out when the right-click happens (`linkAt` in `Terminal/fileLinks.ts`, from the
+cell under the pointer), not remembered from the hover: xterm forgets the link under the pointer
+whenever its row redraws, and a chat's output and a click into the other half of a split both
+redraw, so a remembered hover pasted instead. A right-click that only closes the menu does not paste.
+While the menu is up no key reaches the shell, so an Esc to close it cannot interrupt Claude Code.
+
+Which app a link opens in is `openKind` in `filePaths.ts`. A file afterterm opens must never run
+(Aryan, 2026-11-06), so `openWithDefaultApp` in `main.ts`, the one place a file reaches Windows'
+default app, refuses anything `isSafeForDefaultApp` does not list, and with no editor detected a
+code file opens in Notepad. See `docs/edited-files/phases.md`, "Decisions".
 
 ## Find (Ctrl+Shift+F)
 

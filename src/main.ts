@@ -28,7 +28,7 @@ import {
 } from './server-detect.ts';
 import type { MsysProc, Proc as ServerProc } from './server-detect.ts';
 import { createSessionFilesStore } from './session-files-store.ts';
-import { EMPTY_SESSION_FILES, isAbsolutePath, normalizePath, ownsTempFile, pastedTempPath } from './session-files.ts';
+import { EMPTY_SESSION_FILES, isAbsolutePath, isSafeForDefaultApp, normalizePath, ownsTempFile, pastedTempPath } from './session-files.ts';
 import type { ChangedFile, ShellWindow } from './session-files.ts';
 import { attributeCommandChanges, isIgnoredChange, mergeSaved, pruneChanges } from './command-files.ts';
 import type { FsChange } from './command-files.ts';
@@ -1264,7 +1264,8 @@ function runEditorDetection(reason: string): Promise<void> {
       const [codePaths, registry] = await Promise.all([whereCodeAsync(), readUninstallEditors()]);
       const editorPath = readPrefs(getPrefsPath()).prefs.editorPath;
       const result = detectEditors(typeof editorPath === 'string' ? editorPath : undefined, detectDeps(codePaths, registry));
-      cachedEditors = result.editors;
+      // AFTERTERM_NO_EDITORS: a harness run on a machine with VS Code can still test having none.
+      cachedEditors = process.env.AFTERTERM_HARNESS === '1' && process.env.AFTERTERM_NO_EDITORS === '1' ? [] : result.editors;
       editorPrefsPathInvalid = result.invalidPrefsPath;
       editorsKnown = true;
       try { fs.writeFileSync(editorCachePath(), JSON.stringify({ editors: cachedEditors, invalid: editorPrefsPathInvalid })); } catch { /* next launch detects again */ }
@@ -1671,11 +1672,20 @@ function isUsableFile(p: string): boolean {
 // A path from the renderer that is about to reach a launcher: absolute, no quote
 // or control characters (explorer's /select, argument is passed verbatim), and a
 // file that exists.
-function checkedFile(p: unknown): string | null {
+function checkedPath(p: unknown): string | null {
   if (typeof p !== 'string' || !p || p.length > 1024) return null;
   if (/["\r\n\t\0]/.test(p) || !isAbsolutePath(p)) return null;
-  const file = normalizePath(p);
-  return isUsableFile(file) ? file : null;
+  return normalizePath(p);
+}
+
+function checkedFile(p: unknown): string | null {
+  const file = checkedPath(p);
+  return file && isUsableFile(file) ? file : null;
+}
+
+function checkedFolder(p: unknown): string | null {
+  const folder = checkedPath(p);
+  return folder && isUsableFolder(folder) ? folder : null;
 }
 
 // ─── Edited files, Phase 2: files changed by the chat's commands ─────────────
@@ -1822,7 +1832,7 @@ function pastedTempFile(sessionId: string, cwd: string, n: number): string | nul
 // The file to show for one pasted image: Claude Code's temp copy when it is still
 // there and is this paste's own (a later paste with the same number overwrites
 // it), otherwise the image decoded once out of the transcript into
-// <userData>\pasted\<sessionId>\<N>.png. Null when the paste cannot be found.
+// <userData>\pasted\<sessionId>\<N>-<paste>.png. Null when the paste cannot be found.
 async function pastedImageFile(sessionId: string, cwd: string, key: string): Promise<string | null> {
   const got = await sessionFilesStore.read(sessionId, cwd);
   if (!got) return null;
@@ -1834,8 +1844,9 @@ async function pastedImageFile(sessionId: string, cwd: string, key: string): Pro
   }
   const dir = path.join(app.getPath('userData'), 'pasted', sessionId);
   const ext = image.mediaType === 'image/jpeg' ? 'jpg' : image.mediaType.replace(/^image\//, '').replace(/[^a-z0-9]/g, '') || 'png';
-  const unique = ownsTempFile(got.state.pasted, key) ? '' : `-${key.replace(/[^A-Za-z0-9]/g, '').slice(0, 8)}`;
-  const file = path.join(dir, `${image.n}${unique}.${ext}`);
+  // Named after this paste, not only its number: a later paste can reuse the number,
+  // and must not be handed the file an earlier one left here.
+  const file = path.join(dir, `${image.n}-${key.replace(/[^A-Za-z0-9]/g, '').slice(0, 8)}.${ext}`);
   if (isUsableFile(file)) return file;
   const bytes = await sessionFilesStore.pastedBytes(sessionId, cwd, key);
   if (!bytes) return null;
@@ -1865,7 +1876,13 @@ ipcMain.handle('session-files:thumb', async (_event, sessionId: unknown, cwd: un
 
 // Under the agent harness nothing may open on the person's screen, so each opener
 // logs what it would have opened (after its checks), like shell:openExternal.
+//
+// This is the one place a file reaches Windows' default app, and for a script that
+// default is to run it. A file that afterterm opens must never run (Aryan, 2026-11-06:
+// "They should not run. They should always open."), so the check is here and not only
+// in the renderer's choice, and nothing that calls this can get round it.
 async function openWithDefaultApp(file: string): Promise<{ ok: boolean; error?: string }> {
+  if (!isSafeForDefaultApp(file)) return { ok: false, error: 'Could not open the file' };
   if (harnessOnlyLogsExternal()) {
     console.log(`[harness] files:openDefault ${file}`);
     return { ok: true };
@@ -1888,14 +1905,25 @@ ipcMain.handle('session-files:pastedPath', async (_event, sessionId: unknown, cw
   return pastedImageFile(sessionId, cwd, key);
 });
 
-// Open a file in the primary detected editor (VS Code), at a line when one is
-// given. With no editor detected the file goes to its default app instead.
+// With no editor detected, a file safe to hand over goes to its own app and anything
+// else to Notepad, which is on every Windows and only ever shows a file.
+async function openWithoutEditor(file: string): Promise<{ ok: boolean; error?: string }> {
+  if (isSafeForDefaultApp(file)) return openWithDefaultApp(file);
+  if (harnessOnlyLogsExternal()) {
+    console.log(`[harness] files:open Notepad ${file}`);
+    return { ok: true };
+  }
+  const result = await spawnDetached('notepad.exe', [file]);
+  return result.ok ? { ok: true } : { ok: false, error: 'Could not open the file' };
+}
+
+// Open a file in the primary detected editor (VS Code), at a line when one is given.
 ipcMain.handle('files:open', async (_event, target: unknown, line?: unknown) => {
   const file = checkedFile(target);
   if (!file) return { ok: false, error: 'File not found' };
   if (!editorsKnown) await runEditorDetection('first file open');
   const editor = cachedEditors[0];
-  if (!editor) return openWithDefaultApp(file);
+  if (!editor) return openWithoutEditor(file);
   const at = typeof line === 'number' && Number.isInteger(line) && line > 0 ? line : null;
   // Every detected product but 'other' is VS Code or a fork of it, which all take
   // -g file:line. An unknown editor gets the plain path.
@@ -2001,10 +2029,11 @@ ipcMain.handle('files:openDefault', async (_event, target: unknown) => {
   return openWithDefaultApp(file);
 });
 
-// File Explorer with the file selected. The argument is verbatim (explorer does
-// its own parsing of /select,"path"); checkedFile has refused any quote in it.
+// File Explorer with the file or folder selected, in the folder holding it. The
+// argument is verbatim (explorer does its own parsing of /select,"path");
+// checkedPath has refused any quote in it.
 ipcMain.handle('files:reveal', async (_event, target: unknown) => {
-  const file = checkedFile(target);
+  const file = checkedFile(target) ?? checkedFolder(target);
   if (!file) return { ok: false, error: 'File not found' };
   if (harnessOnlyLogsExternal()) {
     console.log(`[harness] files:reveal ${file}`);

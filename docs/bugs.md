@@ -235,22 +235,6 @@ When Aryan restarts afterterm, or shuts it down and opens it again, there is no 
 
 ---
 
-## Clicking a file link in the terminal should open the file in its default app, and right-clicking it should offer Open file location
-
-**Observed:** 2026-09-26 by Aryan during manual testing · **Phase:** Edited files Phase 3 (file paths in the terminal output are links, `docs/edited-files/`) · **Status:** open · **Severity:** low (a feature request: nothing is broken or lost) · **Screenshot:** none attached
-
-**What happens:**
-This is a feature request, not a defect. A file path in the terminal output is a file link: underlined on hover, and a click opens it (markdown and code in VS Code today). Aryan wants a click on a file link to open the file in the native tool for it, meaning the app Windows uses for that file type. He also wants a right-click menu on a file link with an "Open file location" item that shows the file in File Explorer.
-
-**Steps to make it happen again:**
-1. In a chat, hover a file path Claude wrote in the terminal until it is underlined.
-2. Click it: it opens in VS Code, not in the file type's default app.
-3. Right-click it: there is no "Open file location" item.
-
-**Evidence:** Only the description above. The menu item name Aryan asked for: "Open file location".
-
----
-
 ## Rail badges and sidebar thread states are lost when afterterm is restarted, only Mark as unread survives
 
 **Observed:** 2026-09-29 by Aryan during manual testing · **Phase:** 7 (attention state: needs-you, finished and unread, shown on the Phase 8 rail tiles and on the sidebar thread rows) · **Status:** open · **Severity:** medium (a waiting or finished thread no longer shows it after a restart, so it can be missed) · **Screenshot:** none attached
@@ -283,22 +267,6 @@ A chat has a background agent running, but the UI does not show it: the sidebar 
 **Evidence:**
 - `13-server-running-shown-while-background-agent-runs-unmarked.png`: the thread "Revy Phase 4 rebuild" in the project "Revy App" (Opus 5.5, branch and worktree `phase-4-all-plant-types`), at 14:10 on 29-09-2026. Its sidebar row, underlined in red, shows `:5554` and the green play icon; the header shows "Running on :5554". The terminal ends with "Waiting for 1 background agent to finish", and Claude Code's footer, also underlined in red, shows a `general-purpose` agent at work ("Scrolling to STP dosing details"). The commands in the output address an Android emulator named `emulator-5554`.
 - Aryan's words: "there is a background agent running but UI doesn't show it, UI shows a server is running".
-
----
-
-## MP4 and HTML file links in a chat's terminal output open in VS Code instead of their own apps
-
-**Observed:** 2026-09-29 by Aryan during manual testing · **Phase:** Edited files Phase 3 (file paths in the terminal output are links, `docs/edited-files/`; any file name with an extension became a link in PR #44) · **Status:** open · **Severity:** medium (a link opens the file in the wrong app) · **Screenshot:** none attached
-
-**What happens:**
-A file path highlighted as a link in a chat's terminal output opens in VS Code when clicked, even when the file is an MP4 video or an HTML page. Aryan expects such files not to open in VS Code.
-
-**Steps to make it happen again:**
-1. In a chat, have Claude mention the path of an MP4 file and of an HTML file in its output, so each is highlighted as a link.
-2. Click the MP4 link: it opens in VS Code.
-3. Click the HTML link: it opens in VS Code.
-
-**Evidence:** Only the description above. Aryan's words: "even MP4 and HTML files are openeing in vs code from the chat highlights". Related open entry: "Clicking a file link in the terminal should open the file in its default app, and right-clicking it should offer Open file location" (2026-09-26).
 
 ---
 
@@ -463,22 +431,20 @@ This is a feature request, not a defect. On the rail, a pinned project's tile lo
 
 ---
 
-## The [Image #N] tags in a chat's terminal output do not preview the image on hover or open it on click
+## Hovering an [Image #N] tag in a chat's terminal output does not preview the image
 
-**Observed:** 2026-10-04 by Aryan during manual testing · **Phase:** Edited files Phase 3 (file paths in the terminal output are links, `docs/edited-files/`) · **Status:** open · **Severity:** low (a feature request: nothing is broken or lost) · **Screenshot:** `docs/screenshots/manual-testing/17-image-tags-in-a-chat-message-with-no-preview-or-click.png`
+**Observed:** 2026-10-04 by Aryan during manual testing · **Phase:** Edited files Phase 3 (file paths in the terminal output are links, `docs/edited-files/`) · **Status:** open, not wanted yet (Aryan, 2026-11-06: "no need for preview right now") · **Severity:** low (a feature request: nothing is broken or lost) · **Screenshot:** `docs/screenshots/manual-testing/17-image-tags-in-a-chat-message-with-no-preview-or-click.png`
 
 **What happens:**
-This is a feature request, not a defect. When images are pasted into a message in a chat, Claude Code shows each one as an `[Image #N]` tag, inside the message text and again in a list under the message. In afterterm these tags are plain text. Aryan expects them to work like links too: hovering a tag should show a preview of that image, and clicking a tag should open the image.
+This is a feature request, not a defect. When images are pasted into a message in a chat, Claude Code shows each one as an `[Image #N]` tag, inside the message text and again in a list under the message. Since 2026-11-06 a click on a tag opens the image and a right-click has its menu (`docs/bugs-fixed.md`). Aryan's first request also asked for a preview of the image while hovering a tag, and that part is still not built.
 
 **Steps to make it happen again:**
 1. In a chat, paste one or more images into a message and send it.
-2. The message shows `[Image #1]`, `[Image #2]` and so on in its text, and the same tags in a list under it.
-3. Hover a tag: no preview of the image appears. Click a tag: the image does not open.
+2. Hover one of the `[Image #N]` tags: it is underlined, and no preview of the image appears.
 
 **Evidence:**
 - `17-image-tags-in-a-chat-message-with-no-preview-or-click.png`: a chat in afterterm with a sent message that has `[Image #1]` to `[Image #5]` inside its lines, and under the message a list of the five tags, `[Image #1]` to `[Image #5]`, one per line, which Aryan marked with a red bracket.
 - Aryan's words: "These image tags should also "preview" images on hovering and open them on clicking".
-
 ---
 
 ## The jump button sits at the centre of a thread as a small round chevron, and Aryan wants it at the bottom, slightly wider, with an arrow and short text
@@ -632,45 +598,6 @@ In the chat "Phase 6 findings page redo" in the Revy App project, whose header s
 **Evidence:**
 - Screenshot 18: the chat "Phase 6 findings page redo" open in the Revy App project, header line 2 reading "Revy App · Fable 5.1 · phase-6-firebase · .claude\worktrees\phase-6-firebase", with the Files button (204 files), the VS Code button and the dots menu at the right.
 - Aryan's words: "the folder button on top, which should open the folder inside the work tree, and the VS Code button both open the project inside the apps folder. Maybe the Claude agent's CWD is inside the apps folder, but it should always open in the work tree folder."
-
----
-
-## A path with spaces links in a Write line but not in the "Wrote N lines to" line below it, and a path written from the worktree's top in a reply does not link
-
-**Observed:** 2026-10-22 by Aryan during manual testing on v0.8.1 · **Phase:** Edited files Phase 3 (file paths in the terminal output are links, `docs/edited-files/`) · **Status:** already fixed in release 0.9.0 (PR #49, "Some file paths in a chat's reply are highlighted as links and others are not" in `docs/bugs-fixed.md`), which Aryan's build does not have yet; waiting for him to move to v0.9.0 or later and check it against these three paths · **Severity:** medium (paths Claude prints cannot be opened from the terminal) · **Screenshot:** `docs/screenshots/manual-testing/19-path-with-spaces-links-in-the-write-line-but-not-in-the-wrote-line-below-it.png`, `docs/screenshots/manual-testing/20-md-path-written-from-the-worktree-top-in-a-chat-reply-is-not-a-link.png`
-
-**What happens:**
-In the chat "Phase 6 findings page redo" in the Revy App project (worktree `.claude\worktrees\phase-6-firebase`), Claude's `Write(...)` tool line shows the full path of the file it wrote, and the line under it, "Wrote 23 lines to", shows the same full path. The first is clickable, the second is not. Further up the same chat, a reply names `docs/testing/phase-6/existing-data-real.md` (a path from the top of the worktree, drawn in blue by Claude Code), and that path is not clickable and does not open either. Aryan expects all three to be links.
-
-**Steps to make it happen again:**
-1. In a chat in a project whose folder has spaces in its path, have Claude write a file, so the terminal shows a `Write(D:\...\file.md)` line and under it "Wrote N lines to D:\...\file.md".
-2. Hover both paths: the one inside `Write(...)` underlines and opens, the one after "Wrote N lines to" does not.
-3. In the same chat, with Claude's working directory in a subfolder of the worktree, have a reply name a file by its path from the top of the worktree, such as `docs/testing/phase-6/existing-data-real.md`.
-4. Hover and click it: it does not underline or open.
-
-**Evidence:**
-- Screenshot 19 (marked 1 and 2 in red by Aryan): the tool line `Write(D:\Pitara\Work\For Friends\Revy App\.claude\worktrees\phase-6-firebase\docs\testing\phase-6\fix-decisions-round-5.md)` (1, clickable) and under it `Wrote 23 lines to D:\Pitara\Work\For Friends\Revy App\.claude\worktrees\phase-6-firebase\docs\testing\phase-6\fix-decisions-round-5.md` (2, not clickable), followed by the file's first ten lines ("# Phase 6 fixes, round 5"). Taken at about 01:07.
-- Screenshot 20 (marked 3 in red): the reply "The logins and their passwords are in the phase 6 worktree at docs/testing/phase-6/existing-data-real.md." in the same chat, the path in blue, after the line "Cooked for 33m 37s · done Wednesday 10:52 PM". The prompt below holds `docs/testing/phase-6/existing-data-real`.
-- The file in screenshot 20 is at `D:\Pitara\Work\For Friends\Revy App\.claude\worktrees\phase-6-firebase\docs\testing\phase-6\existing-data-real.md`; the chat's saved Claude folder is the worktree's `app` subfolder (see the entry above on the header's worktree item).
-- Aryan's words: "I have written: 1. On an image 2. On an image. The first is clickable, and the second is not clickable. I don't know why. Then I'll give you another screenshot from that chat where I'll write third. That .md file is also not clickable and open."
-
----
-
-## Right-clicking a file path link in the terminal has no menu to open it, open its folder or copy its full path
-
-**Observed:** 2026-10-22 by Aryan during manual testing · **Phase:** Edited files Phase 3 (file paths in the terminal output are links, `docs/edited-files/`) · **Status:** open (a feature request) · **Severity:** low (the link still opens on click; the missing menu only takes away the other actions) · **Screenshot:** none
-
-**What happens:**
-A file name or path in the terminal that can be clicked to open the file has nothing of its own on right-click. Aryan wants right-clicking such a link to show a menu with:
-- Open, which opens the file.
-- Open file location, which opens the file's folder.
-- Copy file path, which copies the file's full, absolute path (not the path as written in the terminal).
-
-**Steps to make it happen again:**
-1. In a chat or shell, print output that contains a file path the terminal shows as a link.
-2. Right-click the link: no menu with Open, Open file location or Copy file path appears.
-
-**Evidence:** Only the description above. Aryan's words: "whenever there is a file name in the terminal and I can click to open it, right-clicking on it should give me a menu with two options: Open, which opens the file; Open file location aur copy file path, which will be the global file path, of course." ("aur" is Hindi for "and", so the list reads as Open, Open file location and Copy file path.)
 
 ---
 

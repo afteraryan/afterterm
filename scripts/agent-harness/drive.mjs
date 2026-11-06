@@ -16,6 +16,10 @@
 //                                  and hold it there; --wait pauses after the move (a hover card
 //                                  needs 350ms to appear)
 //   unhover                       move the pointer to (2, 2) of the viewport, off every hover target
+//   cell hover|click|rightclick <row> <col> --tab <id> [--wait <ms>]
+//                                  a real mouse on one 1-based buffer cell of a terminal (find the
+//                                  row with window.__afterterm.findRow); the pointer rests --wait ms
+//                                  (default 300) first, so a file link has time to resolve
 //   drag "<from selector>" [fromIndex] "<to selector>" [toIndex] [--steps N] [--hold-ms N]
 //                                  press at the source centre, step to the target centre
 //                                  (default 12 steps), optional dwell (--hold-ms), then release
@@ -363,6 +367,7 @@ try {
       case 'dom': await cmdDom(args[0]); break;
       case 'click': await cmdClick(args[0], args[1], 'left'); break;
       case 'rightclick': await cmdClick(args[0], args[1], 'right'); break;
+      case 'cell': await cmdCell(args[0], args[1], args[2]); break;
       case 'hover': await cmdHover(args[0], args[1]); break;
       case 'scroll': await cmdScroll(args[0], args[1], args[2]); break;
       case 'wheel-on-jump': await cmdWheelOnJump(args[0]); break;
@@ -558,6 +563,30 @@ async function cmdHover(selector, indexArg) {
   const waitMs = Number(opts.wait ?? 0);
   if (waitMs > 0) await sleep(waitMs);
   console.log(`hovered ${selector}[${index}] at (${x}, ${y}) of ${count} match(es)${waitMs ? `, waited ${waitMs}ms` : ''}`);
+}
+
+async function cmdCell(action, rowArg, colArg) {
+  if (!['hover', 'click', 'rightclick'].includes(action)) fail('cell needs hover, click or rightclick');
+  const row = Number(rowArg);
+  const col = Number(colArg);
+  if (!row || !col) fail('cell needs a 1-based row and column');
+  if (!opts.tab) fail('cell needs --tab <id>');
+  const at = await evaluate(cdp, `window.__afterterm.cellCentre(${JSON.stringify(opts.tab)}, ${row}, ${col})`);
+  if (!at) fail(`row ${row} of ${opts.tab} is not on screen`);
+  const x = Math.round(at.x);
+  const y = Math.round(at.y);
+  // From one row above, so xterm's link handling sees the pointer arrive on the cell.
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y: Math.max(0, y - 24), button: 'none' });
+  await sleep(16);
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'none' });
+  await sleep(Number(opts.wait ?? 300));
+  if (action !== 'hover') {
+    const button = action === 'rightclick' ? 'right' : 'left';
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button, clickCount: 1 });
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button, clickCount: 1 });
+    await sleep(50);
+  }
+  console.log(`${action} cell row ${row} col ${col} of ${opts.tab} at (${x}, ${y})`);
 }
 
 async function cmdUnhover() {
