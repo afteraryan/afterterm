@@ -764,19 +764,19 @@ While Aryan works on threads in two projects at once, the two projects keep swap
 
 ---
 
-## The New project dialog shows the chosen icon too small, lists the shells as a long column with an unclear "Default shell" option, and asks for the folder before the name
+## The New and Edit project dialog is too bulky: the shells are a long list instead of a dropdown, it has a needless "Default shell" option, the folder is above the name, and the chosen icon is too small
 
-**Observed:** 2026-10-22 by Aryan during manual testing · **Phase:** 2 (the New/Edit project dialog), with the icon picker from Phase 8 · **Status:** open · **Severity:** low (the dialog works; it is hard to read and takes too much space) · **Screenshot:** `docs/screenshots/manual-testing/21-new-project-dialog-small-icon-row-and-long-default-shell-list.png`
+**Observed:** 2026-10-22 by Aryan during manual testing, raised again on 2026-11-06 · **Phase:** 2 (the New/Edit project dialog), with the icon picker from Phase 8 · **Status:** open · **Severity:** low (the dialog works; it is hard to read and takes too much space) · **Screenshot:** `docs/screenshots/manual-testing/21-new-project-dialog-small-icon-row-and-long-default-shell-list.png`
 
 **What happens:**
-In the New project dialog:
+New project and Edit project are the same dialog. Aryan wants it cleaned up because it looks too bulky:
 - The selected icon is shown at the same small size as every other icon in the row. Aryan wants the selected icon to appear bigger, with a bigger preview that changes as he switches between icons and colours ("also for default shells", in his words).
-- The shell section is headed "Default shell" and its first option is also "Default shell". He does not know what that option means.
-- The shell list takes six full rows (Default shell, Command Prompt, PowerShell 7, Windows PowerShell, Git Bash, WSL). He expects a dropdown instead, and the dialog redesigned to use its space better.
+- The shell section is headed "Default shell" and its first option is also "Default shell". He does not know what that option means and sees no need for it, so he wants it removed. A project left on that option opens its threads in Command Prompt, the same as the row below it, and the project page shows the words "Default shell" for that project (read from the source on 2026-11-06).
+- The shell list takes six full rows (Default shell, Command Prompt, PowerShell 7, Windows PowerShell, Git Bash, WSL), so every option is always visible. He expects a dropdown instead, and the dialog redesigned to use its space better.
 - The Folder field comes first and Name second. He expects the project name above the project folder.
 
 **Steps to make it happen again:**
-1. Open the New project dialog.
+1. Open the New project dialog, or right-click a project and choose **Edit project**.
 2. Pick a colour and an icon: the chosen icon stays the size of the others, with no larger preview.
 3. Look at the shell section: the heading and its first option both read "Default shell", and every shell has its own full-width row.
 4. Note the order of the fields: Folder above Name.
@@ -784,6 +784,8 @@ In the New project dialog:
 **Evidence:**
 - Screenshot 21: the New project dialog for `D:\Pitara\Work\Tinkering\minimi-windows`, Folder first with a Change button, then Name "minimi-windows", the Colour row with pink selected, the Icon row with the robot selected (small, tinted pink), the "Default shell" heading over six rows starting with "Default shell" (highlighted), "Open a terminal in it now" ticked, and Cancel and Create.
 - Aryan's words: "I feel the icon which is default selected should appear bigger. When I switch between icons and colors, I should get a bigger preview also for default shells." and "the title is "Default Shell", and the first option is "Default Shell". I don't know what "Default Shell" is, and I feel this is too space-consuming. This could be a fucking dropdown, right? We can redesign this to be more efficient. Project name should be above project folder."
+- Aryan's words on 2026-11-06: "we need to clean up the project edit menu because it looks too bulky, the default shell thing should be a drop down, right now all options are visible. And there is an option "default shell", what the fuck is default shell, because all I know is that default shell is cmd I think, basically no need for default shell." and "Name of project should be above folder."
+- Related open entries on this dialog's icon picker: "A project icon can only be one of ten built-in glyphs; the user cannot upload an image of their own" (2026-09-21) and "The project icon picker has too few icons, and some do not look like what they stand for" (2026-09-26).
 
 ---
 
@@ -864,19 +866,19 @@ This is a feature request, not a defect. There is no button or setting that make
 
 ---
 
-## Threads cannot be renamed, the project right-click menu has no Rename item, and the project dialog has no colour picker
+## Threads cannot be renamed and the project right-click menu has no Rename item
 
-**Observed:** 2026-11-06 by Aryan during manual testing · **Phase:** 2 (the project menu and the project dialog), with thread names from Phase 3 · **Status:** open · **Severity:** low (read as a feature request: nothing is reported broken or lost) · **Screenshot:** none attached
+**Observed:** 2026-11-06 by Aryan during manual testing · **Phase:** 2 (the project menu), with thread names from Phase 3 · **Status:** open · **Severity:** low (read as a feature request: nothing is reported broken or lost) · **Screenshot:** none attached
 
 **What happens:**
-Aryan's report names three things and does not say what is wrong with each. This entry reads them as three things he wants that the app does not offer; that reading needs checking with him before anything is built.
+Aryan's report names these two things and does not say what is wrong with each, so this entry reads them as things he wants that the app does not offer.
 1. Renaming a thread. No thread menu has a Rename item. A chat's name changes only through `/rename` in Claude Code, and a shell thread has no way to set a name.
 2. Renaming a project through the right-click menu. The project menu has no Rename item. A project's name can be changed through **Edit project** or by double-clicking its row in the panel.
-3. The colour of a project in the project edit dialog. His "colour picked" is read as "colour picker": the dialog offers a fixed row of colour swatches and no way to choose any other colour. If he meant that a colour he picked does not take effect, that is a different defect and this item has to be rewritten.
+
+The same report also named a colour picker for the project's colour (the project dialog has a fixed row of swatches). Aryan on 2026-11-06: "colour picker is not a major one, probably I won't implement it." Nothing is planned for it unless he changes his mind.
 
 **Steps to make it happen again:**
 1. Right-click a thread row in the panel, or open the dots menu in the main pane's header: neither has a Rename item.
 2. Right-click a project row: the menu has no Rename item.
-3. In that menu choose **Edit project** and look at the Colour row: a fixed row of swatches, with nothing to choose another colour.
 
-**Evidence:** Only the description above. Aryan's words, in full: "renaming a thread, renaming a project through right click menu, colour picked in project edit menu for colour of project". What the app offers today was read from the source on `main` (af14d9c) on 2026-11-06, not tried in the running app. The Phase 1 checklist in `docs/phases-01-projects-and-threads.md` records: "No rename: `/rename` in Claude Code is the only rename." Related open entry on the same dialog: "The New project dialog shows the chosen icon too small, lists the shells as a long column with an unclear "Default shell" option, and asks for the folder before the name" (2026-10-22, Phase 2).
+**Evidence:** Only the description above. Aryan's words, in full: "renaming a thread, renaming a project through right click menu, colour picked in project edit menu for colour of project". What the app offers today was read from the source on `main` (af14d9c) on 2026-11-06, not tried in the running app. The Phase 1 checklist in `docs/phases-01-projects-and-threads.md` records: "No rename: `/rename` in Claude Code is the only rename."
