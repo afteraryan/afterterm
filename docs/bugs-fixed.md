@@ -8,6 +8,40 @@ Format: the bug as it was titled, the date it was fixed, the PR or commit, then 
 
 ---
 
+## Fixed on 2026-11-06
+
+### Clicking a file link in the terminal should open the file in its default app, and right-clicking it should offer Open file location
+
+A click now opens video, audio, images, web pages, PDFs, Office documents, text files, archives and fonts in the app Windows uses for them. Code and markdown stay in the editor, because Windows would run a `.js`, `.py` or `.bat` file and on Aryan's machine plays a `.ts` file in VLC, and a path with a line number always goes to the editor. PR #70.
+
+### With no editor detected, clicking a link to a script ran it
+
+Found while checking Aryan's rule on 2026-11-06: "They should not run. They should always open." When no editor was detected, a file link or a Files list row sent the file to Windows' default app, which for a `.bat`, `.js` or `.py` file means running it. Nothing that afterterm opens can run now: the one function that hands a file to Windows refuses anything not on the safe list (`isSafeForDefaultApp` in `session-files.ts`, checked in `openWithDefaultApp` in `main.ts`), and with no editor a code file opens in Notepad. PR #70.
+
+### MP4 and HTML file links in a chat's terminal output open in VS Code instead of their own apps
+
+The same change: an MP4 opens in the video player and an HTML file in the browser. An HTML path with a line number (`page.html:42`) still opens in VS Code at that line. PR #70.
+
+### Right-clicking a file path link in the terminal has no menu to open it, open its folder or copy its full path
+
+A right-click on a file link shows Open, Open file location and Copy file path, which copies the full path whatever the terminal shows; a folder link says "folder" instead of "file". Right-click off a link still pastes, and a selection is still copied first. While the menu is up no key reaches the shell, so an Esc to close it cannot interrupt Claude Code. PR #70.
+
+### The [Image #N] tags in a chat's terminal output do not open the image on click
+
+A tag is now a link: a click opens the image that was pasted, a tag wrapped across two rows links whole, and right-click has the same menu. If a number was used twice in one chat, the tag opens the newest and a note says so. The hover preview in the same request is not built: Aryan put it off, and it stays in `bugs.md`. PR #70.
+
+### A path with spaces links in a Write line but not in the "Wrote N lines to" line below it, and a path written from the worktree's top in a reply does not link
+
+Fixed on 2026-09-30 in PR #49, released in 0.9.0. Retested on 2026-11-06 on the exact three paths in Aryan's real Revy worktree: all three link and open the right file. The retest found the case below.
+
+### A Write line whose path has spaces stops being a link when the path wraps onto a second row
+
+Found while retesting the entry above, and made likelier by split view's narrower panes. A tool line's path was treated as keeping its spaces even after it wrapped, so the part on the next row was cut at its first space and nothing matched. It now links from either row. PR #70.
+
+### The newest image pasted under a reused number opened the older image
+
+Found while testing the image tags. The decoded copy of a pasted image was named by its number alone, so a later paste with that number was handed the file an earlier one had left. Each paste now has its own file. This also corrects the Files button's list. PR #70.
+
 ## Fixed on 2026-11-01
 
 ### Updating installed an in-between version when a newer one was already out

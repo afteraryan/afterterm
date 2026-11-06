@@ -6,6 +6,27 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
+## Release 0.14.0 (2026-11-06): file links open their own app, a right-click menu, image tags (PR #70)
+
+Self-tested in the dev build through the harness on 2026-11-06, with the real Revy paths; captures and recordings in `docs/screenshots/file-links-open-and-menu/`. Nothing was really launched in the self-test (the harness only logs an open), so the apps themselves opening is the one thing to see here.
+
+### A file link opens in the file's own app
+**Status:** waiting for Aryan
+1. In a chat, click a link to an MP4 and to an HTML file: the video player and the browser open, not VS Code.
+2. Click a link to a `.ts` or `.md` file: it opens in VS Code. Click one with a line number (`src/main.ts:12`): VS Code opens at that line.
+3. Click a link to a `.bat` or `.js` file: it opens in VS Code and does not run.
+
+### Right-click a file link for Open, Open file location and Copy file path
+**Status:** waiting for Aryan
+1. Right-click a file link: the menu has the three items. Open file location shows File Explorer with the file selected. Copy file path copies the full path.
+2. With the menu up, press Esc: it closes and a running chat is not interrupted.
+3. Right-click off a link: it still pastes.
+
+### [Image #N] tags open the image
+**Status:** waiting for Aryan
+1. In a chat, paste an image and send the message.
+2. Click its `[Image #1]` tag, in the message or in the list under it: the image opens. Right-click has the same menu.
+
 ## Release 0.12.1 (2026-11-01): Update downloads the newest version (PR #66)
 
 Self-tested in the dev build with a test feed; capture and recording in `docs/screenshots/update-download-latest/`.

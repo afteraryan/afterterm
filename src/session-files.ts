@@ -48,6 +48,34 @@ export function fileKind(p: string): FileKind {
   return 'code';
 }
 
+// What may be handed to Windows' default app. This lists what is safe to hand over
+// rather than what to hold back, because a list of what to hold back is only as good
+// as its last entry, and a missing entry here means a program running on a click: on
+// Aryan's machine .js, .py and .bat run, .ts plays in VLC and .json has no app at all
+// (2026-11-06). A type not listed costs nothing worse than opening in an editor.
+// Never add a type that executes (.exe, .msi, .lnk, .url, .hta, .jar, a script).
+const DEFAULT_APP_TYPES = [
+  'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'avif', 'svg', 'tif', 'tiff', 'heic', 'heif',
+  'mp4', 'm4v', 'mov', 'avi', 'mkv', 'webm', 'wmv', 'mpg', 'mpeg', 'ogv', '3gp', 'flv',
+  'mp3', 'wav', 'flac', 'aac', 'ogg', 'oga', 'opus', 'm4a', 'wma', 'aif', 'aiff', 'mid', 'midi',
+  'html', 'htm', 'xhtml', 'mhtml',
+  'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp', 'rtf', 'epub', 'csv', 'tsv', 'txt', 'log',
+  'psd', 'ai', 'sketch', 'fig', 'xd',
+  'zip', '7z', 'rar', 'tar', 'gz', 'tgz', 'bz2', 'xz',
+  'ttf', 'otf', 'woff', 'woff2',
+];
+const DEFAULT_APP = new RegExp(`\\.(${DEFAULT_APP_TYPES.join('|')})$`, 'i');
+
+/**
+ * Whether a file may go to Windows' default app. Only the name's real ending counts:
+ * "clip.mp4.bat" is a batch file, and a ":" after the drive is an NTFS stream, so
+ * "setup.exe:x.mp4" is not a video.
+ */
+export function isSafeForDefaultApp(p: string): boolean {
+  const name = baseName(p);
+  return !name.includes(':') && DEFAULT_APP.test(name);
+}
+
 // ── paths ──────────────────────────────────────────────────────────────────
 
 /** True for "C:\x", "C:/x", "\\server\share" and a Git Bash "/c/x". */

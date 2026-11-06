@@ -43,6 +43,9 @@ Plain Node (24+) and PowerShell. No new dependencies: Node's global `fetch` and
   that reads a transcript, copy it to a fixture folder under a made-up id and
   point the build at it with `--env AFTERTERM_CLAUDE_PROJECTS_DIR=<fixture>`; and
   do not edit renderer code during a run that has a chat awake.
+- **A right-click in a terminal uses the real clipboard.** It pastes what is on the
+  person's clipboard into the shell, and Copy path overwrites it. Before testing
+  either, stub both in the page: `drive eval "navigator.clipboard.readText = async () => 'PASTE-MARK'; navigator.clipboard.writeText = async t => { window.__copied = t; }"`.
 
 ## What each part does
 
@@ -115,6 +118,10 @@ Options:
   the values, a value could be private) are recorded in the run record as
   `extraEnv` and printed in the launch summary.
 
+`--env AFTERTERM_NO_EDITORS=1` makes a harness run behave as if no editor were
+installed, so a machine with VS Code can test that case (a code file goes to
+Notepad, logged as `[harness] files:open Notepad <file>`).
+
 The dev build does not inherit the launching agent's Claude Code session
 variables (`CLAUDECODE`, `CLAUDE_CODE_*`, `CLAUDE_PID`, `CLAUDE_EFFORT`): with
 them, a `claude` started inside the dev build counts as a child of the agent's
@@ -185,6 +192,7 @@ node scripts/agent-harness/drive.mjs <command> ...
 | `dom` | `drive dom ".tab-row"`, add `--html` for outerHTML | Match count plus tag, classes and trimmed innerText per match. |
 | `click` | `drive click ".tab-row" 2` | Scrolls the element into view and dispatches a real `mousePressed` and `mouseReleased` at its centre through `Input.dispatchMouseEvent`, so React handlers and dnd-kit see a user-like click. Index defaults to 0. |
 | `rightclick` | `drive rightclick ".group-header" 0` | Same with the right button (opens context menus). |
+| `cell` | `drive cell rightclick 12 40 --tab tab-1` | A real mouse on one 1-based buffer cell of a terminal, with `hover`, `click` or `rightclick`: the way to test a file link as a person would (find the row with `eval "window.__afterterm.findRow('tab-1', 'text')"`). The pointer rests `--wait` ms (default 300) on the cell first, since a link only exists once main has answered. |
 | `hover` | `drive hover ".pr" 0`, `drive hover ".th" 0 --wait 400` | Scrolls the element into view, then steps the pointer onto its centre in a couple of `mouseMoved` events (so CSS `:hover` and React's `onMouseEnter` both see a real enter, not a teleport) and leaves it there. Prints the centre. `--wait <ms>` pauses after the move, before the command returns: the thread hover card appears 350ms after the pointer enters a row, so `drive hover ".th" 0 --wait 400` then `drive hover-card` in a second call sees it. |
 | `unhover` | `drive unhover` | Moves the pointer to (2, 2) of the viewport, the title bar strip, which has no hover targets. |
 | `drag` | `drive drag ".tab-row" 0 ".tab-row" 2 --hold-ms 600` | Presses at the source element's centre, steps to the target element's centre (`--steps`, default 12, 16ms apart), an optional dwell at the target (`--hold-ms`, default 0), then releases. The panel's own drag (since 2026-11-01) needs the steps (it starts after 7px) and lands by the pointer's height in the list, so a target's centre is not always the slot you want. An index is a bare integer right after its selector, so the two selector/index pairs never need extra flags to disambiguate. Two threads side by side (design-06): `--to-x <fraction>` lands at that fraction of the target's width instead of its centre (`drive drag ".th[data-tid=tab-4]" ".term-card" --to-x 0.75` drops on the right half), and `--shot <png>` captures the page during the hold, before the release, so a lit or refused drop zone is in the picture. |
@@ -594,6 +602,11 @@ particularly often: sleep, wake and the scrollback tail file are all main-proces
   (found in Phase 6: a click meant for a row landed on the chooser's "No project"
   and created a cmd thread). Take a `screenshot` right after such a shortcut, or use
   the on-screen control (`click "[data-new-thread]" 0`) instead.
+- The same deferred frame holds the side panel shut after `click "[data-go='work']"`:
+  it opens on a frame, so on an occluded window the terminal stays wider until the first
+  `screenshot`, which then opens the panel and reflows every row. A row number read before
+  that points at different text afterwards (found 2026-11-06: a click landed one row up and
+  opened the wrong image). Take a `screenshot` right after going to the workspace.
 - `Browser.getWindowForTarget` is not implemented by Electron's DevTools endpoint,
   which is why `bounds` uses an OS query for the window rectangle.
 - `key` goes through Chromium's input pipeline; the app's global shortcuts are
