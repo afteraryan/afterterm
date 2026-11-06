@@ -921,3 +921,36 @@ Aryan wants the notes shown cumulatively: the version you are on, and all the re
 3. Update and restart, then open What's new from the "Updated to" pill: again only that one release's notes.
 
 **Evidence:** Aryan's words: "maybe we have to cumulatively show: you're on this version, and in all these versions, these are all the release notes from this to this. I am not sure how it will work, but we need to do that too." What the app does was read from the source on `main` (19b6129) on 2026-11-06, not tried in the running app.
+
+---
+
+## Restart window says "Safe to restart" while a chat is in the middle of a reply
+
+**Observed:** 2026-11-06 by Aryan during manual testing · **Phase:** none of the numbered phases (the automatic updates round, released as 0.11.0; the restart window is from that round's Phase 2) · **Status:** open · **Severity:** high (the window calls a restart safe when it would stop a running reply, and that chat is not one of the ones that resume) · **Screenshot:** `docs/screenshots/manual-testing/22-restart-window-says-safe-to-restart-while-a-chat-is-running.png`
+
+**What happens:**
+On 0.13.0, with a chat still working, clicking **Restart to update** opened "Restart afterterm to update?" with a green "Safe to restart" at the bottom. The working chat was listed with a shell icon and "Opens in its folder", not as a chat and not as "Stops mid-turn". Aryan expects the window not to call the restart safe while a thread is still running.
+
+**Steps to make it happen again:**
+Seen once as described above. The window showed "Stops mid-turn" for a chat mid-reply in the recorded tests (`docs/features-updates.md`), so the state this chat was in matters; the next entry's steps produce that state.
+
+**Evidence:** Aryan's words: "Literally, a thread was running. It was not over, but when I clicked on the 'Restart to update' button, it showed me that it's safe to update." The screenshot, taken at 14:39, shows v0.13.0 and the window listing Latest resume version (Resumes), Hidden version 15 update jump (shell icon, Opens in its folder) and Project colour picker bug record (Resumes), with "Safe to restart" below them. Behind the window, Hidden version 15 update jump is the open thread and Claude Code in it reads "Whirring... (1m 17s". Saved record of that thread at 14:42 (`tab-321`): `claudeTitle` "Hidden version 15 update jump", title "◐ Hidden version 15 update jump", no `claudeSessionId`.
+
+**Diagnosis and proposed fix:** written up, at Aryan's request, in [`docs/note-03-restart-window-said-safe-while-a-chat-was-running.md`](note-03-restart-window-said-safe-while-a-chat-was-running.md).
+
+---
+
+## Starting afterterm with a throwaway profile can remove its hooks from the real Claude Code settings
+
+**Observed:** 2026-11-06 while working out the entry above, at Aryan's request · **Phase:** none of the numbered phases (the self-installed notification hook) · **Status:** open · **Severity:** high (until the next normal launch, chats show no working, needs-you or done state, send no toasts and do not save their session id) · **Screenshot:** none attached
+
+**What happens:**
+A build started with `AFTERTERM_USER_DATA_DIR` pointing at a throwaway folder, whose `prefs.json` says `"claudeNotifications": "disabled"`, removes afterterm's hook entries from the user's real `~/.claude/settings.json`. Chats already running lose their hooks as well as new ones. The app that is running does not notice.
+
+**Steps to make it happen again:**
+Use a scratch home, because with the real one this changes real settings.
+1. Make a folder with a `prefs.json` holding `{"claudeNotifications":"disabled"}`.
+2. Start any afterterm build with `AFTERTERM_USER_DATA_DIR` set to that folder and `CLAUDE_CONFIG_DIR` not set.
+3. Open `settings.json` in the Claude Code folder: its afterterm entries are gone, and `"hooks"` is `{}` if they were the only ones.
+
+**Evidence:** On Aryan's machine on 2026-11-06, the Claude Code session cutting the 0.15.0 release started the packaged build this way at 14:35:50 for a smoke test. The throwaway `prefs.json` and the real `settings.json` were both last written at 14:35:52, and `settings.json` holds `"hooks": {}`. That session's turn ended at 14:37:02 with no Stop hook record, its previous one being at 14:34:16; a session started at 14:37:55 has no hook records at all. The steps above come from that run and the source; they have not been run separately.
