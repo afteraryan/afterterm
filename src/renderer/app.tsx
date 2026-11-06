@@ -15,6 +15,7 @@ import { SearchPalette } from './components/SearchPalette';
 import { GroupModal, GroupDraft } from './components/GroupModal';
 import { Toast } from './components/Toast';
 import { ConfirmDialog } from './components/ConfirmDialog';
+import { RenameDialog } from './components/RenameDialog';
 import { ArchiveDialog } from './components/ArchiveDialog';
 import { AboutWindow } from './components/AboutWindow';
 import { RestartToUpdate } from './components/RestartToUpdate';
@@ -29,7 +30,7 @@ import { Tab, TabNotification, GROUP_COLORS, nextGroupColor } from './components
 import { onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, clearsWhenSeen, initTiming, TabTiming } from './spinnerState';
 import { migrateSession, serializeSession } from './sessionMigration';
 import { sleepAllForShutdown, wakePlan } from './sleepWake';
-import { toastMessage, initialScreen, threadName, threadKind, needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText, localhostUrl, threadFolder, threadFolderTarget, projectLookChanges } from './threadView';
+import { toastMessage, initialScreen, threadName, automaticThreadName, threadKind, needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText, localhostUrl, threadFolder, threadFolderTarget, projectLookChanges } from './threadView';
 import { ProjectActions } from './projectMenu';
 import { buildThreadMenu } from './threadMenu';
 import { projectAttention, totalAttention, railProjects, firstThreadToOpen } from './attention';
@@ -121,6 +122,8 @@ export function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   // null = closed; groupId absent = creating a new project.
   const [projectModal, setProjectModal] = useState<{ mode: 'create' | 'edit'; groupId?: string } | null>(null);
+  // The thread or project the Rename dialog is open for, null when it is closed.
+  const [renaming, setRenaming] = useState<{ kind: 'thread' | 'project'; id: string } | null>(null);
   // The saved scrollback tail of every thread whose pane may need it, keyed by tab
   // id. Filled when a thread goes to sleep (the terminal hands its last lines over
   // on the way out) and, for a thread restored from disk, read from its tail file
@@ -490,6 +493,7 @@ export function App() {
     },
     chooseEditor,
     edit: (groupId) => setProjectModal({ mode: 'edit', groupId }),
+    rename: (groupId) => setRenaming({ kind: 'project', id: groupId }),
     // Archive moves the project into the panel's Other projects drawer. With
     // awake threads it asks first (ArchiveDialog), since they go to sleep;
     // with none it goes straight away. Either way archiveNow runs the sequence.
@@ -1423,6 +1427,7 @@ export function App() {
         actions={{
           moveToGroup: (id) => id ? state.addToGroup(tab.id, id) : state.removeFromGroup(tab.id),
           close: () => closeThread(tab.id),
+          rename: () => setRenaming({ kind: 'thread', id: tab.id }),
           sleep: () => sleepThread(tab.id),
           wake: () => wakeThread(tab.id),
           setUnread: unread => state.setUnread(tab.id, unread),
@@ -1507,6 +1512,7 @@ export function App() {
           threadMenu={tab => buildThreadMenu(tab, state.groups, {
             moveToGroup: id => (id ? state.addToGroup(tab.id, id) : state.removeFromGroup(tab.id)),
             close: () => closeThread(tab.id),
+            rename: () => setRenaming({ kind: 'thread', id: tab.id }),
             sleep: () => sleepThread(tab.id),
             wake: () => wakeThread(tab.id),
             setUnread: unread => state.setUnread(tab.id, unread),
@@ -1534,6 +1540,7 @@ export function App() {
           onClose={closeThread}
           onSleep={sleepThread}
           onSetUnread={state.setUnread}
+          onRenameThread={tabId => setRenaming({ kind: 'thread', id: tabId })}
           onWake={wakeThread}
           onOpenLocalhost={openLocalhost}
           threadExplorer={threadExplorer}
@@ -1690,6 +1697,38 @@ export function App() {
               }
               setProjectModal(null);
             }}
+          />
+        );
+      })()}
+
+      {renaming && (() => {
+        // Opening the menu took the keyboard away from the terminal, and nothing else
+        // gives it back, so typing after a rename would go nowhere.
+        const close = () => {
+          setRenaming(null);
+          requestAnimationFrame(() => terminalRef.current?.focusActive());
+        };
+        if (renaming.kind === 'project') {
+          const group = state.groups.find(g => g.id === renaming.id);
+          if (!group) return null;
+          return (
+            <RenameDialog
+              title="Rename project"
+              initial={group.label}
+              onCancel={close}
+              onSave={name => { state.renameGroup(group.id, name.trim()); close(); }}
+            />
+          );
+        }
+        const tab = state.tabs.find(t => t.id === renaming.id);
+        if (!tab) return null;
+        return (
+          <RenameDialog
+            title="Rename thread"
+            initial={threadName(tab)}
+            placeholder={automaticThreadName(tab)}
+            onCancel={close}
+            onSave={name => { state.setThreadName(tab.id, name); close(); }}
           />
         );
       })()}

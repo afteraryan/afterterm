@@ -54,6 +54,11 @@ export interface Tab {
   // restored shell overwrites the raw title with "cmd.exe" seconds after launch,
   // so without its own field a chat would lose its name on the second relaunch.
   claudeTitle?: string;
+  // The name the user gave this thread with Rename in a thread menu. It wins over
+  // every automatic name (threadName in threadView.ts), including a later /rename
+  // in Claude Code; saving Rename empty removes it and the automatic name returns.
+  // Persisted in session.json and carried through history.
+  customName?: string;
   // Transient (NOT persisted): the session's first user prompt, read from its
   // transcript in main. The name fallback for a chat before Claude's first reply
   // has produced a title.
@@ -134,6 +139,9 @@ export interface HistoryEntry {
   kind: 'chat' | 'shell';
   sessionId?: string;
   cwd?: string;
+  // The thread's Rename name when it had one, so a resumed thread keeps it. `title`
+  // already reads the same then; this says the name was chosen, not automatic.
+  customName?: string;
   closedAt: number;
 }
 

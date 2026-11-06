@@ -4,7 +4,16 @@ What changed for the person using afterterm, release by release. Each release li
 
 ## Unreleased
 
-Nothing yet.
+### The project dialog is smaller
+
+- **New project and Edit project take much less room.** The name now comes first, then the folder, and colour, icon and shell are one line each.
+- **A large preview of the icon sits beside the name** and changes as you click colours and icons.
+- **The shell is a dropdown**, and the "Default shell" option is gone. A project that was on it still opens Command Prompt, and now says so.
+
+### Rename threads and projects
+
+- **Thread menus have Rename, just above Close:** in the sidebar, on the project page and in the header's dots menu. The name stays until you change it, even if Claude Code's title changes or you use `/rename`. Save it empty and the automatic name comes back.
+- **The project menu has Rename, just above Delete project.**
 
 ## 0.13.0 (2026-11-03)
 

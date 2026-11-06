@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useLayoutEffect } from 'react';
 import { Tab, Group, GroupColor, nextGroupColor, TabNotification, ProjectIconId } from '../components/TabBar/types';
 import type { SavedSession } from '../sessionMigration';
-import { insertNewThread, nextActiveTabAfterArchive, threadFolder, threadName } from '../threadView';
+import { insertNewThread, nextActiveTabAfterArchive, nextCustomName, threadFolder, threadName } from '../threadView';
 import { claudeSummaryTitle } from '../chatTitle';
 // Named apart from the hook's own sleepTab/wakeTab callbacks below: these are the
 // pure record transforms, the callbacks are the state actions that apply them.
@@ -206,6 +206,18 @@ export function useTabState() {
       t.id === tabId
         ? (claudeTitle ? { ...t, title, claudeTitle } : { ...t, title })
         : t));
+  }, []);
+
+  // Rename in a thread menu. The key is removed rather than left undefined when the
+  // thread goes back to its automatic name.
+  const setThreadName = useCallback((tabId: string, input: string) => {
+    setTabs(prev => prev.map(t => {
+      if (t.id !== tabId) return t;
+      const customName = nextCustomName(t, input);
+      if (customName === t.customName) return t;
+      const { customName: _previous, ...rest } = t;
+      return customName ? { ...rest, customName } : rest;
+    }));
   }, []);
 
   // What main read out of the session transcript. Both fields are "only when we
@@ -621,7 +633,7 @@ export function useTabState() {
   return {
     tabs, groups, activeTabId, splits,
     setActiveTabId, activateTab, makeSplit, ungroup, setSplitRatio,
-    addTab, closeTab, renameTab, updateTabCwd, setClaudeSession, setTabNotification, setTabFontSize,
+    addTab, closeTab, renameTab, setThreadName, updateTabCwd, setClaudeSession, setTabNotification, setTabFontSize,
     sleepTab, wakeTab, resumeFromHistory,
     setClaudeMeta, setGitInfo, setPort, setLastCommand, setUnread,
     createConfiguredGroup, addToGroup, removeFromGroup,

@@ -6,6 +6,31 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
+## Not in a build yet: the smaller project dialog and Rename
+
+Self-tested in the dev build through the harness on 2026-11-06; captures and two recordings in `docs/screenshots/project-dialog-and-rename/`.
+
+### The project dialog is smaller, with a large icon preview and a shell dropdown
+**Status:** waiting for Aryan
+1. Right-click a project and choose **Edit project**: Name is above Folder, with a large icon beside them.
+2. Click colours and icons: the large icon changes with each click.
+3. Click the Shell row: a dropdown opens, with no "Default shell" in it. Escape closes only the dropdown.
+4. Open **New project**: the same dialog, with "Open a terminal in it now" beside the buttons.
+
+### Rename a thread
+**Status:** waiting for Aryan
+1. Right-click a thread in the sidebar: **Rename** is just above **Close**. The header's dots menu and the project page's rows have it in the same place.
+2. Type a name and press Enter: the sidebar, the header, the hover card and the search palette all show it, and it is still there after a relaunch.
+3. In a live thread, keep typing straight after saving: the keys reach the terminal.
+4. Choose **Rename** again, clear the field and press Enter: the automatic name comes back.
+
+### Rename a project
+**Status:** waiting for Aryan
+1. Right-click a project: **Rename** is just above **Delete project**.
+2. Type a name and press Enter: the new name shows everywhere. An empty name cannot be saved.
+
+---
+
 ## Release 0.12.1 (2026-11-01): Update downloads the newest version (PR #66)
 
 Self-tested in the dev build with a test feed; capture and recording in `docs/screenshots/update-download-latest/`.

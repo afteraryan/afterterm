@@ -110,6 +110,24 @@ console.log('\nsessionMigration: model, branch, worktree (Phase 3)\n');
   check('firstPrompt is never written', !('firstPrompt' in written.tabs[1]));
 }
 
+console.log('\nsessionMigration: a name given with Rename\n');
+{
+  const raw = fixture081() as any;
+  raw.tabs[1].customName = 'Spinner';
+  raw.tabs[0].customName = 42;
+  raw.groups[0].history = [
+    { id: 'tab-90', title: 'Logs', kind: 'shell', closedAt: 5, customName: 'Logs' },
+    { id: 'tab-91', title: 'Other', kind: 'shell', closedAt: 6, customName: 42 },
+  ];
+  const s = migrateSession(raw, NOW)!;
+  check('customName is kept', s.tabs[1].customName === 'Spinner');
+  check('a non-string customName is dropped', !('customName' in s.tabs[0]));
+  check('a history entry keeps customName', s.groups[0].history[0].customName === 'Logs');
+  check('a history entry drops a non-string customName', !('customName' in s.groups[0].history[1]));
+  const written = serializeSession(s.tabs as unknown as Tab[], s.groups, s.activeTabId);
+  check('customName is written back', written.tabs[1].customName === 'Spinner');
+}
+
 console.log('\nsessionMigration: sleptAt and history (Phase 4)\n');
 {
   // A version-2 file with asleep tabs and a sleptAt keeps both.
@@ -523,7 +541,7 @@ console.log('\nserializeSession: persisted keys only, 0.8.1 compatible\n');
       pinned: true, archived: false, lastActiveAt: 333, history: [] },
   ];
   const out = serializeSession(tabs, groups, 'tab-1');
-  const PERSISTED = ['id', 'title', 'groupId', 'shellId', 'cwd', 'fontSize', 'claudeSessionId', 'claudeCwd', 'lastActiveAt', 'asleep', 'sleptAt', 'model', 'branch', 'worktree', 'claudeTitle', 'port', 'lastCommand', 'unread'];
+  const PERSISTED = ['id', 'title', 'groupId', 'shellId', 'cwd', 'fontSize', 'claudeSessionId', 'claudeCwd', 'lastActiveAt', 'asleep', 'sleptAt', 'model', 'branch', 'worktree', 'claudeTitle', 'customName', 'port', 'lastCommand', 'unread'];
   check('includes version', out.version === SESSION_FORMAT_VERSION);
   check('top-level shape is still {tabs, groups, activeTabId} plus version and ui (Phase 8)',
     isDeepStrictEqual(Object.keys(out).sort(), ['activeTabId', 'groups', 'tabs', 'ui', 'version']));

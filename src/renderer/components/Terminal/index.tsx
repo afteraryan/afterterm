@@ -56,6 +56,8 @@ interface TabInfo {
 export interface TerminalAreaHandle {
   readTail(tabId: string): string[] | null;
   readAllTails(): Record<string, string[]>;
+  // Gives the keyboard to the active thread's terminal; nothing if it has none.
+  focusActive(): void;
 }
 
 interface TerminalAreaProps {
@@ -1018,6 +1020,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       for (const [id, info] of termsRef.current) tails[id] = captureTail(info.term);
       return tails;
     },
+    focusActive: () => { termsRef.current.get(activeRef.current)?.term.focus(); },
   }), []);
 
   // Read by scripts/agent-harness/drive.mjs, which drives the app for phase testing

@@ -33,6 +33,7 @@ export function historyEntryFor(tab: Tab, title: string, now: number): HistoryEn
   if (tab.claudeSessionId) entry.sessionId = tab.claudeSessionId;
   const cwd = tab.claudeCwd ?? tab.cwd;
   if (cwd) entry.cwd = cwd;
+  if (tab.customName) entry.customName = tab.customName;
   return entry;
 }
 
@@ -77,6 +78,7 @@ export function tabFromHistory(
     asleep: false,
     wokeAt: now,
   };
+  if (entry.customName) tab.customName = entry.customName;
   if (entry.kind === 'chat') {
     tab.claudeTitle = entry.title;
     if (entry.sessionId) tab.claudeSessionId = entry.sessionId;

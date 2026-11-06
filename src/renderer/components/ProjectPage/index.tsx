@@ -45,9 +45,11 @@ const SHELL_NAMES: Record<string, string> = {
   wsl: 'WSL',
 };
 
+// A project with no shell of its own, or one no longer on this machine, opens
+// Command Prompt, the first shell in main's list (getShellById in main.ts).
 function shellName(shellId: string | undefined): string {
-  if (!shellId) return 'Default shell';
-  return SHELL_NAMES[shellId] ?? 'Default shell';
+  if (!shellId) return 'Command Prompt';
+  return SHELL_NAMES[shellId] ?? 'Command Prompt';
 }
 
 // The word before the " · " separators in a row's detail line: what mock's

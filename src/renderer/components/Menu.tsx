@@ -21,6 +21,8 @@ export interface MenuProps {
   y: number;
   items: MenuItem[];
   onClose: () => void;
+  // At least this wide, for a menu that drops down from a control of that width.
+  minWidth?: number;
 }
 
 const VIEWPORT_MARGIN = 8;
@@ -60,7 +62,7 @@ function MenuRow({ item, onClose, onOpenSubmenu }: { item: MenuItem; onClose: ()
   );
 }
 
-export function Menu({ x, y, items, onClose }: MenuProps) {
+export function Menu({ x, y, items, onClose, minWidth }: MenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ left: x, top: y });
   // Stack of item lists: [rootItems, submenuItems, ...]. The last entry is the
@@ -98,7 +100,7 @@ export function Menu({ x, y, items, onClose }: MenuProps) {
   }, [onClose]);
 
   return (
-    <div ref={menuRef} className="menu" style={position} onMouseDown={e => e.stopPropagation()}>
+    <div ref={menuRef} className="menu" style={{ ...position, minWidth }} onMouseDown={e => e.stopPropagation()}>
       {current.title !== undefined && (
         <div className="menu-head">
           <button
