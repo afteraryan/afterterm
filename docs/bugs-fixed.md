@@ -10,6 +10,14 @@ Format: the bug as it was titled, the date it was fixed, the PR or commit, then 
 
 ## Fixed on 2026-11-06
 
+### The New and Edit project dialog is too bulky
+
+Fixed in PR #71. The dialog went from about 745px tall to 315px. Colours and icons moved into a pop-up behind a larger icon that previews them live, the name went above the folder, the shell list became a dropdown and the "Default shell" option went. The same change added a colour wheel, white and a set of ten colour circles, which Aryan first said he probably would not build and then asked for.
+
+### Threads cannot be renamed and the project right-click menu has no Rename item
+
+Fixed in PR #71. Rename is just above Close in the thread menus and just above Delete project in the project menu, through one dialog. A name given to a thread stays until Rename is saved empty, even over Claude Code's own title changes.
+
 ### Clicking a file link in the terminal should open the file in its default app, and right-clicking it should offer Open file location
 
 A click now opens video, audio, images, web pages, PDFs, Office documents, text files, archives and fonts in the app Windows uses for them. Code and markdown stay in the editor, because Windows would run a `.js`, `.py` or `.bat` file and on Aryan's machine plays a `.ts` file in VLC, and a path with a line number always goes to the editor. PR #70.

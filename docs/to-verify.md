@@ -6,7 +6,7 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
-## Not in a build yet: the smaller project dialog, any colour for a project, and Rename
+## Release 0.15.0 (2026-11-06): the smaller project dialog, any colour for a project, and Rename (PR #71)
 
 Self-tested in the dev build through the harness on 2026-11-06; captures and four recordings in `docs/screenshots/project-dialog-and-rename/`.
 
