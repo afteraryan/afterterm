@@ -601,23 +601,77 @@ In the chat "Phase 6 findings page redo" in the Revy App project, whose header s
 
 ---
 
-## The New project dialog shows the chosen icon too small, lists the shells as a long column with an unclear "Default shell" option, and asks for the folder before the name
+## After closing and reopening afterterm, Home does not show which thread was used last and offers no way to resume it
 
-**Observed:** 2026-10-22 by Aryan during manual testing · **Phase:** 2 (the New/Edit project dialog), with the icon picker from Phase 8 · **Status:** open · **Severity:** low (the dialog works; it is hard to read and takes too much space) · **Screenshot:** `docs/screenshots/manual-testing/21-new-project-dialog-small-icon-row-and-long-default-shell-list.png`
+**Observed:** 2026-10-30 by Aryan during manual testing · **Phase:** 2 (Home), with the restore-on-launch from Phase 4 · **Status:** open (a feature request) · **Severity:** medium (after a relaunch he cannot tell where he left off) · **Screenshot:** none
 
 **What happens:**
-In the New project dialog:
-- The selected icon is shown at the same small size as every other icon in the row. Aryan wants the selected icon to appear bigger, with a bigger preview that changes as he switches between icons and colours ("also for default shells", in his words).
-- The shell section is headed "Default shell" and its first option is also "Default shell". He does not know what that option means.
-- The shell list takes six full rows (Default shell, Command Prompt, PowerShell 7, Windows PowerShell, Git Bash, WSL). He expects a dropdown instead, and the dialog redesigned to use its space better.
-- The Folder field comes first and Name second. He expects the project name above the project folder.
+When Aryan closes afterterm and starts it again, the app opens on Home, and nothing there tells him which thread (session) he was in last. He expects one of two things: a way to resume the last session straight away, or at least Home telling him which session was the last one.
 
 **Steps to make it happen again:**
-1. Open the New project dialog.
-2. Pick a colour and an icon: the chosen icon stays the size of the others, with no larger preview.
-3. Look at the shell section: the heading and its first option both read "Default shell", and every shell has its own full-width row.
-4. Note the order of the fields: Folder above Name.
+1. Work in a thread in afterterm.
+2. Close afterterm and start it again.
+3. Look at Home: nothing shows which thread was used last, and there is no way to resume it from there.
 
-**Evidence:**
-- Screenshot 21: the New project dialog for `D:\Pitara\Work\Tinkering\minimi-windows`, Folder first with a Change button, then Name "minimi-windows", the Colour row with pink selected, the Icon row with the robot selected (small, tinted pink), the "Default shell" heading over six rows starting with "Default shell" (highlighted), "Open a terminal in it now" ticked, and Cancel and Create.
-- Aryan's words: "I feel the icon which is default selected should appear bigger. When I switch between icons and colors, I should get a bigger preview also for default shells." and "the title is "Default Shell", and the first option is "Default Shell". I don't know what "Default Shell" is, and I feel this is too space-consuming. This could be a fucking dropdown, right? We can redesign this to be more efficient. Project name should be above project folder."
+**Evidence:** Only the description above. Aryan's words: "There has to be a way, when I close Afternote and start it, to either resume the last session or at least let me know which was the last session (because from the home screen, there is no way to know right now)". ("Afternote" here means afterterm.)
+
+---
+
+## The rail cannot say what is new, what is old, what is being worked on and what is done
+
+**Observed:** 2026-11-03 by Aryan during manual testing · **Phase:** 8 (the always-on rail and its project tiles), with the attention states from Phase 7 · **Status:** open · **Severity:** medium (the rail is there to show what to look at next, and with many projects Aryan cannot read anything from it) · **Screenshot:** none
+
+**What happens:**
+The rail has so many tiles that Aryan cannot understand what they are just by looking at them. He cannot tell what is old and what is new, which things he is working on right now, and which are done. To him the rail is useless at this point. He expects the two of us to understand why that is and to fix it, rather than patch its pieces.
+
+**Steps to make it happen again:**
+1. Use afterterm across many projects for a week or more (Aryan's session on 2026-11-03 had 25 projects and 129 threads, with work spread over 7 projects in the last 3 days).
+2. Let threads in several projects finish, wait for an answer, or keep working.
+3. Look at the rail: a column of project icons with coloured numbers, in an order that is not by time, with nothing saying which is new, which is old, which thread is being worked on now and which is done.
+
+**Evidence:** Only the description above. Aryan's words: "I truly feel that side rail is useless right now. I have so many things in the side rail. I am not able to understand what they are just by looking at them. I don't know what is old, what is new, what are the things which I am working on right now, and which are done. Side rail is not very helpful right now. We need to figure out and truly understand why that is and how to fix it."
+
+**Diagnosis and proposed fix:** written up, at Aryan's request, in [`docs/note-02-rail-cannot-say-what-is-new-old-working-or-done.md`](note-02-rail-cannot-say-what-is-new-old-working-or-done.md): why the rail reads as a pile (tiles are projects not threads, no names, creation order, no time recorded, sticky entries, awake threads absent) and the direction for a fix (a time-ordered list of threads in three groups, Needs you, Working now and Finished, with names and ages, the width being the one choice for Aryan). The earlier rail entries of 2026-10-01, 2026-10-02 (two) and 2026-10-08 are symptoms of the same cause.
+
+---
+
+## A Claude Code agent in one thread cannot start, prompt, read or follow other threads in afterterm
+
+**Observed:** 2026-11-03 by Aryan during manual testing · **Phase:** none (a new feature; no phase of the projects-and-threads round covers it) · **Status:** open · **Severity:** low (a feature request: nothing is broken or lost) · **Screenshot:** none attached
+
+**What happens:**
+This is a feature request, not a defect. A Claude Code agent running in one afterterm thread has no way to work with other threads. Aryan wants one agent to be able to:
+1. Start new threads in afterterm.
+2. Give those threads prompts and talk to them.
+3. Read their messages.
+4. Subscribe to threads, so that it gets a notification when another thread finishes or anything else happens in it.
+
+If Claude Code already has a built-in way to do this, that would be best. Otherwise he thinks afterterm needs an MCP server or a CLI tool for it; what comes after that is not decided.
+
+**Steps to make it happen again:**
+1. In afterterm, open a chat and ask Claude to start another thread, send it a prompt, read its replies, or tell you when it finishes.
+2. Claude has no afterterm tool to do any of these.
+
+**Evidence:** Only the description above. Aryan's words: "I want the ability so that one Claude agent can spawn or start more threads in Afterton and talk to them, read their messages, and give them prompts. It can subscribe to threads so that when other threads finish or anything, it gets a notification. I don't know. I'm just saying, if there is an inbuilt way for Claude to do it, then great." and "For this, I think we have to create some MCP or some CLI tool. After that, I don't know." ("Afterton" here means afterterm.)
+
+Something close was noted before, on the unmerged `worktree-project-board` branch (the project board, paused 2026-10-04):
+- `docs/project-board/phases.md`, unphased backlog: "A way for Claude Code to use afterterm itself, as a skill, an MCP server or another tool: add a task, mark one started or done, start a thread (Aryan, 2026-10-04)."
+- `docs/project-board/design-05-project-board.md`: "Claude Code gets a way to use afterterm itself: an afterterm skill, an MCP server or some other tool. An agent could then add a task, mark one started or done, or start a thread through afterterm instead of only editing files."
+
+That earlier note covers starting a thread only; prompting other threads, reading their messages and subscribing to their events are new in this request. Nothing about it is in `docs/ideas.md` or `PHASES.md` on `main`.
+
+---
+
+## afterterm has no button or setting to download updates automatically
+
+**Observed:** 2026-11-04 by Aryan during manual testing · **Phase:** none of the numbered phases (the automatic updates round, released as 0.11.0; the About window is from that round's Phase 2) · **Status:** open · **Severity:** low (a feature request: nothing is broken or lost) · **Screenshot:** none attached
+
+**What happens:**
+This is a feature request, not a defect. There is no button or setting that makes afterterm download updates automatically. Aryan expects a button for it, and a place to configure it, where auto-downloading updates can be chosen.
+
+**Steps to make it happen again:**
+1. In an installed afterterm, click the version number at the top left to open the About window.
+2. The only automatic option there is **Check for updates automatically**; nothing covers downloading.
+3. When **Update available** appears beside the version number, the download starts only after clicking it and then **Update**.
+
+**Evidence:** Only the description above. Aryan's words: "There should be a button to auto-download updates. There has to be a configurator in it where I can suggest auto-downloading updates or some shit."
