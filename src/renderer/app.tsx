@@ -40,6 +40,8 @@ import { filesListView } from './filesView';
 import { panesFor, splitOf, paneDropTarget } from './splitView';
 import type { PaneTarget } from './splitView';
 import type { FileLinkContext, FileLinkTarget } from './components/Terminal/fileLinks';
+import type { MenuItem } from './components/Menu';
+import { EditorLogo, IconExplorer } from './components/Icons';
 
 let toastCounter = 0;
 
@@ -365,14 +367,14 @@ export function App() {
 
   // Brings one chat's list up to date. Only new transcript bytes are read, so
   // calling it on every turn is cheap.
-  const refreshFiles = useCallback((tabId: string) => {
+  const refreshFiles = useCallback(async (tabId: string): Promise<SessionFiles | undefined> => {
     const tab = stateRef.current.tabs.find(t => t.id === tabId);
     const sessionId = tab?.claudeSessionId;
     const cwd = tab?.claudeCwd;
-    if (!sessionId || !cwd) return;
-    window.afterterm.sessionFiles.list(sessionId, cwd).then(files => {
-      setFilesByTab(prev => ({ ...prev, [tabId]: { sessionId, files } }));
-    });
+    if (!sessionId || !cwd) return undefined;
+    const files = await window.afterterm.sessionFiles.list(sessionId, cwd);
+    setFilesByTab(prev => ({ ...prev, [tabId]: { sessionId, files } }));
+    return files;
   }, []);
 
   // What a terminal's file links resolve against (Phase 3): the thread's own
@@ -389,6 +391,8 @@ export function App() {
     const project = tab.groupId ? stateRef.current.groups.find(g => g.id === tab.groupId) : undefined;
     const entry = filesByTabRef.current[tabId];
     const files = entry && entry.sessionId === tab.claudeSessionId ? entry.files : undefined;
+    const sessionId = tab.claudeSessionId;
+    const cwd = tab.claudeCwd;
     return {
       threadFolder: threadFolder(tab),
       worktreeTop: gitTopsRef.current.get(tabId),
@@ -397,11 +401,34 @@ export function App() {
       changed: files?.changed ?? [],
       edits: files?.edits ?? [],
       refs: files?.refs ?? [],
+      chat: sessionId && cwd ? {
+        sessionId,
+        cwd,
+        pasted: files?.pasted ?? [],
+        refreshPasted: async () => (await refreshFiles(tabId))?.pasted ?? [],
+      } : undefined,
     };
-  }, []);
+  }, [refreshFiles]);
+
+  // One pasted image, by its key in the chat's transcript. The Files list and the
+  // [Image #N] tags in the terminal both come through here.
+  const openPastedImage = (sessionId: string, cwd: string, key: string) => {
+    window.afterterm.sessionFiles.openPasted(sessionId, cwd, key).then(result => {
+      noteOpened('lastOpenFile', result.path ?? key);
+      if (!result.ok) showToast({ message: result.error ?? 'Could not open the image' });
+    });
+  };
+  const withPastedPath = (sessionId: string, cwd: string, key: string, then: (path: string) => void) => {
+    window.afterterm.sessionFiles.pastedPath(sessionId, cwd, key).then(path => {
+      if (path) then(path);
+      else showToast({ message: 'Image not found' });
+    });
+  };
 
   const openFileLink = (target: FileLinkTarget) => {
-    if (target.how === 'explorer') {
+    if (target.how === 'pasted') {
+      openPastedImage(target.sessionId, target.cwd, target.key);
+    } else if (target.how === 'explorer') {
       noteOpened('lastOpenFile', target.path);
       window.afterterm.files.openFolder(target.path).then(result => {
         if (!result.ok) showToast({ message: result.error ?? 'Could not open the folder' });
@@ -413,6 +440,23 @@ export function App() {
     }
   };
 
+  // The right-click menu on a file link in the terminal.
+  const fileLinkMenu = (target: FileLinkTarget): MenuItem[] => {
+    const word = target.how === 'explorer' ? 'folder' : 'file';
+    const withPath = (then: (path: string) => void) => {
+      if (target.how === 'pasted') withPastedPath(target.sessionId, target.cwd, target.key, then);
+      else then(target.path);
+    };
+    const opensIn = target.how === 'editor' && editors[0] ? <EditorLogo product={editors[0].product} size={16} />
+      : target.how === 'explorer' ? <IconExplorer size={16} />
+      : undefined;
+    return [
+      { label: 'Open', right: opensIn, onSelect: () => openFileLink(target) },
+      { label: `Open ${word} location`, right: <IconExplorer size={16} />, onSelect: () => withPath(revealFile) },
+      { label: `Copy ${word} path`, onSelect: () => withPath(copyPath) },
+    ];
+  };
+
   // The Files button's props for a chat, or undefined for a shell.
   const filesButtonFor = (tab: Tab): FilesButtonProps | undefined => {
     const sessionId = tab.claudeSessionId;
@@ -422,7 +466,6 @@ export function App() {
     const files = entry && entry.sessionId === sessionId ? entry.files : undefined;
     const project = tab.groupId ? stateRef.current.groups.find(g => g.id === tab.groupId) : undefined;
     const view = filesListView(files, threadFolder(tab), window.afterterm.app.homeDir || undefined, Date.now(), project?.cwd);
-    const pasted = window.afterterm.sessionFiles;
     return {
       view,
       threadKey: `${tab.id}:${sessionId}`,
@@ -432,25 +475,10 @@ export function App() {
       onOpenFile: path => openFileInEditor(path),
       onRevealFile: revealFile,
       onCopyFile: copyPath,
-      onOpenPasted: key => {
-        pasted.openPasted(sessionId, cwd, key).then(result => {
-          noteOpened('lastOpenFile', result.path ?? key);
-          if (!result.ok) showToast({ message: result.error ?? 'Could not open the image' });
-        });
-      },
-      onRevealPasted: key => {
-        pasted.pastedPath(sessionId, cwd, key).then(path => {
-          if (path) revealFile(path);
-          else showToast({ message: 'Image not found' });
-        });
-      },
-      onCopyPasted: key => {
-        pasted.pastedPath(sessionId, cwd, key).then(path => {
-          if (path) copyPath(path);
-          else showToast({ message: 'Image not found' });
-        });
-      },
-      thumb: key => pasted.thumb(sessionId, cwd, key),
+      onOpenPasted: key => openPastedImage(sessionId, cwd, key),
+      onRevealPasted: key => withPastedPath(sessionId, cwd, key, revealFile),
+      onCopyPasted: key => withPastedPath(sessionId, cwd, key, copyPath),
+      thumb: key => window.afterterm.sessionFiles.thumb(sessionId, cwd, key),
     };
   };
 
@@ -1626,6 +1654,7 @@ export function App() {
               onCommand={handleCommand}
               fileContext={fileContextFor}
               onOpenFileLink={openFileLink}
+              fileLinkMenu={fileLinkMenu}
             />
           )}
         </div>

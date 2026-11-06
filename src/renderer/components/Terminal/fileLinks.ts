@@ -4,13 +4,15 @@
 // exists. Recognising, resolving and matching are pure (filePaths.ts); this file
 // only reads the buffer, asks main, and hands xterm its links.
 import type { IBufferLine, ILink, ILinkProvider, IMarker, Terminal } from '@xterm/xterm';
-import type { ChangedFile, EditEvent } from '../../../session-files';
+import type { ChangedFile, EditEvent, PastedImage } from '../../../session-files';
 import {
   findPathCandidates, resolveCandidates, isBareName, matchChangedName, continuation, openKind, elidedTail, hasExtension, narrowByTail,
-  spacedVariants, wrappedAtSpace,
+  spacedVariants, wrappedAtSpace, findImageTags, wrappedImageTag, pastedForTag,
   type PathCandidate,
 } from '../../filePaths';
 import './fileLinks.css';
+
+type PastedTag = Pick<PastedImage, 'key' | 'n' | 'at'>;
 
 /** What a thread's links resolve against, read fresh on every hover. */
 export interface FileLinkContext {
@@ -23,13 +25,37 @@ export interface FileLinkContext {
   edits: EditEvent[];
   /** Files the chat read or sent to the user. */
   refs: EditEvent[];
+  /** A chat's session, and the pasted images its [Image #N] tags open. */
+  chat?: {
+    sessionId: string;
+    cwd: string;
+    pasted: PastedTag[];
+    /** Reads the transcript again: a tag can be on screen before the last read saw its message. */
+    refreshPasted: () => Promise<PastedTag[]>;
+  };
 }
 
-export interface FileLinkTarget {
-  path: string;
-  line?: number;
-  how: 'editor' | 'default' | 'explorer';
+export type FileLinkTarget =
+  | { how: 'editor' | 'default' | 'explorer'; path: string; line?: number }
+  /** An [Image #N] tag: a pasted image has no path until main looks it up. */
+  | { how: 'pasted'; key: string; sessionId: string; cwd: string };
+
+export interface FileLinkProvider extends ILinkProvider {
+  /**
+   * The file link on one 1-based cell, for the terminal's right-click. Worked out
+   * when asked rather than remembered from the hover: xterm forgets the link under
+   * the pointer whenever its row redraws, which a chat's output and a change of
+   * focused half both do, and the right-click would then paste instead.
+   */
+  linkAt(x: number, y: number): Promise<FileLinkTarget | null>;
 }
+
+type TargetLink = ILink & { target: FileLinkTarget };
+
+/** Whether a cell is inside a link's range, which can run over several rows. */
+const inRange = (at: ILink['range']['start'], r: ILink['range']) =>
+  (at.y > r.start.y || (at.y === r.start.y && at.x >= r.start.x))
+  && (at.y < r.end.y || (at.y === r.end.y && at.x <= r.end.x));
 
 // ── existence, cached ───────────────────────────────────────────────────────
 
@@ -201,7 +227,7 @@ function showTip(event: MouseEvent, text: string) {
   tip.style.top = `${event.clientY + 16}px`;
   tip.classList.add('show');
 }
-function hideTip() {
+export function hideTip() {
   tip?.classList.remove('show');
 }
 
@@ -233,8 +259,28 @@ export function createFileLinkProvider(
   getContext: () => FileLinkContext | null,
   open: (target: FileLinkTarget) => void,
   toolTimes: { timeAt(row: number): number | undefined },
-): ILinkProvider {
-  return {
+): FileLinkProvider {
+  const makeLink = (range: ILink['range'], text: string, target: FileLinkTarget, note?: string): TargetLink => ({
+    target,
+    range,
+    text,
+    decorations: { underline: true, pointerCursor: true },
+    activate: (event) => {
+      if (event.button !== 0) return;
+      hideTip();
+      open(target);
+    },
+    hover: note ? (event) => showTip(event, note) : undefined,
+    leave: note ? () => hideTip() : undefined,
+  });
+
+  const provider: FileLinkProvider = {
+    linkAt: (x, y) => new Promise(resolve => {
+      provider.provideLinks(y, links => {
+        const hit = (links as TargetLink[] | undefined)?.find(l => inRange({ x, y }, l.range));
+        resolve(hit?.target ?? null);
+      });
+    }),
     provideLinks(y, callback) {
       const ctx = getContext();
       if (!ctx) { callback(undefined); return; }
@@ -269,7 +315,9 @@ export function createFileLinkProvider(
           if (below && rowsLeft > 1) {
             const edge = continuation({ end: r.end, text: r.text }, l.text, cols, below.text);
             const wrapped = wrappedAtSpace({ ...from, end: r.end, text: r.text }, l.text, cols, below.text);
-            for (const j of [edge, wrapped]) if (j) out.push(...readings(row + 1, { ...from, text: j.text, end: j.nextEnd }, rowsLeft - 1));
+            // Past its first row a tool line's path is plain text: nothing on the next
+            // row has kept its spaces, so it is rejoined across them like any other.
+            for (const j of [edge, wrapped]) if (j) out.push(...readings(row + 1, { ...from, tool: undefined, text: j.text, end: j.nextEnd }, rowsLeft - 1));
             if (edge) {
               covered.set(row + 1, Math.max(covered.get(row + 1) ?? -1, edge.nextEnd));
               partial = /^[\\/]/.test(edge.text.slice(r.text.length));
@@ -294,7 +342,48 @@ export function createFileLinkProvider(
           }
         }
       }
-      if (pending.length === 0) { callback(undefined); return; }
+
+      // [Image #N] tags in a chat: those on this row, and one wrapped at its space
+      // across this row's top or bottom edge. A click opens the image that was pasted.
+      const chat = ctx.chat;
+      const tags: { n: number; text: string; range: ILink['range'] }[] = [];
+      if (chat) {
+        const l = at(y);
+        for (const t of findImageTags(l.text)) tags.push({ n: t.n, text: l.text.slice(t.start, t.end), range: span(l, t.start, t.end, y) });
+        for (const row of [y - 1, y]) {
+          const w = row >= top && row < bottom ? wrappedImageTag(at(row).text, at(row + 1).text) : null;
+          if (!w) continue;
+          tags.push({
+            n: w.n,
+            text: `[Image #${w.n}]`,
+            range: { start: span(at(row), w.start, w.start + 1, row).start, end: span(at(row + 1), 0, w.nextEnd, row + 1).end },
+          });
+        }
+      }
+      const tagLinks = async (): Promise<ILink[]> => {
+        if (!chat || !tags.length) return [];
+        // xterm keeps a row's answer while the pointer stays on it, so a tag the last
+        // read missed has to be looked for now, not on the next hover. A message's
+        // line can reach the transcript after the hook's read, and the next read is
+        // only at the end of the turn. Reading is incremental, so this is cheap.
+        let pasted = chat.pasted;
+        if (tags.some(t => !pasted.some(p => p.n === t.n))) {
+          try { pasted = await chat.refreshPasted(); } catch { /* keep what was known */ }
+        }
+        const out: ILink[] = [];
+        for (const t of tags) {
+          const found = pastedForTag(pasted, t.n);
+          if (!found) continue;
+          const note = found.others > 0 ? `Opens the newest of ${found.others + 1} images with this number` : undefined;
+          out.push(makeLink(t.range, t.text, { how: 'pasted', key: found.image.key, sessionId: chat.sessionId, cwd: chat.cwd }, note));
+        }
+        return out;
+      };
+
+      if (pending.length === 0) {
+        void tagLinks().then(links => callback(links.length ? links : undefined));
+        return;
+      }
 
       // Every path each candidate could mean, checked on disk in one call. Since
       // 2026-09-26 every file name with an extension links (Aryan: an image an
@@ -327,13 +416,10 @@ export function createFileLinkProvider(
         const onDisk = unfound.length && roots.length ? await findMany(unfound.map(o => o.lookup), roots) : new Map<string, string[]>();
         const links: ILink[] = [];
         const taken: ILink['range'][] = [];
-        const within = (at: ILink['range']['start'], r: ILink['range']) =>
-          (at.y > r.start.y || (at.y === r.start.y && at.x >= r.start.x))
-          && (at.y < r.end.y || (at.y === r.end.y && at.x <= r.end.x));
         for (const { p, lookup, bare, direct, named } of options) {
           // A joined reading was pushed before its pieces; once it links, a
           // piece starting on its cells (on either line) is skipped.
-          if (taken.some(r => within(p.range.start, r))) continue;
+          if (taken.some(r => inRange(p.range.start, r))) continue;
           const byName = named && found.get(named.path) ? named : null;
           const inFolder = direct.find(d => found.get(d));
           let path: string | undefined;
@@ -356,23 +442,13 @@ export function createFileLinkProvider(
           }
           if (!path) continue;
           const kind = found.get(path)!;
-          const target: FileLinkTarget = { path, line: p.cand.line, how: openKind(path, kind === 'dir') };
           taken.push(p.range);
-          links.push({
-            range: p.range,
-            text: p.text,
-            decorations: { underline: true, pointerCursor: true },
-            activate: (event) => {
-              if (event.button !== 0) return;
-              hideTip();
-              open(target);
-            },
-            hover: note ? (event) => showTip(event, note!) : undefined,
-            leave: note ? () => hideTip() : undefined,
-          });
+          links.push(makeLink(p.range, p.text, { path, line: p.cand.line, how: openKind(path, kind === 'dir', p.cand.line) }, note));
         }
+        links.push(...await tagLinks());
         callback(links.length ? links : undefined);
       }, () => callback(undefined));
     },
   };
+  return provider;
 }

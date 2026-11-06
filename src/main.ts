@@ -1671,11 +1671,20 @@ function isUsableFile(p: string): boolean {
 // A path from the renderer that is about to reach a launcher: absolute, no quote
 // or control characters (explorer's /select, argument is passed verbatim), and a
 // file that exists.
-function checkedFile(p: unknown): string | null {
+function checkedPath(p: unknown): string | null {
   if (typeof p !== 'string' || !p || p.length > 1024) return null;
   if (/["\r\n\t\0]/.test(p) || !isAbsolutePath(p)) return null;
-  const file = normalizePath(p);
-  return isUsableFile(file) ? file : null;
+  return normalizePath(p);
+}
+
+function checkedFile(p: unknown): string | null {
+  const file = checkedPath(p);
+  return file && isUsableFile(file) ? file : null;
+}
+
+function checkedFolder(p: unknown): string | null {
+  const folder = checkedPath(p);
+  return folder && isUsableFolder(folder) ? folder : null;
 }
 
 // ─── Edited files, Phase 2: files changed by the chat's commands ─────────────
@@ -1822,7 +1831,7 @@ function pastedTempFile(sessionId: string, cwd: string, n: number): string | nul
 // The file to show for one pasted image: Claude Code's temp copy when it is still
 // there and is this paste's own (a later paste with the same number overwrites
 // it), otherwise the image decoded once out of the transcript into
-// <userData>\pasted\<sessionId>\<N>.png. Null when the paste cannot be found.
+// <userData>\pasted\<sessionId>\<N>-<paste>.png. Null when the paste cannot be found.
 async function pastedImageFile(sessionId: string, cwd: string, key: string): Promise<string | null> {
   const got = await sessionFilesStore.read(sessionId, cwd);
   if (!got) return null;
@@ -1834,8 +1843,9 @@ async function pastedImageFile(sessionId: string, cwd: string, key: string): Pro
   }
   const dir = path.join(app.getPath('userData'), 'pasted', sessionId);
   const ext = image.mediaType === 'image/jpeg' ? 'jpg' : image.mediaType.replace(/^image\//, '').replace(/[^a-z0-9]/g, '') || 'png';
-  const unique = ownsTempFile(got.state.pasted, key) ? '' : `-${key.replace(/[^A-Za-z0-9]/g, '').slice(0, 8)}`;
-  const file = path.join(dir, `${image.n}${unique}.${ext}`);
+  // Named after this paste, not only its number: a later paste can reuse the number,
+  // and must not be handed the file an earlier one left here.
+  const file = path.join(dir, `${image.n}-${key.replace(/[^A-Za-z0-9]/g, '').slice(0, 8)}.${ext}`);
   if (isUsableFile(file)) return file;
   const bytes = await sessionFilesStore.pastedBytes(sessionId, cwd, key);
   if (!bytes) return null;
@@ -2001,10 +2011,11 @@ ipcMain.handle('files:openDefault', async (_event, target: unknown) => {
   return openWithDefaultApp(file);
 });
 
-// File Explorer with the file selected. The argument is verbatim (explorer does
-// its own parsing of /select,"path"); checkedFile has refused any quote in it.
+// File Explorer with the file or folder selected, in the folder holding it. The
+// argument is verbatim (explorer does its own parsing of /select,"path");
+// checkedPath has refused any quote in it.
 ipcMain.handle('files:reveal', async (_event, target: unknown) => {
-  const file = checkedFile(target);
+  const file = checkedFile(target) ?? checkedFolder(target);
   if (!file) return { ok: false, error: 'File not found' };
   if (harnessOnlyLogsExternal()) {
     console.log(`[harness] files:reveal ${file}`);

@@ -4,7 +4,7 @@
 //   node src/renderer/filePaths.test.ts
 // Exits 0 if all pass, 1 on any failure.
 
-import { looksLikePath, splitLineSuffix, findPathCandidates, isBareName, resolveCandidates, matchChangedName, continuation, openKind, elidedTail, hasExtension, narrowByTail, spacedVariants, wrappedAtSpace } from './filePaths.ts';
+import { looksLikePath, splitLineSuffix, findPathCandidates, isBareName, resolveCandidates, matchChangedName, continuation, openKind, elidedTail, hasExtension, narrowByTail, spacedVariants, wrappedAtSpace, findImageTags, wrappedImageTag, pastedForTag } from './filePaths.ts';
 
 let pass = 0, fail = 0;
 function check(name: string, cond: boolean, detail = '') {
@@ -226,11 +226,73 @@ check('no ellipsis: null', elidedTail('docs\\a.md') === null);
 check('an ellipsis at the end gives nothing to match', elidedTail('docs\\a…') === null);
 check('the shortened tool line is found whole', texts('● Write(docs\\very-long-folder-name\\another-long-subfolde…\\final-document.md)')[0] === 'docs\\very-long-folder-name\\another-long-subfolde…\\final-document.md');
 
+console.log('a tool line whose path wraps (2026-11-06)');
+{
+  const cols = 100;
+  const first = '● Write(D:\\Pitara\\Work\\For Friends\\Revy';
+  const second = 'App\\.claude\\worktrees\\phase-6-firebase\\docs\\testing\\phase-6\\fix-decisions-round-5.md)';
+  const cand = findPathCandidates(first)[0];
+  check('a tool line open at the row end is a tool candidate', cand.tool === 'Write' && cand.text === 'D:\\Pitara\\Work\\For Friends\\Revy');
+  check('wrapped at a space, it joins the next row without the bracket',
+    wrappedAtSpace(cand, first, cols, second)?.text === 'D:\\Pitara\\Work\\For Friends\\Revy App\\.claude\\worktrees\\phase-6-firebase\\docs\\testing\\phase-6\\fix-decisions-round-5.md');
+  const closed = '● Write(D:\\Work\\For Friends\\notes.md)';
+  check('a tool line closed on its row does not join', wrappedAtSpace(findPathCandidates(closed)[0], closed, 40, 'and the next row') === null);
+  const closedNoExt = '● Read(D:\\Work\\For Friends\\docs)';
+  check('nor does a closed one with no extension', wrappedAtSpace(findPathCandidates(closedNoExt)[0], closedNoExt, 36, 'and the next row') === null);
+  // Broken inside a word at the edge, then spaces on the next row: the piece the
+  // edge join gives goes on across them once the tool mark is off (fileLinks.ts).
+  const edgeRow = '● Write(C:\\Users\\scratchpa';
+  const edgeNext = 'd\\fl\\For Friends\\Revy App\\notes.md)';
+  const edge = continuation(findPathCandidates(edgeRow)[0], edgeRow, 27, edgeNext);
+  check('the edge join stops at the first space', edge?.text === 'C:\\Users\\scratchpad\\fl\\For');
+  const on = spacedVariants(edgeNext, { text: edge!.text, end: edge!.nextEnd });
+  check('and runs on over the spaces, without the bracket', on[0]?.text === 'C:\\Users\\scratchpad\\fl\\For Friends\\Revy App\\notes.md');
+}
+
 console.log('how it opens');
 check('markdown in the editor', openKind('D:\\a.md', false) === 'editor');
 check('code in the editor', openKind('D:\\a.ts', false) === 'editor');
 check('an image in its app', openKind('D:\\shot.PNG', false) === 'default');
 check('a folder in Explorer', openKind('D:\\docs', true) === 'explorer');
+for (const name of ['clip.mp4', 'CLIP.MOV', 'song.mp3', 'page.html', 'page.htm', 'report.pdf', 'sheet.xlsx', 'data.csv', 'notes.txt', 'run.log', 'photo.svg', 'bundle.tar.gz']) {
+  check(`${name} in its own app`, openKind(`D:\\p\\${name}`, false) === 'default');
+}
+// Windows would run these, play .ts as a video, or have no app for them: on the
+// machine this was written on, .ts opens VLC and .js and .py run.
+for (const name of ['main.ts', 'App.tsx', 'tool.js', 'tool.mjs', 'tool.py', 'run.bat', 'run.cmd', 'run.ps1', 'run.vbs', 'config.json', 'README.md', 'setup.exe', 'setup.msi', 'tool.hta', 'link.lnk', 'site.url', 'Dockerfile', '.env.local']) {
+  check(`${name} never goes to its Windows default`, openKind(`D:\\p\\${name}`, false) === 'editor');
+}
+check('a name that only ends like a listed type', openKind('D:\\p\\page.html.bak', false) === 'editor');
+check('a line number goes to the editor, whatever the type', openKind('D:\\p\\page.html', false, 42) === 'editor');
+check('a line number on a log too', openKind('D:\\p\\run.log', false, 7) === 'editor');
+check('a folder with a line number is still a folder', openKind('D:\\docs', true, 3) === 'explorer');
+
+console.log('[Image #N] tags');
+{
+  const row = '  - [Image #1] Lol what is this UI, and [Image #12] too';
+  const tags = findImageTags(row);
+  check('finds every tag on a row', show(tags.map(t => t.n)) === show([1, 12]));
+  check('the span covers the whole tag', row.slice(tags[0].start, tags[0].end) === '[Image #1]');
+  check('the second span too', row.slice(tags[1].start, tags[1].end) === '[Image #12]');
+  check('a tag alone under a message', findImageTags('  L [Image #5]')[0].n === 5);
+  check('no tag', findImageTags('an Image #3 without brackets').length === 0);
+  check('not a number', findImageTags('[Image #x]').length === 0);
+
+  const head = 'look at this long sentence that wraps right before the tag [Image';
+  const wrapped = wrappedImageTag(head, '  #3] and carries on');
+  check('a tag wrapped at its space is found', wrapped?.n === 3);
+  check('it starts on the first row', head.slice(wrapped!.start) === '[Image');
+  check('it ends after the bracket on the second', '  #3] and carries on'.slice(0, wrapped!.nextEnd) === '  #3]');
+  check('a row ending in the word alone is not a tag', wrappedImageTag('an [Image', 'of a cat') === null);
+  check('a whole tag is not a wrapped one', wrappedImageTag('see [Image #3]', '#4] later') === null);
+
+  const pasted = [{ key: 'old', n: 2, at: 100 }, { key: 'new', n: 2, at: 300 }, { key: 'one', n: 1, at: 200 }];
+  check('one image with the number', pastedForTag(pasted, 1)?.image.key === 'one');
+  check('none others', pastedForTag(pasted, 1)?.others === 0);
+  check('the newest of two with the number', pastedForTag(pasted, 2)?.image.key === 'new');
+  check('and it says there is another', pastedForTag(pasted, 2)?.others === 1);
+  check('a number not pasted', pastedForTag(pasted, 9) === null);
+}
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
