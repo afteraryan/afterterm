@@ -8,6 +8,7 @@ import {
   baseName, extensionOf, fileKind, normalizePath, pathKey, isInside, isAbsolutePath,
   newParseState, ingestLine, ingestText, sessionFilesView, mergeChanged,
   pastedTempPath, ownsTempFile, MAX_EDIT_EVENTS, isSafeForDefaultApp,
+  cleanUrl, transcriptUrls, MAX_URLS,
   type ChangedFile,
 } from './session-files.ts';
 
@@ -302,6 +303,56 @@ console.log('excluded folders');
   check('the rest stays', v.changed.length === 1 && v.changed[0].path === 'D:\\p\\docs\\a.md');
   check('no exclusions: everything', sessionFilesView(s).changed.length === 2);
   check('the edit events keep it (a link to it still resolves)', v.edits.length === 2);
+}
+
+console.log('\nweb links in the transcript (AFT-61)');
+{
+  check('sentence full stop off', cleanUrl('https://a.b/c.') === 'https://a.b/c');
+  check('a closing bracket it never opened off', cleanUrl('https://a.b/c)') === 'https://a.b/c');
+  check('both, in either order', cleanUrl('https://a.b/c).') === 'https://a.b/c' && cleanUrl('https://a.b/c.)') === 'https://a.b/c');
+  check('a bracket it opened stays', cleanUrl('https://w.org/A_(b)') === 'https://w.org/A_(b)');
+  check('markdown bold and a backtick off', cleanUrl('https://a.b/c**') === 'https://a.b/c' && cleanUrl('https://a.b/c`') === 'https://a.b/c');
+  check('a query is left alone', cleanUrl('https://a.b/c?x=1&y=2') === 'https://a.b/c?x=1&y=2');
+
+  const U = 'https://example.com/authorize?response_type=code&client_id=https%3A%2F%2Fclaude.ai%2Foauth%2Fmetadata&code_challenge=kb6&code_challenge_method=S256&state=ONE';
+  const U2 = U.replace('state=ONE', 'state=TWO');
+  const s = newParseState();
+  const line = (o: unknown) => JSON.stringify(o);
+  ingestText(s, [
+    line({ type: 'user', message: { role: 'user', content: `Open ${U}.` } }),
+    line({ type: 'assistant', message: { content: [{ type: 'text', text: `[Sign in](${U})\nthen https://docs.example.org/guide` }] } }),
+    line({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 't1', name: 'Bash', input: { command: `echo "${U2}"` } }] } }),
+    line({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 't1', content: `${U2}\nhttps://after.newline.example/x` }] } }),
+    line({ type: 'progress', data: 'https://intranet and http://localhost:5173/app/x and https://localhostile/x' }),
+  ].join('\n'));
+  check('a prompt\'s link, without its full stop', s.urls.has(U));
+  check('a markdown link\'s target, without the bracket', [...s.urls].every(u => !u.endsWith(')')));
+  check('a reply\'s bare link', s.urls.has('https://docs.example.org/guide'));
+  check('a tool call\'s and its output\'s link, not run into the escaped newline', s.urls.has(U2) && s.urls.has('https://after.newline.example/x'), show([...s.urls]));
+  check('a link with no dotted host is not kept', !s.urls.has('https://intranet') && !s.urls.has('https://localhostile/x'), show([...s.urls]));
+  check('a localhost link is kept (a dev server\'s)', s.urls.has('http://localhost:5173/app/x'));
+  check('kept once each', [...s.urls].filter(u => u === U).length === 1);
+  const got = transcriptUrls(s, 'https://example.com/authorize?response_type=code&cl');
+  check('by prefix, the most recently written first', show(got) === show([U2, U]), show(got));
+  check('nothing for a prefix it never saw', transcriptUrls(s, 'https://nowhere.example/').length === 0);
+  ingestText(s, line({ type: 'user', message: { content: `again ${U}` } }));
+  check('written again, it is the most recent', transcriptUrls(s, 'https://example.com/authorize')[0] === U);
+  check('the limit holds', transcriptUrls(s, 'https://', 1).length === 1);
+
+  const big = newParseState();
+  for (let i = 0; i < MAX_URLS + 10; i++) ingestLine(big, line({ type: 'user', message: { content: `https://example.com/p${i}` } }));
+  check('no more than MAX_URLS kept', big.urls.size === MAX_URLS);
+  check('the oldest went first', !big.urls.has('https://example.com/p0') && big.urls.has(`https://example.com/p${MAX_URLS + 9}`));
+  check('a shortened copy ending in "…" is never kept, as the character or as \\u2026', (() => {
+    const t = newParseState();
+    ingestLine(t, `{"type":"x","a":"see https://example.com/long/pa…","b":"https://example.com/other/sh\\u2026 and https://example.com/whole/one"}`);
+    return t.urls.size === 1 && t.urls.has('https://example.com/whole/one');
+  })());
+  check('a link in a line the pre-check skips is still read', (() => {
+    const t = newParseState();
+    ingestLine(t, line({ type: 'system', content: 'see https://status.example.com/now' }));
+    return t.urls.has('https://status.example.com/now');
+  })());
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

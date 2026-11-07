@@ -10,6 +10,9 @@
 //   2. every image pasted into the chat ([Image #N], stored inline as base64)
 //   3. the time windows in which the chat's shell commands (Bash, PowerShell) were
 //      running, which Phase 2 uses to attribute files changed by those commands
+//   4. every web link written anywhere in it (the prompts, the replies, the tool
+//      calls and their output), so a link Claude Code cuts over several rows of the
+//      terminal opens whole (AFT-61, src/renderer/webLinks.ts)
 //
 // The transcript grows to tens of megabytes, so it is read incrementally: main feeds
 // new lines to ingestLine as they are appended, and the state here keeps only the
@@ -205,6 +208,8 @@ export interface SessionParseState {
   pasted: PastedImage[];
   windows: ShellWindow[];
   latestCwd: string | null;
+  /** Every web link the transcript holds, once each, the most recently written last. */
+  urls: Set<string>;
 }
 
 export function newParseState(): SessionParseState {
@@ -217,7 +222,67 @@ export function newParseState(): SessionParseState {
     pasted: [],
     windows: [],
     latestCwd: null,
+    urls: new Set(),
   };
+}
+
+// ── web links ───────────────────────────────────────────────────────────────
+
+/** Links kept per session; the least recently written goes first. */
+export const MAX_URLS = 5000;
+
+const countOf = (text: string, ch: string) => text.split(ch).length - 1;
+const OPENERS: Record<string, string> = { ')': '(', ']': '[', '}': '{', '>': '<' };
+
+/**
+ * A link as it appears in text, without what only surrounds it: sentence
+ * punctuation, quotes, markdown's `*` and backtick, and a closing bracket it
+ * never opened. "(https://a.b/c)." is https://a.b/c; https://w.org/A_(b) keeps
+ * its bracket.
+ */
+export function cleanUrl(text: string): string {
+  let t = String(text ?? '');
+  for (;;) {
+    const before = t;
+    t = t.replace(/[.,:;!?'"*`]+$/, '');
+    const last = t[t.length - 1];
+    const open = last ? OPENERS[last] : undefined;
+    if (open && countOf(t, last) > countOf(t, open)) t = t.slice(0, -1);
+    if (t === before) return t;
+  }
+}
+
+// In a raw JSONL line a link ends at a quote or at a backslash (the start of an
+// escape such as \n), as well as at the characters text puts around one.
+const URL_IN_LINE = /https?:\/\/[^\s"'`<>\\|{}^…]+/gi;
+const HAS_HOST = /^https?:\/\/([^/?#\s]+\.[^/?#\s]|localhost(?![^/?#:]))/i;
+
+function collectUrls(state: SessionParseState, line: string): void {
+  for (const m of line.matchAll(URL_IN_LINE)) {
+    // A link followed by "…" is a shortened copy (Claude Code keeps some, such as a
+    // tool call's one-line summary); it would match the screen's shortened line
+    // better than the real link does, so it is never kept.
+    const next = line.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 6);
+    if (next.startsWith('…') || next === '\\u2026') continue;
+    const url = cleanUrl(m[0]);
+    if (!HAS_HOST.test(url)) continue;
+    state.urls.delete(url);
+    state.urls.add(url);
+  }
+  while (state.urls.size > MAX_URLS) {
+    const oldest = state.urls.values().next().value as string;
+    state.urls.delete(oldest);
+  }
+}
+
+/** The transcript's links that start with `prefix`, the most recently written first. */
+export function transcriptUrls(state: Pick<SessionParseState, 'urls'>, prefix: string, limit = 8): string[] {
+  const out: string[] = [];
+  const all = [...state.urls];
+  for (let i = all.length - 1; i >= 0 && out.length < limit; i--) {
+    if (all[i].startsWith(prefix)) out.push(all[i]);
+  }
+  return out;
 }
 
 const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
@@ -293,7 +358,10 @@ function imageNumbersInText(content: unknown[]): number[] {
  * partial last line does until the rest of it has been written.
  */
 export function ingestLine(state: SessionParseState, line: string, offset = 0, subagent = false): void {
-  if (!line || !lineMayMatter(line, state)) return;
+  if (!line) return;
+  // Links from every kind of line, before the pre-check below skips most of them.
+  if (line.includes('://')) collectUrls(state, line);
+  if (!lineMayMatter(line, state)) return;
   let obj: Record<string, unknown>;
   try {
     obj = JSON.parse(line) as Record<string, unknown>;
