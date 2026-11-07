@@ -653,18 +653,20 @@ function reconcileNotifierHook(): ReconcileResult | null {
 // (claude-hook-install.ts); the repair is reconcileNotifierHook, so the test launch
 // guard and the opt-out apply to it exactly as at launch.
 //
-// A poll, not fs.watch: a watch on the folder was tried first, and when the folder
-// is deleted or moved while the app runs (Explorer's delete is a move), libuv on
-// Windows raises no error and sends 'rename' events without end (266,399 in 2
-// seconds, measured on Electron 35.7.5's runtime), which held main at a full core
-// until quit and turned the repair off. One stat every 3 seconds costs nothing and
-// sees a replaced file, a deleted file and a missing folder alike.
+// A poll, not fs.watch: a watch on the folder was tried first, and it fails both
+// ways the folder can go while the app runs (measured on Electron 35.7.5's runtime).
+// A real delete (rmSync, Remove-Item) raises no error and sends 'rename' events
+// without end, 266,399 in 2 seconds, holding main at a full core until quit. A move
+// or rename (Explorer's delete to the Recycle Bin is a move) sends nothing at all,
+// so the watch silently stops. One stat every 3 seconds has neither problem, costs
+// nothing, and sees a replaced file, a deleted file and a missing folder alike.
 const HOOK_POLL_MS = 3000;
 const HOOK_REPAIR_DEBOUNCE_MS = 1000; // one check after a run of changes settles
 let hookPollStarted = false;
 let hookPollStopped = false;
 let hookPollTimer: NodeJS.Timeout | null = null;
-let hookLastSample: { exists: boolean; mtimeMs: number; size: number } | null = null;
+type HookSample = { exists: boolean; mtimeMs: number; ctimeMs: number; size: number };
+let hookLastSample: HookSample | null = null;
 let hookCheckTimer: NodeJS.Timeout | null = null;
 let hookRepairTimes: number[] = []; // performance.now() of each repair, for the loop guard
 let hookRepairCapWarned = false;
@@ -677,15 +679,18 @@ function scheduleHookCheck(delay = HOOK_REPAIR_DEBOUNCE_MS) {
 
 // One stat of settings.json; a check is scheduled on the first sample and whenever
 // the file appears, goes, or changes time or size. A missing folder is exists=false.
+// ctimeMs is compared too: a same-size copy that keeps the modified time, or a file
+// renamed over it, changes only that.
 function sampleHookSettings() {
-  let sample = { exists: false, mtimeMs: 0, size: 0 };
+  let sample: HookSample = { exists: false, mtimeMs: 0, ctimeMs: 0, size: 0 };
   try {
     const st = fs.statSync(path.join(getClaudeDir(), 'settings.json'));
-    sample = { exists: true, mtimeMs: st.mtimeMs, size: st.size };
+    sample = { exists: true, mtimeMs: st.mtimeMs, ctimeMs: st.ctimeMs, size: st.size };
   } catch { /* missing, or the folder is: exists=false */ }
   const last = hookLastSample;
   hookLastSample = sample;
-  if (last && last.exists === sample.exists && last.mtimeMs === sample.mtimeMs && last.size === sample.size) return;
+  if (last && last.exists === sample.exists && last.mtimeMs === sample.mtimeMs &&
+    last.ctimeMs === sample.ctimeMs && last.size === sample.size) return;
   scheduleHookCheck();
 }
 
@@ -698,9 +703,13 @@ function checkHookEntries() {
   try {
     text = fs.readFileSync(path.join(claudeDir, 'settings.json'), 'utf-8');
   } catch (err) {
-    // Missing counts as needing repair; any other read error (busy mid-replace) waits
-    // for the next change rather than guessing.
-    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') return;
+    // Missing counts as needing repair. Any other read error (busy mid-replace) is not
+    // guessed at: forgetting the last sample makes the next poll schedule another
+    // check, since an unchanged file would otherwise never be looked at again.
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+      hookLastSample = null;
+      return;
+    }
     text = null;
   }
   // Read on every check, never cached, so an opt-out written while the app runs

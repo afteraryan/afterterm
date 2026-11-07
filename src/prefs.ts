@@ -42,33 +42,44 @@ export interface AftertermPrefs {
 // is usable as empty: it gets created on first write. A file that does not parse,
 // or that could not be read (locked by another program, access denied, a folder in
 // its place), gives usable=false, and writing is refused: what it holds is unknown,
-// and a write would replace it.
-export function readPrefs(prefsPath: string): { prefs: AftertermPrefs; usable: boolean } {
+// and a write would replace it. `reason` says why, for a log line.
+export function readPrefs(prefsPath: string): { prefs: AftertermPrefs; usable: boolean; reason?: string } {
   let raw: string;
   try {
     raw = fs.readFileSync(prefsPath, 'utf-8');
   } catch (err) {
-    return { prefs: {}, usable: (err as NodeJS.ErrnoException).code === 'ENOENT' };
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT') return { prefs: {}, usable: true };
+    return { prefs: {}, usable: false, reason: `could not be read (${code ?? String(err)})` };
   }
   try {
     const parsed = JSON.parse(raw.replace(/^\uFEFF/, ''));
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
       return { prefs: parsed as AftertermPrefs, usable: true };
     }
-  } catch { /* falls through to the unusable result below */ }
-  return { prefs: {}, usable: false };
+    return { prefs: {}, usable: false, reason: 'is not a JSON object' };
+  } catch {
+    return { prefs: {}, usable: false, reason: 'is not valid JSON' };
+  }
 }
 
 // Merge a patch into prefs.json, keeping every other key. Returns false when the
 // file was left alone because it does not parse or could not be read, or when the
-// write failed.
+// write failed. Either way one warning names the file, the reason and the keys that
+// were not saved, so a dropped write (the editor pick, Skip or Later, the pending
+// update note) shows in the log.
 export function updatePrefs(prefsPath: string, patch: Partial<AftertermPrefs>): boolean {
-  const { prefs, usable } = readPrefs(prefsPath);
-  if (!usable) return false;
+  const { prefs, usable, reason } = readPrefs(prefsPath);
+  const keys = Object.keys(patch).join(', ');
+  if (!usable) {
+    console.warn(`[prefs] ${prefsPath} ${reason}; left as it is, so ${keys} was not saved`);
+    return false;
+  }
   try {
     fs.writeFileSync(prefsPath, JSON.stringify({ ...prefs, ...patch }, null, 2) + '\n', 'utf-8');
     return true;
-  } catch {
+  } catch (err) {
+    console.warn(`[prefs] ${prefsPath} could not be written (${(err as NodeJS.ErrnoException).code ?? String(err)}), so ${keys} was not saved`);
     return false;
   }
 }

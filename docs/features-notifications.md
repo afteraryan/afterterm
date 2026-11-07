@@ -44,7 +44,10 @@ settings file; only the global/project `settings.json` hierarchy, and hooks
   `~/.claude` (CC not installed) and **never clobbers** an unparseable settings file.
 - **Repair while running** (Fix 4, 2026-11-07): after the launch reconcile, main
   polls the Claude folder's `settings.json` (`startHookRepairPoll`): one `fs.statSync`
-  every 3 seconds, comparing whether it exists, its modified time and its size. On
+  every 3 seconds, comparing whether it exists, its modified time, its change time
+  and its size (the change time catches a same-size copy that keeps the modified
+  time, and a file renamed over it). A read error other than a missing file makes the
+  next sample check again. On
   the first sample and on any difference, 1 second later, it asks `needsHookRepair`
   (pure, in `claude-hook-install.ts`) whether any of the five events has lost
   afterterm's entry, and if so runs `reconcileNotifierHook` again. A running chat
@@ -56,12 +59,14 @@ settings file; only the global/project `settings.json` hierarchy, and hooks
   a test launch that `hookReconcileAllowed` refuses, and holds repairs to 3 a minute
   (`hookRepairWait`) with one warning in case another tool keeps removing the
   entries. **Why a poll and not `fs.watch`:** a watch on the folder was built first,
-  and when the folder was deleted or moved while the app ran (Explorer's delete is a
-  move), libuv on Windows raised no error and sent `rename` events without end:
-  266,399 events and 2000 ms of CPU in 2 seconds, measured on Electron 35.7.5's
-  runtime, stopping only on `close()`. Main sat at a full core until quit and the
-  repair was off. A stat every 3 seconds costs nothing and treats a replaced file, a
-  deleted file and a missing folder the same way.
+  and it fails both ways the folder can go while the app runs (measured on Electron
+  35.7.5's runtime). A real delete (`rmSync`, `Remove-Item`) raised no error and sent
+  `rename` events without end: 266,399 events and 2000 ms of CPU in 2 seconds,
+  stopping only on `close()`, so main sat at a full core until quit. A move or a
+  rename, including Explorer's delete to the Recycle Bin (which is a move), sent no
+  events and used no CPU: the watch silently stopped and the repair was off for the
+  session. A stat every 3 seconds has neither problem, costs nothing, and treats a
+  replaced file, a deleted file and a missing folder the same way.
 - **Opt-out** is a single flag in `%APPDATA%\afterterm\prefs.json`
   (`claudeNotifications: "enabled" | "disabled"`, default enabled). Reconcile
   reads it first; `disabled` surgically removes only afterterm's entries and
@@ -79,7 +84,7 @@ settings file; only the global/project `settings.json` hierarchy, and hooks
   a sentinel `tabId`; `app.tsx` `handleActivate` ignores clicks for unknown tabs.
 
 Tests (no app needed): `assets/hooks/test-afterterm-notify.ps1` (22 cases, runs
-the hook as a subprocess) and `src/claude-hook-install.test.ts` (145 cases, run
+the hook as a subprocess) and `src/claude-hook-install.test.ts` (147 cases, run
 with `node src/claude-hook-install.test.ts` — Node 24+ strips the TS types).
 
 ### A toast follows an edit to its project (2026-09-25)

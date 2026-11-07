@@ -665,9 +665,22 @@ console.log('\nreconcileClaudeHook tests\n');
   fs.mkdirSync(b.prefsPath); // a folder where prefs.json should be
   const r = readPrefs(b.prefsPath);
   check('readPrefs: a file that cannot be read is not usable', !r.usable && Object.keys(r.prefs).length === 0);
+  const warned: string[] = [];
+  const realWarn = console.warn;
+  console.warn = (...args: unknown[]) => { warned.push(args.join(' ')); };
+  let saved: boolean;
+  try {
+    saved = updatePrefs(b.prefsPath, { editorPath: 'C:\\Tools\\editor.exe' });
+  } finally {
+    console.warn = realWarn;
+  }
   check('updatePrefs: refuses to write over a file it could not read',
-    updatePrefs(b.prefsPath, { editorPath: 'C:\\Tools\\editor.exe' }) === false &&
-    fs.statSync(b.prefsPath).isDirectory() && fs.readdirSync(b.prefsPath).length === 0);
+    saved === false && fs.statSync(b.prefsPath).isDirectory() && fs.readdirSync(b.prefsPath).length === 0);
+  check('updatePrefs: the refusal logs one warning naming the file, the reason and the key',
+    warned.length === 1 && warned[0].includes(b.prefsPath) && warned[0].includes('could not be read') &&
+    warned[0].includes('editorPath'), JSON.stringify(warned));
+  check('readPrefs: says why a file is not usable',
+    readPrefs(b.prefsPath).reason?.startsWith('could not be read') === true, readPrefs(b.prefsPath).reason);
   let threw = false;
   let rr: ReturnType<typeof reconcileClaudeHook> | null = null;
   try { rr = reconcileClaudeHook(opts(b)); } catch { threw = true; }
