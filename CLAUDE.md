@@ -15,7 +15,46 @@ A simple terminal emulator for Windows with **Chrome-style tab groups**. No exis
 
 Projects and threads, not tabs. A project is a folder with a name, a colour, an icon and a default shell. Inside it are threads: chats (a terminal running Claude Code, named after its conversation, showing its model, branch and worktree) and shells. The app opens on a Home screen of pinned and recent projects; a rail on the left shows only the projects with something waiting for you. Every thread restored from a previous launch starts asleep, showing its last output, and wakes only when asked (a chat resumes its Claude Code session). Servers are detected by port, every shell reports its folder, and Claude Code's notifications arrive as toasts in an always-on-top overlay.
 
-`CHANGELOG.md` says what changed for the user, release by release. `PHASES.md` holds what is still open: no round of work is in progress, and its unphased backlog lists the bugs and requests waiting on Aryan, the bugs waiting on a reproduction, and the ideas not yet placed. The projects-and-threads round (Phases 0 to 9, released as 0.9.0 on 2026-09-30) is recorded, with every decision and its date, in `docs/phases-01-projects-and-threads.md`.
+`CHANGELOG.md` says what changed for the user, release by release. Open bugs and requests are issues in Linear (next section). `PHASES.md` holds the rounds of work and the ideas not yet placed. The projects-and-threads round (Phases 0 to 9, released as 0.9.0 on 2026-09-30) is recorded, with every decision and its date, in `docs/phases-01-projects-and-threads.md`.
+
+## All work is tracked in Linear
+
+Every piece of work on afterterm has an issue in Linear, so Aryan can see what is happening without asking an agent. This is a trial that started on 2026-11-07; these rules stand until he decides otherwise.
+
+The issues are in workspace "afteraryan builds", team `Afteraryan builds` (key AFT), [project afterterm](https://linear.app/afteraryan-builds/project/afterterm-d9321a4ce47e). The tools are `mcp__plugin_productivity_linear__*`. If they do not load, tell Aryan before starting: do not work untracked.
+
+**The rules, for every agent, however the work started:**
+
+1. **Before changing anything, find or create the issue.** Search with `list_issues`. If nothing matches, create one with `save_issue`: any bug, feature, refactor, docs change or build. Only a question that changes nothing needs no issue. Separate pieces of work get separate issues, and a round split into phases gets one issue per phase.
+2. **When you start, move it to In Progress before any other work.** Then comment with what you are about to do, the worktree, the branch and the session id (`$CLAUDE_CODE_SESSION_ID`, so a closed thread can be resumed).
+3. **While you work, keep it true.** Add a comment of a sentence or two at each new stage: cause found, plan agreed, PR opened, self-test passed. Change the status the moment it stops being true; do not leave it all for the end.
+4. **If you are blocked on Aryan,** move it to Needs your decision and put the question in a comment.
+5. **If you stop before it is finished** (paused, handed off, session ending), comment where it stands and what is next. If nobody will carry on, move it back to Todo.
+6. **When it ships, move it to Done.** Shipped means its PR is merged after the self-test, or the change is made when there is no PR. Comment with what changed and the PR. Nobody checks it again. A PR waiting for Aryan to merge it is blocked on him (rule 4), with the PR in the comment. Only when something needs his own judgement (how it looks, his own hardware or accounts), move it to Fixed, check it instead, with numbered steps to check it. He is never asked to try half-built work. Work that is dropped goes to Canceled, with the reason.
+7. **A problem found after Done is a new issue,** linked to the old one with `relatedTo`. If Aryan says something in Fixed, check it does not work, move it back to Todo with his words in a comment.
+8. **One session per issue.** In Progress with a recent comment means someone is on it: ask before taking it. A subagent gets the issue id in its prompt; the session that started the work keeps the issue current.
+
+| Status | What it means |
+|---|---|
+| Backlog | Not ready: it waits for a reproduction, or Aryan put it off |
+| Needs your decision | Nobody can start until Aryan decides or designs something |
+| Todo | Ready to start |
+| In Progress | An agent is working on it now |
+| Fixed, check it | Finished, but waiting for something only Aryan can judge (rare) |
+| Done | Shipped: merged after the self-test |
+| Canceled, Duplicate | Not being done |
+
+**A new issue has:** project `afterterm`; a short, plain title; priority 2 (something lost or broken), 3 (a feature misbehaves) or 4 (cosmetic or a request); a `Bug` or `Feature` label; and one label from the Area group: Sidebar, Rail, Terminal, File links, Thread states, Threads, Projects, Install and updates, Notifications, Home, Sleep and restore, App window, Agent workflow. If none fits, add one to the group and tell Aryan.
+
+**Two commands:** `/bug-record` logs a bug Aryan reports. `/fix-tasks AFT-27 AFT-34` works on the issues named, in one thread.
+
+**How a PR is named.** Linear is connected to the GitHub repo, so a PR moves its issues by itself. This was tested on 2026-11-07 with PRs #76 to #78:
+- **An issue id in the PR title or branch name** links the PR to the issue. Opening the PR moves the issue to In Progress, and merging it moves the issue to Done. This happens when it merges into any branch, not only `main`.
+- **Put the ids of every issue the PR finishes in its title,** for example `AFT-27, AFT-34: Fix the rail order`.
+- **A PR that does only part of an issue** keeps the id out of its title and branch name. Its description says `Part of AFT-27` instead, which links it without closing the issue.
+- **Commit messages are not read.** Commits need nothing special.
+
+**What changes during the trial:** `docs/bugs.md`, `docs/bugs-fixed.md` and `docs/to-verify.md` get no new entries, and they stay in the repo so going back stays easy. A bug's screenshots go on its issue, not in `docs/screenshots/manual-testing/`. Test captures and recordings still go in `docs/screenshots/<phase>/`, and `CHANGELOG.md` still gets its line.
 
 ## Architecture
 
@@ -418,9 +457,9 @@ Procedures an agent follows while working on this repo (not product docs, not re
 - `docs/guide-01-distributable-build.md`: the installer (`npm run installer`): its screens, how it is built (WPF front end, silent NSIS engine), the test build, SmartScreen and pinning
 - `docs/guide-02-releases.md` — versioning (semver) + how to cut a tagged, version-stamped release (`npm run release`)
 - `docs/ideas.md` — feature ideas backlog
-- `docs/bugs.md` — running list of known, unfixed bugs (distinct from the platform Known Limitations above)
-- `docs/to-verify.md`: every change that reached Aryan's build and is waiting for him to check it while using the app, newest build first, each with how to check it. Any agent shipping a change he would notice adds it there in the same change.
-- `docs/bugs-fixed.md`: every fixed bug, newest first, with the PR it landed in. A fix deletes its entry from `bugs.md`, adds one here and a line to `CHANGELOG.md`'s Fixed list, in the same change.
+- `docs/bugs.md`: the list of open bugs up to 2026-11-07. Frozen for the Linear trial: open bugs are issues in Linear now (see "All work is tracked in Linear"). Platform constraints are under Known Limitations above.
+- `docs/to-verify.md`: changes that reached Aryan's build before 2026-11-07 and are still waiting for him to check them, each with how to check it. New changes are tracked on their Linear issue instead.
+- `docs/bugs-fixed.md`: bugs fixed up to 2026-11-07, newest first, with the PR each landed in. Frozen for the Linear trial: a fixed issue's comment in Linear and `CHANGELOG.md`'s Fixed list carry this now.
 - `docs/note-01-duplicate-notifications-dispatcher.md` — why both the Windows popup and the overlay fired inside afterterm, and the settings.json dispatcher fix (incl. a TODO to make the self-install hook use the same approach)
 - `docs/features-projects-and-threads.md`: the full record of Phases 0 to 4 (Home, projects, the project page, thread identity, sleep and wake, history, the tail), moved out of CLAUDE.md on 2026-09-20
 - `docs/features-attention-and-sidebar.md`: the full record of Phases 7 and 8 (needs-you until answered, mark as unread, the aggregate, the rail, the panel, the keyboard cycle)

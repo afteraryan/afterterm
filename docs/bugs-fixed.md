@@ -1,5 +1,7 @@
 # afterterm: fixed bugs
 
+**Frozen on 2026-11-07. A fix is now recorded on its Linear issue and in `CHANGELOG.md`;** see "All work is tracked in Linear" in [`../CLAUDE.md`](../CLAUDE.md). Everything below describes how the file worked until then.
+
 Every bug that has been fixed, newest first, one entry each. Open bugs live in [`bugs.md`](bugs.md); when one is fixed, its entry is deleted there and a short entry is added here in the same change, saying what was wrong, what the fix does and where it landed. The full detail (cause, what was tried, how it was checked) stays where it always was: the dated Log in [`phases-01-projects-and-threads.md`](phases-01-projects-and-threads.md), the `docs/features-*.md` file for that area, and git history. What changed for the person using the app is also in [`../CHANGELOG.md`](../CHANGELOG.md).
 
 Entries before 2026-09-25 were written from the git history of `bugs.md` and `docs/phases-01-projects-and-threads.md`. Fixes Aryan asked for while using a build, without a `bugs.md` entry first, are listed too and marked "reported in conversation".
@@ -7,24 +9,6 @@ Entries before 2026-09-25 were written from the git history of `bugs.md` and `do
 Format: the bug as it was titled, the date it was fixed, the PR or commit, then one or two sentences on the fix.
 
 ---
-
-## Fixed on 2026-11-07
-
-### Restart window says "Safe to restart" while a chat is in the middle of a reply
-
-Fixed in the restart window and hook fixes PR (number to be filled in when opened). The window used to say "Safe to restart" whenever no chat it recognised was mid-reply, so anything it could not see read as safe: a chat with no hooks mid-reply, a reply that paused for a few seconds, a chat with a background task still running, a shell running a command, and a chat that had been exited whose shell ran a command. It now reads Claude Code's own session record first, then the hook's state, and for a shell its prompt marks or else the processes below it. The rows are Stops mid-turn, Background task stops, Command stops, Resumes, Runs again on :port and Opens in its folder, and "Safe to restart" shows only when nothing warns and every thread's state is known (a thread it cannot judge leaves the status line out). The same change makes a chat with no hook-saved session id a chat anyway, from the session record, so it comes back resumed after a restart or a wake instead of as a plain terminal; a chat that was exited stays a chat; and a chat that started a dev server of its own wakes by resuming the chat, not by running a fresh `claude`. The spinner also stays on through a pause in a reply and shows for a chat with no hooks. Tested against real Claude Code on 2026-11-07, captures and recordings in `docs/screenshots/restart-window-and-hook-fixes/`.
-
-### Starting afterterm with a throwaway profile can remove its hooks from the real Claude Code settings
-
-Fixed in the restart window and hook fixes PR (number to be filled in when opened). A launch with `AFTERTERM_USER_DATA_DIR` set (a test launch) and no `CLAUDE_CONFIG_DIR` now leaves the real Claude folder alone, both afterterm's entries in `settings.json` and the hook script. The agent harness's launcher also drops a `CLAUDE_CONFIG_DIR` inherited from its shell, so a test never reaches the real folder by accident. And a second safeguard: while afterterm runs it checks `settings.json` every 3 seconds and puts its hook entries back within a few seconds if they go missing, so open chats recover with no restart. It never does that while notifications are turned off, in a test launch that may not touch the folder, or for a `settings.json` that is not valid JSON.
-
-### Turning Claude notifications off also deletes another tool's hook that shares a group with afterterm's
-
-Fixed in the restart window and hook fixes PR (number to be filled in when opened). Turning notifications off now removes only afterterm's own hook from a group. Another tool's hook in the same group stays, with its matcher, and the group is dropped only when nothing is left in it.
-
-### The harness README says a scratch home keeps a run away from the real Claude settings, and it does not
-
-Fixed in the restart window and hook fixes PR (number to be filled in when opened). `scripts/agent-harness/README.md` now says what is true: only `CLAUDE_CONFIG_DIR` moves the Claude folder, because Electron ignores `USERPROFILE` and `HOME` for the home folder on Windows. The releases guide's smoke test says to pass a scratch `CLAUDE_CONFIG_DIR` and never to seed `claudeNotifications` in the scratch `prefs.json`. The comment in the hook script that claimed Claude Code keeps only the first hook's output was removed too, since it tested false on Claude Code 2.1.319.
 
 ## Fixed on 2026-11-06
 

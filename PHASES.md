@@ -95,33 +95,9 @@ End to end with the sandbox build ("afterterm (test)", `npm run installer -- --s
 
 Status: **done** (2026-10-31, Aryan: "merge it, release it"). PR #58 merged, the version bump to 0.11.0 through its own PR, then `npm run release` (built in a worktree, so the running build in the main checkout's `out\` was not touched), the tag `v0.11.0` and the GitHub release with `afterterm-0.11.0-setup.exe`. Anyone on 0.10.0 or older installs 0.11.0 by hand, once; the first real update through GitHub will be the release after it.
 
-Two other lists stay where they are: changes waiting for Aryan to check in his build are in [`docs/to-verify.md`](docs/to-verify.md), and the edited-files feature keeps its own status in [`docs/edited-files/phases.md`](docs/edited-files/phases.md).
+Open bugs and requests are issues in Linear since 2026-11-07, including the ones that need Aryan's decision (status Needs your decision) and the ones that need a reproduction (status Backlog): see "All work is tracked in Linear" in `CLAUDE.md`. Two other lists stay where they are: changes from before that date still waiting for Aryan to check are in [`docs/to-verify.md`](docs/to-verify.md), and the edited-files feature keeps its own status in [`docs/edited-files/phases.md`](docs/edited-files/phases.md).
 
 ## Unphased backlog
-
-### Bugs and requests that need a decision or a design from Aryan first
-
-Each one is an open entry in [`docs/bugs.md`](docs/bugs.md).
-
-- A chat running a background agent shows only its server as running: show both, or something else.
-- Restore the previous session a few threads at a time, with progress, instead of waking each thread by hand.
-- A list of the awake threads, to switch between them when they are spread across Pinned and Recent.
-- Fold the Search and New thread rows into the sidebar's top row.
-- A search box on Home's project list, with matching projects animating in and out.
-- The Other projects drawer: type to search it, and a New project button (one piece of work).
-- Project icons: more and better built-in icons, and uploading an image as an icon (one piece of work).
-- Choose which waiting thread a rail tile opens.
-- Open a chat's Claude Code session in a terminal outside afterterm, from both thread menus (and decide whether the afterterm thread sleeps first).
-- Thread states lost on a restart (only Mark as unread survives): keep the real state and show it over Asleep. The quick version that turns them into Unread was turned down on 2026-09-29.
-
-### Bugs that need to be reproduced first
-
-Each one is an open entry in [`docs/bugs.md`](docs/bugs.md).
-
-- The white bar above the toasts, and a bar with no toast at all. Hardened in 0.9.0 but never reproduced; open until Aryan says it is gone.
-- After the laptop sleeps, the window and its toasts move to the primary screen and stay there.
-- A block of Claude's output is printed twice in the terminal.
-- The top part of a submitted prompt is greyed out. Check against Windows Terminal first: it is likely Claude Code's own rendering.
 
 ### Ideas not yet placed
 
