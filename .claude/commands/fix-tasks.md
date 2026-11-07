@@ -1,5 +1,5 @@
 ---
-description: Work on afterterm's Linear issues by id (for example /fix-tasks AFT-27 AFT-34): marks them In Progress, does the work in a worktree, self-tests it and moves them to Fixed, check it
+description: Work on afterterm's Linear issues by id, for example /fix-tasks AFT-27 AFT-34. Marks them In Progress, does the work in a worktree, self-tests it and moves them to Fixed, check it
 ---
 
 Work on these Linear issues in one thread: $ARGUMENTS
