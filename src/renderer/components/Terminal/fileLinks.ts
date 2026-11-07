@@ -123,14 +123,15 @@ async function findMany(names: string[], roots: string[]): Promise<Map<string, s
 
 // ── one buffer line as text, with string index → cell column ───────────────
 
-interface LineText {
+export interface LineText {
   text: string;
   /** cells[i] is the 0-based column the i-th character of `text` starts in. */
   cells: number[];
   widths: number[];
 }
 
-function readLine(line: IBufferLine | undefined, cols: number): LineText {
+/** One buffer row as text (trailing spaces trimmed), with where each character sits. Web links read rows the same way. */
+export function readLine(line: IBufferLine | undefined, cols: number): LineText {
   const out: LineText = { text: '', cells: [], widths: [] };
   if (!line) return out;
   for (let x = 0; x < cols; x++) {
@@ -149,7 +150,8 @@ function readLine(line: IBufferLine | undefined, cols: number): LineText {
   return out;
 }
 
-function span(l: LineText, start: number, end: number, y: number) {
+/** The 1-based cells characters `start` to `end` of a row cover, as an xterm range on row `y`. */
+export function span(l: LineText, start: number, end: number, y: number) {
   const s = l.cells[start] ?? 0;
   const lastIdx = Math.max(start, end - 1);
   const e = (l.cells[lastIdx] ?? s) + (l.widths[lastIdx] ?? 1) - 1;

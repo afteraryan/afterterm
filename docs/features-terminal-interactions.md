@@ -11,6 +11,55 @@ Conveniences that plain conhost/cmd has and afterterm now matches. All wired in
 - Both route through the `shell:openExternal` IPC. `main.ts` **safelists** `http:` / `https:` /
   `mailto:` so a malicious escape sequence can't launch arbitrary protocol handlers.
 
+### Links over several rows (AFT-61, 2026-11-07)
+
+**The bug.** Claude Code does not detect hyperlink support in afterterm (on Windows it looks
+for `WT_SESSION` or `FORCE_HYPERLINK`), so it prints links as text. A long one it cuts at the
+edge itself and moves the cursor to the next row (`ESC[r;cH`), so xterm sees separate lines.
+The addon joins only rows the terminal wrapped (`isWrapped`), so a click on the first row
+opened that row's part of the address (measured: 102 to 110 of 216 characters) and the other
+rows nothing. In reply text, `text (link)`, inline code, tool output and your own prompt alike.
+
+**What afterterm does now.** `Terminal/webLinks.ts` is a link provider registered *before* the
+addon (xterm gives a cell to the first provider with a link on it). The rules are pure, in
+`src/renderer/webLinks.ts`, tried in order:
+
+1. **A chat's transcript.** The prefix on a link's first row goes to main
+   (`session-files:urls`), which answers with the transcript's links starting with it, newest
+   first. `session-files.ts` collects every link from every transcript line in the same
+   incremental read as the Files button (`state.urls`, at most `MAX_URLS`, `cleanUrl` trims
+   punctuation and an unopened closing bracket). `followUrl` checks that the rows below spell
+   out the rest; the candidate shown longest wins, so two links with the same first row are
+   told apart by the rows below, and a link that ends on its first row stays one row long
+   however close to the edge it ends. A line Claude Code shortened with "…" (a tool call's line)
+   matches as shortened and opens the whole link. Copies in the transcript that end in "…"
+   are never kept: one matched the shortened Bash line exactly and beat the real link, the
+   one bug the real-chat test found.
+2. **The cut column.** Without a transcript match, a link that runs to the exact column a row
+   is cut at goes on at the start of the next row, after its indent: in a chat full width,
+   one short (your own prompt) and five short (tool output), measured on Claude Code 2.1.319;
+   in a shell full width only. A row the terminal wrapped always continues. A link whose row
+   ends in punctuation or a closing bracket ended there, and one shortened with "…" is not given
+   out. A link on one row is left to the addon.
+
+**Known limit.** A complete link that is not in a chat's transcript (a shell program's, or
+Claude Code's own screens such as `/mcp`) and ends exactly at the cut column is joined to the
+first word of the next row. A program's own cut rows never rewrap, so after a resize the
+column rule no longer matches them and they open cut, as before; the transcript does not
+care about columns, and Claude Code redraws its chat at the new width.
+
+**Rejected: `FORCE_HYPERLINK=1` in the PTY's environment.** Claude Code then sends OSC 8
+hyperlinks and every row of a link opens it whole, but a named link to a local file loses its
+path (`absolute notes` instead of `absolute notes (C:\...\notes.md)`), its target is not
+`http`, so the safelist drops it and afterterm's file link has nothing to match; the variable
+also reaches every command Claude runs, and every link gets a permanent dashed underline.
+
+**Verified** (captures and recordings in `docs/screenshots/wrapped-links/`): a real Claude Code
+chat, 29 of 29 clicks open the whole 216 character link, before and after a font change, with
+file links and a short named link unchanged; a fixture chat (a made-up session over a fixture
+transcript) and a plain shell, 26 of 26, including the known limit; 43 cases in
+`src/renderer/webLinks.test.ts`.
+
 ## Right-click
 
 Copies the selection (and clears it) if one exists; on a file link, opens its menu (Open, Open

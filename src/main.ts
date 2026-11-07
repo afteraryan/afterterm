@@ -28,7 +28,7 @@ import {
 } from './server-detect.ts';
 import type { MsysProc, Proc as ServerProc } from './server-detect.ts';
 import { createSessionFilesStore } from './session-files-store.ts';
-import { EMPTY_SESSION_FILES, isAbsolutePath, isSafeForDefaultApp, normalizePath, ownsTempFile, pastedTempPath } from './session-files.ts';
+import { EMPTY_SESSION_FILES, isAbsolutePath, isSafeForDefaultApp, normalizePath, ownsTempFile, pastedTempPath, transcriptUrls } from './session-files.ts';
 import type { ChangedFile, ShellWindow } from './session-files.ts';
 import { attributeCommandChanges, isIgnoredChange, mergeSaved, pruneChanges } from './command-files.ts';
 import type { FsChange } from './command-files.ts';
@@ -1811,6 +1811,24 @@ ipcMain.handle('session-files:list', async (_event, sessionId: unknown, cwd: unk
     console.log(`[harness] session-files:list ${sessionId} changed=${files?.changed.length ?? 0} command=${files?.changed.filter(f => f.source === 'command').length ?? 0} pasted=${files?.pasted.length ?? 0} in ${Date.now() - started}ms`);
   }
   return files ?? EMPTY_SESSION_FILES;
+});
+
+// AFT-61: the chat's links that start with each prefix (the part of a link on its
+// first row in the terminal), most recently written first. Claude Code cuts a long
+// link over several rows itself, so the terminal cannot tell where it ends; the
+// transcript can. The same incremental read as the Files list, so asking costs only
+// what was appended since.
+const MAX_URL_PREFIXES = 50;
+ipcMain.handle('session-files:urls', async (_event, sessionId: unknown, cwd: unknown, prefixes: unknown) => {
+  if (!isSessionId(sessionId) || typeof cwd !== 'string' || !cwd || !Array.isArray(prefixes)) return {};
+  const asked = prefixes
+    .filter((p): p is string => typeof p === 'string' && p.length <= 4096 && /^https?:\/\/./i.test(p))
+    .slice(0, MAX_URL_PREFIXES);
+  if (asked.length === 0) return {};
+  const got = await sessionFilesStore.read(sessionId, cwd);
+  const out: Record<string, string[]> = {};
+  for (const p of asked) out[p] = got ? transcriptUrls(got.state, p) : [];
+  return out;
 });
 
 // Claude Code keeps its own copy of a pasted image in %TEMP% (undocumented, and

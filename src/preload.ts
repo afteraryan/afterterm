@@ -93,6 +93,9 @@ contextBridge.exposeInMainWorld('afterterm', {
       ipcRenderer.invoke('session-files:openPasted', sessionId, cwd, key),
     pastedPath: (sessionId: string, cwd: string, key: string): Promise<string | null> =>
       ipcRenderer.invoke('session-files:pastedPath', sessionId, cwd, key),
+    // AFT-61: the chat's links starting with each prefix, most recent first.
+    urls: (sessionId: string, cwd: string, prefixes: string[]): Promise<Record<string, string[]>> =>
+      ipcRenderer.invoke('session-files:urls', sessionId, cwd, prefixes),
   },
 
   session: {
