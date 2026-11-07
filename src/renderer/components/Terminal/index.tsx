@@ -8,7 +8,7 @@ import '@xterm/xterm/css/xterm.css';
 import { TabNotification } from '../TabBar/types';
 import { wakePlan } from '../../sleepWake';
 import {
-  parseOsc133, initialCommandMarkState, onMark, onEnter, onInput,
+  parseOsc133, initialCommandMarkState, onMark, onEnter, onInput, onCommandSent,
   type CommandMarkState,
 } from '../../commandMarks';
 import { TAIL_MAX_LINES } from '../../../thread-tail';
@@ -434,12 +434,26 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
   // this a second pass would build a second terminal for the same tab.
   const creatingRef = useRef(new Set<string>());
 
+  // A whole command line afterterm types into a shell itself (a wake's `claude
+  // --resume`, a server's last command). It goes straight to the PTY, so the marks
+  // are told here (onCommandSent): the shell is busy from now, or from its next
+  // prompt if it has not drawn one yet, and the restart window must not read it as
+  // sitting at its prompt.
+  const writeCommand = useCallback((tabId: string, command: string) => {
+    const marks = marksRef.current.get(tabId);
+    if (marks) {
+      marksRef.current.set(tabId, onCommandSent(marks));
+      if (marks.atPrompt) reportPrompt(tabId, false);
+    }
+    window.afterterm.pty.write(tabId, command + '\r');
+  }, [reportPrompt]);
+
   const resumeTab = useCallback((tabId: string, sessionId: string) => {
     if (resumedRef.current.has(tabId) || !UUID_RE.test(sessionId)) return;
     resumedRef.current.add(tabId);
     // Short delay lets the freshly-spawned shell print its first prompt before we type.
-    setTimeout(() => window.afterterm.pty.write(tabId, `claude --resume ${sessionId}\r`), SHELL_READY_MS);
-  }, []);
+    setTimeout(() => writeCommand(tabId, `claude --resume ${sessionId}`), SHELL_READY_MS);
+  }, [writeCommand]);
 
   // Sleep and close are the same routine with a different reason: hand the tail over,
   // stop listening, kill the process tree, drop the xterm. The order matters. offData
@@ -719,7 +733,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       if (runCommand) {
         setTimeout(() => {
           if (!termsRef.current.has(tabId)) return;
-          window.afterterm.pty.write(tabId, runCommand + '\r');
+          writeCommand(tabId, runCommand);
         }, SHELL_READY_MS);
       }
 
@@ -745,8 +759,15 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
           // prompt line while the user was typing. onInput ignores escape sequences
           // (arrows, the focus reports xterm emits on tab switch) and control
           // characters, so only real characters and pasted text land in it.
+          // A chunk carrying a CR (a paste ending in a newline) submits the line
+          // there, so the shell is running it: report that, as Enter does. No
+          // command is captured from it (onInput says why).
           const marks = marksRef.current.get(tabId);
-          if (marks) marksRef.current.set(tabId, onInput(marks, data));
+          if (marks) {
+            const next = onInput(marks, data);
+            marksRef.current.set(tabId, next);
+            if (marks.atPrompt && !next.atPrompt) reportPrompt(tabId, false);
+          }
         }
         api.pty.write(tabId, data);
         // Clear the working spinner, and since Phase 7 cancel a permission prompt
@@ -851,6 +872,9 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
           col: buffer.cursorX,
         });
         marksRef.current.set(tabId, next);
+        // A B mark reports "at the prompt". One accepted limit: cmd with echo on
+        // draws its prompt, marks and all, during a batch file run without @echo
+        // off, so such a run reads as at the prompt (onMark, case B).
         reportPrompt(tabId, next.atPrompt);
         return true;
       });
@@ -866,7 +890,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
     } finally {
       creatingRef.current.delete(tabId);
     }
-  }, [openFind, resumeTab, reportPrompt]);
+  }, [openFind, resumeTab, reportPrompt, writeCommand]);
 
   // Reconcile the terminals with the tab list. `asleep` is the source of truth:
   // awake with no terminal → build one (a wake, or a brand new thread); asleep with
