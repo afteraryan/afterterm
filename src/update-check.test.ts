@@ -166,11 +166,12 @@ console.log('\nupdate-check: the restart window, mid-turn and background (Fixes 
     && !isMidTurn(undefined, 'background') && !isMidTurn(undefined, undefined));
   check('the record says shell: a background task', hasBackgroundTask('shell', undefined) && hasBackgroundTask('shell', 'done'));
   check('no record, the background notification: a background task', hasBackgroundTask(undefined, 'background'));
-  // The ⏳ badge stays until the thread is looked at, so with a record it is not trusted.
-  check('the record says idle: no background task, even under a stale background badge',
-    !hasBackgroundTask('idle', 'background'));
-  check('the record says busy or waiting: not a background task, whatever the badge',
-    !hasBackgroundTask('busy', 'background') && !hasBackgroundTask('waiting', 'background'));
+  // The ⏳ covers background agents and session crons, which the record was never
+  // seen to report as shell, so an idle record does not overrule it.
+  check('the record says idle under a background badge: still a background task',
+    hasBackgroundTask('idle', 'background'));
+  check('the record says busy or waiting under a background badge: still a background task',
+    hasBackgroundTask('busy', 'background') && hasBackgroundTask('waiting', 'background'));
   check('busy, idle, waiting and no record with no background title: none',
     !hasBackgroundTask('busy', undefined) && !hasBackgroundTask('idle', 'done') && !hasBackgroundTask('waiting', undefined)
     && !hasBackgroundTask(undefined, undefined));

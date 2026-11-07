@@ -321,15 +321,15 @@ export function isMidTurn(recordStatus: string | undefined, notification: string
   return notification === 'working' || notification === 'compacting' || notification === 'attention';
 }
 
-// Whether a chat ended its turn with a background task still running (Fix 7). When
-// Claude Code's record is there it decides: `shell` is a background task, anything
-// else is not, whatever the notification says. The hook's background badge stays
-// until the thread is looked at, so on a thread nobody has opened it can outlive the
-// task by hours. Only with no record (a Claude the reader cannot see, such as in WSL)
-// does that badge count.
+// Whether a chat ended its turn with a background task still running (Fix 7): the
+// record's `shell` status, or the hook's background title, whatever the other says.
+// The "or" stays on purpose. The hook's ⏳ also covers background agents and session
+// crons (/loop, schedules), which the record was never seen to report as `shell`, so
+// letting an idle record overrule it would call a restart safe while a background
+// agent runs. The cost is a stale ⏳ (it stays until the thread is looked at) warning
+// after its task has ended, the lesser wrong.
 export function hasBackgroundTask(recordStatus: string | undefined, notification: string | undefined): boolean {
-  if (recordStatus !== undefined) return recordStatus === 'shell';
-  return notification === 'background';
+  return recordStatus === 'shell' || notification === 'background';
 }
 
 // Whether a shell is running a command (Fix 8). The prompt marks (OSC 133) are the
@@ -370,9 +370,9 @@ export interface RestartRow {
 //   1. Mid-turn (record busy or waiting, or a mid-turn notification), with or
 //      without a session id: "Stops mid-turn". A notification counts even with no
 //      record, since a hook only fires from a live Claude.
-//   2. A background task (record shell; the background notification only when
-//      there is no record): "Background task stops". Mid-turn wins over it: the
-//      turn is the bigger loss.
+//   2. A background task (record shell, or the background notification, whatever
+//      the record says; hasBackgroundTask says why): "Background task stops".
+//      Mid-turn wins over it: the turn is the bigger loss.
 //   3. A live, idle Claude: "Resumes" with a usable session id, else "Opens in its
 //      folder", even with a port in its tree (the plan's row): its last command is
 //      `claude`, so running it again would start a fresh Claude, not a server. The

@@ -168,6 +168,16 @@ console.log('\nsleepWake: asleepSinceText\n');
     asleepSinceText('Server', NOW - 60_000, NOW, '  npm start  ') === 'Server asleep since 1m ago · runs npm start');
   check('a Chat with a lastCommand never shows the "runs" part (chats resume, they do not re-run commands)',
     asleepSinceText('Chat', NOW - 60_000, NOW, 'npm start') === 'Chat asleep since 1m ago');
+  // The pane passes wakePlan's runCommand, so the line says only what Wake will do.
+  const asleepServer = (lastCommand: string) => ({
+    cwd: 'D:\\Work', claudeCwd: undefined, claudeSessionId: undefined, shellId: 'cmd', port: 3000, lastCommand,
+  });
+  check('a Server whose last command started Claude: no "runs claude", since Wake opens a fresh prompt',
+    asleepSinceText('Server', NOW - 60_000, NOW, wakePlan(asleepServer('claude')).runCommand ?? undefined)
+      === 'Server asleep since 1m ago');
+  check('a Server whose last command is a real server command still names it',
+    asleepSinceText('Server', NOW - 60_000, NOW, wakePlan(asleepServer('npm run dev')).runCommand ?? undefined)
+      === 'Server asleep since 1m ago · runs npm run dev');
   check('a Shell with a lastCommand never shows the "runs" part (not a server)',
     asleepSinceText('Shell', NOW - 60_000, NOW, 'npm start') === 'Shell asleep since 1m ago');
 }

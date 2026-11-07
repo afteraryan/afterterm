@@ -97,7 +97,9 @@ export function asleepLabel(sleptAt: number | undefined, now: number): string {
 // would be a second copy of kindWord's rule. `lastCommand` only ever adds the
 // " · runs <command>" suffix for a Server with a non-empty (trimmed) command;
 // a Chat or Shell never shows it, and a Server with no captured command yet
-// reads the same plain sentence as before Phase 5.
+// reads the same plain sentence as before Phase 5. The asleep pane passes
+// wakePlan's runCommand here, not the raw lastCommand, so the line names only a
+// command Wake will really run (a last command that started Claude is not one).
 export function asleepSinceText(
   kind: 'Chat' | 'Server' | 'Shell',
   sleptAt: number | undefined,
