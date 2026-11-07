@@ -48,7 +48,13 @@ The issues are in workspace "afteraryan builds", team `Afteraryan builds` (key A
 
 **Two commands:** `/bug-record` logs a bug Aryan reports. `/fix-tasks AFT-27 AFT-34` works on the issues named, in one thread.
 
-**What changes during the trial:** `docs/bugs.md`, `docs/bugs-fixed.md` and `docs/to-verify.md` get no new entries, and they stay in the repo so going back stays easy. A bug's screenshots go on its issue, not in `docs/screenshots/manual-testing/`. Test captures and recordings still go in `docs/screenshots/<phase>/`, `CHANGELOG.md` still gets its line, and a PR names its issue ids in its title.
+**How a PR is named.** Linear is connected to the GitHub repo, so a PR moves its issues by itself. This was tested on 2026-11-07 with PRs #76 to #78:
+- **An issue id in the PR title or branch name** links the PR to the issue. Opening the PR moves the issue to In Progress, and merging it moves the issue to Done. This happens when it merges into any branch, not only `main`.
+- **Put the ids of every issue the PR finishes in its title,** for example `AFT-27, AFT-34: Fix the rail order`.
+- **A PR that does only part of an issue** keeps the id out of its title and branch name. Its description says `Part of AFT-27` instead, which links it without closing the issue.
+- **Commit messages are not read.** Commits need nothing special.
+
+**What changes during the trial:** `docs/bugs.md`, `docs/bugs-fixed.md` and `docs/to-verify.md` get no new entries, and they stay in the repo so going back stays easy. A bug's screenshots go on its issue, not in `docs/screenshots/manual-testing/`. Test captures and recordings still go in `docs/screenshots/<phase>/`, and `CHANGELOG.md` still gets its line.
 
 ## Architecture
 

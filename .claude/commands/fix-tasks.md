@@ -19,7 +19,7 @@ Follow "All work is tracked in Linear" in `CLAUDE.md` throughout. If the Linear 
 
 4. **Mark it started, before any other work:** move each issue to In Progress with `save_issue`. Then enter a worktree with the EnterWorktree tool and comment on each issue with what you are about to do, the worktree, the branch and the session id (`$CLAUDE_CODE_SESSION_ID`).
 
-5. **Do the work the usual way.** Read the `docs/features-*.md` file named in `CLAUDE.md` for the area first. Then the fix, unit tests (`npm test`), and a self-test on the real app through the agent harness (`scripts/agent-harness/README.md`), with captures and recordings kept in `docs/screenshots/<short-name>/`. Add a line to `CHANGELOG.md` if Aryan would notice the change, and open a PR that names the issue ids in its title. Never close or rebuild the running afterterm.
+5. **Do the work the usual way.** Read the `docs/features-*.md` file named in `CLAUDE.md` for the area first. Then the fix, unit tests (`npm test`), and a self-test on the real app through the agent harness (`scripts/agent-harness/README.md`), with captures and recordings kept in `docs/screenshots/<short-name>/`. Add a line to `CHANGELOG.md` if Aryan would notice the change, and open a PR named the way `CLAUDE.md` says ("How a PR is named"). The ids of the issues it finishes go in its title, because merging it moves them to Done. A PR that does only part of an issue says `Part of AFT-12` in its description instead. Never close or rebuild the running afterterm.
 
    Keep each issue current as you go: a short comment at each new stage (cause found, plan agreed, PR opened, self-test passed). If you find something only Aryan can decide, move the issue to Needs your decision with the question in a comment.
 
