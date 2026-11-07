@@ -331,9 +331,9 @@ export function isMidTurn(recordStatus: string | undefined, notification: string
 // The ⏳ arrives two ways. `notification` is the badge, which clears the moment the
 // thread is looked at, so the chat on screen would lose it at once. `backgroundTasks`
 // (Tab.backgroundTasks, spinnerState.ts's backgroundAfterTitle) is the same title
-// kept as a flag that viewing never clears, only the hook's next title, the thread's
-// Claude going away (its record status goes from a value to none, as on /exit,
-// spinnerState.ts's backgroundAfterRecord) or the thread going to sleep.
+// kept as a flag that viewing never clears, only the hook's ✅ (▶, ⚠ and ⚙ leave
+// it), the thread's Claude going away (its record status goes from a value to none,
+// as on /exit, spinnerState.ts's backgroundAfterRecord) or the thread going to sleep.
 export function hasBackgroundTask(
   recordStatus: string | undefined,
   notification: string | undefined,

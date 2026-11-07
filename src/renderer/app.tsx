@@ -959,7 +959,8 @@ export function App() {
     applyNotif(tabId, cur, onViewedTitle(next, viewing));
     // The badge above may clear at once, but the background work it announced is
     // still running: a ⏳ is kept as its own flag, viewed or not, until the hook's
-    // next title (plan-02, Fix 7; the restart window reads it).
+    // ✅ (plan-02, Fix 7; the restart window reads it; backgroundAfterTitle says why
+    // ▶, ⚠ and ⚙ leave it).
     const hadBackground = !!stateRef.current.tabs.find(t => t.id === tabId)?.backgroundTasks;
     const background = backgroundAfterTitle(hadBackground, type);
     if (background !== hadBackground) stateRef.current.setBackgroundTasks(tabId, background);

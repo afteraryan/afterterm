@@ -252,10 +252,17 @@ check('interrupt leaves background alone', onInterrupt('background') === 'backgr
 {
   check('a ⏳ title sets the flag', backgroundAfterTitle(false, 'background') === true);
   check('a second ⏳ keeps it', backgroundAfterTitle(true, 'background') === true);
-  check('a ▶ title (a new turn) clears it', backgroundAfterTitle(true, 'working') === false);
-  check('a ✅ title (a turn ended with nothing left) clears it', backgroundAfterTitle(true, 'done') === false);
-  check('a ⚠ or ⚙ title clears it',
-    backgroundAfterTitle(true, 'attention') === false && backgroundAfterTitle(true, 'compacting') === false);
+  check('a ✅ title (Stop ran with nothing left) clears it', backgroundAfterTitle(true, 'done') === false);
+  // A new turn can be interrupted with Esc, which runs no Stop hook, so no ⏳ comes back.
+  check('a ▶ title (a new turn) leaves it set', backgroundAfterTitle(true, 'working') === true);
+  // A background agent's own permission prompt raises ⚠ while the agent runs.
+  check('a ⚠ title (a background agent asking permission) leaves it set', backgroundAfterTitle(true, 'attention') === true);
+  check('a ⚙ title leaves it set', backgroundAfterTitle(true, 'compacting') === true);
+  check('▶, ⚠ and ⚙ never set it',
+    backgroundAfterTitle(false, 'working') === false && backgroundAfterTitle(false, 'attention') === false
+    && backgroundAfterTitle(false, 'compacting') === false);
+  check('a turn interrupted after ▶ keeps it until a later ✅',
+    backgroundAfterTitle(backgroundAfterTitle(backgroundAfterTitle(false, 'background'), 'working'), undefined) === true);
   check('an undecorated title changes nothing',
     backgroundAfterTitle(true, undefined) === true && backgroundAfterTitle(false, undefined) === false);
   // The badge clears on the viewed thread; the flag does not. Viewing is not a title,

@@ -156,13 +156,18 @@ export function clearsWhenSeen(n: Notif): boolean {
 // `shell` only for a background shell command. The ⏳ badge itself is cleared the
 // moment the thread is seen (clearsWhenSeen), so the restart window cannot read it
 // from `notification`: this flag holds it instead, and viewing never clears it. A ⏳
-// title sets it; any other hook title (working, done, attention, compacting) clears
-// it, since the hook's Stop sends ⏳ again while tasks remain; an undecorated title
-// (undefined) changes nothing. The Claude going away clears it too
-// (backgroundAfterRecord), and so does sleep.
+// title sets it; only a ✅ (done) clears it, since that is the hook's Stop running
+// with nothing left (a Stop with tasks remaining sends ⏳ again). ▶, ⚠ and ⚙ leave it
+// alone: a new turn can be interrupted with Esc, and Claude Code runs no Stop hook on
+// an interrupt, so no ⏳ would come back; and a background agent's own permission
+// prompt raises ⚠ while the agent still runs (seen in the 2026-11-07 live retest).
+// While those last the thread is mid-turn anyway. An undecorated title (undefined)
+// changes nothing. The Claude going away clears it too (backgroundAfterRecord), and
+// so does sleep.
 export function backgroundAfterTitle(current: boolean, titleNotif: Notif): boolean {
-  if (titleNotif === undefined) return current;
-  return titleNotif === 'background';
+  if (titleNotif === 'background') return true;
+  if (titleNotif === 'done') return false;
+  return current;
 }
 
 // The same flag when Claude Code's record for the thread changes. A record that goes
