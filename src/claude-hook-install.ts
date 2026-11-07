@@ -63,6 +63,21 @@ export interface ReconcileOpts {
   powershell?: string; // override the detected pwsh/powershell (tests)
 }
 
+// Whether this launch may touch the Claude folder at all. AFTERTERM_USER_DATA_DIR is
+// set only by test launches (the agent harness, a hand-made smoke test): it moves
+// prefs.json to a throwaway folder, but the Claude folder moves only with
+// CLAUDE_CONFIG_DIR. Without that, a launch would read its opt-out from the
+// throwaway prefs and carry it out on the real ~/.claude, which removed the real
+// hooks for 21 hours on 2026-11-06 (docs/note-03-restart-window-said-safe-while-a-chat-was-running.md).
+// So a test launch that does not name its own Claude folder leaves the real one alone
+// (hook entries and the script copy). A normal launch sets neither; the test
+// installer's sandbox build sets CLAUDE_CONFIG_DIR itself, so it keeps working.
+export function hookReconcileAllowed(env: { AFTERTERM_USER_DATA_DIR?: string; CLAUDE_CONFIG_DIR?: string }): boolean {
+  const testLaunch = !!env.AFTERTERM_USER_DATA_DIR;
+  const ownClaudeFolder = !!env.CLAUDE_CONFIG_DIR;
+  return !testLaunch || ownClaudeFolder;
+}
+
 function readJson<T>(file: string): T | null {
   try {
     return JSON.parse(fs.readFileSync(file, 'utf-8')) as T;
@@ -135,6 +150,9 @@ function isAftertermGroup(group: unknown): boolean {
 }
 
 // Strip afterterm's entries from settings.json; leave every other hook intact.
+// Only afterterm's own hook leaves a group: a group that also holds another tool's
+// hook keeps that hook and its matcher, and is dropped only when nothing is left
+// (an opt-out used to delete the whole group, and the other tool's hook with it).
 // Returns true if anything was removed (settings.json then rewritten).
 function removeAftertermEntries(settingsPath: string): boolean {
   const s = readJson<{ hooks?: Record<string, unknown[]> }>(settingsPath);
@@ -143,8 +161,20 @@ function removeAftertermEntries(settingsPath: string): boolean {
   for (const event of Object.keys(s.hooks)) {
     const arr = s.hooks[event];
     if (!Array.isArray(arr)) continue;
-    const kept = arr.filter((g) => !isAftertermGroup(g));
-    if (kept.length !== arr.length) removed = true;
+    let eventRemoved = false;
+    const kept: unknown[] = [];
+    for (const group of arr) {
+      if (!isAftertermGroup(group)) {
+        kept.push(group);
+        continue;
+      }
+      eventRemoved = true;
+      const g = group as { hooks: { args?: unknown[] }[] };
+      const rest = g.hooks.filter((h) => !isAftertermHook(h));
+      if (rest.length > 0) kept.push({ ...g, hooks: rest });
+    }
+    if (!eventRemoved) continue; // nothing of ours here: leave the event as it is
+    removed = true;
     if (kept.length === 0) delete s.hooks[event];
     else s.hooks[event] = kept;
   }

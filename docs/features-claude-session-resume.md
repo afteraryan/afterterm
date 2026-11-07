@@ -106,6 +106,8 @@ dev machine: the hook *fired* (it logged), but its OSC never reached the PTY str
 `notify.ps1`'s titles did. The file channel sidesteps CC's hook-output behavior and ordering
 entirely, and capture refreshes on the resumed session's first turn.
 
+**Correction (2026-11-07):** the claim above that Claude Code writes only the first hook's terminal output is false. It was tested on Claude Code 2.1.319 with another notify hook registered before and after afterterm's, and afterterm's `working` title arrived both times. The file channel stays for the reasons that hold: it is afterterm's own private channel (a path handed over in env), it carries the session id and cwd as data rather than through a title string, and it is inert when the env is not set.
+
 ## Security
 
 The captured `sessionId` is later typed into a shell as `claude --resume <id>`, and the

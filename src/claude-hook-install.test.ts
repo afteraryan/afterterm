@@ -5,7 +5,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { reconcileClaudeHook, HOOK_SCRIPT_NAME } from './claude-hook-install.ts';
+import { reconcileClaudeHook, hookReconcileAllowed, HOOK_SCRIPT_NAME } from './claude-hook-install.ts';
 
 let pass = 0;
 let fail = 0;
@@ -244,6 +244,84 @@ console.log('\nreconcileClaudeHook tests\n');
   check('command mode: still one entry of ours per event', groupsFor(s, 'Stop').length === 1);
   const r2 = reconcileClaudeHook(opts(b));
   check('command mode: rerun already-current', r2.status === 'already-current', r2.status);
+}
+
+// 14. The opt-out removes only afterterm's own hook from a group. A group that also
+//     holds another tool's hook keeps that hook and the group's matcher; before this,
+//     the whole group went and the other tool's hook with it (2026-11-07).
+{
+  const b = sandbox();
+  const scriptDest = path.join(b.claudeDir, 'hooks', HOOK_SCRIPT_NAME);
+  const ours = { type: 'command', command: 'pwsh', args: ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptDest] };
+  const theirs = { type: 'command', command: 'pwsh', args: ['-File', 'C:\\mine\\my-hook.ps1'] };
+  const shared = { matcher: 'permission_prompt', hooks: [ours, theirs] };
+  const onlyOurs = { matcher: '', hooks: [ours] };
+  const onlyTheirs = { matcher: 'Bash', hooks: [{ type: 'command', command: 'node', args: ['other-tool.js'] }] };
+  const settings = {
+    permissions: { defaultMode: 'auto' },
+    hooks: {
+      Notification: [shared],                // afterterm's hook shares a group with another tool's
+      Stop: [onlyOurs, onlyTheirs],          // a group of only ours beside another tool's own group
+      SessionStart: [onlyOurs],              // nothing left after the opt-out
+      PreToolUse: [onlyTheirs],              // no hook of ours anywhere in this event
+    },
+  };
+  fs.writeFileSync(path.join(b.claudeDir, 'settings.json'), JSON.stringify(settings, null, 2), 'utf-8');
+  fs.writeFileSync(b.prefsPath, JSON.stringify({ claudeNotifications: 'disabled' }), 'utf-8');
+  const r = reconcileClaudeHook(opts(b));
+  const s = readSettings(b.claudeDir);
+  check('shared group: status removed and written', r.status === 'removed' && r.changed, r.status);
+  check('shared group: afterterm hook is gone', !hasOurEntry(s, 'Notification'));
+  check('shared group: the other tool\'s hook is kept',
+    groupsFor(s, 'Notification').length === 1 &&
+    JSON.stringify(groupsFor(s, 'Notification')[0].hooks) === JSON.stringify([theirs]),
+    JSON.stringify(groupsFor(s, 'Notification')));
+  check('shared group: the group keeps its matcher', groupsFor(s, 'Notification')[0]?.matcher === 'permission_prompt');
+  check('only-ours group: removed, and the event key with it when nothing is left',
+    !('SessionStart' in s.hooks), JSON.stringify(s.hooks));
+  check('only-ours group: beside another tool\'s group, only ours goes',
+    groupsFor(s, 'Stop').length === 1 && JSON.stringify(groupsFor(s, 'Stop')[0]) === JSON.stringify(onlyTheirs));
+  check('another tool\'s group in an event of its own is untouched',
+    JSON.stringify(groupsFor(s, 'PreToolUse')) === JSON.stringify([onlyTheirs]));
+  check('other settings kept', s.permissions?.defaultMode === 'auto');
+  const r2 = reconcileClaudeHook(opts(b));
+  check('shared group: a second opt-out run finds nothing to remove', r2.status === 'disabled-noop' && !r2.changed, r2.status);
+}
+
+// 15. Opt-out with nothing of ours to remove writes nothing: no hooks key, hooks
+//     of other tools only, and no settings file at all. The files are laid out in a
+//     way JSON.stringify would not reproduce, so any rewrite shows.
+{
+  const cases: { name: string; text: string | null }[] = [
+    { name: 'no hooks key', text: '{"permissions":{"defaultMode":"auto"}}' },
+    { name: 'hooks of another tool only', text: '{"hooks":{"Stop":[{"matcher":"","hooks":[{"type":"command","command":"node","args":["other-tool.js"]}]}],"Empty":[]}}' },
+    { name: 'no settings file', text: null },
+  ];
+  for (const c of cases) {
+    const b = sandbox();
+    const sp = path.join(b.claudeDir, 'settings.json');
+    if (c.text !== null) fs.writeFileSync(sp, c.text, 'utf-8');
+    fs.writeFileSync(b.prefsPath, JSON.stringify({ claudeNotifications: 'disabled' }), 'utf-8');
+    const r = reconcileClaudeHook(opts(b));
+    check(`opt-out, ${c.name}: disabled-noop, nothing changed`, r.status === 'disabled-noop' && !r.changed, r.status);
+    check(`opt-out, ${c.name}: file not written`,
+      c.text === null ? !fs.existsSync(sp) : fs.readFileSync(sp, 'utf-8') === c.text);
+  }
+}
+
+// 16. A test launch leaves the Claude folder alone (hookReconcileAllowed): reconcile
+//     may run unless AFTERTERM_USER_DATA_DIR is set without CLAUDE_CONFIG_DIR.
+{
+  check('launch rule: neither set (a normal launch) runs reconcile', hookReconcileAllowed({}) === true);
+  check('launch rule: only CLAUDE_CONFIG_DIR set (the sandbox build) runs reconcile',
+    hookReconcileAllowed({ CLAUDE_CONFIG_DIR: 'C:\\scratch\\claude' }) === true);
+  check('launch rule: both set (a test launch with its own Claude folder) runs reconcile',
+    hookReconcileAllowed({ AFTERTERM_USER_DATA_DIR: 'C:\\scratch\\data', CLAUDE_CONFIG_DIR: 'C:\\scratch\\claude' }) === true);
+  check('launch rule: only AFTERTERM_USER_DATA_DIR set (a test launch on the real folder) skips reconcile',
+    hookReconcileAllowed({ AFTERTERM_USER_DATA_DIR: 'C:\\scratch\\data' }) === false);
+  check('launch rule: empty values count as not set',
+    hookReconcileAllowed({ AFTERTERM_USER_DATA_DIR: '', CLAUDE_CONFIG_DIR: '' }) === true &&
+    hookReconcileAllowed({ AFTERTERM_USER_DATA_DIR: 'C:\\scratch\\data', CLAUDE_CONFIG_DIR: '' }) === false);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

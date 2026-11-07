@@ -4,7 +4,7 @@ import fs from 'fs';
 import os from 'os';
 import { execFile, execFileSync, execSync, spawn } from 'child_process';
 import * as pty from 'node-pty';
-import { reconcileClaudeHook, HOOK_SCRIPT_NAME } from './claude-hook-install';
+import { reconcileClaudeHook, hookReconcileAllowed, HOOK_SCRIPT_NAME } from './claude-hook-install';
 import { runSetupCheck, issueUrl, failureNote, ISSUES_URL } from './setup-check.ts';
 import type { Runner } from './setup-check.ts';
 import { initUpdater } from './updater.ts';
@@ -610,6 +610,16 @@ function getClaudeDir() {
 }
 
 function reconcileNotifierHook() {
+  // A test launch (AFTERTERM_USER_DATA_DIR set) that does not name its own Claude
+  // folder (CLAUDE_CONFIG_DIR) must not touch the real one: its throwaway prefs.json
+  // can hold an opt-out that would strip the real hooks (2026-11-06). The check sits
+  // here, not in the callers, so startup and the setup check both get it, and it
+  // covers the hook script copy as well as the entries. The sandbox build
+  // sets CLAUDE_CONFIG_DIR itself before this runs, so it still installs into its own folder.
+  if (!hookReconcileAllowed(process.env)) {
+    console.log('[claude-hook] skipped: this is a test launch (AFTERTERM_USER_DATA_DIR is set) with no CLAUDE_CONFIG_DIR, so the real Claude folder is left alone');
+    return;
+  }
   try {
     const result = reconcileClaudeHook({
       scriptSource: getHookScriptSource(),
