@@ -717,77 +717,6 @@ Aryan wants the notes shown cumulatively: the version you are on, and all the re
 
 ---
 
-## Restart window says "Safe to restart" while a chat is in the middle of a reply
-
-**Observed:** 2026-11-06 by Aryan during manual testing · **Phase:** none of the numbered phases (the automatic updates round, released as 0.11.0; the restart window is from that round's Phase 2) · **Status:** open · **Severity:** high (the window calls a restart safe when it would stop a running reply, and that chat is not one of the ones that resume) · **Screenshot:** `docs/screenshots/manual-testing/22-restart-window-says-safe-to-restart-while-a-chat-is-running.png`
-
-**What happens:**
-On 0.13.0, with a chat still working, clicking **Restart to update** opened "Restart afterterm to update?" with a green "Safe to restart" at the bottom. The working chat was listed with a shell icon and "Opens in its folder", not as a chat and not as "Stops mid-turn". Aryan expects the window not to call the restart safe while a thread is still running. After the restart that chat came back as a plain terminal, and Aryan had to start Claude and resume it by hand.
-
-Tested on 0.15.0 on 2026-11-07: the window also says "Safe to restart" for a chat that stalled mid-reply, a shell running a long command, and a chat with a background task running. A thread whose Claude has exited reads "Resumes" while its shell runs a command.
-
-**Steps to make it happen again:**
-With **Restart to update** showing, have one of these running, then click the button:
-1. A chat started with `claude --setting-sources local` (no hooks), in the middle of a reply: shell icon, "Opens in its folder", "Safe to restart".
-2. A shell running `ping -n 120 127.0.0.1`, or `Start-Sleep -Seconds 90` in PowerShell: "Opens in its folder", "Safe to restart".
-3. A chat whose turn ended with a background task still running: "Resumes", "Safe to restart".
-4. A chat where you ran `/exit`, then a long command in the same shell: "Resumes".
-
-**Evidence:** Aryan's words: "Literally, a thread was running. It was not over, but when I clicked on the 'Restart to update' button, it showed me that it's safe to update." The screenshot, taken at 14:39, shows v0.13.0 and the window listing Latest resume version (Resumes), Hidden version 15 update jump (shell icon, Opens in its folder) and Project colour picker bug record (Resumes), with "Safe to restart" below them. Behind the window, Hidden version 15 update jump is the open thread and Claude Code in it reads "Whirring... (1m 17s". Saved record of that thread at 14:42 (`tab-321`): `claudeTitle` "Hidden version 15 update jump", title "◐ Hidden version 15 update jump", no `claudeSessionId`.
-
-**Diagnosis, test results and the fixes needed:** written up, at Aryan's request, in [`docs/note-03-restart-window-said-safe-while-a-chat-was-running.md`](note-03-restart-window-said-safe-while-a-chat-was-running.md). Captures and recordings of the tests: `docs/screenshots/restart-window-hypothesis-test/`. The build brief with Aryan's decisions, handed off and not built yet: [`docs/plan-02-restart-window-and-hook-fixes.md`](plan-02-restart-window-and-hook-fixes.md).
-
----
-
-## Starting afterterm with a throwaway profile can remove its hooks from the real Claude Code settings
-
-**Observed:** 2026-11-06 while working out the entry above, at Aryan's request · **Phase:** none of the numbered phases (the self-installed notification hook) · **Status:** open · **Severity:** high (until the next normal launch, chats show no working, needs-you or done state, send no toasts and do not save their session id) · **Screenshot:** none attached
-
-**What happens:**
-A build started with `AFTERTERM_USER_DATA_DIR` pointing at a throwaway folder, whose `prefs.json` says `"claudeNotifications": "disabled"`, removes afterterm's hook entries from the user's real `~/.claude/settings.json`. Chats already running lose their hooks as well as new ones. The app that is running does not notice.
-
-**Steps to make it happen again:**
-Set `CLAUDE_CONFIG_DIR` to a scratch copy of the Claude folder, or this changes the real settings. A scratch `USERPROFILE` or `HOME` does not protect them.
-1. Make a folder with a `prefs.json` holding `{"claudeNotifications":"disabled"}`.
-2. Start any afterterm build with `AFTERTERM_USER_DATA_DIR` set to that folder.
-3. Open `settings.json` in the scratch Claude folder: about a second after launch its afterterm entries are gone, and `"hooks"` is `{}` if they were the only ones.
-
-**Evidence:** On Aryan's machine on 2026-11-06, the Claude Code session cutting the 0.15.0 release started the packaged build this way at 14:35:50 for a smoke test. The throwaway `prefs.json` and the real `settings.json` were both last written at 14:35:52, and `settings.json` holds `"hooks": {}`. That session's turn ended at 14:37:02 with no Stop hook record, its previous one being at 14:34:16; a session started at 14:37:55 has no hook records at all. The hooks came back at 12:08:57 on 2026-11-07, one second after Aryan restarted afterterm, 21 hours 33 minutes later. The steps above were run on 2026-11-07 with the exact exe from the incident and a scratch Claude folder. In the main session transcripts changed since 2026-10-01, 1,012 of 1,018 finished turns from 2026-10-15 to 2026-11-05 have a Stop hook record, and the three turns finished on 2026-11-06 after 14:35:52 have none. The full record is in [`docs/note-03-restart-window-said-safe-while-a-chat-was-running.md`](note-03-restart-window-said-safe-while-a-chat-was-running.md).
-
----
-
-## Turning Claude notifications off also deletes another tool's hook that shares a group with afterterm's
-
-**Observed:** 2026-11-07 while testing the entry above, at Aryan's request · **Phase:** none of the numbered phases (the self-installed notification hook) · **Status:** open · **Severity:** medium (another tool's hook is lost and is not restored when notifications are turned back on; Aryan's own settings had no such hook) · **Screenshot:** none attached
-
-**What happens:**
-With `claudeNotifications` set to `"disabled"`, a launch removes every hook group holding an afterterm hook, including any other hook in that same group. A hook in its own group survives. Turning notifications back on restores only afterterm's entries.
-
-**Steps to make it happen again:**
-Use a scratch `CLAUDE_CONFIG_DIR`.
-1. In its `settings.json`, add a second hook to the group that holds afterterm's `UserPromptSubmit` entry.
-2. Start afterterm with `"claudeNotifications":"disabled"` in `prefs.json`: the second hook is gone.
-3. Start it again with notifications on: afterterm's entry returns, the second hook does not.
-
-**Evidence:** Run on 2026-11-07 with the 0.15.0 exe: the hook named `someone-elses-hook-same-group` was deleted, and `someone-elses-hook-own-group` stayed. Recorded in [`docs/note-03-restart-window-said-safe-while-a-chat-was-running.md`](note-03-restart-window-said-safe-while-a-chat-was-running.md).
-
----
-
-## The harness README says a scratch home keeps a run away from the real Claude settings, and it does not
-
-**Observed:** 2026-11-07 while testing the entries above, at Aryan's request · **Phase:** none of the numbered phases (the agent harness, Phase 6's scratch home section) · **Status:** open · **Severity:** high (an agent trusting this and seeding the opt-out would remove the real hooks) · **Screenshot:** none attached
-
-**What happens:**
-`scripts/agent-harness/README.md` says a run with a scratch `USERPROFILE` and `HOME` "never touches the real `~/.claude/hooks` or `~/.claude/settings.json`". A launch set up that way still works on the real Claude folder. Only `CLAUDE_CONFIG_DIR` keeps a run away from it.
-
-**Steps to make it happen again:**
-1. Start Electron with `USERPROFILE` and `HOME` set to a scratch folder and print `app.getPath('home')`: it returns the real home.
-2. Or start afterterm the same way, with a `settings.json` in `<scratch>\.claude`, no opt-out: that file is left untouched while prefs show the install ran.
-
-**Evidence:** Run on 2026-11-07: Electron 35.7.5 returned `C:\Users\Aryan` with both variables pointing at the scratch folder. Recorded in [`docs/note-03-restart-window-said-safe-while-a-chat-was-running.md`](note-03-restart-window-said-safe-while-a-chat-was-running.md).
-
----
-
 ## A long link in a chat message that runs onto a second row does not open when clicked
 
 **Observed:** 2026-11-07 by Aryan during manual testing · **Phase:** pre-existing (clickable links in terminal output) · **Status:** open · **Severity:** medium (a link in a chat cannot be opened by clicking it) · **Screenshot:** none kept (the one Aryan sent also showed a video call, so at his request it is not in the repo)
@@ -801,3 +730,34 @@ A link in Claude Code's last message is divided into two lines, and clicking on 
 3. It does not open.
 
 **Evidence:** Aryan's words: "the link in the last message is divided into 2 lines and hence clicking on it doesn't open it". The screenshot he sent showed the thread Linear in the project afterterm, on Opus 5.5 and the branch `manual-testing-fixes`. Its last message, from the turn marked "done 12:35 PM", had the line "Sign in to Linear (https://linear.app/authorize?response_type=code...". The first row of the link ended in `&co` and the second row started with `de_challenge_method=S256`.
+
+---
+
+## An inherited cmd PROMPT defeats the shell-integration opt-out for cmd and doubles the prompt marks
+
+**Observed:** 2026-11-07 during the live test of the restart window and hook fixes, at Aryan's request · **Phase:** 6 (shell integration) · **Status:** open · **Severity:** low (the restart window's rows were right either way; the setting is just not honoured when afterterm is started this way) · **Screenshot:** `docs/screenshots/restart-window-and-hook-fixes/12d-row-12-cmd-opted-out-but-inherited-prompt-sends-marks-safe.png`
+
+**What happens:**
+When afterterm is started from a cmd thread inside another afterterm, the launching shell's `PROMPT` variable already holds afterterm's own prompt marks, and the new afterterm passes it on to its threads. A cmd thread whose integration is turned off in `prefs.json` (`"shellIntegration": { "cmd": "off" }`) still draws prompt marks, so the opt-out does nothing. In the new afterterm's other cmd threads, where integration is on, every prompt carries the marks twice.
+
+**Steps to make it happen again:**
+1. In a cmd thread inside afterterm, start a second afterterm (a dev build through the agent harness is enough) with `"shellIntegration": { "cmd": "off" }` in its `prefs.json`.
+2. In the second afterterm, open a cmd thread and read its prompt state with the harness's `marks` command: it reports one although integration is off.
+3. Leave integration on and look at a cmd thread's prompt marks: each one is there twice.
+
+**Evidence:** Seen on 2026-11-07, the dev build at e42c9f1. The restart window's rows were right in every case, so nothing was lost; the account is in `docs/screenshots/restart-window-and-hook-fixes/README.md` under "Surprising things", and capture 12d and its recording show the opt-out not honoured. Rows 12e to 12i were run after removing `PROMPT` from the launching shell (`set PROMPT=`), and the opt-out then worked. The same happens to anyone who starts afterterm from a cmd thread inside afterterm.
+
+---
+
+## The sidebar shows a chat as quiet for a few seconds between the spinner clearing and needs-you arriving at a question or permission prompt
+
+**Observed:** 2026-11-07 during the live test of the restart window and hook fixes, at Aryan's request · **Phase:** none of the numbered phases (the working spinner and the needs-you state) · **Status:** open · **Severity:** low (the restart window is right throughout; the sidebar and rail are wrong for 4 to 5 seconds) · **Screenshot:** none attached
+
+**What happens:**
+When a chat stops at a question or a permission prompt, its row in the sidebar goes quiet for 4 to 5 seconds. Claude Code's own record says "waiting" within a second of the prompt appearing. The working spinner then clears after 2.5 seconds without output, and the needs-you state (the bell, and the toast) arrives only about 7 seconds after the prompt appeared. In between, the row and the rail show the chat as neither working nor waiting for you.
+
+**Steps to make it happen again:**
+1. In a chat with the hooks installed, send a prompt that makes Claude ask a yes or no question, or write a file with permission mode default so a permission prompt comes up.
+2. Watch the chat's row in the sidebar from another thread: the spinner stops about 2.5 seconds after the output stops, and the bell appears about 4 to 5 seconds after that.
+
+**Evidence:** Timings from the 2026-11-07 live test (row 9): a question was on screen 5.5 seconds after the prompt, the record said "waiting" at 6.1 seconds and the bell came at 12.6 seconds; a file write permission prompt was on screen at 7.2 seconds, the record said "waiting" at 7.6 seconds and the bell came at 14.7 seconds. The run is recorded in `docs/screenshots/restart-window-and-hook-fixes/09-row-9-chat-waiting-question-and-permission.mp4`; captures 09a and 09b are from the same run and show the restart window, not the quiet row. A possible fix, which Aryan has not decided on, is to set needs-you from the record's "waiting" status instead of waiting for the hook. The plan for this round (`docs/plan-02-restart-window-and-hook-fixes.md`) left it out of scope.

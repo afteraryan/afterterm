@@ -6,6 +6,52 @@ Every agent that ships a change Aryan would notice adds it here in the same chan
 
 ---
 
+## Restart window and hook fixes (PR to be numbered, not released yet)
+
+Self-tested in the dev build through the harness on 2026-11-07 with real Claude Code 2.1.319 on Haiku: rows 1 to 12 of the plan passed (WSL is not installed on this machine, so it was not tested) and the hook tests 13 to 18 passed (16 only in part). Captures and recordings are in `docs/screenshots/restart-window-and-hook-fixes/`, with the results in its README. Two safeguards are not listed below because nothing in normal use shows them: a test launch leaves the real Claude folder alone, and turning notifications off keeps another tool's hook. Both are covered by unit tests and the hook tests in that README.
+
+### The restart window warns about a reply, a background task or a running command
+**Status:** waiting for Aryan
+1. Wait until an update is ready, so the title bar shows **Restart to update**.
+2. While a chat is in the middle of a reply (ask Claude to run `ping -n 30 127.0.0.1`), press it: the chat's row says **Stops mid-turn** and the line at the bottom says **1 chat stops mid-turn**. Press **Not now**.
+3. In a cmd thread run `ping -n 120 127.0.0.1` (or `Start-Sleep -Seconds 90` in PowerShell) and press it again: that thread says **Command stops** and the line says **1 thread is busy**. Press **Not now**, then Ctrl+C in the thread.
+4. Ask a chat to start a background task and let its reply finish, then press it: the chat says **Background task stops**. Press **Not now**.
+5. Run `/exit` in a chat and, at the shell's prompt, press it: the row still says **Resumes**. Start a long command in that shell first and it says **Command stops** instead. Press **Not now**.
+
+### With every thread idle, the window says "Safe to restart"
+**Status:** waiting for Aryan
+1. With nothing replying and every shell at its prompt, press **Restart to update**: chats say **Resumes**, shells say **Opens in its folder**, and the line says **Safe to restart**.
+2. If a shell has its integration turned off (`"shellIntegration": { "cmd": "off" }` in `prefs.json`) and is idle, its row says **Opens in its folder** and the line is missing, because afterterm cannot tell what that shell is doing.
+
+### A chat whose hooks never ran still gets the chat icon and resumes
+**Status:** waiting for Aryan
+1. This is hard to set up by hand. In a thread run `claude --setting-sources local` (it starts without the hooks) and send a message.
+2. Within a couple of seconds the thread's row and header show a chat, not a shell, and the restart window says **Stops mid-turn** while it replies.
+3. After the reply, choose **Sleep** and then **Wake**: the thread types `claude --resume` with the session's id, and the conversation comes back.
+
+### The spinner stays on through a pause in a reply
+**Status:** waiting for Aryan
+1. Start a long reply (ask Claude to run `ping -n 40 127.0.0.1`) and switch to another thread.
+2. The chat's row keeps its spinner for the whole reply, even while Claude is quiet for a few seconds. A chat started with `--setting-sources local` shows it too.
+
+### Putting a chat with a server to sleep says Wake resumes the chat
+**Status:** waiting for Aryan
+1. Ask a chat to start a dev server in the background (`python -m http.server 8765`), so its row shows `:8765`.
+2. Choose **Sleep**: the question says "Sleeping it stops the server; Wake resumes the chat." Confirm it. The asleep pane says "Chat asleep since just now" with no "runs" after it.
+3. Press **Wake**: it types `claude --resume` with the session's id, not a new `claude`.
+
+### afterterm puts its Claude Code hooks back
+**Status:** waiting for Aryan
+1. Copy `~/.claude/settings.json` somewhere safe first.
+2. While afterterm is running, open it in an editor and delete the entries that run `afterterm-notify.ps1` (the whole `hooks` key, if nothing else is in it). Save.
+3. Within about 5 seconds the entries are back in the file, and a chat that was open gets its working and done states again on its next message. If you turn Claude notifications off in `prefs.json` first, they stay gone.
+
+### Real update restart on the installed test build
+**Status:** result to be added
+A real update restart where a chat with no hook-saved session id comes back resumed. A dev build refuses Restart now, so only the installed test build proves it. Result to be added.
+
+---
+
 ## Release 0.15.0 (2026-11-06): the smaller project dialog, any colour for a project, and Rename (PR #71)
 
 Self-tested in the dev build through the harness on 2026-11-06; captures and four recordings in `docs/screenshots/project-dialog-and-rename/`.
