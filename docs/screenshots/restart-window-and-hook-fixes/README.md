@@ -76,3 +76,40 @@ Recording: 19-fix-9-chat-started-dev-server.mp4. Pass.
 - `seed-scratch-claude.mjs` read the real `~/.claude/settings.json` and copied the real hook script. It now takes the hooks block from the scratch folder's own settings.json (or a source path given as the second argument), refuses any source or target inside the real Claude folder, and copies the hook script from the repo's `assets` only when the scratch folder has none.
 - `stall.ps1` prints the time it suspended and resumed the process, and resumes in a `finally`.
 - Not used, and still pointing at the real Claude folder: `sess-watch.ps1` and the `recordFor` helper in `guarded-driving-example.ps1` read `$env:USERPROFILE\.claude\sessions`; `make-settings.mjs` writes the real hook script's path into the two-hooks settings it makes.
+
+## Sandbox end-to-end: a real update restart resumes a chat with no hook-saved id
+
+Run 2026-11-07, 16:35 to 16:46, against the installed sandbox build ("afterterm (test)") made from this branch's source at 42eb2f7 (no file under `src`, `installer`, `assets` or the build scripts changed after it). Result: **pass**.
+
+### Set up
+
+- Installer A: `out\installer\afterterm-test-0.15.0-setup.exe`, 88,887,808 bytes, SHA256 `A636D72F4253EB516FB8068FB4DC94750D0FC8E41EF1FB7A6291AE057F95A810`.
+- Installer B: `afterterm-test-0.16.0-setup.exe` (package.json set to 0.16.0 for that one build, then reverted; never committed), 88,887,808 bytes, SHA256 `027E42C46D0809A1A1D3B795D5F5B8B67871D1DEF163033671ECAC49786FCB92`. Both from `npm run installer -- --sandbox`, a minute or two each, no errors.
+- The Phase 3 sandbox data (`%LOCALAPPDATA%\afterterm-test\data` and `claude`, from 2026-10-31) was moved aside to `%LOCALAPPDATA%\afterterm-test\backup-before-sandbox-e2e-2026-11-07`, so the run started from an empty profile.
+- Setup A was started through WMI (`ShowWindow = 1`, `AFTERTERM_INSTALLER_X=1700`, `AFTERTERM_INSTALLER_Y=120`, which put it on the secondary display) and driven through UI Automation by its control names: both shortcut boxes unticked, Install, the Claude Code check ("Claude Code is ready", all three ticks), Next, "Open afterterm (test)" unticked, Finish. Settings > Apps then listed "afterterm (test)" 0.15.0.
+- Feed: `update-feed.mjs --version 0.16.0 --base afterterm-test --installer <copy of B>`, so the asset is `afterterm-test-0.16.0-setup.exe` with B's real digest and a plain local path.
+- The installed `afterterm-test.exe` was started through WMI under a hidden `cmd.exe` that wrote its output to a log (current folder: the scratchpad, never the install folder), with `AFTERTERM_CLAUDE_SESSIONS_DIR` and `AFTERTERM_CLAUDE_PROJECTS_DIR` on the real folders (read by the app only), `AFTERTERM_DISPLAY=secondary`, `AFTERTERM_REMOTE_DEBUG_PORT=9483`, `AFTERTERM_HARNESS=1`, the feed, `AFTERTERM_UPDATE_CHECK_DELAY_MS=2000` and the two installer position variables. The launching shell's `AFTERTERM*`, `CLAUDE_CODE_*`, `CLAUDECODE`, `CLAUDE_PID`, `CLAUDE_CONFIG_DIR` and `PROMPT` were left out. Log: `update installed=true feed=yes`. `drive bounds`: the window on `\\.\DISPLAY2` at 2240,126. Driven with `drive.mjs --data-dir` and a hand-written `harness.json` holding the port.
+
+### What happened
+
+| Step | Seen |
+|---|---|
+| Update | "Update available" in the title bar (03). `window.afterterm.update.download()` reached `ready` in under 2 s; the file in `<data>\updates` had B's hash; the button read "Restart to update" (04) |
+| Test chat | tab-1, cmd, `cd /d %TEMP%\rw-sandbox-chat`, `set CLAUDE_CONFIG_DIR=`, `claude --setting-sources local --model haiku --strict-mcp-config --permission-mode default` (Claude Code 2.1.319, Haiku 5.5). Folder trust moved to Yes after reading the screen. No "Teach auto mode" panel. One prompt, "Reply with the single word hello. Do not use any tools.", answered "hello" in 1 s |
+| Id from the record only | `tab('tab-1')`: claudeSessionId `97e719f8-...`, recordStatus `idle`, claudeCwd the scratch folder, row `data-kind="chat"`, chat icon, named "Hello greeting" (05). Log: `claude-record tab-1 pid=45652 status=idle session=none`, then `busy session=97e719f8`, then `idle session=97e719f8`. pid 45652 was `claude.exe`, child of the thread's `cmd.exe` 36040, child of `afterterm-test.exe` 6928. The app's own `claude-sessions` folder was empty, so the hook never ran and the id came from the record alone |
+| Restart window | One row, "Hello greeting", **"Resumes"** (`data-outcome="resumes"`); footer **"Safe to restart"** (`data-status="safe"`) (06) |
+| Restart now | The app was gone within 2 s. Setup's update window "Updating afterterm (test) to 0.16.0" showed on top on the secondary display (07 at 34%, 08 at 97%, cropped from whole-display captures). The new app was running 14 s after the press, started by Setup (pid 22868, parent Setup 29688). Settings > Apps: "afterterm (test)" 0.16.0. `pendingUpdate` gone from prefs.json |
+| After the reopen | Title bar `v0.16.0`, the workspace, "Hello greeting" active and awake. Typed in its folder: **`C:\Users\Aryan\AppData\Local\Temp\rw-sandbox-chat>claude --resume 97e719f8-fff9-4b9e-b71e-f7b50569ade4`**; the running `claude.exe` (39348, under the thread's `cmd.exe` 13060) had that command line (09). That Claude inherited the sandbox's own `CLAUDE_CONFIG_DIR`, which has no login, so it opened Claude's first-run theme picker instead of the conversation. The proof is the command: the right id, in the right folder, typed by afterterm after a real update |
+| Same resume, real config | That `claude.exe` (checked to be under the test app) ended by pid. Then `cls`, `set CLAUDE_CONFIG_DIR=`, `claude --resume 97e719f8-fff9-4b9e-b71e-f7b50569ade4`: the conversation came back, the prompt and "hello" (10). `/exit` printed "Resume this session with: claude --resume 97e719f8-..." (11) |
+| Clean up | The test app quit with `drive window quit` (WM_CLOSE to its own window; no process left). Uninstalled with its own `QuietUninstallString` (`"...\Uninstall afterterm-test.exe" /currentuser /S`); the Apps entry was gone at once and the install folder left empty. The real afterterm (0.15.0, five processes) ran throughout and was never touched |
+
+The two real files were hashed before the run, after Setup A, after the first launch, after the chat's turn, after the update restart, after the resume with the real config, after the test app quit and after the uninstall: settings.json `AF83ECAF...0EDEAB` and the hook script `21A8E8A0...68633B` every time.
+
+Recordings: `20-sandbox-a-before-restart-chat-with-no-hook-id.mp4` (from Update available to Restart now; the screencast ends when the app quits) and `20-sandbox-b-after-update-resume-with-real-config.mp4` (the resume with the real config and `/exit`). Whole-display captures of Setup (install pages, the restart press and the update window at 11, 34 and 97%) are in `displays/` as 20-sandbox-01, 02 and 07a to 07d; they show Aryan's own afterterm behind Setup, so they stay out of git.
+
+### Surprising things
+
+- **The "Updated to 0.16.0" pill was not seen.** The first look at the reopened app came about two minutes after it opened, long after the pill's 6 seconds. Not a finding about the app, only not observed in this run.
+- **The resume with the real config ran the real hook.** Without `--setting-sources local` the user settings load, so the production hook script wrote `tab-1.json` into the test app's `claude-sessions` at 16:44:07, three minutes after the update. Everything that proves the record path happened before it, when that folder was empty.
+- **pwsh captured the wrong region.** `screenshot-display.ps1` under pwsh got display 2's bounds right once, then reported `2400,0 2400x1350` and captured a shifted region. The same script under Windows PowerShell 5.1 (`powershell.exe -ExecutionPolicy Bypass -File ...`) gave the right `1920,0 1920x1080` every time, and every kept capture was taken that way.
+- The empty install folder `%LOCALAPPDATA%\Programs\afterterm-test` stays after the uninstall, as it was before the run. The run's own data folder `%LOCALAPPDATA%\afterterm-test\data` is left too (uninstalling does not remove data).
