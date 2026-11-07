@@ -420,9 +420,6 @@
   color: var(--text);
 }
 
-.side-panel .pj.dragging {
-  opacity: .4;
-}
 
 /* ── Thread list wrapper (expand and collapse) ─────────────────────────── */
 
@@ -537,9 +534,6 @@
   animation: glow-ok 2.8s ease-in-out infinite;
 }
 
-.side-panel .th.dragging {
-  opacity: .4;
-}
 
 /* ── Close button on a thread row ──────────────────────────────────────── */
 /* Sits in the padding-right space the row opens on hover or when selected.
@@ -609,45 +603,47 @@
   .side-panel .pj.revealed { background: var(--hover2); }
 }
 
-/* ── Drop targets ──────────────────────────────────────────────────────── */
+/* ── Two threads side by side (design-06) ──────────────────────────────────
+   A split's two rows stay in their project, joined by a thin line on their
+   left: no name, no number (the mockup's .gC.bare). The rows step in to make
+   room for the line. */
+.side-panel .sgw {
+  position: relative;
+  padding: 2px 0;
+}
 
-.side-panel .th.drop-target::after,
-.side-panel .pj.drop-over::after {
+.side-panel .sgw::before {
   content: '';
   position: absolute;
-  bottom: -1px;
-  left: 8px;
-  right: 8px;
-  height: 2px;
-  background: rgba(236, 236, 236, .5);
-  border-radius: 1px;
-  z-index: 2;
+  left: 34px;
+  top: 10px;
+  bottom: 10px;
+  width: 9px;
+  border: 1.5px solid #4a4a4a;
+  border-right: 0;
+  border-radius: 7px 0 0 7px;
+  pointer-events: none;
 }
 
-.side-panel .pj.drop-over {
-  background: var(--hover);
+.side-panel .sgw .th {
+  margin-left: 46px;
+  width: calc(100% - 46px);
+  padding-left: 8px;
 }
 
-/* Dwell preview: holding a thread over another ungrouped one makes a project. */
-.side-panel .th.group-preview {
-  background: var(--hover2);
-  outline: 1px solid rgba(236, 236, 236, .18);
-  outline-offset: -1px;
+.side-panel .sgw.gen::before {
+  left: 14px;
 }
 
-/* ── Drag overlay copies ───────────────────────────────────────────────── */
+.side-panel .sgw.gen .th {
+  margin-left: 26px;
+  width: calc(100% - 26px);
+}
 
-.side-panel .th.drag-overlay,
-.side-panel .pj.drag-overlay {
-  background: var(--hover2);
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, .5);
+/* The other half of the split on screen: a lighter selected look than the
+   focused half's row (the mockup's .th.on). */
+.side-panel .th.on {
+  background: #262626;
   color: var(--text);
-  width: 248px;
-  cursor: grabbing;
-  opacity: .95;
 }
 
-.side-panel .th.drag-overlay {
-  padding-left: 12px;
-}

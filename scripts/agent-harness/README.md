@@ -43,6 +43,9 @@ Plain Node (24+) and PowerShell. No new dependencies: Node's global `fetch` and
   that reads a transcript, copy it to a fixture folder under a made-up id and
   point the build at it with `--env AFTERTERM_CLAUDE_PROJECTS_DIR=<fixture>`; and
   do not edit renderer code during a run that has a chat awake.
+- **A right-click in a terminal uses the real clipboard.** It pastes what is on the
+  person's clipboard into the shell, and Copy path overwrites it. Before testing
+  either, stub both in the page: `drive eval "navigator.clipboard.readText = async () => 'PASTE-MARK'; navigator.clipboard.writeText = async t => { window.__copied = t; }"`.
 
 ## What each part does
 
@@ -55,6 +58,7 @@ Plain Node (24+) and PowerShell. No new dependencies: Node's global `fetch` and
 | `screenshot-display.ps1` | Captures a whole physical display to PNG (shows native title bars and the notifier toasts, which CDP cannot). |
 | `record.mjs` | Long-running recorder: CDP screencast of the page content, stitched to mp4 with ffmpeg. Normally started detached by `drive.mjs record start`, not run by hand. See "Recording a test session" below. |
 | `lib.mjs` | Shared: arg parsing, run records, process tree walk, WMI spawn, display and window queries, the CDP client. |
+| `update-feed.mjs` | Automatic updates: writes a test feed in GitHub's release shape (`--out <dir>`, `--version`, `--installer`, `--size-mb`, `--base`, `--bad-digest`, `--notes`) for `--env AFTERTERM_UPDATE_FEED=<feed>`. A dev build checks it but never runs Setup. Hooks for the test: `window.__afterterm.update()`, `wake(id)`, `setNotification(id, 'working')`. See `docs/features-updates.md`, "Testing". |
 
 Main-process support lives in `src/main.ts`:
 
@@ -113,6 +117,10 @@ Options:
   sets itself; trying fails with a message naming the key. The key names (never
   the values, a value could be private) are recorded in the run record as
   `extraEnv` and printed in the launch summary.
+
+`--env AFTERTERM_NO_EDITORS=1` makes a harness run behave as if no editor were
+installed, so a machine with VS Code can test that case (a code file goes to
+Notepad, logged as `[harness] files:open Notepad <file>`).
 
 The dev build does not inherit the launching agent's Claude Code session
 variables (`CLAUDECODE`, `CLAUDE_CODE_*`, `CLAUDE_PID`, `CLAUDE_EFFORT`): with
@@ -184,9 +192,10 @@ node scripts/agent-harness/drive.mjs <command> ...
 | `dom` | `drive dom ".tab-row"`, add `--html` for outerHTML | Match count plus tag, classes and trimmed innerText per match. |
 | `click` | `drive click ".tab-row" 2` | Scrolls the element into view and dispatches a real `mousePressed` and `mouseReleased` at its centre through `Input.dispatchMouseEvent`, so React handlers and dnd-kit see a user-like click. Index defaults to 0. |
 | `rightclick` | `drive rightclick ".group-header" 0` | Same with the right button (opens context menus). |
+| `cell` | `drive cell rightclick 12 40 --tab tab-1` | A real mouse on one 1-based buffer cell of a terminal, with `hover`, `click` or `rightclick`: the way to test a file link as a person would (find the row with `eval "window.__afterterm.findRow('tab-1', 'text')"`). The pointer rests `--wait` ms (default 300) on the cell first, since a link only exists once main has answered. |
 | `hover` | `drive hover ".pr" 0`, `drive hover ".th" 0 --wait 400` | Scrolls the element into view, then steps the pointer onto its centre in a couple of `mouseMoved` events (so CSS `:hover` and React's `onMouseEnter` both see a real enter, not a teleport) and leaves it there. Prints the centre. `--wait <ms>` pauses after the move, before the command returns: the thread hover card appears 350ms after the pointer enters a row, so `drive hover ".th" 0 --wait 400` then `drive hover-card` in a second call sees it. |
 | `unhover` | `drive unhover` | Moves the pointer to (2, 2) of the viewport, the title bar strip, which has no hover targets. |
-| `drag` | `drive drag ".tab-row" 0 ".tab-row" 2 --hold-ms 600` | Presses at the source element's centre, steps to the target element's centre (`--steps`, default 12, 16ms apart), an optional dwell at the target (`--hold-ms`, default 0; dnd-kit's dwell-to-group needs 600), then releases. An index is a bare integer right after its selector, so the two selector/index pairs never need extra flags to disambiguate. |
+| `drag` | `drive drag ".tab-row" 0 ".tab-row" 2 --hold-ms 600` | Presses at the source element's centre, steps to the target element's centre (`--steps`, default 12, 16ms apart), an optional dwell at the target (`--hold-ms`, default 0), then releases. The panel's own drag (since 2026-11-01) needs the steps (it starts after 7px) and lands by the pointer's height in the list, so a target's centre is not always the slot you want. An index is a bare integer right after its selector, so the two selector/index pairs never need extra flags to disambiguate. Two threads side by side (design-06): `--to-x <fraction>` lands at that fraction of the target's width instead of its centre (`drive drag ".th[data-tid=tab-4]" ".term-card" --to-x 0.75` drops on the right half), and `--shot <png>` captures the page during the hold, before the release, so a lit or refused drop zone is in the picture. |
 | `emulate-media` | `drive emulate-media reduce` | `Emulation.setEmulatedMedia` for `prefers-reduced-motion`: `reduce`, `no-preference`, or `off` to clear every emulated feature. |
 | `type` | `drive type "hello"` | `Input.insertText` into the focused element. |
 | `key` | `drive key Enter`, `drive key b --ctrl --shift` | `Input.dispatchKeyEvent` down and up. Known names: Enter, Escape, Tab, Backspace, Delete, Space, Arrow keys, Home, End, PageUp, PageDown, F5, or any single character. Modifiers: `--ctrl`, `--shift`, `--alt`. |
@@ -201,7 +210,7 @@ node scripts/agent-harness/drive.mjs <command> ...
 | `palette` | `drive palette` | The search palette's input value, then each group header (`.gl`, e.g. Projects, Threads and Phase 4's History) followed by its rows (kind, id, name, meta text, `*` when highlighted), or the empty-state text. History rows carry `data-kind="history"` and a meta like "project · 3d", read the same generic way as project and thread rows. `(no palette open)` when absent. |
 | `header` | `drive header` | The main pane header as a tree: the name line, the kind (when the name line carries a `data-kind` attribute), one `<data-meta>=<text>` line per header meta item, the state chip text or `(quiet)` (Phase 4: an asleep thread's chip reads "Asleep · 2d"). `(no thread)` when the header shows its empty state. `(no .header in the DOM)` when the header itself is absent. |
 | `hover-card` | `drive hover ".th" 0 --wait 400` then `drive hover-card` | The thread hover card: the title, then one `<data-row>: <text>` line per `dl` row. `(no hover card)` when absent. The card appears 350ms after the pointer enters a thread row, so hover first with `--wait` (see the `hover` row above) before reading it. |
-| `pane` | `drive pane` | Phase 4: the asleep pane (`.asleep-pane`) that covers the terminal card while the active thread is asleep, as a tree: `asleep pane for <tab id>`, `wake button: yes\|no`, `since: <text>`, `past lines: <N>` and the last 5 saved tail lines indented (or `past: (none)` while the tail is loading or empty), and (Phase 9) a `scroll: top=<n> max=<n> atEnd=<bool>` line reading the pane's inner `.asleep-scroll` (`scroll: (no scroller)` if it is somehow missing). When no thread is asleep, prints `(terminal)` and `terminal: shown\|hidden` (whether `.terminal-instances` carries `asleep-hidden`). |
+| `pane` | `drive pane` | Phase 4: the asleep pane (`.asleep-pane`) that covers the terminal card while the active thread is asleep, as a tree: `asleep pane for <tab id>`, `wake button: yes\|no`, `since: <text>`, `past lines: <N>` and the last 5 saved tail lines indented (or `past: (none)` while the tail is loading or empty), and (Phase 9) a `scroll: top=<n> max=<n> atEnd=<bool>` line reading the pane's inner `.asleep-scroll` (`scroll: (no scroller)` if it is somehow missing). When no thread is asleep, prints `(terminal)` and `terminal: shown\|hidden` (hidden only when nothing is on screen at all, `.term-panes.empty`: since design-06 an asleep thread's pane sits inside its own column's card). With two threads side by side it reads the first asleep pane; read both with `dom ".term-col .asleep-pane"`. |
 | `tail` | `drive tail`, `drive tail 10`, `drive tail 10 --tab <id>` | Phase 4: the last n lines (default 30) of an xterm buffer, read through `window.__afterterm.activeTail(n)` for the active tab or `window.__afterterm.tail(id, n)` for `--tab <id>`. One line per entry; `(no terminal)` when the hook is missing or the tab has no live terminal (e.g. it is asleep). |
 | `confirm` | `drive confirm` | Phase 5: the confirm dialog shown when closing or sleeping a thread that owns a listening port (`src/renderer/components/ConfirmDialog/index.tsx`), as a tree: `confirm dialog`, then `title:`, `body:`, `confirm:` and `cancel:` lines reading the dialog's `.modal-title`, `.confirm-body`, `[data-confirm]` and `[data-cancel]` text. `(no confirm dialog)` when it is not open. Click its buttons with `drive click "[data-confirm]"` (close or sleep anyway) and `drive click "[data-cancel]"` (keep the thread running). |
 | `opened` | `drive opened` | Phase 5: the URL the last "Open localhost:port" click reached, from `window.__afterterm.lastOpenExternal` (set by `app.tsx`), or `(nothing opened)`. A harness run never actually opens a browser: with `AFTERTERM_HARNESS=1`, main.ts logs `[harness] shell:openExternal <url>` to the harness log instead of calling `shell.openExternal`. The log line plus this command are how a test proves the click reached the safelisted open-external path without any browser window ever appearing on the person's display. Phase 9: a second line, `folder: <path>` or `folder: (none opened)`, the folder the last "Open in File Explorer" reached (a project's folder from the project menu, or a thread's own folder from the thread menu or the header's worktree item), from `window.__afterterm.lastOpenFolder`; main logs `[harness] projects:openInExplorer <folder>` instead of launching Explorer under `AFTERTERM_HARNESS=1`. A third line, `editor: <editor id> <folder>` or `editor: (none opened)`, the folder the last "Open in <editor>" reached (the header's editor button, the thread menu, the project menu or page), from `window.__afterterm.lastOpenEditor`; main logs `[harness] editors:open <name> <folder>` instead of launching the editor. |
@@ -593,6 +602,11 @@ particularly often: sleep, wake and the scrollback tail file are all main-proces
   (found in Phase 6: a click meant for a row landed on the chooser's "No project"
   and created a cmd thread). Take a `screenshot` right after such a shortcut, or use
   the on-screen control (`click "[data-new-thread]" 0`) instead.
+- The same deferred frame holds the side panel shut after `click "[data-go='work']"`:
+  it opens on a frame, so on an occluded window the terminal stays wider until the first
+  `screenshot`, which then opens the panel and reflows every row. A row number read before
+  that points at different text afterwards (found 2026-11-06: a click landed one row up and
+  opened the wrong image). Take a `screenshot` right after going to the workspace.
 - `Browser.getWindowForTarget` is not implemented by Electron's DevTools endpoint,
   which is why `bounds` uses an OS query for the window rectangle.
 - `key` goes through Chromium's input pipeline; the app's global shortcuts are

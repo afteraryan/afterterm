@@ -4,8 +4,8 @@
 // Exits 0 if all pass, 1 on any failure.
 
 import {
-  threadFolder, threadFolderTarget, insertNewThread, projectLookChanges, applyProjectLook, threadKind, threadState, stateLabel, stateBreathes, displayTitle,
-  threadName, modelLabel, kindWord, runningLabel, statusText, localhostUrl, openLocalhostLabel,
+  threadFolder, threadFolderTarget, insertNewThread, placeThread, projectLookChanges, applyProjectLook, threadKind, threadState, stateLabel, stateBreathes, displayTitle,
+  threadName, automaticThreadName, nextCustomName, modelLabel, kindWord, runningLabel, statusText, chipText, localhostUrl, openLocalhostLabel,
   needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText,
   foldThreads, projectCounts, toastMessage,
   initialScreen, nextActiveTabAfterArchive,
@@ -153,6 +153,15 @@ console.log('\nthreadView: threadState\n');
     threadState({ asleep: true }) === 'asleep');
 }
 
+console.log('\nthreadView: chipText (the header chip, design-06)\n');
+{
+  check('working: the spinner alone, Working on hover', JSON.stringify(chipText('working')) === JSON.stringify({ text: '', tip: 'Working' }));
+  check('running server: the port alone, Running on hover', JSON.stringify(chipText('running', 5173)) === JSON.stringify({ text: ':5173', tip: 'Running' }));
+  check('needs you keeps its words', chipText('needs-you').text === 'Needs you');
+  check('done keeps its word', chipText('done').text === 'Done');
+  check('running with no port falls back to the word', chipText('running').text === 'Running');
+}
+
 console.log('\nthreadView: stateLabel\n');
 {
   check('unread label', stateLabel('unread') === 'Unread');
@@ -192,6 +201,26 @@ console.log('\nthreadView: displayTitle\n');
   check('a title with no glyph is untouched', displayTitle('Terminal') === 'Terminal');
   check('empty title falls back to Terminal', displayTitle('') === 'Terminal');
   check('a glyph with nothing after it falls back to Terminal', displayTitle('\u25B6') === 'Terminal');
+}
+
+console.log('\nthreadView: a name given with Rename\n');
+{
+  const CHAT = '3d71b0f2-26cb-4ad3-8371-6504ab2e37e2';
+  const chat = { title: 'cmd.exe', claudeSessionId: CHAT, claudeTitle: 'Fix the spinner' };
+  const server = { title: 'cmd.exe', port: 5173, lastCommand: 'npm start' };
+
+  check('it wins over a chat\'s claudeTitle', threadName({ ...chat, customName: 'Spinner' }) === 'Spinner');
+  check('it wins over a server\'s last command', threadName({ ...server, customName: 'Site' }) === 'Site');
+  check('it wins over a shell\'s live title', threadName({ title: 'cmd.exe', customName: 'Logs' }) === 'Logs');
+  check('automaticThreadName ignores it', automaticThreadName({ ...chat, customName: 'Spinner' }) === 'Fix the spinner');
+
+  check('nextCustomName trims the text', nextCustomName(chat, '  Spinner  ') === 'Spinner');
+  check('an empty text removes the name', nextCustomName({ ...chat, customName: 'Spinner' }, '') === undefined);
+  check('blank text removes the name', nextCustomName({ ...chat, customName: 'Spinner' }, '   ') === undefined);
+  check('saving the automatic name unchanged sets nothing', nextCustomName(chat, 'Fix the spinner') === undefined);
+  check('typing the automatic name over a given name removes it',
+    nextCustomName({ ...chat, customName: 'Spinner' }, 'Fix the spinner') === undefined);
+  check('a new name replaces the old one', nextCustomName({ ...chat, customName: 'Spinner' }, 'Other') === 'Other');
 }
 
 console.log('\nthreadView: threadName\n');
@@ -508,6 +537,39 @@ console.log('\nthreadView: statusText (the hover card Status row)\n');
   check('needs-you reads Needs you', statusText(tab('n', { notification: 'attention' })) === 'Needs you');
   check('an asleep thread marked unread reads Unread', statusText(tab('u', { asleep: true, unread: true })) === 'Unread');
   check('an asleep server reads Asleep, not its port', statusText(tab('x', { asleep: true, port: 5173 })) === 'Asleep');
+}
+
+console.log('\nthreadView: placeThread (dragging a thread)\n');
+{
+  const list = [
+    tab('g1'),
+    tab('a1', { groupId: 'a' }), tab('a2', { groupId: 'a' }), tab('a3', { groupId: 'a' }),
+    tab('b1', { groupId: 'b' }), tab('b2', { groupId: 'b' }),
+  ];
+  const order = (ts: Tab[]) => ts.map(t => `${t.id}${t.groupId ? ':' + t.groupId : ''}`).join(',');
+
+  check('a thread dragged between two threads of its own project lands there',
+    order(placeThread(list, 'a3', 'a', 'a2')) === 'g1,a1:a,a3:a,a2:a,b1:b,b2:b');
+  check('dragged between two threads of another project, it joins that project there',
+    order(placeThread(list, 'a1', 'b', 'b2')) === 'g1,a2:a,a3:a,b1:b,a1:b,b2:b');
+  check('dropped on a project row (before its first thread) it goes in at the top',
+    order(placeThread(list, 'b2', 'a', 'a1')) === 'g1,b2:a,a1:a,a2:a,a3:a,b1:b');
+  check('after a project\'s last thread',
+    order(placeThread(list, 'a1', 'b', null)) === 'g1,a2:a,a3:a,b1:b,b2:b,a1:b');
+  {
+    const out = placeThread(list, 'a2', undefined, 'g1');
+    check('taken out of its project into General, above the General thread',
+      order(out) === 'a2,g1,a1:a,a3:a,b1:b,b2:b', order(out));
+    check('a General thread carries no groupId key at all', !('groupId' in out[0]));
+  }
+  check('into General with no anchor: after the last General thread',
+    order(placeThread(list, 'b1', undefined, null)) === 'g1,b1,a1:a,a2:a,a3:a,b2:b');
+  check('into a project with no threads: the end of the list',
+    order(placeThread(list, 'a1', 'c', null)) === 'g1,a2:a,a3:a,b1:b,b2:b,a1:c');
+  check('the other threads keep their order', order(placeThread(list, 'a2', 'b', 'b1').filter(t => t.id !== 'a2')) === 'g1,a1:a,a3:a,b1:b,b2:b');
+  check('dropped where it already is changes nothing', placeThread(list, 'a2', 'a', 'a3') === list);
+  check('dropped before itself changes nothing', placeThread(list, 'a2', 'a', 'a2') === list);
+  check('an unknown thread changes nothing', placeThread(list, 'zz', 'a', null) === list);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

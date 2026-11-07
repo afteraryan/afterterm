@@ -5,16 +5,15 @@
 // Pure module, no React, no DOM: importable from plain Node so the unit tests
 // can run with `node src/renderer/panelView.test.ts`.
 //
-// This sits on top of two other pure modules rather than reimplementing
-// either: sidebarWalk.ts's Segment list (groups first, tabs in walk order) is
-// the input, and attention.ts's panelLists supplies the Recent/Other split
-// (the 3-day rule, activity order) so this module and the rail can never
-// disagree about which projects are "recent".
+// attention.ts's panelLists supplies the Recent/Other split (the 3-day rule)
+// so this module and the rail can never disagree about which projects are
+// "recent".
 
 import type { Tab, Group } from './components/TabBar/types.ts';
-import type { Segment } from './sidebarWalk.ts';
-import { panelLists } from './attention.ts';
+import { panelLists, isRecentProject } from './attention.ts';
 import { foldThreads } from './threadView.ts';
+import { foldLimit } from './splitView.ts';
+import type { Split } from './splitView.ts';
 
 export interface PanelEntry {
   group: Group;
@@ -28,37 +27,69 @@ export interface PanelSections {
   other: PanelEntry[];
 }
 
-// Builds the panel's four lists from the sidebar's own walk. General is the
-// loose tabs, in walk order. Pinned is the pinned, non-archived groups in walk (dragged)
-// order, each carrying the tabs its own segment holds. Recent and Other come
-// from attention.ts's panelLists applied to every non-archived group (which
-// itself excludes pinned groups), each again carrying its segment's tabs.
-// Archived groups are dropped before any of this and so appear nowhere.
-export function panelSections(segments: Segment[], now: number): PanelSections {
+// Builds the panel's four lists. The projects come in the saved project order
+// (the `groups` array, which drags and the order rules in attention.ts set;
+// 2026-11-01, before which the order came from the tab walk in sidebarWalk.ts
+// and Recent was sorted by activity). Each project carries its threads in tab
+// order. General is the loose tabs (no project, or a project that no longer
+// exists), in tab order. Pinned is the pinned groups; Recent and Other come from
+// attention.ts's panelLists, which puts archived projects in Other.
+export function panelSections(tabs: Tab[], groups: Group[], now: number, hold?: ReadonlySet<string>): PanelSections {
+  const known = new Set(groups.map(g => g.id));
   const general: Tab[] = [];
-  const pinned: PanelEntry[] = [];
-  const groups: Group[] = [];
-  const tabs: Tab[] = [];
   const tabsByGroup = new Map<string, Tab[]>();
-
-  for (const segment of segments) {
-    if (segment.type === 'tab') {
-      general.push(segment.tab);
-      tabs.push(segment.tab);
-      continue;
-    }
-    if (segment.group.archived) continue;
-    groups.push(segment.group);
-    tabs.push(...segment.tabs);
-    tabsByGroup.set(segment.group.id, segment.tabs);
-    if (segment.group.pinned) pinned.push({ group: segment.group, tabs: segment.tabs });
+  for (const tab of tabs) {
+    if (!tab.groupId || !known.has(tab.groupId)) { general.push(tab); continue; }
+    const list = tabsByGroup.get(tab.groupId);
+    if (list) list.push(tab);
+    else tabsByGroup.set(tab.groupId, [tab]);
   }
 
-  const { recent, other } = panelLists(groups, tabs, now);
   const toEntries = (gs: Group[]): PanelEntry[] =>
     gs.map(g => ({ group: g, tabs: tabsByGroup.get(g.id) ?? [] }));
+  const { recent, other } = panelLists(groups, tabs, now, hold);
+  const pinned = groups.filter(g => g.pinned && !g.archived);
 
-  return { general, pinned, recent: toEntries(recent), other: toEntries(other) };
+  return { general, pinned: toEntries(pinned), recent: toEntries(recent), other: toEntries(other) };
+}
+
+export type ProjectSection = 'pinned' | 'recent';
+
+// A project dropped in the panel (the drag in docs/mockups/sidebar-drag-and-drop.html):
+// into `section`, just above the project `beforeId`, or at the end of that
+// section when `beforeId` is null. Dropping into Pinned pins it, into Recent
+// unpins it. A project dropped into Recent that would not otherwise qualify
+// for it (asleep and quiet for more than three days) has its activity stamped,
+// since the person just put it there; otherwise it would land in Other
+// projects instead. Returns the same array when nothing changes.
+export function placeProject(
+  groups: Group[],
+  tabs: Tab[],
+  now: number,
+  groupId: string,
+  section: ProjectSection,
+  beforeId: string | null,
+): Group[] {
+  const g = groups.find(x => x.id === groupId);
+  if (!g || beforeId === groupId) return groups;
+  let moved: Group = { ...g, pinned: section === 'pinned', archived: false };
+  if (section === 'recent' && !isRecentProject(moved, tabs, now)) moved = { ...moved, lastActiveAt: now };
+  const rest = groups.filter(x => x.id !== groupId);
+
+  let at: number;
+  if (beforeId !== null && rest.some(x => x.id === beforeId)) {
+    at = rest.findIndex(x => x.id === beforeId);
+  } else {
+    const inSection = (x: Group) => section === 'pinned' ? x.pinned && !x.archived : isRecentProject(x, tabs, now);
+    let last = -1;
+    rest.forEach((x, i) => { if (inSection(x)) last = i; });
+    at = last + 1;
+  }
+  const next = [...rest];
+  next.splice(at, 0, moved);
+  const same = next.length === groups.length && next.every((x, i) => x.id === groups[i].id)
+    && moved.pinned === g.pinned && moved.lastActiveAt === g.lastActiveAt && moved.archived === g.archived;
+  return same ? groups : next;
 }
 
 // design-03 decision 13: typing in Search narrows the panel in place,
@@ -113,12 +144,16 @@ export function visibleThreadIds(
     expandedLists: Record<string, boolean>;
     limit: number;
     isWaiting: (t: Tab) => boolean;
+    // Two threads side by side (splitView.ts): the fold never cuts a split's
+    // two rows apart, here exactly as in the panel itself.
+    splits?: readonly Split[];
   },
 ): string[] {
   const ids: string[] = [];
 
   const foldKey = (key: string, tabs: Tab[]) => {
-    const { shown } = foldThreads(tabs, opts.activeTabId, !!opts.expandedLists[key], opts.limit, opts.isWaiting);
+    const limit = foldLimit(tabs, opts.limit, opts.splits ?? []);
+    const { shown } = foldThreads(tabs, opts.activeTabId, !!opts.expandedLists[key], limit, opts.isWaiting);
     ids.push(...shown.map(t => t.id));
   };
 

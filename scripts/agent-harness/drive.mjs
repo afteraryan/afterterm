@@ -16,6 +16,10 @@
 //                                  and hold it there; --wait pauses after the move (a hover card
 //                                  needs 350ms to appear)
 //   unhover                       move the pointer to (2, 2) of the viewport, off every hover target
+//   cell hover|click|rightclick <row> <col> --tab <id> [--wait <ms>]
+//                                  a real mouse on one 1-based buffer cell of a terminal (find the
+//                                  row with window.__afterterm.findRow); the pointer rests --wait ms
+//                                  (default 300) first, so a file link has time to resolve
 //   drag "<from selector>" [fromIndex] "<to selector>" [toIndex] [--steps N] [--hold-ms N]
 //                                  press at the source centre, step to the target centre
 //                                  (default 12 steps), optional dwell (--hold-ms), then release
@@ -47,7 +51,7 @@
 //   hover-card                    the thread hover card as a tree (or "(no hover card)")
 //   pane                           the asleep pane as a tree (data-tab-id, wake button,
 //                                  since text, past lines), or "(terminal)" plus whether
-//                                  .terminal-instances is hidden when no thread is asleep
+//                                  the main pane (.term-panes) is empty when no thread is asleep
 //   tail [n]                      last n lines (default 30) of the active tab's xterm
 //                                  buffer via window.__afterterm; add --tab <id> for a
 //                                  specific tab instead of the active one
@@ -272,12 +276,14 @@ const SEL = {
     // bottom-right instead of scrolling away with the content.
     scroll: '.asleep-scroll',
   },
-  // Phase 4: the terminal host carries this class while the asleep pane covers it.
-  terminalHidden: '.terminal-instances.asleep-hidden',
+  // The main pane with nothing on screen. Since design-06 (two threads side by
+  // side) an asleep thread's pane sits inside its own column's card instead of
+  // hiding the terminal area, so only "nothing on screen" hides it.
+  terminalHidden: '.term-panes.empty',
 
   // Phase 9: the jump-to-top / jump-to-bottom button (src/renderer/components/
   // JumpButton/index.tsx), floated over either scroller it is mounted in
-  // (the live terminal's .terminal-instances, or the asleep pane's .asleep-scroll).
+  // (the live terminal's .term-card, or the asleep pane's .asleep-scroll).
   jumpButton: '.jump-btn',
 
   // Phase 5: the close confirm shown when closing a thread that owns a listening
@@ -361,6 +367,7 @@ try {
       case 'dom': await cmdDom(args[0]); break;
       case 'click': await cmdClick(args[0], args[1], 'left'); break;
       case 'rightclick': await cmdClick(args[0], args[1], 'right'); break;
+      case 'cell': await cmdCell(args[0], args[1], args[2]); break;
       case 'hover': await cmdHover(args[0], args[1]); break;
       case 'scroll': await cmdScroll(args[0], args[1], args[2]); break;
       case 'wheel-on-jump': await cmdWheelOnJump(args[0]); break;
@@ -486,7 +493,7 @@ async function elementCentre(selector, indexArg) {
   })()`);
   if (rect.x === undefined) fail(`no element at index ${index} for ${selector} (${rect.count} match(es))`);
   if (rect.width === 0 || rect.height === 0) fail(`element ${index} for ${selector} has no size (hidden?)`);
-  return { x: Math.round(rect.x), y: Math.round(rect.y), count: rect.count, index };
+  return { x: Math.round(rect.x), y: Math.round(rect.y), count: rect.count, index, width: rect.width, height: rect.height };
 }
 
 async function cmdClick(selector, indexArg, button) {
@@ -558,6 +565,30 @@ async function cmdHover(selector, indexArg) {
   console.log(`hovered ${selector}[${index}] at (${x}, ${y}) of ${count} match(es)${waitMs ? `, waited ${waitMs}ms` : ''}`);
 }
 
+async function cmdCell(action, rowArg, colArg) {
+  if (!['hover', 'click', 'rightclick'].includes(action)) fail('cell needs hover, click or rightclick');
+  const row = Number(rowArg);
+  const col = Number(colArg);
+  if (!row || !col) fail('cell needs a 1-based row and column');
+  if (!opts.tab) fail('cell needs --tab <id>');
+  const at = await evaluate(cdp, `window.__afterterm.cellCentre(${JSON.stringify(opts.tab)}, ${row}, ${col})`);
+  if (!at) fail(`row ${row} of ${opts.tab} is not on screen`);
+  const x = Math.round(at.x);
+  const y = Math.round(at.y);
+  // From one row above, so xterm's link handling sees the pointer arrive on the cell.
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y: Math.max(0, y - 24), button: 'none' });
+  await sleep(16);
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'none' });
+  await sleep(Number(opts.wait ?? 300));
+  if (action !== 'hover') {
+    const button = action === 'rightclick' ? 'right' : 'left';
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button, clickCount: 1 });
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button, clickCount: 1 });
+    await sleep(50);
+  }
+  console.log(`${action} cell row ${row} col ${col} of ${opts.tab} at (${x}, ${y})`);
+}
+
 async function cmdUnhover() {
   // (2, 2) sits in the title bar strip, which has no hover targets.
   await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 2, y: 2, button: 'none' });
@@ -586,6 +617,11 @@ async function cmdDrag(args) {
   const holdMs = Number(opts['hold-ms'] ?? 0);
   const from = await elementCentre(fromSelector, fromIndex);
   const to = await elementCentre(toSelector, toIndex);
+  // Two threads side by side (design-06): --to-x <fraction> lands at that
+  // fraction of the target's width instead of its centre (0.25 is the left
+  // half, 0.75 the right), and --shot <png> captures the page during the hold,
+  // before the release, so the lit drop zone is in the picture.
+  if (opts['to-x'] !== undefined) to.x = Math.round(to.x - to.width / 2 + to.width * Number(opts['to-x']));
   await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: from.x, y: from.y, button: 'none' });
   await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: from.x, y: from.y, button: 'left', clickCount: 1 });
   // dnd-kit's PointerSensor has a 6px activation distance, so this first move
@@ -598,6 +634,13 @@ async function cmdDrag(args) {
     await sleep(16);
   }
   if (holdMs > 0) await sleep(holdMs);
+  if (opts.shot) {
+    const file = path.resolve(String(opts.shot));
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    const shot = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+    fs.writeFileSync(file, Buffer.from(shot.data, 'base64'));
+    console.log(`held: ${file}`);
+  }
   await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: to.x, y: to.y, button: 'left', clickCount: 1 });
   console.log(`dragged ${fromSelector}[${fromIndex}] (${from.x}, ${from.y}) to ${toSelector}[${toIndex}] (${to.x}, ${to.y}) in ${steps} steps${holdMs ? `, held ${holdMs}ms` : ''}`);
 }
@@ -953,9 +996,13 @@ async function cmdHome() {
     console.log(`    [${p.group}] ${p.name}${pills(p) ? '  ' + pills(p) : ''}${p.time ? '  ' + p.time : ''}`);
   }
   if (data.more) console.log(`    (${data.more})`);
-  console.log('  Archived:');
-  if (data.archivedToggle) console.log(`    (${data.archivedToggle})`);
-  for (const p of data.archivedRows) console.log(`    [${p.group}] ${p.name}${p.time ? '  ' + p.time : ''}`);
+  // Home's Archived section went away on 2026-11-01 (archived projects are rows
+  // in Projects); printed only if a build that still has it is driven.
+  if (data.archivedToggle || data.archivedRows.length) {
+    console.log('  Archived:');
+    if (data.archivedToggle) console.log(`    (${data.archivedToggle})`);
+    for (const p of data.archivedRows) console.log(`    [${p.group}] ${p.name}${p.time ? '  ' + p.time : ''}`);
+  }
 }
 
 async function cmdProject() {

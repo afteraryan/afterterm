@@ -3,8 +3,8 @@
 // rows); buildHeaderMenu is the main pane header's dots button, for the thread
 // already on screen. Neither has an "Open" item: a click on a row already opens
 // its thread, and the header's thread is the open one (Aryan, 2026-09-21).
-// Sleep and wake are here (Phase 4); still no rename, `/rename` in Claude Code
-// is the only rename. Mark as unread/read (Phase 7) is chats only, since a
+// Sleep and wake are here (Phase 4). Rename sits just above Close in both menus
+// (Aryan, 2026-11-06). Mark as unread/read (Phase 7) is chats only, since a
 // shell has no conversation to flag as unlooked-at.
 import { Tab, Group } from './components/TabBar/types';
 import { MenuItem } from './components/Menu';
@@ -16,6 +16,8 @@ import type { EditorInfo } from '../editors';
 export interface ThreadMenuActions {
   moveToGroup: (groupId: string | undefined) => void; // undefined = General (no project)
   close: () => void;
+  // Opens the Rename dialog for this thread.
+  rename: () => void;
   sleep: () => void;
   wake: () => void;
   // Mark as unread / Mark as read (chats only; the builders decide which label
@@ -39,10 +41,14 @@ export interface ThreadMenuActions {
   // primary first. Only the row menu shows these; the header carries its own
   // editor button right beside the dots. Absent (or no editors) leaves them out.
   openInEditor?: { editors: EditorInfo[]; missing: boolean; open: (editorId: string) => void };
+  // Ungroup (design-06): ends the split this thread is in. Only the sidebar
+  // row's menu passes it, and only for a thread in a split; the header's menu
+  // never has it, and nothing in the main pane does it (Aryan, 2026-11-03).
+  ungroup?: () => void;
 }
 
-// The header's dots menu has no editor entries, so it takes no editor action.
-export type HeaderMenuActions = Omit<ThreadMenuActions, 'openInEditor'>;
+// The header's dots menu has no editor entries and no Ungroup.
+export type HeaderMenuActions = Omit<ThreadMenuActions, 'openInEditor' | 'ungroup'>;
 
 function sleepOrWakeItem(tab: Tab, actions: HeaderMenuActions): MenuItem {
   return tab.asleep ? { label: 'Wake', onSelect: actions.wake } : { label: 'Sleep', onSelect: actions.sleep };
@@ -107,6 +113,10 @@ function editorItems(actions: ThreadMenuActions): MenuItem[] {
   }));
 }
 
+function renameItem(actions: HeaderMenuActions): MenuItem {
+  return { label: 'Rename', onSelect: actions.rename };
+}
+
 function closeItem(actions: HeaderMenuActions): MenuItem {
   return { label: 'Close', danger: true, onSelect: actions.close };
 }
@@ -121,6 +131,8 @@ export function buildThreadMenu(tab: Tab, groups: Group[], actions: ThreadMenuAc
     ...projectPageItems(tab, actions),
     ...explorerItems(actions),
     ...editorItems(actions),
+    ...(actions.ungroup ? [{ label: 'Ungroup', onSelect: actions.ungroup }] : []),
+    renameItem(actions),
     closeItem(actions),
   ];
 }
@@ -135,6 +147,7 @@ export function buildHeaderMenu(tab: Tab, groups: Group[], actions: HeaderMenuAc
     ...localhostItems(tab, actions),
     ...projectPageItems(tab, actions),
     ...explorerItems(actions),
+    renameItem(actions),
     closeItem(actions),
   ];
 }

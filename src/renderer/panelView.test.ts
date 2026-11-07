@@ -3,8 +3,8 @@
 //   node src/renderer/panelView.test.ts
 // Exits 0 if all pass, 1 on any failure.
 
-import { computeSegments } from './sidebarWalk.ts';
-import { panelSections, filterPanel, visibleThreadIds, cycleThreadId, revealScrollTop } from './panelView.ts';
+
+import { panelSections, placeProject, filterPanel, visibleThreadIds, cycleThreadId, revealScrollTop } from './panelView.ts';
 import type { PanelSections } from './panelView.ts';
 import type { Tab, Group, TabNotification } from './components/TabBar/types.ts';
 
@@ -43,24 +43,23 @@ console.log('\npanelView: panelSections\n');
     tab('t3', { groupId: 'G3', asleep: true }),
     tab('t4', { groupId: 'G4' }),
   ];
-  const segments = computeSegments(tabs, [g1, g2, g3, g4]);
-  const sections = panelSections(segments, NOW);
+  const sections = panelSections(tabs, [g1, g2, g3, g4], NOW);
 
   check('general holds the loose tab', sections.general.map(t => t.id).join(',') === 't0', show(sections.general));
   check('pinned holds G1 with its tab', sections.pinned.length === 1 && sections.pinned[0].group.id === 'G1'
     && sections.pinned[0].tabs.map(t => t.id).join(',') === 't1');
   check('recent holds G2', sections.recent.length === 1 && sections.recent[0].group.id === 'G2');
-  check('other holds the stale G3', sections.other.length === 1 && sections.other[0].group.id === 'G3');
-  check('archived G4 appears in no list', ![...sections.pinned, ...sections.recent, ...sections.other]
-    .some(e => e.group.id === 'G4'));
+  check('other holds the stale G3 first', sections.other[0]?.group.id === 'G3');
+  check('archived G4 is in Other, after the stale G3, and nowhere else (2026-11-01)',
+    sections.other.map(e => e.group.id).join(',') === 'G3,G4'
+    && ![...sections.pinned, ...sections.recent].some(e => e.group.id === 'G4'), show(sections.other.map(e => e.group.id)));
   check('a pinned project never appears in recent or other',
     !sections.recent.some(e => e.group.id === 'G1') && !sections.other.some(e => e.group.id === 'G1'));
 }
 {
   // A group with zero tabs still gets an entry with an empty tabs array.
   const g = group('EMPTY', { lastActiveAt: NOW });
-  const segments = computeSegments([], [g]);
-  const sections = panelSections(segments, NOW);
+  const sections = panelSections([], [g], NOW);
   check('an empty project still appears with an empty tabs list',
     sections.recent.length === 1 && sections.recent[0].tabs.length === 0);
 }
@@ -69,20 +68,63 @@ console.log('\npanelView: panelSections\n');
   const gA = group('A', { pinned: true, lastActiveAt: NOW - 5 * DAY });
   const gB = group('B', { pinned: true, lastActiveAt: NOW });
   const tabs = [tab('ta', { groupId: 'A' }), tab('tb', { groupId: 'B' })];
-  const segments = computeSegments(tabs, [gA, gB]);
-  const sections = panelSections(segments, NOW);
+  const sections = panelSections(tabs, [gA, gB], NOW);
   check('pinned keeps walk order regardless of activity',
     sections.pinned.map(e => e.group.id).join(',') === 'A,B');
 }
 {
-  // Recent is sorted by lastActiveAt descending, even though the walk order differs.
+  // Recent keeps the saved project order (2026-11-01), not activity order and not tab order.
   const gA = group('A', { lastActiveAt: NOW - DAY });
   const gB = group('B', { lastActiveAt: NOW });
-  const tabs = [tab('ta', { groupId: 'A' }), tab('tb', { groupId: 'B' })];
-  const segments = computeSegments(tabs, [gA, gB]);
-  const sections = panelSections(segments, NOW);
-  check('recent sorts by lastActiveAt descending',
-    sections.recent.map(e => e.group.id).join(',') === 'B,A', show(sections.recent.map(e => e.group.id)));
+  const tabs = [tab('tb', { groupId: 'B' }), tab('ta', { groupId: 'A' })];
+  const sections = panelSections(tabs, [gA, gB], NOW);
+  check('recent keeps the saved project order',
+    sections.recent.map(e => e.group.id).join(',') === 'A,B', show(sections.recent.map(e => e.group.id)));
+  const pinned = panelSections(tabs, [group('P', { pinned: true }), group('Q', { pinned: true })], NOW);
+  check('pinned keeps the saved project order too, even with no threads',
+    pinned.pinned.map(e => e.group.id).join(',') === 'P,Q');
+}
+{
+  // A thread whose project no longer exists is listed in General.
+  const sections = panelSections([tab('t', { groupId: 'GONE' })], [], NOW);
+  check('a thread naming a missing project is in General', sections.general.map(t => t.id).join(',') === 't');
+}
+
+console.log('\npanelView: placeProject (dragging a project)\n');
+{
+  const ids = (gs: Group[]) => gs.map(g => g.id).join(',');
+  const pin = (gs: Group[]) => gs.filter(g => g.pinned).map(g => g.id).join(',');
+  const base = [
+    group('P1', { pinned: true, lastActiveAt: NOW }),
+    group('P2', { pinned: true, lastActiveAt: NOW }),
+    group('R1', { lastActiveAt: NOW }),
+    group('R2', { lastActiveAt: NOW }),
+    group('R3', { lastActiveAt: NOW }),
+  ];
+  const recentOf = (gs: Group[]) => panelSections([], gs, NOW).recent.map(e => e.group.id).join(',');
+
+  check('a project dragged above the first in Recent goes first', recentOf(placeProject(base, [], NOW, 'R3', 'recent', 'R1')) === 'R3,R1,R2');
+  check('a project dragged to the end of Recent goes last', recentOf(placeProject(base, [], NOW, 'R1', 'recent', null)) === 'R2,R3,R1');
+  check('reordering inside Pinned', pin(placeProject(base, [], NOW, 'P2', 'pinned', 'P1')) === 'P2,P1');
+  {
+    const next = placeProject(base, [], NOW, 'R2', 'pinned', 'P2');
+    check('dropping a Recent project into Pinned pins it there', pin(next) === 'P1,R2,P2', ids(next));
+    check('and it leaves Recent', recentOf(next) === 'R1,R3');
+  }
+  {
+    const next = placeProject(base, [], NOW, 'P1', 'recent', 'R2');
+    check('dragging a pinned project into Recent unpins it there', recentOf(next) === 'R1,P1,R2,R3' && pin(next) === 'P2', ids(next));
+  }
+  check('dropping where it already is changes nothing', placeProject(base, [], NOW, 'R1', 'recent', 'R2') === base);
+  check('dropping before itself changes nothing', placeProject(base, [], NOW, 'R1', 'recent', 'R1') === base);
+  check('the last one dropped at the end changes nothing', placeProject(base, [], NOW, 'R3', 'recent', null) === base);
+  {
+    // A quiet, asleep pinned project dragged into Recent stays in Recent (its activity is stamped).
+    const quiet = [group('Q', { pinned: true, lastActiveAt: NOW - 30 * DAY }), group('R', { lastActiveAt: NOW })];
+    const next = placeProject(quiet, [tab('t', { groupId: 'Q', asleep: true })], NOW, 'Q', 'recent', 'R');
+    check('a quiet project dropped into Recent stays in Recent', recentOf(next) === 'Q,R', ids(next));
+  }
+  check('an unknown project changes nothing', placeProject(base, [], NOW, 'NOPE', 'recent', null) === base);
 }
 
 console.log('\npanelView: filterPanel\n');
@@ -95,8 +137,7 @@ console.log('\npanelView: filterPanel\n');
     tab('t2', { groupId: 'afterterm', title: 'npm start' }),
     tab('t3', { groupId: 'aftertales', title: 'cmd.exe' }),
   ];
-  const segments = computeSegments(tabs, [g1, g2]);
-  const sections = panelSections(segments, NOW);
+  const sections = panelSections(tabs, [g1, g2], NOW);
 
   {
     const r = filterPanel(sections, '', nameOf);
@@ -152,8 +193,7 @@ console.log('\npanelView: visibleThreadIds\n');
       tab('p0', { groupId: 'P' }), tab('p1', { groupId: 'P' }),
       tab('r0', { groupId: 'R' }),
     ];
-    const segments = computeSegments(tabs, [g1, g2]);
-    const sections = panelSections(segments, NOW);
+    const sections = panelSections(tabs, [g1, g2], NOW);
     const ids = visibleThreadIds(sections, {
       activeTabId: '', expandedLists: {}, limit: 5, isWaiting: isWaitingByNotification,
     });
@@ -164,8 +204,7 @@ console.log('\npanelView: visibleThreadIds\n');
     // A collapsed project contributes nothing.
     const g1 = group('P', { pinned: true, collapsed: true, lastActiveAt: NOW });
     const tabs = [tab('p0', { groupId: 'P' })];
-    const segments = computeSegments(tabs, [g1]);
-    const sections = panelSections(segments, NOW);
+    const sections = panelSections(tabs, [g1], NOW);
     const ids = visibleThreadIds(sections, {
       activeTabId: '', expandedLists: {}, limit: 5, isWaiting: isWaitingByNotification,
     });
@@ -175,8 +214,7 @@ console.log('\npanelView: visibleThreadIds\n');
     // The five-row fold hides rows past the limit, unless one is waiting.
     const many = Array.from({ length: 7 }, (_, i) => tab(`t${i}`, { groupId: 'R' }));
     const g = group('R', { lastActiveAt: NOW });
-    const segments = computeSegments(many, [g]);
-    const sections = panelSections(segments, NOW);
+    const sections = panelSections(many, [g], NOW);
     const ids = visibleThreadIds(sections, {
       activeTabId: '', expandedLists: {}, limit: 5, isWaiting: isWaitingByNotification,
     });
@@ -188,8 +226,7 @@ console.log('\npanelView: visibleThreadIds\n');
     const many = Array.from({ length: 7 }, (_, i) =>
       tab(`t${i}`, { groupId: 'R', notification: (i === 6 ? 'attention' : undefined) as TabNotification | undefined }));
     const g = group('R', { lastActiveAt: NOW });
-    const segments = computeSegments(many, [g]);
-    const sections = panelSections(segments, NOW);
+    const sections = panelSections(many, [g], NOW);
     const ids = visibleThreadIds(sections, {
       activeTabId: '', expandedLists: {}, limit: 5, isWaiting: isWaitingByNotification,
     });
@@ -200,8 +237,7 @@ console.log('\npanelView: visibleThreadIds\n');
     // Other never contributes rows, even with tabs sitting behind it.
     const g = group('O', { lastActiveAt: NOW - 30 * DAY });
     const tabs = [tab('o0', { groupId: 'O', asleep: true })];
-    const segments = computeSegments(tabs, [g]);
-    const sections = panelSections(segments, NOW);
+    const sections = panelSections(tabs, [g], NOW);
     const ids = visibleThreadIds(sections, {
       activeTabId: '', expandedLists: {}, limit: 5, isWaiting: isWaitingByNotification,
     });
@@ -212,8 +248,7 @@ console.log('\npanelView: visibleThreadIds\n');
     const g1 = group('P1', { pinned: true, lastActiveAt: NOW });
     const g2 = group('P2', { pinned: true, lastActiveAt: NOW });
     const tabs = [tab('a0', { groupId: 'P1' }), tab('a1', { groupId: 'P1' }), tab('b0', { groupId: 'P2' })];
-    const segments = computeSegments(tabs, [g1, g2]);
-    const sections = panelSections(segments, NOW);
+    const sections = panelSections(tabs, [g1, g2], NOW);
     const ids = visibleThreadIds(sections, {
       activeTabId: '', expandedLists: {}, limit: 5, isWaiting: isWaitingByNotification,
     });

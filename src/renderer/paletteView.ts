@@ -48,7 +48,6 @@ export function paletteResults(groups: Group[], tabs: Tab[], query: string): Pal
   const groupById = new Map(groups.map(g => [g.id, g]));
 
   const projects = groups
-    .filter(g => !g.archived)
     .filter(g => g.label.toLowerCase().includes(q))
     .sort((a, b) => {
       const byRank = rankMatch(a.label, q) - rankMatch(b.label, q);
@@ -60,7 +59,7 @@ export function paletteResults(groups: Group[], tabs: Tab[], query: string): Pal
     .filter(t => {
       if (t.groupId) {
         const owner = groupById.get(t.groupId);
-        if (!owner || owner.archived) return false;
+        if (!owner) return false;
       }
       return threadName(t).toLowerCase().includes(q);
     })
@@ -71,12 +70,11 @@ export function paletteResults(groups: Group[], tabs: Tab[], query: string): Pal
       return b.tab.lastActiveAt - a.tab.lastActiveAt;
     });
 
-  // Every non-archived group's history, filtered by title, ranked the same way
+  // Every group's history (archived ones too), filtered by title, ranked the same way
   // as threads and projects (prefix match first) but tiebroken by closedAt
   // rather than lastActiveAt: a history row has no activity of its own once
   // closed, only when it was closed.
   const history = groups
-    .filter(g => !g.archived)
     .flatMap(g => g.history.filter(e => historyTitleMatches(e, q)).map(entry => ({ entry, group: g })))
     .sort((a, b) => {
       const byRank = rankMatch(a.entry.title, q) - rankMatch(b.entry.title, q);

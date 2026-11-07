@@ -1,5 +1,7 @@
 # afterterm: fixed bugs
 
+**Frozen on 2026-11-07. A fix is now recorded on its Linear issue and in `CHANGELOG.md`;** see "All work is tracked in Linear" in [`../CLAUDE.md`](../CLAUDE.md). Everything below describes how the file worked until then.
+
 Every bug that has been fixed, newest first, one entry each. Open bugs live in [`bugs.md`](bugs.md); when one is fixed, its entry is deleted there and a short entry is added here in the same change, saying what was wrong, what the fix does and where it landed. The full detail (cause, what was tried, how it was checked) stays where it always was: the dated Log in [`phases-01-projects-and-threads.md`](phases-01-projects-and-threads.md), the `docs/features-*.md` file for that area, and git history. What changed for the person using the app is also in [`../CHANGELOG.md`](../CHANGELOG.md).
 
 Entries before 2026-09-25 were written from the git history of `bugs.md` and `docs/phases-01-projects-and-threads.md`. Fixes Aryan asked for while using a build, without a `bugs.md` entry first, are listed too and marked "reported in conversation".
@@ -7,6 +9,118 @@ Entries before 2026-09-25 were written from the git history of `bugs.md` and `do
 Format: the bug as it was titled, the date it was fixed, the PR or commit, then one or two sentences on the fix.
 
 ---
+
+## Fixed on 2026-11-06
+
+### The New and Edit project dialog is too bulky
+
+Fixed in PR #71. The dialog went from about 745px tall to 315px. Colours and icons moved into a pop-up behind a larger icon that previews them live, the name went above the folder, the shell list became a dropdown and the "Default shell" option went. The same change added a colour wheel, white and a set of ten colour circles, which Aryan first said he probably would not build and then asked for.
+
+### Threads cannot be renamed and the project right-click menu has no Rename item
+
+Fixed in PR #71. Rename is just above Close in the thread menus and just above Delete project in the project menu, through one dialog. A name given to a thread stays until Rename is saved empty, even over Claude Code's own title changes.
+
+### Clicking a file link in the terminal should open the file in its default app, and right-clicking it should offer Open file location
+
+A click now opens video, audio, images, web pages, PDFs, Office documents, text files, archives and fonts in the app Windows uses for them. Code and markdown stay in the editor, because Windows would run a `.js`, `.py` or `.bat` file and on Aryan's machine plays a `.ts` file in VLC, and a path with a line number always goes to the editor. PR #70.
+
+### With no editor detected, clicking a link to a script ran it
+
+Found while checking Aryan's rule on 2026-11-06: "They should not run. They should always open." When no editor was detected, a file link or a Files list row sent the file to Windows' default app, which for a `.bat`, `.js` or `.py` file means running it. Nothing that afterterm opens can run now: the one function that hands a file to Windows refuses anything not on the safe list (`isSafeForDefaultApp` in `session-files.ts`, checked in `openWithDefaultApp` in `main.ts`), and with no editor a code file opens in Notepad. PR #70.
+
+### MP4 and HTML file links in a chat's terminal output open in VS Code instead of their own apps
+
+The same change: an MP4 opens in the video player and an HTML file in the browser. An HTML path with a line number (`page.html:42`) still opens in VS Code at that line. PR #70.
+
+### Right-clicking a file path link in the terminal has no menu to open it, open its folder or copy its full path
+
+A right-click on a file link shows Open, Open file location and Copy file path, which copies the full path whatever the terminal shows; a folder link says "folder" instead of "file". Right-click off a link still pastes, and a selection is still copied first. While the menu is up no key reaches the shell, so an Esc to close it cannot interrupt Claude Code. PR #70.
+
+### The [Image #N] tags in a chat's terminal output do not open the image on click
+
+A tag is now a link: a click opens the image that was pasted, a tag wrapped across two rows links whole, and right-click has the same menu. If a number was used twice in one chat, the tag opens the newest and a note says so. The hover preview in the same request is not built: Aryan put it off, and it stays in `bugs.md`. PR #70.
+
+### A path with spaces links in a Write line but not in the "Wrote N lines to" line below it, and a path written from the worktree's top in a reply does not link
+
+Fixed on 2026-09-30 in PR #49, released in 0.9.0. Retested on 2026-11-06 on the exact three paths in Aryan's real Revy worktree: all three link and open the right file. The retest found the case below.
+
+### A Write line whose path has spaces stops being a link when the path wraps onto a second row
+
+Found while retesting the entry above, and made likelier by split view's narrower panes. A tool line's path was treated as keeping its spaces even after it wrapped, so the part on the next row was cut at its first space and nothing matched. It now links from either row. PR #70.
+
+### The newest image pasted under a reused number opened the older image
+
+Found while testing the image tags. The decoded copy of a pasted image was named by its number alone, so a later paste with that number was handed the file an earlier one had left. Each paste now has its own file. This also corrects the Files button's list. PR #70.
+
+## Fixed on 2026-11-01
+
+### Updating installed an in-between version when a newer one was already out
+
+Reported in conversation (Aryan, updating his installed 0.11.1 an hour after 0.12.0 was published: it went to 0.11.2). Checks run 10 seconds after launch and every 6 hours, and Update downloaded the release from the last check. Update now asks GitHub again first and downloads the newest release (`releaseToDownload` in `update-check.ts`, used by `download` in `updater.ts`); Restart to update is unchanged. PR #66.
+
+All five closed by one piece of work, the sidebar's order, drag and drop, and Archive (decided with Aryan on 2026-11-01, built to `docs/mockups/sidebar-drag-and-drop.html` and `docs/mockups/sidebar-archive-with-awake-threads.html`), PR #64. The record is in `docs/features-attention-and-sidebar.md`, "The panel's order, drag and drop, and Archive".
+
+### Projects in the panel's Recent group swap places whenever a thread in another project is used
+
+Recent was sorted by last activity. It now keeps the saved project order (`panelLists` in `attention.ts`): a project that comes into Recent goes to the top and then stays where it is, and using a thread, typing, a notification or a wake moves nothing. The order is saved in `session.json` (version 3; an older file keeps the order its panel showed).
+
+### Opening a chat from another project moves that project to the top of Recent in the sidebar, without typing anything and without an animation
+
+The same fix: opening a chat no longer moves its project. A project that does come into Recent (opened from Home, the drawer or the palette, or one of its threads woken) opens in place at the top while the rows below slide down.
+
+### Drag and drop in the sidebar: projects cannot be reordered, dragging to Pinned does not pin, no indicator for a drop at the top, hovered projects highlight during a project drag, and a thread cannot be dragged out of every project
+
+The panel's drag was rebuilt without dnd-kit (`SidePanel/usePanelDrag.ts`). Projects reorder inside Pinned and Recent, a drop into Pinned pins and a drop into Recent unpins (with a toast), a line shows where a row lands (above the first one too), nothing highlights under a dragged project, and a thread dropped on or above the Pinned heading goes into General. The old dwell-to-make-a-project gesture on two General threads went with dnd-kit.
+
+### Archiving a project from the sidebar hides it everywhere except Home, instead of moving it into Other projects
+
+Archive now moves the project to the top of the Other projects drawer. With awake threads it first asks in a window listing them, then puts them to sleep one after the other before the project folds away; "Moved to Other projects" says where it went. Opening it, waking one of its threads or Restore brings it back to the top of Recent. Home's Archived section is gone: archived projects are rows in Projects.
+
+### The search palette (Ctrl+Shift+P) does not list archived projects
+
+Resolved by the Archive change: an archived project is an ordinary project in Other projects, so the palette lists it, its threads and its history like any other, and opening one brings the project back.
+
+## Fixed on 2026-10-31
+
+### The update window's progress bar went from 97% back to about 30%
+
+Reported in conversation (Aryan, the first real update, 0.11.0 to 0.11.1). Setup's bar follows the bytes in the install folder, which starts out full during an update or a reinstall; the engine then moves the old version out, the folder empties and the bar fell with it. The folder's bytes now count only after it has been seen nearly empty, and the bar never moves backwards (`RunInstall` in `installer/setup/Setup.cs`).
+
+Found in the automatic-updates Phase 3 test (installing the test build for real), PR #58.
+
+### Setup did not find an earlier install, so reinstalling into a folder you had chosen offered the default folder again
+
+Setup looked for the earlier install's folder (`InstallLocation`) in its Settings > Apps entry, but electron-builder's engine writes it to `HKCU\Software\<the same key name>` instead, so it was never found. Setup (`ExistingInstallFolder`) and the updater's installed-copy check (`installFolder` in `src/update-check.ts`) now read it there, with the uninstaller's folder as the fallback. Without the fix no installed copy would ever have updated itself.
+
+## Fixed on 2026-10-30
+
+### Launching afterterm while it is open starts a second copy
+
+Reported in conversation (Aryan, after moving to 0.10.0: his old taskbar pin, from before the app id, opened a second 0.10.0 window). There was no single-instance lock, so a second launch ran a full second app on the same `session.json`, and whichever saved last overwrote the other. `main.ts` now takes Electron's single-instance lock, which is keyed to the data folder: a second launch brings the open window forward and exits, while a harness run or the "afterterm (test)" build, each with its own folder, still runs beside it. The installer's `--setup-check` and `--open-issue` runs take no lock. Checked on the packaged build: a second launch on the same folder exited with code 0, a launch on another folder ran alongside.
+
+## Fixed on 2026-10-29
+
+All reported in conversation, from Yogansh's session with 0.9.0 (Wispr Flow, 29 Oct), on the `worktree-installer` branch.
+
+### A chat does not come back after Sleep and Wake (Yogansh's laptop)
+
+afterterm registered its Claude Code hook as `powershell -NoProfile -File <script>`. Windows PowerShell's default execution policy on a home PC is Restricted, which refuses every `.ps1`, so the hook never ran, no session id was saved, and Wake opened a plain shell. Confirmed on his machine with a diagnosis prompt. The hook now runs with `-ExecutionPolicy Bypass`, entries written by 0.9.x are rewritten in place on every start (`claude-hook-install.ts`), and the installer's setup check (`setup-check.ts`) tests the hook as Claude Code runs it, switching to running the script's text when even Bypass is overridden.
+
+### A chat opened with /resume and left without a message is lost on Sleep
+
+The hook saved a chat only on UserPromptSubmit and Stop. It now also saves on SessionStart with source "resume" when the session's transcript exists, which keeps Claude Code's throwaway spare sessions out (`afterterm-notify.ps1`).
+
+### afterterm freezes, mouse included, for seconds after it starts
+
+Editor detection ran `where code` and four `reg query /s` scans synchronously on the main thread (3.4 s on Aryan's PC), and the toast overlay held a system-wide mouse hook answered on that thread from launch. Detection is now asynchronous and its result saved between launches, shell detection reads PATH instead of starting `where.exe`, and the mouse hook is installed only while a toast is on screen. The worst main-thread stall in the first 15 s went from 3,416 ms to 206 ms (`AFTERTERM_LAG_PROBE=1`).
+
+### A General thread opens on first launch
+
+An empty session got a new thread, and so did closing the last one. Now nothing starts: a fresh install opens on Home, closing the last thread goes to Home, and a session with projects but no threads is saved and restored (it used to be dropped).
+
+### The sidebar's Recent heading shows with nothing under it
+
+It stayed to hold the New project plus. It now shows only over projects; the plus moves to Pinned's heading, or to a New project row when there are no projects.
 
 ## Fixed on 2026-09-30
 

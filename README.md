@@ -69,7 +69,11 @@ afterterm is designed for the workflow of running many [Claude Code](https://www
 
 ## Install
 
-Grab the latest self-extracting installer from the [Releases](https://github.com/afteraryan/afterterm/releases) page and double-click it. No unzip tool needed.
+Download `afterterm-<version>-setup.exe` from the latest release on the [Releases](https://github.com/afteraryan/afterterm/releases) page and run it. It installs for you alone, with no admin prompt.
+
+The installer is not code-signed yet, so Windows may show "Windows protected your PC": click **More info**, then **Run anyway**.
+
+Once installed, afterterm updates itself: when a new version is out, an **Update available** button appears beside the version number. Your projects and threads stay in `%APPDATA%\afterterm`, so updating or reinstalling keeps them.
 
 > Windows only. Built and tested on Windows 11.
 

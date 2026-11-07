@@ -11,13 +11,19 @@
 
 import type { Tab, Group, HistoryEntry } from './components/TabBar/types';
 import { isProjectIconId } from './components/TabBar/types.ts';
+import { computeSegments } from './sidebarWalk.ts';
+import { restoreSplits } from './splitView.ts';
+import type { Split } from './splitView.ts';
 
 // Bump when a saved file needs a shape change a plain "fill defaults" pass cannot
 // express. A file with no version field is treated as version 1 (release 0.8.1).
 // Phase 4 (sleptAt, history) and Phase 5 (port, lastCommand) are still
 // fill-defaults passes, same as Phase 2 and 3 before them, so the version
-// stays 2.
-export const SESSION_FORMAT_VERSION = 2;
+// stayed 2. Version 3 (2026-11-01): the order of `groups` is the panel's
+// project order. Before it, Pinned followed the tab walk and Recent was sorted
+// by activity, so a version 2 file is reordered once on load to the order its
+// panel showed (legacyProjectOrder below).
+export const SESSION_FORMAT_VERSION = 3;
 
 // A tab as written to disk: the in-memory Tab minus the fields that describe a
 // live process, which are meaningless after a relaunch (each tab is a fresh shell).
@@ -37,13 +43,26 @@ export interface SavedSession {
   // hand-built object (a test, a future caller) need not supply it;
   // migrateSession always fills it in as at least {}.
   ui?: { panelHidden?: boolean };
+  // Automatic updates (design-05): the ids of the threads that were awake when
+  // afterterm closed to install an update. Written only by that quit, read and
+  // dropped on the next launch, which wakes them when the update went in. A
+  // normal quit never writes it, so a normal relaunch keeps every thread asleep.
+  wakeAfterUpdate?: string[];
+  // Two threads side by side (design-06): each split's pair, which side each
+  // thread is on (a left, b right) and the divider position. Written only when
+  // there is at least one, so a session without any keeps its old shape (and a
+  // build from before splits simply ignores the key, losing nothing else). On
+  // load a split whose thread is gone, or whose two threads are in different
+  // projects, is dropped (splitView.ts, restoreSplits). Both threads come back
+  // asleep like every restored thread.
+  splits?: Split[];
 }
 
 // The only tab keys that ever reach disk. Anything else on a Tab is transient.
 const PERSISTED_TAB_KEYS = [
   'id', 'title', 'groupId', 'shellId', 'cwd', 'fontSize',
   'claudeSessionId', 'claudeCwd', 'lastActiveAt', 'asleep', 'sleptAt',
-  'model', 'branch', 'worktree', 'claudeTitle', 'port', 'lastCommand', 'unread',
+  'model', 'branch', 'worktree', 'claudeTitle', 'customName', 'port', 'lastCommand', 'unread',
 ] as const;
 
 // Fields that describe a running process or a value re-derived on every launch,
@@ -146,6 +165,7 @@ function asHistoryEntry(v: unknown): HistoryEntry | null {
   const entry: HistoryEntry = { id: v.id, title: v.title, kind: v.kind, closedAt: v.closedAt };
   if (typeof v.sessionId === 'string') entry.sessionId = v.sessionId;
   if (typeof v.cwd === 'string') entry.cwd = v.cwd;
+  if (typeof v.customName === 'string' && v.customName) entry.customName = v.customName;
   return entry;
 }
 
@@ -177,6 +197,7 @@ export function migrateSession(raw: unknown, now: number): SavedSession | null {
     setOptionalString(tab, 'branch', t.branch);
     setOptionalString(tab, 'worktree', t.worktree);
     setOptionalString(tab, 'claudeTitle', t.claudeTitle);
+    setOptionalString(tab, 'customName', t.customName);
     setOptionalPort(tab, 'port', t.port);
     setOptionalString(tab, 'lastCommand', t.lastCommand);
     setUnreadFlag(tab, t.unread);
@@ -200,13 +221,45 @@ export function migrateSession(raw: unknown, now: number): SavedSession | null {
     return group as unknown as Group;
   });
 
+  const version = typeof raw.version === 'number' ? raw.version : 1;
+  const ordered = version < 3 ? legacyProjectOrder(groups, tabs) : groups;
+  // Splits are checked against the threads and projects just validated, and a
+  // split's two threads are put next to each other if a file had them apart.
+  const restored = restoreSplits(raw.splits, tabs, groups);
+
   // An active id that points at nothing (dropped entry, hand edit) is as good as
   // none: restoreSession then falls back to the first tab instead of a blank view.
   const activeTabId = typeof raw.activeTabId === 'string' && tabs.some(t => t.id === raw.activeTabId)
     ? raw.activeTabId
     : '';
 
-  return { version: SESSION_FORMAT_VERSION, tabs, groups, activeTabId, ui: asUi(raw.ui) };
+  const session: SavedSession = { version: SESSION_FORMAT_VERSION, tabs: restored.tabs, groups: ordered, activeTabId, ui: asUi(raw.ui) };
+  const wake = asWakeList(raw.wakeAfterUpdate, tabs);
+  if (wake.length) session.wakeAfterUpdate = wake;
+  if (restored.splits.length) session.splits = restored.splits;
+  return session;
+}
+
+// The project order a version 2 file's panel showed, as the saved order from
+// now on: the pinned projects in tab-walk order (computeSegments, how Pinned
+// was ordered), then every other project newest activity first (how Recent was
+// sorted; Other was an overflow list with no order of its own). Stable, so
+// projects with the same activity keep their walk order.
+export function legacyProjectOrder<G extends Group>(groups: G[], tabs: Pick<Tab, 'id' | 'groupId'>[]): G[] {
+  const walk = computeSegments(tabs as Tab[], groups)
+    .filter((s): s is Extract<typeof s, { type: 'group' }> => s.type === 'group')
+    .map(s => s.group as G);
+  const pinned = walk.filter(g => g.pinned && !g.archived);
+  const rest = walk.filter(g => !(g.pinned && !g.archived)).sort((a, b) => b.lastActiveAt - a.lastActiveAt);
+  return [...pinned, ...rest];
+}
+
+// Only ids of threads that are still in the file, once each, and only strings:
+// anything else could not be woken anyway.
+function asWakeList(v: unknown, tabs: SavedTab[]): string[] {
+  if (!Array.isArray(v)) return [];
+  const ids = new Set(tabs.map(t => t.id));
+  return [...new Set(v.filter((id): id is string => typeof id === 'string' && ids.has(id)))];
 }
 
 /**
@@ -214,14 +267,19 @@ export function migrateSession(raw: unknown, now: number): SavedSession | null {
  * keys; groups carry no transient state and are written whole. `ui` defaults to
  * {} so an existing call site (three arguments, from before Phase 8) still
  * writes a valid, empty `ui` object rather than omitting the key.
+ * `wakeAfterUpdate` is written only when the quit is an update restart and
+ * something was awake; every other save leaves the key out. `splits` likewise
+ * only when there is one.
  */
 export function serializeSession(
   tabs: Tab[],
   groups: Group[],
   activeTabId: string,
   ui: { panelHidden?: boolean } = {},
+  wakeAfterUpdate?: string[],
+  splits?: Split[],
 ): SavedSession {
-  return {
+  const session: SavedSession = {
     version: SESSION_FORMAT_VERSION,
     tabs: tabs.map(t => {
       const saved: Record<string, unknown> = {};
@@ -237,4 +295,7 @@ export function serializeSession(
     activeTabId,
     ui,
   };
+  if (wakeAfterUpdate && wakeAfterUpdate.length) session.wakeAfterUpdate = [...wakeAfterUpdate];
+  if (splits && splits.length) session.splits = splits.map(s => ({ id: s.id, a: s.a, b: s.b, ratio: s.ratio }));
+  return session;
 }

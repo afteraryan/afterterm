@@ -66,6 +66,37 @@ export function insertNewThread<T extends Pick<Tab, 'groupId'>>(tabs: T[], tab: 
   return next;
 }
 
+// A thread dropped in the panel (docs/mockups/sidebar-drag-and-drop.html): into
+// project `groupId` (undefined is General), just above thread `beforeId`, or
+// after that list's last thread when `beforeId` is null (a project with no
+// threads yet, or General with none, gets it at the end of the tab list).
+// Nothing else moves: the other threads keep their order. Returns the same
+// array when the thread would land where it already is.
+export function placeThread<T extends Pick<Tab, 'id' | 'groupId'>>(
+  tabs: T[],
+  tabId: string,
+  groupId: string | undefined,
+  beforeId: string | null,
+): T[] {
+  const tab = tabs.find(t => t.id === tabId);
+  if (!tab || beforeId === tabId) return tabs;
+  const moved = { ...tab, groupId } as T;
+  if (groupId === undefined) delete (moved as Partial<T>).groupId;
+  const rest = tabs.filter(t => t.id !== tabId);
+  let at: number;
+  if (beforeId !== null && rest.some(t => t.id === beforeId)) {
+    at = rest.findIndex(t => t.id === beforeId);
+  } else {
+    let last = -1;
+    rest.forEach((t, i) => { if ((t.groupId ?? undefined) === groupId) last = i; });
+    at = last === -1 ? rest.length : last + 1;
+  }
+  const next = [...rest];
+  next.splice(at, 0, moved);
+  const same = next.every((t, i) => t.id === tabs[i].id) && (tab.groupId ?? undefined) === groupId;
+  return same ? tabs : next;
+}
+
 // What a thread's own Open in File Explorer and Open in <editor> act on (the
 // thread menu, the header's editor button): threadFolder, and whether main has
 // checked it and found it gone. Only an explicit false in `folderExists` counts
@@ -143,6 +174,18 @@ export function stateBreathes(state: ThreadState): boolean {
 // richer wording used wherever the port is known.
 export function runningLabel(port: number): string {
   return `Running on :${port}`;
+}
+
+// The header chip's words (design-06, decided 2026-11-03 for every header,
+// split or not): a working chat's chip is the spinner alone, no word; a running
+// server's is the play icon and the port alone (":5173"). The other states keep
+// their words ("Needs you", "Done"; the asleep chip's "Asleep · 2d" is
+// asleepLabel in sleepWake.ts). `tip` is what the chip says on hover when it
+// has no word of its own.
+export function chipText(state: ThreadState, port?: number): { text: string; tip?: string } {
+  if (state === 'working') return { text: '', tip: stateLabel('working') };
+  if (state === 'running' && port !== undefined) return { text: `:${port}`, tip: stateLabel('running') };
+  return { text: stateLabel(state) };
 }
 
 // The hover card's Status row (Aryan, 2026-09-25): the state word the sidebar
@@ -248,10 +291,12 @@ export function displayTitle(title: string): string {
 // server, so a shell with a captured port and a non-empty lastCommand is named
 // by that command instead. Whether the thread is asleep or awake makes no
 // difference, since the port persists through sleep and is itself what marks
-// the shell as a server. Decided by Aryan on 2026-09-07.
+// the shell as a server. Decided by Aryan on 2026-09-07. A name given with Rename
+// comes before all of that, on chats and shells alike (Aryan, 2026-11-06).
 export function threadName(
-  tab: Pick<Tab, 'title' | 'claudeSessionId' | 'claudeTitle' | 'firstPrompt' | 'port' | 'lastCommand'>,
+  tab: Pick<Tab, 'title' | 'customName' | 'claudeSessionId' | 'claudeTitle' | 'firstPrompt' | 'port' | 'lastCommand'>,
 ): string {
+  if (tab.customName) return tab.customName;
   if (tab.claudeSessionId) {
     if (tab.claudeTitle) return tab.claudeTitle;
     const summary = claudeSummaryTitle(tab.title);
@@ -263,6 +308,20 @@ export function threadName(
     return tab.lastCommand;
   }
   return displayTitle(tab.title);
+}
+
+// The name a thread goes back to with no Rename name: the Rename dialog's placeholder.
+export function automaticThreadName(tab: Parameters<typeof threadName>[0]): string {
+  return threadName({ ...tab, customName: undefined });
+}
+
+// What the Rename dialog's text leaves on the thread: the trimmed text, or nothing
+// when it is empty or just repeats the automatic name, so saving without a real
+// change never freezes a name that would otherwise keep updating.
+export function nextCustomName(tab: Parameters<typeof threadName>[0], input: string): string | undefined {
+  const name = input.trim();
+  if (!name || name === automaticThreadName(tab)) return undefined;
+  return name;
 }
 
 // The model shown on header line 2 for a chat thread ("Opus 5", "Opus 5 · 1M"),

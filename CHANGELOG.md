@@ -6,6 +6,168 @@ What changed for the person using afterterm, release by release. Each release li
 
 Nothing yet.
 
+## 0.15.0 (2026-11-06)
+
+### You can now give a project any colour you want
+
+Before, a project could only use one of eight set colours.
+
+- **To try it:** right-click a project, choose **Edit project**, then click the large icon at the top of the window.
+- **To pick any colour:** click the rainbow circle at the end of the row, then drag on the wheel. The large icon changes as you drag.
+- **To make it brighter or darker:** drag the bar beside the wheel.
+- **If you know the exact colour:** type its code in the box under that bar, like `#22c55e`.
+- **White** is also new, next to yellow.
+
+### The window for creating or editing a project is now much smaller
+
+It used to show every option at once and filled most of the screen.
+
+- **Colours and icons** stay hidden until you click the large icon.
+- **The project's name** now comes first, above its folder.
+- **The shell** is now a dropdown instead of a long list. The shell is the kind of terminal a new thread opens, like Command Prompt or PowerShell.
+- **The "Default shell" option is gone.** It only ever opened Command Prompt, so projects that used it still do.
+
+### You can now rename a thread or a project
+
+A thread is one chat or terminal in the sidebar.
+
+- **To rename a thread:** right-click it in the sidebar, choose **Rename**, type a name and press Enter.
+- **Your name stays.** Claude Code usually changes a chat's name as it goes, but it won't change one you named yourself.
+- **To get the automatic name back:** choose **Rename** again, clear the box and press Enter.
+- **To rename a project:** right-click it and choose **Rename**.
+
+## 0.14.0 (2026-11-06)
+
+### Clicking a file in the terminal now opens it in the right app
+
+When Claude mentions a file in the terminal, you can click its name to open it. Before this, nearly everything opened in VS Code, even videos and web pages. Now:
+
+- **Videos, music, pictures, web pages, PDFs and Office documents** open in the app you normally use for them. A video plays in your video player, and a web page opens in your browser.
+- **Code files and Markdown notes** still open in VS Code. If you don't have VS Code, they open in Notepad.
+- **Opening a file never runs it.** A script opens so you can read it. It does not start.
+
+### Right-click a file in the terminal for more options
+
+Right-clicking a file name in the terminal now shows a small menu:
+
+- **Open** opens the file.
+- **Open file location** shows the file in File Explorer.
+- **Copy file path** copies the file's full location, ready to paste somewhere else.
+
+Right-clicking anywhere else in the terminal still pastes, the same as before.
+
+### Click an image tag to see the image
+
+When you paste an image into a chat, Claude Code shows it as a tag like `[Image #1]`. You can now click that tag to open the image. Right-clicking the tag shows the same menu as above.
+
+### Fixed
+
+- **Without VS Code, clicking a script started it.** Now it opens in Notepad and does not run.
+- **A long file location with spaces in it stopped being clickable when it ran onto a second line.** You can now click it on either line.
+- **Clicking a pasted image could open the wrong one.** If two images in a chat had the same number, you got the older one. Now you get the newest.
+
+## 0.13.0 (2026-11-03)
+
+### Two threads side by side
+
+- **Drag a thread from the sidebar onto either half of the open terminal** to show the two side by side. The half it will take lights up while you drag. Two threads of the same project can go together, or two General threads.
+- **A drop that can't work turns red and says why:** "Same project only" for a thread from another project, "Two at most" when two threads are already on screen. Letting go there does nothing.
+- **Each half is a whole thread:** its own header, menu, editor button, Files button and Wake. A thin outline shows which half you are typing in; click a half to type there.
+- **The other half still tells you things.** It gets its toasts while you work in the focused one, and its Done stays until you click into it.
+- **In the sidebar the two rows stay in their project, joined by a thin line.** Clicking either one shows both. Ctrl+Shift+Down and Ctrl+Tab step through both halves one after the other.
+- **Drag the divider to resize**, between a quarter and three quarters; double-click it for half and half.
+- **Right-click either row and choose Ungroup** to show them apart again; both keep running. Closing either thread, or moving it to another project, also ends the pair.
+- The pair, its sides and the divider come back after a restart, both asleep.
+
+### The header's status is shorter
+
+- A working chat's header shows the spinner alone, without "Working".
+- A running server's header shows the play icon and its port (`:5173`), without "Running on".
+
+## 0.12.1 (2026-11-01)
+
+### Fixed
+
+- **Update** now always downloads the newest version.
+
+## 0.12.0 (2026-11-01)
+
+### The sidebar keeps its order
+
+- **Nothing moves because you used it.** Opening a chat, typing in a thread, a notification or a wake no longer moves a project or a thread in the sidebar. Each project in Recent keeps its place.
+- **New arrivals go on top.** A project that comes into Recent (opened from Home, Other projects or the search palette, or one of its threads woken) goes at the top, and the rows below slide down. A new or resumed thread goes at the top of its project the same way.
+- The order is kept when afterterm restarts. Home's Projects list still goes by recent activity.
+
+### Drag and drop in the sidebar
+
+- **Move projects.** Drag a project up or down inside Pinned or Recent. Drop one into Pinned to pin it, or drag a pinned one down into Recent to unpin it.
+- **Move threads.** Drag a thread between two threads, in its own project or another, or drop it on a project's row to put it at the top of that project. Drop it on or above the Pinned heading to take it out of its project into General.
+- A line shows where the row will land, including above the first one. The dragged row floats beside the pointer, and a thread moving to another project shows where it comes from and where it goes. Esc, or letting go where it already was, puts it back.
+
+### Archive moves a project to Other projects
+
+- **Archive** now moves the project to the top of the **Other projects** drawer at the bottom of the sidebar, instead of hiding it everywhere except Home.
+- A project with awake threads asks first, listing each one with its status. On **Archive** they go to sleep one after the other, the project folds away, and "Moved to Other projects" says where it went.
+- Opening it, waking one of its threads, or **Restore** in its menu brings it back to the top of Recent. An archived project now has the full project menu.
+- Home's Archived section is gone: archived projects are listed in Projects like any other, and the search palette finds them too.
+
+### Fixed
+
+- Projects in Recent swapped places while you worked in two of them.
+- Opening a chat from another project moved that project to the top of Recent, with no animation.
+- Projects could not be reordered by dragging, dragging into Pinned did not pin, and a thread could not be dragged out of its project.
+- Archiving a project hid it everywhere except Home, instead of moving it into Other projects.
+- The search palette did not list archived projects.
+
+## 0.11.2 (2026-10-31)
+
+### Fixed
+
+- The installer's progress bar, during an update or a reinstall, went from nearly full back to about a third before it finished. It now only moves forward.
+
+## 0.11.1 (2026-10-31)
+
+- The first update afterterm installs by itself: on 0.11.0, this version arrives as **Update available**.
+- The README says how to install, what to do when Windows warns about the installer, and that afterterm updates itself.
+
+## 0.11.0 (2026-10-31)
+
+### Updating afterterm
+
+- **afterterm updates itself.** An installed afterterm checks GitHub for a new version shortly after it starts and every 6 hours. When one is out, an **Update available** button appears beside the version number at the top left. Nothing opens by itself.
+- **The notice.** Clicking the button shows the new version, **What's new** (it folds open inside the notice), **Update**, **Later** (hides it for a day) and **Skip this version**.
+- **Downloads while you work.** The button shows the download's progress, then becomes **Restart to update**. The download is checked against the checksum GitHub publishes for the release; one that does not match is deleted and never runs.
+- **It asks before it restarts.** "Restart afterterm to update?" lists every awake thread and what happens to it: a chat resumes, a server runs its command again, a shell opens in its folder, and a chat in the middle of a reply, or waiting for your permission, is marked "Stops mid-turn" (afterterm resumes the chat, but you send that last message again).
+- **Back where you were.** A small window shows the install's progress, then afterterm opens on the thread that was open, wakes the threads that were awake, and shows "Updated to" with What's new. Only an update restart wakes threads: a normal quit still brings everything back asleep.
+- **About afterterm.** Click the version number for the About window: check for updates by hand, read What's new, or turn **Check for updates automatically** off.
+- Anyone on 0.10.0 or older installs this version by hand, once; updates are automatic from then on.
+
+### Fixed
+
+- Reinstalling afterterm into a folder you had chosen offered the default folder again: Setup did not find the earlier install.
+- Opening afterterm while it was already open started a second copy, and the two overwrote each other's projects and threads. Now it brings the open window forward.
+
+## 0.10.0 (2026-10-30)
+
+### Installing afterterm
+
+- **A real installer.** afterterm now comes as one `afterterm-<version>-setup.exe`: pick the folder, choose a desktop and a Start menu shortcut, and it installs for you alone, with no admin prompt. It appears in Settings > Apps with an uninstaller. Your projects and threads stay where they were, so installing over an earlier copy keeps them.
+- **It checks Claude Code before it finishes.** If Claude Code is installed, the last step tests that afterterm's helper runs on this PC and that a chat can be saved, and says so. If something blocks it, it names the cause and offers **Report issue**, which opens a GitHub issue filled in with what went wrong (never your files or chats).
+- **No Claude Code, no question.** Without Claude Code installed, setup says nothing about it.
+
+### Starting afterterm
+
+- **Nothing starts on its own.** A fresh install opens on Home with no terminal running; closing your last thread returns to Home instead of opening a new one.
+- **Create your first project.** With no project yet, Home shows one large button to create it.
+- **No more empty Recent heading** in the sidebar. The New project button moves to Pinned when there is no recent project, or becomes its own row when there are no projects at all.
+- **The logo** has clean rounded corners at every size.
+
+### Fixed
+
+- A chat did not come back after Sleep and Wake on a PC where Windows blocks scripts by default, which is most home PCs. afterterm's helper for Claude Code now runs there, and installing or starting this version repairs the helper set up by earlier versions.
+- A chat opened with `/resume` and left without a message was lost on Sleep.
+- afterterm froze for a few seconds after starting, the mouse included, while it looked for your code editor.
+
 ## 0.9.0 (2026-09-30)
 
 This release changes what afterterm is built around. It used to show you a list of terminals; now it shows you your work: the projects you care about, and the Claude Code chats and shells inside each one. It tells you which of them need you, and anything you are not using sleeps until you ask for it.

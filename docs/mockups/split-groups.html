@@ -1,0 +1,1086 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Split groups mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --need: #fbbf24;
+  --live: #4ade80;
+  --sleep: #a78bfa;
+  --badge-wait: #d4a24c;
+  --badge-wait-ink: #1a1206;
+  --badge-done: #5fb87a;
+  --badge-done-ink: #06170b;
+  --badge-work: #6b7280;
+  --badge-work-ink: #111111;
+  --drop-line: #8ab4ff;
+  --bad: #f87171;
+
+  --bg: #212121;
+  --pane: #191919;
+  --side: #171717;
+  --hover: #2f2f2f;
+  --hover2: #383838;
+
+  --text: #ececec;
+  --text2: #b4b4b4;
+  --text3: #8e8e8e;
+  --text4: #5c5c5c;
+
+  --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'Cascadia Code', 'Cascadia Mono', Consolas, monospace;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --fast: 140ms;
+  --med: 200ms;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: #0c0c0c;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+
+/* ── The question above the app ───────────────────────────────────────── */
+
+.page { max-width: 1312px; margin: 0 auto; padding: 20px 16px 32px; }
+
+.qtabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+.qtab {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 12px 6px 6px; border-radius: 999px;
+  background: #171717; color: var(--text2); font-size: 13px;
+  transition: background var(--fast), color var(--fast);
+}
+.qtab:hover { background: #222; color: var(--text); }
+.qtab.on { background: var(--hover2); color: var(--text); }
+.qtab .qn {
+  width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  background: #262626; font-size: 12px; color: var(--text2);
+}
+.qtab.on .qn { background: var(--text); color: #111; }
+
+.qhead { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.qhead h1 { font-size: 22px; font-weight: 500; line-height: 1.3; margin: 0 0 4px; }
+.qtry { color: var(--text3); margin: 0 0 14px; font-size: 14px; }
+.reset {
+  flex: none; font-size: 13px; color: var(--text2); padding: 6px 12px;
+  border-radius: 999px; background: #171717;
+}
+.reset:hover { background: #222; color: var(--text); }
+
+.opts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
+.opt {
+  text-align: left; display: grid; grid-template-columns: auto 1fr; column-gap: 10px; row-gap: 2px;
+  padding: 12px 14px; border-radius: 14px; background: #161616;
+  border: 1.5px solid #222; transition: border-color var(--fast), background var(--fast);
+}
+.opt:hover { background: #1b1b1b; }
+.opt.on { border-color: var(--text); background: #1d1d1d; }
+.opt .ol {
+  grid-row: span 2; width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center;
+  background: #262626; font-weight: 500; font-size: 13px; color: var(--text2);
+}
+.opt.on .ol { background: var(--text); color: #111; }
+.opt .oname { font-weight: 500; font-size: 14.5px; }
+.opt .odesc { color: var(--text3); font-size: 13px; line-height: 1.45; }
+
+@media (max-width: 760px) {
+  .opts { grid-template-columns: 1fr; }
+  .qhead h1 { font-size: 19px; }
+}
+
+/* ── The app copy, drawn at 1280 x 780 and scaled to fit ──────────────── */
+
+.stage { position: relative; width: 100%; }
+.app {
+  position: absolute; top: 0; left: 0; width: 1280px; height: 780px;
+  transform-origin: 0 0; border-radius: 10px; overflow: hidden;
+  background: var(--side); box-shadow: 0 0 0 1px #262626, 0 20px 60px rgba(0,0,0,.6);
+  user-select: none; outline: none;
+}
+.app svg { display: block; }
+
+.tb { height: 32px; display: flex; align-items: center; gap: 8px; padding-left: 14px; font-size: 13px; font-weight: 500; }
+.tb .ver { font-size: 11px; color: var(--text2); background: #2a2a2a; padding: 1px 7px; border-radius: 999px; font-weight: 400; }
+.tb .caps { margin-left: auto; display: flex; height: 100%; }
+.tb .caps span { width: 46px; display: grid; place-items: center; color: var(--text3); }
+
+.bd { display: flex; height: calc(100% - 32px); }
+
+/* Rail */
+.rail { width: 76px; flex: none; display: flex; flex-direction: column; align-items: center; padding-top: 8px; gap: 6px; }
+.rb { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; color: var(--text2); transition: background var(--fast); }
+.rb:hover { background: var(--hover); }
+.pillbox { background: #101010; border-radius: 12px; padding: 3px; display: flex; flex-direction: column; gap: 2px; }
+.pillbox .rb.on { background: var(--hover); color: var(--text); }
+.rdiv { width: 24px; height: 1px; background: #2e2e2e; margin: 6px 0; }
+.trow { width: 76px; display: flex; align-items: center; gap: 6px; padding-left: 12px; }
+.tile { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; transition: filter var(--fast); }
+.tile:hover { filter: brightness(1.25); }
+.badges { display: flex; flex-direction: column; gap: 2px; }
+.badge { min-width: 16px; height: 16px; border-radius: 999px; font-size: 10.5px; font-weight: 500; display: grid; place-items: center; padding: 0 4px; }
+.badge.w { background: var(--badge-wait); color: var(--badge-wait-ink); }
+.badge.d { background: var(--badge-done); color: var(--badge-done-ink); }
+.badge.k { background: var(--badge-work); color: var(--badge-work-ink); }
+
+/* Panel */
+.side-panel {
+  width: 264px; min-width: 264px; padding: 8px 8px 8px; display: flex; flex-direction: column;
+  transition: width 320ms var(--ease), min-width 320ms var(--ease), padding 320ms var(--ease); overflow: hidden;
+}
+.side-panel.hidden { width: 0; min-width: 0; padding: 0; }
+.srch { display: flex; align-items: center; gap: 10px; padding: 0 12px; height: 38px; border-radius: 10px; background: var(--hover); color: var(--text3); flex: none; white-space: nowrap; }
+.srch .ph { flex: 1; }
+.k { font-size: 11px; color: var(--text4); white-space: nowrap; }
+.srow { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; margin-top: 2px; white-space: nowrap; flex: none; }
+.srow:hover { background: var(--hover); }
+.srow .g { color: var(--text3); }
+.srow .k { margin-left: auto; }
+.scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; margin-top: 10px; display: flex; flex-direction: column; gap: 18px; }
+.scroll::-webkit-scrollbar { width: 6px; }
+.scroll::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+.lbl { margin: 0 0 2px 12px; color: var(--text3); font-size: 13.5px; display: flex; align-items: center; gap: 6px; }
+.divline { height: 1px; background: #2e2e2e; margin: -9px 12px; flex: none; }
+
+.pj { margin: 1px 0; display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 10px; border-radius: 10px; font-weight: 500; white-space: nowrap; }
+.pj .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.pj.dim { color: var(--text2); font-weight: 400; }
+.sig { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px 1px 6px; border-radius: 999px; background: var(--hover); font-size: 12px; font-weight: 400; color: var(--text); }
+
+.th {
+  margin: 1px 0; display: flex; align-items: center; gap: 9px; padding: 6px 12px 6px 32px; border-radius: 10px;
+  color: var(--text2); white-space: nowrap; position: relative; cursor: pointer;
+  transition: background var(--fast), color var(--fast), padding-right var(--fast) var(--ease);
+}
+.th, .divider { touch-action: none; }
+.th.gen { padding-left: 12px; }
+.th:hover, .th.sel { padding-right: 36px; }
+.th:hover { background: var(--hover); color: var(--text); }
+.th.on { background: #262626; color: var(--text); }
+.th.sel { background: var(--hover2); color: var(--text); }
+.th .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.th .ki { color: var(--text3); flex: none; }
+.th .prt { font-size: 11px; color: var(--text3); font-variant-numeric: tabular-nums; flex: none; }
+.th .st { flex: none; display: grid; place-items: center; }
+.th.sleep > .ki, .th.sleep > .n, .th.sleep > .prt, .th.sleep > .st { opacity: .45; }
+.th .xb { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; color: var(--text3); opacity: 0; }
+.th:hover .xb, .th.sel .xb { opacity: 1; }
+.th .xb:hover { background: var(--hover2); color: var(--text); }
+@keyframes glow-need { 0%, 100% { background: rgba(251,191,36,.05); } 50% { background: rgba(251,191,36,.16); } }
+@keyframes glow-ok { 0%, 100% { background: rgba(74,222,128,.04); } 50% { background: rgba(74,222,128,.13); } }
+.th.need:not(.sel):not(.on) { animation: glow-need 2.4s ease-in-out infinite; }
+.th.done:not(.sel):not(.on) { animation: glow-ok 2.8s ease-in-out infinite; }
+
+/* Drop on a row (option C of question 1) */
+.th.drop { box-shadow: inset 0 0 0 1.5px var(--drop-line); background: rgba(138,180,255,.14); color: var(--text); }
+.th.dropbad { box-shadow: inset 0 0 0 1.5px var(--bad); background: rgba(248,113,113,.08); }
+.th.dragging { opacity: .35; }
+
+/* Group in the sidebar, option A: a row of its own */
+.gwrap { position: relative; }
+.grow { display: flex; align-items: center; gap: 9px; padding: 6px 12px 6px 32px; margin: 1px 0; border-radius: 10px; color: var(--text); cursor: pointer; white-space: nowrap; }
+.grow:hover { background: var(--hover); }
+.grow .ki { color: var(--text3); }
+.grow .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.gA .th { padding-left: 52px; }
+.genw .gA .grow { padding-left: 12px; }
+.genw .gA .th { padding-left: 32px; }
+
+/* Option B: one box */
+
+/* Option C: a line joining the two */
+.gC .gcap { display: flex; align-items: center; height: 20px; margin-left: 46px; padding-left: 8px; font-size: 11.5px; color: var(--text3); cursor: pointer; margin-top: 2px; }
+.gC .gcap:hover { color: var(--text); }
+.gC::before { content: ''; position: absolute; left: 34px; top: 12px; bottom: 15px; width: 9px; border: 1.5px solid #4a4a4a; border-right: 0; border-radius: 7px 0 0 7px; pointer-events: none; }
+.gC .th { margin-left: 46px; width: calc(100% - 46px); padding-left: 8px; }
+.genw .gC::before { left: 14px; }
+.genw .gC .gcap, .genw .gC .th { margin-left: 26px; }
+.genw .gC .th { width: calc(100% - 26px); }
+/* The same line with no name: it spans just the two rows. */
+.gC.bare { padding: 2px 0; }
+.gC.bare::before { top: 10px; bottom: 10px; }
+
+/* Main pane */
+.main { flex: 1; min-width: 0; background: var(--bg); border-top-left-radius: 16px; display: flex; flex-direction: column; padding: 0 12px 12px; position: relative; }
+.header { height: 56px; flex: none; display: flex; align-items: center; gap: 14px; padding: 0 8px; min-width: 0; }
+.header.compact { gap: 6px; padding: 0 2px 0 8px; }
+.htitle { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.hname { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 500; line-height: 1.35; white-space: nowrap; overflow: hidden; }
+.hname span { overflow: hidden; text-overflow: ellipsis; }
+.hname svg { color: var(--text3); flex: none; }
+.hmeta { display: flex; align-items: center; gap: 14px; color: var(--text2); font-size: 12.5px; line-height: 1.4; overflow: hidden; white-space: nowrap; }
+.hmeta .mi { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.hmeta .mi.shrink { flex: 0 1 auto; min-width: 0; overflow: hidden; }
+.hmeta .mi.shrink span { overflow: hidden; text-overflow: ellipsis; }
+.hmeta .mi > svg { color: var(--text3); }
+.hacts { display: flex; align-items: center; gap: 4px; flex: none; }
+.chip { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 999px; background: var(--hover); font-size: 13.5px; white-space: nowrap; margin-right: 4px; }
+.compact .chip { height: 28px; padding: 0 10px; font-size: 12.5px; gap: 6px; margin-right: 0; }
+.chip.only { width: 36px; padding: 0; justify-content: center; }
+.compact .chip.only { width: 28px; }
+.ic { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; color: var(--text3); transition: background var(--fast), color var(--fast); }
+.ic:hover { background: var(--hover); color: var(--text); }
+.compact .ic { width: 28px; height: 28px; }
+.col:not(.fcol) .hname { color: var(--text2); }
+
+.split { flex: 1; display: flex; min-height: 0; position: relative; }
+.col { display: flex; flex-direction: column; min-width: 0; }
+.card { flex: 1; min-height: 0; background: var(--pane); border-radius: 16px; position: relative; overflow: hidden; display: flex; flex-direction: column; transition: box-shadow var(--fast); }
+.term { flex: 1; min-height: 0; overflow: auto; padding: 12px 14px; font: 13px/17px var(--mono); white-space: pre-wrap; word-break: break-word; color: #d6d6d6; user-select: text; transition: opacity var(--med); }
+.term::-webkit-scrollbar { width: 8px; }
+.term::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+.term .w { color: #f2f2f2; }
+.term .m { color: #8e8e8e; }
+.term .o { color: #d97757; }
+.term .u { color: #9a9a9a; }
+.term .g { color: #4ade80; }
+.term .c { color: #67e8f9; }
+.term .y { color: #fbbf24; }
+.cur { display: inline-block; width: 8px; height: 15px; vertical-align: -3px; background: #d6d6d6; animation: blink 1.1s steps(1) infinite; }
+.cur.off { background: none; box-shadow: inset 0 0 0 1px #777; animation: none; }
+@keyframes blink { 50% { opacity: 0; } }
+
+.divider { width: 12px; flex: none; cursor: col-resize; position: relative; }
+.divider::before { content: ''; position: absolute; left: 4px; top: 50%; width: 4px; height: 36px; margin-top: -18px; border-radius: 2px; background: #333; transition: background var(--fast), height var(--fast), margin var(--fast); }
+.divider:hover::before, .divider.active::before { background: #6a6a6a; height: 64px; margin-top: -32px; }
+
+/* Thin strip with the thread's name (question 3, option B) */
+.strip { height: 34px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 6px 0 14px; border-bottom: 1px solid #242424; font-size: 13px; color: var(--text2); transition: opacity var(--med); }
+.strip svg { color: var(--text3); flex: none; }
+.strip .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.strip .mini { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text2); white-space: nowrap; }
+.strip .ic { width: 26px; height: 26px; }
+
+/* Which half has the keyboard (question 4) */
+.f0 .card.focus { box-shadow: inset 0 0 0 1px rgba(255,255,255,.26); }
+.f1 .card:not(.focus) > .term, .f1 .card:not(.focus) > .strip { opacity: .3; }
+.f1 .col:not(.fcol) > .header { opacity: .5; }
+.f2 .card.focus::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--pc); z-index: 2; }
+
+/* Asleep */
+.term.dim { opacity: .3; }
+.wakebox { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; pointer-events: none; }
+.wakebox > * { pointer-events: auto; }
+.wake { background: #ececec; color: #0d0d0d; border: 1px solid #ffffff; border-radius: 999px; padding: 10px 28px; font-weight: 500; transition: background var(--fast); }
+.wake:hover { background: #ffffff; }
+.since { display: inline-flex; align-items: center; gap: 6px; background: #262626; color: var(--text2); font-size: 12.5px; padding: 4px 12px; border-radius: 999px; }
+.split.asleep2 .divider::before { display: none; }
+.wakeboth { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.wakebar { flex: none; display: flex; align-items: center; justify-content: center; gap: 10px; margin: 0 0 10px; }
+.wakebar .since { background: none; padding: 0; }
+.wake.sm { padding: 5px 16px; font-size: 13px; }
+
+/* Drop targets while dragging */
+.dz { position: absolute; top: 0; bottom: 0; border-radius: 16px; border: 1.5px solid var(--drop-line); background: rgba(138,180,255,.12); pointer-events: none; display: grid; place-items: center; z-index: 5; transition: left 120ms var(--ease), right 120ms var(--ease); }
+.dz.bad { border-color: var(--bad); background: rgba(248,113,113,.08); }
+.dz .lab { background: #2f2f2f; color: var(--text); font-size: 12.5px; padding: 5px 12px; border-radius: 999px; }
+.edgez { position: absolute; top: 0; bottom: 0; border-radius: 16px; border: 1.5px dashed rgba(138,180,255,.4); pointer-events: none; z-index: 4; }
+
+.ghost { position: absolute; z-index: 50; pointer-events: none; background: #2f2f2f; border-radius: 10px; padding: 8px 12px; box-shadow: 0 10px 28px rgba(0,0,0,.55); font-size: 13px; min-width: 170px; max-width: 260px; display: none; }
+.ghost .gl1 { display: flex; align-items: center; gap: 8px; color: var(--text); white-space: nowrap; overflow: hidden; }
+.ghost .gl1 span { overflow: hidden; text-overflow: ellipsis; }
+.ghost .gl2 { display: flex; align-items: center; gap: 6px; color: var(--text3); font-size: 12px; margin-top: 2px; }
+.ghost .hint { display: inline-block; margin-top: 6px; font-size: 12px; padding: 2px 9px; border-radius: 999px; background: #3a3a3a; color: var(--text); }
+.ghost .hint.bad { background: rgba(248,113,113,.18); color: #fca5a5; }
+
+/* Menu and tooltip */
+.menu { position: absolute; z-index: 60; background: #2a2a2a; border-radius: 12px; padding: 5px; min-width: 170px; box-shadow: 0 10px 30px rgba(0,0,0,.5); display: none; }
+.menu button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 10px; border-radius: 8px; font-size: 13.5px; text-align: left; white-space: nowrap; }
+.menu button:hover { background: var(--hover2); }
+.menu button svg { color: var(--text3); }
+.menu .sep { height: 1px; background: #383838; margin: 4px 6px; }
+.tip { position: absolute; z-index: 70; background: #3a3a3a; color: var(--text); font-size: 12px; padding: 4px 9px; border-radius: 7px; white-space: nowrap; pointer-events: none; display: none; }
+
+.spin { width: 12px; height: 12px; border-radius: 50%; border: 1.6px solid rgba(255,255,255,.18); border-top-color: var(--text); animation: rot .9s linear infinite; }
+@keyframes rot { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <nav class="qtabs" id="qtabs"></nav>
+  <div class="qhead">
+    <div>
+      <h1 id="qtext"></h1>
+      <p class="qtry" id="qtry"></p>
+    </div>
+    <button class="reset" id="reset">Start again</button>
+  </div>
+  <div class="opts" id="opts"></div>
+  <div class="stage" id="stage">
+    <div class="app" id="app" tabindex="0">
+      <div class="tb">afterterm <span class="ver">v0.12.1</span>
+        <div class="caps"><span>&#x2500;</span><span>&#x2610;</span><span>&#x2715;</span></div>
+      </div>
+      <div class="bd">
+        <div class="rail" id="rail"></div>
+        <div class="side-panel" id="side"></div>
+        <div class="main" id="main"></div>
+      </div>
+      <div class="ghost" id="ghost"></div>
+      <div class="menu" id="menu"></div>
+      <div class="tip" id="tip"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── Icons ─────────────────────────────────────────────────────────────── */
+const sv = (p, s = 16, extra = '') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${extra}>${p}</svg>`;
+const I = {
+  search: sv('<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>'),
+  plus: sv('<path d="M12 5v14M5 12h14"/>'),
+  pin: sv('<path d="M9 4h6l-1 6 3 3H7l3-3z"/><path d="M12 16v5"/>', 13),
+  shell: sv('<path d="M5 8l4 4-4 4"/><path d="M12 16h7"/>', 15),
+  chat: sv('<path d="M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3.5V16H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/>', 15),
+  split: sv('<rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M12 4.5v15"/>', 15),
+  ungroup: sv('<rect x="2.5" y="5" width="7.5" height="14" rx="2"/><rect x="14" y="5" width="7.5" height="14" rx="2"/>', 16),
+  x: sv('<path d="M6 6l12 12M18 6L6 18"/>', 13),
+  dots: sv('<circle cx="5" cy="12" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="19" cy="12" r="1.2" fill="currentColor"/>', 16),
+  branch: sv('<circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="8" r="2"/><path d="M6 7v10M18 10c0 4-6 3-11 7"/>', 13),
+  home: sv('<path d="M4 11l8-6 8 6v8a1 1 0 0 1-1 1h-4v-5h-6v5H5a1 1 0 0 1-1-1z"/>', 17),
+  term: sv('<rect x="3" y="4.5" width="18" height="15" rx="3"/><path d="M7.5 10l2.5 2-2.5 2M12.5 14.5h4"/>', 17),
+  sidebar: sv('<rect x="3" y="4.5" width="18" height="15" rx="3"/><path d="M9 4.5v15"/>', 17),
+  moon: `<svg width="13" height="13" viewBox="0 0 24 24" fill="var(--sleep)"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></svg>`,
+  bell: `<svg width="13" height="13" viewBox="0 0 24 24" fill="var(--need)"><path d="M12 3a6 6 0 0 0-6 6v3.5L4.5 16h15L18 12.5V9a6 6 0 0 0-6-6zM9.5 18a2.5 2.5 0 0 0 5 0z"/></svg>`,
+  check: sv('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 13, 'style="color:var(--live)"'),
+  play: `<svg width="11" height="11" viewBox="0 0 24 24" fill="var(--live)"><path d="M7 4.5v15l12-7.5z"/></svg>`,
+  vscode: `<svg width="18" height="18" viewBox="0 0 24 24"><path fill="#2f8ee0" d="M17.2 2.3L21 4.1c.4.2.7.6.7 1.1v13.6c0 .5-.3.9-.7 1.1l-3.8 1.8c-.4.2-.9.1-1.2-.2L8.6 14.6 5.4 17c-.3.2-.7.2-1 0l-1.1-1c-.3-.3-.3-.8 0-1.1L6.1 12 3.3 9.1c-.3-.3-.3-.8 0-1.1l1.1-1c.3-.2.7-.2 1 0l3.2 2.4L16 2.5c.3-.3.8-.4 1.2-.2zM17 7.4L11.6 12l5.4 4.6z"/></svg>`,
+};
+const folder = (c, s = 16) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="${c}"><path d="M3 7a2.5 2.5 0 0 1 2.5-2.5h3.6l2 2.2h7.4A2.5 2.5 0 0 1 21 9.2v8.3a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/></svg>`;
+const kindIcon = t => t.kind === 'chat' ? I.chat : I.shell;
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/* ── Data ──────────────────────────────────────────────────────────────── */
+const AT = 'D:\\Pitara\\Work\\Tinkering\\afterterm';
+const TALES = 'D:\\Pitara\\Work\\aftertales';
+const PROJECTS = [
+  { id: 'at', name: 'afterterm', color: '#60a5fa', pinned: true, branch: 'main' },
+  { id: 'tales', name: 'aftertales', color: '#f472b6', branch: 'main' },
+  { id: 'resume', name: 'resume', color: '#2dd4bf', branch: 'main' },
+];
+const proj = id => PROJECTS.find(p => p.id === id);
+
+function initial() {
+  return {
+    panelHidden: false,
+    threads: [
+      { id: 'g1', project: '', kind: 'shell', name: 'cmd.exe', state: 'quiet', prompt: 'C:\\Users\\Aryan>',
+        lines: ['Microsoft Windows [Version 10.0.26200.9457]', '(c) Microsoft Corporation. All rights reserved.', ''] },
+      { id: 'g2', project: '', kind: 'shell', name: 'Windows PowerShell', state: 'quiet', prompt: 'PS C:\\Users\\Aryan> ',
+        lines: ['Windows PowerShell', 'Copyright (C) Microsoft Corporation. All rights reserved.', ''] },
+
+      { id: 't1', project: 'at', kind: 'chat', name: 'Split groups mockup', state: 'working', branch: 'worktree-split-groups', prompt: '> ',
+        lines: ['PS ' + AT + '> claude', '', '> Mock up two terminals side by side, grouped in the sidebar', '',
+          '⏺ Reading the sidebar styles first.', '  ⎿  Read src/renderer/components/SidePanel/SidePanel.css (605 lines)', '',
+          '⏺ Now the header, so each half can carry one.', '  ⎿  Read src/renderer/components/Header/Header.css (137 lines)', '',
+          '✻ Working… (34s · esc to interrupt)', ''] },
+      { id: 't2', project: 'at', kind: 'server', name: 'npm start', state: 'quiet', port: 5173, prompt: '',
+        lines: ['PS ' + AT + '> npm start', '', '> afterterm@0.12.1 start', '> electron-forge start', '',
+          '✔ Checking your system', '✔ Locating application', '✔ Loading configuration', '✔ Preparing native dependencies', '',
+          '  VITE v5.4.10  ready in 412 ms', '', '  ➜  Local:   http://localhost:5173/', '  ➜  Network: use --host to expose', ''] },
+      { id: 't3', project: 'at', kind: 'chat', name: 'Fix the toast timer', state: 'need', prompt: '> ',
+        lines: ['> The toast stays up forever when the window is not focused', '',
+          '⏺ Checking toastExpiry.ts.', '  ⎿  Read src/renderer/toastExpiry.ts (88 lines)', '',
+          '⏺ Update(src/renderer/toastExpiry.ts)', '', '  Do you want to make this edit to toastExpiry.ts?',
+          '  ❯ 1. Yes', '    2. Yes, and don\'t ask again this session', '    3. No, and tell Claude what to do differently', ''] },
+      { id: 't4', project: 'at', kind: 'shell', name: 'PowerShell 7', state: 'quiet', prompt: 'PS ' + AT + '> ',
+        lines: ['PowerShell 7.5.4', ''] },
+
+      { id: 't5', project: 'tales', kind: 'chat', name: 'Tale page layout', state: 'quiet', asleep: true, since: '2d', prompt: '> ',
+        lines: ['> Make the tale page two columns on desktop', '',
+          '⏺ Done. The page is two columns above 900px and one column below.', '  ⎿  Updated src/pages/tale.astro with 24 additions', ''] },
+      { id: 't6', project: 'tales', kind: 'server', name: 'npm run dev', state: 'quiet', asleep: true, since: '2d', port: 4321, prompt: '',
+        lines: ['PS ' + TALES + '> npm run dev', '', '> aftertales@0.4.0 dev', '> astro dev', '',
+          '  astro  v4.16.2 ready in 380 ms', '', '┃ Local    http://localhost:4321/', ''] },
+      { id: 't7', project: 'tales', kind: 'shell', name: 'Git Bash', state: 'quiet', asleep: true, since: '1w', prompt: '$ ',
+        lines: ['aryan@desk MINGW64 /d/Pitara/Work/aftertales (main)', '$ git status', 'On branch main', 'nothing to commit, working tree clean', ''] },
+
+      { id: 't8', project: 'resume', kind: 'chat', name: 'Rewrite the summary', state: 'done', prompt: '> ',
+        lines: ['> Shorter summary, three lines', '', '⏺ Rewrote the summary in resume.md to three lines.', '  ⎿  Updated resume.md with 3 additions and 7 removals', ''] },
+      { id: 't9', project: 'resume', kind: 'shell', name: 'Command Prompt', state: 'quiet', prompt: 'C:\\Users\\Aryan\\Pitara\\resume>',
+        lines: ['Microsoft Windows [Version 10.0.26200.9457]', '(c) Microsoft Corporation. All rights reserved.', ''] },
+    ].map(t => ({ input: '', ...t })),
+    groups: [
+      { id: 'G1', project: 'at', num: 1, a: 't1', b: 't2', split: .5, focus: 'a' },
+      { id: 'G2', project: 'tales', num: 1, a: 't5', b: 't6', split: .5, focus: 'a' },
+    ],
+    open: { type: 'group', id: 'G1' },
+  };
+}
+
+/* ── Questions ─────────────────────────────────────────────────────────── */
+const Q = [
+  { key: 'drop', tab: 'Where to drop',
+    q: 'Where do you drop a thread to put it beside another one?',
+    tryit: 'Drag any thread row from the sidebar. A thread from another project cannot join.',
+    open: { type: 'thread', id: 't3' },
+    opts: [
+      { name: 'Either half of the screen', desc: 'Drag over the open terminal and the half it will take lights up. Drop to put it on that side.' },
+      { name: 'Only the screen\u2019s edges', desc: 'Drop near the left or right edge to put it beside. Drop in the middle to just open it.' },
+      { name: 'Onto another thread in the sidebar', desc: 'Drop a thread on another thread\u2019s row. The screen is not a drop target.' },
+    ] },
+  { key: 'side', tab: 'Sidebar look',
+    q: 'How should a group look in the sidebar?',
+    tryit: 'Look at the grouped threads under afterterm and under aftertales. Drag a thread onto the screen to make another group.',
+    opts: [
+      { name: 'A group row, threads under it', desc: 'Group 1 is a row of its own. Its two threads sit one step further in.' },
+      { name: 'A line with the group\u2019s name', desc: 'The threads keep their indent. A thin line on their left joins them, with Group 1 at its top.' },
+      { name: 'Just a line, no name', desc: 'A thin line on the left joins the two threads. Groups have no names or numbers.' },
+    ] },
+  { key: 'focus', tab: 'Typing focus',
+    q: 'How do you see which half you are typing in?',
+    tryit: 'Click a half and type. Then click the other half.',
+    opts: [
+      { name: 'A light outline', desc: 'The half you are typing in has a thin light border.' },
+      { name: 'The other half dims', desc: 'The half you are not typing in fades back.' },
+      { name: 'A coloured line on top', desc: 'A line in the project\u2019s colour runs along the top of the half you are typing in.' },
+    ] },
+  { key: 'wake', tab: 'Waking a group',
+    q: 'When both threads in a group are asleep, how do you wake them?',
+    tryit: 'Both threads in the aftertales group are asleep.',
+    open: { type: 'group', id: 'G2' },
+    opts: [
+      { name: 'A Wake button on each half', desc: 'Each half wakes on its own, like a single thread does today.' },
+      { name: 'One Wake both button', desc: 'One button in the middle wakes both threads at once.' },
+      { name: 'Wake both, or one at a time', desc: 'Each half keeps its own Wake, and a line above offers Wake both.' },
+    ] },
+];
+let qi = 0;
+const pick = Q.map(() => 0);
+const v = key => { const i = Q.findIndex(q => q.key === key); return i === qi ? pick[i] : 0; };
+
+let S;
+function startQuestion() {
+  S = initial();
+  if (Q[qi].open) S.open = { ...Q[qi].open };
+  renderQbar();
+  render();
+}
+
+/* ── Lookups and actions ───────────────────────────────────────────────── */
+const th = id => S.threads.find(t => t.id === id);
+const grp = id => S.groups.find(g => g.id === id);
+const groupOf = id => S.groups.find(g => g.a === id || g.b === id);
+const pkey = t => t.project || '';
+
+function openThread(id) {
+  const g = groupOf(id);
+  if (g) { S.open = { type: 'group', id: g.id }; g.focus = g.a === id ? 'a' : 'b'; }
+  else S.open = { type: 'thread', id };
+  seen();
+}
+function openGroup(id) { S.open = { type: 'group', id }; seen(); }
+function seen() {
+  onScreen().forEach(t => { if (t.state === 'done') t.state = 'quiet'; });
+}
+function onScreen() {
+  if (S.open.type === 'thread') { const t = th(S.open.id); return t ? [t] : []; }
+  const g = grp(S.open.id); return g ? [th(g.a), th(g.b)] : [];
+}
+function target() {
+  if (S.open.type === 'thread') return th(S.open.id);
+  const g = grp(S.open.id); return th(g.focus === 'a' ? g.a : g.b);
+}
+function nextNum(project) {
+  const used = S.groups.filter(g => g.project === project).map(g => g.num);
+  let n = 1; while (used.includes(n)) n++; return n;
+}
+function makeGroup(stayId, dragId, side) {
+  dissolve(groupOf(dragId));
+  const stay = th(stayId);
+  const g = { id: 'G' + Date.now(), project: pkey(stay), num: nextNum(pkey(stay)), split: .5,
+    a: side === 'a' ? dragId : stayId, b: side === 'a' ? stayId : dragId, focus: side };
+  S.groups.push(g);
+  // Keep the two next to each other in the sidebar, in their left-right order.
+  const drag = th(dragId);
+  S.threads = S.threads.filter(t => t.id !== dragId);
+  const at = S.threads.indexOf(stay);
+  S.threads.splice(side === 'a' ? at : at + 1, 0, drag);
+  openGroup(g.id);
+}
+function dissolve(g) {
+  if (!g) return;
+  const wasOpen = S.open.type === 'group' && S.open.id === g.id;
+  S.groups = S.groups.filter(x => x !== g);
+  if (wasOpen) S.open = { type: 'thread', id: g.focus === 'a' ? g.a : g.b };
+}
+function sleepThread(t) {
+  t.asleep = true; t.since = 'just now'; t.input = '';
+  if (t.kind === 'chat' && t.state !== 'need') t.state = 'quiet';
+}
+function wakeThread(t) {
+  t.asleep = false;
+  if (t.kind === 'shell') {
+    t.lines = t.prompt.startsWith('$') ? ['aryan@desk MINGW64 /d/Pitara/Work/aftertales (main)', ''] :
+      t.prompt.startsWith('PS') ? ['PowerShell 7.5.4', ''] : ['Microsoft Windows [Version 10.0.26200.9457]', '(c) Microsoft Corporation. All rights reserved.', ''];
+  } else if (t.kind === 'chat') {
+    t.lines = ['claude --resume', '', ...t.lines.filter(l => l !== 'claude --resume' && l !== '')
+      .slice(-4), ''];
+  }
+}
+function closeThread(id) {
+  const g = groupOf(id);
+  const t = th(id);
+  if (g) dissolve(g);
+  S.threads = S.threads.filter(x => x.id !== id);
+  if (S.open.type === 'thread' && S.open.id === id) {
+    const partner = g ? (g.a === id ? g.b : g.a) : null;
+    const next = partner ? th(partner) : (S.threads.find(x => pkey(x) === pkey(t)) || S.threads[0]);
+    if (next) openThread(next.id);
+  }
+}
+
+/* ── Rendering ─────────────────────────────────────────────────────────── */
+const $ = s => document.querySelector(s);
+const app = $('#app');
+
+function renderQbar() {
+  $('#qtabs').innerHTML = Q.map((x, i) =>
+    `<button class="qtab ${i === qi ? 'on' : ''}" data-q="${i}"><span class="qn">${i + 1}</span>${x.tab}</button>`).join('');
+  $('#qtext').textContent = Q[qi].q;
+  $('#qtry').textContent = Q[qi].tryit;
+  $('#opts').innerHTML = Q[qi].opts.map((o, i) =>
+    `<button class="opt ${i === pick[qi] ? 'on' : ''}" data-opt="${i}"><span class="ol">${'ABC'[i]}</span><span class="oname">${o.name}</span><span class="odesc">${o.desc}</span></button>`).join('');
+}
+
+function render() {
+  renderRail();
+  renderSide();
+  renderMain();
+}
+
+function counts(pid) {
+  const ts = S.threads.filter(t => t.project === pid && !t.asleep);
+  return {
+    need: ts.filter(t => t.state === 'need').length,
+    done: ts.filter(t => t.state === 'done').length,
+    work: ts.filter(t => t.state === 'working').length,
+  };
+}
+
+function renderRail() {
+  let h = `<button class="rb" data-act="panel" data-tip="${S.panelHidden ? 'Show the panel' : 'Hide the panel'}">${I.sidebar}</button>
+    <div class="pillbox"><button class="rb" data-tip="Home">${I.home}</button><button class="rb on" data-tip="Workspace">${I.term}</button></div>
+    <div class="rdiv"></div>`;
+  for (const p of PROJECTS) {
+    const c = counts(p.id);
+    if (!c.need && !c.done && !c.work) continue;
+    h += `<div class="trow"><button class="tile" data-tile="${p.id}" data-tip="${p.name}" style="background:${p.color}26">${folder(p.color, 18)}</button>
+      <div class="badges">${c.need ? `<span class="badge w">${c.need}</span>` : ''}${c.work ? `<span class="badge k">${c.work}</span>` : ''}${c.done ? `<span class="badge d">${c.done}</span>` : ''}</div></div>`;
+  }
+  $('#rail').innerHTML = h;
+}
+
+function stateIcon(t) {
+  if (t.asleep) return I.moon;
+  if (t.state === 'need') return I.bell;
+  if (t.state === 'done') return I.check;
+  if (t.state === 'working') return '<span class="spin"></span>';
+  return '';
+}
+
+function rowHTML(t, gen) {
+  const o = S.open;
+  let cls = 'th';
+  if (gen) cls += ' gen';
+  if (t.asleep) cls += ' sleep';
+  if (t.state === 'need' && !t.asleep) cls += ' need';
+  if (t.state === 'done' && !t.asleep) cls += ' done';
+  if (o.type === 'thread' && o.id === t.id) cls += ' sel';
+  if (o.type === 'group') {
+    const g = grp(o.id);
+    const f = g.focus === 'a' ? g.a : g.b;
+    if (t.id === f) cls += ' sel'; else if (t.id === g.a || t.id === g.b) cls += ' on';
+  }
+  const port = t.kind === 'server' && !t.asleep ? `<span class="prt">:${t.port}</span>` : '';
+  return `<div class="${cls}" data-row="${t.id}">
+    <span class="ki">${kindIcon(t)}</span><span class="n">${esc(t.name)}</span>${port}<span class="st">${stateIcon(t)}</span>
+    <button class="xb" data-close="${t.id}" data-tip="Close">${I.x}</button></div>`;
+}
+
+function groupHTML(g, gen) {
+  const a = th(g.a), b = th(g.b);
+  const look = v('side');
+  const name = 'Group ' + g.num;
+  const rows = rowHTML(a, gen) + rowHTML(b, gen);
+  if (look === 0) {
+    return `<div class="gwrap gA" data-gwrap="${g.id}"><div class="grow" data-grp="${g.id}"><span class="ki">${I.split}</span><span class="n">${name}</span></div>${rows}</div>`;
+  }
+  if (look === 1) {
+    return `<div class="gwrap gC" data-gwrap="${g.id}"><div class="gcap" data-grp="${g.id}">${name}</div>${rows}</div>`;
+  }
+  return `<div class="gwrap gC bare" data-gwrap="${g.id}">${rows}</div>`;
+}
+
+function listHTML(threads, gen) {
+  const done = new Set();
+  let h = '';
+  for (const t of threads) {
+    if (done.has(t.id)) continue;
+    const g = groupOf(t.id);
+    if (g) { done.add(g.a); done.add(g.b); h += groupHTML(g, gen); }
+    else h += rowHTML(t, gen);
+  }
+  return h;
+}
+
+function projHTML(p) {
+  const ts = S.threads.filter(t => t.project === p.id);
+  const c = counts(p.id);
+  const sig = c.need ? `<span class="sig">${I.bell}${c.need}</span>` : '';
+  return `<div class="pj ${p.pinned ? '' : 'dim'}">${folder(p.color)}<span class="n">${p.name}</span>${sig}</div>${listHTML(ts, false)}`;
+}
+
+function renderSide() {
+  const side = $('#side');
+  side.classList.toggle('hidden', S.panelHidden);
+  const gen = S.threads.filter(t => !t.project);
+  let h = `<div class="srch">${I.search}<span class="ph">Search</span><span class="k">Ctrl Shift P</span></div>
+    <div class="srow"><span class="g">${I.plus}</span><span>New thread</span><span class="k">Ctrl Shift T</span></div>
+    <div class="scroll" id="sscroll">`;
+  if (gen.length) h += `<div class="sec genw"><div class="lbl">General</div>${listHTML(gen, true)}</div>`;
+  h += `<div class="sec"><div class="lbl">${I.pin}Pinned</div>${PROJECTS.filter(p => p.pinned).map(projHTML).join('')}</div>`;
+  h += `<div class="divline"></div>`;
+  h += `<div class="sec"><div class="lbl">Recent</div>${PROJECTS.filter(p => !p.pinned).map(projHTML).join('')}</div>`;
+  h += `</div>`;
+  const keep = $('#sscroll') ? $('#sscroll').scrollTop : 0;
+  side.innerHTML = h;
+  $('#sscroll').scrollTop = keep;
+}
+
+function chipHTML(t) {
+  if (t.asleep) return `<span class="chip">${I.moon}Asleep · ${t.since}</span>`;
+  if (t.kind === 'server') return `<span class="chip" data-tip="Running">${I.play}:${t.port}</span>`;
+  if (t.state === 'need') return `<span class="chip">${I.bell}Needs you</span>`;
+  if (t.state === 'working') return `<span class="chip only" data-tip="Working"><span class="spin"></span></span>`;
+  if (t.state === 'done') return `<span class="chip">${I.check}Done</span>`;
+  return '';
+}
+function miniState(t) {
+  if (t.asleep) return `<span class="mini">${I.moon}Asleep</span>`;
+  if (t.kind === 'server') return `<span class="mini">${I.play}:${t.port}</span>`;
+  if (t.state === 'need') return `<span class="mini">${I.bell}Needs you</span>`;
+  if (t.state === 'working') return `<span class="mini"><span class="spin"></span></span>`;
+  return '';
+}
+const ungroupBtn = () => '';
+
+function projItem(t) {
+  if (!t.project) return `<span class="mi">${I.term.replace(/17/g, '13')}<span>General</span></span>`;
+  const p = proj(t.project);
+  return `<span class="mi">${folder(p.color, 13)}<span>${p.name}</span></span>`;
+}
+
+function headerHTML(t, opts = {}) {
+  const g = opts.group;
+  const branch = t.project ? `<span class="mi shrink">${I.branch}<span>${esc(t.branch || proj(t.project).branch)}</span></span>` : '';
+  const gitem = g && !opts.compact ? `<span class="mi">${I.split.replace('width="15" height="15"', 'width="13" height="13"')}<span>Group ${g.num}</span></span>` : '';
+  return `<div class="header ${opts.compact ? 'compact' : ''}" ${opts.side ? `data-pane="${opts.side}"` : ''}>
+    <div class="htitle"><div class="hname">${kindIcon(t)}<span>${esc(t.name)}</span></div>
+      <div class="hmeta">${projItem(t)}${gitem}${branch}</div></div>
+    <div class="hacts">${chipHTML(t)}${g ? ungroupBtn(g) : ''}${opts.compact ? '' : `<button class="ic" data-tip="Open in VS Code">${I.vscode}</button>`}<button class="ic" data-dots="${t.id}" data-tip="More">${I.dots}</button></div>
+  </div>`;
+}
+
+function groupHeaderHTML(g) {
+  const a = th(g.a);
+  const both = th(g.a).asleep && th(g.b).asleep;
+  return `<div class="header">
+    <div class="htitle"><div class="hname">${I.split}<span>Group ${g.num}</span></div>
+      <div class="hmeta">${projItem(a)}</div></div>
+    <div class="hacts">${both ? `<span class="chip">${I.moon}Asleep · ${a.since}</span>` : ''}${ungroupBtn(g)}<button class="ic" data-gdots="${g.id}" data-tip="More">${I.dots}</button></div>
+  </div>`;
+}
+
+function lineClass(s) {
+  if (s.startsWith('⏺')) return 'w';
+  if (s.startsWith('  ⎿')) return 'm';
+  if (s.startsWith('✻')) return 'o';
+  if (s.startsWith('> ')) return 'u';
+  if (s.startsWith('✔')) return 'g';
+  if (s.includes('➜') || s.startsWith('┃')) return 'c';
+  if (s.includes('Do you want')) return 'y';
+  return '';
+}
+
+function termHTML(t, focused) {
+  const body = t.lines.map(l => { const c = lineClass(l); return c ? `<span class="${c}">${esc(l)}</span>` : esc(l); });
+  if (t.asleep) return `<div class="term dim">${body.join('\n')}</div>`;
+  const last = `${esc(t.prompt)}${esc(t.input)}<span class="cur ${focused ? '' : 'off'}"></span>`;
+  return `<div class="term">${body.join('\n')}${body.length ? '\n' : ''}${last}</div>`;
+}
+
+function cardHTML(t, opts = {}) {
+  const g = opts.group;
+  const focused = !g || g.focus === opts.side;
+  const hv = v('head');
+  const wv = v('wake');
+  const bothAsleep = g && th(g.a).asleep && th(g.b).asleep;
+  const strip = g && hv === 1 ? `<div class="strip">${kindIcon(t)}<span class="n">${esc(t.name)}</span>${miniState(t)}<button class="ic" data-dots="${t.id}" data-tip="More">${I.dots}</button></div>` : '';
+  const noun = t.kind === 'chat' ? 'Chat' : t.kind === 'server' ? 'Server' : 'Shell';
+  const wake = t.asleep && !(bothAsleep && wv === 1)
+    ? `<div class="wakebox" ${strip ? 'style="top:34px"' : ''}><button class="wake" data-wake="${t.id}">Wake</button><span class="since">${noun} asleep since ${t.since === 'just now' ? 'just now' : t.since + ' ago'}</span></div>` : '';
+  return `<div class="card ${g && focused ? 'focus' : ''}" ${opts.side ? `data-pane="${opts.side}"` : ''}>${strip}${termHTML(t, focused && !t.asleep)}${wake}</div>`;
+}
+
+function renderMain() {
+  const main = $('#main');
+  const o = S.open;
+  let h = '';
+  if (o.type === 'thread') {
+    const t = th(o.id);
+    h = headerHTML(t) + `<div class="split one" id="split">${cardHTML(t)}</div>`;
+  } else {
+    const g = grp(o.id);
+    const L = th(g.a), R = th(g.b);
+    const hv = v('head'), wv = v('wake');
+    const bothAsleep = L.asleep && R.asleep;
+    const p = proj(g.project);
+    if (hv === 1) h += groupHeaderHTML(g);
+    if (hv === 2) h += headerHTML(g.focus === 'a' ? L : R, { group: g });
+    if (hv === 0 && wv !== 2) { /* each column brings its own header */ }
+    if (wv === 2 && bothAsleep) {
+      if (hv === 0) h += `<div style="height:12px"></div>`;
+      h += `<div class="wakebar">${I.moon}<span class="since">Both asleep since ${L.since} ago</span><button class="wake sm" data-wakeboth="${g.id}">Wake both</button></div>`;
+    }
+    const col = (t, side) => `<div class="col ${g.focus === side ? 'fcol' : ''}" style="flex:${side === 'a' ? g.split : 1 - g.split} 1 0">${hv === 0 ? headerHTML(t, { group: g, compact: true, side }) : ''}${cardHTML(t, { group: g, side })}</div>`;
+    const both = wv === 1 && bothAsleep
+      ? `<div class="wakeboth"><button class="wake" data-wakeboth="${g.id}">Wake both</button><span class="since">Both asleep since ${L.since} ago</span></div>` : '';
+    h += `<div class="split two f${v('focus')} ${both ? 'asleep2' : ''}" id="split" style="--pc:${p ? p.color : '#ececec'}">${col(L, 'a')}<div class="divider" data-divider="${g.id}" data-tip="Drag to resize"></div>${col(R, 'b')}${both}</div>`;
+  }
+  main.innerHTML = h;
+  main.querySelectorAll('.term').forEach(el => { el.scrollTop = el.scrollHeight; });
+}
+
+/* ── Scaling the copy to the page ──────────────────────────────────────── */
+let scale = 1;
+function fit() {
+  const stage = $('#stage');
+  scale = Math.min(1, stage.clientWidth / 1280);
+  app.style.transform = `scale(${scale})`;
+  stage.style.height = (780 * scale) + 'px';
+}
+window.addEventListener('resize', fit);
+const toApp = e => { const r = app.getBoundingClientRect(); return { x: (e.clientX - r.left) / scale, y: (e.clientY - r.top) / scale }; };
+
+/* ── Menu and tooltip ──────────────────────────────────────────────────── */
+const menu = $('#menu');
+function showMenu(e, items) {
+  const p = toApp(e);
+  menu.innerHTML = items.map((it, i) => it === '-' ? '<div class="sep"></div>' : `<button data-mi="${i}">${it.icon || ''}${it.label}</button>`).join('');
+  menu.style.display = 'block';
+  const w = menu.offsetWidth, hgt = menu.offsetHeight;
+  menu.style.left = Math.min(p.x, 1280 - w - 8) + 'px';
+  menu.style.top = Math.min(p.y, 780 - hgt - 8) + 'px';
+  menu._items = items;
+}
+function hideMenu() { menu.style.display = 'none'; menu._items = null; }
+menu.addEventListener('click', e => {
+  const b = e.target.closest('[data-mi]');
+  if (!b) return;
+  const it = menu._items[+b.dataset.mi];
+  hideMenu();
+  it.run();
+  render();
+});
+function threadMenu(e, t, fromRow = false) {
+  const items = [];
+  items.push(t.asleep ? { label: 'Wake', run: () => wakeThread(t) } : { label: 'Sleep', run: () => sleepThread(t) });
+  if (t.kind === 'server' && !t.asleep) items.push({ label: `Open localhost:${t.port}`, run: () => {} });
+  const g = groupOf(t.id);
+  if (g && fromRow) items.push({ label: 'Ungroup', run: () => dissolve(g) });
+  items.push('-', { label: 'Close', run: () => closeThread(t.id) });
+  showMenu(e, items);
+}
+function groupMenu(e, g) {
+  const a = th(g.a), b = th(g.b);
+  const items = [];
+  items.push({ label: 'Ungroup', run: () => dissolve(g) });
+  if (a.asleep || b.asleep) items.push({ label: 'Wake both', run: () => { if (a.asleep) wakeThread(a); if (b.asleep) wakeThread(b); } });
+  else items.push({ label: 'Sleep both', run: () => { sleepThread(a); sleepThread(b); } });
+  showMenu(e, items);
+}
+
+const tip = $('#tip');
+let tipTimer = null, tipEl = null;
+app.addEventListener('mouseover', e => {
+  const el = e.target.closest('[data-tip]');
+  if (el === tipEl) return;
+  tipEl = el; clearTimeout(tipTimer); tip.style.display = 'none';
+  if (!el || drag) return;
+  tipTimer = setTimeout(() => {
+    if (!document.body.contains(el)) return;
+    const r = el.getBoundingClientRect(), a = app.getBoundingClientRect();
+    tip.textContent = el.dataset.tip;
+    tip.style.display = 'block';
+    let x = (r.left - a.left) / scale + (r.width / scale) / 2 - tip.offsetWidth / 2;
+    let y = (r.bottom - a.top) / scale + 6;
+    if (el.closest('.rail')) { x = (r.right - a.left) / scale + 8; y = (r.top - a.top) / scale + (r.height / scale) / 2 - tip.offsetHeight / 2; }
+    tip.style.left = Math.max(6, Math.min(x, 1280 - tip.offsetWidth - 6)) + 'px';
+    tip.style.top = y + 'px';
+  }, 450);
+});
+app.addEventListener('mouseleave', () => { clearTimeout(tipTimer); tip.style.display = 'none'; tipEl = null; });
+
+/* ── Clicks ────────────────────────────────────────────────────────────── */
+app.addEventListener('click', e => {
+  if (e.target.closest('#menu')) return;
+  const el = e.target;
+  let hit;
+  if ((hit = el.closest('[data-close]'))) { closeThread(hit.dataset.close); return render(); }
+  if ((hit = el.closest('[data-act="panel"]'))) { S.panelHidden = !S.panelHidden; return render(); }
+  if ((hit = el.closest('[data-tile]'))) {
+    const pid = hit.dataset.tile;
+    const ts = S.threads.filter(t => t.project === pid && !t.asleep);
+    const t = ts.find(x => x.state === 'need') || ts.find(x => x.state === 'done') || ts.find(x => x.state === 'working') || ts[0];
+    if (t) openThread(t.id);
+    return render();
+  }
+  if ((hit = el.closest('[data-grp]'))) { openGroup(hit.dataset.grp); return render(); }
+  if ((hit = el.closest('[data-ungroup]'))) { dissolve(grp(hit.dataset.ungroup)); return render(); }
+  if ((hit = el.closest('[data-wakeboth]'))) { const g = grp(hit.dataset.wakeboth); [th(g.a), th(g.b)].forEach(t => t.asleep && wakeThread(t)); return render(); }
+  if ((hit = el.closest('[data-wake]'))) {
+    const t = th(hit.dataset.wake); wakeThread(t);
+    const g = groupOf(t.id); if (g && S.open.type === 'group') g.focus = g.a === t.id ? 'a' : 'b';
+    return render();
+  }
+  if ((hit = el.closest('[data-dots]'))) { e.stopPropagation(); return threadMenu(e, th(hit.dataset.dots)); }
+  if ((hit = el.closest('[data-gdots]'))) { e.stopPropagation(); return groupMenu(e, grp(hit.dataset.gdots)); }
+  if ((hit = el.closest('[data-pane]')) && S.open.type === 'group') {
+    const g = grp(S.open.id);
+    if (g.focus !== hit.dataset.pane) { g.focus = hit.dataset.pane; render(); }
+  }
+});
+app.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  let hit;
+  if ((hit = e.target.closest('[data-grp]'))) return groupMenu(e, grp(hit.dataset.grp));
+  if ((hit = e.target.closest('[data-row]'))) return threadMenu(e, th(hit.dataset.row), true);
+  hideMenu();
+});
+
+/* ── Dragging a thread, and the divider ────────────────────────────────── */
+const ghost = $('#ghost');
+let drag = null, resize = null;
+
+app.addEventListener('pointerdown', e => {
+  if (!e.target.closest('#menu')) hideMenu();
+  app.focus({ preventScroll: true });
+  if (e.button !== 0) return;
+  const dv = e.target.closest('[data-divider]');
+  if (dv) {
+    e.preventDefault();
+    const split = $('#split');
+    resize = { g: grp(dv.dataset.divider), rect: split.getBoundingClientRect(), el: dv };
+    dv.classList.add('active');
+    return;
+  }
+  const row = e.target.closest('[data-row]');
+  if (row && !e.target.closest('[data-close]')) {
+    e.preventDefault();
+    drag = { id: row.dataset.row, sx: e.clientX, sy: e.clientY, active: false, target: null };
+  }
+});
+app.addEventListener('dblclick', e => {
+  const dv = e.target.closest('[data-divider]');
+  if (dv) { grp(dv.dataset.divider).split = .5; render(); }
+});
+
+window.addEventListener('pointermove', e => {
+  if (resize) {
+    const r = resize.rect;
+    const f = Math.max(.25, Math.min(.75, (e.clientX - r.left) / r.width));
+    resize.g.split = f;
+    const cols = document.querySelectorAll('#split > .col');
+    cols[0].style.flex = `${f} 1 0`;
+    cols[1].style.flex = `${1 - f} 1 0`;
+    return;
+  }
+  if (!drag) return;
+  if (!drag.active) {
+    if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 5) return;
+    drag.active = true;
+    clearTimeout(tipTimer); tip.style.display = 'none';
+    const row = document.querySelector(`[data-row="${drag.id}"]`);
+    if (row) row.classList.add('dragging');
+    document.body.style.cursor = 'grabbing';
+    if (v('drop') === 1) showEdges();
+  }
+  const p = toApp(e);
+  drag.target = hitTest(e);
+  paintTarget(drag.target);
+  ghost.innerHTML = ghostHTML(th(drag.id), drag.target);
+  ghost.style.display = 'block';
+  ghost.style.left = Math.min(p.x + 14, 1280 - ghost.offsetWidth - 6) + 'px';
+  ghost.style.top = Math.min(p.y + 10, 780 - ghost.offsetHeight - 6) + 'px';
+});
+
+window.addEventListener('pointerup', () => {
+  if (resize) { resize.el.classList.remove('active'); resize = null; return; }
+  if (!drag) return;
+  const d = drag; drag = null;
+  ghost.style.display = 'none';
+  document.body.style.cursor = '';
+  if (!d.active) { openThread(d.id); return render(); }
+  const t = d.target;
+  if (t && !t.bad) {
+    if (t.kind === 'half') makeGroup(S.open.id, d.id, t.side);
+    else if (t.kind === 'open') openThread(d.id);
+    else if (t.kind === 'row') makeGroup(t.other, d.id, 'b');
+    else if (t.kind === 'ungroup') dissolve(t.g);
+  }
+  render();
+});
+
+function sameProject(a, b) { return pkey(a) === pkey(b); }
+
+function hitTest(e) {
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  if (!el || !app.contains(el)) return null;
+  const t = th(drag.id);
+  const g0 = groupOf(t.id);
+  const how = v('drop');
+
+  if (v('apart') === 1 && g0 && el.closest('.side-panel') && !el.closest(`[data-gwrap="${g0.id}"]`)) {
+    return { kind: 'ungroup', g: g0 };
+  }
+  if (how === 2) {
+    const r = el.closest('[data-row]');
+    if (!r || r.dataset.row === t.id) return null;
+    const other = th(r.dataset.row);
+    const og = groupOf(other.id);
+    if (og && og === g0) return null;
+    let bad = null;
+    if (!sameProject(other, t)) bad = 'Same project only';
+    else if (og) bad = 'Two at most';
+    return { kind: 'row', other: other.id, el: r, bad };
+  }
+  if (!el.closest('.main')) return null;
+  const o = S.open;
+  if (o.type === 'group') {
+    const g = grp(o.id);
+    if (g.a === t.id || g.b === t.id) return null;
+    return { kind: 'whole', bad: 'Two at most' };
+  }
+  if (o.id === t.id) return null;
+  const other = th(o.id);
+  const split = $('#split').getBoundingClientRect();
+  const x = e.clientX - split.left, w = split.width;
+  const bad = sameProject(other, t) ? null : 'Same project only';
+  if (how === 0) return { kind: 'half', side: x < w / 2 ? 'a' : 'b', bad };
+  const edge = Math.min(160 * scale, w * .25);
+  if (x < edge) return { kind: 'half', side: 'a', bad };
+  if (x > w - edge) return { kind: 'half', side: 'b', bad };
+  return { kind: 'open' };
+}
+
+function showEdges() {
+  const split = $('#split');
+  if (!split || S.open.type !== 'thread' || S.open.id === drag.id) return;
+  split.insertAdjacentHTML('beforeend', `<div class="edgez" style="left:0;width:160px"></div><div class="edgez" style="right:0;width:160px"></div>`);
+}
+
+function paintTarget(t) {
+  document.querySelectorAll('.dz').forEach(x => x.remove());
+  document.querySelectorAll('.th.drop, .th.dropbad').forEach(x => x.classList.remove('drop', 'dropbad'));
+  if (!t) return;
+  if (t.kind === 'row') { t.el.classList.add(t.bad ? 'dropbad' : 'drop'); return; }
+  if (t.kind === 'ungroup') return;
+  const split = $('#split');
+  let pos = 'left:0;right:0';
+  let lab = '';
+  if (t.kind === 'half' && !t.bad) pos = t.side === 'a' ? 'left:0;right:calc(50% + 6px)' : 'left:calc(50% + 6px);right:0';
+  if (t.kind === 'open') lab = 'Open';
+  if (t.bad) lab = t.bad;
+  split.insertAdjacentHTML('beforeend', `<div class="dz ${t.bad ? 'bad' : ''}" style="${pos}">${lab ? `<span class="lab">${lab}</span>` : ''}</div>`);
+}
+
+function ghostHTML(t, target) {
+  const pl = t.project ? `${folder(proj(t.project).color, 12)}${proj(t.project).name}` : 'General';
+  let hint = '';
+  if (target && target.bad && target.kind === 'row') hint = `<span class="hint bad">${target.bad}</span>`;
+  else if (target && target.kind === 'ungroup') hint = `<span class="hint">Ungroup</span>`;
+  return `<div class="gl1">${kindIcon(t)}<span>${esc(t.name)}</span></div><div class="gl2">${pl}</div>${hint}`;
+}
+
+/* ── Typing into the half you are in ───────────────────────────────────── */
+app.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const t = target();
+  if (!t || t.asleep) return;
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    enter(t);
+  } else if (e.key === 'Backspace') {
+    e.preventDefault();
+    t.input = t.input.slice(0, -1);
+  } else if (e.key.length === 1) {
+    e.preventDefault();
+    t.input += e.key;
+  } else return;
+  renderMain();
+});
+
+function enter(t) {
+  const cmd = t.input.trim();
+  t.input = '';
+  if (t.kind === 'chat') {
+    t.lines = t.lines.filter(l => !l.startsWith('✻'));
+    while (t.lines.length && t.lines.at(-1) === '') t.lines.pop();
+    t.lines.push('', '> ' + (cmd || ''), '');
+    t.state = 'working';
+    renderSide(); renderRail();
+    setTimeout(() => {
+      t.lines.push('⏺ On it.', '');
+      t.state = 'done';
+      if (onScreen().includes(t)) t.state = 'quiet';
+      render();
+    }, 900);
+    return;
+  }
+  if (t.kind === 'server') { t.lines.push(cmd); return; }
+  t.lines.push(t.prompt + cmd);
+  if (!cmd) return;
+  if (cmd === 'cls' || cmd === 'clear') { t.lines = []; return; }
+  if (cmd.startsWith('echo ')) { t.lines.push(cmd.slice(5), ''); return; }
+  if (cmd === 'dir' || cmd === 'ls') { t.lines.push('docs', 'scripts', 'src', 'package.json', 'README.md', ''); return; }
+  if (t.prompt.startsWith('PS')) t.lines.push(`${cmd}: The term '${cmd}' is not recognized as a name of a cmdlet, function, script file, or executable program.`, '');
+  else if (t.prompt.startsWith('$')) t.lines.push(`bash: ${cmd}: command not found`);
+  else t.lines.push(`'${cmd}' is not recognized as an internal or external command,`, 'operable program or batch file.', '');
+}
+
+/* ── The question bar ──────────────────────────────────────────────────── */
+$('#qtabs').addEventListener('click', e => {
+  const b = e.target.closest('[data-q]');
+  if (!b) return;
+  qi = +b.dataset.q;
+  startQuestion();
+});
+$('#opts').addEventListener('click', e => {
+  const b = e.target.closest('[data-opt]');
+  if (!b) return;
+  pick[qi] = +b.dataset.opt;
+  renderQbar();
+  render();
+});
+$('#reset').addEventListener('click', startQuestion);
+
+fit();
+startQuestion();
+</script>
+</body>
+</html>

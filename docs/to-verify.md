@@ -1,8 +1,243 @@
 # afterterm: changes waiting for Aryan to check
 
+**No new entries since 2026-11-07. New changes wait in Linear's Fixed, check it status;** see "All work is tracked in Linear" in [`../CLAUDE.md`](../CLAUDE.md). The entries below are still waiting for him to check them, and a **Works** item is still deleted from here. Everything below describes how the file worked until then.
+
 Every change that reaches Aryan's build is listed here until he has checked it while using the app. He marks each one **Works** or **Doesn't work** (with a note). A **Works** item is deleted from this file; a **Doesn't work** item becomes a bug in [`bugs.md`](bugs.md) and is deleted from here. So the file only ever holds what is still to be checked.
 
 Every agent that ships a change Aryan would notice adds it here in the same change, under the build it arrives in: one short line saying what changed, then how to check it in a few steps. Newest build first.
+
+---
+
+## Release 0.15.0 (2026-11-06): the smaller project dialog, any colour for a project, and Rename (PR #71)
+
+Self-tested in the dev build through the harness on 2026-11-06; captures and four recordings in `docs/screenshots/project-dialog-and-rename/`.
+
+### The project dialog is smaller, with colours and icons behind the large icon
+**Status:** waiting for Aryan
+1. Right-click a project and choose **Edit project**: the large icon with a pencil sits beside Name, with Folder and Shell one line each below.
+2. Click the large icon: a pop-up shows ten colour circles on one line and the icons below them. Click some: the large icon changes each time and the pop-up stays open.
+3. Click the Shell row: a dropdown opens, with no "Default shell" in it. Escape closes only the dropdown.
+4. Choose a project with a long folder: the start of the path shows, cut at the end, and hovering shows all of it.
+5. Open **New project**: the same dialog, with "Open a terminal in it now" beside the buttons.
+
+### Any colour for a project, and white
+**Status:** waiting for Aryan
+1. In the pop-up, click the last circle: a colour wheel opens at the project's current colour, and nothing changes until you use it.
+2. Drag on the wheel and on the brightness bar: the large icon follows as you move, and nothing covers it.
+3. Type a colour code one key at a time, and try `#fff`: the large icon changes on every key.
+4. The last circle now shows your colour with a small rainbow mark. Click a set colour: the wheel closes and the circle is the plain rainbow again.
+5. Pick white: its selection ring shows. Pick a custom colour and Save: the project shows it on Home, the sidebar, the rail, the header and toasts, and still after a relaunch.
+6. Press Escape with the wheel open: the wheel closes first, then the pop-up, then the dialog.
+
+### Rename a thread
+**Status:** waiting for Aryan
+1. Right-click a thread in the sidebar: **Rename** is just above **Close**. The header's dots menu and the project page's rows have it in the same place.
+2. Type a name and press Enter: the sidebar, the header, the hover card and the search palette all show it, and it is still there after a relaunch.
+3. In a live thread, keep typing straight after saving: the keys reach the terminal.
+4. Choose **Rename** again, clear the field and press Enter: the automatic name comes back.
+
+### Rename a project
+**Status:** waiting for Aryan
+1. Right-click a project: **Rename** is just above **Delete project**.
+2. Type a name and press Enter: the new name shows everywhere. An empty name cannot be saved.
+
+---
+## Release 0.14.0 (2026-11-06): file links open their own app, a right-click menu, image tags (PR #70)
+
+Self-tested in the dev build through the harness on 2026-11-06, with the real Revy paths; captures and recordings in `docs/screenshots/file-links-open-and-menu/`. Nothing was really launched in the self-test (the harness only logs an open), so the apps themselves opening is the one thing to see here.
+
+### A file link opens in the file's own app
+**Status:** waiting for Aryan
+1. In a chat, click a link to an MP4 and to an HTML file: the video player and the browser open, not VS Code.
+2. Click a link to a `.ts` or `.md` file: it opens in VS Code. Click one with a line number (`src/main.ts:12`): VS Code opens at that line.
+3. Click a link to a `.bat` or `.js` file: it opens in VS Code and does not run.
+
+### Right-click a file link for Open, Open file location and Copy file path
+**Status:** waiting for Aryan
+1. Right-click a file link: the menu has the three items. Open file location shows File Explorer with the file selected. Copy file path copies the full path.
+2. With the menu up, press Esc: it closes and a running chat is not interrupted.
+3. Right-click off a link: it still pastes.
+
+### [Image #N] tags open the image
+**Status:** waiting for Aryan
+1. In a chat, paste an image and send the message.
+2. Click its `[Image #1]` tag, in the message or in the list under it: the image opens. Right-click has the same menu.
+
+## Release 0.12.1 (2026-11-01): Update downloads the newest version (PR #66)
+
+Self-tested in the dev build with a test feed; capture and recording in `docs/screenshots/update-download-latest/`.
+
+### Update checks again and downloads the newest version
+**Status:** waiting for Aryan
+1. This shows only when two releases come out within 6 hours. When "Update available" names a version and a newer one has come out since, press **Update**.
+2. The notice and the download are for the newest version, and that is the version afterterm restarts into.
+
+## Release 0.12.0 (2026-11-01): the sidebar's order, drag and drop, and Archive (PR #64)
+
+Self-tested in the dev build through the harness on 2026-11-01; captures and four recordings in `docs/screenshots/sidebar-order-drag-archive/`.
+
+### Nothing in the sidebar moves because it was used
+**Status:** waiting for Aryan
+1. Work in threads of two projects in Recent, clicking, typing and waking in both.
+2. Neither project moves; each keeps its place in Recent.
+
+### A project coming into Recent goes at the top, with a slide
+**Status:** waiting for Aryan
+1. Open a project from Other projects (or from Home, or Ctrl+Shift+P).
+2. It opens at the top of Recent, the rows below slide down, and its row lights up for a moment.
+3. Restart afterterm: Pinned and Recent are in the same order.
+
+### A new thread goes at the top of its project, with a slide
+**Status:** waiting for Aryan
+1. Click a project row's **+**.
+2. The new thread opens at the top of that project and the threads below slide down.
+
+### Projects can be dragged inside and between Pinned and Recent
+**Status:** waiting for Aryan
+1. Drag a project above the first project of Recent: a blue line shows above it, and it lands there.
+2. Drag a Recent project into Pinned: it is pinned, with "Pinned <name>". Drag it back down into Recent: "Unpinned <name>".
+3. While a project is dragged, no other project row lights up, and its card says how many threads it has.
+4. Press Esc mid-drag, or let go where it already was: the card floats back and nothing changes.
+
+### Threads can be dragged between threads, onto a project, and out into General
+**Status:** waiting for Aryan
+1. Drag a thread between two threads of another project: an indented line shows the spot, and the card opens a line with the old project, an arrow and the new one.
+2. Hold a thread over a project's own row: the row gets a blue outline, and the thread lands at the top of that project.
+3. Drop a thread on or above the Pinned heading: General appears with the thread in it. Nothing opens while you drag.
+4. With two long project names, the card's from-and-to stays one line and the new project's name shortens first.
+
+### Archive moves a project to the top of Other projects
+**Status:** waiting for Aryan
+1. Wake a thread or two in a project in Recent (run a server in one), then right-click the project and choose **Archive**.
+2. A window lists those threads with their status ("Running on :port", "Awake"), then "These threads will go to sleep", Cancel and Archive. Esc cancels; a click beside it does nothing.
+3. Archive: the threads turn to the moon one after the other, the project folds out of Recent, the Other projects count bumps, and "Moved to Other projects" shows.
+4. Archive a project with nothing awake: no window, same fold and toast.
+
+### An archived project comes back when it is used
+**Status:** waiting for Aryan
+1. Right-click the archived project in Other projects: the full menu, with **Restore** where Archive was.
+2. Restore, open it from the drawer, find it with Ctrl+Shift+P, or wake one of its threads from its project page: each brings it back to the top of Recent.
+3. On Home there is no Archived section; archived projects are in Projects.
+
+## Release 0.11.2 (2026-10-31): the update progress bar
+
+### The update window's bar only moves forward
+**Status:** waiting for Aryan
+1. Update to 0.11.2 from the "Update available" button.
+2. The small window's bar goes from 0% to 100% without stepping back (the window comes from the new version's installer, so the fix already shows on this update).
+
+## Release 0.11.1 (2026-10-31): the first real update
+
+### afterterm 0.11.0 updates itself to 0.11.1
+**Status:** waiting for Aryan
+1. In your installed afterterm, click the version number, then **Check for updates** (or wait: it checks 10 seconds after it starts).
+2. Update, then Restart to update. It closes, a small window installs 0.11.1, and it opens again on the same thread, showing "Updated to 0.11.1".
+
+## Release 0.11.0 (2026-10-31): automatic updates and one running copy
+
+All of these use a test feed instead of GitHub, so no public release is needed. Make one once:
+a JSON file in GitHub's release shape (`tag_name` `v0.11.0`, a `body`, and one asset
+`afterterm-0.11.0-setup.exe` whose `browser_download_url` is the path of any file and whose
+`digest` is `sha256:` plus that file's hash). The harness fixture builder used in the Phase 2
+self-test does exactly this (`docs/features-updates.md`, "Testing"). Start a dev build through the
+harness with `--env AFTERTERM_UPDATE_FEED=<that file> --env AFTERTERM_UPDATE_CHECK_DELAY_MS=3000`
+(add `--env AFTERTERM_UPDATE_SLOW_MS=15000` to watch the download). Phase 3 ran them end to end
+with the installed test build on 2026-10-31 (see PHASES.md); the real proof is the first public
+release with the updater.
+
+### Reinstalling into a folder you chose keeps that folder
+**Status:** waiting for Aryan
+1. Install the test build into a folder of your own (Change on the first page).
+2. Run the same test installer again: "Install to" shows your folder, not `AppData\Local\Programs`.
+
+### An "Update available" button appears beside the version, and its notice opens under it
+**Status:** waiting for Aryan
+1. About three seconds after the build opens, a green "Update available" button appears beside `v0.10.0`. Nothing else opens.
+2. Click it: the notice reads "afterterm 0.11.0 is available", "You have 0.10.0.", What's new, Update, Later, Skip this version.
+3. Click What's new: the notes fold open inside the notice, the buttons stay underneath. A click outside closes the notice.
+
+### Update downloads with progress, then offers Restart to update
+**Status:** waiting for Aryan
+1. Click Update. The button becomes a small bar and "Downloading 12%"; clicking it shows the bar, "4.2 of 30.0 MB" and Cancel.
+2. When it finishes, the button turns white: "Restart to update".
+
+### A download that does not match the release is deleted
+**Status:** waiting for Aryan
+1. Change the feed's `digest` to `sha256:` and 64 zeros, open the About window (click the version) and press Check for updates, then Update.
+2. When the bar fills, the notice says "The download didn't match the release, so it was deleted." with Try again, and the `updates` folder in the data folder is empty.
+
+### Restart to update lists every awake thread
+**Status:** waiting for Aryan
+1. Wake a chat, a server and a shell, then click "Restart to update".
+2. The window reads "Restart afterterm to update?" with one row each: "Resumes", "Runs again on :<port>", "Opens in its folder"; a chat in the middle of a reply, or waiting on a permission prompt (the bell), reads "Stops mid-turn" in yellow, and the line by the buttons says "1 chat stops mid-turn" instead of "Safe to restart".
+3. In a dev build, Restart now closes the window and the notice says "Updates install only into an installed copy." afterterm stays open.
+
+### Later hides the button for a day; Skip this version hides that version
+**Status:** waiting for Aryan
+1. Later: the button goes, and comes back 24 hours later, even with afterterm open the whole time.
+2. Skip this version: the button goes and stays gone for 0.11.0; the About window still shows "afterterm 0.11.0 is available". A 0.12.0 in the feed brings the button back.
+
+### The About window keeps its size, and What's new slides open
+**Status:** waiting for Aryan
+1. Click the version number. The window shows the logo, "afterterm", "Version 0.10.0", one update row, the "Check for updates automatically" switch, "afterterm on GitHub" and Close.
+2. Check for updates, Update, the download and "Restart to update" all change only that one row; the window does not change size.
+3. What's new slides the notes open under the row and slides them shut again. Close fades the window out.
+4. Turn the switch off: `prefs.json` gets `"updateChecks": "disabled"` and the build no longer checks by itself; Check for updates still works.
+
+### After an update restart afterterm reopens where you were and wakes what was awake
+**Status:** a real chat coming back checked by Aryan in the test build on 2026-10-31: works. The rest waiting for Aryan
+1. Seed the harness with a session that has `"wakeAfterUpdate": ["<thread id>", ...]` and prefs with `"pendingUpdate": {"from": "0.9.0", "to": "0.10.0", "activeThreadId": "<thread id>", "screen": "workspace"}`.
+2. It opens on the workspace (not Home) on that thread, the listed threads wake (a server runs its command again), the others stay asleep.
+3. A pill at the bottom says "Updated to 0.10.0" with What's new and a small round x on its top-right corner; it goes by itself after about 6 seconds. What's new opens the notes in a window over the app.
+4. Launch again normally: every thread starts asleep, Home, no pill.
+
+### Opening afterterm while it is open brings the window forward
+**Status:** waiting for Aryan
+1. With afterterm open, start it again (its taskbar pin with the window minimised, its Start menu entry, or `afterterm.exe` in Explorer).
+2. No second window appears: the open one comes to the front, restored if it was minimised.
+
+---
+
+## Release 0.10.0 (2026-10-30): the installer and Yogansh's feedback
+
+### The test installer installs, checks Claude Code and uninstalls cleanly
+**Status:** waiting for Aryan
+Uses the test build ("afterterm (test)"), which keeps its data in `%LOCALAPPDATA%\afterterm-test` and never touches your real afterterm or `~/.claude`.
+1. Build it with `node scripts\build-installer.js --sandbox` in the worktree (or use the one already in `out\installer\`) and run `afterterm-test-0.9.0-setup.exe`.
+2. The first page shows the logo, the version, the folder with Change, and two ticked shortcut boxes. Click Install.
+3. The bar starts moving at once and fills in about 10 seconds. "Checking Claude Code" follows, with spinners, then three ticks.
+4. "afterterm (test) is ready": Finish opens it. It has its own taskbar icon, separate from your afterterm.
+5. Settings > Apps lists "afterterm (test)"; uninstalling it removes the app and both shortcuts.
+
+### A fresh start opens on Home with nothing running, and Home offers to create your first project
+**Status:** waiting for Aryan
+1. Open the test build from above for the first time: Home shows only the date and one large "Create your first project" button in the middle of the Projects section. No terminal starts.
+2. Click it: the New project dialog opens. Create a project.
+3. The large button is gone; the project is listed under Projects.
+
+### Closing your last thread goes to Home, and stays closed after a restart
+**Status:** waiting for Aryan
+1. In the test build, open one thread, then close it with its x.
+2. afterterm switches to Home. No new thread is started.
+3. Quit and reopen the test build: still no thread, your projects still there.
+
+### The sidebar shows no empty Recent heading
+**Status:** waiting for Aryan
+1. With no projects, open the sidebar: under New thread there is a New project row, and no Recent heading.
+2. Create a project: it shows under Recent, with the New project plus on Recent's heading (on hover).
+3. Pin it: Recent disappears, and the plus moves to the Pinned heading.
+
+### afterterm no longer freezes the mouse a few seconds after it starts
+**Status:** waiting for Aryan
+1. Start the build and keep moving the mouse in a circle for the first ten seconds.
+2. The pointer never stops; before, it froze for up to 3 seconds about 5 seconds in.
+
+### Chats come back after Sleep on a PC that blocks scripts (Yogansh's case)
+**Status:** waiting for Yogansh
+The `/resume` half (a chat opened with `/resume` and left without a message comes back after Sleep and Wake) was checked by Aryan on 2026-10-30, in a General thread and a project thread: works.
+1. On Yogansh's laptop, install this version over his old copy.
+2. The setup's check page shows three ticks.
+3. In a chat, send a message, then Sleep and Wake the thread: the chat comes back.
 
 ---
 

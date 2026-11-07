@@ -1,5 +1,7 @@
 # afterterm — Known Bugs
 
+**Frozen on 2026-11-07. Open bugs are now issues in Linear; do not add to this file or rewrite it.** See "All work is tracked in Linear" in [`../CLAUDE.md`](../CLAUDE.md). It stays here during the trial so going back stays easy. Everything below describes how the file worked until then.
+
 Running list of observed bugs that are **not yet fixed**. When a bug is fixed, its entry is deleted from here and a short entry is added to [`bugs-fixed.md`](bugs-fixed.md) in the same change (what was wrong, what the fix does, the PR), and the fix goes in `CHANGELOG.md`'s Fixed list. For inherent *platform limitations* (input lag, Wispr, etc.) see the **Known Limitations** section in [`../CLAUDE.md`](../CLAUDE.md) — those are constraints, not bugs on a fix-list.
 
 Format per bug: a short title, the date observed, what happens, the steps to make it happen again when known, and the evidence Aryan gave (screenshots, quoted text, names). No causes: from 2026-09-26 new entries say nothing about causes, even where older entries below have one (`.claude/commands/bug-record.md`).
@@ -85,32 +87,6 @@ The New thread row, and the Search row above it, sit as two full-width rows at t
 2. The top of the sidebar is the icon row (collapse toggle), then the Search row, then the New thread row, before the first section.
 
 **Cause:** the panel's top in `src/renderer/components/SidePanel/index.tsx` is the `.brand` icon row (the collapse toggle), then the `.srow` Search box and the `.srow[data-new-thread]` row, each a 44px row; the rail (`components/Rail`) already carries a Search and a New thread block that only shows while the panel is hidden. Fix direction: fold both into the icon row (a search icon that expands into the in-place box, a plus for New thread, next to the collapse toggle), or keep a single compact row; a layout to agree with Aryan (a mock page, one question) before it is built, since it changes the sidebar's top for every screen.
-
----
-
-## Drag and drop in the sidebar: projects cannot be reordered, dragging to Pinned does not pin, no indicator for a drop at the top, hovered projects highlight during a project drag, and a thread cannot be dragged out of every project
-
-**Observed:** 2026-09-22 by Aryan during manual testing · **Phase:** 8 (the Pinned and Recent split and Recent's activity order); the drag-and-drop itself is Phase 1 and pre-existing · **Status:** open · **Severity:** medium (a whole interaction that does not behave) · **Screenshot:** none attached
-
-**What happens:**
-Five things, all in the sidebar's drag and drop, which Aryan wants worked on as one piece:
-
-1. Dragging a project row to another position inside Pinned does not reorder it, and neither does it inside Recent. He is not sure repositioning is meant to exist at all.
-2. Dragging a project from Recent into the Pinned section should pin it. It does not.
-3. Dragging a project to the top of a section gives no visual indication that it will land first; there is an indication for landing between two projects, nothing for landing on top.
-4. While a project is being dragged, the project row under the pointer highlights as if it were a drop target, and the dragged row is highlighted too. Two highlighted projects reads as "this one goes inside that one", which is not what happens. A project being dragged over should not highlight; that highlight makes sense only when a thread is dragged over a project.
-5. There is no way to drag a thread out of every project, into General.
-
-He also asks whether any of this was designed and built before the redesign, so the record is checked before it is fixed.
-
-**Repro:**
-1. Drag a pinned project's row above another pinned project and release: the order is unchanged. The same in Recent.
-2. Drag a Recent project onto the Pinned section and release: it is not pinned.
-3. Drag a project towards the top of its section: no line or gap appears above the first row.
-4. During the drag, the project under the pointer takes the hover highlight.
-5. Drag a thread out of its project towards General: no target to drop it on.
-
-**Cause:** what the code says today, from `src/renderer/components/SidePanel/index.tsx`: project drags do exist (`handleDragEnd` calls `onMoveGroupAfterGroup(dragged, target)` when a project is dropped on a project row, so the intended gesture is "move after the target"), and design-03 says "Pinned keeps its dragged order" while "Recent is sorted by lastActiveAt descending", so a reorder inside Recent is overridden by the activity sort by design, and a reorder inside Pinned should work but Aryan reports it does not (not investigated further; the Pinned list in `panelView.ts` is built from group order, so the move may not be reaching `groups` or may be landing across the Pinned and Recent boundary). There is no pin-on-drop (`togglePin` is only called from the pin buttons and menus), only an "after the target" drop and so no "before the first row" indicator, the project row's `drop-over` class is applied from `isOver` for any drag kind (line 184), and a thread's only drop targets are other thread rows and project rows (`moveTab` inherits the target's group), so an empty General offers nowhere to drop. Fix direction: a proper drag model for the panel: reorder within Pinned with a before-or-after line indicator (including above the first row), a drop into the Pinned section that pins, no reordering in Recent (it is sorted by activity, say so on hover or allow nothing), project rows not highlighting while a project is dragged, and a General drop zone (the section heading, or an always-present target when the section is empty) that takes a thread out of its project. This is a design decision with Aryan first (one mock page, one question per gesture), then one piece of work.
 
 ---
 
@@ -261,22 +237,6 @@ When Aryan restarts afterterm, or shuts it down and opens it again, there is no 
 
 ---
 
-## Clicking a file link in the terminal should open the file in its default app, and right-clicking it should offer Open file location
-
-**Observed:** 2026-09-26 by Aryan during manual testing · **Phase:** Edited files Phase 3 (file paths in the terminal output are links, `docs/edited-files/`) · **Status:** open · **Severity:** low (a feature request: nothing is broken or lost) · **Screenshot:** none attached
-
-**What happens:**
-This is a feature request, not a defect. A file path in the terminal output is a file link: underlined on hover, and a click opens it (markdown and code in VS Code today). Aryan wants a click on a file link to open the file in the native tool for it, meaning the app Windows uses for that file type. He also wants a right-click menu on a file link with an "Open file location" item that shows the file in File Explorer.
-
-**Steps to make it happen again:**
-1. In a chat, hover a file path Claude wrote in the terminal until it is underlined.
-2. Click it: it opens in VS Code, not in the file type's default app.
-3. Right-click it: there is no "Open file location" item.
-
-**Evidence:** Only the description above. The menu item name Aryan asked for: "Open file location".
-
----
-
 ## Rail badges and sidebar thread states are lost when afterterm is restarted, only Mark as unread survives
 
 **Observed:** 2026-09-29 by Aryan during manual testing · **Phase:** 7 (attention state: needs-you, finished and unread, shown on the Phase 8 rail tiles and on the sidebar thread rows) · **Status:** open · **Severity:** medium (a waiting or finished thread no longer shows it after a restart, so it can be missed) · **Screenshot:** none attached
@@ -309,38 +269,6 @@ A chat has a background agent running, but the UI does not show it: the sidebar 
 **Evidence:**
 - `13-server-running-shown-while-background-agent-runs-unmarked.png`: the thread "Revy Phase 4 rebuild" in the project "Revy App" (Opus 5.5, branch and worktree `phase-4-all-plant-types`), at 14:10 on 29-09-2026. Its sidebar row, underlined in red, shows `:5554` and the green play icon; the header shows "Running on :5554". The terminal ends with "Waiting for 1 background agent to finish", and Claude Code's footer, also underlined in red, shows a `general-purpose` agent at work ("Scrolling to STP dosing details"). The commands in the output address an Android emulator named `emulator-5554`.
 - Aryan's words: "there is a background agent running but UI doesn't show it, UI shows a server is running".
-
----
-
-## MP4 and HTML file links in a chat's terminal output open in VS Code instead of their own apps
-
-**Observed:** 2026-09-29 by Aryan during manual testing · **Phase:** Edited files Phase 3 (file paths in the terminal output are links, `docs/edited-files/`; any file name with an extension became a link in PR #44) · **Status:** open · **Severity:** medium (a link opens the file in the wrong app) · **Screenshot:** none attached
-
-**What happens:**
-A file path highlighted as a link in a chat's terminal output opens in VS Code when clicked, even when the file is an MP4 video or an HTML page. Aryan expects such files not to open in VS Code.
-
-**Steps to make it happen again:**
-1. In a chat, have Claude mention the path of an MP4 file and of an HTML file in its output, so each is highlighted as a link.
-2. Click the MP4 link: it opens in VS Code.
-3. Click the HTML link: it opens in VS Code.
-
-**Evidence:** Only the description above. Aryan's words: "even MP4 and HTML files are openeing in vs code from the chat highlights". Related open entry: "Clicking a file link in the terminal should open the file in its default app, and right-clicking it should offer Open file location" (2026-09-26).
-
----
-
-## Opening a chat from another project moves that project to the top of Recent in the sidebar, without typing anything and without an animation
-
-**Observed:** 2026-09-30 by Aryan during manual testing · **Phase:** 8 (the panel's Pinned and Recent split and Recent's order by activity) · **Status:** open · **Severity:** medium (the Recent list reorders on a plain click) · **Screenshot:** none attached
-
-**What happens:**
-In the Recent section of the sidebar, just opening a chat from some other project brings that project to the top of the list. Aryan finds this weird: a project should only come to the top when he types something into one of its threads, not when he only opens a chat. He also wants the move to the top to be animated when it happens.
-
-**Steps to make it happen again:**
-1. Have two or more projects in the sidebar's Recent section.
-2. Click a chat in a project that is not at the top of Recent, without typing anything into it.
-3. That project jumps to the top of Recent at once, with no animation.
-
-**Evidence:** Only the description above. Aryan's words: "just opening a chat from some other project bring it to the top. This is weird, if I input something, then they should come on top. Also, there should be animation for it".
 
 ---
 
@@ -449,22 +377,6 @@ The sidebar panel has a fixed width. Aryan expects to be able to drag its edge t
 
 ---
 
-## Archiving a project from the sidebar hides it everywhere except Home, instead of moving it into Other projects
-
-**Observed:** 2026-10-02 by Aryan during manual testing · **Phase:** 2 (archive and restore), with the panel's Other projects drawer from Phase 8 · **Status:** open · **Severity:** medium (the feature does something other than what Aryan expected, and the project becomes hard to reach) · **Screenshot:** none attached
-
-**What happens:**
-Aryan archived a project that was under Recent in the sidebar, expecting it to move into the Other projects drawer at the bottom of the panel. It did not go there: an archived project can only be reached from the Archived section on Home, which he finds very odd. What he wants is not an archive at all: a way to take a project off the sidebar's project list so it sits in Other projects. He asks for the whole archive feature to be removed, and for the action and its wording to become "move to Other projects" instead.
-
-**Steps to make it happen again:**
-1. Have a project listed under Recent in the sidebar panel.
-2. Right-click it and choose Archive.
-3. The project leaves Recent but does not appear in the Other projects drawer; it is listed only in the Archived section on Home.
-
-**Evidence:** Only the description above. Aryan's words: "If a project is in Recent and I put it in Archive, I thought it would go to Other Projects, but it does not. I can only access archived projects through the homepage, which is very weird." and "I don't want an archive project. If the project just goes into the Other Projects dropdown, that is what I wanted. Need to fix the terminology here and need to kill the entire archive functionality. I just want them to move into Other Projects so they are off the project bar."
-
----
-
 ## A new thread from a project's plus button opens a plain shell, so starting Claude Code takes typing it by hand every time
 
 **Observed:** 2026-10-02 by Aryan during manual testing · **Phase:** 2 (new thread in a project), opened from the plus on the project's row in the Phase 8 panel · **Status:** open · **Severity:** low (a feature request: nothing is broken or lost, but the most common action takes extra steps every time) · **Screenshot:** none attached
@@ -521,22 +433,20 @@ This is a feature request, not a defect. On the rail, a pinned project's tile lo
 
 ---
 
-## The [Image #N] tags in a chat's terminal output do not preview the image on hover or open it on click
+## Hovering an [Image #N] tag in a chat's terminal output does not preview the image
 
-**Observed:** 2026-10-04 by Aryan during manual testing · **Phase:** Edited files Phase 3 (file paths in the terminal output are links, `docs/edited-files/`) · **Status:** open · **Severity:** low (a feature request: nothing is broken or lost) · **Screenshot:** `docs/screenshots/manual-testing/17-image-tags-in-a-chat-message-with-no-preview-or-click.png`
+**Observed:** 2026-10-04 by Aryan during manual testing · **Phase:** Edited files Phase 3 (file paths in the terminal output are links, `docs/edited-files/`) · **Status:** open, not wanted yet (Aryan, 2026-11-06: "no need for preview right now") · **Severity:** low (a feature request: nothing is broken or lost) · **Screenshot:** `docs/screenshots/manual-testing/17-image-tags-in-a-chat-message-with-no-preview-or-click.png`
 
 **What happens:**
-This is a feature request, not a defect. When images are pasted into a message in a chat, Claude Code shows each one as an `[Image #N]` tag, inside the message text and again in a list under the message. In afterterm these tags are plain text. Aryan expects them to work like links too: hovering a tag should show a preview of that image, and clicking a tag should open the image.
+This is a feature request, not a defect. When images are pasted into a message in a chat, Claude Code shows each one as an `[Image #N]` tag, inside the message text and again in a list under the message. Since 2026-11-06 a click on a tag opens the image and a right-click has its menu (`docs/bugs-fixed.md`). Aryan's first request also asked for a preview of the image while hovering a tag, and that part is still not built.
 
 **Steps to make it happen again:**
 1. In a chat, paste one or more images into a message and send it.
-2. The message shows `[Image #1]`, `[Image #2]` and so on in its text, and the same tags in a list under it.
-3. Hover a tag: no preview of the image appears. Click a tag: the image does not open.
+2. Hover one of the `[Image #N]` tags: it is underlined, and no preview of the image appears.
 
 **Evidence:**
 - `17-image-tags-in-a-chat-message-with-no-preview-or-click.png`: a chat in afterterm with a sent message that has `[Image #1]` to `[Image #5]` inside its lines, and under the message a list of the five tags, `[Image #1]` to `[Image #5]`, one per line, which Aryan marked with a red bracket.
 - Aryan's words: "These image tags should also "preview" images on hovering and open them on clicking".
-
 ---
 
 ## The jump button sits at the centre of a thread as a small round chevron, and Aryan wants it at the bottom, slightly wider, with an arrow and short text
@@ -568,22 +478,6 @@ After opening the Other projects drawer at the bottom of the panel (it opens upw
 4. Click on another part of the app, such as the header or the rail: the drawer still stays open.
 
 **Evidence:** Only the description above. Aryan called it the "other projects tab" and then corrected himself: "It's not a tab, it's a dropdown or whatever (the opposite of a dropdown, whatever), but it should close."
-
----
-
-## The search palette (Ctrl+Shift+P) does not list archived projects
-
-**Observed:** 2026-10-07 by Aryan during manual testing · **Phase:** 2 (the search palette, and archive and restore) · **Status:** open · **Severity:** medium (the palette misbehaves: an archived project cannot be found from it) · **Screenshot:** none attached
-
-**What happens:**
-Archived projects do not show up in the search palette opened with Ctrl+Shift+P. Searching for an archived project by name finds nothing, so the palette cannot be used to reach it.
-
-**Steps to make it happen again:**
-1. Archive a project (right-click it and choose Archive).
-2. Press Ctrl+Shift+P and type the start of that project's name.
-3. The project is not in the results.
-
-**Evidence:** Only the description above. Aryan's words: "archived products don't show up in ctrl+shift+P" ("products" is most likely "projects").
 
 ---
 
@@ -709,86 +603,6 @@ In the chat "Phase 6 findings page redo" in the Revy App project, whose header s
 
 ---
 
-## A path with spaces links in a Write line but not in the "Wrote N lines to" line below it, and a path written from the worktree's top in a reply does not link
-
-**Observed:** 2026-10-22 by Aryan during manual testing on v0.8.1 · **Phase:** Edited files Phase 3 (file paths in the terminal output are links, `docs/edited-files/`) · **Status:** already fixed in release 0.9.0 (PR #49, "Some file paths in a chat's reply are highlighted as links and others are not" in `docs/bugs-fixed.md`), which Aryan's build does not have yet; waiting for him to move to v0.9.0 or later and check it against these three paths · **Severity:** medium (paths Claude prints cannot be opened from the terminal) · **Screenshot:** `docs/screenshots/manual-testing/19-path-with-spaces-links-in-the-write-line-but-not-in-the-wrote-line-below-it.png`, `docs/screenshots/manual-testing/20-md-path-written-from-the-worktree-top-in-a-chat-reply-is-not-a-link.png`
-
-**What happens:**
-In the chat "Phase 6 findings page redo" in the Revy App project (worktree `.claude\worktrees\phase-6-firebase`), Claude's `Write(...)` tool line shows the full path of the file it wrote, and the line under it, "Wrote 23 lines to", shows the same full path. The first is clickable, the second is not. Further up the same chat, a reply names `docs/testing/phase-6/existing-data-real.md` (a path from the top of the worktree, drawn in blue by Claude Code), and that path is not clickable and does not open either. Aryan expects all three to be links.
-
-**Steps to make it happen again:**
-1. In a chat in a project whose folder has spaces in its path, have Claude write a file, so the terminal shows a `Write(D:\...\file.md)` line and under it "Wrote N lines to D:\...\file.md".
-2. Hover both paths: the one inside `Write(...)` underlines and opens, the one after "Wrote N lines to" does not.
-3. In the same chat, with Claude's working directory in a subfolder of the worktree, have a reply name a file by its path from the top of the worktree, such as `docs/testing/phase-6/existing-data-real.md`.
-4. Hover and click it: it does not underline or open.
-
-**Evidence:**
-- Screenshot 19 (marked 1 and 2 in red by Aryan): the tool line `Write(D:\Pitara\Work\For Friends\Revy App\.claude\worktrees\phase-6-firebase\docs\testing\phase-6\fix-decisions-round-5.md)` (1, clickable) and under it `Wrote 23 lines to D:\Pitara\Work\For Friends\Revy App\.claude\worktrees\phase-6-firebase\docs\testing\phase-6\fix-decisions-round-5.md` (2, not clickable), followed by the file's first ten lines ("# Phase 6 fixes, round 5"). Taken at about 01:07.
-- Screenshot 20 (marked 3 in red): the reply "The logins and their passwords are in the phase 6 worktree at docs/testing/phase-6/existing-data-real.md." in the same chat, the path in blue, after the line "Cooked for 33m 37s · done Wednesday 10:52 PM". The prompt below holds `docs/testing/phase-6/existing-data-real`.
-- The file in screenshot 20 is at `D:\Pitara\Work\For Friends\Revy App\.claude\worktrees\phase-6-firebase\docs\testing\phase-6\existing-data-real.md`; the chat's saved Claude folder is the worktree's `app` subfolder (see the entry above on the header's worktree item).
-- Aryan's words: "I have written: 1. On an image 2. On an image. The first is clickable, and the second is not clickable. I don't know why. Then I'll give you another screenshot from that chat where I'll write third. That .md file is also not clickable and open."
-
----
-
-## Right-clicking a file path link in the terminal has no menu to open it, open its folder or copy its full path
-
-**Observed:** 2026-10-22 by Aryan during manual testing · **Phase:** Edited files Phase 3 (file paths in the terminal output are links, `docs/edited-files/`) · **Status:** open (a feature request) · **Severity:** low (the link still opens on click; the missing menu only takes away the other actions) · **Screenshot:** none
-
-**What happens:**
-A file name or path in the terminal that can be clicked to open the file has nothing of its own on right-click. Aryan wants right-clicking such a link to show a menu with:
-- Open, which opens the file.
-- Open file location, which opens the file's folder.
-- Copy file path, which copies the file's full, absolute path (not the path as written in the terminal).
-
-**Steps to make it happen again:**
-1. In a chat or shell, print output that contains a file path the terminal shows as a link.
-2. Right-click the link: no menu with Open, Open file location or Copy file path appears.
-
-**Evidence:** Only the description above. Aryan's words: "whenever there is a file name in the terminal and I can click to open it, right-clicking on it should give me a menu with two options: Open, which opens the file; Open file location aur copy file path, which will be the global file path, of course." ("aur" is Hindi for "and", so the list reads as Open, Open file location and Copy file path.)
-
----
-
-## Projects in the panel's Recent group swap places whenever a thread in another project is used
-
-**Observed:** 2026-10-22 by Aryan during manual testing · **Phase:** 8 (the panel's Pinned and Recent groups, design-03, where "Recent by activity" was agreed on 2026-09-19) · **Status:** open · **Severity:** medium (the panel reorders under him while he works, so rows are never where he left them) · **Screenshot:** none
-
-**What happens:**
-While Aryan works on threads in two projects at once, the two projects keep swapping places in the Recent group of the panel, depending on which project's thread he is working in. He expects the order to stay put. He no longer wants projects or threads to change their order based on how recently they were used: "I don't want projects or threads changing their order based on recency of activity."
-
-**Steps to make it happen again:**
-1. Have two unpinned projects in the Recent group of the panel, each with a thread.
-2. Work in a thread of the lower project: that project moves above the other one.
-3. Go back to a thread of the other project and work in it: the two swap again.
-
-**Evidence:** Only the description above. Aryan's words: "I'm working on two projects simultaneously, and they are flipping back and forth based on which thread I'm working on. Very fucking annoying." and "Whenever did we decide to make this change? I don't like it anymore. We'll have to fix this."
-
----
-
-## The New and Edit project dialog is too bulky: the shells are a long list instead of a dropdown, it has a needless "Default shell" option, the folder is above the name, and the chosen icon is too small
-
-**Observed:** 2026-10-22 by Aryan during manual testing, raised again on 2026-11-06 · **Phase:** 2 (the New/Edit project dialog), with the icon picker from Phase 8 · **Status:** open · **Severity:** low (the dialog works; it is hard to read and takes too much space) · **Screenshot:** `docs/screenshots/manual-testing/21-new-project-dialog-small-icon-row-and-long-default-shell-list.png`
-
-**What happens:**
-New project and Edit project are the same dialog. Aryan wants it cleaned up because it looks too bulky:
-- The selected icon is shown at the same small size as every other icon in the row. Aryan wants the selected icon to appear bigger, with a bigger preview that changes as he switches between icons and colours ("also for default shells", in his words).
-- The shell section is headed "Default shell" and its first option is also "Default shell". He does not know what that option means and sees no need for it, so he wants it removed. A project left on that option opens its threads in Command Prompt, the same as the row below it, and the project page shows the words "Default shell" for that project (read from the source on 2026-11-06).
-- The shell list takes six full rows (Default shell, Command Prompt, PowerShell 7, Windows PowerShell, Git Bash, WSL), so every option is always visible. He expects a dropdown instead, and the dialog redesigned to use its space better.
-- The Folder field comes first and Name second. He expects the project name above the project folder.
-
-**Steps to make it happen again:**
-1. Open the New project dialog, or right-click a project and choose **Edit project**.
-2. Pick a colour and an icon: the chosen icon stays the size of the others, with no larger preview.
-3. Look at the shell section: the heading and its first option both read "Default shell", and every shell has its own full-width row.
-4. Note the order of the fields: Folder above Name.
-
-**Evidence:**
-- Screenshot 21: the New project dialog for `D:\Pitara\Work\Tinkering\minimi-windows`, Folder first with a Change button, then Name "minimi-windows", the Colour row with pink selected, the Icon row with the robot selected (small, tinted pink), the "Default shell" heading over six rows starting with "Default shell" (highlighted), "Open a terminal in it now" ticked, and Cancel and Create.
-- Aryan's words: "I feel the icon which is default selected should appear bigger. When I switch between icons and colors, I should get a bigger preview also for default shells." and "the title is "Default Shell", and the first option is "Default Shell". I don't know what "Default Shell" is, and I feel this is too space-consuming. This could be a fucking dropdown, right? We can redesign this to be more efficient. Project name should be above project folder."
-- Aryan's words on 2026-11-06: "we need to clean up the project edit menu because it looks too bulky, the default shell thing should be a drop down, right now all options are visible. And there is an option "default shell", what the fuck is default shell, because all I know is that default shell is cmd I think, basically no need for default shell." and "Name of project should be above folder."
-- Related open entries on this dialog's icon picker: "A project icon can only be one of ten built-in glyphs; the user cannot upload an image of their own" (2026-09-21) and "The project icon picker has too few icons, and some do not look like what they stand for" (2026-09-26).
-
----
-
 ## After closing and reopening afterterm, Home does not show which thread was used last and offers no way to resume it
 
 **Observed:** 2026-10-30 by Aryan during manual testing · **Phase:** 2 (Home), with the restore-on-launch from Phase 4 · **Status:** open (a feature request) · **Severity:** medium (after a relaunch he cannot tell where he left off) · **Screenshot:** none
@@ -863,25 +677,6 @@ This is a feature request, not a defect. There is no button or setting that make
 3. When **Update available** appears beside the version number, the download starts only after clicking it and then **Update**.
 
 **Evidence:** Only the description above. Aryan's words: "There should be a button to auto-download updates. There has to be a configurator in it where I can suggest auto-downloading updates or some shit."
-
----
-
-## Threads cannot be renamed and the project right-click menu has no Rename item
-
-**Observed:** 2026-11-06 by Aryan during manual testing · **Phase:** 2 (the project menu), with thread names from Phase 3 · **Status:** open · **Severity:** low (read as a feature request: nothing is reported broken or lost) · **Screenshot:** none attached
-
-**What happens:**
-Aryan's report names these two things and does not say what is wrong with each, so this entry reads them as things he wants that the app does not offer.
-1. Renaming a thread. No thread menu has a Rename item. A chat's name changes only through `/rename` in Claude Code, and a shell thread has no way to set a name.
-2. Renaming a project through the right-click menu. The project menu has no Rename item. A project's name can be changed through **Edit project** or by double-clicking its row in the panel.
-
-The same report also named a colour picker for the project's colour (the project dialog has a fixed row of swatches). Aryan on 2026-11-06: "colour picker is not a major one, probably I won't implement it." Nothing is planned for it unless he changes his mind.
-
-**Steps to make it happen again:**
-1. Right-click a thread row in the panel, or open the dots menu in the main pane's header: neither has a Rename item.
-2. Right-click a project row: the menu has no Rename item.
-
-**Evidence:** Only the description above. Aryan's words, in full: "renaming a thread, renaming a project through right click menu, colour picked in project edit menu for colour of project". What the app offers today was read from the source on `main` (af14d9c) on 2026-11-06, not tried in the running app. The Phase 1 checklist in `docs/phases-01-projects-and-threads.md` records: "No rename: `/rename` in Claude Code is the only rename."
 
 ---
 

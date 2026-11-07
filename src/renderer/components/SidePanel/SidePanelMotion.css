@@ -1,0 +1,294 @@
+/* The panel's order and drag motion (2026-11-01): projects entering and folding
+   out, threads arriving and going to sleep, the Other projects drawer, and the
+   drag's line and card. Values from docs/mockups/sidebar-drag-and-drop.html and
+   docs/mockups/sidebar-archive-with-awake-threads.html. Under reduced motion the
+   global rule in theme.css turns the animations and transitions off. */
+
+/* ── Project blocks: entering, folding out ─────────────────────────────── */
+/* A project's row and its threads sit in one block, which opens and closes
+   through its grid row so the rows below slide (the archive mockup's .pblock).
+   A project entering Recent opens in place at the top; Archive folds it out. */
+
+.side-panel .pjw {
+  display: grid;
+  /* minmax(0, 1fr): without it the column grows to the longest name, and the
+     rows run past the panel's edge instead of ending in an ellipsis. */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 340ms var(--ease), opacity 240ms var(--ease), transform 340ms var(--ease);
+}
+
+.side-panel .pjw > .pjw-in {
+  min-height: 0;
+  min-width: 0;
+}
+
+.side-panel .pjw.shut > .pjw-in,
+.side-panel .pjw.enter > .pjw-in {
+  overflow: hidden;
+}
+
+.side-panel .pjw.shut {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transform: translateX(-10px);
+}
+
+@keyframes pjw-enter {
+  from { grid-template-rows: 0fr; opacity: 0; }
+}
+
+.side-panel .pjw.enter {
+  animation: pjw-enter 340ms var(--ease);
+}
+
+/* A new or resumed thread opens in its place and the rows below slide down. */
+@keyframes th-enter {
+  from { max-height: 0; padding-top: 0; padding-bottom: 0; margin-top: 0; margin-bottom: 0; opacity: 0; }
+  to { max-height: 40px; }
+}
+
+.side-panel .th.enter {
+  overflow: hidden;
+  animation: th-enter 320ms var(--ease);
+}
+
+/* An asleep row dims gradually rather than at once. */
+.side-panel .th {
+  transition: background var(--fast), color var(--fast), padding-right var(--fast) var(--ease), opacity 300ms var(--ease);
+}
+
+/* Going to sleep: the state icon turns into the moon with a small pop, and a
+   server's port fades out (the archive mockup's iconswap and .port.gone). */
+@keyframes st-swap {
+  0% { opacity: 0; transform: scale(.4); }
+  60% { opacity: 1; transform: scale(1.18); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.side-panel .th .st {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+}
+
+.side-panel .th .st.swap {
+  animation: st-swap 380ms var(--ease);
+}
+
+@keyframes prt-gone {
+  from { opacity: 1; max-width: 60px; }
+  to { opacity: 0; max-width: 0; margin-left: 0; }
+}
+
+.side-panel .th .prt.gone {
+  overflow: hidden;
+  white-space: nowrap;
+  animation: prt-gone 260ms var(--ease) forwards;
+}
+
+/* The Other projects drawer: an archived project pops in at the top, and the
+   count bumps. */
+@keyframes dock-popin {
+  from { opacity: 0; transform: scale(.96) translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+.side-panel .dock .pj.new {
+  animation: dock-popin 300ms var(--ease);
+}
+
+@keyframes dock-bump {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+
+.side-panel .dock .drow .c {
+  display: inline-block;
+  min-width: 16px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.side-panel .dock .drow .c.bump {
+  animation: dock-bump 420ms var(--ease);
+}
+
+/* ── Dragging (docs/mockups/sidebar-drag-and-drop.html) ─────────────────── */
+
+/* The list is what the line is placed in, so it is the rows' offsetParent. */
+.side-panel .scroll {
+  position: relative;
+}
+
+/* While a row is dragged nothing under the pointer reacts: no hover
+   highlights, no hover buttons, no tooltips. The list itself still takes the
+   wheel. */
+.side-panel.dragmode .scroll * {
+  pointer-events: none;
+}
+
+body.panel-dragging,
+body.panel-dragging * {
+  cursor: grabbing !important;
+}
+
+/* The row being dragged stays in its place, dimmed. */
+.side-panel .pjw.dragging,
+.side-panel .th.dragging {
+  opacity: .3;
+}
+
+/* A thread held over a project's own row: it goes in at the top of that project. */
+.side-panel .pj.drop {
+  background: rgba(138, 180, 255, .12);
+  box-shadow: inset 0 0 0 1.5px var(--drop-line);
+}
+
+/* The drop line: a thin bar with a ring at its start. */
+.side-panel .dline {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  top: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--drop-line);
+  pointer-events: none;
+  opacity: 0;
+  transition: top 120ms var(--ease), left 120ms var(--ease), opacity 120ms var(--ease);
+  z-index: 5;
+}
+
+.side-panel .dline::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 2px solid var(--drop-line);
+  background: var(--bg);
+  box-sizing: border-box;
+}
+
+.side-panel .dline.on {
+  opacity: 1;
+}
+
+/* The dragged card: the full row, floating to the right of the pointer. */
+.side-panel .pd-ghost {
+  position: fixed;
+  left: -9999px;
+  top: -9999px;
+  z-index: 60;
+  pointer-events: none;
+  background: var(--hover2);
+  border-radius: 10px;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .55);
+  transform: scale(1.03) rotate(-1deg);
+  opacity: 1;
+  transition: left 90ms var(--ease), top 90ms var(--ease), transform 160ms var(--ease), opacity 160ms var(--ease);
+}
+
+.side-panel .pd-ghost.back {
+  transition: left 220ms var(--ease), top 220ms var(--ease), transform 220ms var(--ease), opacity 220ms var(--ease);
+  transform: none;
+  opacity: 0;
+}
+
+.side-panel .pd-ghost .pj,
+.side-panel .pd-ghost .th {
+  background: transparent;
+  margin: 0;
+  cursor: grabbing;
+}
+
+.side-panel .pd-ghost .th,
+.side-panel .pd-ghost .pj {
+  color: var(--text);
+}
+
+.side-panel .pd-ghost .pj {
+  font-weight: 500;
+}
+
+.side-panel .pd-ghost .th.sleep {
+  opacity: 1;
+  color: var(--text3);
+}
+
+.side-panel .pd-ghost .more {
+  font-size: 12px;
+  color: var(--text3);
+  padding: 0 12px 6px 37px;
+}
+
+/* From and to: a line opening under the thread's name, only once it would
+   change project. */
+.side-panel .pd-ghost .dest {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 220ms var(--ease), opacity 180ms var(--ease);
+}
+
+.side-panel .pd-ghost .dest.on {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.side-panel .pd-ghost .dest > div {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.side-panel .pd-ghost .ft {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text2);
+  white-space: nowrap;
+  padding: 0 12px 7px 32px;
+  min-width: 0;
+}
+
+.side-panel .pd-ghost .th.gen + .dest .ft {
+  padding-left: 12px;
+}
+
+.side-panel .pd-ghost .ft .fo,
+.side-panel .pd-ghost .ft > svg {
+  flex: none;
+  display: grid;
+}
+
+.side-panel .pd-ghost .ft > svg {
+  color: var(--text3);
+}
+
+.side-panel .pd-ghost .ft .fo.none {
+  color: var(--text3);
+}
+
+/* Too long for one line: the new project's name gives way first (the pointer is
+   already on it), the old one's last (that is the one the person needs to read).
+   The two folders and the arrow are never cut. */
+.side-panel .pd-ghost .ft .pn {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.side-panel .pd-ghost .ft .pn.from {
+  flex: 0 1 auto;
+  min-width: 48px;
+}
+
+.side-panel .pd-ghost .ft .pn.to {
+  flex: 0 6 auto;
+  min-width: 34px;
+}

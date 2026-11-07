@@ -35,6 +35,10 @@ stranger." Mnemonic: **break it → X, add to it → Y, fix it → Z.**
 | `v0.8.0` | Project groups: new/edit group modal + Projects shelf for groups with no terminals |
 | `v0.8.1` | Session capture gated to real user turns (daemon spare sessions no longer hijack a tab) |
 | `v0.9.0` | Projects and threads: Home, sleep and wake, the rail, servers by port, shell integration for every shell, the Files button and clickable file paths |
+| `v0.12.0` | The sidebar keeps its order, drag and drop in the panel, Archive moves a project to Other projects |
+| `v0.13.0` | Two threads side by side, a shorter header status chip |
+| `v0.14.0` | File links open in the file's own app, a right-click menu on them, image tags open, opening a file never runs it |
+| `v0.15.0` | Any colour for a project, a smaller project window, rename a thread or a project |
 
 (`v0.1.0`–`v0.4.1` were backfilled onto the existing history; releases from `v0.5.0` on were cut with `npm run release`.)
 
@@ -43,13 +47,21 @@ stranger." Mnemonic: **break it → X, add to it → Y, fix it → Z.**
 ```powershell
 # 1. Decide + bump the version in package.json (one line edit) and commit it.
 # 2. From the MAIN repo checkout (so output lands in the standard out\ folder):
-npm run release           # builds portable folder + out\afterterm-<version>-setup.exe, tags vX.Y.Z
+npm run release           # builds the app folder + out\installer\afterterm-<version>-setup.exe, tags vX.Y.Z
 git push origin vX.Y.Z    # publish the tag
-gh release create vX.Y.Z out\afterterm-<version>-setup.exe --title "afterterm X.Y.Z" --notes "..."   # the notes come from CHANGELOG.md: rename its Unreleased section to the version first
+gh release create vX.Y.Z out\installer\afterterm-<version>-setup.exe --title "afterterm X.Y.Z" --notes "..."   # the notes come from CHANGELOG.md: rename its Unreleased section to the version first
 ```
 
 `npm run release` (`scripts/release.js`) **refuses** to run if the version is already
 tagged — the guard against shipping a stale build under an old number. Bump first.
+
+**Installed copies update themselves from this release** (from the version after 0.10.0 on;
+`docs/features-updates.md`). They find it through `releases/latest`, so: attach exactly one
+asset named `afterterm-<version>-setup.exe` (the name `npm run release` gives it), never mark
+the release a draft or prerelease when it is meant for everyone, and do not rename or replace
+the asset afterwards. GitHub records the asset's sha256 as its `digest`; an installed copy
+refuses an installer without one, or one that does not match it. The release body is what
+What's new shows: headings, bullets, bold and links render, images are skipped.
 
 **Two notes for whoever cuts it:**
 - **Where you build from matters.** Run from the main repo checkout so the build lands
@@ -60,14 +72,33 @@ tagged — the guard against shipping a stale build under an old number. Bump fi
   auto-mode classifier blocks direct pushes to the default branch. Open a one-line bump
   PR, merge it, then run the release. Aryan running it locally can just commit to `main`.
 
+## Writing the notes
+
+The notes are what people read in What's new, usually with no idea what changed or why. Aryan,
+2026-11-06: "very straightforward, hand-holding, like, 'Hey, this is what we built, these are
+these things,' or 'Okay, this was the bug, these are the...' Very simple, straightforward, no
+riddles."
+
+- A heading says what you can now do, as a whole sentence someone can understand alone.
+- Say what it was like before if that helps, then what happens now. For a bug, what went wrong,
+  then what happens now.
+- Assume the reader was not here. No names of internal things, no code terms and no file
+  extensions a non-developer would not know.
+- Write for someone who has just started using afterterm: they know the basics, not everything.
+  Say where to click, and say in a few words what a word like "thread" or "shell" means.
+- Keep it short. One short line under a heading at most, then bullets; no long paragraphs
+  (Aryan, 2026-11-06, on the 0.14.0 notes: better than 0.13.0, "but I think they can be shorter,
+  especially the long paragraphs. I still like the bullet points.").
+- Aryan does not need to see them first (same date). Publish them.
+
 ## Artifacts & what's preserved
 
 - **`out/afterterm-win32-x64/`** — the portable folder, the build you actually run.
   It's overwritten each build (the *current* build), not archived.
-- **`out/afterterm-<version>-setup.exe`** — the **versioned installer** (~67 MB
-  self-extracting). This is the archival artifact: keep these / attach them to the
-  **GitHub Release** for the tag. The installer regenerates the folder, so there's
-  no need to archive the 200 MB folders.
+- **`out/installer/afterterm-<version>-setup.exe`**: the **installer** (about 85 MB),
+  built by `scripts/build-installer.js` since 0.10.0 (before that, a 7-Zip
+  self-extracting archive). This is the artifact to attach to the **GitHub Release**
+  for the tag. How it is built and what it does: [`guide-01-distributable-build.md`](guide-01-distributable-build.md).
 - **Git tag `vX.Y.Z`** — ties the release to the exact commit. The real identity of
   a build is its tag/commit, not the folder name.
 
@@ -86,7 +117,7 @@ so your tabs/sessions carry over — and Claude sessions auto-resume.)
 
 **Updating in place requires the app to be closed.** `npm run build` moves the current
 build aside and writes a fresh one, but that rename fails while afterterm is running
-from that folder, and `npm run release` refuses outright (`make-shareable.ps1`'s guard).
+from that folder, and `npm run release` stops the same way (it builds through `build.js`).
 A running `.exe` does not block its own folder being renamed; a process whose *current
 directory* is that folder does, and launching `afterterm.exe` from Explorer or a pinned
 taskbar shortcut sets exactly that. So in practice: close it, build, reopen.
@@ -101,6 +132,6 @@ npm run release
 ```
 
 The tag lands in the shared repo either way. Afterwards copy
-`out\afterterm-<version>-setup.exe` into the main checkout's `out\`, and swap the built
+`out\installer\afterterm-<version>-setup.exe` into the main checkout's `out\`, and swap the built
 `afterterm-win32-x64` folder in whenever the app is next closed. `v0.8.0` and `v0.8.1`
 were both cut this way.

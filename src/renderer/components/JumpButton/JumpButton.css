@@ -2,7 +2,7 @@
    exact centre of whichever scroller mounts it, horizontally and vertically
    (Aryan, 2026-09-19: the wheel is used in the middle of the pane, so the
    button belongs where the pointer already is, not at an edge). Both hosts
-   (.terminal-instances, .asleep-pane) are position: relative; overflow: hidden.
+   (.term-card, .asleep-pane) are positioned and overflow: hidden.
    It comes and goes by scaling only, no fade (Aryan, 2026-09-19): scale(0) to
    scale(1) on --med with the app's ease, and visibility flips after the exit
    transition so a hidden button is never hoverable or clickable. Relies on

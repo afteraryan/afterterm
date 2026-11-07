@@ -1,21 +1,22 @@
 /* Asleep pane (AsleepPane/index.tsx): the mock's .term.asleep (see
-   docs/mockups/afterterm-next.html, .wakebox and .term .past). Mirrors
-   index.css's .terminal-instances exactly (same flex, margin, background,
-   radius) so it sits in the terminal card's spot without shifting the header
-   or the sidebar.
+   docs/mockups/afterterm-next.html, .wakebox and .term .past). It fills its
+   column's terminal card (index.css, .term-card) with the same background and
+   radius, so swapping it for the terminal never shifts the header or the
+   sidebar.
 
    Phase 9: the outer element only sizes and clips the card; an inner
    .asleep-scroll does the actual scrolling. This is what lets the JumpButton
    sit as a plain sibling of .asleep-scroll and stay put at the pane's
    bottom-right instead of scrolling away with the content, the same relative-
-   host/absolute-child shape .terminal-instances already uses for its find bar. */
+   host/absolute-child shape .term-card already uses for its find bar. */
 
+/* Since design-06 the pane sits inside its column's terminal card
+   (Terminal/index.tsx, .term-card) and fills it, so a split can show one half
+   asleep beside one awake. */
 .asleep-pane {
-  flex: 1;
-  min-height: 0;
-  position: relative;
+  position: absolute;
+  inset: 0;
   overflow: hidden;
-  margin: 0 12px 12px;
   border-radius: var(--radius-surface);
   background: var(--pane);
 }

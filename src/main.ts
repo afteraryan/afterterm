@@ -5,6 +5,9 @@ import os from 'os';
 import { execFile, execFileSync, execSync, spawn } from 'child_process';
 import * as pty from 'node-pty';
 import { reconcileClaudeHook, HOOK_SCRIPT_NAME } from './claude-hook-install';
+import { runSetupCheck, issueUrl, failureNote, ISSUES_URL } from './setup-check.ts';
+import type { Runner } from './setup-check.ts';
+import { initUpdater } from './updater.ts';
 import { detectEditors } from './editor-detect.ts';
 import type { DetectDeps } from './editor-detect.ts';
 import type { EditorInfo } from './editors.ts';
@@ -25,7 +28,7 @@ import {
 } from './server-detect.ts';
 import type { MsysProc, Proc as ServerProc } from './server-detect.ts';
 import { createSessionFilesStore } from './session-files-store.ts';
-import { EMPTY_SESSION_FILES, isAbsolutePath, normalizePath, ownsTempFile, pastedTempPath } from './session-files.ts';
+import { EMPTY_SESSION_FILES, isAbsolutePath, isSafeForDefaultApp, normalizePath, ownsTempFile, pastedTempPath } from './session-files.ts';
 import type { ChangedFile, ShellWindow } from './session-files.ts';
 import { attributeCommandChanges, isIgnoredChange, mergeSaved, pruneChanges } from './command-files.ts';
 import type { FsChange } from './command-files.ts';
@@ -35,11 +38,106 @@ import type { IndexFs, NameIndex } from './file-index.ts';
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
 
+// The test installer ("afterterm (test)", `npm run installer -- --sandbox`) ships
+// resources\afterterm-sandbox.json, which turns that build into a throwaway copy
+// that can run beside the real one: its own data folder, its own Claude Code
+// settings folder (CLAUDE_CONFIG_DIR, which its terminals inherit, so its hook
+// never touches the real ~/.claude) and, optionally, an execution policy forced on
+// everything it starts, to reproduce a stock Windows machine (PSExecutionPolicyPreference
+// is the Process scope). A normal build has no such file, and none of this runs.
+interface SandboxConfig {
+  userDataDir?: string;
+  claudeDir?: string;
+  executionPolicy?: string;
+  appId?: string;
+  // Start the sandbox's Claude settings with the hook entries 0.9.x wrote (no
+  // -ExecutionPolicy Bypass), so a test install begins where Yogansh's machine did.
+  seedLegacyHook?: boolean;
+}
+function expandEnvVars(s: string): string {
+  return s.replace(/%([^%]+)%/g, (m, name) => process.env[name] ?? m);
+}
+function readSandboxConfig(): SandboxConfig | null {
+  if (!app.isPackaged) return null;
+  try {
+    return JSON.parse(fs.readFileSync(path.join(process.resourcesPath, 'afterterm-sandbox.json'), 'utf-8')) as SandboxConfig;
+  } catch {
+    return null;
+  }
+}
+const sandbox = readSandboxConfig();
+if (sandbox?.userDataDir) app.setPath('userData', expandEnvVars(sandbox.userDataDir));
+if (sandbox?.claudeDir) {
+  const dir = expandEnvVars(sandbox.claudeDir);
+  process.env.CLAUDE_CONFIG_DIR = dir;
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    const settingsPath = path.join(dir, 'settings.json');
+    if (sandbox.seedLegacyHook && !fs.existsSync(settingsPath)) {
+      const script = path.join(dir, 'hooks', HOOK_SCRIPT_NAME);
+      const entry = (matcher: string) => [{ matcher, hooks: [{ type: 'command', command: 'powershell', args: ['-NoProfile', '-File', script] }] }];
+      const hooks = { SessionStart: entry(''), UserPromptSubmit: entry(''), Notification: entry('permission_prompt'), Stop: entry(''), PreCompact: entry('') };
+      fs.writeFileSync(settingsPath, JSON.stringify({ hooks }, null, 2) + '\n', 'utf-8');
+    }
+  } catch { /* the sandbox runs without it */ }
+}
+if (sandbox?.executionPolicy) process.env.PSExecutionPolicyPreference = sandbox.executionPolicy;
+
+// The id Windows groups windows, taskbar pins and Start menu shortcuts by. The
+// installer stamps the same id on the shortcuts it creates (electron-builder's
+// appId), so a pinned shortcut and the running window are one taskbar icon. Before
+// 0.10.0 none was set. Packaged builds only: a dev run must not join the real app's
+// taskbar button.
+const APP_USER_MODEL_ID = sandbox?.appId ?? 'com.afterterm.app';
+if (app.isPackaged) app.setAppUserModelId(APP_USER_MODEL_ID);
+
 // Dev/test isolation: point userData (session.json, prefs.json) at a throwaway dir
 // so a dev run can't clobber the user's real, possibly-running build. Must be set
 // before any app.getPath('userData') call. No-op in normal use.
 if (process.env.AFTERTERM_USER_DATA_DIR) {
   app.setPath('userData', process.env.AFTERTERM_USER_DATA_DIR);
+}
+
+// Installer mode. The installer runs `afterterm.exe --setup-check=<file>` once,
+// after copying the app: register the Claude Code hook, test that it runs, write
+// the answer for its "Checking Claude Code" page, and exit without a window. And
+// `--open-issue=<file>` opens the filled-in GitHub issue its "Report issue" button
+// asks for. See runSetupCheckCli below.
+const setupCheckOut = process.argv.find(a => a.startsWith('--setup-check='))?.slice('--setup-check='.length);
+const openIssueFile = process.argv.find(a => a.startsWith('--open-issue='))?.slice('--open-issue='.length);
+if (setupCheckOut || openIssueFile) app.disableHardwareAcceleration();
+
+// One running copy per data folder. A second launch (a second taskbar pin, a
+// double click on the exe while afterterm is open) only brings the open window
+// forward and exits: two copies on one session.json overwrite each other's
+// projects and threads (seen after 0.10.0 changed the app id, 2026-10-30).
+// Electron keys the lock to the userData folder, which is set above, so a harness
+// run or the "afterterm (test)" build, each with its own folder, still runs beside
+// the real app. The installer's --setup-check and --open-issue runs take no lock:
+// they run while afterterm may be open and exit on their own.
+const isPrimaryCopy = setupCheckOut || openIssueFile ? true : app.requestSingleInstanceLock();
+if (!isPrimaryCopy) app.exit(0);
+
+// Test probe for launch lag: AFTERTERM_LAG_PROBE=1 logs every stall of the main
+// thread over 30 ms during the first 15 seconds, then the worst one. The main
+// thread also answers Windows' system-wide mouse hook (the toast overlay's
+// click-through), so a stall here freezes the mouse everywhere, which is what
+// Yogansh saw at launch (2026-10-29).
+if (process.env.AFTERTERM_LAG_PROBE === '1') {
+  const start = Date.now();
+  let last = start;
+  let worst = 0;
+  const probe = setInterval(() => {
+    const now = Date.now();
+    const stall = now - last - 10;
+    if (stall > 30) console.log(`[lag] main thread stalled ${stall} ms at +${now - start} ms`);
+    worst = Math.max(worst, stall);
+    last = now;
+    if (now - start > 15000) {
+      clearInterval(probe);
+      console.log(`[lag] worst stall in the first 15 s: ${worst} ms`);
+    }
+  }, 10);
 }
 
 // Agent harness: expose the Chrome DevTools Protocol so scripts/agent-harness can
@@ -87,10 +185,11 @@ function detectShells(): ShellProfile[] {
     { id: 'cmd', name: 'Command Prompt', command: 'cmd.exe', args: [] },
   ];
 
-  try {
-    execSync('where pwsh.exe', { stdio: 'ignore' });
+  // Looked up on PATH directly rather than through `where.exe`: starting a process
+  // here held the main thread on every launch (launch lag, 2026-10-29).
+  if (onPath('pwsh.exe')) {
     shells.push({ id: 'pwsh', name: 'PowerShell 7', command: 'pwsh.exe', args: [] });
-  } catch {}
+  }
 
   shells.push({ id: 'powershell', name: 'Windows PowerShell', command: 'powershell.exe', args: [] });
 
@@ -105,13 +204,24 @@ function detectShells(): ShellProfile[] {
     }
   }
 
-  try {
-    execSync('where wsl.exe', { stdio: 'ignore' });
+  if (onPath('wsl.exe')) {
     shells.push({ id: 'wsl', name: 'WSL', command: 'wsl.exe', args: [] });
-  } catch {}
+  }
 
   cachedShells = shells;
   return shells;
+}
+
+// Whether `file` is in a folder on PATH, the way `where.exe` finds it. lstat, not
+// existsSync: a Microsoft Store install (PowerShell 7 from the Store) puts an
+// "app execution alias" on PATH, a link that existsSync and stat report as
+// missing (EACCES) although running it works.
+function onPath(file: string): boolean {
+  const dirs = (process.env.Path ?? process.env.PATH ?? '').replace(/"/g, '').split(';');
+  return dirs.some(dir => {
+    if (!dir.trim()) return false;
+    try { fs.lstatSync(path.join(dir.trim(), file)); return true; } catch { return false; }
+  });
 }
 
 function getShellById(id?: string): ShellProfile {
@@ -493,11 +603,17 @@ function getHookScriptSource() {
 // Register (or reconcile) afterterm's Claude Code notifier hook on startup, then
 // fire a one-time toast the first time it's installed so the user knows their
 // Claude config was touched. Idempotent + opt-out aware — see claude-hook-install.ts.
+// Claude Code's own folder: CLAUDE_CONFIG_DIR when set (Claude Code honours it, and
+// the sandbox build sets it), else ~/.claude.
+function getClaudeDir() {
+  return process.env.CLAUDE_CONFIG_DIR || path.join(app.getPath('home'), '.claude');
+}
+
 function reconcileNotifierHook() {
   try {
     const result = reconcileClaudeHook({
       scriptSource: getHookScriptSource(),
-      claudeDir: path.join(app.getPath('home'), '.claude'),
+      claudeDir: getClaudeDir(),
       prefsPath: path.join(app.getPath('userData'), 'prefs.json'),
     });
     console.log(`[claude-hook] ${result.status} — ${result.detail}`);
@@ -514,7 +630,7 @@ function pushSetupToast() {
   if (!win || win.isDestroyed()) return;
   const send = () => {
     if (win.isDestroyed()) return;
-    win.showInactive();
+    showNotifierWindow();
     win.webContents.send('notify:push', {
       id: 'afterterm-setup',
       tabId: '__afterterm_setup__',
@@ -610,7 +726,11 @@ function createNotifierWindow() {
   // Click-through everywhere by default. The renderer flips this off only while
   // the cursor is actually over a toast card (per-region hit-testing via forwarded
   // mouse-move), so clicks reach the app behind the overlay everywhere except a card.
-  notifierWindow.setIgnoreMouseEvents(true, { forward: true });
+  // Forwarding is on only while the overlay shows (showNotifierWindow): Electron
+  // forwards with a system-wide mouse hook answered on this main thread, so while
+  // it is installed any stall here freezes the mouse on the whole PC. With no
+  // toast up there is nothing to hover, so there is no hook (launch lag, 2026-10-29).
+  notifierWindow.setIgnoreMouseEvents(true);
 
   // Chromium copies the loaded document's title onto the native window — that's
   // what drew "index.html" into the DWM caption strip (the "white bar"). Refuse
@@ -803,7 +923,7 @@ ipcMain.on('notify:push', (_event, toast) => {
     // Re-place before showing: the main window may have moved to another monitor
     // since the last toast, and a hidden overlay is never re-measured meanwhile.
     positionNotifier();
-    notifierWindow.showInactive();
+    showNotifierWindow();
     repaintNotifier();
     notifierWindow.webContents.send('notify:push', toast);
   }
@@ -850,15 +970,25 @@ function sendMainFocus(focused: boolean) {
 
 ipcMain.handle('notifier:main-focused', () => !!mainWindow?.isFocused());
 
-// Notifier → self: toggle mouse passthrough
+// Notifier → self: toggle mouse passthrough. Forwarding (and with it the
+// system-wide mouse hook) only while the overlay is up; see createNotifierWindow.
 ipcMain.on('notifier:set-ignore-mouse', (_event, ignore: boolean) => {
-  notifierWindow?.setIgnoreMouseEvents(ignore, { forward: true });
+  if (!notifierWindow || notifierWindow.isDestroyed()) return;
+  notifierWindow.setIgnoreMouseEvents(ignore, notifierWindow.isVisible() ? { forward: true } : undefined);
 });
 
 // Notifier → self: hide window when all toasts are dismissed
 ipcMain.on('notifier:hide', () => {
-  notifierWindow?.hide();
+  if (!notifierWindow || notifierWindow.isDestroyed()) return;
+  notifierWindow.hide();
+  notifierWindow.setIgnoreMouseEvents(true);
 });
+
+function showNotifierWindow() {
+  if (!notifierWindow || notifierWindow.isDestroyed()) return;
+  notifierWindow.setIgnoreMouseEvents(true, { forward: true });
+  notifierWindow.showInactive();
+}
 
 // Notifier → self: renderer reports the measured height of its toast stack;
 // resize the window to match so it's exactly as tall as the visible toasts.
@@ -1030,25 +1160,36 @@ ipcMain.handle('projects:checkFolders', (_event, folders: unknown) => {
 
 // The real, Windows-only side of editor-detect.ts. Every call is wrapped so a
 // permission error or a missing tool degrades to "not found" rather than
-// throwing during startup.
-const realDetectDeps: DetectDeps = {
-  env: process.env as Record<string, string | undefined>,
-  exists: (p) => { try { return fs.existsSync(p); } catch { return false; } },
-  isFile: (p) => { try { return fs.statSync(p).isFile(); } catch { return false; } },
-  listDir: (p) => { try { return fs.readdirSync(p); } catch { return []; } },
-  readText: (p) => { try { return fs.readFileSync(p, 'utf-8'); } catch { return null; } },
-  whereCode: () => {
-    try {
-      const out = execFileSync('where', ['code'], {
-        encoding: 'utf-8', timeout: 4000, windowsHide: true,
-      });
-      return out.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-    } catch {
-      return [];
-    }
-  },
-  registryEditors: () => readUninstallEditors(),
-};
+// throwing during startup. The two slow lookups (`where code` and the uninstall
+// registry) are run beforehand, asynchronously, and handed in: run synchronously
+// they froze the main thread for up to 3.4 s at launch, and with it the mouse on
+// the whole PC (launch lag, Yogansh 2026-10-29).
+function detectDeps(codePaths: string[], registry: RegistryEditor[]): DetectDeps {
+  return {
+    env: process.env as Record<string, string | undefined>,
+    exists: (p) => { try { return fs.existsSync(p); } catch { return false; } },
+    isFile: (p) => { try { return fs.statSync(p).isFile(); } catch { return false; } },
+    listDir: (p) => { try { return fs.readdirSync(p); } catch { return []; } },
+    readText: (p) => { try { return fs.readFileSync(p, 'utf-8'); } catch { return null; } },
+    whereCode: () => codePaths,
+    registryEditors: () => registry,
+  };
+}
+
+type RegistryEditor = { displayName: string; installLocation?: string; displayIcon?: string };
+
+function execFileText(file: string, args: string[], timeout: number): Promise<string> {
+  return new Promise((resolve) => {
+    execFile(file, args, { encoding: 'utf-8', timeout, windowsHide: true, maxBuffer: 32 * 1024 * 1024 }, (err, stdout) => {
+      resolve(err ? '' : String(stdout));
+    });
+  });
+}
+
+async function whereCodeAsync(): Promise<string[]> {
+  const out = await execFileText('where', ['code'], 4000);
+  return out.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+}
 
 const UNINSTALL_KEYS = [
   'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall',
@@ -1059,18 +1200,12 @@ const UNINSTALL_KEYS = [
 
 // Walk the uninstall registry and pull out the three values detection needs.
 // `reg query ... /s` prints one blank-line-separated block per subkey, with
-// values as "    Name    REG_SZ    value".
-function readUninstallEditors(): { displayName: string; installLocation?: string; displayIcon?: string }[] {
-  const entries: { displayName: string; installLocation?: string; displayIcon?: string }[] = [];
-  for (const key of UNINSTALL_KEYS) {
-    let out = '';
-    try {
-      out = execFileSync('reg', ['query', key, '/s'], {
-        encoding: 'utf-8', timeout: 8000, windowsHide: true, maxBuffer: 32 * 1024 * 1024,
-      });
-    } catch {
-      continue; // key absent on this machine, or reg refused it
-    }
+// values as "    Name    REG_SZ    value". The four keys are read in parallel.
+async function readUninstallEditors(): Promise<RegistryEditor[]> {
+  const outputs = await Promise.all(UNINSTALL_KEYS.map(key => execFileText('reg', ['query', key, '/s'], 8000)));
+  const entries: RegistryEditor[] = [];
+  for (const out of outputs) {
+    if (!out) continue; // key absent on this machine, or reg refused it
     let current: { displayName?: string; installLocation?: string; displayIcon?: string } = {};
     const flush = () => {
       if (current.displayName) {
@@ -1098,42 +1233,66 @@ function readUninstallEditors(): { displayName: string; installLocation?: string
   return entries;
 }
 
-// Detection runs once, after the window is up, and is cached for the session. It
-// re-runs when a launch fails or the user picks an editor by hand.
+// Detection runs after the window is up, off the main thread's critical path, and
+// its answer is saved to <userData>\editors-cache.json, so the next launch has
+// its editors at once and only refreshes them in the background. It re-runs when
+// a launch fails or the user picks an editor by hand. One run at a time.
 let cachedEditors: EditorInfo[] = [];
 let editorPrefsPathInvalid = false;
-let editorDetectionRan = false;
+let editorsKnown = false;
+let editorDetection: Promise<void> | null = null;
 
-function runEditorDetection(reason: string): void {
-  editorDetectionRan = true;
-  try {
-    const started = Date.now();
-    const editorPath = readPrefs(getPrefsPath()).prefs.editorPath;
-    const result = detectEditors(typeof editorPath === 'string' ? editorPath : undefined, realDetectDeps);
-    cachedEditors = result.editors;
-    editorPrefsPathInvalid = result.invalidPrefsPath;
-    const found = result.editors.length
-      ? result.editors.map(e => `${e.name} (${e.source})`).join(', ')
-      : 'none found';
-    console.log(`[editors] ${reason}: ${found}${result.invalidPrefsPath ? ', editorPath in prefs.json is not an editor' : ''} in ${Date.now() - started}ms`);
-  } catch (err) {
-    cachedEditors = [];
-    editorPrefsPathInvalid = false;
-    console.error('[editors] detection failed:', err);
-  }
+function editorCachePath() {
+  return path.join(app.getPath('userData'), 'editors-cache.json');
 }
 
-// If the renderer asks before the deferred startup run, detect now rather than
+function loadEditorCache(): void {
+  try {
+    const saved = JSON.parse(fs.readFileSync(editorCachePath(), 'utf-8')) as { editors?: unknown; invalid?: unknown };
+    if (!Array.isArray(saved.editors)) return;
+    cachedEditors = (saved.editors as EditorInfo[]).filter(e => e && typeof e.path === 'string' && fs.existsSync(e.path));
+    editorPrefsPathInvalid = saved.invalid === true;
+    editorsKnown = true;
+  } catch { /* no cache yet: the first detection fills it */ }
+}
+
+function runEditorDetection(reason: string): Promise<void> {
+  if (editorDetection) return editorDetection;
+  editorDetection = (async () => {
+    try {
+      const started = Date.now();
+      const [codePaths, registry] = await Promise.all([whereCodeAsync(), readUninstallEditors()]);
+      const editorPath = readPrefs(getPrefsPath()).prefs.editorPath;
+      const result = detectEditors(typeof editorPath === 'string' ? editorPath : undefined, detectDeps(codePaths, registry));
+      // AFTERTERM_NO_EDITORS: a harness run on a machine with VS Code can still test having none.
+      cachedEditors = process.env.AFTERTERM_HARNESS === '1' && process.env.AFTERTERM_NO_EDITORS === '1' ? [] : result.editors;
+      editorPrefsPathInvalid = result.invalidPrefsPath;
+      editorsKnown = true;
+      try { fs.writeFileSync(editorCachePath(), JSON.stringify({ editors: cachedEditors, invalid: editorPrefsPathInvalid })); } catch { /* next launch detects again */ }
+      const found = result.editors.length
+        ? result.editors.map(e => `${e.name} (${e.source})`).join(', ')
+        : 'none found';
+      console.log(`[editors] ${reason}: ${found}${result.invalidPrefsPath ? ', editorPath in prefs.json is not an editor' : ''} in ${Date.now() - started}ms`);
+    } catch (err) {
+      console.error('[editors] detection failed:', err);
+    } finally {
+      editorDetection = null;
+    }
+  })();
+  return editorDetection;
+}
+
+// If the renderer asks before anything is known, wait for a detection rather than
 // answering with an empty list and hiding a button the user does have.
-ipcMain.handle('editors:list', () => {
-  if (!editorDetectionRan) runEditorDetection('first request from the renderer');
+ipcMain.handle('editors:list', async () => {
+  if (!editorsKnown) await runEditorDetection('first request from the renderer');
   return cachedEditors;
 });
 
 // True only when prefs.json holds an editorPath that exists and is not an
 // editor. The renderer shows the "Editor path not valid" toast for this alone.
-ipcMain.handle('editors:prefsPathInvalid', () => {
-  if (!editorDetectionRan) runEditorDetection('first request from the renderer');
+ipcMain.handle('editors:prefsPathInvalid', async () => {
+  if (!editorsKnown) await runEditorDetection('first request from the renderer');
   return editorPrefsPathInvalid;
 });
 
@@ -1148,7 +1307,7 @@ ipcMain.handle('editors:open', async (_event, folder: unknown, editorId?: unknow
   if (typeof editorId === 'string' && editorId !== '') {
     editor = cachedEditors.find(e => e.id === editorId);
     if (!editor) {
-      runEditorDetection('unknown editor id from the renderer');
+      await runEditorDetection('unknown editor id from the renderer');
       editor = cachedEditors.find(e => e.id === editorId);
     }
     if (!editor) return { ok: false, error: 'Editor not found', editors: cachedEditors };
@@ -1187,7 +1346,7 @@ ipcMain.handle('editors:open', async (_event, folder: unknown, editorId?: unknow
   // The editor was there at startup and is not now (uninstalled, moved, blocked).
   // Re-detect so the UI can drop a button that no longer opens anything.
   console.error(`[editors] launch failed for ${editor.path}:`, result.error);
-  runEditorDetection('re-detect after a failed launch');
+  await runEditorDetection('re-detect after a failed launch');
   return { ok: false, error: `Couldn't open ${editor.name}`, editors: cachedEditors };
 });
 
@@ -1209,7 +1368,7 @@ ipcMain.handle('editors:choose', async () => {
   // A hand-picked path wins, whatever the exe is called: an unknown one becomes
   // product 'other' and is named after its file.
   updatePrefs(getPrefsPath(), { editorPath: picked });
-  runEditorDetection('re-detect after the user chose an editor');
+  await runEditorDetection('re-detect after the user chose an editor');
   return { editors: cachedEditors, invalid: editorPrefsPathInvalid };
 });
 
@@ -1416,7 +1575,7 @@ const CLAUDE_CWD_RE = /^[A-Za-z]:\\[^\r\n;&|`$<>"'*?\t]*$/;
 // afterterm never writes anything under it. AFTERTERM_CLAUDE_PROJECTS_DIR is the test
 // override, so a harness run can point at a fixture folder instead of the real one.
 function getClaudeProjectsDir() {
-  return process.env.AFTERTERM_CLAUDE_PROJECTS_DIR || path.join(os.homedir(), '.claude', 'projects');
+  return process.env.AFTERTERM_CLAUDE_PROJECTS_DIR || path.join(getClaudeDir(), 'projects');
 }
 
 // The first user prompt and the current model for one session, or the not-found
@@ -1513,11 +1672,20 @@ function isUsableFile(p: string): boolean {
 // A path from the renderer that is about to reach a launcher: absolute, no quote
 // or control characters (explorer's /select, argument is passed verbatim), and a
 // file that exists.
-function checkedFile(p: unknown): string | null {
+function checkedPath(p: unknown): string | null {
   if (typeof p !== 'string' || !p || p.length > 1024) return null;
   if (/["\r\n\t\0]/.test(p) || !isAbsolutePath(p)) return null;
-  const file = normalizePath(p);
-  return isUsableFile(file) ? file : null;
+  return normalizePath(p);
+}
+
+function checkedFile(p: unknown): string | null {
+  const file = checkedPath(p);
+  return file && isUsableFile(file) ? file : null;
+}
+
+function checkedFolder(p: unknown): string | null {
+  const folder = checkedPath(p);
+  return folder && isUsableFolder(folder) ? folder : null;
 }
 
 // ─── Edited files, Phase 2: files changed by the chat's commands ─────────────
@@ -1664,7 +1832,7 @@ function pastedTempFile(sessionId: string, cwd: string, n: number): string | nul
 // The file to show for one pasted image: Claude Code's temp copy when it is still
 // there and is this paste's own (a later paste with the same number overwrites
 // it), otherwise the image decoded once out of the transcript into
-// <userData>\pasted\<sessionId>\<N>.png. Null when the paste cannot be found.
+// <userData>\pasted\<sessionId>\<N>-<paste>.png. Null when the paste cannot be found.
 async function pastedImageFile(sessionId: string, cwd: string, key: string): Promise<string | null> {
   const got = await sessionFilesStore.read(sessionId, cwd);
   if (!got) return null;
@@ -1676,8 +1844,9 @@ async function pastedImageFile(sessionId: string, cwd: string, key: string): Pro
   }
   const dir = path.join(app.getPath('userData'), 'pasted', sessionId);
   const ext = image.mediaType === 'image/jpeg' ? 'jpg' : image.mediaType.replace(/^image\//, '').replace(/[^a-z0-9]/g, '') || 'png';
-  const unique = ownsTempFile(got.state.pasted, key) ? '' : `-${key.replace(/[^A-Za-z0-9]/g, '').slice(0, 8)}`;
-  const file = path.join(dir, `${image.n}${unique}.${ext}`);
+  // Named after this paste, not only its number: a later paste can reuse the number,
+  // and must not be handed the file an earlier one left here.
+  const file = path.join(dir, `${image.n}-${key.replace(/[^A-Za-z0-9]/g, '').slice(0, 8)}.${ext}`);
   if (isUsableFile(file)) return file;
   const bytes = await sessionFilesStore.pastedBytes(sessionId, cwd, key);
   if (!bytes) return null;
@@ -1707,7 +1876,13 @@ ipcMain.handle('session-files:thumb', async (_event, sessionId: unknown, cwd: un
 
 // Under the agent harness nothing may open on the person's screen, so each opener
 // logs what it would have opened (after its checks), like shell:openExternal.
+//
+// This is the one place a file reaches Windows' default app, and for a script that
+// default is to run it. A file that afterterm opens must never run (Aryan, 2026-11-06:
+// "They should not run. They should always open."), so the check is here and not only
+// in the renderer's choice, and nothing that calls this can get round it.
 async function openWithDefaultApp(file: string): Promise<{ ok: boolean; error?: string }> {
+  if (!isSafeForDefaultApp(file)) return { ok: false, error: 'Could not open the file' };
   if (harnessOnlyLogsExternal()) {
     console.log(`[harness] files:openDefault ${file}`);
     return { ok: true };
@@ -1730,14 +1905,25 @@ ipcMain.handle('session-files:pastedPath', async (_event, sessionId: unknown, cw
   return pastedImageFile(sessionId, cwd, key);
 });
 
-// Open a file in the primary detected editor (VS Code), at a line when one is
-// given. With no editor detected the file goes to its default app instead.
+// With no editor detected, a file safe to hand over goes to its own app and anything
+// else to Notepad, which is on every Windows and only ever shows a file.
+async function openWithoutEditor(file: string): Promise<{ ok: boolean; error?: string }> {
+  if (isSafeForDefaultApp(file)) return openWithDefaultApp(file);
+  if (harnessOnlyLogsExternal()) {
+    console.log(`[harness] files:open Notepad ${file}`);
+    return { ok: true };
+  }
+  const result = await spawnDetached('notepad.exe', [file]);
+  return result.ok ? { ok: true } : { ok: false, error: 'Could not open the file' };
+}
+
+// Open a file in the primary detected editor (VS Code), at a line when one is given.
 ipcMain.handle('files:open', async (_event, target: unknown, line?: unknown) => {
   const file = checkedFile(target);
   if (!file) return { ok: false, error: 'File not found' };
-  if (!editorDetectionRan) runEditorDetection('first file open');
+  if (!editorsKnown) await runEditorDetection('first file open');
   const editor = cachedEditors[0];
-  if (!editor) return openWithDefaultApp(file);
+  if (!editor) return openWithoutEditor(file);
   const at = typeof line === 'number' && Number.isInteger(line) && line > 0 ? line : null;
   // Every detected product but 'other' is VS Code or a fork of it, which all take
   // -g file:line. An unknown editor gets the plain path.
@@ -1759,7 +1945,7 @@ ipcMain.handle('files:open', async (_event, target: unknown, line?: unknown) => 
   });
   if (result.ok) return { ok: true };
   console.error(`[editors] could not open ${file} in ${editor.path}:`, result.error);
-  runEditorDetection('re-detect after a failed file open');
+  void runEditorDetection('re-detect after a failed file open');
   return { ok: false, error: `Couldn't open ${editor.name}` };
 });
 
@@ -1843,10 +2029,11 @@ ipcMain.handle('files:openDefault', async (_event, target: unknown) => {
   return openWithDefaultApp(file);
 });
 
-// File Explorer with the file selected. The argument is verbatim (explorer does
-// its own parsing of /select,"path"); checkedFile has refused any quote in it.
+// File Explorer with the file or folder selected, in the folder holding it. The
+// argument is verbatim (explorer does its own parsing of /select,"path");
+// checkedPath has refused any quote in it.
 ipcMain.handle('files:reveal', async (_event, target: unknown) => {
-  const file = checkedFile(target);
+  const file = checkedFile(target) ?? checkedFolder(target);
   if (!file) return { ok: false, error: 'File not found' };
   if (harnessOnlyLogsExternal()) {
     console.log(`[harness] files:reveal ${file}`);
@@ -2008,20 +2195,126 @@ app.on('before-quit', async (e) => {
   app.quit();
 });
 
+// ─── Installer mode: the setup check ─────────────────────────────────────────
+
+// A process runner for setup-check.ts: stdin in, stdout and stderr out, a hard
+// timeout, never a console window, never a throw.
+const runProcess: Runner = (command, args, { env, input, timeoutMs }) => new Promise((resolve) => {
+  let child: ReturnType<typeof spawn>;
+  try {
+    child = spawn(command, args, { env: (env ?? process.env) as NodeJS.ProcessEnv, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+  } catch (err) {
+    resolve({ code: null, stdout: '', stderr: '', error: String(err) });
+    return;
+  }
+  let stdout = '';
+  let stderr = '';
+  let settled = false;
+  let timedOut = false;
+  const timer = setTimeout(() => { timedOut = true; try { child.kill(); } catch { /* gone */ } }, timeoutMs);
+  child.stdout?.on('data', (d) => { stdout += d; });
+  child.stderr?.on('data', (d) => { stderr += d; });
+  child.once('error', (err) => {
+    if (settled) return;
+    settled = true; clearTimeout(timer);
+    resolve({ code: null, stdout, stderr, error: String(err) });
+  });
+  child.once('close', (code) => {
+    if (settled) return;
+    settled = true; clearTimeout(timer);
+    resolve({ code, stdout, stderr, timedOut });
+  });
+  child.stdin?.on('error', () => { /* the child exited before reading */ });
+  child.stdin?.end(input ?? '');
+});
+
+// Register the hook, test it, and switch it to the second way when only that
+// works here. Writes three files beside `out` for the installer's Check page:
+//   <out>            [check] claude, notifications, resume, reason (key=value lines)
+//   <out>.report.txt the report, opened by "See what's sent"
+//   <out>.issue.txt  the filled-in GitHub URL, opened by `--open-issue`
+async function runSetupCheckCli(out: string): Promise<void> {
+  const prefsPath = getPrefsPath();
+  reconcileNotifierHook();
+  const opts = {
+    claudeDir: getClaudeDir(),
+    scriptSource: getHookScriptSource(),
+    userDataDir: app.getPath('userData'),
+    aftertermVersion: app.getVersion(),
+    installKind: (app.isPackaged ? 'installer' : 'dev') as 'installer' | 'dev',
+  };
+  const deps = { run: runProcess, fs, env: process.env, homeDir: app.getPath('home'), tmpDir: os.tmpdir() };
+  let result = await runSetupCheck(opts, deps);
+  if (result.workingMode === 'command' && readPrefs(prefsPath).prefs.claudeHookMode !== 'command') {
+    updatePrefs(prefsPath, { claudeHookMode: 'command' });
+    reconcileNotifierHook();
+    result = await runSetupCheck(opts, deps); // confirm the rewritten entries pass as registered
+  }
+  console.log(`[setup-check] claude=${result.claude.found} notifications=${result.notifications} resume=${result.resume} mode=${result.workingMode}`);
+  const ini = [
+    '[check]',
+    `claude=${result.claude.found ? 'found' : 'missing'}`,
+    `notifications=${result.notifications}`,
+    `resume=${result.resume}`,
+    `reason=${result.claude.found && !result.workingMode ? failureNote(result) : ''}`,
+    '',
+  ].join('\r\n');
+  fs.writeFileSync(out, ini, 'utf-8');
+  fs.writeFileSync(`${out}.report.txt`, result.report.replace(/\n/g, '\r\n'), 'utf-8');
+  fs.writeFileSync(`${out}.issue.txt`, result.report ? issueUrl(result) : '', 'utf-8');
+}
+
+// `--open-issue=<file>`: open the URL the setup check wrote, and only ever a new
+// issue on afterterm's own repository (the file sits in a temp folder anyone on
+// the machine could write to).
+async function openIssueFromFile(file: string): Promise<void> {
+  try {
+    const url = fs.readFileSync(file, 'utf-8').trim();
+    if (url.startsWith(`${ISSUES_URL}?`)) await shell.openExternal(url);
+  } catch { /* nothing to open */ }
+}
+
 // ─── App lifecycle ────────────────────────────────────────────────────────────
 
-app.whenReady().then(() => {
+// A second launch was refused the lock (see isPrimaryCopy): bring this window forward.
+app.on('second-instance', () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+});
+
+app.whenReady().then(async () => {
+  if (!isPrimaryCopy) return;
+  if (setupCheckOut || openIssueFile) {
+    try {
+      if (setupCheckOut) await runSetupCheckCli(setupCheckOut);
+      if (openIssueFile) await openIssueFromFile(openIssueFile);
+    } catch (err) {
+      console.error('[setup-check] failed:', err);
+    }
+    app.exit(0);
+    return;
+  }
   // Before any window loads: the preload reads app:last-opened-at synchronously.
   initLastOpenedAt();
+  // Automatic updates (src/updater.ts): its IPC is there before the renderer
+  // asks; the registry read and the first check run later, off the launch path.
+  initUpdater({
+    getWindow: () => mainWindow,
+    prefsPath: getPrefsPath,
+    productName: sandbox ? 'afterterm (test)' : 'afterterm',
+    assetBase: sandbox ? 'afterterm-test' : 'afterterm',
+    quit: () => app.quit(),
+  });
   createNotifierWindow();
   createWindow();
   reconcileNotifierHook();
   startClaudeSessionWatch();
-  // Editor detection reads the registry through `reg query`, which is synchronous
-  // and can take a second. Deferred so the window paints and the first terminal
-  // spawns before the main process is busy. The renderer asks for the list after
-  // this; if it asks sooner, editors:list runs detection itself.
-  setTimeout(() => { if (!editorDetectionRan) runEditorDetection('startup'); }, 1200);
+  // Editors: last launch's list at once, then a fresh detection in the background
+  // (asynchronous, so it never holds the main thread; see detectDeps).
+  loadEditorCache();
+  setTimeout(() => { void runEditorDetection('startup'); }, 1200);
 });
 
 app.on('window-all-closed', () => {

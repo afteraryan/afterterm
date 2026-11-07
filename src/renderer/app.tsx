@@ -15,13 +15,23 @@ import { SearchPalette } from './components/SearchPalette';
 import { GroupModal, GroupDraft } from './components/GroupModal';
 import { Toast } from './components/Toast';
 import { ConfirmDialog } from './components/ConfirmDialog';
+import { RenameDialog } from './components/RenameDialog';
+import { ArchiveDialog } from './components/ArchiveDialog';
+import { AboutWindow } from './components/AboutWindow';
+import { RestartToUpdate } from './components/RestartToUpdate';
+import { UpdatedPill } from './components/UpdatedPill';
+import { WhatsNewDialog } from './components/UpdateDialog';
+import { hasNotes } from './components/UpdateNotes';
+import { initialUpdateState, restartRows, isMidTurn } from '../update-check';
+import type { UpdateState, AwakeThread } from '../update-check';
 import type { Screen } from './components/ScreenNav';
 import { useTabState, threadGitCwd } from './hooks/useTabState';
-import { Tab, TabNotification, GROUP_COLORS, nextGroupColor } from './components/TabBar/types';
+import { Tab, TabNotification, nextGroupColor } from './components/TabBar/types';
+import { groupColors } from './projectColour';
 import { onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, clearsWhenSeen, initTiming, TabTiming } from './spinnerState';
 import { migrateSession, serializeSession } from './sessionMigration';
-import { sleepAllForShutdown } from './sleepWake';
-import { toastMessage, initialScreen, threadName, needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText, localhostUrl, threadFolder, threadFolderTarget, projectLookChanges } from './threadView';
+import { sleepAllForShutdown, wakePlan } from './sleepWake';
+import { toastMessage, initialScreen, threadName, automaticThreadName, threadKind, needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText, localhostUrl, threadFolder, threadFolderTarget, projectLookChanges } from './threadView';
 import { ProjectActions } from './projectMenu';
 import { buildThreadMenu } from './threadMenu';
 import { projectAttention, totalAttention, railProjects, firstThreadToOpen } from './attention';
@@ -29,7 +39,11 @@ import type { EditorInfo } from '../editors';
 import type { SessionFiles } from '../session-files';
 import type { FilesButtonProps } from './components/FilesButton';
 import { filesListView } from './filesView';
+import { panesFor, splitOf, paneDropTarget } from './splitView';
+import type { PaneTarget } from './splitView';
 import type { FileLinkContext, FileLinkTarget } from './components/Terminal/fileLinks';
+import type { MenuItem } from './components/Menu';
+import { EditorLogo, IconExplorer } from './components/Icons';
 
 let toastCounter = 0;
 
@@ -101,10 +115,18 @@ export function App() {
   // project page, the only screens that show the "Folder not found" state.
   const [folderExists, setFolderExists] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<AppToast | null>(null);
+  // Archive (2026-11-01): the project whose "Archive <name>?" window is open, and
+  // the project being archived right now, which the panel keeps in Recent until
+  // its threads have gone to sleep and its row has folded away.
+  const [archiveAsk, setArchiveAsk] = useState<string | null>(null);
+  const [archiving, setArchiving] = useState<string | null>(null);
+  const archivingRef = useRef(false);
   const [chooser, setChooser] = useState<{ x: number; y: number } | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   // null = closed; groupId absent = creating a new project.
   const [projectModal, setProjectModal] = useState<{ mode: 'create' | 'edit'; groupId?: string } | null>(null);
+  // The thread or project the Rename dialog is open for, null when it is closed.
+  const [renaming, setRenaming] = useState<{ kind: 'thread' | 'project'; id: string } | null>(null);
   // The saved scrollback tail of every thread whose pane may need it, keyed by tab
   // id. Filled when a thread goes to sleep (the terminal hands its last lines over
   // on the way out) and, for a thread restored from disk, read from its tail file
@@ -128,6 +150,25 @@ export function App() {
   // Live; only the palette's history results open it on History.
   const [projectPageTab, setProjectPageTab] = useState<'live' | 'asleep' | 'history'>('live');
 
+  // Automatic updates (docs/design-05-automatic-updates.md). The state is main's
+  // (src/updater.ts), pushed on every change. `updateWindow` is the About window
+  // or the restart window; `whatsNew` the notes over the app after an update
+  // restart; `updatedPill` the "Updated to" note that restart leaves.
+  const [update, setUpdate] = useState<UpdateState>(() => initialUpdateState(window.afterterm.appVersion));
+  const [updateWindow, setUpdateWindow] = useState<'about' | 'restart' | null>(null);
+  const [whatsNew, setWhatsNew] = useState<{ version: string; notes: string } | null>(null);
+  const [updatedPill, setUpdatedPill] = useState<{ version: string; notes: string } | null>(null);
+  // The threads awake when Restart now was pressed: the quit flush writes them to
+  // session.json (wakeAfterUpdate), and only that quit does.
+  const wakeAfterUpdateRef = useRef<string[]>([]);
+  // On the launch after an update restart: what to reopen and wake, once the
+  // restored session is in state.
+  const afterUpdateRef = useRef<{ wake: string[]; activeThreadId?: string } | null>(null);
+  const projectPageIdRef = useRef(projectPageId);
+  projectPageIdRef.current = projectPageId;
+  const updateRef = useRef(update);
+  updateRef.current = update;
+
   // The terminal layer, for the one thing only it knows: what is on each screen
   // right now. Read at quit, when every awake thread's tail has to reach disk.
   const terminalRef = useRef<TerminalAreaHandle>(null);
@@ -142,6 +183,15 @@ export function App() {
   // Read by the clock effect and the tail-reading effect below, both of which run
   // before `activeTab` is derived further down.
   const activeTabAsleep = !!state.tabs.find(t => t.id === state.activeTabId)?.asleep;
+  // The threads on screen, left to right (design-06): the active thread alone,
+  // or both halves of its split, the active one being the focused half.
+  const panes = state.tabs.some(t => t.id === state.activeTabId)
+    ? panesFor(state.splits, state.activeTabId).filter(id => state.tabs.some(t => t.id === id))
+    : [];
+  const asleepPanesKey = panes.filter(id => state.tabs.find(t => t.id === id)?.asleep).join('|');
+  // Where a thread dragged from the sidebar would land on the main pane: a half
+  // lit up, or the refused drop with its label (Terminal/index.tsx draws it).
+  const [paneDrop, setPaneDrop] = useState<PaneTarget | null>(null);
 
   // Every screen switch goes through here so the entrance class always replays.
   // Phase 8 adds the panel's slide (design-03 decision 1): leaving the workspace
@@ -321,14 +371,14 @@ export function App() {
 
   // Brings one chat's list up to date. Only new transcript bytes are read, so
   // calling it on every turn is cheap.
-  const refreshFiles = useCallback((tabId: string) => {
+  const refreshFiles = useCallback(async (tabId: string): Promise<SessionFiles | undefined> => {
     const tab = stateRef.current.tabs.find(t => t.id === tabId);
     const sessionId = tab?.claudeSessionId;
     const cwd = tab?.claudeCwd;
-    if (!sessionId || !cwd) return;
-    window.afterterm.sessionFiles.list(sessionId, cwd).then(files => {
-      setFilesByTab(prev => ({ ...prev, [tabId]: { sessionId, files } }));
-    });
+    if (!sessionId || !cwd) return undefined;
+    const files = await window.afterterm.sessionFiles.list(sessionId, cwd);
+    setFilesByTab(prev => ({ ...prev, [tabId]: { sessionId, files } }));
+    return files;
   }, []);
 
   // What a terminal's file links resolve against (Phase 3): the thread's own
@@ -345,6 +395,8 @@ export function App() {
     const project = tab.groupId ? stateRef.current.groups.find(g => g.id === tab.groupId) : undefined;
     const entry = filesByTabRef.current[tabId];
     const files = entry && entry.sessionId === tab.claudeSessionId ? entry.files : undefined;
+    const sessionId = tab.claudeSessionId;
+    const cwd = tab.claudeCwd;
     return {
       threadFolder: threadFolder(tab),
       worktreeTop: gitTopsRef.current.get(tabId),
@@ -353,11 +405,34 @@ export function App() {
       changed: files?.changed ?? [],
       edits: files?.edits ?? [],
       refs: files?.refs ?? [],
+      chat: sessionId && cwd ? {
+        sessionId,
+        cwd,
+        pasted: files?.pasted ?? [],
+        refreshPasted: async () => (await refreshFiles(tabId))?.pasted ?? [],
+      } : undefined,
     };
-  }, []);
+  }, [refreshFiles]);
+
+  // One pasted image, by its key in the chat's transcript. The Files list and the
+  // [Image #N] tags in the terminal both come through here.
+  const openPastedImage = (sessionId: string, cwd: string, key: string) => {
+    window.afterterm.sessionFiles.openPasted(sessionId, cwd, key).then(result => {
+      noteOpened('lastOpenFile', result.path ?? key);
+      if (!result.ok) showToast({ message: result.error ?? 'Could not open the image' });
+    });
+  };
+  const withPastedPath = (sessionId: string, cwd: string, key: string, then: (path: string) => void) => {
+    window.afterterm.sessionFiles.pastedPath(sessionId, cwd, key).then(path => {
+      if (path) then(path);
+      else showToast({ message: 'Image not found' });
+    });
+  };
 
   const openFileLink = (target: FileLinkTarget) => {
-    if (target.how === 'explorer') {
+    if (target.how === 'pasted') {
+      openPastedImage(target.sessionId, target.cwd, target.key);
+    } else if (target.how === 'explorer') {
       noteOpened('lastOpenFile', target.path);
       window.afterterm.files.openFolder(target.path).then(result => {
         if (!result.ok) showToast({ message: result.error ?? 'Could not open the folder' });
@@ -369,6 +444,23 @@ export function App() {
     }
   };
 
+  // The right-click menu on a file link in the terminal.
+  const fileLinkMenu = (target: FileLinkTarget): MenuItem[] => {
+    const word = target.how === 'explorer' ? 'folder' : 'file';
+    const withPath = (then: (path: string) => void) => {
+      if (target.how === 'pasted') withPastedPath(target.sessionId, target.cwd, target.key, then);
+      else then(target.path);
+    };
+    const opensIn = target.how === 'editor' && editors[0] ? <EditorLogo product={editors[0].product} size={16} />
+      : target.how === 'explorer' ? <IconExplorer size={16} />
+      : undefined;
+    return [
+      { label: 'Open', right: opensIn, onSelect: () => openFileLink(target) },
+      { label: `Open ${word} location`, right: <IconExplorer size={16} />, onSelect: () => withPath(revealFile) },
+      { label: `Copy ${word} path`, onSelect: () => withPath(copyPath) },
+    ];
+  };
+
   // The Files button's props for a chat, or undefined for a shell.
   const filesButtonFor = (tab: Tab): FilesButtonProps | undefined => {
     const sessionId = tab.claudeSessionId;
@@ -378,7 +470,6 @@ export function App() {
     const files = entry && entry.sessionId === sessionId ? entry.files : undefined;
     const project = tab.groupId ? stateRef.current.groups.find(g => g.id === tab.groupId) : undefined;
     const view = filesListView(files, threadFolder(tab), window.afterterm.app.homeDir || undefined, Date.now(), project?.cwd);
-    const pasted = window.afterterm.sessionFiles;
     return {
       view,
       threadKey: `${tab.id}:${sessionId}`,
@@ -388,25 +479,10 @@ export function App() {
       onOpenFile: path => openFileInEditor(path),
       onRevealFile: revealFile,
       onCopyFile: copyPath,
-      onOpenPasted: key => {
-        pasted.openPasted(sessionId, cwd, key).then(result => {
-          noteOpened('lastOpenFile', result.path ?? key);
-          if (!result.ok) showToast({ message: result.error ?? 'Could not open the image' });
-        });
-      },
-      onRevealPasted: key => {
-        pasted.pastedPath(sessionId, cwd, key).then(path => {
-          if (path) revealFile(path);
-          else showToast({ message: 'Image not found' });
-        });
-      },
-      onCopyPasted: key => {
-        pasted.pastedPath(sessionId, cwd, key).then(path => {
-          if (path) copyPath(path);
-          else showToast({ message: 'Image not found' });
-        });
-      },
-      thumb: key => pasted.thumb(sessionId, cwd, key),
+      onOpenPasted: key => openPastedImage(sessionId, cwd, key),
+      onRevealPasted: key => withPastedPath(sessionId, cwd, key, revealFile),
+      onCopyPasted: key => withPastedPath(sessionId, cwd, key, copyPath),
+      thumb: key => window.afterterm.sessionFiles.thumb(sessionId, cwd, key),
     };
   };
 
@@ -446,11 +522,16 @@ export function App() {
     },
     chooseEditor,
     edit: (groupId) => setProjectModal({ mode: 'edit', groupId }),
+    rename: (groupId) => setRenaming({ kind: 'project', id: groupId }),
+    // Archive moves the project into the panel's Other projects drawer. With
+    // awake threads it asks first (ArchiveDialog), since they go to sleep;
+    // with none it goes straight away. Either way archiveNow runs the sequence.
     archive: (groupId) => {
       const group = findGroup(groupId);
-      if (!group) return;
-      stateRef.current.setGroupArchived(groupId, true);
-      showToast({ message: `Archived ${group.label}` });
+      if (!group || archivingRef.current) return;
+      const awake = stateRef.current.tabs.some(t => t.groupId === groupId && !t.asleep);
+      if (awake) setArchiveAsk(groupId);
+      else void archiveNow(groupId);
     },
     restore: (groupId) => {
       const group = findGroup(groupId);
@@ -459,6 +540,35 @@ export function App() {
       showToast({ message: `Restored ${group.label}` });
     },
     deleteProject: (groupId) => stateRef.current.deleteGroup(groupId),
+  };
+
+  // The Archive sequence Aryan agreed on (docs/mockups/sidebar-archive-with-awake-threads.html):
+  // the awake threads go to sleep one after the other, about 140ms apart, so each
+  // row's icon turns into the moon in turn; then the project folds out of Recent
+  // and the rows below slide up; then it is archived (the top of Other projects,
+  // whose count bumps) and the toast says where it went. The project is held in
+  // Recent while this runs, so its last thread going to sleep does not drop it
+  // into Other before the fold.
+  const archiveNow = async (groupId: string) => {
+    if (archivingRef.current) return;
+    archivingRef.current = true;
+    setArchiving(groupId);
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    const wait = (ms: number) => (reduce ? Promise.resolve() : new Promise<void>(r => setTimeout(r, ms)));
+    try {
+      const awake = stateRef.current.tabs.filter(t => t.groupId === groupId && !t.asleep);
+      for (const t of awake) {
+        sleepThreadNow(t.id);
+        await wait(140);
+      }
+      if (awake.length) await wait(420);
+      await panelRef.current?.foldOut(groupId);
+      stateRef.current.setGroupArchived(groupId, true);
+      showToast({ message: 'Moved to Other projects' });
+    } finally {
+      archivingRef.current = false;
+      setArchiving(null);
+    }
   };
 
   // Per-tab timing for the working-spinner state machine (see spinnerState.ts).
@@ -478,33 +588,71 @@ export function App() {
     Promise.all([
       window.afterterm.shells.list(),
       window.afterterm.session.load(),
-    ]).then(([shellList, saved]) => {
+      window.afterterm.update.takeLaunch(),
+    ]).then(([shellList, saved, landed]) => {
       setShells(shellList);
       // The file may predate the current format (0.8.1 wrote no version field and
       // none of the project/thread fields); migrate fills defaults or rejects it.
       const session = migrateSession(saved, Date.now());
-      if (session && session.tabs.length > 0) {
+      // Restored even with no threads at all: projects can exist without one. A
+      // fresh profile starts with nothing running (no General thread spawned on
+      // first launch, Yogansh 2026-10-29); either way the app opens on Home.
+      if (session) {
         state.restoreSession(session);
         setPanelHidden(!!session.ui?.panelHidden);
         setScreen(initialScreen(session.groups));
       } else {
-        state.addTab();
-        // A fresh profile has no session at all; the rule is the same (always Home).
         setScreen(initialScreen([]));
+      }
+      // After an update restart, and only then (Aryan, 2026-10-30): back on the
+      // screen and thread that were open, the threads that were awake woken (the
+      // effect below), and the "Updated to" note. Every other launch keeps the
+      // 0.9.0 rule that everything starts asleep.
+      if (landed) {
+        afterUpdateRef.current = { wake: session?.wakeAfterUpdate ?? [], activeThreadId: landed.activeThreadId };
+        const project = landed.screen === 'project' && landed.projectId && session?.groups.some(g => g.id === landed.projectId);
+        if (project) { setProjectPageId(landed.projectId!); setScreen('project'); }
+        else if (landed.screen === 'home') setScreen('home');
+        else setScreen('workspace');
+        setUpdatedPill({ version: landed.to, notes: landed.notes });
       }
       setInitialized(true);
     });
   }, []);
 
-  // Auto-save session (2s debounce after any state change)
+  // The update state, from main.
   useEffect(() => {
-    if (!initialized || state.tabs.length === 0) return;
+    window.afterterm.update.get().then(setUpdate);
+    return window.afterterm.update.onState(setUpdate);
+  }, []);
+
+  // Waking what was awake before the update restart, once the restored threads
+  // are in state, through the same wake every Wake button uses (a chat resumes
+  // its Claude Code session, a server runs its command again, a shell opens in
+  // its folder). A little apart, so a dozen shells do not all start in one frame.
+  useEffect(() => {
+    if (!initialized || !afterUpdateRef.current) return;
+    const { wake, activeThreadId } = afterUpdateRef.current;
+    afterUpdateRef.current = null;
+    if (activeThreadId && stateRef.current.tabs.some(t => t.id === activeThreadId)) {
+      stateRef.current.setActiveTabId(activeThreadId);
+    }
+    wake.forEach((id, i) => setTimeout(() => {
+      if (stateRef.current.tabs.find(t => t.id === id)?.asleep) void wakeThreadRef.current(id);
+    }, i * 250));
+  }, [initialized]);
+
+  // Auto-save session (2s debounce after any state change). No threads at all is
+  // a state worth saving too (the last one was closed); only an unloaded session
+  // is not.
+  useEffect(() => {
+    if (!initialized) return;
     const timer = setTimeout(() => {
-      const data = serializeSession(state.tabs, state.groups, state.activeTabId, { panelHidden });
+      const data = serializeSession(state.tabs, state.groups, state.activeTabId, { panelHidden }, undefined, state.splits);
       window.afterterm.session.save(JSON.stringify(data));
     }, 2000);
     return () => clearTimeout(timer);
-  }, [initialized, state.tabs, state.groups, state.activeTabId, panelHidden]);
+  }, [initialized, state.tabs, state.groups, state.activeTabId, state.splits, panelHidden]);
 
   // Keyboard shortcuts from main process
   useEffect(() => {
@@ -721,7 +869,13 @@ export function App() {
 
   // Open a thread and show it: used by the palette and the project page, which can
   // both pick a thread from a screen that is not the workspace.
+  // A thread of an archived project opened this way brings the project back out
+  // of Other projects (2026-11-01: using it brings it back).
   const openThreadInWorkspace = useCallback((tabId: string) => {
+    const groupId = stateRef.current.tabs.find(t => t.id === tabId)?.groupId;
+    if (groupId && stateRef.current.groups.find(g => g.id === groupId)?.archived) {
+      stateRef.current.setGroupArchived(groupId, false);
+    }
     handleActivate(tabId);
     goScreen('workspace');
   }, [handleActivate, goScreen]);
@@ -799,7 +953,7 @@ export function App() {
       type,
       primaryLabel: tab ? threadName(tab) : projectName,
       secondaryLabel: group?.label,
-      projectColor: group ? GROUP_COLORS[group.color].border : undefined,
+      projectColor: group ? groupColors(group.color).border : undefined,
       projectIcon: group?.icon,
       projectId: group?.id,
       message: toastMessage(type),
@@ -962,6 +1116,39 @@ export function App() {
     // has done its job.
     if (stateRef.current.tabs.find(t => t.id === tabId)?.unread) stateRef.current.setUnread(tabId, false);
   }, [refreshClaudeMeta]);
+  const wakeThreadRef = useRef(wakeThread);
+  wakeThreadRef.current = wakeThread;
+
+  // Restart to update. The restart window lists every awake thread and what
+  // happens to it (restartRows in src/update-check.ts); "Restart now" records
+  // them for the quit flush below, then asks main to start Setup and quit. When
+  // main cannot go ahead (a copy that is not installed, Setup not starting) the
+  // window closes and the notice says why.
+  const awakeThreads = (): AwakeThread[] => state.tabs.filter(t => !t.asleep).map(t => {
+    const plan = wakePlan(t);
+    return {
+      id: t.id,
+      name: threadName(t),
+      kind: threadKind(t),
+      resumes: !!plan.resumeSessionId,
+      midTurn: isMidTurn(t.notification),
+      rerunPort: plan.runCommand !== null ? t.port : undefined,
+    };
+  });
+
+  const restartNow = useCallback(async () => {
+    const s = stateRef.current;
+    wakeAfterUpdateRef.current = s.tabs.filter(t => !t.asleep).map(t => t.id);
+    const result = await window.afterterm.update.restart({
+      activeThreadId: s.activeTabId || undefined,
+      screen: screenRef.current,
+      projectId: screenRef.current === 'project' ? projectPageIdRef.current ?? undefined : undefined,
+    });
+    if (!result.ok) {
+      wakeAfterUpdateRef.current = [];
+      setUpdateWindow(null);
+    }
+  }, []);
 
   // Bring a closed thread back from its project's history. The recreated tab carries
   // the closed thread's id, so its saved tail replays, and it comes back awake.
@@ -1005,10 +1192,14 @@ export function App() {
 
   // Flush a synchronous save on window close, the debounced save's pending timer is
   // cleared on unmount, so the last <2s of changes (e.g. a fresh cwd) would be lost.
+  const initializedRef = useRef(false);
+  initializedRef.current = initialized;
   useEffect(() => {
     const flush = () => {
       const s = stateRef.current;
-      if (!s.tabs.length) return;
+      // Before the session has loaded there is nothing of the user's to save, and
+      // saving would overwrite the file with an empty one.
+      if (!initializedRef.current) return;
       // Screens first: once the window is gone the buffers are gone with it, and a
       // thread with no saved tail wakes into a blank terminal.
       window.afterterm.threads.saveTailsSync(terminalRef.current?.readAllTails() ?? {});
@@ -1016,19 +1207,28 @@ export function App() {
       // on the next launch counts from when the app actually closed.
       // The panel flag rides along here too, or a quit with the panel hidden
       // would come back with it shown (found in the Phase 8 self-test).
-      const data = serializeSession(sleepAllForShutdown(s.tabs, Date.now()), s.groups, s.activeTabId, { panelHidden: panelHiddenRef.current });
+      // An update restart also records which threads were awake, to wake them on
+      // the other side; on any other quit the list is empty and nothing is written.
+      const data = serializeSession(sleepAllForShutdown(s.tabs, Date.now()), s.groups, s.activeTabId, { panelHidden: panelHiddenRef.current }, wakeAfterUpdateRef.current, s.splits);
       window.afterterm.session.saveSync(JSON.stringify(data));
     };
     window.addEventListener('beforeunload', flush);
     return () => window.removeEventListener('beforeunload', flush);
   }, []);
 
-  // Always keep at least one tab
+  // Closing the last thread hands over to Home. (Until 0.10.0 a fresh General
+  // thread was spawned here instead, which is why a first launch, and closing the
+  // last thread, started a terminal nobody asked for.) Opening the workspace on
+  // purpose with no threads stays there: its panel holds New thread and New
+  // project, and the main pane says what to do.
+  const prevTabCountRef = useRef(0);
   useEffect(() => {
-    if (initialized && state.tabs.length === 0) {
-      state.addTab();
+    const prev = prevTabCountRef.current;
+    prevTabCountRef.current = state.tabs.length;
+    if (initialized && prev > 0 && state.tabs.length === 0 && screenRef.current === 'workspace') {
+      goScreen('home');
     }
-  }, [initialized, state.tabs.length, state.addTab]);
+  }, [initialized, state.tabs.length, goScreen]);
 
   // Play the entrance for whichever screen is now showing: on every switch, and
   // once on the first paint after the restored session has loaded (never on the
@@ -1056,15 +1256,19 @@ export function App() {
   // already in `tails` when the thread slept in this session; a thread restored from
   // disk has to read its file, once (an empty array is stored for a missing file, so
   // a thread that never saved one is not re-read on every render).
+  // Every asleep thread on screen counts, so both halves of a split show theirs.
   useEffect(() => {
-    const tab = stateRef.current.tabs.find(t => t.id === state.activeTabId);
-    if (!tab?.asleep || tails[tab.id] !== undefined) return;
+    const ids = asleepPanesKey ? asleepPanesKey.split('|') : [];
+    const missing = ids.filter(id => tails[id] === undefined);
+    if (missing.length === 0) return;
     let cancelled = false;
-    window.afterterm.threads.readTail(tab.id).then(lines => {
-      if (!cancelled) setTails(prev => ({ ...prev, [tab.id]: lines ?? [] }));
-    });
+    for (const id of missing) {
+      window.afterterm.threads.readTail(id).then(lines => {
+        if (!cancelled) setTails(prev => (prev[id] !== undefined ? prev : { ...prev, [id]: lines ?? [] }));
+      });
+    }
     return () => { cancelled = true; };
-  }, [state.activeTabId, activeTabAsleep, tails]);
+  }, [asleepPanesKey, tails]);
 
   // A toast is drawn from what it was sent, so a project edited while its toast
   // is on screen tells the overlay its new name, colour and icon. The first
@@ -1078,7 +1282,7 @@ export function App() {
       window.afterterm.notify.projectUpdated({
         projectId: look.projectId,
         label: look.label,
-        color: GROUP_COLORS[look.color].border,
+        color: groupColors(look.color).border,
         icon: look.icon,
       });
     }
@@ -1150,6 +1354,11 @@ export function App() {
     win.__afterterm = {
       ...(win.__afterterm ?? {}),
       tab: (tabId: string) => stateRef.current.tabs.find(t => t.id === tabId) ?? null,
+      // Automatic updates: wake a thread, and give one a state, so a test can fill
+      // the restart window (a chat mid-turn) without a real Claude Code session.
+      wake: (tabId: string) => wakeThreadRef.current(tabId),
+      setNotification: (tabId: string, n: TabNotification | undefined) => stateRef.current.setTabNotification(tabId, n),
+      update: () => updateRef.current,
       // Phase 8: the same for a project (lastActiveAt, collapsed, icon, pinned).
       group: (groupId: string) => stateRef.current.groups.find(g => g.id === groupId) ?? null,
       // Phase 7: the aggregate every count reads from (attention.ts), per project
@@ -1189,24 +1398,90 @@ export function App() {
   // The Files list of the chat on screen is read when it comes on screen (a
   // restored, asleep chat included: reading needs no wake), and again on every
   // turn through the meta push above.
-  const activeId = state.activeTabId;
-  const activeSession = state.tabs.find(t => t.id === activeId)?.claudeSessionId;
-  const activeClaudeCwd = state.tabs.find(t => t.id === activeId)?.claudeCwd;
+  // Both halves of a split are on screen, so both lists are read.
+  const paneSessionsKey = panes.map(id => {
+    const t = state.tabs.find(x => x.id === id);
+    return t?.claudeSessionId && t.claudeCwd ? `${id}\0${t.claudeSessionId}\0${t.claudeCwd}` : '';
+  }).filter(Boolean).join('|');
   useEffect(() => {
-    if (!initialized || !activeSession || !activeClaudeCwd) return;
-    refreshFiles(activeId);
-  }, [initialized, activeId, activeSession, activeClaudeCwd, refreshFiles]);
+    if (!initialized || !paneSessionsKey) return;
+    for (const entry of paneSessionsKey.split('|')) refreshFiles(entry.split('\0')[0]);
+  }, [initialized, paneSessionsKey, refreshFiles]);
+
+  // Dragging a thread from the sidebar over the main pane (design-06): what a
+  // release there would do. Over the pane at all is the sidebar's call (past
+  // its right edge); this decides which half, or which refusal.
+  const paneTargetAt = useCallback((dragId: string, x: number, y: number): PaneTarget | null => {
+    if (screenRef.current !== 'workspace') return null;
+    const area = document.querySelector('.workspace .terminal-area');
+    const panesEl = document.querySelector('.workspace .term-panes');
+    if (!area || !panesEl) return null;
+    const a = area.getBoundingClientRect();
+    if (x < a.left || x > a.right || y < a.top || y > a.bottom) return null;
+    const r = panesEl.getBoundingClientRect();
+    if (r.width === 0) return null;
+    const s = stateRef.current;
+    return paneDropTarget(s.tabs, s.groups, s.splits, s.activeTabId, dragId, x < r.left + r.width / 2 ? 'a' : 'b');
+  }, []);
+  const onPaneHover = useCallback((t: PaneTarget | null) => {
+    setPaneDrop(prev => (JSON.stringify(prev) === JSON.stringify(t) ? prev : t));
+  }, []);
+  // A drop on a half: the dragged thread goes on that side and gets the focus.
+  const onPaneDrop = useCallback((dragId: string, t: PaneTarget) => {
+    setPaneDrop(null);
+    if (t.kind !== 'half' || t.bad) return;
+    const s = stateRef.current;
+    s.makeSplit(s.activeTabId, dragId, t.side);
+    clearThreadBadges(dragId);
+  }, [clearThreadBadges]);
+
+  // One column's header (Terminal/index.tsx draws one per thread on screen):
+  // a whole thread view's header, with its own dots menu, editor button and
+  // Files button, compact when it is one half of two.
+  const headerFor = (tab: Tab, compact: boolean) => {
+    const group = tab.groupId ? state.groups.find(g => g.id === tab.groupId) : undefined;
+    return (
+      <Header
+        tab={tab}
+        compact={compact}
+        group={group}
+        groups={state.groups}
+        now={now}
+        projectExplorer={group?.cwd ? {
+          missing: folderMissing(group),
+          open: () => openFolderInExplorer(group.cwd!),
+        } : undefined}
+        editor={threadEditor(tab)}
+        files={filesButtonFor(tab)}
+        actions={{
+          moveToGroup: (id) => id ? state.addToGroup(tab.id, id) : state.removeFromGroup(tab.id),
+          close: () => closeThread(tab.id),
+          rename: () => setRenaming({ kind: 'thread', id: tab.id }),
+          sleep: () => sleepThread(tab.id),
+          wake: () => wakeThread(tab.id),
+          setUnread: unread => state.setUnread(tab.id, unread),
+          openLocalhost: () => openLocalhost(tab.id),
+          openInExplorer: threadExplorer(tab),
+          openProjectPage: tab.groupId ? () => goScreen('project', tab.groupId) : undefined,
+        }}
+      />
+    );
+  };
 
   const tabInfos = state.tabs.map(t => ({ id: t.id, shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize, claudeSessionId: t.claudeSessionId, claudeCwd: t.claudeCwd, asleep: t.asleep, wokeAt: t.wokeAt, port: t.port, lastCommand: t.lastCommand }));
 
   const activeTab = state.tabs.find(t => t.id === state.activeTabId);
-  const activeGroup = activeTab?.groupId ? state.groups.find(g => g.id === activeTab.groupId) : undefined;
+  const activeSplit = splitOf(state.splits, state.activeTabId);
   const pageGroup = projectPageId ? state.groups.find(g => g.id === projectPageId) : undefined;
   const folderMissing = (group: { cwd?: string }) => !!group.cwd && folderExists[group.cwd] === false;
 
   return (
     <div className={`app${enterClass ? ` ${enterClass}` : ''}`} data-screen={screen}>
-      <TitleBar />
+      <TitleBar
+        update={update}
+        onOpenAbout={() => setUpdateWindow('about')}
+        onRestart={() => setUpdateWindow('restart')}
+      />
 
       <div className="app-body">
       {/* The always-on rail (Phase 8, design-03 decision 1): on every screen, never
@@ -1266,6 +1541,7 @@ export function App() {
           threadMenu={tab => buildThreadMenu(tab, state.groups, {
             moveToGroup: id => (id ? state.addToGroup(tab.id, id) : state.removeFromGroup(tab.id)),
             close: () => closeThread(tab.id),
+            rename: () => setRenaming({ kind: 'thread', id: tab.id }),
             sleep: () => sleepThread(tab.id),
             wake: () => wakeThread(tab.id),
             setUnread: unread => state.setUnread(tab.id, unread),
@@ -1293,6 +1569,7 @@ export function App() {
           onClose={closeThread}
           onSleep={sleepThread}
           onSetUnread={state.setUnread}
+          onRenameThread={tabId => setRenaming({ kind: 'thread', id: tabId })}
           onWake={wakeThread}
           onOpenLocalhost={openLocalhost}
           threadExplorer={threadExplorer}
@@ -1305,7 +1582,6 @@ export function App() {
           editors={editors}
           folderExists={folderExists}
           projectActions={projectActions}
-          onCreateGroup={(t1, t2) => state.createGroup(t1, t2)}
           onAddToGroup={state.addToGroup}
           onRemoveFromGroup={state.removeFromGroup}
           onRenameGroup={state.renameGroup}
@@ -1313,43 +1589,36 @@ export function App() {
           onToggleGroupCollapse={state.toggleGroupCollapse}
           onSetGroupsCollapsed={state.setGroupCollapsedMany}
           onBringIn={bringProjectIn}
-          onMoveTab={state.moveTab}
-          onMoveGroup={state.moveGroup}
-          onMoveGroupAfterGroup={state.moveGroupAfterGroup}
+          holdInRecent={archiving}
+          onPlaceThread={state.placeThreadAt}
+          onPlaceProject={(groupId, section, beforeId) => {
+            const group = findGroup(groupId);
+            if (state.placeProject(groupId, section, beforeId) && group) {
+              showToast({ message: `${section === 'pinned' ? 'Pinned' : 'Unpinned'} ${group.label}` });
+            }
+          }}
+          splits={state.splits}
+          onUngroup={state.ungroup}
+          paneAt={paneTargetAt}
+          onPaneHover={onPaneHover}
+          onPaneDrop={onPaneDrop}
         />
 
         <div className="terminal-area">
-          <Header
-            tab={activeTab}
-            group={activeGroup}
-            groups={state.groups}
-            now={now}
-            projectExplorer={activeGroup?.cwd ? {
-              missing: folderMissing(activeGroup),
-              open: () => openFolderInExplorer(activeGroup.cwd!),
-            } : undefined}
-            editor={activeTab ? threadEditor(activeTab) : undefined}
-            files={activeTab ? filesButtonFor(activeTab) : undefined}
-            actions={activeTab ? {
-              moveToGroup: (id) => id ? state.addToGroup(activeTab.id, id) : state.removeFromGroup(activeTab.id),
-              close: () => closeThread(activeTab.id),
-              sleep: () => sleepThread(activeTab.id),
-              wake: () => wakeThread(activeTab.id),
-              setUnread: unread => state.setUnread(activeTab.id, unread),
-              openLocalhost: () => openLocalhost(activeTab.id),
-              openInExplorer: threadExplorer(activeTab),
-              openProjectPage: activeTab.groupId ? () => goScreen('project', activeTab.groupId) : undefined,
-            } : undefined}
-          />
-          {/* An asleep thread has no terminal at all, so its pane stands in for one:
-              the saved tail, dimmed, and a Wake button. */}
-          {activeTab?.asleep && (
-            <AsleepPane
-              tab={activeTab}
-              tail={tails[activeTab.id] ?? null}
+          {panes.length === 0 && (
+            <Header
+              tab={undefined}
+              emptyText={state.tabs.length === 0 ? 'No threads open' : undefined}
+              group={undefined}
+              groups={state.groups}
               now={now}
-              onWake={() => wakeThread(activeTab.id)}
             />
+          )}
+          {initialized && state.tabs.length === 0 && (
+            <div className="no-threads">
+              <button className="b p" data-new-thread="" onClick={() => openChooserFromShortcut()}>New thread</button>
+              <span className="k">Ctrl Shift T</span>
+            </div>
           )}
           {initialized && (
             <TerminalArea
@@ -1357,7 +1626,29 @@ export function App() {
               tabs={tabInfos}
               activeTabId={state.activeTabId}
               visible={screen === 'workspace'}
-              hidden={!!activeTab?.asleep}
+              panes={panes}
+              ratio={activeSplit?.ratio ?? 0.5}
+              renderHeader={(id, split) => {
+                const tab = state.tabs.find(t => t.id === id);
+                return tab ? headerFor(tab, split) : null;
+              }}
+              // An asleep thread has no terminal at all, so its pane stands in
+              // for one inside its card: the saved tail, dimmed, and Wake.
+              renderAsleep={(id, focused) => {
+                const tab = state.tabs.find(t => t.id === id);
+                return tab ? (
+                  <AsleepPane
+                    tab={tab}
+                    tail={tails[id] ?? null}
+                    now={now}
+                    focused={focused}
+                    onWake={() => wakeThread(id)}
+                  />
+                ) : null;
+              }}
+              onFocusPane={id => handleActivate(id)}
+              onRatio={r => { if (activeSplit) state.setSplitRatio(activeSplit.id, r); }}
+              dropZone={paneDrop}
               onTitleChange={state.renameTab}
               onCwdChange={handleCwdChange}
               onNotification={handleNotification}
@@ -1371,6 +1662,7 @@ export function App() {
               onCommand={handleCommand}
               fileContext={fileContextFor}
               onOpenFileLink={openFileLink}
+              fileLinkMenu={fileLinkMenu}
             />
           )}
         </div>
@@ -1439,6 +1731,38 @@ export function App() {
         );
       })()}
 
+      {renaming && (() => {
+        // Opening the menu took the keyboard away from the terminal, and nothing else
+        // gives it back, so typing after a rename would go nowhere.
+        const close = () => {
+          setRenaming(null);
+          requestAnimationFrame(() => terminalRef.current?.focusActive());
+        };
+        if (renaming.kind === 'project') {
+          const group = state.groups.find(g => g.id === renaming.id);
+          if (!group) return null;
+          return (
+            <RenameDialog
+              title="Rename project"
+              initial={group.label}
+              onCancel={close}
+              onSave={name => { state.renameGroup(group.id, name.trim()); close(); }}
+            />
+          );
+        }
+        const tab = state.tabs.find(t => t.id === renaming.id);
+        if (!tab) return null;
+        return (
+          <RenameDialog
+            title="Rename thread"
+            initial={threadName(tab)}
+            placeholder={automaticThreadName(tab)}
+            onCancel={close}
+            onSave={name => { state.setThreadName(tab.id, name); close(); }}
+          />
+        );
+      })()}
+
       {pendingConfirm && (() => {
         const tab = state.tabs.find(t => t.id === pendingConfirm.tabId);
         const text = pendingConfirm.kind === 'close'
@@ -1466,6 +1790,19 @@ export function App() {
         );
       })()}
 
+      {archiveAsk && (() => {
+        const group = state.groups.find(g => g.id === archiveAsk);
+        if (!group) return null;
+        return (
+          <ArchiveDialog
+            group={group}
+            threads={state.tabs.filter(t => t.groupId === archiveAsk && !t.asleep)}
+            onCancel={() => setArchiveAsk(null)}
+            onConfirm={() => { setArchiveAsk(null); void archiveNow(group.id); }}
+          />
+        );
+      })()}
+
       {toast && (
         <Toast
           key={toast.id}
@@ -1473,6 +1810,35 @@ export function App() {
           actionLabel={toast.actionLabel}
           onAction={toast.onAction}
           onDone={() => setToast(null)}
+        />
+      )}
+
+      {updateWindow === 'about' && (
+        <AboutWindow
+          update={update}
+          onClose={() => setUpdateWindow(null)}
+          onRestart={() => setUpdateWindow('restart')}
+        />
+      )}
+
+      {updateWindow === 'restart' && (
+        <RestartToUpdate
+          rows={restartRows(awakeThreads())}
+          onCancel={() => setUpdateWindow(null)}
+          onConfirm={restartNow}
+        />
+      )}
+
+      {whatsNew && (
+        <WhatsNewDialog version={whatsNew.version} notes={whatsNew.notes} onClose={() => setWhatsNew(null)} />
+      )}
+
+      {/* Over the app's own toast: it only shows on the launch after an update. */}
+      {updatedPill && !toast && (
+        <UpdatedPill
+          version={updatedPill.version}
+          onWhatsNew={hasNotes(updatedPill.notes) ? () => setWhatsNew(updatedPill) : undefined}
+          onDone={() => setUpdatedPill(null)}
         />
       )}
 

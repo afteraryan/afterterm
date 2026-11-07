@@ -1,16 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
-import {
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  useDraggable,
-  useDroppable,
-  DragOverEvent,
-  DragEndEvent,
-  closestCenter,
-} from '@dnd-kit/core';
+import React, { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { Tab, Group, GroupColor } from '../TabBar/types';
 import { Menu, MenuItem } from '../Menu';
 import { buildThreadMenu, ThreadMenuActions } from '../../threadMenu';
@@ -20,11 +8,8 @@ import {
   FolderIcon, KindIcon, StateIcon,
   IconSearch, IconPlus, IconPage, IconPin, IconPinOn, IconChevD,
   IconCollapseAll, IconExpandAll, IconBell, IconPlay, IconCompact, IconHourglass, IconX, Spinner,
+  IconArrowRight, IconFolderNone,
 } from '../Icons';
-// The row order is computed groups-first (see sidebarWalk.ts), so a group with no
-// terminals renders as a normal row instead of vanishing from the list. That walk
-// is what retired the old Projects shelf.
-import { computeSegments } from '../../sidebarWalk';
 import {
   threadKind, threadState, stateBreathes, threadName, foldThreads,
   projectCounts,
@@ -32,13 +17,20 @@ import {
 import type { ProjectPillCounts } from '../../threadView';
 // Phase 8: the panel's groups (General, Pinned, Recent, Other), the in-place
 // search filter and the keyboard cycle's row order all come from panelView.ts,
-// pure and unit-tested; this component only renders what it returns.
+// pure and unit-tested; this component only renders what it returns. Since
+// 2026-11-01 the project order is the saved order (the `groups` array), and
+// nothing in the panel moves because it was used.
 import { panelSections, filterPanel, visibleThreadIds, cycleThreadId, revealScrollTop } from '../../panelView';
-import type { PanelEntry, PanelSections } from '../../panelView';
+import type { PanelEntry, PanelSections, ProjectSection } from '../../panelView';
 import { isWaitingState } from '../../attention';
 import { relativeTime } from '../../homeView';
 import { ThreadHoverCard } from '../ThreadHoverCard';
+import { usePanelDrag, GENERAL } from './usePanelDrag';
+import { foldLimit, partnerOf, splitOf } from '../../splitView';
+import type { Split, PaneTarget } from '../../splitView';
+import type { ListKey } from './usePanelDrag';
 import './SidePanel.css';
+import './SidePanelMotion.css';
 
 const THREAD_FOLD_LIMIT = 5;
 // How long the pointer has to rest on a thread row before its card appears. Long
@@ -51,20 +43,28 @@ const REVEAL_SETTLE_MS = 260;
 const REVEAL_RETRY_MS = 50;
 const REVEAL_MAX_TRIES = 20;
 const REVEAL_FLASH_MS = 1200;
+// The slides (docs/mockups/sidebar-drag-and-drop.html's flip(), and the archive
+// mockup's fold): how long a row takes to slide into its new place, and how long
+// a project takes to fold out of Recent.
+const FLIP_MS = 320;
+const FOLD_MS = 360;
+const ENTER_MS = 420;
+
+const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
 // ─── Thread row ────────────────────────────────────────────────────────────────
 
 interface ThreadRowProps {
   tab: Tab;
   isActive: boolean;
+  // The other half of the split on screen (design-06): a lighter selected look.
+  isPartner?: boolean;
   inProject: boolean;
-  isDragging: boolean;
-  isGroupPreview: boolean;
-  // A collapsed project keeps its thread rows mounted (that is what lets the
-  // expand and collapse animate), so they must be taken out of the drag graph
-  // while they are folded away: a zero-height row is still a droppable that
-  // closestCenter can pick.
-  inert?: boolean;
+  // The row being dragged stays in its place, dimmed.
+  isDragging?: boolean;
+  // A thread that has just arrived (new or resumed): it opens in place, and the
+  // rows below slide down.
+  entering?: boolean;
   overlay?: boolean;
   onActivate: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
@@ -76,33 +76,37 @@ interface ThreadRowProps {
 }
 
 function ThreadRow({
-  tab, isActive, inProject, isDragging, isGroupPreview, inert, overlay,
+  tab, isActive, isPartner, inProject, isDragging, entering, overlay,
   onActivate, onContextMenu, onClose, onHoverStart, onHoverEnd,
 }: ThreadRowProps) {
-  const off = !!overlay || !!inert;
-  const { attributes, listeners, setNodeRef: setDragRef } = useDraggable({ id: tab.id, disabled: off });
-  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: tab.id, disabled: off });
-
-  const setRef = (node: HTMLDivElement | null) => {
-    setDragRef(node);
-    setDropRef(node);
-  };
-
   const state = threadState(tab);
-  const breathe = !isActive && stateBreathes(state)
+  const breathe = !isActive && !isPartner && stateBreathes(state)
     ? (state === 'needs-you' || state === 'unread' ? 'breathe-need' : 'breathe-done')
     : '';
 
-  // No transform on the in-list row: the DragOverlay renders the moving copy.
-  // Translating the source corrupts collision detection (it stays "closest to
-  // itself" when dragging up, so up-moves silently no-op).
+  // Going to sleep (Archive puts every awake thread to sleep one after the
+  // other): the state icon turns into the moon with a small pop, and a server's
+  // port fades out instead of vanishing (the archive mockup's iconswap).
+  const prevAsleep = useRef(tab.asleep);
+  const lastPort = useRef(tab.port);
+  if (tab.port !== undefined) lastPort.current = tab.port;
+  const [swap, setSwap] = useState(false);
+  useLayoutEffect(() => {
+    const was = prevAsleep.current;
+    prevAsleep.current = tab.asleep;
+    if (!tab.asleep || was || overlay) return;
+    setSwap(true);
+    const t = setTimeout(() => setSwap(false), ENTER_MS);
+    return () => clearTimeout(t);
+  }, [tab.asleep, overlay]);
+
   const className = [
     'th',
     inProject ? '' : 'gen',
     isActive ? 'sel' : '',
+    isPartner ? 'on' : '',
     isDragging ? 'dragging' : '',
-    isOver && !isDragging ? 'drop-target' : '',
-    isGroupPreview ? 'group-preview' : '',
+    entering ? 'enter' : '',
     overlay ? 'drag-overlay' : '',
     // Dims on tab.asleep itself, not on state === 'asleep': an asleep thread
     // marked unread reads as 'unread' (it wins precedence), but it is still
@@ -111,22 +115,25 @@ function ThreadRow({
     breathe,
   ].filter(Boolean).join(' ');
 
+  const fadingPort = swap && lastPort.current !== undefined;
+
   return (
     <div
-      ref={overlay ? undefined : setRef}
       className={className}
+      data-tid={overlay ? undefined : tab.id}
+      data-flip={overlay ? undefined : `t:${tab.id}`}
       onClick={() => { onHoverEnd?.(); onActivate(); }}
       onContextMenu={e => { onHoverEnd?.(); onContextMenu(e); }}
       onMouseEnter={overlay ? undefined : e => onHoverStart?.(e.currentTarget.getBoundingClientRect())}
       onMouseLeave={overlay ? undefined : () => onHoverEnd?.()}
       data-kind={threadKind(tab)}
-      {...(overlay ? {} : { ...attributes, ...listeners })}
     >
       <KindIcon kind={threadKind(tab)} />
       <span className="n">{threadName(tab)}</span>
       {state === 'running' && <span className="prt">:{tab.port}</span>}
-      <StateIcon state={state} />
-      {!overlay && !inert && (
+      {state !== 'running' && fadingPort && <span className="prt gone">:{lastPort.current}</span>}
+      {swap ? <span className="st swap"><StateIcon state={state} /></span> : <StateIcon state={state} />}
+      {!overlay && (
         <button
           className="xb"
           data-tip="Close"
@@ -149,9 +156,10 @@ interface ProjectRowProps {
   threadCount: number;
   counts: ProjectPillCounts;
   pinned: boolean;
-  isDragging: boolean;
   // The short highlight after the project was opened from elsewhere.
   revealed?: boolean;
+  // A thread is held over this row: it goes in at the top of this project.
+  drop?: boolean;
   overlay?: boolean;
   onToggle: () => void;
   onDoubleClick: () => void;
@@ -166,33 +174,16 @@ interface ProjectRowProps {
 }
 
 function ProjectRow({
-  group, threadCount, counts, pinned, isDragging, revealed, overlay,
+  group, threadCount, counts, pinned, revealed, drop, overlay,
   onToggle, onDoubleClick, onContextMenu, onNewThread, onOpenProjectPage, onTogglePin,
   isRenaming, renameValue, onRenameChange, onRenameCommit,
 }: ProjectRowProps) {
-  const { attributes, listeners, setNodeRef: setDragRef } = useDraggable({
-    id: `group-drag-${group.id}`,
-    disabled: !!overlay,
-  });
-  // Distinct droppable id: dnd-kit keys droppables by id, so sharing the drag id
-  // would let one silently replace the other as the drop target.
-  const { setNodeRef: setDropRef, isOver } = useDroppable({
-    id: `group-drop-${group.id}`,
-    disabled: !!overlay || isDragging,
-  });
-
-  const setRef = (node: HTMLDivElement | null) => {
-    setDragRef(node);
-    setDropRef(node);
-  };
-
   const expanded = !group.collapsed;
 
   const className = [
     'pj',
     pinned ? '' : 'dim',
-    isOver ? 'drop-over' : '',
-    isDragging ? 'dragging' : '',
+    drop ? 'drop' : '',
     revealed ? 'revealed' : '',
     overlay ? 'drag-overlay' : '',
   ].filter(Boolean).join(' ');
@@ -201,14 +192,13 @@ function ProjectRow({
 
   return (
     <div
-      ref={overlay ? undefined : setRef}
       className={className}
+      data-gid={overlay ? undefined : group.id}
       onClick={e => { if (e.detail === 2) return; onToggle(); }}
       onDoubleClick={e => { e.stopPropagation(); onDoubleClick(); }}
       onContextMenu={onContextMenu}
       data-collapsed={expanded ? undefined : 'true'}
       data-threads={threadCount}
-      {...(overlay ? {} : { ...attributes, ...listeners })}
     >
       <FolderIcon color={group.color} open={expanded} size={18} icon={group.icon} />
       {isRenaming ? (
@@ -316,6 +306,9 @@ export interface SidePanelHandle {
   // the Other projects drawer) into view with its active thread, and highlights
   // its row for a moment. A search that is narrowing the list is cleared first.
   revealProject(groupId: string): void;
+  // Archive's fold: the project's block closes and the rows below slide up.
+  // Resolves when the fold is done (at once when the row is not on screen).
+  foldOut(groupId: string): Promise<void>;
 }
 
 export interface SidePanelProps {
@@ -336,6 +329,8 @@ export interface SidePanelProps {
   onWake: (tabId: string) => void;
   // Mark as unread / Mark as read (threadMenu's setUnread), chats only.
   onSetUnread: (tabId: string, unread: boolean) => void;
+  // Rename in the thread menu: opens the Rename dialog for this thread.
+  onRenameThread: (tabId: string) => void;
   // Opens the running server's port in the browser (threadMenu's "Open
   // localhost:port"); only ever offered on an awake thread with a captured port.
   onOpenLocalhost: (tabId: string) => void;
@@ -360,7 +355,6 @@ export interface SidePanelProps {
   editors: EditorInfo[];
   folderExists: Record<string, boolean>; // keyed by folder path
   projectActions: ProjectActions;
-  onCreateGroup: (tabId1: string, tabId2?: string) => string;
   onAddToGroup: (tabId: string, groupId: string) => void;
   onRemoveFromGroup: (tabId: string) => void;
   onRenameGroup: (groupId: string, label: string) => void;
@@ -372,25 +366,36 @@ export interface SidePanelProps {
   // A click on a project in the docked Other list: stamps its activity, expands
   // it and selects its first thread, waking nothing (design-03 decision 2).
   onBringIn: (groupId: string) => void;
-  onMoveTab: (tabId: string, anchorTabId: string, position: 'before' | 'after') => void;
-  onMoveGroup: (groupId: string, afterTabId: string | null) => void;
-  onMoveGroupAfterGroup: (groupId: string, afterGroupId: string) => void;
+  // The project being archived: kept in Recent while its threads go to sleep,
+  // until its row has folded away (app.tsx, archiveNow).
+  holdInRecent?: string | null;
+  // A drop (docs/mockups/sidebar-drag-and-drop.html): a thread into a project
+  // (undefined is General) above `beforeId` or at the end; a project into Pinned
+  // or Recent above `beforeId` or at the end of that section.
+  onPlaceThread: (tabId: string, groupId: string | undefined, beforeId: string | null) => void;
+  onPlaceProject: (groupId: string, section: ProjectSection, beforeId: string | null) => void;
+  // Two threads side by side (design-06): the splits, so a split's two rows are
+  // drawn joined by a line and the fold never cuts them apart; Ungroup in a
+  // split row's menu; and the main pane as a drop target for a dragged thread.
+  splits: Split[];
+  onUngroup: (tabId: string) => void;
+  paneAt: (tabId: string, x: number, y: number) => PaneTarget | null;
+  onPaneHover: (target: PaneTarget | null) => void;
+  onPaneDrop: (tabId: string, target: PaneTarget) => void;
 }
 
 export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function SidePanel(props, ref) {
   const {
     tabs, groups, activeTabId, hidden, now, shells,
-    onActivate, onClose, onSleep, onWake, onSetUnread, onOpenLocalhost, threadExplorer, threadEditor, onNewTab,
+    onActivate, onClose, onSleep, onWake, onSetUnread, onRenameThread, onOpenLocalhost, threadExplorer, threadEditor, onNewTab,
     onOpenChooser, onOpenProjectPage, onTogglePin,
     onNewProject, editors, folderExists, projectActions,
-    onCreateGroup, onAddToGroup, onRemoveFromGroup,
+    onAddToGroup, onRemoveFromGroup,
     onRenameGroup, onToggleGroupCollapse, onSetGroupsCollapsed, onBringIn,
-    onMoveTab, onMoveGroup, onMoveGroupAfterGroup,
+    holdInRecent, onPlaceThread, onPlaceProject,
+    splits, onUngroup, paneAt, onPaneHover, onPaneDrop,
   } = props;
 
-  const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
-  const [draggingGroupId, setDraggingGroupId] = useState<string | null>(null);
-  const [groupPreviewTarget, setGroupPreviewTarget] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const [renamingGroupId, setRenamingGroupId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -409,11 +414,20 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
   const [reveal, setReveal] = useState<{ groupId: string; seq: number } | null>(null);
   const [flash, setFlash] = useState<{ groupId: string; seq: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const lineRef = useRef<HTMLDivElement>(null);
+  const ghostRef = useRef<HTMLDivElement>(null);
   // Which thread row the pointer is resting on, the rectangle the card points at,
   // and the clock reading it was opened with (the card shows relative times and
   // must not restart a timer of its own).
   const [hover, setHover] = useState<{ tabId: string; anchor: DOMRect; now: number } | null>(null);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Projects folding out of Recent (Archive), and what has just arrived: projects
+  // entering Recent, new threads, projects joining Other projects. `bump` restarts
+  // the Other projects count's little pop.
+  const [folding, setFolding] = useState<ReadonlySet<string>>(new Set());
+  const [arrived, setArrived] = useState<{ projects: Set<string>; threads: Set<string>; other: Set<string> }>(
+    { projects: new Set(), threads: new Set(), other: new Set() });
+  const [bump, setBump] = useState(0);
 
   const hideHover = useCallback(() => {
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
@@ -421,7 +435,9 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
     setHover(null);
   }, []);
 
+  const draggingRef = useRef(false);
   const startHover = useCallback((tabId: string, rect: DOMRect) => {
+    if (draggingRef.current) return;
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
     hoverTimerRef.current = setTimeout(() => {
       hoverTimerRef.current = null;
@@ -474,8 +490,7 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
       const bottom = (active ?? row).getBoundingClientRect().bottom - base;
       const next = revealScrollTop(scroller.scrollTop, scroller.clientHeight, top, bottom);
       if (next !== null) {
-        const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        scroller.scrollTo({ top: next, behavior: reduce ? 'auto' : 'smooth' });
+        scroller.scrollTo({ top: next, behavior: reducedMotion() ? 'auto' : 'smooth' });
       }
       setFlash(reveal);
     };
@@ -488,123 +503,6 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
     const t = setTimeout(() => setFlash(null), REVEAL_FLASH_MS);
     return () => clearTimeout(t);
   }, [flash]);
-
-  const dwellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastOverRef = useRef<string | null>(null);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
-  );
-
-  const handleDragOver = useCallback((event: DragOverEvent) => {
-    const overId = event.over?.id as string | null;
-    if (overId === lastOverRef.current) return;
-
-    if (dwellTimerRef.current) clearTimeout(dwellTimerRef.current);
-    setGroupPreviewTarget(null);
-    lastOverRef.current = overId;
-
-    // Dwell-to-group preview only arms when both tabs are ungrouped, that is the only
-    // case dwell does anything now (create a new group). Every other drag is a
-    // positional move and must not be hijacked by the grouping preview.
-    const draggedTab = tabs.find(t => t.id === draggingTabId);
-    const overTab = overId ? tabs.find(t => t.id === overId) : undefined;
-    const bothUngrouped = !draggedTab?.groupId && !!overTab && !overTab.groupId;
-    if (overId && overId !== draggingTabId && bothUngrouped) {
-      dwellTimerRef.current = setTimeout(() => {
-        setGroupPreviewTarget(overId);
-      }, 550);
-    }
-  }, [draggingTabId, tabs]);
-
-  // The drag/context-menu gesture stays instant: the project is created with defaults
-  // and the name field opens focused and selected, so the placeholder name is one type
-  // away from gone. Deliberate project setup goes through the modal instead.
-  const createGroupAndRename = useCallback((tabId1: string, tabId2?: string) => {
-    const id = onCreateGroup(tabId1, tabId2);
-    if (!id) return;
-    setRenamingGroupId(id);
-    setRenameValue('New Group');
-  }, [onCreateGroup]);
-
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
-    if (dwellTimerRef.current) clearTimeout(dwellTimerRef.current);
-    const activeId = event.active.id as string;
-    const overId = event.over?.id as string | null;
-
-    setDraggingTabId(null);
-    setDraggingGroupId(null);
-    setGroupPreviewTarget(null);
-    lastOverRef.current = null;
-
-    if (!overId || overId === activeId) return;
-
-    // Project row being dragged
-    if (activeId.startsWith('group-drag-')) {
-      const draggedGroupId = activeId.replace('group-drag-', '');
-      if (overId.startsWith('group-drop-') || overId.startsWith('group-drag-')) {
-        const targetGroupId = overId.replace('group-drop-', '').replace('group-drag-', '');
-        if (targetGroupId !== draggedGroupId) {
-          onMoveGroupAfterGroup(draggedGroupId, targetGroupId);
-        }
-      } else {
-        onMoveGroup(draggedGroupId, overId);
-      }
-      return;
-    }
-
-    // Thread being dragged
-    const activeTab = tabs.find(t => t.id === activeId);
-
-    const reorderOnto = (targetTabId: string) => {
-      // Above the hovered row's midpoint → before it; below → after.
-      const activeRect = event.active.rect.current.translated;
-      const overRect = event.over?.rect;
-      let position: 'before' | 'after' = 'after';
-      if (activeRect && overRect) {
-        const activeCenterY = activeRect.top + activeRect.height / 2;
-        const overCenterY = overRect.top + overRect.height / 2;
-        position = activeCenterY < overCenterY ? 'before' : 'after';
-      }
-      onMoveTab(activeId, targetTabId, position);
-    };
-
-    // Dwell-to-group is the explicit "merge into a new project" gesture, only needed
-    // when both threads are ungrouped (positional drops join an existing project on
-    // their own, since moveTab inherits the drop target's group).
-    if (groupPreviewTarget && overId === groupPreviewTarget) {
-      const targetTab = tabs.find(t => t.id === groupPreviewTarget);
-      if (targetTab && !targetTab.groupId && !activeTab?.groupId) {
-        createGroupAndRename(activeId, groupPreviewTarget);
-        return;
-      }
-      // else fall through to a positional move
-    }
-
-    // Dropped on a project row → land at the top of that project (joining it). A
-    // project with no threads has no anchor to move before, so the thread is added to
-    // the group outright and useTabState places it at the end of the list.
-    if (overId.startsWith('group-drop-') || overId.startsWith('group-drag-')) {
-      const targetGroupId = overId.replace(/^(group-drop-|group-drag-)/, '');
-      const firstInGroup = tabs.find(t => t.groupId === targetGroupId);
-      if (firstInGroup && firstInGroup.id !== activeId) {
-        onMoveTab(activeId, firstInGroup.id, 'before');
-      } else if (!firstInGroup) {
-        onAddToGroup(activeId, targetGroupId);
-      }
-      return;
-    }
-
-    reorderOnto(overId);
-  }, [groupPreviewTarget, tabs, onAddToGroup, createGroupAndRename, onMoveTab, onMoveGroup, onMoveGroupAfterGroup]);
-
-  const handleDragCancel = useCallback(() => {
-    if (dwellTimerRef.current) clearTimeout(dwellTimerRef.current);
-    setDraggingTabId(null);
-    setDraggingGroupId(null);
-    setGroupPreviewTarget(null);
-    lastOverRef.current = null;
-  }, []);
 
   const startRename = (groupId: string) => {
     const g = groups.find(g => g.id === groupId);
@@ -645,6 +543,7 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
       items: buildThreadMenu(tab, groups, {
         moveToGroup: id => (id ? onAddToGroup(tab.id, id) : onRemoveFromGroup(tab.id)),
         close: () => onClose(tab.id),
+        rename: () => onRenameThread(tab.id),
         sleep: () => onSleep(tab.id),
         wake: () => onWake(tab.id),
         setUnread: unread => onSetUnread(tab.id, unread),
@@ -652,6 +551,7 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
         openLocalhost: () => onOpenLocalhost(tab.id),
         openInExplorer: threadExplorer(tab),
         openInEditor: threadEditor(tab),
+        ungroup: splitOf(splits, tab.id) ? () => onUngroup(tab.id) : undefined,
       }),
     });
   };
@@ -677,60 +577,201 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
   // Recomputed only when the data or the clock changes, not on every hover: the
   // Recent split reads lastActiveAt against `now`, which app.tsx moves once a minute.
   const sections: PanelSections = useMemo(
-    () => panelSections(computeSegments(tabs, groups), now),
-    [tabs, groups, now],
+    () => panelSections(tabs, groups, now, holdInRecent ? new Set([holdInRecent]) : undefined),
+    [tabs, groups, now, holdInRecent],
   );
   const view = useMemo(() => filterPanel(sections, query, threadName), [sections, query]);
   const filtered = view.filtered;
   const groupMap = new Map(groups.map(g => [g.id, g]));
   const hoverTab = hover ? tabs.find(t => t.id === hover.tabId) : undefined;
-  const draggingTab = draggingTabId ? tabs.find(t => t.id === draggingTabId) : null;
-  const draggingGroup = draggingGroupId ? groups.find(g => g.id === draggingGroupId) : null;
   // A hidden row that is waiting for you keeps the fold open (Aryan, 2026-09-19):
   // the same definition attention.ts counts with.
   const isWaiting = (t: Tab) => isWaitingState(threadState(t));
+
+  // ─── Slides ────────────────────────────────────────────────────────────────
+
+  // On a drop, everything that moved slides into place from where it was, and
+  // the dropped row slides from where the card was (the mockup's flip()). The
+  // rectangles are taken just before the drop changes state; the next commit
+  // puts each row back where it was with a transform and lets it go.
+  const flipFirst = useRef<Map<string, DOMRect> | null>(null);
+  const captureFlip = useCallback((key?: string, rect?: DOMRect) => {
+    const scroller = scrollRef.current;
+    if (!scroller || reducedMotion()) return;
+    const first = new Map<string, DOMRect>();
+    scroller.querySelectorAll<HTMLElement>('[data-flip]').forEach(el => first.set(el.dataset.flip!, el.getBoundingClientRect()));
+    if (key && rect) first.set(key, rect);
+    flipFirst.current = first;
+  }, []);
+  useLayoutEffect(() => {
+    const first = flipFirst.current;
+    const scroller = scrollRef.current;
+    if (!first || !scroller) return;
+    flipFirst.current = null;
+    const moves = new Map<HTMLElement, { dx: number; dy: number }>();
+    scroller.querySelectorAll<HTMLElement>('[data-flip]').forEach(el => {
+      const f = first.get(el.dataset.flip!);
+      if (!f) return;
+      const l = el.getBoundingClientRect();
+      moves.set(el, { dx: f.left - l.left, dy: f.top - l.top });
+    });
+    const moving: HTMLElement[] = [];
+    moves.forEach((d, el) => {
+      // A thread inside a project block that also slides moves only by the difference.
+      const parent = el.classList.contains('th') ? el.closest<HTMLElement>('.pjw') : null;
+      const pd = parent ? moves.get(parent) : undefined;
+      const dx = d.dx - (pd?.dx ?? 0);
+      const dy = d.dy - (pd?.dy ?? 0);
+      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
+      el.style.transition = 'none';
+      el.style.transform = `translate(${dx}px, ${dy}px)`;
+      moving.push(el);
+    });
+    if (moving.length === 0) return;
+    void scroller.offsetWidth;
+    for (const el of moving) {
+      el.style.transition = `transform ${FLIP_MS}ms cubic-bezier(.2,.8,.2,1)`;
+      el.style.transform = '';
+      setTimeout(() => { el.style.transition = ''; }, FLIP_MS + 20);
+    }
+  });
+
+  // What has just arrived, compared with the last render: a project entering
+  // Recent opens in place at the top and the rows below slide down (with the
+  // short highlight when it came back from Other projects); a new or resumed
+  // thread opens in its place; a project joining Other projects pops into the
+  // drawer and bumps the count. Nothing is animated while a search is narrowing
+  // the list, nor on the render that restores a session.
+  const prevSeen = useRef<{ placed: Set<string>; other: Set<string>; tabs: Set<string>; filtered: boolean } | null>(null);
+  useLayoutEffect(() => {
+    const placed = new Set([...view.pinned, ...view.recent].map(e => e.group.id));
+    const other = new Set(sections.other.map(e => e.group.id));
+    const tabIds = new Set(tabs.map(t => t.id));
+    const prev = prevSeen.current;
+    prevSeen.current = { placed, other, tabs: tabIds, filtered };
+    if (!prev || prev.filtered || filtered || reducedMotion()) return;
+    const hadProjects = prev.placed.size + prev.other.size > 0;
+    const projects = hadProjects ? view.recent.map(e => e.group.id).filter(id => !prev.placed.has(id)) : [];
+    const threads = prev.tabs.size > 0 ? tabs.map(t => t.id).filter(id => !prev.tabs.has(id)) : [];
+    const joined = [...other].filter(id => !prev.other.has(id) && prev.placed.has(id));
+    if (projects.length === 0 && threads.length === 0 && joined.length === 0) return;
+    setArrived({ projects: new Set(projects), threads: new Set(threads), other: new Set(joined) });
+    if (other.size > prev.other.size) setBump(b => b + 1);
+    const back = projects.find(id => prev.other.has(id));
+    if (back) setFlash(f => ({ groupId: back, seq: (f?.seq ?? 0) + 1 }));
+  }, [view, sections, tabs, filtered]);
+  useEffect(() => {
+    if (arrived.projects.size + arrived.threads.size + arrived.other.size === 0) return;
+    const t = setTimeout(() => setArrived({ projects: new Set(), threads: new Set(), other: new Set() }), ENTER_MS);
+    return () => clearTimeout(t);
+  }, [arrived]);
+
+  // A project that has folded away and left Recent is no longer folding.
+  useEffect(() => {
+    if (folding.size === 0) return;
+    const shown = new Set([...view.pinned, ...view.recent].map(e => e.group.id));
+    const still = [...folding].filter(id => shown.has(id));
+    if (still.length !== folding.size) setFolding(new Set(still));
+  }, [view, folding]);
+
+  // ─── Dragging ──────────────────────────────────────────────────────────────
+
+  const threadsOf = useCallback((list: ListKey): string[] => {
+    if (list === GENERAL) return sections.general.map(t => t.id);
+    return tabs.filter(t => t.groupId === list).map(t => t.id);
+  }, [sections, tabs]);
+  const listOf = useCallback((tabId: string): ListKey => {
+    const tab = tabs.find(t => t.id === tabId);
+    return tab?.groupId && groupMap.has(tab.groupId) ? tab.groupId : GENERAL;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabs, groups]);
+
+  const { drag, onPointerDown, onScroll: onDragScroll, onCardMount, shouldSuppressClick } = usePanelDrag({
+    scrollRef, lineRef, ghostRef,
+    threadsOf, listOf,
+    onStart: hideHover,
+    beforeDrop: (id, kind, cardRect) => captureFlip(kind === 'thread' ? `t:${id}` : `p:${id}`, cardRect),
+    dropThread: (tabId, list, beforeId) => onPlaceThread(tabId, list === GENERAL ? undefined : list, beforeId),
+    dropProject: (groupId, section, beforeId) => onPlaceProject(groupId, section, beforeId),
+    paneAt,
+    paneHover: onPaneHover,
+    dropOnPane: onPaneDrop,
+  });
+  draggingRef.current = !!drag;
 
   // The keyboard cycle reads the rows exactly as they are shown: after the filter,
   // minus collapsed projects, minus fold-hidden rows.
   useImperativeHandle(ref, (): SidePanelHandle => ({
     cycleThread: (currentId, dir) => {
-      const ids = visibleThreadIds(view, { activeTabId: currentId, expandedLists, limit: THREAD_FOLD_LIMIT, isWaiting });
+      const ids = visibleThreadIds(view, { activeTabId: currentId, expandedLists, limit: THREAD_FOLD_LIMIT, isWaiting, splits });
       return cycleThreadId(ids, currentId, dir);
     },
-    visibleIds: () => visibleThreadIds(view, { activeTabId, expandedLists, limit: THREAD_FOLD_LIMIT, isWaiting }),
+    visibleIds: () => visibleThreadIds(view, { activeTabId, expandedLists, limit: THREAD_FOLD_LIMIT, isWaiting, splits }),
     focusSearch: () => searchRef.current?.focus(),
     revealProject: (groupId) => {
       if (query) setQuery('');
       setDockOpen(false);
       setReveal(r => ({ groupId, seq: (r?.seq ?? 0) + 1 }));
     },
-  }), [view, expandedLists, activeTabId, query]);
+    foldOut: (groupId) => new Promise<void>(resolve => {
+      const row = scrollRef.current?.querySelector(`[data-pjw="${CSS.escape(groupId)}"]`);
+      if (!row || hidden || reducedMotion()) { resolve(); return; }
+      setFolding(f => new Set([...f, groupId]));
+      setTimeout(resolve, FOLD_MS);
+    }),
+  }), [view, expandedLists, activeTabId, query, hidden, splits]);
 
   const clearQuery = () => {
     setQuery('');
     searchRef.current?.focus();
   };
 
-  const renderThreadList = (threads: Tab[], key: string, inProject: boolean, inert: boolean) => {
-    const { shown, hiddenCount, showMore } = foldThreads(threads, activeTabId, !!expandedLists[key], THREAD_FOLD_LIMIT, isWaiting);
+  // The other half of the split on screen, if any: its row gets the lighter
+  // selected look (design-06).
+  const partnerId = partnerOf(splits, activeTabId);
+
+  const renderThreadList = (threads: Tab[], key: string, inProject: boolean) => {
+    // The fold never cuts a split's two rows apart (splitView.ts, foldLimit).
+    const limit = foldLimit(threads, THREAD_FOLD_LIMIT, splits);
+    const { shown, hiddenCount, showMore } = foldThreads(threads, activeTabId, !!expandedLists[key], limit, isWaiting);
+    const row = (tab: Tab) => (
+      <ThreadRow
+        key={tab.id}
+        tab={tab}
+        isActive={tab.id === activeTabId}
+        isPartner={tab.id === partnerId}
+        inProject={inProject}
+        isDragging={drag?.kind === 'thread' && drag.id === tab.id}
+        entering={arrived.threads.has(tab.id)}
+        onActivate={() => onActivate(tab.id)}
+        onContextMenu={e => openThreadMenu(e, tab)}
+        onClose={() => onClose(tab.id)}
+        onHoverStart={rect => startHover(tab.id, rect)}
+        onHoverEnd={hideHover}
+      />
+    );
+    // A split's two rows (always next to each other) are wrapped together and
+    // joined by a thin line on their left: no name, no number (design-06).
+    const items: React.ReactNode[] = [];
+    for (let i = 0; i < shown.length; i++) {
+      const tab = shown[i];
+      const next = shown[i + 1];
+      const s = splitOf(splits, tab.id);
+      if (s && s.a === tab.id && next?.id === s.b) {
+        items.push(
+          <div key={`split:${s.id}`} className={`sgw${inProject ? '' : ' gen'}`} data-split={s.id}>
+            {row(tab)}
+            {row(next)}
+          </div>,
+        );
+        i++;
+      } else {
+        items.push(row(tab));
+      }
+    }
     return (
       <>
-        {shown.map(tab => (
-          <ThreadRow
-            key={tab.id}
-            tab={tab}
-            isActive={tab.id === activeTabId}
-            inProject={inProject}
-            isDragging={tab.id === draggingTabId}
-            isGroupPreview={tab.id === groupPreviewTarget}
-            inert={inert}
-            onActivate={() => onActivate(tab.id)}
-            onContextMenu={e => openThreadMenu(e, tab)}
-            onClose={() => onClose(tab.id)}
-            onHoverStart={rect => startHover(tab.id, rect)}
-            onHoverEnd={hideHover}
-          />
-        ))}
+        {items}
         {showMore && (
           <button
             className="thmore"
@@ -747,35 +788,43 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
     const { group, tabs: groupTabs } = entry;
     const expanded = !group.collapsed;
     const counts = projectCounts(groupTabs.map(threadState));
+    const className = [
+      'pjw',
+      folding.has(group.id) ? 'shut' : '',
+      arrived.projects.has(group.id) ? 'enter' : '',
+      drag?.kind === 'project' && drag.id === group.id ? 'dragging' : '',
+    ].filter(Boolean).join(' ');
     return (
-      <div className="pjw" key={group.id} data-pjw={group.id}>
-        <ProjectRow
-          group={group}
-          revealed={flash?.groupId === group.id}
-          threadCount={groupTabs.length}
-          counts={counts}
-          pinned={isPinned}
-          isDragging={group.id === draggingGroupId}
-          onToggle={() => onToggleGroupCollapse(group.id)}
-          onDoubleClick={() => startRename(group.id)}
-          onContextMenu={e => openProjectMenu(e, group)}
-          onNewThread={() => onNewTab(group.id)}
-          onOpenProjectPage={() => onOpenProjectPage(group.id)}
-          onTogglePin={() => onTogglePin(group.id)}
-          isRenaming={renamingGroupId === group.id}
-          renameValue={renameValue}
-          onRenameChange={setRenameValue}
-          onRenameCommit={commitRename}
-        />
-        {groupTabs.length > 0 && (
-          // The list stays mounted while the project is collapsed: the 1fr → 0fr grid
-          // transition is what animates the collapse, and unmounting would cut it off.
-          <div className={`tlw${expanded ? '' : ' closed'}`} data-project={group.id} inert={!expanded}>
-            <div className="tli">
-              {renderThreadList(groupTabs, group.id, true, !expanded)}
+      <div className={className} key={group.id} data-pjw={group.id} data-flip={`p:${group.id}`}>
+        <div className="pjw-in">
+          <ProjectRow
+            group={group}
+            revealed={flash?.groupId === group.id}
+            drop={drag?.overProject === group.id}
+            threadCount={groupTabs.length}
+            counts={counts}
+            pinned={isPinned}
+            onToggle={() => onToggleGroupCollapse(group.id)}
+            onDoubleClick={() => startRename(group.id)}
+            onContextMenu={e => openProjectMenu(e, group)}
+            onNewThread={() => onNewTab(group.id)}
+            onOpenProjectPage={() => onOpenProjectPage(group.id)}
+            onTogglePin={() => onTogglePin(group.id)}
+            isRenaming={renamingGroupId === group.id}
+            renameValue={renameValue}
+            onRenameChange={setRenameValue}
+            onRenameCommit={commitRename}
+          />
+          {groupTabs.length > 0 && (
+            // The list stays mounted while the project is collapsed: the 1fr → 0fr grid
+            // transition is what animates the collapse, and unmounting would cut it off.
+            <div className={`tlw${expanded ? '' : ' closed'}`} data-project={group.id} inert={!expanded}>
+              <div className="tli">
+                {renderThreadList(groupTabs, group.id, true)}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     );
   };
@@ -799,14 +848,106 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
   };
 
   const showPinned = view.pinned.length > 0;
-  // The Recent heading is the panel's home for the New project plus, so it shows
-  // even with no recent project, unless a search is narrowing the list.
-  const showRecent = view.recent.length > 0 || !filtered;
+  // A heading shows only over projects: an empty Recent read as broken (Aryan,
+  // 2026-10-29). The New project plus sits on Recent's heading, on Pinned's when
+  // Recent is not there, and becomes its own row under New thread when neither is.
+  const showRecent = view.recent.length > 0;
+  const plusOn: 'recent' | 'pinned' | 'row' | null = filtered ? null
+    : showRecent ? 'recent' : showPinned ? 'pinned' : 'row';
+  const newProjectPlus = (
+    <button className="ib" data-tip="New project" data-new-project="" onClick={onNewProject}>
+      <IconPlus size={14} />
+    </button>
+  );
   const others = view.other;
+  // The drawer's count reads the unfiltered list, so it does not drop to 0 and
+  // bump back while a search is typed.
+  const otherCount = sections.other.length;
+
+  // ─── The dragged card ──────────────────────────────────────────────────────
+
+  // One side of a thread card's from-and-to line: the project's coloured folder
+  // and name, or General's dashed grey folder.
+  const listTag = (key: ListKey, side: 'from' | 'to') => {
+    const g = key === GENERAL ? undefined : groupMap.get(key);
+    return (
+      <>
+        {g ? <FolderIcon color={g.color} size={13} icon={g.icon} /> : <span className="fo none"><IconFolderNone size={13} /></span>}
+        <span className={`pn ${side}`}>{g ? g.label : 'General'}</span>
+      </>
+    );
+  };
+  // When the thread is brought back over its own project the line folds away
+  // with its last content still in it, so that content is kept here.
+  const lastFromTo = useRef<{ from: ListKey; to: ListKey } | null>(null);
+  if (drag?.kind === 'thread' && drag.to !== drag.from) lastFromTo.current = { from: drag.from, to: drag.to };
+  if (!drag) lastFromTo.current = null;
+
+  const dragTab = drag?.kind === 'thread' ? tabs.find(t => t.id === drag.id) : undefined;
+  const dragGroup = drag?.kind === 'project' ? groupMap.get(drag.id) : undefined;
+  const card = drag && (dragTab || dragGroup) ? (
+    <div
+      className={`pd-ghost${drag.returning ? ' back' : ''}`}
+      ref={el => { ghostRef.current = el; if (el) onCardMount(); }}
+      style={{ width: drag.width }}
+    >
+      {dragTab && (
+        <>
+          <ThreadRow
+            tab={dragTab}
+            isActive={false}
+            inProject={listOf(dragTab.id) !== GENERAL}
+            onActivate={() => {}}
+            onContextMenu={() => {}}
+            onClose={() => {}}
+            overlay
+          />
+          <div className={`dest${drag.to !== drag.from ? ' on' : ''}`}>
+            <div>
+              <div className="ft">
+                {lastFromTo.current && (
+                  <>
+                    {listTag(lastFromTo.current.from, 'from')}
+                    <IconArrowRight size={12} />
+                    {listTag(lastFromTo.current.to, 'to')}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+      {dragGroup && (() => {
+        const n = tabs.filter(t => t.groupId === dragGroup.id).length;
+        return (
+          <>
+            <ProjectRow
+              group={dragGroup}
+              threadCount={n}
+              counts={projectCounts(tabs.filter(t => t.groupId === dragGroup.id).map(threadState))}
+              pinned={dragGroup.pinned}
+              onToggle={() => {}}
+              onDoubleClick={() => {}}
+              onContextMenu={() => {}}
+              onNewThread={() => {}}
+              onOpenProjectPage={() => {}}
+              onTogglePin={() => {}}
+              isRenaming={false}
+              renameValue=""
+              onRenameChange={() => {}}
+              onRenameCommit={() => {}}
+              overlay
+            />
+            {n > 0 && <div className="more">{n === 1 ? '1 thread' : `${n} threads`}</div>}
+          </>
+        );
+      })()}
+    </div>
+  ) : null;
 
   return (
     <>
-      <div className={`side-panel${hidden ? ' hidden' : ''}`} inert={hidden}>
+      <div className={`side-panel${hidden ? ' hidden' : ''}${drag && !drag.returning ? ' dragmode' : ''}`} inert={hidden}>
         <div className="side-body">
           {/* The Search box (design-03 decision 13): typing filters the panel in
               place; Ctrl+Shift+P still opens the palette, the only place closed
@@ -847,108 +988,75 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
             </button>
           )}
 
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragStart={e => {
-              hideHover();
-              const id = e.active.id as string;
-              if (id.startsWith('group-drag-')) {
-                setDraggingGroupId(id.replace('group-drag-', ''));
-              } else {
-                setDraggingTabId(id);
-              }
-            }}
-            onDragOver={handleDragOver}
-            onDragEnd={handleDragEnd}
-            onDragCancel={handleDragCancel}
+          {plusOn === 'row' && (
+            <button className="srow" data-new-project="" onClick={onNewProject}>
+              <span className="g"><FolderIcon size={16} /></span>
+              New project
+            </button>
+          )}
+
+          <div
+            className="scroll"
+            ref={scrollRef}
+            onScroll={() => { hideHover(); onDragScroll(); }}
+            onPointerDown={onPointerDown}
+            onClickCapture={e => { if (shouldSuppressClick()) { e.stopPropagation(); e.preventDefault(); } }}
           >
-            <div className="scroll" ref={scrollRef} onScroll={hideHover}>
-              {view.general.length > 0 && (
-                <div className="sec" data-sec="general">
-                  <div className="lbl">General</div>
-                  {renderThreadList(view.general, 'general', false, false)}
+            {view.general.length > 0 && (
+              <div className="sec" data-sec="general">
+                <div className="lbl" data-flip="l:general">General</div>
+                {renderThreadList(view.general, 'general', false)}
+              </div>
+            )}
+
+            {showPinned && (
+              <div className="sec pinned-sec" data-sec="pinned">
+                <div className="lbl lblrow" data-flip="l:pinned">
+                  <span className="hd"><span className="pin"><IconPinOn size={12} /></span>Pinned</span>
+                  <span className="acts">
+                    {collapseButton('pinned', view.pinned)}
+                    {plusOn === 'pinned' && newProjectPlus}
+                  </span>
                 </div>
-              )}
+                {view.pinned.map(entry => renderProject(entry, true))}
+              </div>
+            )}
 
-              {showPinned && (
-                <div className="sec pinned-sec" data-sec="pinned">
-                  <div className="lbl lblrow">
-                    <span className="hd"><span className="pin"><IconPinOn size={12} /></span>Pinned</span>
-                    <span className="acts">{collapseButton('pinned', view.pinned)}</span>
-                  </div>
-                  {view.pinned.map(entry => renderProject(entry, true))}
+            {showPinned && showRecent && <div className="divider" data-flip="l:divider" />}
+
+            {showRecent && (
+              <div className="sec" data-sec="recent">
+                <div className="lbl lblrow" data-flip="l:recent">
+                  <span className="hd">Recent</span>
+                  <span className="acts">
+                    {collapseButton('recent', view.recent)}
+                    {plusOn === 'recent' && newProjectPlus}
+                  </span>
                 </div>
-              )}
+                {view.recent.map(entry => renderProject(entry, false))}
+              </div>
+            )}
 
-              {showPinned && showRecent && <div className="divider" />}
+            {view.noMatches && <div className="nomatch">No matches</div>}
 
-              {showRecent && (
-                <div className="sec" data-sec="recent">
-                  <div className="lbl lblrow">
-                    <span className="hd">Recent</span>
-                    <span className="acts">
-                      {collapseButton('recent', view.recent)}
-                      <button className="ib" data-tip="New project" data-new-project="" onClick={onNewProject}>
-                        <IconPlus size={14} />
-                      </button>
-                    </span>
-                  </div>
-                  {view.recent.map(entry => renderProject(entry, false))}
-                </div>
-              )}
-
-              {view.noMatches && <div className="nomatch">No matches</div>}
-            </div>
-
-            <DragOverlay dropAnimation={null}>
-              {draggingTab ? (
-                <ThreadRow
-                  tab={draggingTab}
-                  isActive={false}
-                  inProject={!!(draggingTab.groupId && groupMap.has(draggingTab.groupId))}
-                  isDragging={false}
-                  isGroupPreview={false}
-                  onActivate={() => {}}
-                  onContextMenu={() => {}}
-                  onClose={() => {}}
-                  overlay
-                />
-              ) : draggingGroup ? (
-                <ProjectRow
-                  group={draggingGroup}
-                  threadCount={tabs.filter(t => t.groupId === draggingGroup.id).length}
-                  counts={{ needsYou: 0, working: 0, background: 0, running: 0, compacting: 0 }}
-                  pinned={draggingGroup.pinned}
-                  isDragging={false}
-                  onToggle={() => {}}
-                  onDoubleClick={() => {}}
-                  onContextMenu={() => {}}
-                  onNewThread={() => {}}
-                  onOpenProjectPage={() => {}}
-                  onTogglePin={() => {}}
-                  isRenaming={false}
-                  renameValue=""
-                  onRenameChange={() => {}}
-                  onRenameCommit={() => {}}
-                  overlay
-                />
-              ) : null}
-            </DragOverlay>
-          </DndContext>
+            {/* Where a dragged row lands (usePanelDrag places it). */}
+            <div className="dline" ref={lineRef} />
+          </div>
 
           {/* Other projects (design-03 decision 2): the unpinned projects outside the
-              3-day window, docked under the scroll, collapsed by default. Expanding
-              lists them as dim rows with no thread lists; clicking one brings it in.
-              Hidden while a search is narrowing the list. */}
-          {others.length > 0 && !filtered && (
+              3-day window and, since 2026-11-01, the archived ones (an archived
+              project goes in at the top), docked under the scroll, collapsed by
+              default. Expanding lists them as dim rows with no thread lists;
+              clicking one brings it in. Hidden while a search is narrowing the
+              list. */}
+          {otherCount > 0 && !filtered && (
             <div className={`dock${dockOpen ? ' open' : ''}`} data-dock="">
               <div className={`dlist${dockOpen ? ' open' : ''}`} inert={!dockOpen}>
                 <div>
                   {others.map(entry => (
                     <div
                       key={entry.group.id}
-                      className="pj dim"
+                      className={`pj dim${arrived.other.has(entry.group.id) ? ' new' : ''}`}
                       data-other={entry.group.id}
                       onClick={() => { setDockOpen(false); onBringIn(entry.group.id); }}
                       onContextMenu={e => openProjectMenu(e, entry.group)}
@@ -963,11 +1071,15 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
               <button className="drow" data-dock-toggle="" onClick={() => setDockOpen(o => !o)}>
                 <span className={`chev${dockOpen ? ' up' : ''}`}><IconChevD size={14} /></span>
                 Other projects
-                <span className="c">{others.length}</span>
+                <span className={`c${bump ? ' bump' : ''}`} key={`c${bump}`} data-other-count="">{otherCount}</span>
               </button>
             </div>
           )}
         </div>
+
+        {/* The dragged card floats over everything (position: fixed), inside the
+            panel so it keeps the panel's row styles. */}
+        {card}
       </div>
 
       {menu && (
@@ -976,7 +1088,7 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
 
       {/* Mounted at the panel root, outside the scrolling list, so the card is not
           clipped by it. */}
-      {hoverTab && !hidden && (
+      {hoverTab && !hidden && !drag && (
         <ThreadHoverCard
           tab={hoverTab}
           group={hoverTab.groupId ? groupMap.get(hoverTab.groupId) : undefined}

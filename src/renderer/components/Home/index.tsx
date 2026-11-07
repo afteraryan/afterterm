@@ -1,6 +1,6 @@
 // The Home screen (mock #view-home / renderHome): "what am I working on right
 // now" as a date heading, pinned project cards, a compact list of the other
-// projects, and archived projects tucked behind one toggle. No sidebar, and
+// projects (archived ones among them, since 2026-11-01). No sidebar, and
 // since Phase 8 no icon row of its own either: the Home and Workspace icons
 // live on the always-on rail to the left (Rail/).
 import React, { useState } from 'react';
@@ -8,7 +8,7 @@ import { Tab, Group } from '../TabBar/types';
 import { Menu, MenuItem } from '../Menu';
 import { FolderIcon, IconPage, IconPin, IconPinOn, IconPlus, StateIcon } from '../Icons';
 import { threadState, projectCounts } from '../../threadView';
-import { dateHeading, relativeTime, homeSections, homeTotals, lastHereLine } from '../../homeView';
+import { dateHeading, relativeTime, homeSections, homeTotals, lastHereLine, hasNoProjects } from '../../homeView';
 import { buildProjectMenu, ProjectActions } from '../../projectMenu';
 import type { EditorInfo } from '../../../editors';
 import './Home.css';
@@ -27,14 +27,14 @@ const PROJECT_LIMIT = 4;
 
 export function Home({ groups, tabs, now, editors, folderExists, actions, onNewProject }: HomeProps) {
   const [showAll, setShowAll] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
 
-  const { pinned, projects, shownProjects, archived } = homeSections(groups, tabs, {
+  const { pinned, projects, shownProjects } = homeSections(groups, tabs, {
     showAll,
     limit: PROJECT_LIMIT,
   });
   const totals = homeTotals(groups, tabs);
+  const noProjects = hasNoProjects(groups);
 
   // The last-opened experiment (docs/phases-01-projects-and-threads.md Phase 3, CLAUDE.md "Experiment: last
   // opened on Home"). Aryan runs this as a user; whenever work on afterterm
@@ -131,10 +131,10 @@ export function Home({ groups, tabs, now, editors, folderExists, actions, onNewP
     </div>
   );
 
-  const renderRow = (group: Group, archivedRow: boolean) => (
+  const renderRow = (group: Group) => (
     <div
       key={group.id}
-      className={`pr${archivedRow ? ' archived' : ''}`}
+      className="pr"
       data-group={group.id}
       role="button"
       tabIndex={0}
@@ -148,21 +148,8 @@ export function Home({ groups, tabs, now, editors, folderExists, actions, onNewP
       </div>
       {counterPills(group)}
       <span className="t">{relativeTime(group.lastActiveAt, now)}</span>
-      {archivedRow ? (
-        <button
-          type="button"
-          className="b q s"
-          data-restore={group.id}
-          onClick={e => { e.stopPropagation(); actions.restore(group.id); }}
-        >
-          Restore
-        </button>
-      ) : (
-        <>
-          {pageButton(group)}
-          {pinButton(group)}
-        </>
-      )}
+      {pageButton(group)}
+      {pinButton(group)}
     </div>
   );
 
@@ -193,30 +180,42 @@ export function Home({ groups, tabs, now, editors, folderExists, actions, onNewP
           {lastHere && <div className="home-lasthere">{lastHere}</div>}
         </div>
 
-        <div>
-          <div className="lbl">Pinned</div>
-          {pinned.length > 0 ? (
-            <div className="cards">{pinned.map(renderCard)}</div>
-          ) : (
-            <div className="nothing">Pin a project to keep it here</div>
-          )}
-        </div>
+        {!noProjects && (
+          <div>
+            <div className="lbl">Pinned</div>
+            {pinned.length > 0 ? (
+              <div className="cards">{pinned.map(renderCard)}</div>
+            ) : (
+              <div className="nothing">Pin a project to keep it here</div>
+            )}
+          </div>
+        )}
 
         <div>
           <div className="lbl lblrow">
             <span>Projects</span>
-            <button
-              type="button"
-              className="ib"
-              data-newproj=""
-              data-tip="New project"
-              onClick={onNewProject}
-            >
-              <IconPlus size={16} />
-            </button>
+            {!noProjects && (
+              <button
+                type="button"
+                className="ib"
+                data-newproj=""
+                data-tip="New project"
+                onClick={onNewProject}
+              >
+                <IconPlus size={16} />
+              </button>
+            )}
           </div>
+          {/* No project yet: one large button in the middle of the section, the
+              one thing to do on a fresh install (Aryan, 2026-10-29). */}
+          {noProjects && (
+            <button type="button" className="first-project" data-first-project="" onClick={onNewProject}>
+              <span className="plus"><IconPlus size={20} /></span>
+              <span className="t1">Create your first project</span>
+            </button>
+          )}
           <div className="list">
-            {shownProjects.map(g => renderRow(g, false))}
+            {shownProjects.map(renderRow)}
             {projects.length > PROJECT_LIMIT && (
               <button type="button" className="more" data-more="" onClick={() => setShowAll(v => !v)}>
                 {showAll ? 'Show less' : 'Show more'}
@@ -224,22 +223,6 @@ export function Home({ groups, tabs, now, editors, folderExists, actions, onNewP
             )}
           </div>
         </div>
-
-        {archived.length > 0 && (
-          <div>
-            <button
-              type="button"
-              className="more"
-              data-archived=""
-              onClick={() => setShowArchived(v => !v)}
-            >
-              {`Archived · ${archived.length}`}
-            </button>
-            {showArchived && (
-              <div className="list">{archived.map(g => renderRow(g, true))}</div>
-            )}
-          </div>
-        )}
       </div>
 
       {menu && <Menu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}

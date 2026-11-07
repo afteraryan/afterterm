@@ -90,6 +90,21 @@ html, body, #root {
   animation: homein 280ms var(--ease) both;
 }
 
+/* The workspace with no thread at all: New thread in the middle of the pane. */
+.no-threads {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.no-threads .k {
+  color: var(--text4);
+  font-size: 12px;
+}
+
 .terminal-area {
   flex: 1;
   display: flex;
@@ -104,27 +119,174 @@ html, body, #root {
 
 /* ─── Terminal instances container ──────────────────────────────────────────── */
 
-/* The terminal as a rounded card, like the mock's .term: margin off the
-   surrounding chrome, its own dark fill, clipped corners. */
-.terminal-instances {
+/* The main pane under the title strip (Terminal/index.tsx): one column per
+   thread on screen, each with its own header and terminal card. One column
+   for a thread alone; two, with a divider between them, for two threads side
+   by side (design-06, docs/mockups/split-groups-final.html). */
+.term-panes {
   flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  position: relative;
+  padding: 0 12px 12px;
+}
+
+/* Nothing on screen (no thread at all): the area stays mounted, since React
+   never owns the xterm containers parked inside it. */
+.term-panes.empty {
+  display: none;
+}
+
+/* Terminals that are not on screen wait here. */
+.terminal-park {
+  display: none;
+}
+
+.term-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* The header sits inside the column, which is already 12px in from the pane's
+   edge, so its own padding is 12px less than a header on its own would have:
+   the text still starts 20px in, over the card's text. */
+.term-col > .header {
+  padding: 0 8px;
+}
+
+.term-col > .header.compact {
+  padding: 0 2px 0 8px;
+}
+
+/* The half without the keyboard reads a step quieter (the mockup's
+   .col:not(.fcol) .hname). */
+.term-panes.split .term-col:not(.fcol) .header-name {
+  color: var(--text2);
+}
+
+/* The terminal as a rounded card, like the mock's .term: its own dark fill,
+   clipped corners. */
+.term-card {
+  flex: 1;
+  min-height: 0;
   position: relative;
   overflow: hidden;
-  margin: 0 12px 12px;
   border-radius: var(--radius-surface);
   background: var(--pane);
 }
 
-/* An asleep thread has no terminal: its pane stands in the card's place. The area
-   stays mounted (React never owns the xterm containers, so unmounting it would
-   strand them), it just stops taking space. */
-.terminal-instances.asleep-hidden {
-  display: none;
+/* Which half has the keyboard: a thin light outline (design-06). Drawn on top
+   of the card's content, since the terminal's canvas covers the card itself. */
+.term-card.focus::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .26);
+  pointer-events: none;
+  z-index: 4;
 }
 
-/* Holds the imperatively-appended xterm containers. Absolute-filled so the
-   containers (position: absolute; inset: 0) size to it, leaving .terminal-instances
-   free to also host the React-managed find bar as a sibling. */
+/* The divider between two halves: the whole 12px gap is its hit area (a 5px
+   one was missed in the July attempt), with the mockup's small pill in the
+   middle that grows while hovered or held. */
+.term-divider {
+  width: 12px;
+  flex: none;
+  cursor: col-resize;
+  position: relative;
+  touch-action: none;
+}
+
+.term-divider::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  width: 4px;
+  height: 36px;
+  margin-top: -18px;
+  border-radius: 2px;
+  background: #333;
+  transition: background var(--fast), height var(--fast), margin var(--fast);
+}
+
+.term-divider:hover::before,
+.term-divider.active::before {
+  background: #6a6a6a;
+  height: 64px;
+  margin-top: -32px;
+}
+
+/* While the divider is held, nothing else reacts to the pointer and nothing is
+   selected. */
+body.dividing,
+body.dividing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+/* Where a thread dragged from the sidebar would land (the mockup's .dz): the
+   half it would take, lit up; or, for a refused drop, the whole area in red
+   with a short label. */
+.dz {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  border-radius: var(--radius-surface);
+  border: 1.5px solid var(--drop-line);
+  background: rgba(138, 180, 255, .12);
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+  z-index: 5;
+  transition: left 120ms var(--ease), right 120ms var(--ease);
+}
+
+.dz.a { right: calc(50% + 6px); }
+.dz.b { left: calc(50% + 6px); }
+
+.dz.bad {
+  border-color: var(--drop-bad);
+  background: rgba(248, 113, 113, .08);
+}
+
+/* A refused drop's label, over the same area as its zone but in a layer of its
+   own above the dragged card (SidePanelMotion.css, .pd-ghost, z-index 60): the
+   card floats beside the pointer and would otherwise hide the label. */
+.dz-text {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 61;
+}
+
+/* With two threads on screen, the refused zone covers both columns. */
+.dz.whole,
+.dz-text.whole {
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+}
+
+.dz-text .lab {
+  background: #2f2f2f;
+  color: var(--text);
+  font-size: 12.5px;
+  padding: 5px 12px;
+  border-radius: 999px;
+}
+
+/* Holds the thread's xterm container while it is on screen. Absolute-filled so
+   the container (position: absolute; inset: 0) sizes to it, leaving the card
+   free to also host the React-managed find bar and jump button. */
 .terminal-host {
   position: absolute;
   inset: 0;

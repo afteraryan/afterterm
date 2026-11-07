@@ -13,6 +13,9 @@ import fs from 'fs';
 export interface AftertermPrefs {
   claudeNotifications?: 'enabled' | 'disabled';
   claudeHookToastShown?: boolean;
+  // How the Claude Code hook runs its script, 'file' unless the setup check found
+  // that only 'command' works on this machine (claude-hook-install.ts).
+  claudeHookMode?: 'file' | 'command';
   // Time the app was last opened, in ms since epoch. Written at every startup,
   // read one startup later so Home can say how long you were away.
   lastOpenedAt?: number;
@@ -21,6 +24,15 @@ export interface AftertermPrefs {
   // Per-shell opt-out for the OSC 133/9;9 prompt integration (Phase 6). A shell
   // missing here, or set to anything but 'off', keeps integration on.
   shellIntegration?: Partial<Record<'cmd' | 'pwsh' | 'powershell' | 'gitbash' | 'wsl', 'on' | 'off'>>;
+  // Automatic updates (design-05, src/updater.ts). The About window's switch
+  // turns the automatic checks off; Skip and Later hold one version back; the
+  // last check time is shown in the About window; pendingUpdate is written just
+  // before an update restart and read once on the next launch.
+  updateChecks?: 'enabled' | 'disabled';
+  updateSkippedVersion?: string;
+  updateLaterUntil?: number;
+  updateLastChecked?: number;
+  pendingUpdate?: unknown;
   [key: string]: unknown;
 }
 

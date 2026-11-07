@@ -56,9 +56,9 @@ console.log('\nsessionMigration: a 0.8.1 file loads with defaults\n');
   check('no tab gets a lastCommand out of nowhere (Phase 5)', s.tabs.every(t => t.lastCommand === undefined));
 }
 
-console.log('\nsessionMigration: SESSION_FORMAT_VERSION stays 2 (Phase 3 is a fill-defaults pass)\n');
+console.log('\nsessionMigration: SESSION_FORMAT_VERSION is 3 (the saved project order, 2026-11-01)\n');
 {
-  check('the version constant has not been bumped', SESSION_FORMAT_VERSION === 2);
+  check('the version constant is 3', SESSION_FORMAT_VERSION === 3);
 }
 
 console.log('\nsessionMigration: model, branch, worktree (Phase 3)\n');
@@ -108,6 +108,36 @@ console.log('\nsessionMigration: model, branch, worktree (Phase 3)\n');
   const written = serializeSession(s.tabs as unknown as Tab[], s.groups, s.activeTabId);
   check('claudeTitle is written back', written.tabs[1].claudeTitle === 'Fix the spinner');
   check('firstPrompt is never written', !('firstPrompt' in written.tabs[1]));
+}
+
+console.log('\nsessionMigration: a name given with Rename\n');
+{
+  const raw = fixture081() as any;
+  raw.tabs[1].customName = 'Spinner';
+  raw.tabs[0].customName = 42;
+  raw.groups[0].history = [
+    { id: 'tab-90', title: 'Logs', kind: 'shell', closedAt: 5, customName: 'Logs' },
+    { id: 'tab-91', title: 'Other', kind: 'shell', closedAt: 6, customName: 42 },
+  ];
+  const s = migrateSession(raw, NOW)!;
+  check('customName is kept', s.tabs[1].customName === 'Spinner');
+  check('a non-string customName is dropped', !('customName' in s.tabs[0]));
+  check('a history entry keeps customName', s.groups[0].history[0].customName === 'Logs');
+  check('a history entry drops a non-string customName', !('customName' in s.groups[0].history[1]));
+  const written = serializeSession(s.tabs as unknown as Tab[], s.groups, s.activeTabId);
+  check('customName is written back', written.tabs[1].customName === 'Spinner');
+}
+
+console.log('\nsessionMigration: a project colour from the wheel, and white\n');
+{
+  const raw = fixture081() as any;
+  raw.groups[0].color = '#e11d48';
+  raw.groups[1].color = 'white';
+  const s = migrateSession(raw, NOW)!;
+  check('a colour code is kept', s.groups[0].color === '#e11d48');
+  check('white is kept', s.groups[1].color === 'white');
+  const written = serializeSession(s.tabs as unknown as Tab[], s.groups, s.activeTabId);
+  check('a colour code is written back', written.groups[0].color === '#e11d48');
 }
 
 console.log('\nsessionMigration: sleptAt and history (Phase 4)\n');
@@ -403,8 +433,10 @@ console.log('\nsessionMigration: existing values are preserved\n');
   raw.groups[0].pinned = true; raw.groups[0].archived = true; raw.groups[0].lastActiveAt = 777;
   const s = migrateSession(raw, NOW)!;
   check('explicit tab lastActiveAt/asleep kept', s.tabs[0].lastActiveAt === 12345 && s.tabs[0].asleep === true);
+  // Looked up by id: a file without a version is reordered once (legacyProjectOrder).
+  const g1 = s.groups.find(g => g.id === 'group-1')!;
   check('explicit group pinned/archived/lastActiveAt kept',
-    s.groups[0].pinned === true && s.groups[0].archived === true && s.groups[0].lastActiveAt === 777);
+    g1.pinned === true && g1.archived === true && g1.lastActiveAt === 777);
 }
 
 console.log('\nsessionMigration: wrong types fall back to defaults\n');
@@ -521,7 +553,7 @@ console.log('\nserializeSession: persisted keys only, 0.8.1 compatible\n');
       pinned: true, archived: false, lastActiveAt: 333, history: [] },
   ];
   const out = serializeSession(tabs, groups, 'tab-1');
-  const PERSISTED = ['id', 'title', 'groupId', 'shellId', 'cwd', 'fontSize', 'claudeSessionId', 'claudeCwd', 'lastActiveAt', 'asleep', 'sleptAt', 'model', 'branch', 'worktree', 'claudeTitle', 'port', 'lastCommand', 'unread'];
+  const PERSISTED = ['id', 'title', 'groupId', 'shellId', 'cwd', 'fontSize', 'claudeSessionId', 'claudeCwd', 'lastActiveAt', 'asleep', 'sleptAt', 'model', 'branch', 'worktree', 'claudeTitle', 'customName', 'port', 'lastCommand', 'unread'];
   check('includes version', out.version === SESSION_FORMAT_VERSION);
   check('top-level shape is still {tabs, groups, activeTabId} plus version and ui (Phase 8)',
     isDeepStrictEqual(Object.keys(out).sort(), ['activeTabId', 'groups', 'tabs', 'ui', 'version']));
@@ -576,6 +608,49 @@ console.log('\nround trip: serialize then migrate is stable\n');
   check('worktree survives serialize -> migrate', chat.worktree === '.claude\\worktrees\\phase-3-thread-identity');
   check('a shell tab with none of the three still has none after the round trip',
     reloaded.tabs.find(t => t.id === 'tab-3')!.model === undefined);
+}
+
+console.log('\nwakeAfterUpdate: the threads an update restart wakes\n');
+{
+  const raw = { ...fixture081(), wakeAfterUpdate: ['tab-5', 'tab-7', 'tab-5', 'tab-99', 42, null] };
+  const s = migrateSession(raw, NOW)!;
+  check('kept: ids of threads still in the file, once each, strings only',
+    isDeepStrictEqual(s.wakeAfterUpdate, ['tab-5', 'tab-7']), show(s.wakeAfterUpdate));
+  check('absent when the file has none', !('wakeAfterUpdate' in migrateSession(fixture081(), NOW)!));
+  check('absent when it is not a list', !('wakeAfterUpdate' in migrateSession({ ...fixture081(), wakeAfterUpdate: 'tab-5' }, NOW)!));
+  check('absent when none of its ids survive', !('wakeAfterUpdate' in migrateSession({ ...fixture081(), wakeAfterUpdate: ['tab-99'] }, NOW)!));
+  const tabs = s.tabs as unknown as Tab[];
+  check('a normal save never writes it', !('wakeAfterUpdate' in serializeSession(tabs, s.groups, s.activeTabId, {})));
+  check('an empty list is not written', !('wakeAfterUpdate' in serializeSession(tabs, s.groups, s.activeTabId, {}, [])));
+  const written = JSON.parse(JSON.stringify(serializeSession(tabs, s.groups, s.activeTabId, {}, ['tab-3', 'tab-5'])));
+  check('the update quit writes it', isDeepStrictEqual(written.wakeAfterUpdate, ['tab-3', 'tab-5']));
+  check('and it survives the next load', isDeepStrictEqual(migrateSession(written, NOW + 1)!.wakeAfterUpdate, ['tab-3', 'tab-5']));
+}
+
+console.log('\nsplits: two threads side by side (design-06)\n');
+{
+  // tab-3 and tab-5 are both in group-1; tab-7 is General.
+  const raw = { ...fixture081(), version: 3, splits: [{ id: 'split-2', a: 'tab-5', b: 'tab-3', ratio: 0.62 }] };
+  const s = migrateSession(raw, NOW)!;
+  check('a split comes back: its pair, its sides and its divider',
+    isDeepStrictEqual(s.splits, [{ id: 'split-2', a: 'tab-5', b: 'tab-3', ratio: 0.62 }]), show(s.splits));
+  check('its two threads are next to each other, left then right',
+    s.tabs.map(t => t.id).join(',') === 'tab-5,tab-3,tab-7', s.tabs.map(t => t.id).join(','));
+  check('absent when the file has none', !('splits' in migrateSession(fixture081(), NOW)!));
+  const gone = migrateSession({ ...raw, splits: [{ id: 'split-2', a: 'tab-5', b: 'tab-99', ratio: 0.5 }] }, NOW)!;
+  check('a split whose thread is gone is dropped', !('splits' in gone));
+  const apart = migrateSession({ ...raw, splits: [{ id: 'split-2', a: 'tab-5', b: 'tab-7', ratio: 0.5 }] }, NOW)!;
+  check('a split across two projects (a project and General) is dropped', !('splits' in apart));
+  check('...and its threads keep their order', apart.tabs.map(t => t.id).join(',') === 'tab-3,tab-5,tab-7');
+  check('a splits value that is not a list is ignored', !('splits' in migrateSession({ ...raw, splits: 'nope' }, NOW)!));
+
+  const tabs = s.tabs as unknown as Tab[];
+  check('a save with no split writes no splits key', !('splits' in serializeSession(tabs, s.groups, s.activeTabId, {}, undefined, [])));
+  const written = JSON.parse(JSON.stringify(serializeSession(tabs, s.groups, s.activeTabId, {}, undefined, s.splits)));
+  check('a save writes the splits', isDeepStrictEqual(written.splits, s.splits));
+  check('and they survive the next load', isDeepStrictEqual(migrateSession(written, NOW + 1)!.splits, s.splits));
+  check('serialize -> migrate -> serialize is stable',
+    JSON.stringify(serializeSession(migrateSession(written, NOW + 1)!.tabs as unknown as Tab[], s.groups, s.activeTabId, {}, undefined, s.splits)) === JSON.stringify(written));
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

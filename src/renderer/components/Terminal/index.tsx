@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useState, forwardRef, useImperativeHandle } from 'react';
+import React, { useRef, useEffect, useLayoutEffect, useCallback, useState, forwardRef, useImperativeHandle } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { FitAddon } from '@xterm/addon-fit';
@@ -15,8 +15,10 @@ import { TAIL_MAX_LINES } from '../../../thread-tail';
 import { JUMP_THRESHOLD_LINES, JumpState, JumpTarget, initialJumpState, onScrollSample, jumpDurationMs, jumpLineAt, prefersReducedMotion, wheelToLines, isUserScroll } from '../../jumpScroll';
 import { JumpButton, JumpButtonHandle } from '../JumpButton';
 import { isWindowsDrivePath, osc7ToWindowsPath } from '../../../shell-paths';
-import { createFileLinkProvider, trackToolLines, type FileLinkContext, type FileLinkTarget } from './fileLinks';
-import type { ILinkProvider } from '@xterm/xterm';
+import { createFileLinkProvider, trackToolLines, hideTip, type FileLinkContext, type FileLinkProvider, type FileLinkTarget } from './fileLinks';
+import { Menu, type MenuItem } from '../Menu';
+import { SPLIT_MIN, SPLIT_MAX, SPLIT_DEFAULT } from '../../splitView';
+import type { PaneTarget } from '../../splitView';
 
 interface TermInfo {
   term: Terminal;
@@ -54,6 +56,8 @@ interface TabInfo {
 export interface TerminalAreaHandle {
   readTail(tabId: string): string[] | null;
   readAllTails(): Record<string, string[]>;
+  // Gives the keyboard to the active thread's terminal; nothing if it has none.
+  focusActive(): void;
 }
 
 interface TerminalAreaProps {
@@ -63,9 +67,23 @@ interface TerminalAreaProps {
   // mounted so the terminals keep running, but a hidden container measures 0, so
   // the active terminal is refit and refocused when it comes back.
   visible: boolean;
-  // True while the active thread is asleep: the AsleepPane is showing in this
-  // thread's place, so the whole terminal card (find bar included) goes away.
-  hidden: boolean;
+  // The threads on screen, left to right: the active thread alone, or the two
+  // halves of its split (design-06, splitView.ts panesFor). Empty when nothing
+  // is on screen. activeTabId is the focused one.
+  panes: string[];
+  // The left half's share of the width, for a split.
+  ratio: number;
+  // Each column's header, and the pane an asleep thread shows in its card.
+  // `split` says whether the column is one half of two.
+  renderHeader: (tabId: string, split: boolean) => React.ReactNode;
+  renderAsleep: (tabId: string, focused: boolean) => React.ReactNode;
+  // A pointer press anywhere in a column (header or card) gives it the focus.
+  onFocusPane: (tabId: string) => void;
+  // The divider, committed once when the drag ends (or 0.5 on a double-click).
+  onRatio: (ratio: number) => void;
+  // Where a thread dragged from the sidebar would land (design-06): a half lit
+  // up, or the refused drop in red with its label.
+  dropZone: PaneTarget | null;
   onTitleChange: (tabId: string, title: string) => void;
   onCwdChange: (tabId: string, cwd: string) => void;
   onNotification: (tabId: string, type: TabNotification | undefined, projectName: string) => void;
@@ -99,6 +117,8 @@ interface TerminalAreaProps {
   // click on one does. Without them no file links are made.
   fileContext?: (tabId: string) => FileLinkContext | null;
   onOpenFileLink?: (target: FileLinkTarget) => void;
+  // The right-click menu on a file link.
+  fileLinkMenu?: (target: FileLinkTarget) => MenuItem[];
 }
 
 // SECURITY: claudeSessionId is read from persisted session.json (a plain file that
@@ -162,6 +182,20 @@ function formatTabTitle(raw: string): string {
   }
 
   return raw;
+}
+
+/** How long a right-click waits to learn whether it landed on a file link. */
+const LINK_AT_WAIT_MS = 500;
+
+/** The 1-based buffer cell under a point on the page, or null when it is off the grid. */
+function cellAt(term: Terminal, clientX: number, clientY: number): { x: number; y: number } | null {
+  const screen = term.element?.querySelector('.xterm-screen');
+  if (!screen) return null;
+  const r = screen.getBoundingClientRect();
+  const col = Math.floor((clientX - r.left) / (r.width / term.cols));
+  const row = Math.floor((clientY - r.top) / (r.height / term.rows));
+  if (col < 0 || col >= term.cols || row < 0 || row >= term.rows) return null;
+  return { x: col + 1, y: term.buffer.active.viewportY + row + 1 };
 }
 
 // The last `max` rows of a terminal, as plain strings. `translateToString(true)`
@@ -234,13 +268,25 @@ const THEME = {
 };
 
 export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(function TerminalArea(
-  { tabs: tabInfos, activeTabId, visible, hidden, onTitleChange, onCwdChange, onNotification, onUserInput, onAnswer, onTyped, onOutput, onFontSizeChange, onExit, onTail, onCommand, fileContext, onOpenFileLink },
+  { tabs: tabInfos, activeTabId, visible, panes, ratio, renderHeader, renderAsleep, onFocusPane, onRatio, dropZone, onTitleChange, onCwdChange, onNotification, onUserInput, onAnswer, onTyped, onOutput, onFontSizeChange, onExit, onTail, onCommand, fileContext, onOpenFileLink, fileLinkMenu },
   ref,
 ) {
-  const hostRef = useRef<HTMLDivElement>(null);
+  // Where every terminal that is not on screen waits (display: none). A
+  // terminal on screen lives in its column's card instead (slotsRef), moved
+  // there when the panes change: React never owns these containers.
+  const parkRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const slotsRef = useRef(new Map<string, HTMLDivElement>());
+  const colsRef = useRef(new Map<string, HTMLDivElement>());
   const termsRef = useRef(new Map<string, TermInfo>());
   const activeRef = useRef(activeTabId);
   activeRef.current = activeTabId;
+  const panesRef = useRef(panes);
+  panesRef.current = panes;
+  // True while the divider is held: nothing refits until it is let go.
+  const dividingRef = useRef(false);
+  const onRatioRef = useRef(onRatio);
+  onRatioRef.current = onRatio;
 
   const onTitleChangeRef = useRef(onTitleChange);
   onTitleChangeRef.current = onTitleChange;
@@ -268,9 +314,24 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
   fileContextRef.current = fileContext;
   const onOpenFileLinkRef = useRef(onOpenFileLink);
   onOpenFileLinkRef.current = onOpenFileLink;
+  const fileLinkMenuRef = useRef(fileLinkMenu);
+  fileLinkMenuRef.current = fileLinkMenu;
   // Each terminal's file-link provider, kept so the harness can ask one for the
   // links on a row without moving a mouse (window.__afterterm.fileLinks).
-  const fileLinkProvidersRef = useRef(new Map<string, ILinkProvider>());
+  const fileLinkProvidersRef = useRef(new Map<string, FileLinkProvider>());
+
+  // The menu a right-click on a file link opens. The terminal gives up the keyboard
+  // while it is up, so an Esc to close it does not reach the shell, where it would
+  // interrupt Claude Code; closing hands the keyboard back.
+  const [linkMenu, setLinkMenu] = useState<{ tabId: string; x: number; y: number; items: MenuItem[] } | null>(null);
+  const linkMenuRef = useRef(linkMenu);
+  linkMenuRef.current = linkMenu;
+  const closeLinkMenu = useCallback(() => {
+    const open = linkMenuRef.current;
+    if (!open) return;
+    setLinkMenu(null);
+    termsRef.current.get(open.tabId)?.term.focus();
+  }, []);
 
   // OSC 133 prompt-mark state per terminal, kept beside the terminals rather than
   // inside TermInfo so the OSC handler and the onData handler (both closures made
@@ -403,19 +464,22 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
 
   const createTerminal = useCallback(async (tab: TabInfo) => {
     const tabId = tab.id;
-    if (termsRef.current.has(tabId) || creatingRef.current.has(tabId) || !hostRef.current) return;
+    if (termsRef.current.has(tabId) || creatingRef.current.has(tabId) || !parkRef.current) return;
     creatingRef.current.add(tabId);
     try {
       // A wake right after a sleep: the old PTY has to be gone before the new one is
       // asked for (see pendingDestroyRef).
       const pending = pendingDestroyRef.current.get(tabId);
       if (pending) await pending;
-      if (termsRef.current.has(tabId) || !hostRef.current) return;
+      if (termsRef.current.has(tabId) || !parkRef.current) return;
 
+      // Straight into its column when it is on screen (a wake, a new thread),
+      // otherwise into the park.
       const container = document.createElement('div');
       container.className = 'xterm-container';
-      container.style.display = tabId === activeRef.current ? '' : 'none';
-      hostRef.current.appendChild(container);
+      const slot = panesRef.current.includes(tabId) ? slotsRef.current.get(tabId) : undefined;
+      container.style.display = slot ? '' : 'none';
+      (slot ?? parkRef.current).appendChild(container);
 
       const term = new Terminal({
         theme: THEME,
@@ -486,6 +550,10 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       // Ctrl+Shift+F find. The find/select-all combos live here (not main.ts's
       // before-input-event) because they act on this terminal's xterm instance.
       term.attachCustomKeyEventHandler((event) => {
+        // While the link menu is up nothing reaches the shell. An Esc to close it
+        // would interrupt Claude Code, and focus can land back here while it opens
+        // (a click into the other half of a split focuses this terminal late).
+        if (linkMenuRef.current) return false;
         if (event.type !== 'keydown') return true;
 
         if (event.ctrlKey && !event.shiftKey && event.key === 'v') {
@@ -517,18 +585,43 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         return true;
       });
 
-      // Right-click: copy the selection (and clear it) if there is one, otherwise
-      // paste, the classic Windows console QuickEdit behavior.
+      // A press that closes the link menu only closes it: without this, a right-click
+      // to dismiss the menu would go on to paste into the terminal.
+      let pressClosedMenu = false;
+      container.addEventListener('mousedown', () => {
+        pressClosedMenu = linkMenuRef.current !== null;
+      }, { capture: true });
+
+      // Right-click: copy the selection (and clear it) if there is one; on a file
+      // link, its menu; otherwise paste, the classic Windows console QuickEdit behavior.
       container.addEventListener('contextmenu', (event) => {
         event.preventDefault();
+        if (pressClosedMenu) {
+          pressClosedMenu = false;
+          return;
+        }
         if (term.hasSelection()) {
           navigator.clipboard.writeText(term.getSelection());
           term.clearSelection();
-        } else {
-          navigator.clipboard.readText().then(text => {
-            if (text) term.paste(text);
-          });
+          return;
         }
+        const { clientX: x, clientY: y } = event;
+        const cell = cellAt(term, x, y);
+        // Asking main can take a moment on a row it has not seen. A paste should not
+        // wait long for that, so after LINK_AT_WAIT_MS the click counts as off a link.
+        const giveUp = new Promise<null>(resolve => setTimeout(() => resolve(null), LINK_AT_WAIT_MS));
+        void Promise.race([cell ? fileLinks.linkAt(cell.x, cell.y) : null, giveUp]).then(link => {
+          const items = link ? fileLinkMenuRef.current?.(link) : undefined;
+          if (items) {
+            hideTip();
+            term.blur();
+            setLinkMenu({ tabId, x, y, items });
+          } else {
+            navigator.clipboard.readText().then(text => {
+              if (text) term.paste(text);
+            });
+          }
+        });
       });
 
       // Ctrl+scroll → zoom this tab's font size (per-tab, persisted via session.json).
@@ -566,7 +659,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       marksRef.current.set(tabId, initialCommandMarkState());
 
       // Only fit visible tabs, fitAddon on a hidden container returns 0 dimensions
-      if (tabId === activeRef.current) {
+      if (slot) {
         fitAddon.fit();
       }
 
@@ -773,26 +866,59 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
     }
   }, [tabInfos, createTerminal, teardownTerminal]);
 
-  // Show/hide + focus on active tab change. Switching tabs also closes the find bar
-  // (search is scoped to a single terminal).
+  // Fit every terminal on screen. Each one's fit resizes its PTY (term.onResize),
+  // so this runs on a layout change, a window resize and a divider release,
+  // never while the divider is moving.
+  const fitVisible = useCallback(() => {
+    for (const id of panesRef.current) {
+      const info = termsRef.current.get(id);
+      if (!info) continue;
+      try { info.fitAddon.fit(); } catch { /* not laid out yet */ }
+    }
+  }, []);
+
+  // Put every terminal where it belongs: in its column's card when it is on
+  // screen, in the park otherwise. Runs after React has drawn the columns for
+  // the new panes (a layout effect, so nothing paints in the wrong place), then
+  // fits what is on screen once the browser has laid it out.
+  const panesKey = panes.join('|');
+  useLayoutEffect(() => {
+    const park = parkRef.current;
+    if (!park) return;
+    for (const [id, info] of termsRef.current) {
+      const slot = panesRef.current.includes(id) ? slotsRef.current.get(id) : undefined;
+      const target = slot ?? park;
+      if (info.container.parentElement !== target) target.appendChild(info.container);
+      info.container.style.display = slot ? '' : 'none';
+    }
+    const frame = requestAnimationFrame(() => {
+      fitVisible();
+      // Moving a container drops its keyboard focus; the focused half gets it back.
+      const active = document.activeElement;
+      const info = termsRef.current.get(activeRef.current);
+      if (info && (!active || active === document.body)) info.term.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [panesKey, fitVisible]);
+
+  // Focus follows the active thread, which in a split is the focused half
+  // (design-06): typing goes there and nowhere else. An asleep half has no
+  // terminal; its pane takes the focus on its Wake button (AsleepPane), and a
+  // terminal in the other half must not keep it. Switching also closes the find
+  // bar (search is scoped to a single terminal).
   useEffect(() => {
     if (findOpenRef.current) {
-      termsRef.current.get(activeTabId)?.search.clearDecorations();
+      for (const info of termsRef.current.values()) info.search.clearDecorations();
       setFindOpen(false);
       setMatchInfo(null);
     }
-    for (const [id, info] of termsRef.current) {
-      if (id === activeTabId) {
-        info.container.style.display = '';
-        // RAF ensures the browser has reflowed display:none→'' before xterm measures
-        requestAnimationFrame(() => {
-          info.fitAddon.fit();
-          info.term.focus();
-        });
-      } else {
-        info.container.style.display = 'none';
-      }
-    }
+    const frame = requestAnimationFrame(() => {
+      const info = termsRef.current.get(activeTabId);
+      if (info) { info.term.focus(); return; }
+      const el = document.activeElement;
+      if (el instanceof HTMLElement && el.closest('.xterm')) el.blur();
+    });
+    return () => cancelAnimationFrame(frame);
   }, [activeTabId]);
 
   // The jump button follows the active terminal. Switching threads re-bases the
@@ -867,33 +993,80 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
   // that has just unmounted.
   useEffect(() => {
     if (!visible) return;
-    const info = termsRef.current.get(activeTabId);
-    if (!info) return;
     const frame = requestAnimationFrame(() => {
-      try { info.fitAddon.fit(); } catch { /* container not laid out yet */ }
+      // Every terminal on screen: in a split the focused half may be asleep
+      // while the other half's terminal still needs its size back.
+      fitVisible();
       // Only take the keyboard when nothing else holds it: Ctrl+Shift+T from Home
       // switches to the workspace and opens the new thread chooser in the same
       // breath, and its input must keep focus (Escape and Enter go to it).
+      const info = termsRef.current.get(activeTabId);
       const active = document.activeElement;
-      if (!active || active === document.body) info.term.focus();
+      if (info && (!active || active === document.body)) info.term.focus();
     });
     return () => cancelAnimationFrame(frame);
-  }, [visible, activeTabId]);
+  }, [visible, activeTabId, fitVisible]);
 
-  // Resize active terminal when the wrapper resizes
+  // Resize the terminals on screen when the pane resizes (the window, the
+  // panel sliding). The divider does not resize the pane, only its columns, and
+  // is handled on its own below.
   useEffect(() => {
-    if (!hostRef.current) return;
-
+    if (!rootRef.current) return;
     const observer = new ResizeObserver(() => {
-      const info = termsRef.current.get(activeRef.current);
-      if (info) {
-        info.scheduleFit();
-      }
+      if (dividingRef.current) return;
+      for (const id of panesRef.current) termsRef.current.get(id)?.scheduleFit();
     });
-
-    observer.observe(hostRef.current);
+    observer.observe(rootRef.current);
     return () => observer.disconnect();
   }, []);
+
+  // The divider between two halves (design-06): drag between a quarter and
+  // three quarters; the columns follow the pointer directly (no render per
+  // move), and the terminals refit and their PTYs resize once, on release. A
+  // double-click puts it back at half and half. Pointer capture keeps the drag
+  // going over the terminals' canvases.
+  const onDividerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 || panes.length !== 2) return;
+    e.preventDefault();
+    const handle = e.currentTarget;
+    const row = handle.parentElement;
+    const [a, b] = panes.map(id => colsRef.current.get(id));
+    if (!row || !a || !b) return;
+    handle.setPointerCapture(e.pointerId);
+    handle.classList.add('active');
+    document.body.classList.add('dividing');
+    dividingRef.current = true;
+    const rect = row.getBoundingClientRect();
+    const style = getComputedStyle(row);
+    const left = rect.left + parseFloat(style.paddingLeft);
+    const width = rect.width - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    let f = ratio;
+    const move = (ev: PointerEvent) => {
+      f = Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, (ev.clientX - left) / width));
+      a.style.flex = `${f} 1 0`;
+      b.style.flex = `${1 - f} 1 0`;
+    };
+    const up = () => {
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', up);
+      handle.removeEventListener('pointercancel', up);
+      handle.classList.remove('active');
+      document.body.classList.remove('dividing');
+      dividingRef.current = false;
+      onRatioRef.current(f);
+      requestAnimationFrame(fitVisible);
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', up);
+    handle.addEventListener('pointercancel', up);
+  };
+  const onDividerDoubleClick = () => {
+    const [a, b] = panes.map(id => colsRef.current.get(id));
+    if (a) a.style.flex = `${SPLIT_DEFAULT} 1 0`;
+    if (b) b.style.flex = `${SPLIT_DEFAULT} 1 0`;
+    onRatioRef.current(SPLIT_DEFAULT);
+    requestAnimationFrame(fitVisible);
+  };
 
   // What the app reads at quit time, when every awake thread's screen has to reach
   // disk before the window goes.
@@ -907,6 +1080,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       for (const [id, info] of termsRef.current) tails[id] = captureTail(info.term);
       return tails;
     },
+    focusActive: () => { termsRef.current.get(activeRef.current)?.term.focus(); },
   }), []);
 
   // Read by scripts/agent-harness/drive.mjs, which drives the app for phase testing
@@ -926,6 +1100,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         viewport(tabId?: string): { viewportY: number; baseY: number } | null;
         fileLinks(tabId: string, row: number): Promise<{ text: string; range: unknown }[]>;
         openFileLink(tabId: string, row: number, index?: number): Promise<boolean>;
+        cellCentre(tabId: string, row: number, col: number): { x: number; y: number } | null;
         findRow(tabId: string, text: string): number;
       };
     };
@@ -962,6 +1137,17 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
           resolve(true);
         });
       }),
+      // Where one 1-based buffer cell is on the page, so `drive cell` can point a real
+      // mouse at it. Null when the row is scrolled out of view.
+      cellCentre: (tabId, row, col) => {
+        const info = termsRef.current.get(tabId);
+        const screen = info?.term.element?.querySelector('.xterm-screen');
+        if (!info || !screen) return null;
+        const y = row - 1 - info.term.buffer.active.viewportY;
+        if (y < 0 || y >= info.term.rows) return null;
+        const r = screen.getBoundingClientRect();
+        return { x: r.left + (col - 0.5) * (r.width / info.term.cols), y: r.top + (y + 0.5) * (r.height / info.term.rows) };
+      },
       // The last 1-based buffer row whose text contains `text`, or 0.
       findRow: (tabId, text) => {
         const info = termsRef.current.get(tabId);
@@ -989,43 +1175,103 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
     };
   }, []);
 
+  const split = panes.length === 2;
+  const asleepIds = new Set(tabInfos.filter(t => t.asleep).map(t => t.id));
+  const findBar = findOpen && (
+    <div className="find-bar">
+      <input
+        ref={findInputRef}
+        className="find-input"
+        type="text"
+        placeholder="Find"
+        value={findText}
+        autoFocus
+        onChange={(e) => {
+          setFindText(e.target.value);
+          runFind(e.target.value, 'next', true);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') { e.preventDefault(); closeFind(); }
+          else if (e.key === 'Enter') {
+            e.preventDefault();
+            runFind(findText, e.shiftKey ? 'prev' : 'next');
+          }
+        }}
+      />
+      <span className="find-count">
+        {findText ? (matchInfo ? `${matchInfo.current}/${matchInfo.total}` : '…') : ''}
+      </span>
+      <button className="find-btn" title="Previous (Shift+Enter)" onClick={() => runFind(findText, 'prev')}>↑</button>
+      <button className="find-btn" title="Next (Enter)" onClick={() => runFind(findText, 'next')}>↓</button>
+      <button className="find-btn" title="Close (Esc)" onClick={closeFind}>✕</button>
+    </div>
+  );
+  // A lone thread's drop zone covers half its card; with a split on screen the
+  // refused zone covers both columns (the mockup's .dz).
+  const halfZone = !split && dropZone?.kind === 'half' ? dropZone : null;
+
   return (
-    <div className={`terminal-instances${hidden ? ' asleep-hidden' : ''}`}>
-      {/* React never touches this node's children, terminal containers are appended
-          imperatively. The find bar lives as a sibling so React can manage it freely. */}
-      <div ref={hostRef} className="terminal-host" />
+    <div
+      ref={rootRef}
+      className={`term-panes${panes.length ? '' : ' empty'}${split ? ' split' : ''}`}
+      data-panes={panes.join(' ')}
+    >
+      {/* React never touches this node's children: terminals that are not on
+          screen are parked here. */}
+      <div ref={parkRef} className="terminal-park" />
 
-      <JumpButton ref={jumpBtnRef} target={jump} onJump={jumpTo} onWheel={wheelToTerminal} />
+      {panes.map((id, i) => {
+        const focused = id === activeTabId;
+        const asleep = asleepIds.has(id);
+        const flex = split ? (i === 0 ? ratio : 1 - ratio) : 1;
+        return (
+          <React.Fragment key={id}>
+            {i === 1 && (
+              <div
+                className="term-divider"
+                data-tip="Drag to resize"
+                onPointerDown={onDividerDown}
+                onDoubleClick={onDividerDoubleClick}
+              />
+            )}
+            <div
+              ref={el => { if (el) colsRef.current.set(id, el); else colsRef.current.delete(id); }}
+              className={`term-col${focused ? ' fcol' : ''}`}
+              data-pane={id}
+              style={{ flex: `${flex} 1 0` }}
+              onPointerDownCapture={() => { if (id !== activeRef.current) onFocusPane(id); }}
+            >
+              {renderHeader(id, split)}
+              <div className={`term-card${split && focused ? ' focus' : ''}`}>
+                {/* React never touches this node's children either: the
+                    thread's terminal is moved in here while it is on screen. */}
+                <div
+                  ref={el => { if (el) slotsRef.current.set(id, el); else slotsRef.current.delete(id); }}
+                  className="terminal-host"
+                />
+                {asleep && renderAsleep(id, focused)}
+                {focused && !asleep && (
+                  <JumpButton ref={jumpBtnRef} target={jump} onJump={jumpTo} onWheel={wheelToTerminal} />
+                )}
+                {focused && !asleep && findBar}
+                {halfZone && (
+                  <div className={`dz${halfZone.bad ? ' bad' : ` ${halfZone.side}`}`} data-dz={halfZone.bad ? 'bad' : halfZone.side} />
+                )}
+                {halfZone?.bad && <div className="dz-text"><span className="lab">{halfZone.bad}</span></div>}
+              </div>
+            </div>
+          </React.Fragment>
+        );
+      })}
 
-      {findOpen && (
-        <div className="find-bar">
-          <input
-            ref={findInputRef}
-            className="find-input"
-            type="text"
-            placeholder="Find"
-            value={findText}
-            autoFocus
-            onChange={(e) => {
-              setFindText(e.target.value);
-              runFind(e.target.value, 'next', true);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') { e.preventDefault(); closeFind(); }
-              else if (e.key === 'Enter') {
-                e.preventDefault();
-                runFind(findText, e.shiftKey ? 'prev' : 'next');
-              }
-            }}
-          />
-          <span className="find-count">
-            {findText ? (matchInfo ? `${matchInfo.current}/${matchInfo.total}` : '…') : ''}
-          </span>
-          <button className="find-btn" title="Previous (Shift+Enter)" onClick={() => runFind(findText, 'prev')}>↑</button>
-          <button className="find-btn" title="Next (Enter)" onClick={() => runFind(findText, 'next')}>↓</button>
-          <button className="find-btn" title="Close (Esc)" onClick={closeFind}>✕</button>
-        </div>
+      {split && dropZone?.kind === 'whole' && (
+        <>
+          <div className="dz bad whole" data-dz="bad" />
+          <div className="dz-text whole"><span className="lab">{dropZone.bad}</span></div>
+        </>
       )}
+
+      {linkMenu && <Menu x={linkMenu.x} y={linkMenu.y} items={linkMenu.items} onClose={closeLinkMenu} />}
     </div>
   );
 });

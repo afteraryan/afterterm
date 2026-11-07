@@ -3,7 +3,8 @@
 // (sheet A, "solid glyphs", final) and docs/mockups/toasts.html (hourglass, compacting, x).
 // Each icon is a plain inline SVG using currentColor so it inherits the caller's color.
 import React from 'react';
-import { GroupColor, GROUP_COLORS, ProjectIconId } from './TabBar/types';
+import { GroupColor, ProjectIconId } from './TabBar/types';
+import { groupColors } from '../projectColour';
 import type { EditorProduct } from '../../editors';
 
 export interface IconProps {
@@ -69,6 +70,25 @@ export function IconArrow(props: IconProps) {
   return (
     <svg {...svgProps(props)}>
       <path d="M7 17 17 7M9 7h8v8" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// The arrow between the two projects on a dragged thread's card
+// (docs/mockups/sidebar-drag-and-drop.html).
+export function IconArrowRight(props: IconProps) {
+  return (
+    <svg {...svgProps(props)}>
+      <path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// General has no project: a dashed outline of the folder, in grey.
+export function IconFolderNone(props: IconProps) {
+  return (
+    <svg {...svgProps(props)}>
+      <path d="M2.5 7A2 2 0 0 1 4.5 5h4.6l2 2h8.4a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeDasharray="3 2.5" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -152,6 +172,16 @@ export function IconExpandAll(props: IconProps) {
   return (
     <svg {...svgProps(props)}>
       <path d="m7 4 5 5 5-5M7 20l5-5 5 5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// Lucide's "pencil" (lucide-static 0.460.0, ISC licence: assets/LICENSE-Lucide.txt).
+export function IconPencil(props: IconProps) {
+  return (
+    <svg {...svgProps(props)} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
+      <path d="m15 5 4 4" />
     </svg>
   );
 }
@@ -274,6 +304,39 @@ export function IconX(props: IconProps) {
   return (
     <svg {...svgProps(props)}>
       <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// Automatic updates (docs/mockups/update-shared.js): the download arrow on the
+// notice and the Update available state, the circular arrow on Restart to update.
+export function IconDownload(props: IconProps) {
+  return (
+    <svg {...svgProps(props)}>
+      <path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function IconRestart(props: IconProps) {
+  return (
+    <svg {...svgProps(props)}>
+      <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// The app logo as the About window draws it (the mockup's LOGO, the same
+// geometry as assets/icon.ico).
+export function AppLogo({ size = 56 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true">
+      <rect x="1" y="1" width="62" height="62" rx="14" fill="#141414" stroke="#3a3a3a" />
+      <circle cx="22" cy="17" r="3" fill="#2dd4bf" />
+      <circle cx="32" cy="17" r="3" fill="#fb923c" />
+      <circle cx="42" cy="17" r="3" fill="#a78bfa" />
+      <path d="m17 27 16 9-16 9" fill="none" stroke="#ececec" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M42 33v12" stroke="#ececec" strokeWidth="4" strokeLinecap="round" />
     </svg>
   );
 }
@@ -429,7 +492,7 @@ export interface FolderIconProps {
 // A project's folder glyph, coloured by its group colour, or var(--text3) for
 // projectless (General) rows.
 export function FolderIcon({ color, open, size = 18, icon }: FolderIconProps) {
-  const tint = color ? GROUP_COLORS[color].border : 'var(--text3)';
+  const tint = color ? groupColors(color).border : 'var(--text3)';
   return (
     <span className="fo" style={{ color: tint }} data-icon={icon ?? 'folder'}>
       {icon ? <ProjectIcon icon={icon} size={size} /> : open ? <IconFolderOpen size={size} /> : <IconFolder size={size} />}

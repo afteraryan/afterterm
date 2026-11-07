@@ -105,6 +105,20 @@ console.log('\nhistory: isResumable\n');
   check('shell with a UUID is still not resumable (nothing to resume)', isResumable(entry({ kind: 'shell', sessionId: UUID })) === false);
 }
 
+console.log('\nhistory: a name given with Rename\n');
+{
+  const group: Pick<Group, 'id' | 'shellId' | 'cwd'> = { id: 'group-1', shellId: 'cmd', cwd: 'D:\\Work\\afterterm' };
+  const chat = historyEntryFor(chatTab({ customName: 'Spinner' }), 'Spinner', NOW);
+  const shell = historyEntryFor(shellTab({ customName: 'Logs' }), 'Logs', NOW);
+  check('a chat\'s name goes into its entry', chat.customName === 'Spinner');
+  check('a shell\'s name goes into its entry', shell.customName === 'Logs');
+  check('a thread with no such name has no key for it', !('customName' in historyEntryFor(chatTab(), 'x', NOW)));
+  check('a resumed chat keeps it', tabFromHistory(chat, group, NOW).customName === 'Spinner');
+  check('a resumed shell keeps it', tabFromHistory(shell, group, NOW).customName === 'Logs');
+  check('a resumed thread with no such name has no key for it',
+    !('customName' in tabFromHistory(entry({ title: 'thread' }), group, NOW)));
+}
+
 console.log('\nhistory: tabFromHistory\n');
 {
   const group: Pick<Group, 'id' | 'shellId' | 'cwd'> = { id: 'group-1', shellId: 'cmd', cwd: 'D:\\Work\\afterterm' };
