@@ -58,6 +58,13 @@ console.log('\nsleepWake: sleepTab\n');
   const asleep = sleepTab(tab, NOW);
   check('a stale wokeAt is cleared on sleep', !('wokeAt' in asleep));
 }
+{
+  // Claude Code's live status (plan-02, Fix 5): a sleeping thread has no running Claude.
+  const tab = chatTab({ recordStatus: 'busy' });
+  const asleep = sleepTab(tab, NOW);
+  check('recordStatus is cleared on sleep', !('recordStatus' in asleep));
+  check('and the session id stays (Decision 3)', asleep.claudeSessionId === tab.claudeSessionId);
+}
 
 console.log('\nsleepWake: wakeTab\n');
 {

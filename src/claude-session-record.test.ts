@@ -5,24 +5,28 @@
 //
 // Everything here is pure, so the cases are record texts and process lists built in
 // memory. Nothing reads the real Claude folder. The record shapes follow the facts
-// table in docs/plan-02-restart-window-and-hook-fixes.md (Fix 5); the start time
-// formats follow strings in the Claude Code binary and are not checked against a
-// live record.
+// table in docs/plan-02-restart-window-and-hook-fixes.md (Fix 5) and the start time
+// formats the Claude Code 2.1.319 binary writes.
 
 import {
   CLAUDE_CWD_RE,
+  LIST_ASK_GIVE_UP_MS,
   PROC_START_TOLERANCE_MS,
   RECORD_MAX_BYTES,
+  RECORD_READ_GRACE,
+  holdLastGood,
   isRecordFileName,
+  listRefreshPlan,
   matchRecordsToThreads,
   parseSessionRecord,
   pidLooksAlive,
   procStartReadings,
   recordFeed,
+  staleListPids,
   threadFeeds,
   unlistedRunningPids,
 } from './claude-session-record.ts';
-import type { SessionRecord } from './claude-session-record.ts';
+import type { HeldRecord, ListAsk, SessionRecord } from './claude-session-record.ts';
 import { applyMsysParents } from './server-detect.ts';
 import type { Proc } from './server-detect.ts';
 
@@ -44,6 +48,12 @@ const TICKS = (wallMs: number) => (BigInt(wallMs) * 10_000n + 621_355_968_000_00
 // India: local is UTC+5:30, so getTimezoneOffset says -330.
 const IST = () => -330;
 const UTC = () => 0;
+// New York in 2026: daylight saving starts 8 March at 07:00Z (EST, +300, to EDT, +240)
+// and ends 1 November at 06:00Z (back to +300).
+const NY_SPRING = Date.UTC(2026, 2, 8, 7, 0);
+const NY_FALL = Date.UTC(2026, 10, 1, 6, 0);
+const NEW_YORK = (utcMs: number) => (utcMs >= NY_SPRING && utcMs < NY_FALL ? 240 : 300);
+const nyWall = (utcMs: number) => utcMs - NEW_YORK(utcMs) * 60_000;
 
 function recordText(fields: Record<string, unknown>): string {
   return JSON.stringify(fields);
@@ -67,6 +77,11 @@ console.log('\nclaude-session-record: isRecordFileName\n');
   check('an upper-case extension is refused', !isRecordFileName('41236.JSON'));
   check('a bare extension is refused', !isRecordFileName('.json'));
   check('a path is refused', !isRecordFileName('sub\\41236.json') && !isRecordFileName('sub/41236.json'));
+  // Windows pids are multiples of 4, and asking about 41237 answers for 41236.
+  check('a pid that is not a multiple of 4 is refused',
+    !isRecordFileName('41237.json') && !isRecordFileName('41238.json') && !isRecordFileName('41239.json'));
+  check('a leading zero is refused', !isRecordFileName('041236.json'));
+  check('pid 0 is refused', !isRecordFileName('0.json'));
 }
 
 console.log('\nclaude-session-record: parseSessionRecord\n');
@@ -80,67 +95,96 @@ console.log('\nclaude-session-record: parseSessionRecord\n');
     && full.kind === 'interactive' && full.procStart === '639000000000000000', show(full));
 
   for (const s of ['busy', 'idle', 'waiting', 'shell']) {
-    check(`status "${s}" is kept`, parseSessionRecord(recordText({ pid: 7, status: s }), '7.json')?.status === s);
+    check(`status "${s}" is kept`, parseSessionRecord(recordText({ pid: 8, status: s }), '8.json')?.status === s);
   }
   check('an empty status (Claude starting up) is null',
-    parseSessionRecord(recordText({ pid: 7, sessionId: ID_A, cwd: 'C:\\x', status: '' }), '7.json')?.status === null);
+    parseSessionRecord(recordText({ pid: 8, sessionId: ID_A, cwd: 'C:\\x', status: '' }), '8.json')?.status === null);
   check('an unknown status is null',
-    parseSessionRecord(recordText({ pid: 7, status: 'thinking' }), '7.json')?.status === null);
+    parseSessionRecord(recordText({ pid: 8, status: 'thinking' }), '8.json')?.status === null);
 
-  check('bad JSON is refused', parseSessionRecord('{"pid": 7, "sessionId": ', '7.json') === null);
-  check('an empty file is refused', parseSessionRecord('', '7.json') === null);
-  check('a JSON array is refused', parseSessionRecord('[1,2]', '7.json') === null);
-  check('a JSON string is refused', parseSessionRecord('"7"', '7.json') === null);
+  check('bad JSON is refused', parseSessionRecord('{"pid": 8, "sessionId": ', '8.json') === null);
+  check('an empty file is refused', parseSessionRecord('', '8.json') === null);
+  check('a JSON array is refused', parseSessionRecord('[1,2]', '8.json') === null);
+  check('a JSON string is refused', parseSessionRecord('"8"', '8.json') === null);
   check('a pid that disagrees with the file name is refused',
-    parseSessionRecord(recordText({ pid: 8, sessionId: ID_A, cwd: 'C:\\x' }), '7.json') === null);
+    parseSessionRecord(recordText({ pid: 12, sessionId: ID_A, cwd: 'C:\\x' }), '8.json') === null);
   check('a pid written as a string is refused',
-    parseSessionRecord(recordText({ pid: '7', sessionId: ID_A, cwd: 'C:\\x' }), '7.json') === null);
+    parseSessionRecord(recordText({ pid: '8', sessionId: ID_A, cwd: 'C:\\x' }), '8.json') === null);
   check('a file name with a leading zero is refused',
-    parseSessionRecord(recordText({ pid: 7 }), '07.json') === null);
+    parseSessionRecord(recordText({ pid: 8 }), '08.json') === null);
+  check('a file name that is not a multiple of 4 is refused',
+    parseSessionRecord(recordText({ pid: 7 }), '7.json') === null);
   check('pid 0 is refused', parseSessionRecord(recordText({}), '0.json') === null);
-  check('a pid past 32 bits is refused', parseSessionRecord(recordText({}), '99999999999.json') === null);
+  check('a pid past 32 bits is refused', parseSessionRecord(recordText({}), '99999999996.json') === null);
   check('a key file name is refused even with record text in it',
-    parseSessionRecord(recordText({ pid: 7, sessionId: ID_A }), '7.abc.key') === null);
+    parseSessionRecord(recordText({ pid: 8, sessionId: ID_A }), '8.abc.key') === null);
   check('a record over the size cap is refused',
-    parseSessionRecord(recordText({ pid: 7, pad: 'x'.repeat(RECORD_MAX_BYTES) }), '7.json') === null);
+    parseSessionRecord(recordText({ pid: 8, pad: 'x'.repeat(RECORD_MAX_BYTES) }), '8.json') === null);
   check('a leading byte order mark is fine',
-    parseSessionRecord('\uFEFF' + recordText({ pid: 7, sessionId: ID_A }), '7.json')?.sessionId === ID_A);
+    parseSessionRecord('\uFEFF' + recordText({ pid: 8, sessionId: ID_A }), '8.json')?.sessionId === ID_A);
   check('a record with no pid inside takes the file name',
-    parseSessionRecord(recordText({ sessionId: ID_A }), '7.json')?.pid === 7);
+    parseSessionRecord(recordText({ sessionId: ID_A }), '8.json')?.pid === 8);
 
-  const missing = parseSessionRecord(recordText({ pid: 7 }), '7.json');
+  const missing = parseSessionRecord(recordText({ pid: 8 }), '8.json');
   check('a record missing every other field parses with every field null',
     missing !== null && missing.sessionId === null && missing.cwd === null && missing.status === null
     && missing.kind === null && missing.procStart === null, show(missing));
 
-  const badId = parseSessionRecord(recordText({ pid: 7, sessionId: 'abc; rm -rf ~', cwd: 'C:\\x', status: 'busy' }), '7.json');
+  const badId = parseSessionRecord(recordText({ pid: 8, sessionId: 'abc; rm -rf ~', cwd: 'C:\\x', status: 'busy' }), '8.json');
   check('a sessionId that is not a UUID is null', badId?.sessionId === null, show(badId));
   check('and the status still comes through', badId?.status === 'busy');
-  const braced = parseSessionRecord(recordText({ pid: 7, sessionId: `{${ID_A}}` }), '7.json');
+  const braced = parseSessionRecord(recordText({ pid: 8, sessionId: `{${ID_A}}` }), '8.json');
   check('a braced UUID is not canonical', braced?.sessionId === null);
-  const numericId = parseSessionRecord(recordText({ pid: 7, sessionId: 42 }), '7.json');
+  const numericId = parseSessionRecord(recordText({ pid: 8, sessionId: 42 }), '8.json');
   check('a numeric sessionId is null', numericId?.sessionId === null);
 
   for (const bad of ['D:\\Work & play', 'D:\\a|b', 'D:\\$env', 'D:\\x`y', "D:\\Aryan's", 'D:\\a"b', 'D:\\a>b', 'D:\\a\nb']) {
-    const r = parseSessionRecord(recordText({ pid: 7, sessionId: ID_A, cwd: bad, status: 'idle' }), '7.json');
+    const r = parseSessionRecord(recordText({ pid: 8, sessionId: ID_A, cwd: bad, status: 'idle' }), '8.json');
     check(`a cwd with a shell metacharacter is null: ${JSON.stringify(bad)}`, r?.cwd === null && r?.status === 'idle', show(r));
   }
   for (const bad of ['relative\\path', '\\\\server\\share', '/c/Users', 'C:/Users']) {
     check(`a cwd that is not an absolute Windows path is null: ${bad}`,
-      parseSessionRecord(recordText({ pid: 7, cwd: bad }), '7.json')?.cwd === null);
+      parseSessionRecord(recordText({ pid: 8, cwd: bad }), '8.json')?.cwd === null);
   }
   check('CLAUDE_CWD_RE takes a plain absolute path', CLAUDE_CWD_RE.test('C:\\Users\\Aryan\\Work (copy)\\app-1'));
 
-  const both = parseSessionRecord(recordText({ pid: 7, procStart: '639000000000000000', procStartFt: '134000000000000000' }), '7.json');
-  check('procStartFt is preferred over procStart, as Claude Code reads them', both?.procStart === '134000000000000000');
-  check('procStart alone is used', parseSessionRecord(recordText({ pid: 7, procStart: '639000000000000000' }), '7.json')?.procStart === '639000000000000000');
+  const both = parseSessionRecord(recordText({ pid: 8, procStart: '639000000000000000', procStartFt: '134000000000000000' }), '8.json');
+  check('procStartFt (the FILETIME) is taken over procStart', both?.procStart === '134000000000000000');
+  check('procStart alone is used', parseSessionRecord(recordText({ pid: 8, procStart: '639000000000000000' }), '8.json')?.procStart === '639000000000000000');
   check('a procStart that is not digits is null',
-    parseSessionRecord(recordText({ pid: 7, procStart: 'Sat Nov  7 10:00:00 2026' }), '7.json')?.procStart === null);
+    parseSessionRecord(recordText({ pid: 8, procStart: 'Sat Nov  7 10:00:00 2026' }), '8.json')?.procStart === null);
   check('a numeric procStart is read as its digits',
-    parseSessionRecord(recordText({ pid: 7, procStart: 1234567 }), '7.json')?.procStart === '1234567');
+    parseSessionRecord(recordText({ pid: 8, procStart: 1234567 }), '8.json')?.procStart === '1234567');
   check('a kind that is not a plain word is null',
-    parseSessionRecord(recordText({ pid: 7, kind: 'interactive; echo' }), '7.json')?.kind === null);
-  check('the other kinds are kept', parseSessionRecord(recordText({ pid: 7, kind: 'daemon-worker' }), '7.json')?.kind === 'daemon-worker');
+    parseSessionRecord(recordText({ pid: 8, kind: 'interactive; echo' }), '8.json')?.kind === null);
+  check('the other kinds are kept', parseSessionRecord(recordText({ pid: 8, kind: 'daemon-worker' }), '8.json')?.kind === 'daemon-worker');
+}
+
+console.log('\nclaude-session-record: holdLastGood\n');
+{
+  const good = rec(200, { status: 'busy' });
+  let held = new Map<string, HeldRecord>();
+  let tick = holdLastGood([{ name: '200.json', record: good }], held);
+  check('a good read is used', tick.records.length === 1 && tick.records[0] === good);
+  held = tick.held;
+  for (let miss = 1; miss <= RECORD_READ_GRACE; miss++) {
+    tick = holdLastGood([{ name: '200.json', record: null }], held);
+    check(`failed read ${miss} in a row (mid-write): the last good record stands in`,
+      tick.records.length === 1 && tick.records[0].status === 'busy', show(tick.records));
+    held = tick.held;
+  }
+  tick = holdLastGood([{ name: '200.json', record: null }], held);
+  check(`failed read ${RECORD_READ_GRACE + 1} in a row: the record is dropped`, tick.records.length === 0);
+
+  const afterOne = holdLastGood([{ name: '200.json', record: null }],
+    holdLastGood([{ name: '200.json', record: good }], new Map()).held);
+  check('a file no longer listed is gone at once, held or not',
+    holdLastGood([], afterOne.held).records.length === 0 && holdLastGood([], afterOne.held).held.size === 0);
+  const recovered = holdLastGood([{ name: '200.json', record: rec(200, { status: 'idle' }) }], afterOne.held);
+  check('a good read after a failed one replaces the held record and resets the count',
+    recovered.records[0].status === 'idle' && recovered.held.get('200.json')?.misses === 0);
+  check('a file that never read well is not held',
+    holdLastGood([{ name: '204.json', record: null }], new Map()).records.length === 0);
 }
 
 console.log('\nclaude-session-record: procStartReadings\n');
@@ -155,6 +199,19 @@ console.log('\nclaude-session-record: procStartReadings\n');
   check('and the same ticks read as UTC are offered too', ist.length === 2 && ist[1] === istWall, show(ist));
   check('ticks in a UTC zone have one reading', show(procStartReadings(TICKS(START_MS), UTC)) === show([START_MS]));
 
+  // A Claude started 09:00Z the morning the clocks change. Its local wall clock read
+  // as UTC falls on the other side of the change, so the offset looked up there is
+  // the wrong one; the second lookup, at the instant that gives, is right.
+  const spring = Date.UTC(2026, 2, 8, 9, 0);
+  const springReadings = procStartReadings(TICKS(nyWall(spring)), NEW_YORK);
+  check('daylight saving start: the instant is read back exactly', springReadings[0] === spring, show(springReadings));
+  const fall = Date.UTC(2026, 10, 1, 9, 0);
+  const fallReadings = procStartReadings(TICKS(nyWall(fall)), NEW_YORK);
+  check('daylight saving end: the instant is read back exactly', fallReadings[0] === fall, show(fallReadings));
+  const summer = Date.UTC(2026, 6, 1, 15, 0);
+  check('far from a change the first lookup is already right',
+    procStartReadings(TICKS(nyWall(summer)), NEW_YORK)[0] === summer);
+
   check('null has no reading', procStartReadings(null).length === 0);
   check('letters have no reading', procStartReadings('12ab').length === 0);
   check('a number below either epoch has no reading', procStartReadings('12345').length === 0);
@@ -166,8 +223,8 @@ console.log('\nclaude-session-record: pidLooksAlive\n');
     { pid: 100, ppid: 4, created: START_MS - 60_000 },
     { pid: 200, ppid: 100, created: START_MS },
   ];
-  check('a live pid with the same start time is alive', pidLooksAlive(rec(200), procs));
-  check('a dead pid (not in the list) is not', !pidLooksAlive(rec(999), procs));
+  check('a listed pid with the same start time is alive', pidLooksAlive(rec(200), procs));
+  check('a dead pid (not in the list) is not', !pidLooksAlive(rec(996), procs));
 
   // A hard kill left the record behind, and Windows gave pid 200 to a process that
   // started half an hour later.
@@ -189,33 +246,39 @@ console.log('\nclaude-session-record: pidLooksAlive\n');
   check('.NET ticks of UTC match the list too', pidLooksAlive(rec(200, { procStart: TICKS(START_MS) }), procs, IST));
   check('.NET ticks of another time do not',
     !pidLooksAlive(rec(200, { procStart: TICKS(istWall + 3_600_000) }), procs, IST));
+
+  for (const [label, at] of [['8 March', Date.UTC(2026, 2, 8, 9, 0)], ['1 November', Date.UTC(2026, 10, 1, 9, 0)]] as const) {
+    const listed: Proc[] = [{ pid: 200, ppid: 100, created: at }];
+    check(`a New York Claude started 09:00Z on ${label} stays alive`,
+      pidLooksAlive(rec(200, { procStart: TICKS(nyWall(at)) }), listed, NEW_YORK));
+  }
 }
 
 console.log('\nclaude-session-record: matchRecordsToThreads\n');
 {
   // Two threads. Thread one: cmd 100, its claude 200, which runs a node 300 that
-  // started another claude 400 (a Claude starting a Claude). Thread two: pwsh 110
-  // and its own claude 210. Claude 500 belongs to some other app.
+  // started another claude 400 (a Claude starting a Claude). Thread two: pwsh 108
+  // and its own claude 208. Claude 500 belongs to some other app.
   const procs: Proc[] = [
     { pid: 100, ppid: 1, created: 1000 },
     { pid: 200, ppid: 100, created: 2000 },
     { pid: 300, ppid: 200, created: 3000 },
     { pid: 400, ppid: 300, created: 4000 },
-    { pid: 110, ppid: 1, created: 1100 },
-    { pid: 210, ppid: 110, created: 2100 },
+    { pid: 108, ppid: 1, created: 1100 },
+    { pid: 208, ppid: 108, created: 2100 },
     { pid: 500, ppid: 9, created: 5000 },
     { pid: 120, ppid: 1, created: 1200 },
   ];
-  const shells = new Map([['tab-1', 100], ['tab-2', 110], ['tab-3', 120]]);
+  const shells = new Map([['tab-1', 100], ['tab-2', 108], ['tab-3', 120]]);
   const records = [
     rec(400, { sessionId: ID_C }),
     rec(200, { sessionId: ID_A }),
-    rec(210, { sessionId: ID_B }),
+    rec(208, { sessionId: ID_B }),
     rec(500, { sessionId: ID_C }),
   ];
   const got = matchRecordsToThreads(records, shells, procs);
   check('the nested Claude loses to the one nearest the shell', got.get('tab-1')?.pid === 200, show(got));
-  check('the second thread gets its own Claude', got.get('tab-2')?.pid === 210, show(got));
+  check('the second thread gets its own Claude', got.get('tab-2')?.pid === 208, show(got));
   check('a thread with no Claude has no entry', !got.has('tab-3'));
   check('a Claude outside every thread is matched to none', ![...got.values()].some(r => r.pid === 500));
 
@@ -227,20 +290,26 @@ console.log('\nclaude-session-record: matchRecordsToThreads\n');
     [rec(200, { kind: null }), rec(400, { kind: 'bg' })], shells, procs);
   check('with no interactive record the nearest is taken', noneInteractive.get('tab-1')?.pid === 200);
 
+  const asked: number[] = [];
+  const accepted = matchRecordsToThreads(records, shells, procs, r => { asked.push(r.pid); return r.pid !== 200; });
+  check('a candidate the check refuses gives way to the next one', accepted.get('tab-1')?.pid === 400, show(accepted));
+  check('the check is asked only about candidates in the threads\' trees', !asked.includes(500), show(asked));
+  check('and stops at the first it accepts', show(asked.filter(p => p === 208)) === show([208]) && asked.length === 3, show(asked));
+
   check('no records gives an empty map', matchRecordsToThreads([], shells, procs).size === 0);
 
   // Git Bash: claude.exe was exec'd through an MSYS stub that exited, so its Windows
-  // parent (7777) is gone. MSYS's own table links it back to the bash.
+  // parent (7776) is gone. MSYS's own table links it back to the bash.
   const gitBash: Proc[] = [
-    { pid: 130, ppid: 1, created: 1300 },
-    { pid: 230, ppid: 7777, created: 2300 },
+    { pid: 132, ppid: 1, created: 1300 },
+    { pid: 232, ppid: 7776, created: 2300 },
   ];
-  const msys = [{ pid: 10, ppid: 1, winpid: 130 }, { pid: 11, ppid: 10, winpid: 230 }];
-  const bashShells = new Map([['tab-git', 130]]);
+  const msys = [{ pid: 10, ppid: 1, winpid: 132 }, { pid: 11, ppid: 10, winpid: 232 }];
+  const bashShells = new Map([['tab-git', 132]]);
   check('a Git Bash tree without the MSYS bridge finds nothing',
-    !matchRecordsToThreads([rec(230)], bashShells, gitBash).has('tab-git'));
+    !matchRecordsToThreads([rec(232)], bashShells, gitBash).has('tab-git'));
   check('with the bridge applied the Claude is found',
-    matchRecordsToThreads([rec(230)], bashShells, applyMsysParents(gitBash, msys)).get('tab-git')?.pid === 230);
+    matchRecordsToThreads([rec(232)], bashShells, applyMsysParents(gitBash, msys)).get('tab-git')?.pid === 232);
 }
 
 console.log('\nclaude-session-record: recordFeed\n');
@@ -249,11 +318,18 @@ console.log('\nclaude-session-record: recordFeed\n');
   const no = () => false;
   check('no record: no id, no folder, status null',
     show(recordFeed(undefined, yes)) === show({ pid: null, sessionId: null, cwd: null, status: null }));
-  check('a record whose transcript exists hands over its id',
+  check('an interactive record whose transcript exists hands over its id',
     show(recordFeed(rec(200, { status: 'busy' }), yes)) === show({ pid: 200, sessionId: ID_A, cwd: 'D:\\Work\\app', status: 'busy' }));
   const before = recordFeed(rec(200, { status: 'idle' }), no);
   check('a record with no transcript yet hands over no id', before.sessionId === null, show(before));
   check('but its status is still sent', before.status === 'idle');
+
+  for (const kind of ['bg', 'daemon', 'daemon-worker', null]) {
+    let looked = 0;
+    const feed = recordFeed(rec(200, { kind, status: 'busy' }), () => { looked++; return true; });
+    check(`a ${kind ?? 'kindless'} record supplies the status`, feed.status === 'busy', show(feed));
+    check(`but never an id, even with a transcript (${kind ?? 'kindless'})`, feed.sessionId === null && looked === 0, show(feed));
+  }
 
   let asked = 0;
   const counting = () => { asked++; return true; };
@@ -273,42 +349,107 @@ console.log('\nclaude-session-record: threadFeeds\n');
   const procs: Proc[] = [
     { pid: 100, ppid: 1, created: START_MS - 60_000 },
     { pid: 200, ppid: 100, created: START_MS },
-    { pid: 110, ppid: 1, created: START_MS - 60_000 },
-    { pid: 210, ppid: 110, created: START_MS + 3_600_000 },
+    { pid: 108, ppid: 1, created: START_MS - 60_000 },
+    { pid: 208, ppid: 108, created: START_MS + 3_600_000 },
     { pid: 120, ppid: 1, created: START_MS - 60_000 },
     { pid: 220, ppid: 120, created: START_MS },
-    { pid: 130, ppid: 1, created: START_MS - 60_000 },
+    { pid: 132, ppid: 1, created: START_MS - 60_000 },
+    { pid: 140, ppid: 1, created: START_MS - 60_000 },
+    { pid: 240, ppid: 140, created: START_MS },
+    { pid: 600, ppid: 9, created: START_MS },
   ];
-  const shells = new Map([['busy', 100], ['reused', 110], ['killed', 120], ['plain', 130]]);
+  const shells = new Map([['busy', 100], ['reused', 108], ['killed', 120], ['plain', 132], ['background', 140]]);
+  const askedRunning: number[] = [];
   const feeds = threadFeeds({
     records: [
       rec(200, { status: 'busy' }),
-      // A record from a claude.exe that was hard killed: pid 210 now belongs to a
+      // A record from a claude.exe that was hard killed: pid 208 now belongs to a
       // process an hour younger.
-      rec(210, { status: 'busy', sessionId: ID_B }),
+      rec(208, { status: 'busy', sessionId: ID_B }),
       // Killed a moment ago: the minute-old list still has it, the system does not.
       rec(220, { status: 'waiting', sessionId: ID_C }),
+      // A background session in its own thread: its status, never its id.
+      rec(240, { status: 'shell', sessionId: ID_C, kind: 'bg' }),
+      // Some other app's Claude.
+      rec(600, { status: 'busy', sessionId: ID_B }),
     ],
     shellPids: shells,
     procs,
     transcriptExists: () => true,
-    isRunning: pid => pid !== 220,
+    isRunning: pid => { askedRunning.push(pid); return pid !== 220; },
   });
   check('a live Claude feeds its id and status', show(feeds.get('busy')) === show({ pid: 200, sessionId: ID_A, cwd: 'D:\\Work\\app', status: 'busy' }));
   check('a record on a reused pid is ignored', show(feeds.get('reused')) === show({ pid: null, sessionId: null, cwd: null, status: null }), show(feeds.get('reused')));
   check('a record whose process just died is ignored', feeds.get('killed')?.status === null && feeds.get('killed')?.sessionId === null);
   check('a thread with no Claude gets the empty feed', show(feeds.get('plain')) === show({ pid: null, sessionId: null, cwd: null, status: null }));
-  check('every thread with a shell gets a feed', feeds.size === 4);
+  check('a background session gives the status alone', feeds.get('background')?.status === 'shell' && feeds.get('background')?.sessionId === null);
+  check('every thread with a shell gets a feed', feeds.size === 5);
+  check('the running check is asked only about Claudes in afterterm\'s threads',
+    show([...askedRunning].sort((a, b) => a - b)) === show([200, 220, 240]), show(askedRunning));
   check('no threads, no feeds', threadFeeds({ records: [rec(200)], shellPids: new Map(), procs, transcriptExists: () => true }).size === 0);
 }
 
-console.log('\nclaude-session-record: unlistedRunningPids\n');
+console.log('\nclaude-session-record: unlistedRunningPids and staleListPids\n');
 {
   const procs: Proc[] = [{ pid: 200, ppid: 100, created: 1 }];
-  const records = [rec(200), rec(300), rec(400)];
+  const records = [rec(200, { procStart: null }), rec(300), rec(400)];
   check('a running pid the list has not seen is reported, a dead one is not',
     show(unlistedRunningPids(records, procs, pid => pid === 300)) === show([300]));
   check('nothing to report when every record is listed', unlistedRunningPids([rec(200)], procs, () => true).length === 0);
+
+  // /exit, then `claude` again in the same shell, and the new claude.exe got the old
+  // pid: the list still holds the old process at 200, with the old start time.
+  const tree: Proc[] = [
+    { pid: 100, ppid: 1, created: START_MS - 60_000 },
+    { pid: 200, ppid: 100, created: START_MS - 30_000 },
+    { pid: 700, ppid: 9, created: START_MS - 30_000 },
+  ];
+  const shells = new Map([['tab-1', 100]]);
+  const asked: number[] = [];
+  const isRunning = (pid: number) => { asked.push(pid); return true; };
+  const stale = staleListPids(
+    [rec(200), rec(700), rec(800), rec(100, { procStart: FILETIME(START_MS - 60_000) })],
+    shells, tree, isRunning);
+  check('a listed pid in a thread\'s tree whose start time disagrees asks for a fresh list', stale.includes(200), show(stale));
+  check('an unlisted running pid asks too', stale.includes(800), show(stale));
+  check('a disagreeing pid outside every thread does not', !stale.includes(700), show(stale));
+  check('a record whose start time agrees does not', !stale.includes(100), show(stale));
+  check('and the running check is never asked about the one outside', !asked.includes(700), show(asked));
+  check('a disagreeing pid that is no longer running does not ask',
+    staleListPids([rec(200)], shells, tree, () => false).length === 0);
+}
+
+console.log('\nclaude-session-record: listRefreshPlan\n');
+{
+  const T = 1_000_000;
+  let asked = new Map<number, ListAsk>();
+  let plan = listRefreshPlan([200], asked, T - 5_000, T, true);
+  check('a new stale pid is asked about', show(plan.ask) === show([200]) && plan.waiting === false);
+  asked = plan.asked;
+
+  plan = listRefreshPlan([200], asked, T - 5_000, T + 2_000, true);
+  check('while its read has not happened it is not asked again, and the caller can wait',
+    plan.ask.length === 0 && plan.waiting === true, show(plan));
+  asked = plan.asked;
+
+  plan = listRefreshPlan([200], asked, T + 3_000, T + 4_000, true);
+  check('still stale after a read that started since: asking stops',
+    plan.ask.length === 0 && plan.waiting === false && plan.asked.get(200)?.gaveUp === true, show(plan));
+  asked = plan.asked;
+  plan = listRefreshPlan([200], asked, T + 3_000, T + 60_000, true);
+  check('and stays stopped', plan.ask.length === 0 && plan.waiting === false);
+
+  plan = listRefreshPlan([], plan.asked, T + 3_000, T + 70_000, true);
+  check('a pid no longer stale is forgotten', plan.asked.size === 0);
+  plan = listRefreshPlan([200], plan.asked, T + 3_000, T + 80_000, true);
+  check('so it can be asked about again later', show(plan.ask) === show([200]));
+
+  const limited = listRefreshPlan([300], new Map(), 0, T, false);
+  check('under the rate limit nothing new is asked or remembered', limited.ask.length === 0 && limited.asked.size === 0);
+
+  const noRead = listRefreshPlan([300], new Map([[300, { at: T, gaveUp: false }]]), T - 1, T + LIST_ASK_GIVE_UP_MS + 1, true);
+  check('a pid asked about long ago with no read since stops being asked',
+    noRead.ask.length === 0 && noRead.asked.get(300)?.gaveUp === true && noRead.waiting === false);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

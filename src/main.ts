@@ -26,12 +26,14 @@ import { readTranscriptMeta, isSessionId, findTranscript, projectDirName, transc
 import {
   CLAUDE_CWD_RE,
   RECORD_MAX_BYTES,
+  holdLastGood,
   isRecordFileName,
+  listRefreshPlan,
   parseSessionRecord,
+  staleListPids,
   threadFeeds,
-  unlistedRunningPids,
 } from './claude-session-record.ts';
-import type { RecordStatus, SessionRecord } from './claude-session-record.ts';
+import type { HeldRecord, ListAsk, RecordRead, RecordStatus, SessionRecord } from './claude-session-record.ts';
 import { gitInfo } from './git-info.ts';
 import { isThreadId, parseTail, serializeTail, tailFilePath, trimTail } from './thread-tail.ts';
 import {
@@ -408,6 +410,8 @@ let treeDirty = true;
 
 let pollRunning = false;
 let pollAgain = false;
+// Callers waiting for the next poll to finish (nextPollDone).
+let pollWaiters: Array<() => void> = [];
 let serverPollTimer: NodeJS.Timeout | null = null;
 let burstTimer: NodeJS.Timeout | null = null;
 let lastBurstPollAt = 0;
@@ -464,6 +468,13 @@ async function pollServers(reason: string): Promise<void> {
     const key = listenerKey(listeners);
     const stale = Date.now() - cachedProcsAt > SERVER_PROC_MAX_AGE_MS;
     if (key !== lastListenerKey || treeDirty || stale || cachedProcs.length === 0) {
+      // The flag is taken when the read starts, not when it ends, so a tree marked
+      // dirty while the read runs (a PTY created, a Claude session record naming a
+      // process this read may have missed) gets the queued re-run's read too. For the
+      // same reason cachedProcsAt is when the read started: the list holds every
+      // process that existed by then.
+      const readStartedAt = Date.now();
+      treeDirty = false;
       try {
         const json = await runCommand(
           'powershell.exe',
@@ -476,9 +487,10 @@ async function pollServers(reason: string): Promise<void> {
         // re-read the process list, so the two lists never date apart.
         const psPath = liveMsysPsPath();
         cachedMsys = psPath ? await readMsysProcs(psPath, reason) : [];
-        cachedProcsAt = Date.now();
-        treeDirty = false;
+        cachedProcsAt = readStartedAt;
       } catch (err) {
+        // Nothing was read, so whatever made the tree dirty still stands.
+        treeDirty = true;
         if (!warnedProcList) {
           warnedProcList = true;
           console.warn(`[servers] process list failed (${reason}), ports left as they were:`, err);
@@ -510,9 +522,27 @@ async function pollServers(reason: string): Promise<void> {
     pollRunning = false;
     if (pollAgain) {
       pollAgain = false;
+      // The waiters wait on this re-run: it is the one that answers their request.
       void pollServers('a poll was requested while one was running');
+    } else {
+      const waiters = pollWaiters;
+      pollWaiters = [];
+      for (const done of waiters) done();
     }
   }
+}
+
+/**
+ * Resolves when the next poll to finish has finished, including a re-run queued while
+ * one was running, or after `timeoutMs` at the latest. A caller that has just asked
+ * for a fresh process list (treeDirty plus pollServers) awaits this, because
+ * pollServers itself returns at once when a poll is already running.
+ */
+function nextPollDone(timeoutMs: number): Promise<void> {
+  return new Promise<void>(resolve => {
+    const timer = setTimeout(resolve, timeoutMs);
+    pollWaiters.push(() => { clearTimeout(timer); resolve(); });
+  });
 }
 
 function startServerPolling(): void {
@@ -613,12 +643,18 @@ async function killTree(tabId: string, pid: number, info: ShellInfo | undefined)
 // which the renderer keeps on the tab and never saves. The hooks stay the fallback.
 //
 // Cost: listing the folder and reading a handful of small files. The process tree
-// comes from the server watcher's cached list, never a PowerShell of its own. A record
-// naming a running claude.exe the list has not seen (started since the list was taken)
-// asks the watcher for a fresh list, at most every 10 seconds.
+// comes from the server watcher's cached list, never a PowerShell of its own, and the
+// running check (process.kill with signal 0) is made only for Claudes in afterterm's
+// own threads. A record the list is out of step with (a claude.exe started since the
+// list was taken, or a new one on a pid the list knows as another process) asks the
+// watcher for a fresh list, at most every 10 seconds, and only once per pid
+// (listRefreshPlan).
 
 const CLAUDE_RECORD_POLL_MS = 2_000;
 const CLAUDE_RECORD_REFRESH_MIN_GAP_MS = 10_000;
+// How long a fresh pass (the restart window opening) waits for the process list it
+// asked for. The commands under it time out sooner, so this is only a backstop.
+const CLAUDE_RECORD_FRESH_WAIT_MS = 20_000;
 // A folder holding more files than this is read only this far, so a tick stays cheap
 // whatever is in it.
 const CLAUDE_RECORD_MAX_FILES = 200;
@@ -630,6 +666,10 @@ let claudeRecordTimer: NodeJS.Timeout | null = null;
 let claudeRecordTick: Promise<void> | null = null;
 let lastRecordListRefreshAt = 0;
 let warnedClaudeRecords = false;
+// Each record file's last good read, standing in while the file is caught mid-write.
+let heldRecords = new Map<string, HeldRecord>();
+// The pids a fresh process list was asked for, and which of those asking has stopped for.
+let listAsks = new Map<number, ListAsk>();
 // Per thread, what this reader last sent: the id (each is sent once) and the status
 // (sent only when it changes). Dropped when the thread's PTY goes (forgetRecordTab).
 const recordSessionSent = new Map<string, string>();
@@ -654,7 +694,9 @@ function stopClaudeRecordPolling(): void {
 /**
  * True while the pid is a running process: the cached list can be a minute old, and a
  * hard-killed Claude leaves its record behind for a while. Signal 0 sends nothing, it
- * only asks; Claude Code checks its own records the same way.
+ * only asks; Claude Code checks its own records the same way. Windows answers for the
+ * multiple of 4 at or below the number asked about, which is why record names that are
+ * not a multiple of 4 are refused (isRecordFileName).
  */
 function pidRunning(pid: number): boolean {
   try {
@@ -667,24 +709,27 @@ function pidRunning(pid: number): boolean {
 }
 
 /**
- * Every record in the folder, parsed and validated. Only `<pid>.json` names are
- * opened: the `<pid>.<hash>.key` files beside them hold a token and are never read.
- * Plain files only, so a link placed in the folder is not followed.
+ * Every record file in the folder, read and validated: one entry per file, with a null
+ * record when the read or the parse failed (holdLastGood decides what that means).
+ * Only record names are opened (isRecordFileName): the `<pid>.<hash>.key` files beside
+ * them hold a token and are never read. Plain files only, so a link placed in the
+ * folder is not followed.
  */
-function readSessionRecords(dir: string): SessionRecord[] {
+function readSessionRecords(dir: string): RecordRead[] {
   let entries: fs.Dirent[];
   try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return []; }
-  const out: SessionRecord[] = [];
-  let opened = 0;
+  const out: RecordRead[] = [];
   for (const entry of entries) {
     if (!entry.isFile() || !isRecordFileName(entry.name)) continue;
-    if (++opened > CLAUDE_RECORD_MAX_FILES) break;
+    if (out.length >= CLAUDE_RECORD_MAX_FILES) break;
     const file = path.join(dir, entry.name);
+    let record: SessionRecord | null = null;
     try {
-      if (fs.statSync(file).size > RECORD_MAX_BYTES) continue;
-      const record = parseSessionRecord(fs.readFileSync(file, 'utf-8'), entry.name);
-      if (record) out.push(record);
+      if (fs.statSync(file).size <= RECORD_MAX_BYTES) {
+        record = parseSessionRecord(fs.readFileSync(file, 'utf-8'), entry.name);
+      }
     } catch { /* gone since the listing, or mid-write: the next tick reads it */ }
+    out.push({ name: entry.name, record });
   }
   return out;
 }
@@ -727,7 +772,11 @@ function sendRecordStatus(tabId: string, status: RecordStatus | null): void {
 
 async function claudeRecordPass(fresh: boolean): Promise<void> {
   if (shellPids.size === 0) return;
-  const records = readSessionRecords(getClaudeSessionsDir());
+  // A file caught mid-write keeps its last good record for a tick or two, so the
+  // status does not blip to null (which would read as "not mid-turn").
+  const merged = holdLastGood(readSessionRecords(getClaudeSessionsDir()), heldRecords);
+  heldRecords = merged.held;
+  const records = merged.records;
   // Each pid is asked about once per pass.
   const running = new Map<number, boolean>();
   const isRunning = (pid: number) => {
@@ -736,17 +785,28 @@ async function claudeRecordPass(fresh: boolean): Promise<void> {
     return alive;
   };
 
-  // A running claude.exe the list has not seen cannot be placed in any tree until the
+  // A claude.exe the list is out of step with cannot be placed in its tree until the
   // list is read again. The server watcher reads it; a fresh pass (the restart window
   // opening) waits for that read, a timer pass picks the result up next time.
-  if (records.length > 0 && unlistedRunningPids(records, cachedProcs, isRunning).length > 0) {
-    const now = Date.now();
-    if (fresh || now - lastRecordListRefreshAt >= CLAUDE_RECORD_REFRESH_MIN_GAP_MS) {
-      lastRecordListRefreshAt = now;
-      treeDirty = true;
-      const poll = pollServers('a Claude session record names a process the list has not seen');
-      if (fresh) await poll;
-    }
+  const now = Date.now();
+  const plan = listRefreshPlan(
+    records.length > 0 ? staleListPids(records, shellPidMap(), bridgedProcs(), isRunning) : [],
+    listAsks,
+    cachedProcsAt,
+    now,
+    fresh || now - lastRecordListRefreshAt >= CLAUDE_RECORD_REFRESH_MIN_GAP_MS,
+  );
+  listAsks = plan.asked;
+  // A fresh pass also waits on a list asked for on an earlier pass and not read yet;
+  // asking again makes sure a read is running or queued for it to wait on.
+  const mustWait = fresh && (plan.ask.length > 0 || plan.waiting);
+  if (plan.ask.length > 0) lastRecordListRefreshAt = now;
+  if (plan.ask.length > 0 || mustWait) {
+    treeDirty = true;
+    // Taken before the poll is asked for, so a poll that finishes at once still counts.
+    const done = mustWait ? nextPollDone(CLAUDE_RECORD_FRESH_WAIT_MS) : null;
+    void pollServers('a Claude session record names a process the list does not know yet');
+    if (done) await done;
   }
 
   // Read after any await above, so a tab whose PTY went meanwhile is not in it.
@@ -782,7 +842,10 @@ async function claudeRecordPass(fresh: boolean): Promise<void> {
 /**
  * One pass, never two at once, never throwing. A timer pass is skipped while one is
  * running; a fresh pass (claude-record:refresh) waits for the running one and then
- * runs its own, so what it resolves after was read after it was asked for.
+ * runs its own, so the records it resolves after were read after it was asked for.
+ * When the process list is out of step with a record, the fresh pass also waits for
+ * the next process list read to complete (nextPollDone, which covers a read already
+ * running or queued behind one) before it matches, up to CLAUDE_RECORD_FRESH_WAIT_MS.
  */
 function runClaudeRecordTick(fresh: boolean): Promise<void> {
   if (claudeRecordTick) {

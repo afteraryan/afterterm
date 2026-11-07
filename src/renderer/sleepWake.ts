@@ -24,6 +24,8 @@ const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0
 // sleptAt records when, notification is cleared (a sleeping thread has nothing
 // to notify about), and wokeAt is cleared (a thread that was woken and then put
 // back to sleep should not still carry a stale "woken this launch" stamp).
+// recordStatus goes too: it is what a running Claude was doing, and a sleeping
+// thread has no running Claude.
 // Everything else, session id, cwd, claudeTitle, model, branch, worktree,
 // fontSize, is left exactly as it was: sleep records a process going away, not
 // a thread losing its identity.
@@ -31,6 +33,7 @@ export function sleepTab(tab: Tab, now: number): Tab {
   const next: Tab = { ...tab, asleep: true, sleptAt: now };
   delete next.notification;
   delete next.wokeAt;
+  delete next.recordStatus;
   return next;
 }
 
