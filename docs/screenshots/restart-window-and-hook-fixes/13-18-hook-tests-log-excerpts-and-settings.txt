@@ -1,0 +1,219 @@
+Hook tests 13 to 18: harness log excerpts and scratch settings files, 2026-11-07
+
+Times are local (UTC+5:30). The [claude-hook] lines carry no timestamp of their own, so each test gives the
+times its test script recorded and the line numbers in that run's harness.log. Where the app's log line has a
+long dash between the status and the detail, it is written here as a colon. Nothing below comes from the real
+Claude folder: every settings file is a scratch copy under %TEMP%.
+
+== Test 13: opt-out seeded, no CLAUDE_CONFIG_DIR (data dir rw-fixes-hook13, port 9373)
+Launched 16:18:14, held 6 s after the DevTools endpoint came up, stopped 16:18:31. No --env at all.
+Real settings.json before and after: modified 13:00:53.939, 5551 bytes, SHA256 AF83ECAF...0EDEAB both times;
+real hook script SHA256 21A8E8A0...68633B both times.
+  line 37: DevTools listening on ws://127.0.0.1:9373/devtools/browser/<id>
+  line 38: [claude-hook] skipped: this is a test launch (AFTERTERM_USER_DATA_DIR is set) with no CLAUDE_CONFIG_DIR, so the real Claude folder is left alone
+No other [claude-hook] line in that log.
+
+== Test 14: opt-out with a scratch folder holding another tool's hook in afterterm's group (rw-fixes-hook14, port 9374)
+Scratch folder %TEMP%\rw-fixes-claude-14, seeded by seed-scratch-claude.mjs from %TEMP%\rw-fixes-claude\settings.json.
+Launched 16:19:04 with prefs {"claudeNotifications":"disabled","claudeHookToastShown":true} and CLAUDE_CONFIG_DIR set to it.
+  line 37: DevTools listening on ws://127.0.0.1:9374/devtools/browser/<id>
+  line 38: [claude-hook] removed: user opted out: entries removed
+
+-- settings.json before the launch:
+{
+  "theme": "scratch-marker",
+  "statusLine": {
+    "type": "command",
+    "command": "echo scratch"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh",
+            "args": [
+              "-NoProfile",
+              "-ExecutionPolicy",
+              "Bypass",
+              "-File",
+              "C:\\Users\\Aryan\\AppData\\Local\\Temp\\rw-fixes-claude\\hooks\\afterterm-notify.ps1"
+            ]
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh",
+            "args": [
+              "-NoProfile",
+              "-ExecutionPolicy",
+              "Bypass",
+              "-File",
+              "C:\\Users\\Aryan\\AppData\\Local\\Temp\\rw-fixes-claude\\hooks\\afterterm-notify.ps1"
+            ]
+          },
+          {
+            "type": "command",
+            "command": "cmd",
+            "args": [
+              "/c",
+              "echo someone-elses-hook-same-group"
+            ]
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "permission_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh",
+            "args": [
+              "-NoProfile",
+              "-ExecutionPolicy",
+              "Bypass",
+              "-File",
+              "C:\\Users\\Aryan\\AppData\\Local\\Temp\\rw-fixes-claude\\hooks\\afterterm-notify.ps1"
+            ]
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh",
+            "args": [
+              "-NoProfile",
+              "-ExecutionPolicy",
+              "Bypass",
+              "-File",
+              "C:\\Users\\Aryan\\AppData\\Local\\Temp\\rw-fixes-claude\\hooks\\afterterm-notify.ps1"
+            ]
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd",
+            "args": [
+              "/c",
+              "echo someone-elses-hook-own-group"
+            ]
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh",
+            "args": [
+              "-NoProfile",
+              "-ExecutionPolicy",
+              "Bypass",
+              "-File",
+              "C:\\Users\\Aryan\\AppData\\Local\\Temp\\rw-fixes-claude\\hooks\\afterterm-notify.ps1"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+-- settings.json after the launch (copied about 6 s after it):
+{
+  "theme": "scratch-marker",
+  "statusLine": {
+    "type": "command",
+    "command": "echo scratch"
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd",
+            "args": [
+              "/c",
+              "echo someone-elses-hook-same-group"
+            ]
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd",
+            "args": [
+              "/c",
+              "echo someone-elses-hook-own-group"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+
+== Test 17: opt-out on, hooks deleted (same instance as test 14)
+The hooks key deleted by hand at 16:19:31. Hash checked every 3 s for 18 s: unchanged each time
+(A8C49E11DE3B89E59D8E28DAF03CF0E200243A0713F924EE47926BACBBFD771F). No [claude-hook] line after line 38. Stopped 16:19:51.
+-- settings.json 18 s after the delete:
+{
+  "theme": "scratch-marker",
+  "statusLine": {
+    "type": "command",
+    "command": "echo scratch"
+  }
+}
+
+== Tests 15, 16 and 18: the main instance (data dir rw-fixes-live, port 9371, CLAUDE_CONFIG_DIR=%TEMP%\rw-fixes-claude)
+Its two launches (the second with the seeded session):
+  line 40: [claude-hook] registered: registered 5 hook event(s) using pwsh
+  line 83: [claude-hook] already-current: already registered
+Before test 15, "theme" and "statusLine" were added to the scratch settings.json; with the hooks present this logged nothing.
+
+-- Test 15: hooks key deleted at 16:20:13.540; all five events back 2.64 s later. The other keys and the hooks block
+   were identical to the copy taken just before the delete (compared as JSON).
+  line 659: [claude-hook] registered: registered 5 hook event(s) using pwsh
+  line 660: [claude-hook] repaired: settings.json had no afterterm entry for SessionStart, UserPromptSubmit, Notification, Stop, PreCompact; registered 5 hook event(s) using pwsh
+-- Test 16: hooks key deleted at 16:20:38.146 while tab-2 was mid-turn; all five back 1.86 s later.
+  line 668: [claude-hook] registered: registered 5 hook event(s) using pwsh
+  line 669: [claude-hook] repaired: settings.json had no afterterm entry for SessionStart, UserPromptSubmit, Notification, Stop, PreCompact; registered 5 hook event(s) using pwsh
+-- Test 18: settings.json without hooks cut to 101 bytes at 16:21:17 (it does not parse). Hash unchanged every 3 s for
+   18 s (06EA59C8BBEBA25FE7BFD91FD7A5490467062A0085B0F8FA871CC4D6DC18CC94) and no [claude-hook] line. Written back as valid
+   JSON without hooks at 16:21:36.128; all five back 4.25 s later.
+  line 679: [claude-hook] registered: registered 5 hook event(s) using pwsh
+  line 680: [claude-hook] repaired: settings.json had no afterterm entry for SessionStart, UserPromptSubmit, Notification, Stop, PreCompact; registered 5 hook event(s) using pwsh
+-- The invalid file as it stood 18 s after the cut:
+{
+  "theme": "scratch-marker",
+  "statusLine": {
+    "type": "command",
+    "command": "echo scra
