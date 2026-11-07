@@ -14,6 +14,7 @@ import {
   HOOK_REPAIR_WINDOW_MS,
   HOOK_SCRIPT_NAME,
 } from './claude-hook-install.ts';
+import { readPrefs, updatePrefs } from './prefs.ts';
 
 let pass = 0;
 let fail = 0;
@@ -471,8 +472,13 @@ console.log('\nreconcileClaudeHook tests\n');
     !needsHookRepair(null, disabled).repair);
   check('repair check: opted out, no repair when one event is missing',
     !needsHookRepair(text(without('Notification')), disabled).repair);
-  check('repair check: prefs.json not valid JSON (null), no repair',
-    !needsHookRepair(text(noHooks), null).repair && !needsHookRepair(null, null).repair);
+  // A prefs.json that does not parse comes back from readPrefs as {}, which counts as
+  // enabled, the same rule reconcile follows at launch (section 22 checks it agrees).
+  const garbagePrefs = path.join(b.root, 'garbage-prefs.json');
+  fs.writeFileSync(garbagePrefs, '{ "claudeNotifications": "disabled", oops', 'utf-8');
+  const unread = readPrefs(garbagePrefs);
+  check('repair check: prefs.json that does not parse counts as enabled, repair',
+    !unread.usable && needsHookRepair(text(noHooks), unread.prefs).repair && needsHookRepair(null, unread.prefs).repair);
 
   const theirs = { matcher: '', hooks: [{ type: 'command', command: 'node', args: ['other-tool.js'] }] };
   const otherOnly = { hooks: { Stop: [theirs], SessionStart: [theirs] } };
@@ -628,6 +634,10 @@ console.log('\nreconcileClaudeHook tests\n');
   for (const [name, text] of [['garbage', '{ "claudeNotifications": "disabled", oops'], ['a JSON array', '[1, 2]']] as const) {
     const b = sandbox();
     fs.writeFileSync(b.prefsPath, text, 'utf-8');
+    // Launch and the poll agree: the poll's check asks for the repair launch makes,
+    // and after it finds nothing to do.
+    check(`unparseable prefs (${name}): the poll's check also counts it as enabled`,
+      needsHookRepair(null, readPrefs(b.prefsPath).prefs).repair);
     const r = reconcileClaudeHook(opts(b));
     const s = readSettings(b.claudeDir);
     check(`unparseable prefs (${name}): treated as enabled, entries registered`,
@@ -638,7 +648,33 @@ console.log('\nreconcileClaudeHook tests\n');
     const r2 = reconcileClaudeHook(opts(b));
     check(`unparseable prefs (${name}): a second run is already-current and still leaves it`,
       r2.status === 'already-current' && fs.readFileSync(b.prefsPath, 'utf-8') === text, r2.status);
+    check(`unparseable prefs (${name}): after the repair the poll's check finds nothing to do`,
+      !needsHookRepair(fs.readFileSync(path.join(b.claudeDir, 'settings.json'), 'utf-8'), readPrefs(b.prefsPath).prefs).repair);
   }
+}
+
+// 23. readPrefs counts only a missing file as empty and writable. Any other read
+//     error (here a folder in place of prefs.json, EISDIR; a locked file or denied
+//     access are the same case) is not usable, so nothing writes over it.
+{
+  const b = sandbox();
+  check('readPrefs: a missing file is usable and empty', (() => {
+    const r = readPrefs(b.prefsPath);
+    return r.usable && Object.keys(r.prefs).length === 0;
+  })());
+  fs.mkdirSync(b.prefsPath); // a folder where prefs.json should be
+  const r = readPrefs(b.prefsPath);
+  check('readPrefs: a file that cannot be read is not usable', !r.usable && Object.keys(r.prefs).length === 0);
+  check('updatePrefs: refuses to write over a file it could not read',
+    updatePrefs(b.prefsPath, { editorPath: 'C:\\Tools\\editor.exe' }) === false &&
+    fs.statSync(b.prefsPath).isDirectory() && fs.readdirSync(b.prefsPath).length === 0);
+  let threw = false;
+  let rr: ReturnType<typeof reconcileClaudeHook> | null = null;
+  try { rr = reconcileClaudeHook(opts(b)); } catch { threw = true; }
+  check('reconcile: a prefs.json that cannot be read counts as enabled, entries registered, no throw',
+    !threw && rr?.status === 'registered' && !rr.showToast, threw ? 'threw' : rr?.status);
+  check('reconcile: nothing is written in place of the prefs.json it could not read',
+    fs.statSync(b.prefsPath).isDirectory() && fs.readdirSync(b.prefsPath).length === 0);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

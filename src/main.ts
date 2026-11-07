@@ -648,33 +648,49 @@ function reconcileNotifierHook(): ReconcileResult | null {
 
 // The launch reconcile above is not enough on its own: on 2026-11-06 a test launch
 // removed afterterm's entries and every chat ran with no hooks for 21 hours. This
-// watch on the Claude folder's settings.json puts them back within seconds, and a
-// running chat picks them up with no restart. The decision is needsHookRepair
+// poll of the Claude folder's settings.json puts them back within a few seconds, and
+// a running chat picks them up with no restart. The decision is needsHookRepair
 // (claude-hook-install.ts); the repair is reconcileNotifierHook, so the test launch
 // guard and the opt-out apply to it exactly as at launch.
 //
-// The folder is watched, not the file, because an editor or Claude Code may replace
-// settings.json (write a temp file, rename it over) rather than write into it. When
-// the folder cannot be watched (missing, EPERM, or the watch errors later), a slow
-// stat poll of settings.json takes over.
-const HOOK_REPAIR_DEBOUNCE_MS = 1500; // one check after a save's burst of events settles
-const HOOK_REPAIR_POLL_MS = 10_000;   // the fallback poll
-let hookWatchStarted = false;
-let hookWatchStopped = false;
-let hookWatcher: fs.FSWatcher | null = null;
-let hookPollFile: string | null = null;
+// A poll, not fs.watch: a watch on the folder was tried first, and when the folder
+// is deleted or moved while the app runs (Explorer's delete is a move), libuv on
+// Windows raises no error and sends 'rename' events without end (266,399 in 2
+// seconds, measured on Electron 35.7.5's runtime), which held main at a full core
+// until quit and turned the repair off. One stat every 3 seconds costs nothing and
+// sees a replaced file, a deleted file and a missing folder alike.
+const HOOK_POLL_MS = 3000;
+const HOOK_REPAIR_DEBOUNCE_MS = 1000; // one check after a run of changes settles
+let hookPollStarted = false;
+let hookPollStopped = false;
+let hookPollTimer: NodeJS.Timeout | null = null;
+let hookLastSample: { exists: boolean; mtimeMs: number; size: number } | null = null;
 let hookCheckTimer: NodeJS.Timeout | null = null;
 let hookRepairTimes: number[] = []; // performance.now() of each repair, for the loop guard
 let hookRepairCapWarned = false;
 
 function scheduleHookCheck(delay = HOOK_REPAIR_DEBOUNCE_MS) {
-  if (hookWatchStopped) return;
+  if (hookPollStopped) return;
   if (hookCheckTimer) clearTimeout(hookCheckTimer);
   hookCheckTimer = setTimeout(() => { hookCheckTimer = null; checkHookEntries(); }, delay);
 }
 
+// One stat of settings.json; a check is scheduled on the first sample and whenever
+// the file appears, goes, or changes time or size. A missing folder is exists=false.
+function sampleHookSettings() {
+  let sample = { exists: false, mtimeMs: 0, size: 0 };
+  try {
+    const st = fs.statSync(path.join(getClaudeDir(), 'settings.json'));
+    sample = { exists: true, mtimeMs: st.mtimeMs, size: st.size };
+  } catch { /* missing, or the folder is: exists=false */ }
+  const last = hookLastSample;
+  hookLastSample = sample;
+  if (last && last.exists === sample.exists && last.mtimeMs === sample.mtimeMs && last.size === sample.size) return;
+  scheduleHookCheck();
+}
+
 function checkHookEntries() {
-  if (hookWatchStopped) return;
+  if (hookPollStopped) return;
   const claudeDir = getClaudeDir();
   // No Claude folder: Claude Code is not set up (or the folder went), nothing to repair into.
   if (!fs.existsSync(claudeDir)) return;
@@ -683,14 +699,14 @@ function checkHookEntries() {
     text = fs.readFileSync(path.join(claudeDir, 'settings.json'), 'utf-8');
   } catch (err) {
     // Missing counts as needing repair; any other read error (busy mid-replace) waits
-    // for the next event rather than guessing.
+    // for the next change rather than guessing.
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') return;
     text = null;
   }
   // Read on every check, never cached, so an opt-out written while the app runs
-  // stops the repair at once.
-  const { prefs, usable } = readPrefs(getPrefsPath());
-  const check = needsHookRepair(text, usable ? prefs : null);
+  // stops the repair at once. A prefs.json that could not be read comes back empty,
+  // which counts as enabled, the same rule reconcile follows at launch.
+  const check = needsHookRepair(text, readPrefs(getPrefsPath()).prefs);
   if (!check.repair) return;
   const now = performance.now();
   hookRepairTimes = hookRepairTimes.filter(t => now - t < HOOK_REPAIR_WINDOW_MS);
@@ -708,55 +724,19 @@ function checkHookEntries() {
   if (result?.changed) console.log(`[claude-hook] repaired: ${check.reason}; ${result.detail}`);
 }
 
-const onHookPoll = () => scheduleHookCheck();
-
-function pollHookEntries() {
-  if (hookPollFile || hookWatchStopped) return;
-  const file = path.join(getClaudeDir(), 'settings.json');
-  try {
-    // Fires when the file's stat changes, including when it goes or comes back.
-    fs.watchFile(file, { interval: HOOK_REPAIR_POLL_MS, persistent: false }, onHookPoll);
-    hookPollFile = file;
-  } catch (err) {
-    console.warn('[claude-hook] cannot watch settings.json; afterterm\'s entries are checked only at launch:', err);
-  }
-}
-
-function startHookRepairWatch() {
-  if (hookWatchStarted) return;
-  // A test launch that may not touch the real Claude folder gets no watch at all.
+function startHookRepairPoll() {
+  if (hookPollStarted) return;
+  // A test launch that may not touch the real Claude folder gets no poll at all.
   if (!hookReconcileAllowed(process.env)) return;
-  hookWatchStarted = true;
-  const claudeDir = getClaudeDir();
-  try {
-    const watcher = fs.watch(claudeDir, (_event, filename) => {
-      const name = filename?.toString().toLowerCase();
-      // settings.json, or an editor's temp copy of it. No name (some platforms omit
-      // it) is checked too: a check that finds everything in place writes nothing.
-      if (name && !name.startsWith('settings.json')) return;
-      scheduleHookCheck();
-    });
-    // Without this handler an error (the folder deleted, say) would throw in main.
-    watcher.on('error', (err: NodeJS.ErrnoException) => {
-      try { watcher.close(); } catch { /* already closed */ }
-      if (hookWatcher === watcher) hookWatcher = null;
-      if (hookWatchStopped) return;
-      console.warn(`[claude-hook] lost the watch on ${claudeDir} (${err.code ?? err.message}); polling settings.json every ${HOOK_REPAIR_POLL_MS / 1000}s instead`);
-      pollHookEntries();
-      scheduleHookCheck();
-    });
-    hookWatcher = watcher;
-  } catch (err) {
-    console.warn(`[claude-hook] cannot watch ${claudeDir} (${(err as NodeJS.ErrnoException).code ?? err}); polling settings.json every ${HOOK_REPAIR_POLL_MS / 1000}s instead`);
-    pollHookEntries();
-  }
+  hookPollStarted = true;
+  sampleHookSettings();
+  hookPollTimer = setInterval(sampleHookSettings, HOOK_POLL_MS);
 }
 
-function stopHookRepairWatch() {
-  hookWatchStopped = true;
+function stopHookRepairPoll() {
+  hookPollStopped = true;
+  if (hookPollTimer) { clearInterval(hookPollTimer); hookPollTimer = null; }
   if (hookCheckTimer) { clearTimeout(hookCheckTimer); hookCheckTimer = null; }
-  if (hookWatcher) { try { hookWatcher.close(); } catch { /* already closed */ } hookWatcher = null; }
-  if (hookPollFile) { fs.unwatchFile(hookPollFile, onHookPoll); hookPollFile = null; }
 }
 
 // One-time "notifications enabled" toast through the existing overlay path. Uses a
@@ -2332,8 +2312,8 @@ app.on('before-quit', async (e) => {
 });
 
 // will-quit, not before-quit: before-quit can be cancelled (the PTY drain above), and
-// the hook repair watch should keep working until the app really goes.
-app.on('will-quit', stopHookRepairWatch);
+// the hook repair poll should keep working until the app really goes.
+app.on('will-quit', stopHookRepairPoll);
 
 // ─── Installer mode: the setup check ─────────────────────────────────────────
 
@@ -2450,8 +2430,8 @@ app.whenReady().then(async () => {
   createNotifierWindow();
   createWindow();
   reconcileNotifierHook();
-  // After the launch reconcile, so the watch starts from a complete settings.json.
-  startHookRepairWatch();
+  // After the launch reconcile, so the poll starts from a complete settings.json.
+  startHookRepairPoll();
   startClaudeSessionWatch();
   // Editors: last launch's list at once, then a fresh detection in the background
   // (asynchronous, so it never holds the main thread; see detectDeps).

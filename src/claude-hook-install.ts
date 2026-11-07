@@ -93,13 +93,18 @@ function writeJson(file: string, obj: unknown): void {
 
 // Prefer pwsh (UTF-8 stdout by default); fall back to Windows PowerShell, which
 // is always present on Windows. The hook script forces UTF-8 either way.
+// Looked up once per run: `where.exe` is a process start on main's thread, and the
+// settings.json poll in main.ts may call reconcile again while the app runs.
+let detectedPowershell: string | undefined;
 function detectPowershell(): string {
+  if (detectedPowershell) return detectedPowershell;
   try {
     execFileSync('where.exe', ['pwsh'], { stdio: 'ignore' });
-    return 'pwsh';
+    detectedPowershell = 'pwsh';
   } catch {
-    return 'powershell';
+    detectedPowershell = 'powershell';
   }
+  return detectedPowershell;
 }
 
 // The arguments every afterterm hook entry runs the script with. -ExecutionPolicy
@@ -187,8 +192,10 @@ export function reconcileClaudeHook(opts: ReconcileOpts): ReconcileResult {
   const { scriptSource, claudeDir, prefsPath } = opts;
   const settingsPath = path.join(claudeDir, 'settings.json');
   // readPrefs strips a byte order mark (a hand edit can leave one) and says whether
-  // the file parsed at all. One that does not is treated as empty here, so the hook
-  // is enabled by default, but it is never written over below.
+  // the file could be read and parsed. One that could not is treated as empty, so
+  // the hook is enabled: hooks are the default and safe state, and a damaged file is
+  // far more likely than an opt-out. It is never written over below.
+  // needsHookRepair (the poll in main.ts) follows the same rule.
   const { prefs: readPrefsValue, usable: prefsUsable } = readPrefs(prefsPath);
   const prefs: Prefs = readPrefsValue;
   const enabled = prefs.claudeNotifications !== 'disabled'; // default: enabled
@@ -257,12 +264,12 @@ export function reconcileClaudeHook(opts: ReconcileOpts): ReconcileResult {
   if (changed) writeJson(settingsPath, settings);
 
   // One-time toast: only the first time we ever register on this machine. Not when
-  // prefs.json does not parse: the toast could not be recorded, so it would repeat.
+  // prefs.json could not be read: the toast could not be recorded, so it would repeat.
   const showToast = added > 0 && !prefs.claudeHookToastShown && prefsUsable;
 
   // Persist prefs: record that notifications are enabled + that the toast fired.
-  // Never over a prefs.json that does not parse: a file we cannot read may hold an
-  // opt-out and other settings (editor, update choices) that a rewrite would wipe.
+  // Never over a prefs.json that could not be read or parsed: a file we cannot read
+  // may hold an opt-out and other settings (editor, update choices) a rewrite would wipe.
   const nextPrefs: Prefs = { ...prefs, claudeNotifications: 'enabled' };
   if (showToast) nextPrefs.claudeHookToastShown = true;
   if (prefsUsable && JSON.stringify(nextPrefs) !== JSON.stringify(prefs)) writeJson(prefsPath, nextPrefs);
@@ -283,7 +290,7 @@ export function reconcileClaudeHook(opts: ReconcileOpts): ReconcileResult {
 //
 // Reconcile used to run only at launch, so when a test launch removed afterterm's
 // entries on 2026-11-06 every chat ran with no hooks for 21 hours. main.ts now
-// watches the Claude folder's settings.json and asks needsHookRepair after each
+// polls the Claude folder's settings.json and asks needsHookRepair after each
 // change; a running chat picks hooks up live, so putting them back is enough
 // (docs/note-03-restart-window-said-safe-while-a-chat-was-running.md).
 
@@ -298,15 +305,13 @@ function isPlainObject(v: unknown): boolean {
 }
 
 // Whether afterterm's entries need putting back, from settings.json's text (null when
-// there is no such file) and prefs.json (null when it exists and does not parse).
+// there is no such file) and prefs.json as readPrefs gives it (empty when the file
+// could not be read or parsed, which counts as enabled, as it does for reconcile).
 // It counts an entry as present exactly as reconcileClaudeHook does (isAftertermGroup),
 // so once a repair has run the next check finds nothing to do: afterterm writes only
 // when something is missing, and cannot loop against Claude Code's own writes.
-export function needsHookRepair(settingsText: string | null, prefs: Prefs | null): HookRepairCheck {
+export function needsHookRepair(settingsText: string | null, prefs: Prefs): HookRepairCheck {
   const leave = (reason: string): HookRepairCheck => ({ repair: false, missing: [], reason });
-  // An unreadable prefs.json may hold an opt-out we cannot see: leave settings.json
-  // alone until the next launch.
-  if (!prefs) return leave('prefs.json is not valid JSON; left alone');
   if (prefs.claudeNotifications === 'disabled') return leave('notifications are turned off in prefs.json');
   const events = HOOK_EVENTS.map((e) => e.event);
   if (settingsText === null) return { repair: true, missing: events, reason: 'settings.json is missing' };

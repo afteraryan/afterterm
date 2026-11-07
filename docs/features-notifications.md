@@ -43,18 +43,25 @@ settings file; only the global/project `settings.json` hierarchy, and hooks
   touching the user's own hooks/permissions. Skips entirely when there's no
   `~/.claude` (CC not installed) and **never clobbers** an unparseable settings file.
 - **Repair while running** (Fix 4, 2026-11-07): after the launch reconcile, main
-  watches the Claude folder (`startHookRepairWatch`, an `fs.watch` on the folder
-  filtered to `settings.json`, since editors and Claude Code may replace the file;
-  a 10 second stat poll of the file when the folder cannot be watched). 1.5 seconds
-  after the last change it asks `needsHookRepair` (pure, in `claude-hook-install.ts`)
-  whether any of the five events has lost afterterm's entry, and if so runs
-  `reconcileNotifierHook` again. A running chat picks the hooks up live, so it
-  recovers with no restart (on 2026-11-06 a test launch removed them and chats ran
-  21 hours without). It writes only when something is missing, reads prefs.json on
-  every check (an opt-out stops it at once), leaves a settings.json or prefs.json
-  that does not parse alone, never starts in a test launch that `hookReconcileAllowed`
-  refuses, and holds repairs to 3 a minute (`hookRepairWait`) with one warning in
-  case another tool keeps removing the entries.
+  polls the Claude folder's `settings.json` (`startHookRepairPoll`): one `fs.statSync`
+  every 3 seconds, comparing whether it exists, its modified time and its size. On
+  the first sample and on any difference, 1 second later, it asks `needsHookRepair`
+  (pure, in `claude-hook-install.ts`) whether any of the five events has lost
+  afterterm's entry, and if so runs `reconcileNotifierHook` again. A running chat
+  picks the hooks up live, so it recovers with no restart (on 2026-11-06 a test
+  launch removed them and chats ran 21 hours without). It writes only when something
+  is missing, reads prefs.json on every check (an opt-out stops it at once; a
+  prefs.json that cannot be read or parsed counts as enabled, as at launch, and is
+  never written), leaves a settings.json that does not parse alone, never starts in
+  a test launch that `hookReconcileAllowed` refuses, and holds repairs to 3 a minute
+  (`hookRepairWait`) with one warning in case another tool keeps removing the
+  entries. **Why a poll and not `fs.watch`:** a watch on the folder was built first,
+  and when the folder was deleted or moved while the app ran (Explorer's delete is a
+  move), libuv on Windows raised no error and sent `rename` events without end:
+  266,399 events and 2000 ms of CPU in 2 seconds, measured on Electron 35.7.5's
+  runtime, stopping only on `close()`. Main sat at a full core until quit and the
+  repair was off. A stat every 3 seconds costs nothing and treats a replaced file, a
+  deleted file and a missing folder the same way.
 - **Opt-out** is a single flag in `%APPDATA%\afterterm\prefs.json`
   (`claudeNotifications: "enabled" | "disabled"`, default enabled). Reconcile
   reads it first; `disabled` surgically removes only afterterm's entries and
@@ -62,15 +69,17 @@ settings file; only the global/project `settings.json` hierarchy, and hooks
   it, reconcile can't tell "never installed" from "deliberately removed"). No
   settings UI yet; a future toggle just writes this flag. Reconcile reads
   prefs.json through `readPrefs` (`prefs.ts`), so a byte order mark from a hand
-  edit no longer hides an opt-out, and a prefs.json that does not parse is
-  treated as empty for the hook but never written over (2026-11-07).
+  edit no longer hides an opt-out, and a prefs.json that does not parse or cannot
+  be read (locked, access denied) counts as enabled, since hooks are the default and
+  a damaged file is far more likely than an opt-out, but is never written over
+  (2026-11-07).
 - **One-time toast**: the first time it registers (`prefs.claudeHookToastShown`),
   `pushSetupToast()` fires a "Claude Code notifications enabled" toast so the user
   knows their config was touched — it's not a silent dotfile edit. The toast uses
   a sentinel `tabId`; `app.tsx` `handleActivate` ignores clicks for unknown tabs.
 
 Tests (no app needed): `assets/hooks/test-afterterm-notify.ps1` (22 cases, runs
-the hook as a subprocess) and `src/claude-hook-install.test.ts` (136 cases, run
+the hook as a subprocess) and `src/claude-hook-install.test.ts` (145 cases, run
 with `node src/claude-hook-install.test.ts` — Node 24+ strips the TS types).
 
 ### A toast follows an edit to its project (2026-09-25)
