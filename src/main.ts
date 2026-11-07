@@ -43,6 +43,7 @@ import {
   parseMsysPs,
   parseNetstatListeners,
   parseProcessList,
+  shellHasChildren,
   tabPorts,
   trackFirstSeen,
 } from './server-detect.ts';
@@ -677,6 +678,15 @@ let listAsks = new Map<number, ListAsk>();
 // (sent only when it changes). Dropped when the thread's PTY goes (forgetRecordTab).
 const recordSessionSent = new Map<string, string>();
 const recordStatusSent = new Map<string, RecordStatus | null>();
+// Per thread, whether its shell has a process below it, as last sent on `pty:children`
+// (plan-02, Fix 8). The same pass walks the same cached list for it, so it costs one
+// tree walk per shell. It is the restart window's fallback for a shell with no prompt
+// marks, and only a true counts there.
+const shellChildrenSent = new Map<string, boolean | null>();
+// The list is re-read on the first server poll after it is SERVER_PROC_MAX_AGE_MS old,
+// so a healthy list can be up to a poll interval and the read itself older than that.
+// Past this the reads are failing, and the tree is not trusted to say anything.
+const SHELL_CHILDREN_MAX_AGE_MS = SERVER_PROC_MAX_AGE_MS + 2 * SERVER_POLL_MS;
 // Sessions whose transcript has been seen (one never goes away), and when each one
 // not yet seen was last searched for across the project folders.
 const transcriptsSeen = new Set<string>();
@@ -773,6 +783,30 @@ function sendRecordStatus(tabId: string, status: RecordStatus | null): void {
   }
 }
 
+function sendShellChildren(tabId: string, hasChildren: boolean | null): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('pty:children', { tabId, hasChildren });
+  }
+}
+
+/**
+ * Each live shell's hasChildren from the cached list, sent when it changes. null when
+ * the list is too old or empty, or cannot place the shell (shellHasChildren).
+ */
+function sendShellChildrenChanges(): void {
+  const fresh = cachedProcs.length > 0 && Date.now() - cachedProcsAt <= SHELL_CHILDREN_MAX_AGE_MS;
+  const procs = fresh ? bridgedProcs() : [];
+  for (const [tabId, info] of shellPids) {
+    const value = fresh ? shellHasChildren(procs, info.pid, info.shellId) : null;
+    if ((shellChildrenSent.get(tabId) ?? null) === value) continue;
+    shellChildrenSent.set(tabId, value);
+    sendShellChildren(tabId, value);
+    if (process.env.AFTERTERM_HARNESS === '1') {
+      console.log(`[harness] shell children ${tabId} hasChildren=${value === null ? 'unknown' : value}`);
+    }
+  }
+}
+
 async function claudeRecordPass(fresh: boolean): Promise<void> {
   if (shellPids.size === 0) return;
   // A file caught mid-write keeps its last good record for a tick or two, so the
@@ -848,6 +882,8 @@ async function claudeRecordPass(fresh: boolean): Promise<void> {
       console.log(`[harness] claude-record ${tabId} pid=${feed.pid ?? 'none'} status=${feed.status ?? 'none'} session=${feed.sessionId ? feed.sessionId.slice(0, 8) : 'none'}`);
     }
   }
+
+  sendShellChildrenChanges();
 }
 
 /**
@@ -880,12 +916,20 @@ function forgetRecordTab(tabId: string): void {
   recordStatusSent.delete(tabId);
   recordSessionSent.delete(tabId);
   if (last !== null) sendRecordStatus(tabId, null);
+  const lastChildren = shellChildrenSent.get(tabId) ?? null;
+  shellChildrenSent.delete(tabId);
+  if (lastChildren !== null) sendShellChildren(tabId, null);
 }
 
 // A fresh read on demand: the renderer asks when the restart window opens, so its rows
 // start from what Claude Code says now. Resolves when the pass is done.
+// It also asks for a fresh process list, not waited for: a shell with no prompt marks
+// is judged by its process tree, and the cached list can be a minute old. The next
+// timer pass after that read sends what has changed, and the rows follow.
 ipcMain.handle('claude-record:refresh', async () => {
   await runClaudeRecordTick(true);
+  treeDirty = true;
+  void pollServers('the restart window opened');
 });
 
 // ─── Window creation ──────────────────────────────────────────────────────────

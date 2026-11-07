@@ -232,6 +232,15 @@ interface PtyPort {
   port: number | null;
 }
 
+// Whether a tab's shell has a process running below it, from main's cached process
+// list (server-detect.ts, shellHasChildren). null when the list is too old to say or
+// the tree could not be read (a WSL shell, a shell newer than the list). The restart
+// window's fallback for a shell with no prompt marks (plan-02, Fix 8).
+interface PtyChildren {
+  tabId: string;
+  hasChildren: boolean | null;
+}
+
 interface AftertermPtyAPI {
   create(tabId: string, shellId?: string, cwd?: string): Promise<{ pid: number }>;
   write(tabId: string, data: string): void;
@@ -249,6 +258,9 @@ interface AftertermPtyAPI {
   // The listening port of a tab's server, pushed whenever it changes (including to
   // null when the server stops). Registered once, for every tab.
   onPort(callback: (data: PtyPort) => void): void;
+  // Whether a tab's shell has a process below it, pushed when it changes (including
+  // to null when it can no longer be told). Registered once, for every tab.
+  onChildren(callback: (data: PtyChildren) => void): void;
 }
 
 interface AftertermDialogAPI {

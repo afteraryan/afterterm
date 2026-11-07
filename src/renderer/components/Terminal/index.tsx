@@ -112,6 +112,11 @@ interface TerminalAreaProps {
   // a wrapped prompt function, Git Bash and WSL through a PROMPT_COMMAND hook (all
   // set up in src/shell-integration.ts).
   onCommand: (tabId: string, command: string) => void;
+  // Whether the shell sits at its prompt, from the same marks (commandMarks.ts,
+  // atPrompt): fired on a thread's first mark and then whenever it changes, false
+  // when Enter runs a command, true when the next prompt is drawn. Never fired for
+  // a thread that has produced no marks. The restart window reads it (plan-02, Fix 8).
+  onPromptState?: (tabId: string, atPrompt: boolean) => void;
   // Edited files, Phase 3: what a thread's file paths resolve against (its folder,
   // its project's, the files its chat changed), read on every hover, and what a
   // click on one does. Without them no file links are made.
@@ -268,7 +273,7 @@ const THEME = {
 };
 
 export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(function TerminalArea(
-  { tabs: tabInfos, activeTabId, visible, panes, ratio, renderHeader, renderAsleep, onFocusPane, onRatio, dropZone, onTitleChange, onCwdChange, onNotification, onUserInput, onAnswer, onTyped, onOutput, onFontSizeChange, onExit, onTail, onCommand, fileContext, onOpenFileLink, fileLinkMenu },
+  { tabs: tabInfos, activeTabId, visible, panes, ratio, renderHeader, renderAsleep, onFocusPane, onRatio, dropZone, onTitleChange, onCwdChange, onNotification, onUserInput, onAnswer, onTyped, onOutput, onFontSizeChange, onExit, onTail, onCommand, onPromptState, fileContext, onOpenFileLink, fileLinkMenu },
   ref,
 ) {
   // Where every terminal that is not on screen waits (display: none). A
@@ -310,6 +315,8 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
   onTailRef.current = onTail;
   const onCommandRef = useRef(onCommand);
   onCommandRef.current = onCommand;
+  const onPromptStateRef = useRef(onPromptState);
+  onPromptStateRef.current = onPromptState;
   const fileContextRef = useRef(fileContext);
   fileContextRef.current = fileContext;
   const onOpenFileLinkRef = useRef(onOpenFileLink);
@@ -337,6 +344,15 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
   // inside TermInfo so the OSC handler and the onData handler (both closures made
   // during createTerminal) read and write the same record by tab id.
   const marksRef = useRef(new Map<string, CommandMarkState>());
+  // The atPrompt each terminal last reported upward (onPromptState), so the app hears
+  // only a change. A tab is absent until its first mark: a terminal that has seen no
+  // marks reports nothing, which the app reads as "no marks" rather than "busy".
+  const promptReportedRef = useRef(new Map<string, boolean>());
+  const reportPrompt = useCallback((tabId: string, atPrompt: boolean) => {
+    if (promptReportedRef.current.get(tabId) === atPrompt) return;
+    promptReportedRef.current.set(tabId, atPrompt);
+    onPromptStateRef.current?.(tabId, atPrompt);
+  }, []);
 
   // The jump button (Phase 9): where each terminal's viewport was on its last scroll
   // sample and which end, if any, the button offers, per tab. Only the active
@@ -446,8 +462,10 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
     // already resumed the moment its terminal goes.
     resumedRef.current.delete(tabId);
     // The prompt marks describe a buffer that is about to be disposed; a fresh
-    // terminal starts again from no prompt seen at all.
+    // terminal starts again from no prompt seen at all. The tab's own atPrompt is
+    // cleared by sleepTab (or goes with a closed tab).
     marksRef.current.delete(tabId);
+    promptReportedRef.current.delete(tabId);
     jumpRef.current.delete(tabId);
     fileLinkProvidersRef.current.delete(tabId);
     if (tabId === activeRef.current) setJump(null);
@@ -716,6 +734,10 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
             const result = onEnter(marks, from => readCommandText(term, from));
             marksRef.current.set(tabId, result.state);
             if (result.command) onCommandRef.current(tabId, result.command);
+            // Enter at a prompt runs whatever was typed there, so the shell is busy
+            // until it draws its next prompt. Only a prompt the marks opened can be
+            // closed here, so a thread with no marks still reports nothing.
+            if (marks.atPrompt && !result.state.atPrompt) reportPrompt(tabId, false);
           }
         } else {
           // Every other chunk is fed to the mark state as typed text, the second
@@ -824,10 +846,12 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         if (!mark) return false;
         const buffer = term.buffer.active;
         const state = marksRef.current.get(tabId) ?? initialCommandMarkState();
-        marksRef.current.set(tabId, onMark(state, mark, {
+        const next = onMark(state, mark, {
           row: buffer.baseY + buffer.cursorY,
           col: buffer.cursorX,
-        }));
+        });
+        marksRef.current.set(tabId, next);
+        reportPrompt(tabId, next.atPrompt);
         return true;
       });
 
@@ -842,7 +866,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
     } finally {
       creatingRef.current.delete(tabId);
     }
-  }, [openFind, resumeTab]);
+  }, [openFind, resumeTab, reportPrompt]);
 
   // Reconcile the terminals with the tab list. `asleep` is the source of truth:
   // awake with no terminal → build one (a wake, or a brand new thread); asleep with
@@ -1111,6 +1135,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       tail: (tabId, n = 30) => readTail(tabId, n),
       activeTail: (n = 30) => readTail(activeRef.current, n),
       // Lets the harness check the OSC 133 marks landed without reading the buffer.
+      // What reached the app from them is the tab's atPrompt (window.__afterterm.tab).
       commandState: (tabId) => marksRef.current.get(tabId) ?? null,
       // Phase 9: where a terminal's viewport sits (the jump button's own inputs),
       // since xterm 6 no longer mirrors it on .xterm-viewport's scrollTop.

@@ -284,5 +284,13 @@ contextBridge.exposeInMainWorld('afterterm', {
     onPort: (callback: (data: { tabId: string; port: number | null }) => void): void => {
       ipcRenderer.on('pty:port', (_event, data) => callback(data));
     },
+
+    // Whether a tab's shell has a process running below it, from main's cached process
+    // list, pushed when it changes. null when the list is too old to say or the tree
+    // could not be read (WSL). The restart window's fallback for a shell with no prompt
+    // marks. One listener for every tab, registered once.
+    onChildren: (callback: (data: { tabId: string; hasChildren: boolean | null }) => void): void => {
+      ipcRenderer.on('pty:children', (_event, data) => callback(data));
+    },
   },
 });

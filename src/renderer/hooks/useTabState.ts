@@ -342,6 +342,33 @@ export function useTabState() {
     });
   }, []);
 
+  // What the shell is doing, for the restart window (plan-02, Fix 8): atPrompt from
+  // the terminal's prompt marks, hasChildren from main's process list. Both transient,
+  // both no-ops when unchanged (atPrompt flips on every command, so a render per
+  // prompt is the most this costs). undefined or null deletes the key. A value for a
+  // thread that is already asleep is dropped: sleepTab has just cleared both, and a
+  // mark or a list read that raced the sleep must not leave a stale one for the wake.
+  const setShellField = useCallback((tabId: string, key: 'atPrompt' | 'hasChildren', value: boolean | undefined) => {
+    setTabs(prev => {
+      let changed = false;
+      const next = prev.map(t => {
+        if (t.id !== tabId || t[key] === value) return t;
+        if (t.asleep && value !== undefined) return t;
+        changed = true;
+        const updated = { ...t, [key]: value };
+        if (value === undefined) delete updated[key];
+        return updated;
+      });
+      return changed ? next : prev;
+    });
+  }, []);
+  const setAtPrompt = useCallback((tabId: string, atPrompt: boolean | undefined) => {
+    setShellField(tabId, 'atPrompt', atPrompt);
+  }, [setShellField]);
+  const setHasChildren = useCallback((tabId: string, hasChildren: boolean | null) => {
+    setShellField(tabId, 'hasChildren', hasChildren ?? undefined);
+  }, [setShellField]);
+
   const setTabNotification = useCallback((tabId: string, notification: TabNotification | undefined) => {
     setTabs(prev => prev.map(t => t.id === tabId ? { ...t, notification } : t));
   }, []);
@@ -657,6 +684,7 @@ export function useTabState() {
     addTab, closeTab, renameTab, setThreadName, updateTabCwd, setClaudeSession, setTabNotification, setTabFontSize,
     sleepTab, wakeTab, resumeFromHistory,
     setClaudeMeta, setGitInfo, setPort, setLastCommand, setUnread, setClaudeRecordStatus,
+    setAtPrompt, setHasChildren,
     createConfiguredGroup, addToGroup, removeFromGroup,
     renameGroup, setGroupColor, updateGroup, toggleGroupCollapse, setGroupCollapsedMany, deleteGroup,
     togglePin, setGroupArchived, touchActivity, openProject, bringProjectIn,

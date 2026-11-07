@@ -28,7 +28,7 @@ import type { Screen } from './components/ScreenNav';
 import { useTabState, threadGitCwd } from './hooks/useTabState';
 import { Tab, TabNotification, nextGroupColor } from './components/TabBar/types';
 import { groupColors } from './projectColour';
-import { onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, clearsWhenSeen, initTiming, TabTiming } from './spinnerState';
+import { onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, onRecordStatus, clearsWhenSeen, initTiming, TabTiming } from './spinnerState';
 import { migrateSession, serializeSession } from './sessionMigration';
 import { sleepAllForShutdown, wakePlan } from './sleepWake';
 import { toastMessage, initialScreen, threadName, automaticThreadName, threadKind, needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText, localhostUrl, threadFolder, threadFolderTarget, projectLookChanges } from './threadView';
@@ -745,6 +745,9 @@ export function App() {
   // Since Fix 5 (plan-02) a capture also comes from Claude Code's own session record,
   // through the same onUpdate, so a chat with no hooks is still a chat. The record's
   // live status arrives beside it and is kept on the tab, never saved.
+  // Fix 11: a busy status also starts the spinner (spinnerState.ts, onRecordStatus),
+  // through applyNotif like every other notif change, so a chat with no hooks shows
+  // as working in the sidebar and the rail the same way a hooked one does.
   useEffect(() => {
     window.afterterm.claudeSession.onUpdate(({ tabId, sessionId, cwd }) => {
       stateRef.current.setClaudeSession(tabId, sessionId, cwd);
@@ -753,6 +756,12 @@ export function App() {
     });
     return window.afterterm.claudeRecord.onStatus(({ tabId, status }) => {
       stateRef.current.setClaudeRecordStatus(tabId, status);
+      const tab = stateRef.current.tabs.find(t => t.id === tabId);
+      if (!tab || tab.asleep) return;
+      const next = onRecordStatus(tab.notification, status ?? undefined);
+      // The tick only clears a tab it has a clock for, so make sure there is one.
+      if (next === 'working') getTiming(tabId, Date.now());
+      applyNotif(tabId, tab.notification, next);
     });
   }, []);
 
@@ -1004,8 +1013,9 @@ export function App() {
   }, [state.setTabNotification]);
 
   // Clock tick: clear a tab's `working` spinner after its output has been silent long
-  // enough (fixes the stuck-spinner bug where Stop's ✅ never fires). Also prunes
-  // timing entries for closed tabs.
+  // enough (fixes the stuck-spinner bug where Stop's ✅ never fires), unless Claude
+  // Code's record still says busy (plan-02, Fix 11: a stalled turn keeps its spinner).
+  // Also prunes timing entries for closed tabs.
   useEffect(() => {
     const id = setInterval(() => {
       const now = Date.now();
@@ -1013,7 +1023,7 @@ export function App() {
       for (const tab of s.tabs) {
         if (tab.notification !== 'working') continue;
         const timing = timingRef.current.get(tab.id);
-        if (timing) applyNotif(tab.id, 'working', onTick('working', timing, now));
+        if (timing) applyNotif(tab.id, 'working', onTick('working', timing, now, tab.recordStatus));
       }
       for (const id2 of [...timingRef.current.keys()]) {
         if (!s.tabs.some(t => t.id === id2)) timingRef.current.delete(id2);
@@ -1368,11 +1378,21 @@ export function App() {
     });
   }, []);
 
+  // Whether each awake thread's shell has a process below it, from main's process
+  // list, pushed when it changes: the restart window's fallback for a shell with no
+  // prompt marks (plan-02, Fix 8). Kept on the tab, never saved; a value for a thread
+  // already asleep is dropped by the setter.
+  useEffect(() => {
+    window.afterterm.pty.onChildren(({ tabId, hasChildren }) => {
+      stateRef.current.setHasChildren(tabId, hasChildren);
+    });
+  }, []);
+
   // Harness hook: the current record of one thread (drive eval
   // "window.__afterterm.tab('tab-1')"), so a test can check port, lastCommand,
-  // asleep and recordStatus (never saved, so only here) without going through the
-  // saved file's two second debounce. Extended, not replaced, for the same reason
-  // as openLocalhost's hook above.
+  // asleep, and recordStatus, atPrompt and hasChildren (never saved, so only here),
+  // without going through the saved file's two second debounce. Extended, not
+  // replaced, for the same reason as openLocalhost's hook above.
   useEffect(() => {
     const win = window as unknown as { __afterterm?: Record<string, unknown> };
     win.__afterterm = {
@@ -1417,6 +1437,12 @@ export function App() {
   // (commandMarks.ts). It is what a sleeping server re-runs on wake.
   const handleCommand = useCallback((tabId: string, command: string) => {
     stateRef.current.setLastCommand(tabId, command);
+  }, []);
+
+  // Whether the thread's shell sits at its prompt, from the same marks: what the
+  // restart window reads for a thread with no live Claude (plan-02, Fix 8).
+  const handlePromptState = useCallback((tabId: string, atPrompt: boolean) => {
+    stateRef.current.setAtPrompt(tabId, atPrompt);
   }, []);
 
   // The Files list of the chat on screen is read when it comes on screen (a
@@ -1684,6 +1710,7 @@ export function App() {
               onExit={handlePtyExit}
               onTail={handleTail}
               onCommand={handleCommand}
+              onPromptState={handlePromptState}
               fileContext={fileContextFor}
               onOpenFileLink={openFileLink}
               fileLinkMenu={fileLinkMenu}
