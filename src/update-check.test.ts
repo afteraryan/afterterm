@@ -175,6 +175,11 @@ console.log('\nupdate-check: the restart window, mid-turn and background (Fixes 
   check('busy, idle, waiting and no record with no background title: none',
     !hasBackgroundTask('busy', undefined) && !hasBackgroundTask('idle', 'done') && !hasBackgroundTask('waiting', undefined)
     && !hasBackgroundTask(undefined, undefined));
+  // The chat on screen: its ⏳ badge cleared the moment it was seen, the flag stays.
+  check('the background flag alone is a background task (the badge cleared by viewing)',
+    hasBackgroundTask('idle', undefined, true) && hasBackgroundTask(undefined, undefined, true));
+  check('the flag off or absent adds nothing',
+    !hasBackgroundTask('idle', undefined, false) && !hasBackgroundTask('idle', undefined, undefined));
 }
 
 console.log('\nupdate-check: the restart window, busy shells (Fix 8)\n');

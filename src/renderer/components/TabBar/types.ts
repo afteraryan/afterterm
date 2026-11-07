@@ -103,6 +103,14 @@ export interface Tab {
   // with no prompt marks; absent when the list is too old to say or the tree could
   // not be read (a WSL shell, whose processes are not in it). Cleared on sleep.
   hasChildren?: boolean;
+  // Transient (NOT persisted): the hook's last title for this chat was ⏳, a turn that
+  // ended with background work still running (a background agent, a session cron, a
+  // background shell). Set whether or not the thread is in view, cleared by the
+  // hook's next title (spinnerState.ts, backgroundAfterTitle) or by sleep, never by
+  // viewing: the ⏳ badge in `notification` clears the moment the thread is seen, and
+  // the restart window must still warn (update-check.ts, hasBackgroundTask; plan-02,
+  // Fix 7). Absent means false.
+  backgroundTasks?: boolean;
 }
 
 export interface Group {

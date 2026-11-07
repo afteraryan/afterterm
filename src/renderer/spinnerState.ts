@@ -150,6 +150,20 @@ export function clearsWhenSeen(n: Notif): boolean {
   return n === 'done' || n === 'background';
 }
 
+// Whether a chat still has background work running, as far as the hook's titles say
+// (plan-02, Fix 7; Tab.backgroundTasks). The ⏳ title is the only signal for a
+// background agent or a session cron (/loop, schedules): Claude Code's record says
+// `shell` only for a background shell command. The ⏳ badge itself is cleared the
+// moment the thread is seen (clearsWhenSeen), so the restart window cannot read it
+// from `notification`: this flag holds it instead, and viewing never clears it. A ⏳
+// title sets it; any other hook title (working, done, attention, compacting) clears
+// it, since the hook's Stop sends ⏳ again while tasks remain; an undecorated title
+// (undefined) changes nothing.
+export function backgroundAfterTitle(current: boolean, titleNotif: Notif): boolean {
+  if (titleNotif === undefined) return current;
+  return titleNotif === 'background';
+}
+
 // What a title's notif becomes when it lands on a thread. On the thread the user
 // is looking at, with the window focused, a done or background badge has already
 // been seen, so it clears at once; anything else, or any thread not in view,

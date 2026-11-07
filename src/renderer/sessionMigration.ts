@@ -27,7 +27,7 @@ export const SESSION_FORMAT_VERSION = 3;
 
 // A tab as written to disk: the in-memory Tab minus the fields that describe a
 // live process, which are meaningless after a relaunch (each tab is a fresh shell).
-export type SavedTab = Omit<Tab, 'notification' | 'firstPrompt' | 'wokeAt' | 'recordStatus' | 'atPrompt' | 'hasChildren'>;
+export type SavedTab = Omit<Tab, 'notification' | 'firstPrompt' | 'wokeAt' | 'recordStatus' | 'atPrompt' | 'hasChildren' | 'backgroundTasks'>;
 
 export interface SavedSession {
   version?: number;
@@ -79,8 +79,9 @@ const PERSISTED_TAB_KEYS = [
 // field, alongside it for the same reason as notification and firstPrompt.
 // recordStatus is what Claude Code's session record said a running Claude was
 // doing (plan-02, Fix 5): it describes a live process, so it never outlives one.
-// atPrompt and hasChildren are what a live shell was doing (Fix 8), the same.
-const TRANSIENT_TAB_KEYS = ['notification', 'claudeRestorable', 'firstPrompt', 'wokeAt', 'recordStatus', 'atPrompt', 'hasChildren'] as const;
+// atPrompt and hasChildren are what a live shell was doing (Fix 8), and
+// backgroundTasks what a live Claude left running (Fix 7), the same.
+const TRANSIENT_TAB_KEYS = ['notification', 'claudeRestorable', 'firstPrompt', 'wokeAt', 'recordStatus', 'atPrompt', 'hasChildren', 'backgroundTasks'] as const;
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);

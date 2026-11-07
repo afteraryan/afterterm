@@ -5,6 +5,7 @@
 import { isDeepStrictEqual } from 'util';
 import {
   sleepTab, wakeTab, restoredTab, sleepAllForShutdown, asleepLabel, asleepSinceText, wakePlan,
+  startsClaudeCode,
 } from './sleepWake.ts';
 import type { Tab } from './components/TabBar/types.ts';
 import type { SavedTab } from './sessionMigration.ts';
@@ -71,6 +72,11 @@ console.log('\nsleepWake: sleepTab\n');
   const asleep = sleepTab(tab, NOW);
   check('atPrompt is cleared on sleep', !('atPrompt' in asleep));
   check('hasChildren is cleared on sleep', !('hasChildren' in asleep));
+}
+{
+  // What a live Claude left running (plan-02, Fix 7): sleep kills it.
+  const asleep = sleepTab(chatTab({ backgroundTasks: true }), NOW);
+  check('backgroundTasks is cleared on sleep', !('backgroundTasks' in asleep));
 }
 
 console.log('\nsleepWake: wakeTab\n');
@@ -323,6 +329,38 @@ console.log('\nsleepWake: wakePlan, a command that starts Claude is never a serv
     wakePlan({ ...base, lastCommand: 'npx claude-server' }).runCommand === 'npx claude-server');
   check('npm run dev with a port still re-runs',
     wakePlan({ ...base, lastCommand: 'npm run dev' }).runCommand === 'npm run dev');
+
+  // Other ways to start Claude Code: npx, a path to the program, the npm package.
+  const claudeForms = [
+    'npx claude',
+    'npx @anthropic-ai/claude-code',
+    'npx @anthropic-ai/claude-code@latest --model haiku',
+    'npx -y @anthropic-ai/claude-code',
+    'NPX Claude',
+    '@anthropic-ai/claude-code',
+    'C:\\Users\\me\\.local\\bin\\claude.exe',
+    'C:\\Users\\me\\.local\\bin\\claude.exe --resume abc',
+    '"C:\\Program Files\\Claude\\claude.exe" --model haiku',
+    "'C:\\tools\\claude.cmd'",
+    'C:\\Users\\me\\AppData\\Roaming\\npm\\claude.cmd',
+    '/c/Users/me/.local/bin/claude.exe',
+    '~/.local/bin/claude',
+  ];
+  for (const cmd of claudeForms) {
+    const plan = wakePlan({ ...base, lastCommand: cmd });
+    check(`no id, a port and ${JSON.stringify(cmd)}: no runCommand and no resume`,
+      plan.runCommand === null && plan.resumeSessionId === null, show(plan));
+  }
+  for (const cmd of ['claudette serve', 'npx claude-server', 'npx vite', '"C:\\tools\\claude-server.exe" --port 3000', 'C:\\claude\\server.exe']) {
+    check(`${JSON.stringify(cmd)} is a server command and re-runs`,
+      wakePlan({ ...base, lastCommand: cmd }).runCommand === cmd);
+  }
+}
+{
+  check('startsClaudeCode: a bare npx is not Claude', !startsClaudeCode('npx'));
+  check('startsClaudeCode: npx with only flags is not Claude', !startsClaudeCode('npx -y'));
+  check('startsClaudeCode: an empty line is not Claude', !startsClaudeCode('   '));
+  check('startsClaudeCode: an unclosed quote is read as a plain word', !startsClaudeCode('"claude-server --x'));
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

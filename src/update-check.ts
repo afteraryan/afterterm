@@ -326,10 +326,19 @@ export function isMidTurn(recordStatus: string | undefined, notification: string
 // The "or" stays on purpose. The hook's ⏳ also covers background agents and session
 // crons (/loop, schedules), which the record was never seen to report as `shell`, so
 // letting an idle record overrule it would call a restart safe while a background
-// agent runs. The cost is a stale ⏳ (it stays until the thread is looked at) warning
-// after its task has ended, the lesser wrong.
-export function hasBackgroundTask(recordStatus: string | undefined, notification: string | undefined): boolean {
-  return recordStatus === 'shell' || notification === 'background';
+// agent runs. The cost is a stale ⏳ warning after its task has ended, the lesser
+// wrong.
+// The ⏳ arrives two ways. `notification` is the badge, which clears the moment the
+// thread is looked at, so the chat on screen would lose it at once. `backgroundTasks`
+// (Tab.backgroundTasks, spinnerState.ts's backgroundAfterTitle) is the same title
+// kept as a flag that viewing never clears, only the hook's next title or the thread
+// going to sleep.
+export function hasBackgroundTask(
+  recordStatus: string | undefined,
+  notification: string | undefined,
+  backgroundTasks?: boolean,
+): boolean {
+  return recordStatus === 'shell' || notification === 'background' || backgroundTasks === true;
 }
 
 // Whether a shell is running a command (Fix 8). The prompt marks (OSC 133) are the

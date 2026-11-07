@@ -28,7 +28,7 @@ import type { Screen } from './components/ScreenNav';
 import { useTabState, threadGitCwd } from './hooks/useTabState';
 import { Tab, TabNotification, nextGroupColor } from './components/TabBar/types';
 import { groupColors } from './projectColour';
-import { onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, onRecordStatus, clearsWhenSeen, initTiming, TabTiming } from './spinnerState';
+import { onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, onRecordStatus, backgroundAfterTitle, clearsWhenSeen, initTiming, TabTiming } from './spinnerState';
 import { migrateSession, serializeSession } from './sessionMigration';
 import { sleepAllForShutdown, wakePlan } from './sleepWake';
 import { toastMessage, initialScreen, threadName, automaticThreadName, threadKind, needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText, localhostUrl, threadFolder, threadFolderTarget, projectLookChanges } from './threadView';
@@ -951,6 +951,12 @@ export function App() {
     // the app behind another window it stays until the thread is looked at.
     const viewing = stateRef.current.activeTabId === tabId && document.hasFocus();
     applyNotif(tabId, cur, onViewedTitle(next, viewing));
+    // The badge above may clear at once, but the background work it announced is
+    // still running: a ⏳ is kept as its own flag, viewed or not, until the hook's
+    // next title (plan-02, Fix 7; the restart window reads it).
+    const hadBackground = !!stateRef.current.tabs.find(t => t.id === tabId)?.backgroundTasks;
+    const background = backgroundAfterTitle(hadBackground, type);
+    if (background !== hadBackground) stateRef.current.setBackgroundTasks(tabId, background);
 
     if (!type) return;
     // Working indicator is sidebar-only, no toast while Claude is mid-turn
@@ -1153,7 +1159,7 @@ export function App() {
       kind: threadKind(t),
       resumes: !!plan.resumeSessionId,
       midTurn: isMidTurn(t.recordStatus, t.notification),
-      background: hasBackgroundTask(t.recordStatus, t.notification),
+      background: hasBackgroundTask(t.recordStatus, t.notification, t.backgroundTasks),
       claudeAlive: t.recordStatus !== undefined,
       shellBusy: shellBusy(t.atPrompt, t.hasChildren),
       rerunPort: plan.runCommand !== null ? t.port : undefined,
@@ -1390,9 +1396,9 @@ export function App() {
 
   // Harness hook: the current record of one thread (drive eval
   // "window.__afterterm.tab('tab-1')"), so a test can check port, lastCommand,
-  // asleep, and recordStatus, atPrompt and hasChildren (never saved, so only here),
-  // without going through the saved file's two second debounce. Extended, not
-  // replaced, for the same reason as openLocalhost's hook above.
+  // asleep, and recordStatus, atPrompt, hasChildren and backgroundTasks (never saved,
+  // so only here), without going through the saved file's two second debounce.
+  // Extended, not replaced, for the same reason as openLocalhost's hook above.
   useEffect(() => {
     const win = window as unknown as { __afterterm?: Record<string, unknown> };
     win.__afterterm = {

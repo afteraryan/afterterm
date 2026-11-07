@@ -10,7 +10,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import {
   onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, clearsWhenSeen, initTiming,
-  onRecordStatus, SILENCE_CLEAR_MS, REARM_AFTER_QUIET_MS,
+  onRecordStatus, backgroundAfterTitle, SILENCE_CLEAR_MS, REARM_AFTER_QUIET_MS,
 } from './spinnerState.ts';
 import type { Notif } from './spinnerState.ts';
 
@@ -246,6 +246,25 @@ check('interrupt leaves background alone', onInterrupt('background') === 'backgr
   const unseen = onViewedTitle(onTitle('working', 'background', t, 1000), false);
   check('turn ending with background tasks, not viewed: background', unseen === 'background');
   check('the badge left on a thread not in view clears on opening it', clearsWhenSeen(unseen));
+}
+
+// ── The background work flag (plan-02, Fix 7) ───────────────────────────────
+{
+  check('a ⏳ title sets the flag', backgroundAfterTitle(false, 'background') === true);
+  check('a second ⏳ keeps it', backgroundAfterTitle(true, 'background') === true);
+  check('a ▶ title (a new turn) clears it', backgroundAfterTitle(true, 'working') === false);
+  check('a ✅ title (a turn ended with nothing left) clears it', backgroundAfterTitle(true, 'done') === false);
+  check('a ⚠ or ⚙ title clears it',
+    backgroundAfterTitle(true, 'attention') === false && backgroundAfterTitle(true, 'compacting') === false);
+  check('an undecorated title changes nothing',
+    backgroundAfterTitle(true, undefined) === true && backgroundAfterTitle(false, undefined) === false);
+  // The badge clears on the viewed thread; the flag does not. Viewing is not a title,
+  // so nothing here can clear it: only onViewedTitle touches the badge.
+  const t = initTiming(0);
+  const title: Notif = 'background';
+  const badge = onViewedTitle(onTitle('working', title, t, 1000), true);
+  const flag = backgroundAfterTitle(false, title);
+  check('on the thread being viewed the ⏳ badge clears but the flag is set', badge === undefined && flag === true);
 }
 
 // ── Replay real captured traces ─────────────────────────────────────────────

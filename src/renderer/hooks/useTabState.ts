@@ -342,13 +342,15 @@ export function useTabState() {
     });
   }, []);
 
-  // What the shell is doing, for the restart window (plan-02, Fix 8): atPrompt from
-  // the terminal's prompt marks, hasChildren from main's process list. Both transient,
-  // both no-ops when unchanged (atPrompt flips on every command, so a render per
-  // prompt is the most this costs). undefined or null deletes the key. A value for a
-  // thread that is already asleep is dropped: sleepTab has just cleared both, and a
-  // mark or a list read that raced the sleep must not leave a stale one for the wake.
-  const setShellField = useCallback((tabId: string, key: 'atPrompt' | 'hasChildren', value: boolean | undefined) => {
+  // What a live thread is doing, for the restart window: atPrompt from the terminal's
+  // prompt marks and hasChildren from main's process list (plan-02, Fix 8), and
+  // backgroundTasks from the hook's ⏳ title (Fix 7). All transient, all no-ops when
+  // unchanged (atPrompt flips on every command, so a render per prompt is the most
+  // this costs). undefined or null deletes the key, and so does a false
+  // backgroundTasks. A value for a thread that is already asleep is dropped: sleepTab
+  // has just cleared them, and a mark, a list read or a title that raced the sleep
+  // must not leave a stale one for the wake.
+  const setLiveField = useCallback((tabId: string, key: 'atPrompt' | 'hasChildren' | 'backgroundTasks', value: boolean | undefined) => {
     setTabs(prev => {
       let changed = false;
       const next = prev.map(t => {
@@ -363,11 +365,14 @@ export function useTabState() {
     });
   }, []);
   const setAtPrompt = useCallback((tabId: string, atPrompt: boolean | undefined) => {
-    setShellField(tabId, 'atPrompt', atPrompt);
-  }, [setShellField]);
+    setLiveField(tabId, 'atPrompt', atPrompt);
+  }, [setLiveField]);
   const setHasChildren = useCallback((tabId: string, hasChildren: boolean | null) => {
-    setShellField(tabId, 'hasChildren', hasChildren ?? undefined);
-  }, [setShellField]);
+    setLiveField(tabId, 'hasChildren', hasChildren ?? undefined);
+  }, [setLiveField]);
+  const setBackgroundTasks = useCallback((tabId: string, running: boolean) => {
+    setLiveField(tabId, 'backgroundTasks', running ? true : undefined);
+  }, [setLiveField]);
 
   const setTabNotification = useCallback((tabId: string, notification: TabNotification | undefined) => {
     setTabs(prev => prev.map(t => t.id === tabId ? { ...t, notification } : t));
@@ -684,7 +689,7 @@ export function useTabState() {
     addTab, closeTab, renameTab, setThreadName, updateTabCwd, setClaudeSession, setTabNotification, setTabFontSize,
     sleepTab, wakeTab, resumeFromHistory,
     setClaudeMeta, setGitInfo, setPort, setLastCommand, setUnread, setClaudeRecordStatus,
-    setAtPrompt, setHasChildren,
+    setAtPrompt, setHasChildren, setBackgroundTasks,
     createConfiguredGroup, addToGroup, removeFromGroup,
     renameGroup, setGroupColor, updateGroup, toggleGroupCollapse, setGroupCollapsedMany, deleteGroup,
     togglePin, setGroupArchived, touchActivity, openProject, bringProjectIn,
