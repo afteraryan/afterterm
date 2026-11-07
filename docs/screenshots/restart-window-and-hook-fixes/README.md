@@ -1,0 +1,75 @@
+# Live test of the restart window and hook fixes, 2026-11-07
+
+The rows of plan-02's test plan (rows 1 to 12, hook tests 13 to 18) and the Fix 9 dev server case, run against the dev build of `worktree-restart-window-and-hook-fixes` (at e42c9f1) and real Claude Code 2.1.319 on Haiku. Each row says what was set up, what the restart window said, and the thread's fields read from `window.__afterterm.tab(id)`.
+
+## How it was run
+
+- Agent harness, secondary display (checked with `drive bounds` after every launch), data dir `%TEMP%\afterterm-agent-harness\rw-fixes-live`, port 9371. A seeded session gave ten asleep threads in General, each in its own empty folder under `%TEMP%` (`rw-fixes-chat-<n>` for chats, `rw-fixes-shells` for shells). No thread was ever given a session id; every id came from a chat started in the run.
+- Env: `CLAUDE_CONFIG_DIR=%TEMP%\rw-fixes-claude` (a scratch folder, created empty), `AFTERTERM_CLAUDE_SESSIONS_DIR` and `AFTERTERM_CLAUDE_PROJECTS_DIR` pointed at the real folders (read by the app only), and a test update feed offering 0.99.0 (`update-feed.mjs --version 0.99.0`; the default 0.11.0 is older than the dev build's 0.15.0 and offers nothing). `window.afterterm.update.download()` reached Restart to update.
+- Chats: in the thread, `set CLAUDE_CONFIG_DIR=` (cmd), then `claude --model haiku --strict-mcp-config --permission-mode default`, plus `--setting-sources local` for the no-hooks rows and `--allowedTools "Bash(ping:*)"` (or `Bash(python:*)`) so a long tool call needs no prompt. "With hooks" means the real user settings, so those chats ran the production copy of the hook script with `AFTERTERM=1`.
+- Before every keystroke the active thread (`.th.sel`) and the screen were checked. The "Teach auto mode" panel never appeared. Claude's folder trust dialog defaults to "No, exit" on 2.1.319; it was moved to "Yes" and confirmed only after reading the screen.
+- The two real files were hashed before the run and after every launch and every hook test. They never changed (settings.json `AF83ECAF...0EDEAB`, hook script `21A8E8A0...68633B`).
+
+## Matching pids before and during the test chats
+
+With four shells awake and no Claude in any thread, the harness log had no `[harness] claude-record` line. Every line after that named a `claude.exe` started in this run; each live one was checked to be a child of a harness `cmd.exe` whose parent was the harness electron (pid 27504): tab-1 27868 and 46216, tab-2 22020, tab-5 41176, tab-6 51996 and 38180, tab-7 53924, tab-10 33236. None of Aryan's sessions was matched.
+
+## Results, rows 1 to 12
+
+| # | Set up | Window said (row, status) | Tab fields | Captures, recording | Result |
+|---|---|---|---|---|---|
+| 1 | tab-1, chat with no hooks, `ping -n 30` as a tool call | Before the first prompt: "Opens in its folder", safe. Mid-reply: "Stops mid-turn", "1 chat stops mid-turn", warn. After the turn: "Resumes", safe | Mid-reply: recordStatus busy, atPrompt false, hasChildren true, notification working (from the record), id d5dc1b53 adopted at the first sample, 0.9 s after the prompt. Sidebar `[chat/working]` with the spinner | 01a, 01b, 01c; 01-row-1-chat-no-hooks-mid-reply.mp4 | Pass |
+| 2 | tab-2, chat with hooks, `ping -n 30` | "Stops mid-turn", "1 chat stops mid-turn", warn | ▶ title and notification working 1.0 s after the prompt, hook file `claude-sessions\tab-2.json` written, id c3e2f1f6, then recordStatus busy | 02; 02-row-2-chat-hooks-mid-reply.mp4 | Pass |
+| 3 | tab-2, `ping -n 40`, claude.exe paused 4.0 s with NtSuspendProcess (pid checked to be under the harness) | Before, 2.8 s into the pause and after: "Stops mid-turn", "1 chat stops mid-turn", warn | 2.8 s into the pause: recordStatus busy, notification working, sidebar state working (past the 2.5 s silence limit). Working held for the rest of the turn | 03d, 03e, 03f; 03d-row-3-retry-chat-hooks-paused-4s.mp4. First try: 03a, 03b, 03c, 03-row-3-first-try-stall-timing-unclear.mp4 | Pass (retry) |
+| 4 | tab-3, cmd, `ping -n 120 127.0.0.1` | "Command stops", "1 thread is busy", warn. After Ctrl+C: "Opens in its folder", "Safe to restart" | atPrompt false, hasChildren false at 4 s (cached list), true a few seconds later. After Ctrl+C atPrompt true | 04, 04b, 04c; 04-row-4-cmd-ping.mp4, 04c-row-4-ping-stopped.mp4 | Pass |
+| 5 | tab-4, PowerShell 7, `Start-Sleep -Seconds 90` | "Command stops", "1 thread is busy", warn. After Ctrl+C: "Opens in its folder", safe | atPrompt false, hasChildren false throughout (a built-in) | 05, 05b; 05-row-5-pwsh-start-sleep.mp4 | Pass |
+| 6 | tab-5, chat with hooks, ping started with run_in_background, turn ended | "Background task stops", "1 thread is busy", warn | recordStatus shell 8.7 s after the prompt. Viewed from another thread, a second background ping gave ▶ working at 3.6 s and ⏳ background at 7.6 s (sampler); sidebar `[chat/background]`. While the thread is in view the ⏳ state is cleared, as done is | 06a, 06b; 06-row-6-chat-background-task.mp4 | Pass |
+| 7 | tab-6, chat with hooks, one turn, `/exit`, then `ping -n 120` | "Command stops", "1 thread is busy", warn; chat icon kept (`[chat/quiet]`) | recordStatus none, atPrompt false, id 78d1e7f1, lastCommand the ping. Then Ctrl+C, Sleep, Wake: it typed `claude --resume 78d1e7f1-e4ef-45a2-a35c-53ae88ae00b9` although the last command was the ping | 07a, 07b, 07c, 07d; 07-08-rows-7-8-chat-exited.mp4 | Pass (Wake stands in for the restart, see below) |
+| 8 | tab-6 after `/exit`, at its prompt | "Resumes", "Safe to restart" | recordStatus none, atPrompt true, id 78d1e7f1. The Sleep and Wake of row 7 were done from this state | 08a | Pass |
+| 9 | tab-7, chat with hooks, window open first. (a) AskUserQuestion yes/no. (b) A file write prompt | (a) and (b): "Stops mid-turn", warn, from the first busy record until the turn ended, with no gap | (a) dialog on screen 5.5 s after the prompt, record waiting 6.1 s, hook attention 12.6 s. (b) dialog 7.2 s, record waiting 7.6 s, hook attention 14.7 s. Answered Yes both times; hello.txt written in the scratch folder | 09a, 09b; 09-row-9-chat-waiting-question-and-permission.mp4 | Pass |
+| 10 | Four idle chats (tab-1, 2, 5, 6) and four idle shells (cmd x2, pwsh, Git Bash) | Chats "Resumes", shells "Opens in its folder", "Safe to restart", safe | Chats recordStatus idle with ids; shells atPrompt true | 10; 10-row-10-idle-shell-and-idle-chats.mp4 | Pass |
+| 11 | tab-1 (no hooks), Sleep then Wake | Pane "Chat asleep since just now". Wake typed `claude --resume d5dc1b53-df89-443f-8795-c4dd0b8c1c65` in rw-fixes-chat-1 | Same id after the wake; the record matched again once Claude ran | 11a, 11b, 11c; 11-row-11-no-hooks-sleep-then-wake.mp4 | Pass (stand-in, see below) |
+| 12 | Git Bash: at prompt, `sleep 90`, Ctrl+C | "Opens in its folder", safe; "Command stops", "1 thread is busy", warn; back to safe | atPrompt true, false, true; hasChildren false, true (MSYS tree gained pid 63524), false | 12a, 12b, 12c; 12-row-12-git-bash-sleep.mp4 | Pass |
+| 12 | cmd with `shellIntegration.cmd = off`, second instance, PROMPT removed from the launching shell | Idle: "Opens in its folder" marked unknown, `data-status="none"`, no status line. 60 s ping with the window opened 3 s in: "Command stops", "1 thread is busy" 2.7 s after opening. 2.9 s after Ctrl+C: unknown again | atPrompt absent; hasChildren false when idle, so the console host is not counted as the shell's child | 12e, 12g, 12h, 12i; 12e and 12h recordings. 12d shows the first launch, where an inherited PROMPT still drew marks | Pass |
+| 12 | WSL | Not installed on this machine | | | Not tested |
+
+**Wake stands in for the restart (rows 7, 8, 11).** The dev build refuses Restart now, so Sleep then Wake was used. Wake typed the right `claude --resume <id>` in the chat's folder. That Claude inherits the harness's scratch `CLAUDE_CONFIG_DIR`, which has no login, so it opened Claude's first-run theme picker (Ctrl+C does not leave it; that one `claude.exe`, checked to be under the harness, was ended by pid). The same command typed again after `set CLAUDE_CONFIG_DIR=` brought the conversation back (07d, 11c). The real restart belongs to the sandbox installer stage.
+
+## Results, hook tests 13 to 18
+
+There is no packaged exe with the fixes, so each "launch-exe-once" test used a dev harness launch with the same env.
+
+| # | Set up | What happened | Result |
+|---|---|---|---|
+| 13 | Data dir `rw-fixes-hook13`, prefs `{"claudeNotifications":"disabled","claudeHookToastShown":true}`, no `CLAUDE_CONFIG_DIR`, held 6 s | Log: `[claude-hook] skipped: this is a test launch (AFTERTERM_USER_DATA_DIR is set) with no CLAUDE_CONFIG_DIR, so the real Claude folder is left alone`. Real settings.json same hash, same modified time (13:00:53.939) and size; hook script same hash | Pass |
+| 14 | Scratch folder `rw-fixes-claude-14` seeded by `seed-scratch-claude.mjs` (fixed, below) from the run's own scratch settings: afterterm's five entries, another tool's hook inside afterterm's UserPromptSubmit group, one in its own Stop group, `theme` and `statusLine`. Opt-out launch | Log said the entries were removed because the user opted out. Afterward: UserPromptSubmit keeps one group, matcher `''`, holding only the other tool's hook; Stop keeps the other tool's own group; afterterm's entries gone from all five events; `theme` and `statusLine` kept | Pass |
+| 15 | Main instance, its scratch settings.json given `theme` and `statusLine`, then the `hooks` key deleted by hand | All five back after 2.64 s. Other keys and the hooks block identical to before the delete. Log: `[claude-hook] repaired: settings.json had no afterterm entry for SessionStart, UserPromptSubmit, Notification, Stop, PreCompact; registered 5 hook event(s) using pwsh` | Pass |
+| 16 | Test 15 again while tab-2 (real login) was mid-turn on `ping -n 20` | Repaired after 1.86 s; the chat finished its turn normally (▶ at 4.5 s, ✅ at 28.0 s). That chat reads the real settings, not the scratch file, so "hook lines fire again" through the repaired file was not observed here; note-03 recorded a running chat picking hooks up live through a project-local settings file | Partly run, as planned |
+| 17 | Opt-out instance of test 14, `hooks` key deleted | File unchanged (same hash) for 18 s, no `[claude-hook]` line | Pass |
+| 18 | Main instance, settings.json without hooks cut short to 101 bytes (does not parse) | Same hash for 18 s, no log line. Written back as valid JSON without hooks: all five back after 4.25 s, `repaired` logged | Pass |
+
+## Fix 9: a chat whose Claude started a dev server
+
+tab-10, chat with hooks. Claude ran `python -m http.server 8765 --bind 127.0.0.1` as a background task. The thread then had port 8765, id a528d01c, recordStatus shell and last command `claude --model haiku ...`; the window said "Background task stops" (19a).
+
+- `/exit` asked "Exit and stop tasks / Move to background and exit / Stay" and the record said `waiting` meanwhile (19b). Stay was chosen: exiting would either end the server or leave a detached session running.
+- Sleep asked "Sleep the server on :8765?" with "Sleeping it stops the server; Wake resumes the chat." (19c). The asleep pane read "Chat asleep since just now", with no "runs claude" (19d).
+- Wake typed `claude --resume a528d01c-6f75-4776-b340-fd1764f584e4`, not a fresh `claude` (19e).
+- Second case: in the same shell, `python -m http.server 8766 --bind 127.0.0.1`, so port 8766, last command the python line, id kept. Window: "Command stops", not "Runs again on :8766" (19f). Sleep said "Wake resumes the chat" (19g). Wake typed `claude --resume a528d01c-...`, not the python command (19h).
+
+Recording: 19-fix-9-chat-started-dev-server.mp4. Pass.
+
+## Surprising things
+
+- **An inherited PROMPT defeats the cmd opt-out.** This agent runs inside Aryan's afterterm, so its environment carries afterterm's cmd PROMPT with the OSC 133 marks, and the harness passed it on. An opted-out cmd still drew marks (12d), and in the main instance every cmd prompt carried the marks twice (`planSpawn` wraps an existing PROMPT). Results were unaffected. The same happens to anyone starting afterterm from a cmd thread inside afterterm. To test the cmd opt-out from inside afterterm, remove PROMPT from the launching shell first.
+- **hasChildren comes from the cached process list.** With the window closed, a 15 s ping in an opted-out cmd never showed as a child (12e recording). Opening the window asks for a fresh list, and the row then changed within 3 s. After a command ends, hasChildren can stay true for a while (tab-3, tab-6); prompt marks win, so it only matters for a shell with no marks.
+- **The spinner goes before the needs-you state arrives.** While a question or permission prompt is up, the record says `waiting` within a second, the `working` notification clears about 2.5 s later, and the hook's `attention` arrives about 7 s after the prompt. For those 4 to 5 seconds the sidebar shows the chat as quiet. The restart window is right throughout; the sidebar is out of this round's scope.
+- **After a turn ends, the record says `busy` for a second or so** (while the Stop hook runs) before `idle`.
+- The first Ctrl+C of row 4 went nowhere, because closing the window leaves the terminal without focus (04b). The first try of row 3 sampled before the pause had begun, because starting pwsh and compiling the pause type takes a few seconds (03b). Both are named for what they show; `stall.ps1` now prints when the pause really starts and ends.
+- The Git Bash captures show Git Bash's default `user@host` prompt.
+
+## Test script changes
+
+- `seed-scratch-claude.mjs` read the real `~/.claude/settings.json` and copied the real hook script. It now takes the hooks block from the scratch folder's own settings.json (or a source path given as the second argument), refuses any source or target inside the real Claude folder, and copies the hook script from the repo's `assets` only when the scratch folder has none.
+- `stall.ps1` prints the time it suspended and resumed the process, and resumes in a `finally`.
+- Not used, and still pointing at the real Claude folder: `sess-watch.ps1` and the `recordFor` helper in `guarded-driving-example.ps1` read `$env:USERPROFILE\.claude\sessions`; `make-settings.mjs` writes the real hook script's path into the two-hooks settings it makes.
