@@ -12,7 +12,8 @@ Steps, in order:
 
 1. **Look for an existing issue.** Use `list_issues` with project `afterterm`, a `query` on the bug's main words and `includeArchived: true`.
    - The same bug, still open: add what is new as a comment with `save_comment`, including any screenshots from step 2. Do not create a second issue.
-   - The same bug in "Fixed, check it" or "Done": the fix did not hold. Move it back to Todo and put Aryan's words in a comment.
+   - The same bug in "Fixed, check it": the fix did not hold. Move it back to Todo and put Aryan's words in a comment.
+   - The same bug in "Done": it is a new issue. Carry on to step 3, and link the old issue with `relatedTo`.
    - Otherwise carry on to step 3.
 
 2. **Screenshots.** Every image attached to this message appears in the prompt as `[Image #N]` followed by `[Image: source: <path>]`. Open each one first. If it shows another person, a video call or a personal window, leave it out and say so in the reply: Aryan decides whether a cropped copy is wanted. For the rest, strictly one at a time:

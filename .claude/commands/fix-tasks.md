@@ -1,5 +1,5 @@
 ---
-description: Work on afterterm's Linear issues by id, for example /fix-tasks AFT-27 AFT-34. Marks them In Progress, does the work in a worktree, self-tests it and moves them to Fixed, check it
+description: Work on afterterm's Linear issues by id, for example /fix-tasks AFT-27 AFT-34. Marks them In Progress, does the work in a worktree, self-tests it and moves them to Done when it ships
 ---
 
 Work on these Linear issues in one thread: $ARGUMENTS
@@ -23,8 +23,8 @@ Follow "All work is tracked in Linear" in `CLAUDE.md` throughout. If the Linear 
 
    Keep each issue current as you go: a short comment at each new stage (cause found, plan agreed, PR opened, self-test passed). If you find something only Aryan can decide, move the issue to Needs your decision with the question in a comment.
 
-6. **When it is finished and self-tested,** move each issue to Fixed, check it, with a comment: what changed, the PR, where he can try it (the release, or the replica dev build from `docs/agent-workflow/replica-and-build-swap.md`), and numbered steps to check it. Never move an issue to Done: only Aryan does that.
+6. **When the PR is merged after the self-test,** move each issue to Done with a comment: what changed and the PR. If the PR waits for Aryan to merge it, move the issue to Needs your decision with the PR in the comment. Only when something needs his own judgement (how it looks, his own hardware or accounts), move it to Fixed, check it instead, with numbered steps to check it and where to try it (the release, or the replica dev build from `docs/agent-workflow/replica-and-build-swap.md`).
 
    **If you stop before that,** comment where it stands and what is next, and move it back to Todo if nobody will carry on.
 
-7. Reply with one line per issue: its id, its status, the PR, and where to try it.
+7. Reply with one line per issue: its id, its status and the PR.
