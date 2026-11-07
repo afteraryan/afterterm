@@ -34,7 +34,9 @@ settings file; only the global/project `settings.json` hierarchy, and hooks
   the `popup.vbs`/`wscript` dependency of the dev-machine `~/.claude/hooks/notify.ps1`.
   Forces UTF-8 stdout so the glyphs survive Windows PowerShell 5.1 too.
 - **`src/claude-hook-install.ts`** — `reconcileClaudeHook()` runs on every
-  startup from `main.ts` (`reconcileNotifierHook`). It's **idempotent and
+  startup from `main.ts` (`reconcileNotifierHook`), except a test launch
+  (`AFTERTERM_USER_DATA_DIR` set with no `CLAUDE_CONFIG_DIR`, decided by
+  `hookReconcileAllowed`), which skips it. It's **idempotent and
   additive**: copies the script into `~/.claude/hooks/` and merges its 5 entries
   (`SessionStart`, `UserPromptSubmit`, `Notification`/`permission_prompt`,
   `Stop`, `PreCompact`) into `~/.claude/settings.json` only if missing — never

@@ -72,7 +72,7 @@ $SessionId = if ($payload.session_id) { [string]$payload.session_id } else { '' 
 # us a private per-tab file path via env (AFTERTERM_TAB_ID + AFTERTERM_SESSION_DIR)
 # and we write the mapping straight to disk. That file is afterterm's own channel for
 # this one tab, and it carries the session id and cwd as data, instead of squeezing
-# them through a title string that the terminal and the shell can also write to.
+# them through a title string that the shell and other programs in it can also write to.
 # Completely inert when the env isn't set (i.e. not launched by this afterterm).
 #
 # ONLY user-turn events may claim the tab (see $CaptureEvents). Claude Code runs a

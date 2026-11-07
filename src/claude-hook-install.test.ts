@@ -309,6 +309,51 @@ console.log('\nreconcileClaudeHook tests\n');
   }
 }
 
+// 15b. Opt out on a group shared with another tool, then opt back in: afterterm's hook
+//      comes back as its own group with the same matcher, the other tool's hook is
+//      still there, and the next run has nothing to do.
+{
+  const b = sandbox();
+  reconcileClaudeHook(opts(b)); // register first
+  const s0 = readSettings(b.claudeDir);
+  const theirs = { type: 'command', command: 'pwsh', args: ['-File', 'C:\\mine\\my-hook.ps1'] };
+  const ourGroup = groupsFor(s0, 'Notification')[0];
+  ourGroup.hooks.push(theirs); // the other tool's hook shares afterterm's group
+  fs.writeFileSync(path.join(b.claudeDir, 'settings.json'), JSON.stringify(s0, null, 2), 'utf-8');
+  fs.writeFileSync(b.prefsPath, JSON.stringify({ claudeNotifications: 'disabled', claudeHookToastShown: true }), 'utf-8');
+  reconcileClaudeHook(opts(b)); // opt out
+  fs.writeFileSync(b.prefsPath, JSON.stringify({ claudeNotifications: 'enabled', claudeHookToastShown: true }), 'utf-8');
+  const r = reconcileClaudeHook(opts(b)); // opt back in
+  const s = readSettings(b.claudeDir);
+  const groups = groupsFor(s, 'Notification');
+  const ours = groups.filter((g: any) => hasOurEntry({ hooks: { Notification: [g] } }, 'Notification'));
+  const others = groups.filter((g: any) => g.hooks?.some((h: any) => JSON.stringify(h) === JSON.stringify(theirs)));
+  check('re-enable after a shared group: registered again, no toast', r.status === 'registered' && !r.showToast, r.status);
+  check('re-enable after a shared group: afterterm\'s hook is its own group again, same matcher',
+    ours.length === 1 && ours[0].hooks.length === 1 && ours[0].matcher === 'permission_prompt', JSON.stringify(groups));
+  check('re-enable after a shared group: the other tool\'s hook is still there, in its own group',
+    others.length === 1 && others[0] !== ours[0] && others[0].hooks.length === 1 && others[0].matcher === 'permission_prompt',
+    JSON.stringify(groups));
+  const r2 = reconcileClaudeHook(opts(b));
+  check('re-enable after a shared group: the next run is already-current', r2.status === 'already-current' && !r2.changed, r2.status);
+}
+
+// 15c. An opt-out that removes ours leaves an unrelated empty event key as it was.
+{
+  const b = sandbox();
+  reconcileClaudeHook(opts(b)); // register first
+  const s0 = readSettings(b.claudeDir);
+  s0.hooks.Empty = [];
+  fs.writeFileSync(path.join(b.claudeDir, 'settings.json'), JSON.stringify(s0, null, 2), 'utf-8');
+  fs.writeFileSync(b.prefsPath, JSON.stringify({ claudeNotifications: 'disabled', claudeHookToastShown: true }), 'utf-8');
+  const r = reconcileClaudeHook(opts(b));
+  const s = readSettings(b.claudeDir);
+  check('empty key: the opt-out removed ours', r.status === 'removed', r.status);
+  check('empty key: an unrelated empty event key is kept',
+    'Empty' in (s.hooks ?? {}) && Array.isArray(s.hooks.Empty) && s.hooks.Empty.length === 0, JSON.stringify(s.hooks));
+  check('empty key: events that held only ours are gone', !('Stop' in s.hooks) && !('SessionStart' in s.hooks));
+}
+
 // 16. A test launch leaves the Claude folder alone (hookReconcileAllowed): reconcile
 //     may run unless AFTERTERM_USER_DATA_DIR is set without CLAUDE_CONFIG_DIR.
 {

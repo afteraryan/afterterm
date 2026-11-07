@@ -88,7 +88,7 @@ node scripts/agent-harness/launch.mjs --session "$env:TEMP\session-copy.json" `
 Options:
 
 - `--session <file>`: session.json to seed from. Omit for an empty start.
-- `--prefs <file>`: a JSON object merged into the generated `prefs.json` on top of `claudeHookToastShown: true`. Seeding `lastOpenedAt` (a time over an hour back) makes Home show its "Last here" line; without it a fresh profile is a first launch and shows nothing. Never seed `claudeNotifications: "disabled"` here (see "Environment overrides").
+- `--prefs <file>`: a JSON object merged into the generated `prefs.json` on top of `claudeHookToastShown: true`. Seeding `lastOpenedAt` (a time over an hour back) makes Home show its "Last here" line; without it a fresh profile is a first launch and shows nothing. Never seed `claudeNotifications: "disabled"` here unless the launch also passes a scratch `CLAUDE_CONFIG_DIR` (see "Environment overrides").
 - `--data-dir <dir>`: user-data dir (default: a fresh `%TEMP%\afterterm-agent-harness\run-<timestamp>`).
 - `--display primary|secondary|<n>`: default `secondary`.
 - `--port <n>`: remote debugging port, default `9333`.
@@ -177,22 +177,31 @@ folder the hook install skips).
 decides where `session.json` and `prefs.json` live. A launch that has it but no
 `CLAUDE_CONFIG_DIR` skips the hook install entirely, both the entries in
 `settings.json` and the copy of the hook script, and logs one `[claude-hook]
-skipped: ...` line. So a harness run writes nothing to the real `~/.claude`, with
-or without a scratch home. Pass a scratch `CLAUDE_CONFIG_DIR` when the test needs
-the hook installed.
+skipped: ...` line. So afterterm itself writes nothing to the real `~/.claude` in
+such a run, with or without a scratch home. A `claude` started inside a thread is
+a separate program: it still writes its own transcripts and records to whatever
+Claude folder it sees. With a scratch `CLAUDE_CONFIG_DIR` it inherits that folder
+and needs its own login; with no `CLAUDE_CONFIG_DIR`, the chats in the run use the
+production app's copy of the hook script, not this branch's. Pass a scratch
+`CLAUDE_CONFIG_DIR` when the test needs the hook installed.
+
+A `CLAUDE_CONFIG_DIR` set in the launching shell is dropped, like the Claude Code
+session variables above, so the dev build never sees the real Claude folder by
+accident. Only `--env CLAUDE_CONFIG_DIR=<folder>` sets it.
 
 ```powershell
 New-Item -ItemType Directory -Force "$env:TEMP\afterterm-scratch-claude" | Out-Null
 npm run harness -- --session "$env:TEMP\session-copy.json" --env "CLAUDE_CONFIG_DIR=$env:TEMP\afterterm-scratch-claude"
 ```
 
-**Never seed `claudeNotifications: "disabled"` in a throwaway `prefs.json` for a
-launch that can see the real Claude folder.** That is a launch with no
-`AFTERTERM_USER_DATA_DIR`, or one that runs a build from before this guard
-existed. The opt-out is read from the throwaway profile and carried out on the
-real `~/.claude/settings.json`. On 2026-11-06 a smoke test of the packaged 0.15.0
-build did exactly that and removed the real hooks for 21 hours: no chat had states,
-toasts or a saved session id meanwhile
+**Never seed `claudeNotifications: "disabled"` in a throwaway `prefs.json`
+(`--prefs`, or by hand) unless the same launch also passes a scratch
+`CLAUDE_CONFIG_DIR`.** The hook tests do exactly that, on purpose. The opt-out is
+read from the throwaway profile and carried out on whatever Claude folder the app
+sees, and a build older than the launch guard above (0.15.0 and earlier) sees the
+real one whenever `CLAUDE_CONFIG_DIR` is unset. On 2026-11-06 a smoke test of the
+packaged 0.15.0 build did exactly that and removed the real hooks for 21 hours: no
+chat had states, toasts or a saved session id meanwhile
 ([the note](../../docs/note-03-restart-window-said-safe-while-a-chat-was-running.md)).
 
 The dev build is created through WMI (`Win32_Process.Create`), not
