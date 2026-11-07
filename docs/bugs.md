@@ -745,7 +745,7 @@ When afterterm is started from a cmd thread inside another afterterm, the launch
 2. In the second afterterm, open a cmd thread and read its prompt state with the harness's `marks` command: it reports one although integration is off.
 3. Leave integration on and look at a cmd thread's prompt marks: each one is there twice.
 
-**Evidence:** Seen on 2026-11-07, the dev build at e42c9f1. The restart window's rows were right in every case, so nothing was lost; the account is in `docs/screenshots/restart-window-and-hook-fixes/README.md` under "Surprising things", and capture 12d and its recording show the opt-out not honoured. Rows 12e to 12i were run after removing `PROMPT` from the launching shell (`set PROMPT=`), and the opt-out then worked. The same happens to anyone who starts afterterm from a cmd thread inside afterterm.
+**Evidence:** Seen on 2026-11-07, the dev build at e42c9f1. The restart window's rows were right in every case, so nothing was lost; the account is in `docs/screenshots/restart-window-and-hook-fixes/README.md` under "Things found during the test that the plan did not expect", and capture 12d and its recording show the opt-out not honoured. Rows 12e to 12i were run after removing `PROMPT` from the launching shell (`set PROMPT=`), and the opt-out then worked. The same happens to anyone who starts afterterm from a cmd thread inside afterterm.
 
 ---
 
