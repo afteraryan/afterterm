@@ -214,6 +214,8 @@ const TICKS_THRESHOLD = 300_000_000_000_000_000n;
 export type TzOffset = (utcMs: number) => number;
 const localTzOffset: TzOffset = utcMs => new Date(utcMs).getTimezoneOffset();
 
+const HOUR_MS = 3_600_000;
+
 function addOffset(wall: number, offsetMinutes: number): number {
   return Number.isFinite(offsetMinutes) ? wall + offsetMinutes * 60_000 : wall;
 }
@@ -224,12 +226,16 @@ function addOffset(wall: number, offsetMinutes: number): number {
  *
  * A FILETIME is UTC and has one reading. .NET ticks come from CIM's CreationDate,
  * which is local time, so they are a wall clock and need the offset in force at that
- * instant. The offset is first taken at the wall-clock value read as UTC, then looked
- * up again at the instant that gives: the two differ for a Claude started within one
- * offset of a daylight saving change, and the second is right. Both are offered, which
- * also covers the hour a clock change repeats, and the plain UTC reading is offered
- * last. A reused pid could pass only by starting one of those exact offsets, to the
- * second, from the old process.
+ * instant, which a wall clock alone does not always settle:
+ *   - The offset is first taken at the wall-clock value read as UTC, then looked up
+ *     again at the instant that gives. The two differ for a Claude started within one
+ *     offset of a daylight saving change, and the second is right.
+ *   - In the hour an autumn change repeats, one wall-clock time is two instants, and
+ *     both lookups can land on the summer offset while the Claude started in the
+ *     second pass. So the offsets in force an hour before and an hour after the first
+ *     instant are offered as readings too.
+ * The plain UTC reading is offered last. A reused pid could pass only by starting one
+ * of those exact offsets, to the second, from the old process.
  */
 export function procStartReadings(token: string | null, tzOffset: TzOffset = localTzOffset): number[] {
   if (typeof token !== 'string' || !/^\d{1,20}$/.test(token)) return [];
@@ -238,7 +244,9 @@ export function procStartReadings(token: string | null, tzOffset: TzOffset = loc
     const wall = Number((n - DOTNET_TICKS_AT_UNIX_EPOCH) / 10_000n);
     const first = addOffset(wall, tzOffset(wall));
     const second = addOffset(wall, tzOffset(first));
-    return [...new Set([second, first, wall])];
+    const before = addOffset(wall, tzOffset(first - HOUR_MS));
+    const after = addOffset(wall, tzOffset(first + HOUR_MS));
+    return [...new Set([second, first, before, after, wall])];
   }
   if (n >= FILETIME_AT_UNIX_EPOCH) return [Number((n - FILETIME_AT_UNIX_EPOCH) / 10_000n)];
   return [];
@@ -370,14 +378,15 @@ export function unlistedRunningPids(
 /**
  * Pids for which the process list looks out of date, so a fresh list is worth asking
  * for: a running process the list has not seen (unlistedRunningPids), and a running
- * pid in one of afterterm's threads' trees whose start time disagrees with its record
- * (the process the list knows at that pid has ended and a new Claude got the same
- * pid, as an /exit and a new `claude` in the same shell can). isRunning is asked about
- * those alone, never about every record on the machine.
+ * pid the list knows as a process whose start time disagrees with the record (that
+ * process has ended and a new Claude got the same pid). The old process may have sat
+ * anywhere, in a thread's tree (an /exit and a new `claude` in the same shell) or
+ * outside every tree (a new Claude in a thread took the pid some other program had),
+ * so where the list puts the pid is no guide. isRunning is asked about those pids
+ * alone, which are few, and listRefreshPlan asks about each one once.
  */
 export function staleListPids(
   records: SessionRecord[],
-  shellPids: Map<string, number>,
   procs: Proc[],
   isRunning: (pid: number) => boolean,
   tzOffset?: TzOffset,
@@ -385,14 +394,9 @@ export function staleListPids(
   const out = new Set<number>(unlistedRunningPids(records, procs, isRunning));
   const listed = new Set<number>();
   for (const p of procs ?? []) listed.add(p.pid);
-  let inTrees: Set<number> | null = null;
   for (const r of records ?? []) {
     if (!listed.has(r.pid) || pidLooksAlive(r, procs, tzOffset)) continue;
-    if (!inTrees) {
-      inTrees = new Set<number>();
-      for (const shellPid of shellPids.values()) for (const pid of descendantPids(procs, shellPid)) inTrees.add(pid);
-    }
-    if (inTrees.has(r.pid) && isRunning(r.pid)) out.add(r.pid);
+    if (isRunning(r.pid)) out.add(r.pid);
   }
   return [...out].sort((a, b) => a - b);
 }

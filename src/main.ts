@@ -645,15 +645,18 @@ async function killTree(tabId: string, pid: number, info: ShellInfo | undefined)
 // Cost: listing the folder and reading a handful of small files. The process tree
 // comes from the server watcher's cached list, never a PowerShell of its own, and the
 // running check (process.kill with signal 0) is made only for Claudes in afterterm's
-// own threads. A record the list is out of step with (a claude.exe started since the
-// list was taken, or a new one on a pid the list knows as another process) asks the
-// watcher for a fresh list, at most every 10 seconds, and only once per pid
-// (listRefreshPlan).
+// own threads and for the few records the list is out of step with: a claude.exe
+// started since the list was taken, or a new one on a pid the list knows as another
+// process. Such a record asks the watcher for a fresh list, at most every 10 seconds,
+// and only once per pid (listRefreshPlan).
 
 const CLAUDE_RECORD_POLL_MS = 2_000;
 const CLAUDE_RECORD_REFRESH_MIN_GAP_MS = 10_000;
 // How long a fresh pass (the restart window opening) waits for the process list it
-// asked for. The commands under it time out sooner, so this is only a backstop.
+// asked for. One poll can take up to 30 seconds (netstat 10, PowerShell 15, ps 5), and
+// the wait can span a poll already running plus the re-run queued behind it, so this
+// limit can be what ends the wait. Then the pass matches against the list it already
+// had, which is what a timer pass does anyway.
 const CLAUDE_RECORD_FRESH_WAIT_MS = 20_000;
 // A folder holding more files than this is read only this far, so a tick stays cheap
 // whatever is in it.
@@ -776,7 +779,7 @@ async function claudeRecordPass(fresh: boolean): Promise<void> {
   // status does not blip to null (which would read as "not mid-turn").
   const merged = holdLastGood(readSessionRecords(getClaudeSessionsDir()), heldRecords);
   heldRecords = merged.held;
-  const records = merged.records;
+  let records = merged.records;
   // Each pid is asked about once per pass.
   const running = new Map<number, boolean>();
   const isRunning = (pid: number) => {
@@ -790,7 +793,7 @@ async function claudeRecordPass(fresh: boolean): Promise<void> {
   // opening) waits for that read, a timer pass picks the result up next time.
   const now = Date.now();
   const plan = listRefreshPlan(
-    records.length > 0 ? staleListPids(records, shellPidMap(), bridgedProcs(), isRunning) : [],
+    records.length > 0 ? staleListPids(records, bridgedProcs(), isRunning) : [],
     listAsks,
     cachedProcsAt,
     now,
@@ -806,7 +809,15 @@ async function claudeRecordPass(fresh: boolean): Promise<void> {
     // Taken before the poll is asked for, so a poll that finishes at once still counts.
     const done = mustWait ? nextPollDone(CLAUDE_RECORD_FRESH_WAIT_MS) : null;
     void pollServers('a Claude session record names a process the list does not know yet');
-    if (done) await done;
+    if (done) {
+      await done;
+      // The wait can be many seconds: match what the records say now, not before it,
+      // and ask the system again whether each pid is running.
+      const again = holdLastGood(readSessionRecords(getClaudeSessionsDir()), heldRecords);
+      heldRecords = again.held;
+      records = again.records;
+      running.clear();
+    }
   }
 
   // Read after any await above, so a tab whose PTY went meanwhile is not in it.

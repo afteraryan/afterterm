@@ -212,6 +212,18 @@ console.log('\nclaude-session-record: procStartReadings\n');
   check('far from a change the first lookup is already right',
     procStartReadings(TICKS(nyWall(summer)), NEW_YORK)[0] === summer);
 
+  // The hour the autumn change repeats: 01:00 to 01:59 local happens twice, first on
+  // summer time (05:00Z to 05:59Z), then on winter time (06:00Z to 06:59Z). A Claude
+  // started in either pass must read back exactly.
+  for (let minute = 0; minute < 60; minute += 5) {
+    for (const [pass, hour] of [['second', 6], ['first', 5]] as const) {
+      const at = Date.UTC(2026, 10, 1, hour, minute);
+      const readings = procStartReadings(TICKS(nyWall(at)), NEW_YORK);
+      check(`repeated hour, ${pass} pass, ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}Z reads back exactly`,
+        readings.includes(at), show(readings));
+    }
+  }
+
   check('null has no reading', procStartReadings(null).length === 0);
   check('letters have no reading', procStartReadings('12ab').length === 0);
   check('a number below either epoch has no reading', procStartReadings('12345').length === 0);
@@ -398,25 +410,29 @@ console.log('\nclaude-session-record: unlistedRunningPids and staleListPids\n');
   check('nothing to report when every record is listed', unlistedRunningPids([rec(200)], procs, () => true).length === 0);
 
   // /exit, then `claude` again in the same shell, and the new claude.exe got the old
-  // pid: the list still holds the old process at 200, with the old start time.
+  // pid: the list still holds the old process at 200, in the thread's tree, with the
+  // old start time.
   const tree: Proc[] = [
     { pid: 100, ppid: 1, created: START_MS - 60_000 },
     { pid: 200, ppid: 100, created: START_MS - 30_000 },
     { pid: 700, ppid: 9, created: START_MS - 30_000 },
   ];
-  const shells = new Map([['tab-1', 100]]);
   const asked: number[] = [];
   const isRunning = (pid: number) => { asked.push(pid); return true; };
   const stale = staleListPids(
-    [rec(200), rec(700), rec(800), rec(100, { procStart: FILETIME(START_MS - 60_000) })],
-    shells, tree, isRunning);
+    [rec(200), rec(800), rec(100, { procStart: FILETIME(START_MS - 60_000) })],
+    tree, isRunning);
   check('a listed pid in a thread\'s tree whose start time disagrees asks for a fresh list', stale.includes(200), show(stale));
   check('an unlisted running pid asks too', stale.includes(800), show(stale));
-  check('a disagreeing pid outside every thread does not', !stale.includes(700), show(stale));
   check('a record whose start time agrees does not', !stale.includes(100), show(stale));
-  check('and the running check is never asked about the one outside', !asked.includes(700), show(asked));
+  check('and the running check is not asked about it', !asked.includes(100), show(asked));
+
+  // Some other program at pid 700 exited, and a new claude.exe in a thread got its
+  // pid: the old list puts 700 outside every tree, so only a fresh list can place it.
+  check('a disagreeing pid the list puts outside every thread asks too',
+    show(staleListPids([rec(700)], tree, () => true)) === show([700]));
   check('a disagreeing pid that is no longer running does not ask',
-    staleListPids([rec(200)], shells, tree, () => false).length === 0);
+    staleListPids([rec(200), rec(700)], tree, () => false).length === 0);
 }
 
 console.log('\nclaude-session-record: listRefreshPlan\n');
