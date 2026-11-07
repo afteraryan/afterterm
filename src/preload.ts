@@ -118,6 +118,18 @@ contextBridge.exposeInMainWorld('afterterm', {
     },
   },
 
+  // Claude Code's own record of each thread's running Claude (src/claude-session-record.ts):
+  // its live status, pushed when it changes, null when the thread has no live Claude.
+  // refresh() reads the records now and resolves when that is done.
+  claudeRecord: {
+    onStatus: (callback: (data: { tabId: string; status: 'busy' | 'idle' | 'waiting' | 'shell' | null }) => void): (() => void) => {
+      const listener = (_event: IpcRendererEvent, data: { tabId: string; status: 'busy' | 'idle' | 'waiting' | 'shell' | null }) => callback(data);
+      ipcRenderer.on('claude-record:status', listener);
+      return () => { ipcRenderer.removeListener('claude-record:status', listener); };
+    },
+    refresh: (): Promise<void> => ipcRenderer.invoke('claude-record:refresh'),
+  },
+
   // The last lines of a thread's scrollback, kept on disk so sleep and quit do not
   // lose the screen. Main trims and formats them (src/thread-tail.ts).
   threads: {

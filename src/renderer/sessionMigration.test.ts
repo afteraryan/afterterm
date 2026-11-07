@@ -516,6 +516,20 @@ console.log('\nsessionMigration: transient fields stripped, unknown keys kept, i
   check('version is normalised to the current format', s.version === SESSION_FORMAT_VERSION);
 }
 {
+  // Claude Code's live status (plan-02, Fix 5) describes a running Claude: never
+  // written, and stripped on load should a stray write ever carry it.
+  const raw = fixture081() as any;
+  raw.tabs[1].recordStatus = 'busy';
+  const s = migrateSession(raw, NOW)!;
+  check('recordStatus is stripped on load', !('recordStatus' in s.tabs[1]));
+  const live: Tab[] = (s.tabs as unknown as Tab[]).map(t => ({ ...t, recordStatus: 'waiting' as const }));
+  const written = serializeSession(live, s.groups, s.activeTabId);
+  check('recordStatus is never written, even when set on the in-memory tab',
+    written.tabs.every(t => !('recordStatus' in t)));
+  check('and nothing else about the tab changes',
+    JSON.stringify(written) === JSON.stringify(serializeSession(s.tabs as unknown as Tab[], s.groups, s.activeTabId)));
+}
+{
   const once = migrateSession(fixture081(), NOW)!;
   const twice = migrateSession(once, NOW + 5_000_000)!;
   check('migrating a migrated session changes nothing (even with a later now)', isDeepStrictEqual(once, twice));

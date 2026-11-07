@@ -1,3 +1,5 @@
+import type { RecordStatus } from '../../../claude-session-record';
+
 export type TabNotification = 'done' | 'attention' | 'background' | 'compacting' | 'working';
 
 export interface Tab {
@@ -82,6 +84,13 @@ export interface Tab {
   // asleep chat still carries the mark and shows the bell (threadState gives
   // it precedence over asleep). Phase 7.
   unread?: boolean;
+  // Transient (NOT persisted): what Claude Code's own session record says the
+  // thread's running Claude is doing (main reads <Claude folder>\sessions\<pid>.json,
+  // src/claude-session-record.ts, and pushes `claude-record:status`). busy is
+  // working, waiting is on a question or a permission prompt, shell is idle with a
+  // background task. Absent when the thread has no live Claude. Unlike
+  // `notification` it arrives with or without hooks.
+  recordStatus?: RecordStatus;
 }
 
 export interface Group {

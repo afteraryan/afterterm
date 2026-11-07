@@ -27,7 +27,7 @@ export const SESSION_FORMAT_VERSION = 3;
 
 // A tab as written to disk: the in-memory Tab minus the fields that describe a
 // live process, which are meaningless after a relaunch (each tab is a fresh shell).
-export type SavedTab = Omit<Tab, 'notification' | 'firstPrompt' | 'wokeAt'>;
+export type SavedTab = Omit<Tab, 'notification' | 'firstPrompt' | 'wokeAt' | 'recordStatus'>;
 
 export interface SavedSession {
   version?: number;
@@ -77,7 +77,9 @@ const PERSISTED_TAB_KEYS = [
 // carries it (a stray write from a pre-Phase-4 build) must still be stripped on
 // load rather than kept around as dead data. wokeAt is Phase 4's own transient
 // field, alongside it for the same reason as notification and firstPrompt.
-const TRANSIENT_TAB_KEYS = ['notification', 'claudeRestorable', 'firstPrompt', 'wokeAt'] as const;
+// recordStatus is what Claude Code's session record said a running Claude was
+// doing (plan-02, Fix 5): it describes a live process, so it never outlives one.
+const TRANSIENT_TAB_KEYS = ['notification', 'claudeRestorable', 'firstPrompt', 'wokeAt', 'recordStatus'] as const;
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);

@@ -742,11 +742,17 @@ export function App() {
   // and pushes it here → store on the tab so the next launch can resume it. The first
   // capture is also the moment the transcript and the folder become known, so both
   // are read once here; later turns arrive on the meta push below.
+  // Since Fix 5 (plan-02) a capture also comes from Claude Code's own session record,
+  // through the same onUpdate, so a chat with no hooks is still a chat. The record's
+  // live status arrives beside it and is kept on the tab, never saved.
   useEffect(() => {
     window.afterterm.claudeSession.onUpdate(({ tabId, sessionId, cwd }) => {
       stateRef.current.setClaudeSession(tabId, sessionId, cwd);
       refreshClaudeMeta(tabId, sessionId, cwd);
       refreshGit(tabId, cwd);
+    });
+    return window.afterterm.claudeRecord.onStatus(({ tabId, status }) => {
+      stateRef.current.setClaudeRecordStatus(tabId, status);
     });
   }, []);
 
@@ -1136,6 +1142,15 @@ export function App() {
     };
   });
 
+  // Whichever button opened the restart window (the title bar's or the About
+  // window's), read Claude Code's session records now rather than up to two seconds
+  // ago. The result is ignored: any status that changed arrives on onStatus and the
+  // rows re-render with it.
+  useEffect(() => {
+    if (updateWindow !== 'restart') return;
+    void window.afterterm.claudeRecord.refresh().catch(() => { /* the timer's next read covers it */ });
+  }, [updateWindow]);
+
   const restartNow = useCallback(async () => {
     const s = stateRef.current;
     wakeAfterUpdateRef.current = s.tabs.filter(t => !t.asleep).map(t => t.id);
@@ -1346,9 +1361,10 @@ export function App() {
   }, []);
 
   // Harness hook: the current record of one thread (drive eval
-  // "window.__afterterm.tab('tab-1')"), so a test can check port, lastCommand and
-  // asleep without going through the saved file's two second debounce. Extended,
-  // not replaced, for the same reason as openLocalhost's hook above.
+  // "window.__afterterm.tab('tab-1')"), so a test can check port, lastCommand,
+  // asleep and recordStatus (never saved, so only here) without going through the
+  // saved file's two second debounce. Extended, not replaced, for the same reason
+  // as openLocalhost's hook above.
   useEffect(() => {
     const win = window as unknown as { __afterterm?: Record<string, unknown> };
     win.__afterterm = {

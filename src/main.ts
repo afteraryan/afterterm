@@ -22,7 +22,16 @@ import type { DetectDeps } from './editor-detect.ts';
 import type { EditorInfo } from './editors.ts';
 import { readPrefs, updatePrefs } from './prefs.ts';
 import { planSpawn } from './shell-integration.ts';
-import { readTranscriptMeta, isSessionId, findTranscript, projectDirName } from './claude-transcript.ts';
+import { readTranscriptMeta, isSessionId, findTranscript, projectDirName, transcriptPath } from './claude-transcript.ts';
+import {
+  CLAUDE_CWD_RE,
+  RECORD_MAX_BYTES,
+  isRecordFileName,
+  parseSessionRecord,
+  threadFeeds,
+  unlistedRunningPids,
+} from './claude-session-record.ts';
+import type { RecordStatus, SessionRecord } from './claude-session-record.ts';
 import { gitInfo } from './git-info.ts';
 import { isThreadId, parseTail, serializeTail, tailFilePath, trimTail } from './thread-tail.ts';
 import {
@@ -507,6 +516,8 @@ async function pollServers(reason: string): Promise<void> {
 }
 
 function startServerPolling(): void {
+  // Claude Code's session records are read on the same lifetime: while any PTY is alive.
+  startClaudeRecordPolling();
   if (serverPollTimer) return;
   serverPollTimer = setInterval(() => {
     if (ptys.size === 0) { stopServerPolling(); return; }
@@ -517,6 +528,7 @@ function startServerPolling(): void {
 function stopServerPolling(): void {
   if (serverPollTimer) { clearInterval(serverPollTimer); serverPollTimer = null; }
   if (burstTimer) { clearTimeout(burstTimer); burstTimer = null; }
+  stopClaudeRecordPolling();
 }
 
 /**
@@ -538,13 +550,14 @@ function noteOutputForServers(): void {
   }, delay);
 }
 
-/** A tab's PTY has gone: forget it, and clear its port in the UI straight away. */
+/** A tab's PTY has gone: forget it, and clear its port and its Claude status in the UI straight away. */
 function forgetServerTab(tabId: string): void {
   shellPids.delete(tabId);
   treeDirty = true;
   const last = lastPortSent.get(tabId);
   lastPortSent.delete(tabId);
   if (typeof last === 'number') sendPort(tabId, null);
+  forgetRecordTab(tabId);
 }
 
 /** taskkill a pid and its Windows subtree. Never rejects: a dead pid is normal. */
@@ -589,6 +602,217 @@ async function killTree(tabId: string, pid: number, info: ShellInfo | undefined)
   }
   await Promise.all(rest.map(p => taskkillTree(p)));
 }
+
+// ─── Claude Code's session record: each thread's session id and live status ───
+
+// Claude Code keeps `<Claude folder>\sessions\<pid>.json` for every running claude.exe
+// (claude-session-record.ts says what is in it and how each value is checked). Read
+// every two seconds while a PTY is alive, it gives a thread whose shell runs a Claude
+// two things the hooks give only when they run: the session id, so a chat with no
+// hooks is still a chat and resumes, and a live status (busy, idle, waiting, shell),
+// which the renderer keeps on the tab and never saves. The hooks stay the fallback.
+//
+// Cost: listing the folder and reading a handful of small files. The process tree
+// comes from the server watcher's cached list, never a PowerShell of its own. A record
+// naming a running claude.exe the list has not seen (started since the list was taken)
+// asks the watcher for a fresh list, at most every 10 seconds.
+
+const CLAUDE_RECORD_POLL_MS = 2_000;
+const CLAUDE_RECORD_REFRESH_MIN_GAP_MS = 10_000;
+// A folder holding more files than this is read only this far, so a tick stays cheap
+// whatever is in it.
+const CLAUDE_RECORD_MAX_FILES = 200;
+// A session whose transcript is not at the expected place may have moved worktree, so
+// every project folder is searched for it (findTranscript), but at most this often.
+const TRANSCRIPT_RESCAN_MS = 30_000;
+
+let claudeRecordTimer: NodeJS.Timeout | null = null;
+let claudeRecordTick: Promise<void> | null = null;
+let lastRecordListRefreshAt = 0;
+let warnedClaudeRecords = false;
+// Per thread, what this reader last sent: the id (each is sent once) and the status
+// (sent only when it changes). Dropped when the thread's PTY goes (forgetRecordTab).
+const recordSessionSent = new Map<string, string>();
+const recordStatusSent = new Map<string, RecordStatus | null>();
+// Sessions whose transcript has been seen (one never goes away), and when each one
+// not yet seen was last searched for across the project folders.
+const transcriptsSeen = new Set<string>();
+const transcriptMissAt = new Map<string, number>();
+
+function startClaudeRecordPolling(): void {
+  if (claudeRecordTimer) return;
+  claudeRecordTimer = setInterval(() => {
+    if (ptys.size === 0) { stopClaudeRecordPolling(); return; }
+    void runClaudeRecordTick(false);
+  }, CLAUDE_RECORD_POLL_MS);
+}
+
+function stopClaudeRecordPolling(): void {
+  if (claudeRecordTimer) { clearInterval(claudeRecordTimer); claudeRecordTimer = null; }
+}
+
+/**
+ * True while the pid is a running process: the cached list can be a minute old, and a
+ * hard-killed Claude leaves its record behind for a while. Signal 0 sends nothing, it
+ * only asks; Claude Code checks its own records the same way.
+ */
+function pidRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    // EPERM means it exists and is just not ours to signal.
+    return (err as NodeJS.ErrnoException)?.code !== 'ESRCH';
+  }
+}
+
+/**
+ * Every record in the folder, parsed and validated. Only `<pid>.json` names are
+ * opened: the `<pid>.<hash>.key` files beside them hold a token and are never read.
+ * Plain files only, so a link placed in the folder is not followed.
+ */
+function readSessionRecords(dir: string): SessionRecord[] {
+  let entries: fs.Dirent[];
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return []; }
+  const out: SessionRecord[] = [];
+  let opened = 0;
+  for (const entry of entries) {
+    if (!entry.isFile() || !isRecordFileName(entry.name)) continue;
+    if (++opened > CLAUDE_RECORD_MAX_FILES) break;
+    const file = path.join(dir, entry.name);
+    try {
+      if (fs.statSync(file).size > RECORD_MAX_BYTES) continue;
+      const record = parseSessionRecord(fs.readFileSync(file, 'utf-8'), entry.name);
+      if (record) out.push(record);
+    } catch { /* gone since the listing, or mid-write: the next tick reads it */ }
+  }
+  return out;
+}
+
+/**
+ * Whether a session has a transcript, which is what makes its id safe to resume. The
+ * expected place is checked every tick (one stat); the search of every project folder
+ * runs at most every TRANSCRIPT_RESCAN_MS per session.
+ */
+function recordTranscriptExists(sessionId: string, cwd: string): boolean {
+  if (transcriptsSeen.has(sessionId)) return true;
+  const projectsDir = getClaudeProjectsDir();
+  let found = false;
+  try { found = fs.existsSync(transcriptPath(projectsDir, cwd, sessionId)); } catch { found = false; }
+  if (!found) {
+    const now = Date.now();
+    if (now - (transcriptMissAt.get(sessionId) ?? 0) < TRANSCRIPT_RESCAN_MS) return false;
+    if (transcriptMissAt.size > 500) transcriptMissAt.clear();
+    transcriptMissAt.set(sessionId, now);
+    found = findTranscript(projectsDir, cwd, sessionId, fs) !== null;
+  }
+  if (found) {
+    if (transcriptsSeen.size > 1000) transcriptsSeen.clear();
+    transcriptsSeen.add(sessionId);
+    transcriptMissAt.delete(sessionId);
+  }
+  return found;
+}
+
+/** The cached process list with Git Bash's MSYS parents applied, as pollServers uses it. */
+function bridgedProcs(): ServerProc[] {
+  return cachedMsys.length > 0 ? applyMsysParents(cachedProcs, cachedMsys) : cachedProcs;
+}
+
+function sendRecordStatus(tabId: string, status: RecordStatus | null): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('claude-record:status', { tabId, status });
+  }
+}
+
+async function claudeRecordPass(fresh: boolean): Promise<void> {
+  if (shellPids.size === 0) return;
+  const records = readSessionRecords(getClaudeSessionsDir());
+  // Each pid is asked about once per pass.
+  const running = new Map<number, boolean>();
+  const isRunning = (pid: number) => {
+    let alive = running.get(pid);
+    if (alive === undefined) { alive = pidRunning(pid); running.set(pid, alive); }
+    return alive;
+  };
+
+  // A running claude.exe the list has not seen cannot be placed in any tree until the
+  // list is read again. The server watcher reads it; a fresh pass (the restart window
+  // opening) waits for that read, a timer pass picks the result up next time.
+  if (records.length > 0 && unlistedRunningPids(records, cachedProcs, isRunning).length > 0) {
+    const now = Date.now();
+    if (fresh || now - lastRecordListRefreshAt >= CLAUDE_RECORD_REFRESH_MIN_GAP_MS) {
+      lastRecordListRefreshAt = now;
+      treeDirty = true;
+      const poll = pollServers('a Claude session record names a process the list has not seen');
+      if (fresh) await poll;
+    }
+  }
+
+  // Read after any await above, so a tab whose PTY went meanwhile is not in it.
+  const feeds = threadFeeds({
+    records,
+    shellPids: shellPidMap(),
+    procs: bridgedProcs(),
+    transcriptExists: recordTranscriptExists,
+    isRunning,
+  });
+  for (const [tabId, feed] of feeds) {
+    let sent = false;
+    if ((recordStatusSent.get(tabId) ?? null) !== feed.status) {
+      recordStatusSent.set(tabId, feed.status);
+      sendRecordStatus(tabId, feed.status);
+      sent = true;
+    }
+    // Decision 3 (plan-02): the last id stays when the record goes, so only a new id
+    // is ever sent, never a clear.
+    if (feed.sessionId && feed.cwd && recordSessionSent.get(tabId) !== feed.sessionId) {
+      recordSessionSent.set(tabId, feed.sessionId);
+      // One thread's push failing must not hold up the others.
+      try { pushClaudeSession(tabId, feed.sessionId, feed.cwd); } catch { recordSessionSent.delete(tabId); }
+      sent = true;
+    }
+    // A tester can confirm the reader only ever matches a claude.exe in its own threads' trees.
+    if (sent && process.env.AFTERTERM_HARNESS === '1') {
+      console.log(`[harness] claude-record ${tabId} pid=${feed.pid ?? 'none'} status=${feed.status ?? 'none'} session=${feed.sessionId ? feed.sessionId.slice(0, 8) : 'none'}`);
+    }
+  }
+}
+
+/**
+ * One pass, never two at once, never throwing. A timer pass is skipped while one is
+ * running; a fresh pass (claude-record:refresh) waits for the running one and then
+ * runs its own, so what it resolves after was read after it was asked for.
+ */
+function runClaudeRecordTick(fresh: boolean): Promise<void> {
+  if (claudeRecordTick) {
+    return fresh ? claudeRecordTick.then(() => runClaudeRecordTick(true)) : claudeRecordTick;
+  }
+  const pass: Promise<void> = claudeRecordPass(fresh)
+    .catch(err => {
+      if (!warnedClaudeRecords) {
+        warnedClaudeRecords = true;
+        console.warn('[claude-record] a pass failed, statuses left as they were:', err);
+      }
+    })
+    .finally(() => { if (claudeRecordTick === pass) claudeRecordTick = null; });
+  claudeRecordTick = pass;
+  return pass;
+}
+
+/** A tab's PTY has gone, and its Claude with it: say so once, and forget what was sent. */
+function forgetRecordTab(tabId: string): void {
+  const last = recordStatusSent.get(tabId) ?? null;
+  recordStatusSent.delete(tabId);
+  recordSessionSent.delete(tabId);
+  if (last !== null) sendRecordStatus(tabId, null);
+}
+
+// A fresh read on demand: the renderer asks when the restart window opens, so its rows
+// start from what Claude Code says now. Resolves when the pass is done.
+ipcMain.handle('claude-record:refresh', async () => {
+  await runClaudeRecordTick(true);
+});
 
 // ─── Window creation ──────────────────────────────────────────────────────────
 
@@ -1693,14 +1917,23 @@ function getClaudeSessionDir() {
 // SECURITY: these files are world-writable on disk — validate before trusting. The
 // sessionId is later typed into a shell as `claude --resume <id>`, so accept only a
 // canonical UUID (no shell metacharacters / newlines) and an absolute, clean path.
+// CLAUDE_CWD_RE lives in claude-session-record.ts, which holds Claude Code's own
+// record to the same rule.
 const CLAUDE_UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
-const CLAUDE_CWD_RE = /^[A-Za-z]:\\[^\r\n;&|`$<>"'*?\t]*$/;
 
 // Where Claude Code keeps its session transcripts, one folder per cwd. Read-only:
 // afterterm never writes anything under it. AFTERTERM_CLAUDE_PROJECTS_DIR is the test
 // override, so a harness run can point at a fixture folder instead of the real one.
 function getClaudeProjectsDir() {
   return process.env.AFTERTERM_CLAUDE_PROJECTS_DIR || path.join(getClaudeDir(), 'projects');
+}
+
+// Where Claude Code keeps one record per running claude.exe (claude-session-record.ts).
+// Read-only, and never created. AFTERTERM_CLAUDE_SESSIONS_DIR is the test override: a
+// harness run whose Claude folder is a scratch one can still read the records of the
+// real Claude its test chats run under.
+function getClaudeSessionsDir() {
+  return process.env.AFTERTERM_CLAUDE_SESSIONS_DIR || path.join(getClaudeDir(), 'sessions');
 }
 
 // The first user prompt and the current model for one session, or the not-found
@@ -1719,20 +1952,27 @@ function readAndPushClaudeSession(tabId: string) {
     const obj = JSON.parse(raw) as { sessionId?: unknown; cwd?: unknown };
     if (typeof obj?.sessionId !== 'string' || typeof obj?.cwd !== 'string') return;
     if (!CLAUDE_UUID_RE.test(obj.sessionId) || !CLAUDE_CWD_RE.test(obj.cwd)) return;
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('claude-session:update', { tabId, sessionId: obj.sessionId, cwd: obj.cwd });
-      // The hook rewrites this file on UserPromptSubmit and Stop, so once a turn. Read
-      // the transcript on the same beat: that is what keeps the model current after a
-      // /model switch, and gives a nameless chat its first-prompt fallback.
-      const meta = readClaudeMeta(obj.sessionId, obj.cwd);
-      // Edited files, Phase 2: from the chat's first turn on, watch the folder it
-      // works in, so files its commands change can be attributed to it.
-      watchChatFolder(tabId, meta.cwd || obj.cwd);
-      mainWindow.webContents.send('claude-session:meta', {
-        tabId, sessionId: obj.sessionId, firstPrompt: meta.firstPrompt, model: meta.model, cwd: meta.cwd,
-      });
-    }
+    pushClaudeSession(tabId, obj.sessionId, obj.cwd);
   } catch { /* missing / mid-write / unparseable — ignore, next write retries */ }
+}
+
+// A captured session, whichever source found it (the hook's file, or Claude Code's
+// own record, read beside the server watcher), reaches the renderer the same way: the
+// id and folder for setClaudeSession, then the transcript read and the folder watch
+// that follow a capture. Both callers have validated the id and the folder.
+function pushClaudeSession(tabId: string, sessionId: string, cwd: string): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send('claude-session:update', { tabId, sessionId, cwd });
+  // The hook rewrites its file on UserPromptSubmit and Stop, so once a turn. Read
+  // the transcript on the same beat: that is what keeps the model current after a
+  // /model switch, and gives a nameless chat its first-prompt fallback.
+  const meta = readClaudeMeta(sessionId, cwd);
+  // Edited files, Phase 2: from the chat's first turn on, watch the folder it
+  // works in, so files its commands change can be attributed to it.
+  watchChatFolder(tabId, meta.cwd || cwd);
+  mainWindow.webContents.send('claude-session:meta', {
+    tabId, sessionId, firstPrompt: meta.firstPrompt, model: meta.model, cwd: meta.cwd,
+  });
 }
 
 let claudeWatchStarted = false;
