@@ -207,7 +207,7 @@ Tested on 2026-11-07 in the harness (`docs/screenshots/restart-window-and-hook-f
 - An rc file (Git Bash/WSL) or a broken bootstrap (PowerShell) can silently turn the integration off for a shell, with no visible error and no way today to tell from inside the app that it happened, short of `drive marks` reporting "at prompt: no" forever.
 - zsh and fish inside a WSL distro get no cwd capture or prompt marks at all; the hook is bash-only.
 - A process running inside a WSL distro is invisible to server detection, since that walk only ever covers Windows processes.
-- **An inherited cmd `PROMPT` defeats the cmd opt-out.** When afterterm is started from a cmd thread inside afterterm, the launching shell's `PROMPT` already holds afterterm's marks and is passed on, so a cmd thread with `"shellIntegration": { "cmd": "off" }` still draws marks, and one with integration on carries them twice. To test the cmd opt-out from inside afterterm, remove `PROMPT` from the launching shell first (`set PROMPT=`). Open in `docs/bugs.md` (2026-11-07).
+- **An inherited cmd `PROMPT` defeats the cmd opt-out.** When afterterm is started from a cmd thread inside afterterm, the launching shell's `PROMPT` already holds afterterm's marks and is passed on, so a cmd thread with `"shellIntegration": { "cmd": "off" }` still draws marks, and one with integration on carries them twice. To test the cmd opt-out from inside afterterm, remove `PROMPT` from the launching shell first (`set PROMPT=`). Found 2026-11-07; to be filed in Linear (not filed yet).
 
 ## The CLAUDE.md record (moved here 2026-09-20)
 
