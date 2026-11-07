@@ -1,3 +1,4 @@
+# NOTE: this reads the real sessions folder ($env:USERPROFILE\.claude\sessions) by design, and skips the .key files beside the records. An agent must not run it unless reading the real records is the intent.
 # Logs every change in Claude Code's own per-process records for sessions started in
 # the test folder. Reads only <pid>.json, never the .key files beside them.
 param([string] $Cwd, [string] $Out, [int] $Seconds = 900)
