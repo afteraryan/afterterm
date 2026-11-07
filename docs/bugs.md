@@ -1,5 +1,7 @@
 # afterterm — Known Bugs
 
+**Frozen on 2026-11-07. Open bugs are now issues in Linear; do not add to this file or rewrite it.** See "All work is tracked in Linear" in [`../CLAUDE.md`](../CLAUDE.md). It stays here during the trial so going back stays easy. Everything below describes how the file worked until then.
+
 Running list of observed bugs that are **not yet fixed**. When a bug is fixed, its entry is deleted from here and a short entry is added to [`bugs-fixed.md`](bugs-fixed.md) in the same change (what was wrong, what the fix does, the PR), and the fix goes in `CHANGELOG.md`'s Fixed list. For inherent *platform limitations* (input lag, Wispr, etc.) see the **Known Limitations** section in [`../CLAUDE.md`](../CLAUDE.md) — those are constraints, not bugs on a fix-list.
 
 Format per bug: a short title, the date observed, what happens, the steps to make it happen again when known, and the evidence Aryan gave (screenshots, quoted text, names). No causes: from 2026-09-26 new entries say nothing about causes, even where older entries below have one (`.claude/commands/bug-record.md`).

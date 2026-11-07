@@ -1,5 +1,7 @@
 # afterterm: changes waiting for Aryan to check
 
+**No new entries since 2026-11-07. New changes wait in Linear's Fixed, check it status;** see "All work is tracked in Linear" in [`../CLAUDE.md`](../CLAUDE.md). The entries below are still waiting for him to check them, and a **Works** item is still deleted from here. Everything below describes how the file worked until then.
+
 Every change that reaches Aryan's build is listed here until he has checked it while using the app. He marks each one **Works** or **Doesn't work** (with a note). A **Works** item is deleted from this file; a **Doesn't work** item becomes a bug in [`bugs.md`](bugs.md) and is deleted from here. So the file only ever holds what is still to be checked.
 
 Every agent that ships a change Aryan would notice adds it here in the same change, under the build it arrives in: one short line saying what changed, then how to check it in a few steps. Newest build first.

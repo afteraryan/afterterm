@@ -1,5 +1,7 @@
 # afterterm: fixed bugs
 
+**Frozen on 2026-11-07. A fix is now recorded on its Linear issue and in `CHANGELOG.md`;** see "All work is tracked in Linear" in [`../CLAUDE.md`](../CLAUDE.md). Everything below describes how the file worked until then.
+
 Every bug that has been fixed, newest first, one entry each. Open bugs live in [`bugs.md`](bugs.md); when one is fixed, its entry is deleted there and a short entry is added here in the same change, saying what was wrong, what the fix does and where it landed. The full detail (cause, what was tried, how it was checked) stays where it always was: the dated Log in [`phases-01-projects-and-threads.md`](phases-01-projects-and-threads.md), the `docs/features-*.md` file for that area, and git history. What changed for the person using the app is also in [`../CHANGELOG.md`](../CHANGELOG.md).
 
 Entries before 2026-09-25 were written from the git history of `bugs.md` and `docs/phases-01-projects-and-threads.md`. Fixes Aryan asked for while using a build, without a `bugs.md` entry first, are listed too and marked "reported in conversation".
