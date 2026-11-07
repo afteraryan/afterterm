@@ -929,14 +929,20 @@ Aryan wants the notes shown cumulatively: the version you are on, and all the re
 **Observed:** 2026-11-06 by Aryan during manual testing · **Phase:** none of the numbered phases (the automatic updates round, released as 0.11.0; the restart window is from that round's Phase 2) · **Status:** open · **Severity:** high (the window calls a restart safe when it would stop a running reply, and that chat is not one of the ones that resume) · **Screenshot:** `docs/screenshots/manual-testing/22-restart-window-says-safe-to-restart-while-a-chat-is-running.png`
 
 **What happens:**
-On 0.13.0, with a chat still working, clicking **Restart to update** opened "Restart afterterm to update?" with a green "Safe to restart" at the bottom. The working chat was listed with a shell icon and "Opens in its folder", not as a chat and not as "Stops mid-turn". Aryan expects the window not to call the restart safe while a thread is still running.
+On 0.13.0, with a chat still working, clicking **Restart to update** opened "Restart afterterm to update?" with a green "Safe to restart" at the bottom. The working chat was listed with a shell icon and "Opens in its folder", not as a chat and not as "Stops mid-turn". Aryan expects the window not to call the restart safe while a thread is still running. After the restart that chat came back as a plain terminal, and Aryan had to start Claude and resume it by hand.
+
+Tested on 0.15.0 on 2026-11-07: the window also says "Safe to restart" for a chat that stalled mid-reply, a shell running a long command, and a chat with a background task running. A thread whose Claude has exited reads "Resumes" while its shell runs a command.
 
 **Steps to make it happen again:**
-Seen once as described above. The window showed "Stops mid-turn" for a chat mid-reply in the recorded tests (`docs/features-updates.md`), so the state this chat was in matters; the next entry's steps produce that state.
+With **Restart to update** showing, have one of these running, then click the button:
+1. A chat started with `claude --setting-sources local` (no hooks), in the middle of a reply: shell icon, "Opens in its folder", "Safe to restart".
+2. A shell running `ping -n 120 127.0.0.1`, or `Start-Sleep -Seconds 90` in PowerShell: "Opens in its folder", "Safe to restart".
+3. A chat whose turn ended with a background task still running: "Resumes", "Safe to restart".
+4. A chat where you ran `/exit`, then a long command in the same shell: "Resumes".
 
 **Evidence:** Aryan's words: "Literally, a thread was running. It was not over, but when I clicked on the 'Restart to update' button, it showed me that it's safe to update." The screenshot, taken at 14:39, shows v0.13.0 and the window listing Latest resume version (Resumes), Hidden version 15 update jump (shell icon, Opens in its folder) and Project colour picker bug record (Resumes), with "Safe to restart" below them. Behind the window, Hidden version 15 update jump is the open thread and Claude Code in it reads "Whirring... (1m 17s". Saved record of that thread at 14:42 (`tab-321`): `claudeTitle` "Hidden version 15 update jump", title "◐ Hidden version 15 update jump", no `claudeSessionId`.
 
-**Diagnosis and proposed fix:** written up, at Aryan's request, in [`docs/note-03-restart-window-said-safe-while-a-chat-was-running.md`](note-03-restart-window-said-safe-while-a-chat-was-running.md).
+**Diagnosis, test results and the fixes needed:** written up, at Aryan's request, in [`docs/note-03-restart-window-said-safe-while-a-chat-was-running.md`](note-03-restart-window-said-safe-while-a-chat-was-running.md). Captures and recordings of the tests: `docs/screenshots/restart-window-hypothesis-test/`.
 
 ---
 
@@ -948,12 +954,44 @@ Seen once as described above. The window showed "Stops mid-turn" for a chat mid-
 A build started with `AFTERTERM_USER_DATA_DIR` pointing at a throwaway folder, whose `prefs.json` says `"claudeNotifications": "disabled"`, removes afterterm's hook entries from the user's real `~/.claude/settings.json`. Chats already running lose their hooks as well as new ones. The app that is running does not notice.
 
 **Steps to make it happen again:**
-Use a scratch home, because with the real one this changes real settings.
+Set `CLAUDE_CONFIG_DIR` to a scratch copy of the Claude folder, or this changes the real settings. A scratch `USERPROFILE` or `HOME` does not protect them.
 1. Make a folder with a `prefs.json` holding `{"claudeNotifications":"disabled"}`.
-2. Start any afterterm build with `AFTERTERM_USER_DATA_DIR` set to that folder and `CLAUDE_CONFIG_DIR` not set.
-3. Open `settings.json` in the Claude Code folder: its afterterm entries are gone, and `"hooks"` is `{}` if they were the only ones.
+2. Start any afterterm build with `AFTERTERM_USER_DATA_DIR` set to that folder.
+3. Open `settings.json` in the scratch Claude folder: about a second after launch its afterterm entries are gone, and `"hooks"` is `{}` if they were the only ones.
 
-**Evidence:** On Aryan's machine on 2026-11-06, the Claude Code session cutting the 0.15.0 release started the packaged build this way at 14:35:50 for a smoke test. The throwaway `prefs.json` and the real `settings.json` were both last written at 14:35:52, and `settings.json` holds `"hooks": {}`. That session's turn ended at 14:37:02 with no Stop hook record, its previous one being at 14:34:16; a session started at 14:37:55 has no hook records at all. The steps above come from that run and the source; they have not been run separately. In the main session transcripts changed since 2026-10-01, 1,012 of 1,018 finished turns from 2026-10-15 to 2026-11-05 have a Stop hook record, and the three turns finished on 2026-11-06 after 14:35:52 have none. That launch is the only one found seeding the opt-out without a scratch home or Claude folder. The full record is in [`docs/note-03-restart-window-said-safe-while-a-chat-was-running.md`](note-03-restart-window-said-safe-while-a-chat-was-running.md).
+**Evidence:** On Aryan's machine on 2026-11-06, the Claude Code session cutting the 0.15.0 release started the packaged build this way at 14:35:50 for a smoke test. The throwaway `prefs.json` and the real `settings.json` were both last written at 14:35:52, and `settings.json` holds `"hooks": {}`. That session's turn ended at 14:37:02 with no Stop hook record, its previous one being at 14:34:16; a session started at 14:37:55 has no hook records at all. The hooks came back at 12:08:57 on 2026-11-07, one second after Aryan restarted afterterm, 21 hours 33 minutes later. The steps above were run on 2026-11-07 with the exact exe from the incident and a scratch Claude folder. In the main session transcripts changed since 2026-10-01, 1,012 of 1,018 finished turns from 2026-10-15 to 2026-11-05 have a Stop hook record, and the three turns finished on 2026-11-06 after 14:35:52 have none. The full record is in [`docs/note-03-restart-window-said-safe-while-a-chat-was-running.md`](note-03-restart-window-said-safe-while-a-chat-was-running.md).
+
+---
+
+## Turning Claude notifications off also deletes another tool's hook that shares a group with afterterm's
+
+**Observed:** 2026-11-07 while testing the entry above, at Aryan's request · **Phase:** none of the numbered phases (the self-installed notification hook) · **Status:** open · **Severity:** medium (another tool's hook is lost and is not restored when notifications are turned back on; Aryan's own settings had no such hook) · **Screenshot:** none attached
+
+**What happens:**
+With `claudeNotifications` set to `"disabled"`, a launch removes every hook group holding an afterterm hook, including any other hook in that same group. A hook in its own group survives. Turning notifications back on restores only afterterm's entries.
+
+**Steps to make it happen again:**
+Use a scratch `CLAUDE_CONFIG_DIR`.
+1. In its `settings.json`, add a second hook to the group that holds afterterm's `UserPromptSubmit` entry.
+2. Start afterterm with `"claudeNotifications":"disabled"` in `prefs.json`: the second hook is gone.
+3. Start it again with notifications on: afterterm's entry returns, the second hook does not.
+
+**Evidence:** Run on 2026-11-07 with the 0.15.0 exe: the hook named `someone-elses-hook-same-group` was deleted, and `someone-elses-hook-own-group` stayed. Recorded in [`docs/note-03-restart-window-said-safe-while-a-chat-was-running.md`](note-03-restart-window-said-safe-while-a-chat-was-running.md).
+
+---
+
+## The harness README says a scratch home keeps a run away from the real Claude settings, and it does not
+
+**Observed:** 2026-11-07 while testing the entries above, at Aryan's request · **Phase:** none of the numbered phases (the agent harness, Phase 6's scratch home section) · **Status:** open · **Severity:** high (an agent trusting this and seeding the opt-out would remove the real hooks) · **Screenshot:** none attached
+
+**What happens:**
+`scripts/agent-harness/README.md` says a run with a scratch `USERPROFILE` and `HOME` "never touches the real `~/.claude/hooks` or `~/.claude/settings.json`". A launch set up that way still works on the real Claude folder. Only `CLAUDE_CONFIG_DIR` keeps a run away from it.
+
+**Steps to make it happen again:**
+1. Start Electron with `USERPROFILE` and `HOME` set to a scratch folder and print `app.getPath('home')`: it returns the real home.
+2. Or start afterterm the same way, with a `settings.json` in `<scratch>\.claude`, no opt-out: that file is left untouched while prefs show the install ran.
+
+**Evidence:** Run on 2026-11-07: Electron 35.7.5 returned `C:\Users\Aryan` with both variables pointing at the scratch folder. Recorded in [`docs/note-03-restart-window-said-safe-while-a-chat-was-running.md`](note-03-restart-window-said-safe-while-a-chat-was-running.md).
 
 ---
 
