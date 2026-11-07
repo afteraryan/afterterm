@@ -942,7 +942,7 @@ With **Restart to update** showing, have one of these running, then click the bu
 
 **Evidence:** Aryan's words: "Literally, a thread was running. It was not over, but when I clicked on the 'Restart to update' button, it showed me that it's safe to update." The screenshot, taken at 14:39, shows v0.13.0 and the window listing Latest resume version (Resumes), Hidden version 15 update jump (shell icon, Opens in its folder) and Project colour picker bug record (Resumes), with "Safe to restart" below them. Behind the window, Hidden version 15 update jump is the open thread and Claude Code in it reads "Whirring... (1m 17s". Saved record of that thread at 14:42 (`tab-321`): `claudeTitle` "Hidden version 15 update jump", title "◐ Hidden version 15 update jump", no `claudeSessionId`.
 
-**Diagnosis, test results and the fixes needed:** written up, at Aryan's request, in [`docs/note-03-restart-window-said-safe-while-a-chat-was-running.md`](note-03-restart-window-said-safe-while-a-chat-was-running.md). Captures and recordings of the tests: `docs/screenshots/restart-window-hypothesis-test/`.
+**Diagnosis, test results and the fixes needed:** written up, at Aryan's request, in [`docs/note-03-restart-window-said-safe-while-a-chat-was-running.md`](note-03-restart-window-said-safe-while-a-chat-was-running.md). Captures and recordings of the tests: `docs/screenshots/restart-window-hypothesis-test/`. The build brief with Aryan's decisions, handed off and not built yet: [`docs/plan-02-restart-window-and-hook-fixes.md`](plan-02-restart-window-and-hook-fixes.md).
 
 ---
 

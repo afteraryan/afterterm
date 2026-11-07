@@ -112,19 +112,19 @@ Why these come out wrong, in `update-check.ts` and `threadView.ts`, the same on 
 
 ## Fixes needed
 
-Nothing below has been built. Whether each works as a whole is still to be tested; the "Evidence" column is what the tests already support.
+Nothing below has been built. Whether each works as a whole is still to be tested; the "Evidence" column is what the tests already support. The build brief, with Aryan's decisions of 2026-11-07, is [`plan-02-restart-window-and-hook-fixes.md`](plan-02-restart-window-and-hook-fixes.md); where the two differ, the plan is current.
 
 | # | Fix | Where | Evidence |
 |---|---|---|---|
 | 1 | A launch with `AFTERTERM_USER_DATA_DIR` set leaves Claude Code's folder alone, entries and script, unless `CLAUDE_CONFIG_DIR` is set too. | `reconcileNotifierHook` in `main.ts` | Reproduced removal; script overwrite |
 | 2 | The opt-out removes only afterterm's own hook from a group, not the whole group. | `removeAftertermEntries` | Other tool's hook lost |
-| 3 | Correct the harness README's scratch home claim, and make the harness pass a scratch `CLAUDE_CONFIG_DIR` by default. Add the rule to the release guide's smoke test. | `scripts/agent-harness`, `docs/guide-02-releases.md` | `app.getPath('home')` test |
+| 3 | Correct the harness README's scratch home claim. Add the rule to the release guide's smoke test. | `scripts/agent-harness`, `docs/guide-02-releases.md` | `app.getPath('home')` test |
 | 4 | Put the hooks back while the app runs: when the entries disappear and notifications are on, add them again. | New watch in main, calling `reconcileClaudeHook` | Running chats regain hooks live; 21 hour 33 minute outage |
 | 5 | Read Claude Code's record for each thread and take the session id from it when the hook gave none, so a chat is a chat and resumes. Hooks stay as the fallback. Check the pid is alive. | Main (the server watcher's process read), `threadKind` | Row 1; Aryan's chat coming back as a terminal |
 | 6 | A chat is mid-turn when its record says `busy` or `waiting`. | `awakeThreads`, `isMidTurn` | Rows 1, 3, 9 |
 | 7 | A chat with a background task gets its own row, and the restart is not called safe. | `restartRows`, `restartStatus` | Row 6 |
 | 8 | A shell not at its prompt gets its own row naming the command, and the restart is not called safe. | `restartRows`, `restartStatus` | Rows 4, 5 |
-| 9 | A thread whose Claude has exited follows the shell rules, not the chat rules. Whether Wake still resumes that chat is for Aryan to decide. | `threadKind` or `wakePlan` | Row 7 |
+| 9 | A thread whose Claude has exited stays a chat and resumes (Aryan, 2026-11-07). If its shell is running a command, the row warns. A session id wins over the server rule in `wakePlan`. | `restartRows`, `wakePlan` | Row 7 |
 | 10 | "Safe to restart" shows only when every thread is known to be idle. When a thread's state is unknown, it does not show. | `restartStatus` | Rows 1, 3 to 7 |
 | 11 | `working` does not clear on silence while the record says `busy`, and the record feeds the spinner too, so a chat without hooks still shows as working. | `spinnerState.ts`, `app.tsx` | Row 3 |
 | 12 | Remove the comment in `afterterm-notify.ps1` saying Claude Code keeps only the first hook's output. | The hook script | Row 10 |
