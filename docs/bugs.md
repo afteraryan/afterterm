@@ -954,3 +954,19 @@ Use a scratch home, because with the real one this changes real settings.
 3. Open `settings.json` in the Claude Code folder: its afterterm entries are gone, and `"hooks"` is `{}` if they were the only ones.
 
 **Evidence:** On Aryan's machine on 2026-11-06, the Claude Code session cutting the 0.15.0 release started the packaged build this way at 14:35:50 for a smoke test. The throwaway `prefs.json` and the real `settings.json` were both last written at 14:35:52, and `settings.json` holds `"hooks": {}`. That session's turn ended at 14:37:02 with no Stop hook record, its previous one being at 14:34:16; a session started at 14:37:55 has no hook records at all. The steps above come from that run and the source; they have not been run separately. In the main session transcripts changed since 2026-10-01, 1,012 of 1,018 finished turns from 2026-10-15 to 2026-11-05 have a Stop hook record, and the three turns finished on 2026-11-06 after 14:35:52 have none. That launch is the only one found seeding the opt-out without a scratch home or Claude folder. The full record is in [`docs/note-03-restart-window-said-safe-while-a-chat-was-running.md`](note-03-restart-window-said-safe-while-a-chat-was-running.md).
+
+---
+
+## A long link in a chat message that runs onto a second row does not open when clicked
+
+**Observed:** 2026-11-07 by Aryan during manual testing · **Phase:** pre-existing (clickable links in terminal output) · **Status:** open · **Severity:** medium (a link in a chat cannot be opened by clicking it) · **Screenshot:** none kept (the one Aryan sent also showed a video call, so at his request it is not in the repo)
+
+**What happens:**
+A link in Claude Code's last message is divided into two lines, and clicking on it does not open it.
+
+**Steps to make it happen again:**
+1. In a chat, have Claude Code print a link too long to fit on one row of the terminal, so that it carries on in the next row.
+2. Click the link.
+3. It does not open.
+
+**Evidence:** Aryan's words: "the link in the last message is divided into 2 lines and hence clicking on it doesn't open it". The screenshot he sent showed the thread Linear in the project afterterm, on Opus 5.5 and the branch `manual-testing-fixes`. Its last message, from the turn marked "done 12:35 PM", had the line "Sign in to Linear (https://linear.app/authorize?response_type=code...". The first row of the link ended in `&co` and the second row started with `de_challenge_method=S256`.
