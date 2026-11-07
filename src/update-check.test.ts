@@ -164,8 +164,13 @@ console.log('\nupdate-check: the restart window, mid-turn and background (Fixes 
   check('idle, shell and no record, with done, background or quiet: not mid-turn',
     !isMidTurn('idle', undefined) && !isMidTurn('shell', undefined) && !isMidTurn(undefined, 'done')
     && !isMidTurn(undefined, 'background') && !isMidTurn(undefined, undefined));
-  check('the record says shell: a background task', hasBackgroundTask('shell', undefined));
-  check('the background notification: a background task', hasBackgroundTask(undefined, 'background') && hasBackgroundTask('idle', 'background'));
+  check('the record says shell: a background task', hasBackgroundTask('shell', undefined) && hasBackgroundTask('shell', 'done'));
+  check('no record, the background notification: a background task', hasBackgroundTask(undefined, 'background'));
+  // The ⏳ badge stays until the thread is looked at, so with a record it is not trusted.
+  check('the record says idle: no background task, even under a stale background badge',
+    !hasBackgroundTask('idle', 'background'));
+  check('the record says busy or waiting: not a background task, whatever the badge',
+    !hasBackgroundTask('busy', 'background') && !hasBackgroundTask('waiting', 'background'));
   check('busy, idle, waiting and no record with no background title: none',
     !hasBackgroundTask('busy', undefined) && !hasBackgroundTask('idle', 'done') && !hasBackgroundTask('waiting', undefined)
     && !hasBackgroundTask(undefined, undefined));
@@ -238,8 +243,11 @@ console.log('\nupdate-check: the restart window, rows (Fix 10)\n');
     is(row({ kind: 'chat', resumes: true, shellBusy: 'unknown' }), 'Resumes', false, true));
   check('a live idle Claude never counts as unknown',
     !row({ claudeAlive: true, resumes: true, shellBusy: 'unknown' }).unknown);
-  check('a live idle Claude with no id whose wake re-runs a server command: Runs again',
-    is(row({ claudeAlive: true, rerunPort: 3000 }), 'Runs again on :3000', false));
+  // The plan's row: a live Claude with no usable id opens in its folder, even with a
+  // port in its tree (its last command is `claude`, not a server's).
+  const claudePort = row({ claudeAlive: true, rerunPort: 3000 });
+  check('a live idle Claude with no id and a port in its tree: Opens in its folder, not Runs again',
+    is(claudePort, 'Opens in its folder', false) && claudePort.outcome === 'opens-in-folder', show(claudePort));
 
   const threads: AwakeThread[] = [
     { ...base, id: 't1', name: 'Checkout page redesign', kind: 'chat', resumes: true, claudeAlive: true, midTurn: true },

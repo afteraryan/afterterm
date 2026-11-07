@@ -1818,7 +1818,7 @@ export function App() {
         const tab = state.tabs.find(t => t.id === pendingConfirm.tabId);
         const text = pendingConfirm.kind === 'close'
           ? closeConfirmText(pendingConfirm.port)
-          : sleepConfirmText(pendingConfirm.port, tab?.lastCommand);
+          : sleepConfirmText(pendingConfirm.port, tab ? wakePlan(tab) : { resumeSessionId: null, runCommand: null });
         return (
           <ConfirmDialog
             title={text.title}
@@ -1826,7 +1826,7 @@ export function App() {
             confirmLabel={text.confirm}
             cancelLabel={text.cancel}
             // Only closing is destructive: a slept thread is still there, and Wake
-            // brings its server back.
+            // brings it back (its server, or its chat when it holds a session id).
             danger={pendingConfirm.kind === 'close'}
             onConfirm={() => {
               // The thread may have been slept or closed by other means while the

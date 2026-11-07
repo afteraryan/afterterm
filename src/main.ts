@@ -670,6 +670,7 @@ let claudeRecordTimer: NodeJS.Timeout | null = null;
 let claudeRecordTick: Promise<void> | null = null;
 let lastRecordListRefreshAt = 0;
 let warnedClaudeRecords = false;
+let warnedShellChildren = false;
 // Each record file's last good read, standing in while the file is caught mid-write.
 let heldRecords = new Map<string, HeldRecord>();
 // The pids a fresh process list was asked for, and which of those asking has stopped for.
@@ -679,8 +680,9 @@ let listAsks = new Map<number, ListAsk>();
 const recordSessionSent = new Map<string, string>();
 const recordStatusSent = new Map<string, RecordStatus | null>();
 // Per thread, whether its shell has a process below it, as last sent on `pty:children`
-// (plan-02, Fix 8). The same pass walks the same cached list for it, so it costs one
-// tree walk per shell. It is the restart window's fallback for a shell with no prompt
+// (plan-02, Fix 8). Each record tick walks the same cached list for it, as its own
+// step after the pass (runClaudeRecordTick), so it costs one tree walk per shell. It
+// is the restart window's fallback for a shell with no prompt
 // marks, and only a true counts there.
 const shellChildrenSent = new Map<string, boolean | null>();
 // The list is re-read on the first server poll after it is SERVER_PROC_MAX_AGE_MS old,
@@ -882,8 +884,6 @@ async function claudeRecordPass(fresh: boolean): Promise<void> {
       console.log(`[harness] claude-record ${tabId} pid=${feed.pid ?? 'none'} status=${feed.status ?? 'none'} session=${feed.sessionId ? feed.sessionId.slice(0, 8) : 'none'}`);
     }
   }
-
-  sendShellChildrenChanges();
 }
 
 /**
@@ -903,6 +903,15 @@ function runClaudeRecordTick(fresh: boolean): Promise<void> {
       if (!warnedClaudeRecords) {
         warnedClaudeRecords = true;
         console.warn('[claude-record] a pass failed, statuses left as they were:', err);
+      }
+    })
+    // Its own step, run whether or not the pass threw: a failing pass must never
+    // leave the renderer holding an old hasChildren past SHELL_CHILDREN_MAX_AGE_MS.
+    .then(() => sendShellChildrenChanges())
+    .catch(err => {
+      if (!warnedShellChildren) {
+        warnedShellChildren = true;
+        console.warn('[shell-children] sending what each shell runs failed:', err);
       }
     })
     .finally(() => { if (claudeRecordTick === pass) claudeRecordTick = null; });

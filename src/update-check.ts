@@ -321,10 +321,15 @@ export function isMidTurn(recordStatus: string | undefined, notification: string
   return notification === 'working' || notification === 'compacting' || notification === 'attention';
 }
 
-// Whether a chat ended its turn with a background task still running (Fix 7): the
-// record's `shell` status, or the hook's background title.
+// Whether a chat ended its turn with a background task still running (Fix 7). When
+// Claude Code's record is there it decides: `shell` is a background task, anything
+// else is not, whatever the notification says. The hook's background badge stays
+// until the thread is looked at, so on a thread nobody has opened it can outlive the
+// task by hours. Only with no record (a Claude the reader cannot see, such as in WSL)
+// does that badge count.
 export function hasBackgroundTask(recordStatus: string | undefined, notification: string | undefined): boolean {
-  return recordStatus === 'shell' || notification === 'background';
+  if (recordStatus !== undefined) return recordStatus === 'shell';
+  return notification === 'background';
 }
 
 // Whether a shell is running a command (Fix 8). The prompt marks (OSC 133) are the
@@ -365,12 +370,13 @@ export interface RestartRow {
 //   1. Mid-turn (record busy or waiting, or a mid-turn notification), with or
 //      without a session id: "Stops mid-turn". A notification counts even with no
 //      record, since a hook only fires from a live Claude.
-//   2. A background task (record shell, or the background notification):
-//      "Background task stops". Mid-turn wins over it: the turn is the bigger loss.
-//   3. A live, idle Claude: "Resumes" with a usable session id, else "Runs again on
-//      :port" when the wake would re-run a server command (wakePlan's rule for a
-//      thread with no id), else "Opens in its folder". The shell is not read: its
-//      marks say "not at the prompt" for as long as Claude is open.
+//   2. A background task (record shell; the background notification only when
+//      there is no record): "Background task stops". Mid-turn wins over it: the
+//      turn is the bigger loss.
+//   3. A live, idle Claude: "Resumes" with a usable session id, else "Opens in its
+//      folder", even with a port in its tree (the plan's row): its last command is
+//      `claude`, so running it again would start a fresh Claude, not a server. The
+//      shell is not read: its marks say "not at the prompt" while Claude is open.
 //   4. No live Claude, a session id (an exited chat stays a chat, Decision 3): the
 //      shell running a command is "Command stops" (it still resumes afterwards),
 //      at its prompt "Resumes", unknown "Resumes" and counted as unknown.
@@ -400,7 +406,7 @@ export function restartRows(threads: AwakeThread[]): RestartRow[] {
     } else if (t.background) {
       outcome = 'background-stops';
     } else if (t.claudeAlive) {
-      outcome = t.resumes ? 'resumes' : t.rerunPort !== undefined ? 'runs-again' : 'opens-in-folder';
+      outcome = t.resumes ? 'resumes' : 'opens-in-folder';
     } else if (t.resumes) {
       outcome = t.shellBusy === 'busy' ? 'command-stops' : 'resumes';
       unknown = t.shellBusy === 'unknown';

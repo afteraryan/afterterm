@@ -75,8 +75,9 @@ console.log('\nspinnerState — unit rules\n');
 }
 {
   check('busy from quiet starts working (a chat with no hooks)', onRecordStatus(undefined, 'busy') === 'working');
-  check('busy over a finished turn starts working (a new turn, no ▶ title)', onRecordStatus('done', 'busy') === 'working');
   check('busy keeps working', onRecordStatus('working', 'busy') === 'working');
+  // The first busy of a short turn, read up to 2 s late, can land after the turn's ✅.
+  check('busy never replaces done (a late busy must not wipe a finished turn)', onRecordStatus('done', 'busy') === 'done');
   check('busy never replaces needs-you, compacting or background',
     onRecordStatus('attention', 'busy') === 'attention'
     && onRecordStatus('compacting', 'busy') === 'compacting'

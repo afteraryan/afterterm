@@ -24,8 +24,8 @@
 // it (onInterrupt, to quiet), or the hook's next title (onTitle, unchanged).
 //
 // plan-02 (Fix 11) adds Claude Code's own session record as a third signal: its busy
-// status starts working (onRecordStatus) and holds it through silence (onTick), so a
-// chat with no hooks has a spinner and a stalled turn keeps it.
+// status starts working from quiet (onRecordStatus) and holds it through silence
+// (onTick), so a chat with no hooks has a spinner and a stalled turn keeps it.
 //
 // This is empirically grounded (scripts/spinner-harness): across pure-think, tool-
 // heavy, and mixed turns the PTY was never silent for more than ~450ms while Claude
@@ -99,15 +99,18 @@ export function onTick(current: Notif, timing: TabTiming, at: number, record?: R
   return current;
 }
 
-// A new status from Claude Code's session record (Fix 11). Busy starts the spinner,
-// so a chat with no hooks (no ▶ title ever comes) still shows that it is working,
-// from quiet or from a finished turn's done badge. It never replaces needs-you,
-// compacting or background: a hook title knows more than the record there. Every
-// other status leaves the notif alone: idle does not clear working (the silence
-// clear in onTick does that, now that the record no longer holds it), and waiting
-// does not set needs-you, which stays the hook's to say.
+// A new status from Claude Code's session record (Fix 11). Busy starts the spinner
+// from quiet only, so a chat with no hooks (no ▶ title ever comes) still shows that
+// it is working. It never replaces done, needs-you, compacting or background: a hook
+// title knows more than the record there, and the record is read every 2 seconds, so
+// the first busy of a short turn can land after its ✅ and would otherwise wipe the
+// finished turn's done badge (silence then clears the working it put there). A chat
+// with no hooks never has done, so it loses nothing by this. Every other status
+// leaves the notif alone: idle does not clear working (the silence clear in onTick
+// does that, now that the record no longer holds it), and waiting does not set
+// needs-you, which stays the hook's to say.
 export function onRecordStatus(current: Notif, record: RecordStatus | undefined): Notif {
-  if (record === 'busy' && (current === undefined || current === 'done')) return 'working';
+  if (record === 'busy' && current === undefined) return 'working';
   return current;
 }
 

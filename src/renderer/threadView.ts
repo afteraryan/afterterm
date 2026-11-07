@@ -238,19 +238,22 @@ export function closeConfirmText(port: number): { title: string; body: string; c
 // The sleep-confirm dialog's text for a running server. Sleeping still stops
 // the process, so the body says so plainly; it differs from the close body
 // only in naming what Wake does next, since that is the one thing sleeping
-// promises that closing does not. A captured lastCommand means Wake re-runs
-// that exact command; with none, Wake just opens a fresh prompt in the same
-// folder.
+// promises that closing does not. `wake` is the thread's wakePlan (sleepWake.ts),
+// so the text says what Wake will really do: a thread with a valid session id
+// resumes its chat and re-runs nothing (plan-02, Fix 9), a server re-runs its
+// command, and anything else opens a fresh prompt in the same folder.
 export function sleepConfirmText(
   port: number,
-  lastCommand?: string,
+  wake: { resumeSessionId: string | null; runCommand: string | null },
 ): { title: string; body: string; confirm: string; cancel: string } {
-  const wake = lastCommand && lastCommand.trim().length > 0
-    ? `Wake runs ${lastCommand} again.`
-    : 'Wake opens a fresh prompt.';
+  const next = wake.resumeSessionId
+    ? 'Wake resumes the chat.'
+    : wake.runCommand
+      ? `Wake runs ${wake.runCommand} again.`
+      : 'Wake opens a fresh prompt.';
   return {
     title: `Sleep the server on :${port}?`,
-    body: `This thread is listening on :${port}. Sleeping it stops the server; ${wake}`,
+    body: `This thread is listening on :${port}. Sleeping it stops the server; ${next}`,
     confirm: 'Sleep thread',
     cancel: 'Cancel',
   };
