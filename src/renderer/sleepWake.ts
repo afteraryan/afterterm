@@ -25,7 +25,8 @@ const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0
 // to notify about), and wokeAt is cleared (a thread that was woken and then put
 // back to sleep should not still carry a stale "woken this launch" stamp).
 // recordStatus goes too: it is what a running Claude was doing, and a sleeping
-// thread has no running Claude.
+// thread has no running Claude. So do atPrompt and hasChildren, what the shell
+// was doing (plan-02, Fix 8): a woken thread starts from no prompt marks seen.
 // Everything else, session id, cwd, claudeTitle, model, branch, worktree,
 // fontSize, is left exactly as it was: sleep records a process going away, not
 // a thread losing its identity.
@@ -34,6 +35,8 @@ export function sleepTab(tab: Tab, now: number): Tab {
   delete next.notification;
   delete next.wokeAt;
   delete next.recordStatus;
+  delete next.atPrompt;
+  delete next.hasChildren;
   return next;
 }
 
@@ -122,18 +125,26 @@ export function asleepSinceText(
 // sequence into what looks like a plain command), and is at most 500
 // characters. Anything else, no port, no command, a command that fails a
 // check, yields null: the thread wakes as a plain shell in its folder instead
-// (the Phase 4 behaviour, kept as the fallback). A server never resumes a
-// chat, so resumeSessionId is always null here regardless of whatever a
-// (malformed) tab might otherwise carry.
+// (the Phase 4 behaviour, kept as the fallback).
+//
+// A valid session id wins over the server rule (plan-02, Fix 9, Aryan's Decision 3
+// of 2026-11-07: a thread that holds a session id stays a chat for good). Such a
+// thread resumes its chat and never re-runs a command, so runCommand is null. The
+// rule used to be the other way round, and a Claude that started a dev server
+// itself, whose last command is `claude` and which has a port, woke by running a
+// fresh `claude` instead of resuming. Only a thread with no valid id gets the port
+// and command rule.
 const CONTROL_CHAR_RE = /[\x00-\x1f\x7f]/;
 const RUN_COMMAND_MAX_LENGTH = 500;
 
 export function wakePlan(
   tab: Pick<Tab, 'cwd' | 'claudeCwd' | 'claudeSessionId' | 'shellId' | 'port' | 'lastCommand'>,
 ): { cwd: string | undefined; shellId: string | undefined; resumeSessionId: string | null; runCommand: string | null } {
+  const resumeSessionId = tab.claudeSessionId && UUID_RE.test(tab.claudeSessionId) ? tab.claudeSessionId : null;
   const trimmed = tab.lastCommand?.trim();
   const runCommand =
-    tab.port !== undefined
+    !resumeSessionId
+    && tab.port !== undefined
     && trimmed
     && trimmed.length > 0
     && trimmed.length <= RUN_COMMAND_MAX_LENGTH
@@ -143,7 +154,7 @@ export function wakePlan(
   return {
     cwd: tab.claudeCwd ?? tab.cwd,
     shellId: tab.shellId,
-    resumeSessionId: runCommand ? null : (tab.claudeSessionId && UUID_RE.test(tab.claudeSessionId) ? tab.claudeSessionId : null),
+    resumeSessionId,
     runCommand,
   };
 }

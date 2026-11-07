@@ -91,6 +91,18 @@ export interface Tab {
   // background task. Absent when the thread has no live Claude. Unlike
   // `notification` it arrives with or without hooks.
   recordStatus?: RecordStatus;
+  // Transient (NOT persisted): whether the shell sits at its prompt, from the OSC
+  // 133 prompt marks (commandMarks.ts, atPrompt), reported by the terminal layer
+  // whenever it changes: false once Enter runs a command, true when the next prompt
+  // is drawn. Absent until the thread has produced a mark (integration opted out, or
+  // a shell that never emits one). The restart window reads it for a thread with no
+  // live Claude (update-check.ts, shellBusy; plan-02, Fix 8). Cleared on sleep.
+  atPrompt?: boolean;
+  // Transient (NOT persisted): whether the shell has a process below it, from main's
+  // cached process list (`pty:children`, sent on change). The fallback for a thread
+  // with no prompt marks; absent when the list is too old to say or the tree could
+  // not be read (a WSL shell, whose processes are not in it). Cleared on sleep.
+  hasChildren?: boolean;
 }
 
 export interface Group {

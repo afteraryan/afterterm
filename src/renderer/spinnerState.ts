@@ -23,11 +23,17 @@
 // then the silence clear takes over if Claude does not resume), Esc or Ctrl+C in
 // it (onInterrupt, to quiet), or the hook's next title (onTitle, unchanged).
 //
+// plan-02 (Fix 11) adds Claude Code's own session record as a third signal: its busy
+// status starts working (onRecordStatus) and holds it through silence (onTick), so a
+// chat with no hooks has a spinner and a stalled turn keeps it.
+//
 // This is empirically grounded (scripts/spinner-harness): across pure-think, tool-
 // heavy, and mixed turns the PTY was never silent for more than ~450ms while Claude
 // worked; at idle it is silent indefinitely; at a permission/compaction pause it goes
 // silent for seconds and then resumes in a burst. Those three regimes are cleanly
 // separable by an output-silence threshold.
+
+import type { RecordStatus } from '../claude-session-record.ts';
 
 export type Notif = 'working' | 'done' | 'attention' | 'background' | 'compacting' | undefined;
 
@@ -81,8 +87,27 @@ export function onOutput(current: Notif, timing: TabTiming, at: number, byteLen:
 // A periodic clock tick. Clears `working` after sustained output silence. Only ever
 // acts on `working`; attention/compacting/done are left for a title or re-arm to
 // change, so a silent permission wait stays "needs permission", not blank.
-export function onTick(current: Notif, timing: TabTiming, at: number): Notif {
-  if (current === 'working' && at - timing.lastOutputAt > SILENCE_CLEAR_MS) return undefined;
+//
+// `record` is what Claude Code's own session record says (plan-02, Fix 11). While it
+// says busy, Claude is working however quiet the output is, so silence does not clear
+// `working`: a turn that stalled for a few seconds used to lose its spinner for the
+// rest of the turn (note-03, row 3). Once the record goes idle the silence rule
+// applies again, measured from the last output, so a turn that ended long ago clears
+// on the next tick.
+export function onTick(current: Notif, timing: TabTiming, at: number, record?: RecordStatus): Notif {
+  if (current === 'working' && record !== 'busy' && at - timing.lastOutputAt > SILENCE_CLEAR_MS) return undefined;
+  return current;
+}
+
+// A new status from Claude Code's session record (Fix 11). Busy starts the spinner,
+// so a chat with no hooks (no ▶ title ever comes) still shows that it is working,
+// from quiet or from a finished turn's done badge. It never replaces needs-you,
+// compacting or background: a hook title knows more than the record there. Every
+// other status leaves the notif alone: idle does not clear working (the silence
+// clear in onTick does that, now that the record no longer holds it), and waiting
+// does not set needs-you, which stays the hook's to say.
+export function onRecordStatus(current: Notif, record: RecordStatus | undefined): Notif {
+  if (record === 'busy' && (current === undefined || current === 'done')) return 'working';
   return current;
 }
 

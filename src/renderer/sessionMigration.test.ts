@@ -530,6 +530,22 @@ console.log('\nsessionMigration: transient fields stripped, unknown keys kept, i
     JSON.stringify(written) === JSON.stringify(serializeSession(s.tabs as unknown as Tab[], s.groups, s.activeTabId)));
 }
 {
+  // What a live shell was doing (plan-02, Fix 8): whether it sits at its prompt and
+  // whether it has a process below it. Never written, stripped on load.
+  const raw = fixture081() as any;
+  raw.tabs[0].atPrompt = false;
+  raw.tabs[1].hasChildren = true;
+  const s = migrateSession(raw, NOW)!;
+  check('atPrompt is stripped on load', !('atPrompt' in s.tabs[0]));
+  check('hasChildren is stripped on load', !('hasChildren' in s.tabs[1]));
+  const live: Tab[] = (s.tabs as unknown as Tab[]).map(t => ({ ...t, atPrompt: true, hasChildren: false }));
+  const written = serializeSession(live, s.groups, s.activeTabId);
+  check('atPrompt and hasChildren are never written, even when set on the in-memory tab',
+    written.tabs.every(t => !('atPrompt' in t) && !('hasChildren' in t)));
+  check('and nothing else about the tab changes for them',
+    JSON.stringify(written) === JSON.stringify(serializeSession(s.tabs as unknown as Tab[], s.groups, s.activeTabId)));
+}
+{
   const once = migrateSession(fixture081(), NOW)!;
   const twice = migrateSession(once, NOW + 5_000_000)!;
   check('migrating a migrated session changes nothing (even with a later now)', isDeepStrictEqual(once, twice));

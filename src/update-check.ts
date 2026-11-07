@@ -278,26 +278,74 @@ export function errorText(e: UpdateError | null): string | null {
 
 // ─── The restart window ───────────────────────────────────────────────────────
 
-// One awake thread, as the renderer knows it. `resumes` is whether waking it
-// runs `claude --resume` (a chat with a usable session id); `rerunPort` is the
-// port of a server whose last command runs again (wakePlan's runCommand).
+// The window says "Safe to restart" only when afterterm knows every awake thread is
+// idle (plan-02, Fix 10). Before it, anything the rows could not see read as safe: a
+// chat with no hooks mid-reply, a stalled turn, a background task, a shell running a
+// command (note-03, "The restart window: what it says against what is true").
+
+// What a shell is doing, from the signals afterterm has for it (shellBusy below):
+// running a command, sitting at its prompt, or no way to tell.
+export type ShellBusy = 'busy' | 'at-prompt' | 'unknown';
+
+// One awake thread, as the renderer knows it.
+//   resumes:    waking it runs `claude --resume` (a valid session id, wakePlan).
+//   midTurn:    a Claude in the middle of a turn (isMidTurn).
+//   background: a Claude idle with a background task (hasBackgroundTask).
+//   claudeAlive: Claude Code's session record says a Claude is running in the
+//               thread (recordStatus is set).
+//   shellBusy:  whether the shell is running a command (shellBusy). Read only when
+//               no Claude is alive: while one is open the prompt marks say "not at
+//               the prompt" the whole time.
+//   rerunPort:  the port of a server whose last command runs again (wakePlan's
+//               runCommand).
 export interface AwakeThread {
   id: string;
   name: string;
   kind: 'chat' | 'shell';
   resumes: boolean;
   midTurn: boolean;
+  background: boolean;
+  claudeAlive: boolean;
+  shellBusy: ShellBusy;
   rerunPort?: number;
 }
 
-// Whether a chat is in the middle of a turn, from its notification state: the
+// Whether a chat is in the middle of a turn. Claude Code's own record first (Fix 6):
+// busy is working, waiting is on a question or a permission prompt, and it says so
+// with or without hooks, through a stalled turn and at once at a prompt. The
+// notification state is the fallback, for a Claude the record cannot see (WSL): the
 // spinner (working, compacting), or waiting on a permission prompt (attention),
 // whose pending tool call is lost on a restart the same way (Aryan, 2026-10-30).
-export function isMidTurn(notification: string | undefined): boolean {
+export function isMidTurn(recordStatus: string | undefined, notification: string | undefined): boolean {
+  if (recordStatus === 'busy' || recordStatus === 'waiting') return true;
   return notification === 'working' || notification === 'compacting' || notification === 'attention';
 }
 
-export type RestartOutcome ='resumes' | 'stops-mid-turn' | 'runs-again' | 'opens-in-folder';
+// Whether a chat ended its turn with a background task still running (Fix 7): the
+// record's `shell` status, or the hook's background title.
+export function hasBackgroundTask(recordStatus: string | undefined, notification: string | undefined): boolean {
+  return recordStatus === 'shell' || notification === 'background';
+}
+
+// Whether a shell is running a command (Fix 8). The prompt marks (OSC 133) are the
+// main signal, because a child process misses a shell's built-ins (PowerShell's
+// Start-Sleep runs inside the shell). `atPrompt` is undefined while the thread has
+// produced no marks at all (integration opted out, or a shell that never emitted
+// one); only then does `hasChildren`, whether the shell has a process below it, count,
+// and only a yes: none, or a process list too old to say, is unknown, never safe.
+export function shellBusy(atPrompt: boolean | undefined, hasChildren: boolean | undefined): ShellBusy {
+  if (atPrompt === false) return 'busy';
+  if (atPrompt === true) return 'at-prompt';
+  return hasChildren === true ? 'busy' : 'unknown';
+}
+
+export type RestartOutcome =
+  | 'resumes'
+  | 'stops-mid-turn'
+  | 'background-stops'
+  | 'command-stops'
+  | 'runs-again'
+  | 'opens-in-folder';
 
 export interface RestartRow {
   id: string;
@@ -306,32 +354,86 @@ export interface RestartRow {
   outcome: RestartOutcome;
   text: string;
   warn: boolean;
+  // afterterm cannot tell whether the restart stops something in this thread (a
+  // shell with no prompt marks and no process below it). Such a row does not warn,
+  // but the window then says nothing rather than "Safe to restart".
+  unknown: boolean;
+}
+
+// One row per awake thread, in order (the table in plan-02, "What the restart
+// window must say"). Where signals overlap, the first rule that applies wins:
+//   1. Mid-turn (record busy or waiting, or a mid-turn notification), with or
+//      without a session id: "Stops mid-turn". A notification counts even with no
+//      record, since a hook only fires from a live Claude.
+//   2. A background task (record shell, or the background notification):
+//      "Background task stops". Mid-turn wins over it: the turn is the bigger loss.
+//   3. A live, idle Claude: "Resumes" with a usable session id, else "Runs again on
+//      :port" when the wake would re-run a server command (wakePlan's rule for a
+//      thread with no id), else "Opens in its folder". The shell is not read: its
+//      marks say "not at the prompt" for as long as Claude is open.
+//   4. No live Claude, a session id (an exited chat stays a chat, Decision 3): the
+//      shell running a command is "Command stops" (it still resumes afterwards),
+//      at its prompt "Resumes", unknown "Resumes" and counted as unknown.
+//   5. No Claude, no id, a server whose command runs again: "Runs again on :port",
+//      even while the shell is busy, since the server is that running command and
+//      running it again is what the wake is for.
+//   6. No Claude, no id, the shell busy: "Command stops".
+//   7. Otherwise "Opens in its folder", counted as unknown when the shell's state
+//      is unknown.
+function outcomeText(outcome: RestartOutcome, port: number | undefined): string {
+  switch (outcome) {
+    case 'stops-mid-turn': return 'Stops mid-turn';
+    case 'background-stops': return 'Background task stops';
+    case 'command-stops': return 'Command stops';
+    case 'resumes': return 'Resumes';
+    case 'runs-again': return `Runs again on :${port}`;
+    case 'opens-in-folder': return 'Opens in its folder';
+  }
 }
 
 export function restartRows(threads: AwakeThread[]): RestartRow[] {
   return threads.map(t => {
     let outcome: RestartOutcome;
-    let text: string;
-    if (t.kind === 'chat' && t.resumes) {
-      outcome = t.midTurn ? 'stops-mid-turn' : 'resumes';
-      text = t.midTurn ? 'Stops mid-turn' : 'Resumes';
+    let unknown = false;
+    if (t.midTurn) {
+      outcome = 'stops-mid-turn';
+    } else if (t.background) {
+      outcome = 'background-stops';
+    } else if (t.claudeAlive) {
+      outcome = t.resumes ? 'resumes' : t.rerunPort !== undefined ? 'runs-again' : 'opens-in-folder';
+    } else if (t.resumes) {
+      outcome = t.shellBusy === 'busy' ? 'command-stops' : 'resumes';
+      unknown = t.shellBusy === 'unknown';
     } else if (t.rerunPort !== undefined) {
       outcome = 'runs-again';
-      text = `Runs again on :${t.rerunPort}`;
+    } else if (t.shellBusy === 'busy') {
+      outcome = 'command-stops';
     } else {
       outcome = 'opens-in-folder';
-      text = 'Opens in its folder';
+      unknown = t.shellBusy === 'unknown';
     }
-    return { id: t.id, name: t.name, kind: t.kind, outcome, text, warn: outcome === 'stops-mid-turn' };
+    const warn = outcome === 'stops-mid-turn' || outcome === 'background-stops' || outcome === 'command-stops';
+    return { id: t.id, name: t.name, kind: t.kind, outcome, text: outcomeText(outcome, t.rerunPort), warn, unknown };
   });
 }
 
-// The status line left of the buttons: "Safe to restart", or "1 chat stops
-// mid-turn" / "2 chats stop mid-turn".
-export function restartStatus(rows: RestartRow[]): { ok: boolean; text: string } {
-  const n = rows.filter(r => r.outcome === 'stops-mid-turn').length;
-  if (n === 0) return { ok: true, text: 'Safe to restart' };
-  return { ok: false, text: n === 1 ? '1 chat stops mid-turn' : `${n} chats stop mid-turn` };
+// The status line left of the buttons:
+//   nothing warns and nothing is unknown: "Safe to restart";
+//   only chats stopping mid-turn warn: "1 chat stops mid-turn" / "2 chats stop mid-turn";
+//   any other warning: "1 thread is busy" / "2 threads are busy", counting every
+//   row that warns;
+//   nothing warns but something is unknown: null, no status line at all, because
+//   afterterm does not know that the restart is safe.
+export function restartStatus(rows: RestartRow[]): { ok: boolean; text: string } | null {
+  const warns = rows.filter(r => r.warn);
+  if (warns.length === 0) {
+    return rows.some(r => r.unknown) ? null : { ok: true, text: 'Safe to restart' };
+  }
+  const n = warns.length;
+  if (warns.every(r => r.outcome === 'stops-mid-turn')) {
+    return { ok: false, text: n === 1 ? '1 chat stops mid-turn' : `${n} chats stop mid-turn` };
+  }
+  return { ok: false, text: n === 1 ? '1 thread is busy' : `${n} threads are busy` };
 }
 
 // ─── After the restart ────────────────────────────────────────────────────────

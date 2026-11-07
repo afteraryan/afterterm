@@ -22,7 +22,7 @@ import { RestartToUpdate } from './components/RestartToUpdate';
 import { UpdatedPill } from './components/UpdatedPill';
 import { WhatsNewDialog } from './components/UpdateDialog';
 import { hasNotes } from './components/UpdateNotes';
-import { initialUpdateState, restartRows, isMidTurn } from '../update-check';
+import { initialUpdateState, restartRows, isMidTurn, hasBackgroundTask, shellBusy } from '../update-check';
 import type { UpdateState, AwakeThread } from '../update-check';
 import type { Screen } from './components/ScreenNav';
 import { useTabState, threadGitCwd } from './hooks/useTabState';
@@ -1130,6 +1130,11 @@ export function App() {
   // them for the quit flush below, then asks main to start Setup and quit. When
   // main cannot go ahead (a copy that is not installed, Setup not starting) the
   // window closes and the notice says why.
+  // Computed from state on every render, so a status that changes while the window
+  // is open (Claude Code's record, a hook title, a prompt mark, the process tree)
+  // redraws its row at once. plan-02, Fixes 6 to 10: Claude's own record first, the
+  // hook's notification as the fallback, and for a thread with no live Claude its
+  // shell, from the prompt marks or else its process tree.
   const awakeThreads = (): AwakeThread[] => state.tabs.filter(t => !t.asleep).map(t => {
     const plan = wakePlan(t);
     return {
@@ -1137,7 +1142,10 @@ export function App() {
       name: threadName(t),
       kind: threadKind(t),
       resumes: !!plan.resumeSessionId,
-      midTurn: isMidTurn(t.notification),
+      midTurn: isMidTurn(t.recordStatus, t.notification),
+      background: hasBackgroundTask(t.recordStatus, t.notification),
+      claudeAlive: t.recordStatus !== undefined,
+      shellBusy: shellBusy(t.atPrompt, t.hasChildren),
       rerunPort: plan.runCommand !== null ? t.port : undefined,
     };
   });

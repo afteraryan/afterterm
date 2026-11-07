@@ -65,6 +65,13 @@ console.log('\nsleepWake: sleepTab\n');
   check('recordStatus is cleared on sleep', !('recordStatus' in asleep));
   check('and the session id stays (Decision 3)', asleep.claudeSessionId === tab.claudeSessionId);
 }
+{
+  // What the shell was doing (plan-02, Fix 8): a woken thread starts from no marks.
+  const tab = chatTab({ atPrompt: false, hasChildren: true });
+  const asleep = sleepTab(tab, NOW);
+  check('atPrompt is cleared on sleep', !('atPrompt' in asleep));
+  check('hasChildren is cleared on sleep', !('hasChildren' in asleep));
+}
 
 console.log('\nsleepWake: wakeTab\n');
 {
@@ -240,18 +247,53 @@ console.log('\nsleepWake: wakePlan runCommand (Phase 5)\n');
   const plan = wakePlan(exactly500);
   check('a lastCommand of exactly 500 characters is accepted', plan.runCommand === 'x'.repeat(500));
 }
+console.log('\nsleepWake: wakePlan, a session id wins over the server rule (plan-02, Fix 9)\n');
 {
-  // A malformed tab that somehow carries both a valid session id and a port
-  // with a runnable command: the server behaviour wins, resumeSessionId stays
-  // null. A chat never re-runs a shell command.
-  const weird = {
+  // A chat that was exited and then ran a server in the same shell: it holds both a
+  // valid session id and a port with a runnable command. It stays a chat (Decision 3),
+  // so it resumes and the command is not re-run.
+  const both = {
     cwd: 'D:\\Work', claudeCwd: undefined,
     claudeSessionId: '3d71b0f2-26cb-4ad3-8371-6504ab2e37e2', shellId: 'cmd',
     port: 5173, lastCommand: 'npm start',
   };
-  const plan = wakePlan(weird);
-  check('a runnable command always forces resumeSessionId to null, even with a valid session id present',
+  const plan = wakePlan(both);
+  check('a session id plus a port and a command: resumes the chat',
+    plan.resumeSessionId === both.claudeSessionId, show(plan));
+  check('and does not re-run the command', plan.runCommand === null, show(plan));
+}
+{
+  const server = {
+    cwd: 'D:\\Work', claudeCwd: undefined, claudeSessionId: undefined, shellId: 'cmd',
+    port: 5173, lastCommand: 'npm start',
+  };
+  const plan = wakePlan(server);
+  check('no session id plus a port and a command: re-runs the command, resumes nothing',
     plan.runCommand === 'npm start' && plan.resumeSessionId === null, show(plan));
+}
+{
+  // An invalid id is no id: the server rule applies.
+  const bad = {
+    cwd: 'D:\\Work', claudeCwd: undefined, claudeSessionId: 'not-a-uuid', shellId: 'cmd',
+    port: 5173, lastCommand: 'npm start',
+  };
+  const plan = wakePlan(bad);
+  check('an invalid session id plus a port and a command: re-runs the command',
+    plan.runCommand === 'npm start' && plan.resumeSessionId === null, show(plan));
+}
+{
+  // A Claude that started a dev server itself: the last command entered at the
+  // prompt is `claude` and the tree listens on a port. It used to wake by running
+  // a fresh `claude`; it resumes its session.
+  const claudeServer = {
+    cwd: 'D:\\Work', claudeCwd: 'D:\\Work\\app',
+    claudeSessionId: '3d71b0f2-26cb-4ad3-8371-6504ab2e37e2', shellId: 'cmd',
+    port: 3000, lastCommand: 'claude',
+  };
+  const plan = wakePlan(claudeServer);
+  check('a Claude that started a server itself resumes rather than running `claude` fresh',
+    plan.resumeSessionId === claudeServer.claudeSessionId && plan.runCommand === null, show(plan));
+  check('and wakes in the folder Claude was in', plan.cwd === 'D:\\Work\\app');
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

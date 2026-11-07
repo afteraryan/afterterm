@@ -10,7 +10,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import {
   onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, clearsWhenSeen, initTiming,
-  SILENCE_CLEAR_MS, REARM_AFTER_QUIET_MS,
+  onRecordStatus, SILENCE_CLEAR_MS, REARM_AFTER_QUIET_MS,
 } from './spinnerState.ts';
 import type { Notif } from './spinnerState.ts';
 
@@ -46,6 +46,47 @@ console.log('\nspinnerState — unit rules\n');
     onTick('attention', initTiming(0), 999999) === 'attention');
   check('tick never clears compacting', onTick('compacting', initTiming(0), 999999) === 'compacting');
   check('tick never clears done', onTick('done', initTiming(0), 999999) === 'done');
+}
+
+// ── Claude Code's session record (plan-02, Fix 11) ───────────────────────────
+{
+  // A stalled turn: the output goes quiet for longer than the window, the record
+  // still says busy, so the spinner stays.
+  const t = initTiming(1000);
+  check('record busy: working survives silence past the window',
+    onTick('working', t, 1000 + SILENCE_CLEAR_MS * 10, 'busy') === 'working');
+  check('record idle: the silence clear applies as before',
+    onTick('working', t, 1000 + SILENCE_CLEAR_MS + 1, 'idle') === undefined);
+  check('record waiting or shell: the silence clear applies too',
+    onTick('working', t, 1000 + SILENCE_CLEAR_MS + 1, 'waiting') === undefined
+    && onTick('working', t, 1000 + SILENCE_CLEAR_MS + 1, 'shell') === undefined);
+  check('no record (none read, or WSL): the silence clear applies as before',
+    onTick('working', t, 1000 + SILENCE_CLEAR_MS + 1, undefined) === undefined);
+  check('record busy does not turn other states into working on a tick',
+    onTick(undefined, t, 999999, 'busy') === undefined && onTick('done', t, 999999, 'busy') === 'done');
+
+  // The record going idle after a long busy stretch: the next tick clears at once,
+  // since the silence is measured from the last output, not from the status change.
+  let n: Notif = 'working';
+  n = onTick(n, t, 60_000, 'busy');
+  check('held through a minute of busy silence', n === 'working');
+  n = onTick(n, t, 60_500, 'idle');
+  check('cleared on the first tick after the record says idle', n === undefined);
+}
+{
+  check('busy from quiet starts working (a chat with no hooks)', onRecordStatus(undefined, 'busy') === 'working');
+  check('busy over a finished turn starts working (a new turn, no ▶ title)', onRecordStatus('done', 'busy') === 'working');
+  check('busy keeps working', onRecordStatus('working', 'busy') === 'working');
+  check('busy never replaces needs-you, compacting or background',
+    onRecordStatus('attention', 'busy') === 'attention'
+    && onRecordStatus('compacting', 'busy') === 'compacting'
+    && onRecordStatus('background', 'busy') === 'background');
+  check('idle does not clear working by itself (the silence clear does)', onRecordStatus('working', 'idle') === 'working');
+  check('waiting does not set needs-you (that is the hook\'s)', onRecordStatus(undefined, 'waiting') === undefined
+    && onRecordStatus('working', 'waiting') === 'working');
+  check('shell and no record change nothing',
+    onRecordStatus(undefined, 'shell') === undefined && onRecordStatus('done', undefined) === 'done'
+    && onRecordStatus('working', undefined) === 'working');
 }
 
 // ── onOutput: refresh clock + re-arm ────────────────────────────────────────
