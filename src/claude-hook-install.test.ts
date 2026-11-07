@@ -587,5 +587,59 @@ console.log('\nreconcileClaudeHook tests\n');
     hookRepairWait(Array.from({ length: HOOK_REPAIR_LIMIT + 2 }, (_, i) => now - W - 1 - i), now) === 0);
 }
 
+// 21. prefs.json with a byte order mark (a hand edit can leave one) is read, not
+//     taken for empty: its opt-out holds, and its other settings survive a write.
+{
+  const BOM = '\uFEFF';
+  // An opt-out behind a BOM is honoured: ours removed, prefs.json not touched.
+  const a = sandbox();
+  reconcileClaudeHook(opts(a)); // register first
+  const optOut = BOM + JSON.stringify({ claudeNotifications: 'disabled', editorPath: 'C:\\Tools\\editor.exe' });
+  fs.writeFileSync(a.prefsPath, optOut, 'utf-8');
+  const ra = reconcileClaudeHook(opts(a));
+  check('BOM prefs: an opt-out is read and removes our entries', ra.status === 'removed', ra.status);
+  check('BOM prefs: the opt-out file is left byte for byte', fs.readFileSync(a.prefsPath, 'utf-8') === optOut);
+
+  // Already recorded as enabled with the toast shown: nothing to write, no toast.
+  const b = sandbox();
+  const settled = BOM + JSON.stringify({ claudeNotifications: 'enabled', claudeHookToastShown: true, editorPath: 'C:\\Tools\\editor.exe', lastOpenedAt: 123 });
+  fs.writeFileSync(b.prefsPath, settled, 'utf-8');
+  const rb = reconcileClaudeHook(opts(b));
+  check('BOM prefs: claudeHookToastShown is read, so a fresh registration shows no toast',
+    rb.status === 'registered' && !rb.showToast, rb.status);
+  check('BOM prefs: nothing new to record, so the file is left byte for byte',
+    fs.readFileSync(b.prefsPath, 'utf-8') === settled);
+
+  // Something to record (first registration): written, every other key kept.
+  const c = sandbox();
+  fs.writeFileSync(c.prefsPath, BOM + JSON.stringify({ editorPath: 'C:\\Tools\\editor.exe', lastOpenedAt: 123 }), 'utf-8');
+  const rc = reconcileClaudeHook(opts(c));
+  const written = JSON.parse(fs.readFileSync(c.prefsPath, 'utf-8').replace(/^\uFEFF/, ''));
+  check('BOM prefs: a first registration records enabled and the toast', rc.showToast &&
+    written.claudeNotifications === 'enabled' && written.claudeHookToastShown === true, JSON.stringify(written));
+  check('BOM prefs: the other settings are kept', written.editorPath === 'C:\\Tools\\editor.exe' && written.lastOpenedAt === 123,
+    JSON.stringify(written));
+}
+
+// 22. A prefs.json that does not parse is never written over: it may hold an opt-out
+//     and other settings. Reconcile treats it as empty (so enabled) for the hook,
+//     shows no toast it could not record, and leaves the file byte for byte.
+{
+  for (const [name, text] of [['garbage', '{ "claudeNotifications": "disabled", oops'], ['a JSON array', '[1, 2]']] as const) {
+    const b = sandbox();
+    fs.writeFileSync(b.prefsPath, text, 'utf-8');
+    const r = reconcileClaudeHook(opts(b));
+    const s = readSettings(b.claudeDir);
+    check(`unparseable prefs (${name}): treated as enabled, entries registered`,
+      r.status === 'registered' && ['SessionStart', 'UserPromptSubmit', 'Notification', 'Stop', 'PreCompact'].every((e) => hasOurEntry(s, e)),
+      r.status);
+    check(`unparseable prefs (${name}): no toast, since it could not be recorded`, !r.showToast);
+    check(`unparseable prefs (${name}): the file is left byte for byte`, fs.readFileSync(b.prefsPath, 'utf-8') === text);
+    const r2 = reconcileClaudeHook(opts(b));
+    check(`unparseable prefs (${name}): a second run is already-current and still leaves it`,
+      r2.status === 'already-current' && fs.readFileSync(b.prefsPath, 'utf-8') === text, r2.status);
+  }
+}
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail > 0 ? 1 : 0);

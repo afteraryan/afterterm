@@ -10,12 +10,13 @@
 // afterterm-notify.ps1 exits immediately unless AFTERTERM=1, so the global
 // registration is inert in the user's other terminals.
 //
-// This module imports only Node built-ins (no Electron) so it can be unit-tested
-// directly. main.ts supplies the real paths.
+// This module imports only Node built-ins and prefs.ts (no Electron) so it can be
+// unit-tested directly. main.ts supplies the real paths.
 
 import fs from 'fs';
 import path from 'path';
 import { execFileSync } from 'child_process';
+import { readPrefs } from './prefs.ts';
 
 export const HOOK_SCRIPT_NAME = 'afterterm-notify.ps1';
 
@@ -185,7 +186,11 @@ function removeAftertermEntries(settingsPath: string): boolean {
 export function reconcileClaudeHook(opts: ReconcileOpts): ReconcileResult {
   const { scriptSource, claudeDir, prefsPath } = opts;
   const settingsPath = path.join(claudeDir, 'settings.json');
-  const prefs = readJson<Prefs>(prefsPath) ?? {};
+  // readPrefs strips a byte order mark (a hand edit can leave one) and says whether
+  // the file parsed at all. One that does not is treated as empty here, so the hook
+  // is enabled by default, but it is never written over below.
+  const { prefs: readPrefsValue, usable: prefsUsable } = readPrefs(prefsPath);
+  const prefs: Prefs = readPrefsValue;
   const enabled = prefs.claudeNotifications !== 'disabled'; // default: enabled
 
   // ── Opt-out path ──────────────────────────────────────────────────────────
@@ -251,13 +256,16 @@ export function reconcileClaudeHook(opts: ReconcileOpts): ReconcileResult {
   const changed = added > 0 || upgraded > 0;
   if (changed) writeJson(settingsPath, settings);
 
-  // One-time toast: only the first time we ever register on this machine.
-  const showToast = added > 0 && !prefs.claudeHookToastShown;
+  // One-time toast: only the first time we ever register on this machine. Not when
+  // prefs.json does not parse: the toast could not be recorded, so it would repeat.
+  const showToast = added > 0 && !prefs.claudeHookToastShown && prefsUsable;
 
   // Persist prefs: record that notifications are enabled + that the toast fired.
+  // Never over a prefs.json that does not parse: a file we cannot read may hold an
+  // opt-out and other settings (editor, update choices) that a rewrite would wipe.
   const nextPrefs: Prefs = { ...prefs, claudeNotifications: 'enabled' };
   if (showToast) nextPrefs.claudeHookToastShown = true;
-  if (JSON.stringify(nextPrefs) !== JSON.stringify(prefs)) writeJson(prefsPath, nextPrefs);
+  if (prefsUsable && JSON.stringify(nextPrefs) !== JSON.stringify(prefs)) writeJson(prefsPath, nextPrefs);
 
   return {
     status: added > 0 ? 'registered' : upgraded > 0 ? 'upgraded' : 'already-current',
@@ -296,8 +304,8 @@ function isPlainObject(v: unknown): boolean {
 // when something is missing, and cannot loop against Claude Code's own writes.
 export function needsHookRepair(settingsText: string | null, prefs: Prefs | null): HookRepairCheck {
   const leave = (reason: string): HookRepairCheck => ({ repair: false, missing: [], reason });
-  // An unreadable prefs.json may hold an opt-out we cannot see, and reconcile would
-  // write over it: leave both alone until the next launch.
+  // An unreadable prefs.json may hold an opt-out we cannot see: leave settings.json
+  // alone until the next launch.
   if (!prefs) return leave('prefs.json is not valid JSON; left alone');
   if (prefs.claudeNotifications === 'disabled') return leave('notifications are turned off in prefs.json');
   const events = HOOK_EVENTS.map((e) => e.event);

@@ -60,14 +60,17 @@ settings file; only the global/project `settings.json` hierarchy, and hooks
   reads it first; `disabled` surgically removes only afterterm's entries and
   stops re-adding them (this flag is what makes a manual removal *stick* — without
   it, reconcile can't tell "never installed" from "deliberately removed"). No
-  settings UI yet; a future toggle just writes this flag.
+  settings UI yet; a future toggle just writes this flag. Reconcile reads
+  prefs.json through `readPrefs` (`prefs.ts`), so a byte order mark from a hand
+  edit no longer hides an opt-out, and a prefs.json that does not parse is
+  treated as empty for the hook but never written over (2026-11-07).
 - **One-time toast**: the first time it registers (`prefs.claudeHookToastShown`),
   `pushSetupToast()` fires a "Claude Code notifications enabled" toast so the user
   knows their config was touched — it's not a silent dotfile edit. The toast uses
   a sentinel `tabId`; `app.tsx` `handleActivate` ignores clicks for unknown tabs.
 
 Tests (no app needed): `assets/hooks/test-afterterm-notify.ps1` (22 cases, runs
-the hook as a subprocess) and `src/claude-hook-install.test.ts` (122 cases, run
+the hook as a subprocess) and `src/claude-hook-install.test.ts` (136 cases, run
 with `node src/claude-hook-install.test.ts` — Node 24+ strips the TS types).
 
 ### A toast follows an edit to its project (2026-09-25)
