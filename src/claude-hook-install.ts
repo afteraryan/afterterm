@@ -270,3 +270,67 @@ export function reconcileClaudeHook(opts: ReconcileOpts): ReconcileResult {
         : 'already registered',
   };
 }
+
+// ── Repair while the app runs ────────────────────────────────────────────────
+//
+// Reconcile used to run only at launch, so when a test launch removed afterterm's
+// entries on 2026-11-06 every chat ran with no hooks for 21 hours. main.ts now
+// watches the Claude folder's settings.json and asks needsHookRepair after each
+// change; a running chat picks hooks up live, so putting them back is enough
+// (docs/note-03-restart-window-said-safe-while-a-chat-was-running.md).
+
+export interface HookRepairCheck {
+  repair: boolean;
+  missing: string[]; // the events with no afterterm entry; empty when repair is false
+  reason: string; // plain words for main's log line
+}
+
+function isPlainObject(v: unknown): boolean {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+// Whether afterterm's entries need putting back, from settings.json's text (null when
+// there is no such file) and prefs.json (null when it exists and does not parse).
+// It counts an entry as present exactly as reconcileClaudeHook does (isAftertermGroup),
+// so once a repair has run the next check finds nothing to do: afterterm writes only
+// when something is missing, and cannot loop against Claude Code's own writes.
+export function needsHookRepair(settingsText: string | null, prefs: Prefs | null): HookRepairCheck {
+  const leave = (reason: string): HookRepairCheck => ({ repair: false, missing: [], reason });
+  // An unreadable prefs.json may hold an opt-out we cannot see, and reconcile would
+  // write over it: leave both alone until the next launch.
+  if (!prefs) return leave('prefs.json is not valid JSON; left alone');
+  if (prefs.claudeNotifications === 'disabled') return leave('notifications are turned off in prefs.json');
+  const events = HOOK_EVENTS.map((e) => e.event);
+  if (settingsText === null) return { repair: true, missing: events, reason: 'settings.json is missing' };
+  let settings: unknown;
+  try {
+    settings = JSON.parse(settingsText);
+  } catch {
+    return leave('settings.json is not valid JSON; left alone');
+  }
+  // Reconcile cannot merge into a file that is not an object, or into hooks that are
+  // not an object, so a write would not stick and would repeat on every change.
+  if (!isPlainObject(settings)) return leave('settings.json is not a JSON object; left alone');
+  const hooks = (settings as { hooks?: unknown }).hooks;
+  if (hooks != null && !isPlainObject(hooks)) return leave('the hooks key in settings.json is not an object; left alone');
+  const byEvent = (hooks ?? {}) as Record<string, unknown>;
+  const missing = events.filter((event) => {
+    const groups = byEvent[event];
+    return !(Array.isArray(groups) && groups.some(isAftertermGroup));
+  });
+  if (missing.length === 0) return leave('every afterterm entry is in place');
+  return { repair: true, missing, reason: `settings.json had no afterterm entry for ${missing.join(', ')}` };
+}
+
+// A guard against a loop needsHookRepair should never allow (another tool that strips
+// the entries each time afterterm puts them back, say): at most HOOK_REPAIR_LIMIT
+// repairs within HOOK_REPAIR_WINDOW_MS. `recent` holds the times of earlier repairs.
+// Returns 0 when a repair may run now, else how long until the oldest repair in the
+// window leaves it.
+export const HOOK_REPAIR_LIMIT = 3;
+export const HOOK_REPAIR_WINDOW_MS = 60_000;
+export function hookRepairWait(recent: number[], now: number): number {
+  const inWindow = recent.filter((t) => now - t < HOOK_REPAIR_WINDOW_MS);
+  if (inWindow.length < HOOK_REPAIR_LIMIT) return 0;
+  return Math.min(...inWindow) + HOOK_REPAIR_WINDOW_MS - now;
+}

@@ -42,6 +42,19 @@ settings file; only the global/project `settings.json` hierarchy, and hooks
   `Stop`, `PreCompact`) into `~/.claude/settings.json` only if missing — never
   touching the user's own hooks/permissions. Skips entirely when there's no
   `~/.claude` (CC not installed) and **never clobbers** an unparseable settings file.
+- **Repair while running** (Fix 4, 2026-11-07): after the launch reconcile, main
+  watches the Claude folder (`startHookRepairWatch`, an `fs.watch` on the folder
+  filtered to `settings.json`, since editors and Claude Code may replace the file;
+  a 10 second stat poll of the file when the folder cannot be watched). 1.5 seconds
+  after the last change it asks `needsHookRepair` (pure, in `claude-hook-install.ts`)
+  whether any of the five events has lost afterterm's entry, and if so runs
+  `reconcileNotifierHook` again. A running chat picks the hooks up live, so it
+  recovers with no restart (on 2026-11-06 a test launch removed them and chats ran
+  21 hours without). It writes only when something is missing, reads prefs.json on
+  every check (an opt-out stops it at once), leaves a settings.json or prefs.json
+  that does not parse alone, never starts in a test launch that `hookReconcileAllowed`
+  refuses, and holds repairs to 3 a minute (`hookRepairWait`) with one warning in
+  case another tool keeps removing the entries.
 - **Opt-out** is a single flag in `%APPDATA%\afterterm\prefs.json`
   (`claudeNotifications: "enabled" | "disabled"`, default enabled). Reconcile
   reads it first; `disabled` surgically removes only afterterm's entries and
@@ -54,7 +67,7 @@ settings file; only the global/project `settings.json` hierarchy, and hooks
   a sentinel `tabId`; `app.tsx` `handleActivate` ignores clicks for unknown tabs.
 
 Tests (no app needed): `assets/hooks/test-afterterm-notify.ps1` (22 cases, runs
-the hook as a subprocess) and `src/claude-hook-install.test.ts` (26 cases, run
+the hook as a subprocess) and `src/claude-hook-install.test.ts` (122 cases, run
 with `node src/claude-hook-install.test.ts` — Node 24+ strips the TS types).
 
 ### A toast follows an edit to its project (2026-09-25)

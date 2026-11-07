@@ -5,7 +5,15 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { reconcileClaudeHook, hookReconcileAllowed, HOOK_SCRIPT_NAME } from './claude-hook-install.ts';
+import {
+  reconcileClaudeHook,
+  hookReconcileAllowed,
+  needsHookRepair,
+  hookRepairWait,
+  HOOK_REPAIR_LIMIT,
+  HOOK_REPAIR_WINDOW_MS,
+  HOOK_SCRIPT_NAME,
+} from './claude-hook-install.ts';
 
 let pass = 0;
 let fail = 0;
@@ -395,6 +403,188 @@ console.log('\nreconcileClaudeHook tests\n');
   check('launch rule: empty values count as not set',
     hookReconcileAllowed({ AFTERTERM_USER_DATA_DIR: '', CLAUDE_CONFIG_DIR: '' }) === true &&
     hookReconcileAllowed({ AFTERTERM_USER_DATA_DIR: 'C:\\scratch\\data', CLAUDE_CONFIG_DIR: '' }) === false);
+}
+
+// 17. needsHookRepair: the check main's settings.json watch runs after each change,
+//     to put afterterm's entries back while the app runs (Fix 4).
+{
+  const ALL = ['SessionStart', 'UserPromptSubmit', 'Notification', 'Stop', 'PreCompact'];
+  const enabled = { claudeNotifications: 'enabled' as const };
+  // A complete settings file, as reconcile writes it, beside other settings.
+  const b = sandbox();
+  fs.writeFileSync(path.join(b.claudeDir, 'settings.json'), JSON.stringify({ permissions: { defaultMode: 'auto' } }), 'utf-8');
+  reconcileClaudeHook(opts(b));
+  const complete = readSettings(b.claudeDir);
+  const text = (obj: unknown) => JSON.stringify(obj, null, 2);
+  const without = (...events: string[]) => {
+    const s = structuredClone(complete);
+    for (const e of events) delete s.hooks[e];
+    return s;
+  };
+
+  const all = needsHookRepair(text(complete), enabled);
+  check('repair check: all five present, no repair', !all.repair && all.missing.length === 0, JSON.stringify(all));
+  check('repair check: no prefs file ({}) counts as enabled', !needsHookRepair(text(complete), {}).repair);
+
+  const one = needsHookRepair(text(without('Stop')), enabled);
+  check('repair check: one event missing, repair', one.repair, JSON.stringify(one));
+  check('repair check: one event missing, names only that event',
+    JSON.stringify(one.missing) === JSON.stringify(['Stop']), JSON.stringify(one.missing));
+  check('repair check: the reason names the missing event', one.reason.includes('Stop'), one.reason);
+
+  const noHooks = structuredClone(complete);
+  delete noHooks.hooks;
+  const nh = needsHookRepair(text(noHooks), enabled);
+  check('repair check: hooks key missing, repair with all five missing',
+    nh.repair && JSON.stringify(nh.missing) === JSON.stringify(ALL), JSON.stringify(nh));
+  const nullHooks = needsHookRepair(text({ ...noHooks, hooks: null }), enabled);
+  check('repair check: hooks null, repair (reconcile treats it as no hooks)', nullHooks.repair, JSON.stringify(nullHooks));
+
+  const gone = needsHookRepair(null, enabled);
+  check('repair check: settings.json missing, repair when enabled',
+    gone.repair && JSON.stringify(gone.missing) === JSON.stringify(ALL), JSON.stringify(gone));
+
+  // A byte order mark counts as not valid JSON, as it does for reconcile's own reader.
+  const badFiles: [string, string][] = [
+    ['garbage', '{ this is : not json ]'],
+    ['an empty file', ''],
+    ['a byte order mark first', '\uFEFF' + text(complete)],
+  ];
+  for (const [name, bad] of badFiles) {
+    const r = needsHookRepair(bad, enabled);
+    check(`repair check: settings.json not valid JSON (${name}), left alone`, !r.repair, JSON.stringify(r));
+  }
+
+  for (const shape of ['[]', 'null', '42', '"text"']) {
+    const r = needsHookRepair(shape, enabled);
+    check(`repair check: settings.json is ${shape}, not an object, left alone`, !r.repair, JSON.stringify(r));
+  }
+  for (const hooks of [[], 'text', 3]) {
+    const r = needsHookRepair(JSON.stringify({ hooks }), enabled);
+    check(`repair check: hooks is ${JSON.stringify(hooks)}, not an object, left alone`, !r.repair, JSON.stringify(r));
+  }
+
+  const disabled = { claudeNotifications: 'disabled' as const };
+  check('repair check: opted out, no repair even with every entry missing',
+    !needsHookRepair(text(noHooks), disabled).repair);
+  check('repair check: opted out, no repair when settings.json is missing',
+    !needsHookRepair(null, disabled).repair);
+  check('repair check: opted out, no repair when one event is missing',
+    !needsHookRepair(text(without('Notification')), disabled).repair);
+  check('repair check: prefs.json not valid JSON (null), no repair',
+    !needsHookRepair(text(noHooks), null).repair && !needsHookRepair(null, null).repair);
+
+  const theirs = { matcher: '', hooks: [{ type: 'command', command: 'node', args: ['other-tool.js'] }] };
+  const otherOnly = { hooks: { Stop: [theirs], SessionStart: [theirs] } };
+  const oo = needsHookRepair(JSON.stringify(otherOnly), enabled);
+  check('repair check: another tool\'s groups only, repair with all five missing',
+    oo.repair && JSON.stringify(oo.missing) === JSON.stringify(ALL), JSON.stringify(oo));
+
+  const notArray = structuredClone(complete);
+  notArray.hooks.Stop = { matcher: '' };
+  const na = needsHookRepair(text(notArray), enabled);
+  check('repair check: an event that is not a list counts as missing',
+    na.repair && JSON.stringify(na.missing) === JSON.stringify(['Stop']), JSON.stringify(na));
+
+  const shared = structuredClone(complete);
+  shared.hooks.Stop[0].hooks.push(theirs.hooks[0]);
+  check('repair check: afterterm\'s hook in a group shared with another tool counts as present',
+    !needsHookRepair(text(shared), enabled).repair);
+
+  const c = sandbox();
+  fs.writeFileSync(c.prefsPath, JSON.stringify({ claudeNotifications: 'enabled', claudeHookMode: 'command' }), 'utf-8');
+  reconcileClaudeHook(opts(c));
+  const commandMode = readSettings(c.claudeDir);
+  check('repair check: entries in command mode count as present',
+    commandMode.hooks.Stop[0].hooks[0].args[1] === '-Command' &&
+    !needsHookRepair(text(commandMode), enabled).repair);
+}
+
+// 18. No loop: from every starting point the check repairs, one reconcile leaves a
+//     file the check is happy with, and the reconcile after that writes nothing.
+{
+  const theirs = { matcher: 'Bash', hooks: [{ type: 'command', command: 'node', args: ['other-tool.js'] }] };
+  const starts: { name: string; settings: unknown | null }[] = [
+    { name: 'no settings file', settings: null },
+    { name: 'no hooks key', settings: { model: 'opus' } },
+    { name: 'another tool\'s groups only', settings: { hooks: { Stop: [theirs], PreToolUse: [theirs] } } },
+    { name: 'an event that is not a list', settings: { hooks: { Stop: { matcher: '' } } } },
+  ];
+  for (const st of starts) {
+    const b = sandbox();
+    const sp = path.join(b.claudeDir, 'settings.json');
+    if (st.settings !== null) fs.writeFileSync(sp, JSON.stringify(st.settings, null, 2), 'utf-8');
+    fs.writeFileSync(b.prefsPath, JSON.stringify({ claudeNotifications: 'enabled', claudeHookToastShown: true }), 'utf-8');
+    const before = needsHookRepair(st.settings === null ? null : fs.readFileSync(sp, 'utf-8'), { claudeNotifications: 'enabled' });
+    reconcileClaudeHook(opts(b));
+    const after = needsHookRepair(fs.readFileSync(sp, 'utf-8'), { claudeNotifications: 'enabled' });
+    const written = fs.readFileSync(sp, 'utf-8');
+    const again = reconcileClaudeHook(opts(b));
+    check(`no loop, ${st.name}: the check asked for a repair`, before.repair, JSON.stringify(before));
+    check(`no loop, ${st.name}: after one reconcile the check finds nothing to do`, !after.repair, JSON.stringify(after));
+    check(`no loop, ${st.name}: the next reconcile writes nothing`,
+      again.status === 'already-current' && !again.changed && fs.readFileSync(sp, 'utf-8') === written, again.status);
+  }
+  // The other tool's groups are still there, untouched, after the repair.
+  const b = sandbox();
+  const sp = path.join(b.claudeDir, 'settings.json');
+  fs.writeFileSync(sp, JSON.stringify({ hooks: { Stop: [theirs], PreToolUse: [theirs] } }, null, 2), 'utf-8');
+  reconcileClaudeHook(opts(b));
+  const s = readSettings(b.claudeDir);
+  check('no loop, another tool\'s groups: kept as they were, ours added beside them',
+    JSON.stringify(groupsFor(s, 'Stop')[0]) === JSON.stringify(theirs) && groupsFor(s, 'Stop').length === 2 &&
+    JSON.stringify(groupsFor(s, 'PreToolUse')) === JSON.stringify([theirs]) && hasOurEntry(s, 'Stop'),
+    JSON.stringify(s.hooks));
+}
+
+// 19. The repair path end to end, without a watcher: reconcile writes a complete
+//     file, the hooks key is deleted by hand, the check asks for a repair, and a
+//     second reconcile puts all five entries back with nothing else changed.
+{
+  const b = sandbox();
+  const sp = path.join(b.claudeDir, 'settings.json');
+  fs.writeFileSync(sp, JSON.stringify({ permissions: { defaultMode: 'auto', allow: ['Bash(ls)'] }, model: 'opus' }, null, 2), 'utf-8');
+  reconcileClaudeHook(opts(b)); // the launch reconcile
+  const complete = fs.readFileSync(sp, 'utf-8');
+  const prefs = JSON.parse(fs.readFileSync(b.prefsPath, 'utf-8'));
+  check('end to end: the launch reconcile left a complete file', !needsHookRepair(complete, prefs).repair);
+
+  const stripped = JSON.parse(complete);
+  delete stripped.hooks; // what the test launch's opt-out did to the real file on 2026-11-06
+  fs.writeFileSync(sp, JSON.stringify(stripped, null, 2) + '\n', 'utf-8');
+  const check1 = needsHookRepair(fs.readFileSync(sp, 'utf-8'), JSON.parse(fs.readFileSync(b.prefsPath, 'utf-8')));
+  check('end to end: the check asks for a repair of all five',
+    check1.repair && check1.missing.length === 5, JSON.stringify(check1));
+
+  const r = reconcileClaudeHook(opts(b)); // the repair
+  const repaired = fs.readFileSync(sp, 'utf-8');
+  const s = JSON.parse(repaired);
+  check('end to end: repair registered and wrote, no toast', r.status === 'registered' && r.changed && !r.showToast, r.status);
+  check('end to end: all five entries are back',
+    ['SessionStart', 'UserPromptSubmit', 'Notification', 'Stop', 'PreCompact'].every((e) => hasOurEntry(s, e)));
+  check('end to end: the file is exactly as the launch reconcile left it', repaired === complete);
+  check('end to end: other settings untouched',
+    s.model === 'opus' && JSON.stringify(s.permissions) === JSON.stringify({ defaultMode: 'auto', allow: ['Bash(ls)'] }));
+  check('end to end: the next check finds nothing to do',
+    !needsHookRepair(repaired, JSON.parse(fs.readFileSync(b.prefsPath, 'utf-8'))).repair);
+}
+
+// 20. hookRepairWait, the guard against a repair loop: at most HOOK_REPAIR_LIMIT
+//     repairs within HOOK_REPAIR_WINDOW_MS.
+{
+  const W = HOOK_REPAIR_WINDOW_MS;
+  const now = 10 * W;
+  check('loop guard: no earlier repairs, repair now', hookRepairWait([], now) === 0);
+  check('loop guard: fewer than the limit in the window, repair now',
+    hookRepairWait(Array.from({ length: HOOK_REPAIR_LIMIT - 1 }, (_, i) => now - 1000 * (i + 1)), now) === 0);
+  const full = Array.from({ length: HOOK_REPAIR_LIMIT }, (_, i) => now - 10_000 * (i + 1));
+  const oldest = Math.min(...full);
+  check('loop guard: the limit reached, wait until the oldest leaves the window',
+    hookRepairWait(full, now) === oldest + W - now, String(hookRepairWait(full, now)));
+  check('loop guard: once the oldest has left the window, repair again',
+    hookRepairWait(full, oldest + W) === 0);
+  check('loop guard: repairs older than the window do not count',
+    hookRepairWait(Array.from({ length: HOOK_REPAIR_LIMIT + 2 }, (_, i) => now - W - 1 - i), now) === 0);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);
