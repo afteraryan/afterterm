@@ -10,7 +10,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import {
   onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, clearsWhenSeen, initTiming,
-  onRecordStatus, backgroundAfterTitle, SILENCE_CLEAR_MS, REARM_AFTER_QUIET_MS,
+  onRecordStatus, backgroundAfterTitle, backgroundAfterRecord, SILENCE_CLEAR_MS, REARM_AFTER_QUIET_MS,
 } from './spinnerState.ts';
 import type { Notif } from './spinnerState.ts';
 
@@ -265,6 +265,17 @@ check('interrupt leaves background alone', onInterrupt('background') === 'backgr
   const badge = onViewedTitle(onTitle('working', title, t, 1000), true);
   const flag = backgroundAfterTitle(false, title);
   check('on the thread being viewed the ⏳ badge clears but the flag is set', badge === undefined && flag === true);
+
+  // The thread's Claude going away (/exit): no hook title will come to clear it.
+  check('the record going from idle to none clears the flag', backgroundAfterRecord(true, 'idle', undefined) === false);
+  check('the record going from shell to none clears the flag', backgroundAfterRecord(true, 'shell', undefined) === false);
+  check('a first status keeps the flag', backgroundAfterRecord(true, undefined, 'idle') === true);
+  check('one status to another keeps the flag',
+    backgroundAfterRecord(true, 'busy', 'idle') === true && backgroundAfterRecord(true, 'idle', 'shell') === true);
+  check('no record before or after (a Claude the reader cannot see) keeps the flag',
+    backgroundAfterRecord(true, undefined, undefined) === true);
+  check('nothing ever sets the flag from the record', backgroundAfterRecord(false, undefined, 'shell') === false
+    && backgroundAfterRecord(false, 'idle', undefined) === false);
 }
 
 // ── Replay real captured traces ─────────────────────────────────────────────

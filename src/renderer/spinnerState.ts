@@ -158,10 +158,24 @@ export function clearsWhenSeen(n: Notif): boolean {
 // from `notification`: this flag holds it instead, and viewing never clears it. A ⏳
 // title sets it; any other hook title (working, done, attention, compacting) clears
 // it, since the hook's Stop sends ⏳ again while tasks remain; an undecorated title
-// (undefined) changes nothing.
+// (undefined) changes nothing. The Claude going away clears it too
+// (backgroundAfterRecord), and so does sleep.
 export function backgroundAfterTitle(current: boolean, titleNotif: Notif): boolean {
   if (titleNotif === undefined) return current;
   return titleNotif === 'background';
+}
+
+// The same flag when Claude Code's record for the thread changes. A record that goes
+// away (a status, then none) means the thread's Claude has gone: a /exit either
+// stopped its background work or left it detached from this thread, and no hook title
+// will come to clear the flag, so it clears here. Any other change (a first status,
+// one status to another, none to none) leaves it as it was.
+export function backgroundAfterRecord(
+  current: boolean,
+  previous: RecordStatus | undefined,
+  next: RecordStatus | undefined,
+): boolean {
+  return previous !== undefined && next === undefined ? false : current;
 }
 
 // What a title's notif becomes when it lands on a thread. On the thread the user

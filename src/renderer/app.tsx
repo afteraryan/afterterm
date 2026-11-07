@@ -28,7 +28,7 @@ import type { Screen } from './components/ScreenNav';
 import { useTabState, threadGitCwd } from './hooks/useTabState';
 import { Tab, TabNotification, nextGroupColor } from './components/TabBar/types';
 import { groupColors } from './projectColour';
-import { onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, onRecordStatus, backgroundAfterTitle, clearsWhenSeen, initTiming, TabTiming } from './spinnerState';
+import { onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, onRecordStatus, backgroundAfterTitle, backgroundAfterRecord, clearsWhenSeen, initTiming, TabTiming } from './spinnerState';
 import { migrateSession, serializeSession } from './sessionMigration';
 import { sleepAllForShutdown, wakePlan } from './sleepWake';
 import { toastMessage, initialScreen, threadName, automaticThreadName, threadKind, needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText, localhostUrl, threadFolder, threadFolderTarget, projectLookChanges } from './threadView';
@@ -756,8 +756,14 @@ export function App() {
     });
     return window.afterterm.claudeRecord.onStatus(({ tabId, status }) => {
       stateRef.current.setClaudeRecordStatus(tabId, status);
+      // State still holds the previous status here: the setter above lands on the next render.
       const tab = stateRef.current.tabs.find(t => t.id === tabId);
       if (!tab || tab.asleep) return;
+      // The thread's Claude has gone (/exit): its background work stopped or left with
+      // it, and no hook title will come to say so (plan-02, Fix 7).
+      const hadBackground = !!tab.backgroundTasks;
+      const background = backgroundAfterRecord(hadBackground, tab.recordStatus, status ?? undefined);
+      if (background !== hadBackground) stateRef.current.setBackgroundTasks(tabId, background);
       const next = onRecordStatus(tab.notification, status ?? undefined);
       // The tick only clears a tab it has a clock for, so make sure there is one.
       if (next === 'working') getTiming(tabId, Date.now());

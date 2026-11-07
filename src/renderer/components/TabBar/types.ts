@@ -106,7 +106,8 @@ export interface Tab {
   // Transient (NOT persisted): the hook's last title for this chat was ⏳, a turn that
   // ended with background work still running (a background agent, a session cron, a
   // background shell). Set whether or not the thread is in view, cleared by the
-  // hook's next title (spinnerState.ts, backgroundAfterTitle) or by sleep, never by
+  // hook's next title (spinnerState.ts, backgroundAfterTitle), by the thread's Claude
+  // going away (backgroundAfterRecord, as on /exit) or by sleep, never by
   // viewing: the ⏳ badge in `notification` clears the moment the thread is seen, and
   // the restart window must still warn (update-check.ts, hasBackgroundTask; plan-02,
   // Fix 7). Absent means false.
