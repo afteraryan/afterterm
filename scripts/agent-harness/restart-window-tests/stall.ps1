@@ -13,7 +13,13 @@ public static class Nt {
 }
 '@
 $proc = [Diagnostics.Process]::GetProcessById($ClaudePid)
+# Starting pwsh and compiling the type above takes a few seconds, so a caller that
+# samples the app "during" the pause must go by these times, not by when it ran this
+# script (found 2026-11-07: a sample taken 2.5 s after starting it came before the pause).
+# Write-Host goes out at once, so a caller reading the output as it comes sees the start.
 [void][Nt]::NtSuspendProcess($proc.Handle)
-Start-Sleep -Seconds $Seconds
-[void][Nt]::NtResumeProcess($proc.Handle)
-"paused claude.exe $ClaudePid for ${Seconds}s, resumed"
+$t0 = Get-Date
+Write-Host "suspended claude.exe $ClaudePid at $($t0.ToString('HH:mm:ss.fff'))"
+try { Start-Sleep -Seconds $Seconds }
+finally { [void][Nt]::NtResumeProcess($proc.Handle) }
+"resumed claude.exe $ClaudePid at $((Get-Date).ToString('HH:mm:ss.fff')), paused {0:N1}s" -f ((Get-Date) - $t0).TotalSeconds

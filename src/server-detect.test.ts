@@ -16,6 +16,7 @@ import {
   parseNetstatListeners,
   parseProcessList,
   portForTree,
+  shellHasChildren,
   tabPorts,
   trackFirstSeen,
 } from './server-detect.ts';
@@ -186,6 +187,43 @@ console.log('\nserver-detect: descendantPids\n');
   check('a negative root pid gives an empty set', descendantPids(tree, -1).size === 0);
   check('a non-integer root pid gives an empty set',
     descendantPids(tree, 1.5 as number).size === 0);
+}
+
+console.log('\nserver-detect: shellHasChildren (plan-02, Fix 8)\n');
+{
+  // cmd (100) idle; cmd (110) running ping (210); pwsh (120) idle.
+  const procs: Proc[] = [
+    { pid: 4, ppid: 0, created: 1000 },
+    { pid: 100, ppid: 4, created: 2000 },
+    { pid: 110, ppid: 4, created: 2000 },
+    { pid: 210, ppid: 110, created: 3000 },
+    { pid: 120, ppid: 4, created: 2000 },
+  ];
+  check('a shell with nothing below it: false', shellHasChildren(procs, 100, 'cmd') === false);
+  check('a shell running a program: true', shellHasChildren(procs, 110, 'cmd') === true);
+  check('pwsh with nothing below it: false', shellHasChildren(procs, 120, 'pwsh') === false);
+  check('a shell missing from the list (it started after the list was taken): null',
+    shellHasChildren(procs, 777, 'cmd') === null);
+  check('an empty list: null', shellHasChildren([], 100, 'cmd') === null);
+  check('WSL: null, its processes are not in the Windows tree',
+    shellHasChildren(procs, 110, 'wsl') === null);
+
+  // A leftover on a recycled pid is not a child (the creation-time guard).
+  const reused: Proc[] = [
+    { pid: 100, ppid: 4, created: 5000 },
+    { pid: 500, ppid: 100, created: 1000 },
+  ];
+  check('a child older than the shell (pid reuse) does not count', shellHasChildren(reused, 100, 'cmd') === false);
+
+  // Git Bash: bin\bash.exe (300) keeps usr\bin\bash.exe (310) as its one child.
+  const idleBash: Proc[] = [
+    { pid: 300, ppid: 4, created: 2000 },
+    { pid: 310, ppid: 300, created: 2100 },
+  ];
+  check('Git Bash at its prompt: the launcher\'s own bash does not count', shellHasChildren(idleBash, 300, 'gitbash') === false);
+  const busyBash: Proc[] = [...idleBash, { pid: 320, ppid: 310, created: 3000 }];
+  check('Git Bash running a command below its bash: true', shellHasChildren(busyBash, 300, 'gitbash') === true);
+  check('the same tree as cmd would count the bash itself', shellHasChildren(idleBash, 300, 'cmd') === true);
 }
 
 console.log('\nserver-detect: portForTree\n');

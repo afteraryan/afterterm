@@ -13,7 +13,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Tab } from '../TabBar/types';
 import { kindWord } from '../../threadView';
-import { asleepSinceText } from '../../sleepWake';
+import { asleepSinceText, wakePlan } from '../../sleepWake';
 import { initialJumpState, onScrollSample, JUMP_THRESHOLD_PX } from '../../jumpScroll';
 import type { JumpState } from '../../jumpScroll';
 import { JumpButton, JumpButtonHandle } from '../JumpButton';
@@ -154,7 +154,9 @@ export function AsleepPane({ tab, tail, now, onWake, focused = true }: AsleepPan
           <button type="button" className="b p big" data-wake ref={wakeRef} onClick={onWake}>
             Wake
           </button>
-          <span className="w">{asleepSinceText(kindWord(tab), tab.sleptAt, now, tab.lastCommand)}</span>
+          {/* The command Wake will really run (wakePlan), not just the last one
+              typed: a thread whose last command started Claude re-runs nothing. */}
+          <span className="w">{asleepSinceText(kindWord(tab), tab.sleptAt, now, wakePlan(tab).runCommand ?? undefined)}</span>
         </div>
         {tail !== null && tail.length > 0 && (
           <pre className="past">{tail.join('\n')}</pre>

@@ -106,6 +106,40 @@ dev machine: the hook *fired* (it logged), but its OSC never reached the PTY str
 `notify.ps1`'s titles did. The file channel sidesteps CC's hook-output behavior and ordering
 entirely, and capture refreshes on the resumed session's first turn.
 
+**Correction (2026-11-07):** the claim above that Claude Code writes only the first hook's terminal output was tested false on Claude Code 2.1.319 (2026-11-07), with another notify hook registered before and after afterterm's: afterterm's `working` title arrived both times. Why the id did not arrive in the earlier observation is unexplained, not disproved. The file channel stays for the reasons that hold: it is afterterm's own private channel (a path handed over in env), and it carries the session id and cwd as data rather than through a title string.
+
+## Claude Code's own session record: a second source of the id (2026-11-07)
+
+The hook gives afterterm a session id only when it runs. A chat whose hooks are missing came back from a restart as a plain terminal: it happened to Aryan's own chat on 2026-11-06, when a test launch had removed the hooks for 21 hours (`docs/note-03-restart-window-said-safe-while-a-chat-was-running.md`). So main also reads Claude Code's own record of each running session, and the hook stays as the fallback. The build brief is `docs/plan-02-restart-window-and-hook-fixes.md`, Fix 5; the code is `src/claude-session-record.ts` (pure, unit-tested) and the "Claude Code's session record" block of `src/main.ts`.
+
+**What the record is.** Claude Code (2.1.319 when this was built) keeps one small file for every running `claude.exe`, at `<Claude folder>\sessions\<pid>.json`: the process's pid, the `sessionId` (it follows `/clear`), the `cwd` (Claude's current folder, including after it enters a worktree), a `status` (`busy` while working, `idle`, `waiting` on a question or a permission prompt, `shell` when idle with a background task; briefly empty at startup), a `kind` (`interactive` for a normal session; background and daemon sessions have others) and the process's start time. The file goes when Claude exits with `/exit`; after a hard kill it stayed for under a minute.
+
+**What is read, and what never is.**
+
+- Main lists the folder every 2 seconds while any PTY is alive, and once more when the restart window opens (`claude-record:refresh`). It opens only names that are exactly digits plus `.json` and a multiple of 4 (`isRecordFileName`: Windows process ids are, and asking about any other number answers for the one below it), only plain files (a link is not followed), at most 200 of them and 256 KiB each. A file caught mid-write keeps its last good record for two failed reads, so the status does not blip.
+- **The `<pid>.<hash>.key` files beside the records hold a token and are never opened.** Nothing but a record's own name is ever read.
+- Every value is checked before use, because the id is later typed into a shell as `claude --resume <id>` and the folder becomes its cwd: a canonical UUID, and an absolute path with no shell metacharacters (the same rule the hook's file is held to). A field that fails its check is null, never a guess.
+
+**Which thread it belongs to.** A record is matched to a thread through the process tree under that thread's shell (`descendantPids`, with Git Bash's MSYS parents applied, so a Git Bash tree is whole). Of the records in a tree, an `interactive` one wins, then the one nearest the shell (a Claude can start other Claudes, and the outer one is the chat), then the lowest pid. A record counts only when its pid is in the process list, its start time agrees with the list's creation time to within a second (the record writes it in one of two formats, so both readings are tried, with the time zone's offset for that date), and the system says the pid is running now (`process.kill(pid, 0)`). That check is asked about the Claudes matched to afterterm's own threads, and also about any record the cached list is out of step with: one whose pid is missing from the list, or whose start time does not match the process the list has on that pid (`staleListPids`), which is how such a record asks for a fresh list. The process list is the server watcher's cache, up to a minute old, never a PowerShell of its own; a record naming a pid the list does not know (a Claude started since), or one it knows as a different process (a reused pid), asks the watcher for a fresh list, once per pid and, on the timer, at most every 10 seconds; the restart window's fresh read may ask at once and waits for the list (up to 20 seconds).
+
+**When an id is adopted.** Only from an `interactive` record whose id and folder are valid and **whose transcript exists** (`findTranscript` in `claude-transcript.ts`: the expected place every tick, a search of every project folder at most every 30 seconds per session). A record is written before the first prompt, and a spare session that never writes a transcript has a record too, and `claude --resume` on such an id fails; a background or daemon session found in a thread's tree must never make the thread a chat for good. The adopted id is sent through `pushClaudeSession`, the same path as a hook capture (`claude-session:update`, then the transcript read and the folder watch that follow a capture), once per id, so `setClaudeSession` stores it on the tab and `threadKind` says chat everywhere with no other change. A chat that never ran a hook is a chat within a couple of seconds of its first message and resumes on Wake and after an update restart.
+
+**The last id is kept when the record goes (Decision 3, Aryan, 2026-11-07).** A thread that holds a session id stays a chat for good: nothing clears `claudeSessionId` when Claude exits, so a chat you exited still resumes. Only a new id is ever sent, never a clear.
+
+**The live status** goes to the renderer separately, on `claude-record:status` and only when it changes, and is kept on the tab as the transient `Tab.recordStatus` (never saved; absent when the thread has no live Claude). The restart window (`docs/features-updates.md`) and the spinner (`docs/features-notifications.md`) read it.
+
+**Test overrides.** `AFTERTERM_CLAUDE_SESSIONS_DIR` and `AFTERTERM_CLAUDE_PROJECTS_DIR` point the record reader and the transcript reader at other folders, read only. A test whose Claude folder is a scratch one (so the app under test never touches the real hooks) still needs a Claude Code with its real login, which has to run with `CLAUDE_CONFIG_DIR` unset; the two overrides let the dev build read where that Claude writes. The dev build can then see the live records of every Claude on the machine, so it is held to its own threads' process trees, and under the harness it logs a `[harness] claude-record <tab> pid=...` line each time it sends something, which a tester can check.
+
+**Limits.**
+
+- **WSL:** a Claude inside WSL is not in the Windows process tree, so it has no record to match and a WSL chat stays on the hooks alone. A known limit, not a bug to solve here.
+- **An undocumented file.** The record is not part of Claude Code's documented interface and may change. Aryan decided on 2026-11-07 to rely on it anyway ("when it changes, we'll worry about it later") with the hooks as the fallback. Everything in the reader degrades to "no record" rather than guessing, so a changed format loses the second source, not the first.
+- Toasts and the done, needs-you and background states are still the hook's. The record gives the id and a live status, and the spinner reads `busy`.
+
+## Wake: a session id wins over the server rule (2026-11-07)
+
+`wakePlan` in `sleepWake.ts` used to let a port plus a last command win, so a Claude that started a dev server itself, whose last command is `claude`, woke by typing a fresh `claude`. A valid session id now wins: the thread resumes its chat and re-runs nothing. Only a thread with no valid id gets the server rule. And a last command that starts Claude Code (first word `claude`, `claude.exe` or `claude.cmd`, any case) is never re-run as a server command, id or not: a port in such a thread's tree belongs to something Claude started. The sleep question for a thread with a port says what Wake will really do ("Wake resumes the chat.", "Wake runs <command> again." or "Wake opens a fresh prompt."), and the asleep pane's "runs <command>" suffix names only a command Wake will really run. Tested on 2026-11-07 (`docs/screenshots/restart-window-and-hook-fixes/`, the Fix 9 section of its README).
+
 ## Security
 
 The captured `sessionId` is later typed into a shell as `claude --resume <id>`, and the
@@ -115,6 +149,7 @@ The captured `sessionId` is later typed into a shell as `claude --resume <id>`, 
   (no shell metacharacters / newlines) when reading a hook file.
 - **`Terminal/index.tsx`** re-validates `claudeSessionId` as a UUID at the injection site too
   (`session.json` is hand-editable) before typing the resume command.
+- **The session record** (`src/claude-session-record.ts`) is held to the same rule: the folder it names is user-writable too, so its id must be a canonical UUID and its folder a clean absolute path before either is used, and its `.key` files are never opened (see the section above).
 
 ## Files
 
@@ -122,7 +157,8 @@ The captured `sessionId` is later typed into a shell as `claude --resume <id>`, 
 |---|---|
 | `assets/hooks/afterterm-notify.ps1` | Writes `<tabId>.json` to `AFTERTERM_SESSION_DIR` each event |
 | `assets/hooks/test-afterterm-notify.ps1` | Hook tests incl. the file-channel cases |
-| `src/main.ts` | Sets `AFTERTERM_TAB_ID`/`AFTERTERM_SESSION_DIR`; watches + validates the dir; pushes `claude-session:update` |
+| `src/main.ts` | Sets `AFTERTERM_TAB_ID`/`AFTERTERM_SESSION_DIR`; watches + validates the dir; pushes `claude-session:update`. Reads Claude Code's session record every 2 seconds and pushes an adopted id through the same `pushClaudeSession`, and the status on `claude-record:status` |
+| `src/claude-session-record.ts` | Pure: record file names (never the `.key` files), parsing and validation, start-time and liveness checks, matching a record to a thread's process tree, what to send for a thread. Test file: `claude-session-record.test.ts` |
 | `src/preload.ts`, `src/afterterm.d.ts` | `claudeSession.onUpdate` bridge |
 | `src/claude-transcript.ts` | `findTranscript` (by UUID across project dirs) and `latestCwd` (the transcript's newest folder) |
 | `src/renderer/app.tsx` | Subscribes → `setClaudeSession`; `applyClaudeMeta` moves `claudeCwd` to the transcript's folder; `wakeThread` reads the transcript before the wake |

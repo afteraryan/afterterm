@@ -88,7 +88,7 @@ node scripts/agent-harness/launch.mjs --session "$env:TEMP\session-copy.json" `
 Options:
 
 - `--session <file>`: session.json to seed from. Omit for an empty start.
-- `--prefs <file>`: a JSON object merged into the generated `prefs.json` on top of `claudeHookToastShown: true`. Seeding `lastOpenedAt` (a time over an hour back) makes Home show its "Last here" line; without it a fresh profile is a first launch and shows nothing.
+- `--prefs <file>`: a JSON object merged into the generated `prefs.json` on top of `claudeHookToastShown: true`. Seeding `lastOpenedAt` (a time over an hour back) makes Home show its "Last here" line; without it a fresh profile is a first launch and shows nothing. Never seed `claudeNotifications: "disabled"` here unless the launch also passes a scratch `CLAUDE_CONFIG_DIR` (see "Environment overrides").
 - `--data-dir <dir>`: user-data dir (default: a fresh `%TEMP%\afterterm-agent-harness\run-<timestamp>`).
 - `--display primary|secondary|<n>`: default `secondary`.
 - `--port <n>`: remote debugging port, default `9333`.
@@ -130,8 +130,9 @@ where the Files list stayed empty for that reason). `--env` can still set one.
 
 What it does, in order: creates the data dir, writes `session.json` (from the
 parsed copy) and `prefs.json` with `claudeHookToastShown: true` (so the one-time
-"Claude Code notifications enabled" toast does not fire on a fresh profile; the
-hook self-install stays enabled and is idempotent), starts `node
+"Claude Code notifications enabled" toast does not fire on a fresh profile; it
+does not opt out of the hook install, which a run with no `CLAUDE_CONFIG_DIR`
+skips anyway, see "Environment overrides"), starts `node
 node_modules/@electron-forge/cli/dist/electron-forge.js start` from the repo root
 (resolved from the script's location, so a worktree drives its own sources), waits
 for `http://127.0.0.1:<port>/json/version`, then for the main window's page
@@ -163,13 +164,50 @@ or the same thing as one flag:
 npm run harness -- --session "$env:TEMP\session-copy.json" --env "USERPROFILE=$env:TEMP\afterterm-scratch-home;HOME=$env:TEMP\afterterm-scratch-home"
 ```
 
-`AFTERTERM_USER_DATA_DIR` still decides where `session.json` and `prefs.json`
-live (see `--data-dir` above), so a scratch home only changes what the shells
-inside the app read: their profiles and rc files. It also means the notifier
-hook self-install looks for `~/.claude` under the scratch home instead of the
-real one, finds nothing there, and skips (see "Hook self-install" in the main
-`CLAUDE.md`), so a harness run with a scratch home never touches the real
-`~/.claude/hooks` or `~/.claude/settings.json`.
+A scratch `USERPROFILE` or `HOME` means two different things inside one run.
+Afterterm's own lookup ignores it: Electron's `app.getPath('home')` ignores both
+variables on Windows (tested on Electron 35.7.5, 2026-11-07: with both set to a
+scratch folder it still returned the real home), so afterterm still looks for
+Claude Code's settings in the real `~/.claude`. Everything started inside the app
+follows it: the shells read their profiles and rc files from it, and a `claude` in a
+thread follows `USERPROFILE` too (Node's `os.homedir()` does on Windows, verified
+2026-11-07), so it looks in `<scratch home>\.claude`, which has no hooks and no
+login. Only `CLAUDE_CONFIG_DIR` redirects the Claude folder for both
+(`--env CLAUDE_CONFIG_DIR=<scratch folder>`, and create the folder first: with no
+folder the hook install skips).
+
+`AFTERTERM_USER_DATA_DIR` (every harness run sets it, see `--data-dir` above)
+decides where `session.json` and `prefs.json` live. A launch that has it but no
+`CLAUDE_CONFIG_DIR` skips the hook install entirely, both the entries in
+`settings.json` and the copy of the hook script, and logs one `[claude-hook]
+skipped: ...` line. So afterterm itself writes nothing to the real `~/.claude` in
+such a run, with or without a scratch home. A `claude` started inside a thread is
+a separate program: it still writes its own transcripts and records to whatever
+Claude folder it sees. With a scratch `CLAUDE_CONFIG_DIR` it inherits that folder
+and needs its own login. With a scratch home and no `CLAUDE_CONFIG_DIR` it looks in
+`<scratch home>\.claude` (see above). Only with neither does it see the real
+Claude folder, and then the chats in the run use the production app's copy of the
+hook script, not this branch's. Pass a scratch `CLAUDE_CONFIG_DIR` when the test
+needs the hook installed.
+
+A `CLAUDE_CONFIG_DIR` set in the launching shell is dropped, like the Claude Code
+session variables above, so the hook install, and a seeded opt-out, never reach
+the real Claude folder by accident. Only `--env CLAUDE_CONFIG_DIR=<folder>` sets it.
+
+```powershell
+New-Item -ItemType Directory -Force "$env:TEMP\afterterm-scratch-claude" | Out-Null
+npm run harness -- --session "$env:TEMP\session-copy.json" --env "CLAUDE_CONFIG_DIR=$env:TEMP\afterterm-scratch-claude"
+```
+
+**Never seed `claudeNotifications: "disabled"` in a throwaway `prefs.json`
+(`--prefs`, or by hand) unless the same launch also passes a scratch
+`CLAUDE_CONFIG_DIR`.** The hook tests seed it that way, on purpose. The opt-out is
+read from the throwaway profile and carried out on whatever Claude folder the app
+sees, and a build older than the launch guard above (0.15.0 and earlier) sees the
+real one whenever `CLAUDE_CONFIG_DIR` is unset. On 2026-11-06 a smoke test of the
+packaged 0.15.0 build did exactly that and removed the real hooks for 21 hours: no
+chat had states, toasts or a saved session id meanwhile
+([the note](../../docs/note-03-restart-window-said-safe-while-a-chat-was-running.md)).
 
 The dev build is created through WMI (`Win32_Process.Create`), not
 `child_process`. A child spawned the ordinary way, even `detached`, died together

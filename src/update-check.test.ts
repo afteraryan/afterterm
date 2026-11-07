@@ -8,7 +8,7 @@ import {
   titleBarButtonShows, percent, megabytes, lastCheckedText, errorText,
   restartRows, restartStatus, asPendingUpdate, updateLanded, parseInline,
   parseNotes, samePath, installFolder, installerVersion, staleDownloads, isMidTurn,
-  releaseToDownload,
+  hasBackgroundTask, shellBusy, releaseToDownload,
 } from './update-check.ts';
 import type { UpdateState, AwakeThread, ReleaseInfo } from './update-check.ts';
 import { isDeepStrictEqual } from 'node:util';
@@ -153,29 +153,136 @@ console.log('\nupdate-check: texts\n');
   check('no error, no text', errorText(null) === null);
 }
 
-console.log('\nupdate-check: the restart window\n');
+console.log('\nupdate-check: the restart window, mid-turn and background (Fixes 6 and 7)\n');
 {
+  check('the record says busy: mid-turn, with no notification at all (a chat with no hooks)', isMidTurn('busy', undefined));
+  check('the record says waiting: mid-turn at once, before any hook title', isMidTurn('waiting', undefined));
+  check('the record busy through a stall that cleared working', isMidTurn('busy', undefined) && isMidTurn('busy', 'done'));
+  check('no record, the spinner: mid-turn', isMidTurn(undefined, 'working') && isMidTurn(undefined, 'compacting'));
+  check('no record, waiting on a permission prompt: mid-turn', isMidTurn(undefined, 'attention'));
+  check('a mid-turn notification counts even when the record says idle', isMidTurn('idle', 'working'));
+  check('idle, shell and no record, with done, background or quiet: not mid-turn',
+    !isMidTurn('idle', undefined) && !isMidTurn('shell', undefined) && !isMidTurn(undefined, 'done')
+    && !isMidTurn(undefined, 'background') && !isMidTurn(undefined, undefined));
+  check('the record says shell: a background task', hasBackgroundTask('shell', undefined) && hasBackgroundTask('shell', 'done'));
+  check('no record, the background notification: a background task', hasBackgroundTask(undefined, 'background'));
+  // The ⏳ covers background agents and session crons, which the record was never
+  // seen to report as shell, so an idle record does not overrule it.
+  check('the record says idle under a background badge: still a background task',
+    hasBackgroundTask('idle', 'background'));
+  check('the record says busy or waiting under a background badge: still a background task',
+    hasBackgroundTask('busy', 'background') && hasBackgroundTask('waiting', 'background'));
+  check('busy, idle, waiting and no record with no background title: none',
+    !hasBackgroundTask('busy', undefined) && !hasBackgroundTask('idle', 'done') && !hasBackgroundTask('waiting', undefined)
+    && !hasBackgroundTask(undefined, undefined));
+  // The chat on screen: its ⏳ badge cleared the moment it was seen, the flag stays.
+  check('the background flag alone is a background task (the badge cleared by viewing)',
+    hasBackgroundTask('idle', undefined, true) && hasBackgroundTask(undefined, undefined, true));
+  check('the flag off or absent adds nothing',
+    !hasBackgroundTask('idle', undefined, false) && !hasBackgroundTask('idle', undefined, undefined));
+}
+
+console.log('\nupdate-check: the restart window, busy shells (Fix 8)\n');
+{
+  check('marks say not at the prompt: busy, whatever the process tree says',
+    shellBusy(false, undefined) === 'busy' && shellBusy(false, false) === 'busy' && shellBusy(false, true) === 'busy');
+  check('marks say at the prompt: at the prompt, even with a process below the shell',
+    shellBusy(true, undefined) === 'at-prompt' && shellBusy(true, true) === 'at-prompt');
+  check('no marks, a process below the shell: busy', shellBusy(undefined, true) === 'busy');
+  check('no marks, nothing below the shell: unknown, never safe', shellBusy(undefined, false) === 'unknown');
+  check('no marks, the process list too old to say: unknown', shellBusy(undefined, undefined) === 'unknown');
+}
+
+console.log('\nupdate-check: the restart window, rows (Fix 10)\n');
+{
+  const base: AwakeThread = {
+    id: 'x', name: 'x', kind: 'shell', resumes: false, midTurn: false, background: false,
+    claudeAlive: false, shellBusy: 'at-prompt',
+  };
+  const row = (over: Partial<AwakeThread>) => restartRows([{ ...base, ...over }])[0];
+  const is = (r: ReturnType<typeof row>, text: string, warn: boolean, unknown = false) =>
+    r.text === text && r.warn === warn && r.unknown === unknown;
+
+  // The first table in plan-02, "What the restart window must say", row by row.
+  const busyChat = row({ kind: 'chat', resumes: true, claudeAlive: true, midTurn: true });
+  check('Claude alive and busy or waiting, with a session id: Stops mid-turn, warns',
+    is(busyChat, 'Stops mid-turn', true) && busyChat.outcome === 'stops-mid-turn', show(busyChat));
+  check('Claude alive and busy, no session id yet (a chat with no hooks): Stops mid-turn, warns',
+    is(row({ claudeAlive: true, midTurn: true }), 'Stops mid-turn', true));
+  const bg = row({ kind: 'chat', resumes: true, claudeAlive: true, background: true });
+  check('Claude alive with a background task: Background task stops, warns',
+    is(bg, 'Background task stops', true) && bg.outcome === 'background-stops', show(bg));
+  const idle = row({ kind: 'chat', resumes: true, claudeAlive: true, shellBusy: 'busy' });
+  check('Claude alive and idle, id usable: Resumes, no warning (the marks are not read while Claude is open)',
+    is(idle, 'Resumes', false) && idle.outcome === 'resumes', show(idle));
+  check('Claude alive and idle, no usable id yet: Opens in its folder, no warning',
+    is(row({ claudeAlive: true, shellBusy: 'busy' }), 'Opens in its folder', false));
+  check('No Claude, a session id, at its prompt: Resumes, no warning',
+    is(row({ kind: 'chat', resumes: true }), 'Resumes', false));
+  const exited = row({ kind: 'chat', resumes: true, shellBusy: 'busy' });
+  check('No Claude, a session id, running a command: Command stops, warns',
+    is(exited, 'Command stops', true) && exited.outcome === 'command-stops', show(exited));
+  const server = row({ rerunPort: 5173 });
+  check('No Claude, no id, a port and a re-runnable command: Runs again on :5173, no warning',
+    is(server, 'Runs again on :5173', false) && server.outcome === 'runs-again', show(server));
+  check('No Claude, no id, running any other command: Command stops, warns',
+    is(row({ shellBusy: 'busy' }), 'Command stops', true));
+  const quiet = row({});
+  check('No Claude, no id, at its prompt: Opens in its folder, no warning',
+    is(quiet, 'Opens in its folder', false) && quiet.outcome === 'opens-in-folder', show(quiet));
+  const unknown = row({ shellBusy: 'unknown' });
+  check('No Claude, no marks, no child process: Opens in its folder, no warning, counts as unknown',
+    is(unknown, 'Opens in its folder', false, true), show(unknown));
+
+  // Where the signals overlap.
+  check('mid-turn wins over a background task',
+    is(row({ claudeAlive: true, resumes: true, midTurn: true, background: true }), 'Stops mid-turn', true));
+  check('a mid-turn notification with no record (a WSL chat on hooks) still stops mid-turn, not Command stops',
+    is(row({ kind: 'chat', resumes: true, midTurn: true, shellBusy: 'busy' }), 'Stops mid-turn', true));
+  check('a background notification with no record still reads Background task stops',
+    is(row({ kind: 'chat', resumes: true, background: true, shellBusy: 'busy' }), 'Background task stops', true));
+  check('a server whose shell is busy: Runs again, since the server is the running command',
+    is(row({ rerunPort: 5173, shellBusy: 'busy' }), 'Runs again on :5173', false));
+  check('a server with no marks and nothing below the shell: Runs again, not unknown',
+    is(row({ rerunPort: 5173, shellBusy: 'unknown' }), 'Runs again on :5173', false, false));
+  check('an exited chat with no marks and nothing below the shell: Resumes, counted as unknown',
+    is(row({ kind: 'chat', resumes: true, shellBusy: 'unknown' }), 'Resumes', false, true));
+  check('a live idle Claude never counts as unknown',
+    !row({ claudeAlive: true, resumes: true, shellBusy: 'unknown' }).unknown);
+  // The plan's row: a live Claude with no usable id opens in its folder, even with a
+  // port in its tree (its last command is `claude`, not a server's).
+  const claudePort = row({ claudeAlive: true, rerunPort: 3000 });
+  check('a live idle Claude with no id and a port in its tree: Opens in its folder, not Runs again',
+    is(claudePort, 'Opens in its folder', false) && claudePort.outcome === 'opens-in-folder', show(claudePort));
+
   const threads: AwakeThread[] = [
-    { id: 't1', name: 'Checkout page redesign', kind: 'chat', resumes: true, midTurn: true },
-    { id: 't2', name: 'Fix flaky payment tests', kind: 'chat', resumes: true, midTurn: false },
-    { id: 't3', name: 'npm run dev', kind: 'shell', resumes: false, midTurn: false, rerunPort: 5173 },
-    { id: 'g1', name: 'pwsh.exe', kind: 'shell', resumes: false, midTurn: false },
+    { ...base, id: 't1', name: 'Checkout page redesign', kind: 'chat', resumes: true, claudeAlive: true, midTurn: true },
+    { ...base, id: 't2', name: 'Fix flaky payment tests', kind: 'chat', resumes: true, claudeAlive: true },
+    { ...base, id: 't3', name: 'npm run dev', rerunPort: 5173 },
+    { ...base, id: 'g1', name: 'pwsh.exe' },
   ];
   const rows = restartRows(threads);
-  check('a chat mid-turn stops mid-turn, in yellow', rows[0].text === 'Stops mid-turn' && rows[0].warn);
-  check('a quiet chat resumes', rows[1].text === 'Resumes' && !rows[1].warn);
-  check('a server runs again on its port', rows[2].text === 'Runs again on :5173');
-  check('any other shell opens in its folder', rows[3].text === 'Opens in its folder');
   check('order is kept', rows.map(r => r.id).join() === 't1,t2,t3,g1');
-  check('a chat with no session to resume opens in its folder',
-    restartRows([{ id: 'x', name: 'x', kind: 'chat', resumes: false, midTurn: true }])[0].outcome === 'opens-in-folder');
-  check('one chat mid-turn', eq(restartStatus(rows), { ok: false, text: '1 chat stops mid-turn' }));
-  check('two chats mid-turn', restartStatus(restartRows([threads[0], { ...threads[0], id: 't9' }])).text === '2 chats stop mid-turn');
-  check('nothing busy: safe', eq(restartStatus(rows.slice(1)), { ok: true, text: 'Safe to restart' }));
-  check('nothing awake: safe', restartStatus([]).ok);
-  check('the spinner is mid-turn', isMidTurn('working') && isMidTurn('compacting'));
-  check('waiting on a permission prompt is mid-turn', isMidTurn('attention'));
-  check('done, background and quiet are not', !isMidTurn('done') && !isMidTurn('background') && !isMidTurn(undefined));
+  check('kind and name are carried through', rows[0].kind === 'chat' && rows[3].kind === 'shell' && rows[0].name === 'Checkout page redesign');
+
+  // The second table: the status line.
+  check('nothing warns, nothing unknown: Safe to restart', eq(restartStatus(rows.slice(1)), { ok: true, text: 'Safe to restart' }));
+  check('nothing awake: Safe to restart', eq(restartStatus([]), { ok: true, text: 'Safe to restart' }));
+  check('only one chat stops mid-turn: 1 chat stops mid-turn', eq(restartStatus(rows), { ok: false, text: '1 chat stops mid-turn' }));
+  check('only two chats stop mid-turn: 2 chats stop mid-turn',
+    eq(restartStatus(restartRows([threads[0], { ...threads[0], id: 't9' }])), { ok: false, text: '2 chats stop mid-turn' }));
+  check('a background task: 1 thread is busy',
+    eq(restartStatus(restartRows([{ ...base, claudeAlive: true, background: true }])), { ok: false, text: '1 thread is busy' }));
+  check('a shell running a command: 1 thread is busy',
+    eq(restartStatus(restartRows([{ ...base, shellBusy: 'busy' }, threads[1]])), { ok: false, text: '1 thread is busy' }));
+  check('a chat mid-turn and a busy shell: 2 threads are busy, every warning counted',
+    eq(restartStatus(restartRows([threads[0], { ...base, id: 's', shellBusy: 'busy' }])), { ok: false, text: '2 threads are busy' }));
+  check('three warnings of mixed kinds: 3 threads are busy',
+    restartStatus(restartRows([threads[0], { ...base, id: 'b', claudeAlive: true, background: true }, { ...base, id: 's', shellBusy: 'busy' }]))?.text === '3 threads are busy');
+  check('nothing warns but something is unknown: no status line',
+    restartStatus(restartRows([threads[1], { ...base, id: 'u', shellBusy: 'unknown' }])) === null);
+  check('a warning with something unknown still shows the warning',
+    eq(restartStatus(restartRows([threads[0], { ...base, id: 'u', shellBusy: 'unknown' }])), { ok: false, text: '1 chat stops mid-turn' }));
 }
 
 console.log('\nupdate-check: after the restart\n');

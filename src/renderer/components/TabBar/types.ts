@@ -1,3 +1,5 @@
+import type { RecordStatus } from '../../../claude-session-record';
+
 export type TabNotification = 'done' | 'attention' | 'background' | 'compacting' | 'working';
 
 export interface Tab {
@@ -82,6 +84,34 @@ export interface Tab {
   // asleep chat still carries the mark and shows the bell (threadState gives
   // it precedence over asleep). Phase 7.
   unread?: boolean;
+  // Transient (NOT persisted): what Claude Code's own session record says the
+  // thread's running Claude is doing (main reads <Claude folder>\sessions\<pid>.json,
+  // src/claude-session-record.ts, and pushes `claude-record:status`). busy is
+  // working, waiting is on a question or a permission prompt, shell is idle with a
+  // background task. Absent when the thread has no live Claude. Unlike
+  // `notification` it arrives with or without hooks.
+  recordStatus?: RecordStatus;
+  // Transient (NOT persisted): whether the shell sits at its prompt, from the OSC
+  // 133 prompt marks (commandMarks.ts, atPrompt), reported by the terminal layer
+  // whenever it changes: false once Enter runs a command, true when the next prompt
+  // is drawn. Absent until the thread has produced a mark (integration opted out, or
+  // a shell that never emits one). The restart window reads it for a thread with no
+  // live Claude (update-check.ts, shellBusy; plan-02, Fix 8). Cleared on sleep.
+  atPrompt?: boolean;
+  // Transient (NOT persisted): whether the shell has a process below it, from main's
+  // cached process list (`pty:children`, sent on change). The fallback for a thread
+  // with no prompt marks; absent when the list is too old to say or the tree could
+  // not be read (a WSL shell, whose processes are not in it). Cleared on sleep.
+  hasChildren?: boolean;
+  // Transient (NOT persisted): the hook's last title for this chat was ⏳, a turn that
+  // ended with background work still running (a background agent, a session cron, a
+  // background shell). Set whether or not the thread is in view, cleared by the
+  // hook's ✅ (spinnerState.ts, backgroundAfterTitle; ▶, ⚠ and ⚙ leave it), by the
+  // thread's Claude going away (backgroundAfterRecord, as on /exit) or by sleep, never by
+  // viewing: the ⏳ badge in `notification` clears the moment the thread is seen, and
+  // the restart window must still warn (update-check.ts, hasBackgroundTask; plan-02,
+  // Fix 7). Absent means false.
+  backgroundTasks?: boolean;
 }
 
 export interface Group {

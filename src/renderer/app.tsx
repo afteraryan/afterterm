@@ -22,13 +22,13 @@ import { RestartToUpdate } from './components/RestartToUpdate';
 import { UpdatedPill } from './components/UpdatedPill';
 import { WhatsNewDialog } from './components/UpdateDialog';
 import { hasNotes } from './components/UpdateNotes';
-import { initialUpdateState, restartRows, isMidTurn } from '../update-check';
+import { initialUpdateState, restartRows, isMidTurn, hasBackgroundTask, shellBusy } from '../update-check';
 import type { UpdateState, AwakeThread } from '../update-check';
 import type { Screen } from './components/ScreenNav';
 import { useTabState, threadGitCwd } from './hooks/useTabState';
 import { Tab, TabNotification, nextGroupColor } from './components/TabBar/types';
 import { groupColors } from './projectColour';
-import { onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, clearsWhenSeen, initTiming, TabTiming } from './spinnerState';
+import { onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, onRecordStatus, backgroundAfterTitle, backgroundAfterRecord, clearsWhenSeen, initTiming, TabTiming } from './spinnerState';
 import { migrateSession, serializeSession } from './sessionMigration';
 import { sleepAllForShutdown, wakePlan } from './sleepWake';
 import { toastMessage, initialScreen, threadName, automaticThreadName, threadKind, needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText, localhostUrl, threadFolder, threadFolderTarget, projectLookChanges } from './threadView';
@@ -742,11 +742,32 @@ export function App() {
   // and pushes it here → store on the tab so the next launch can resume it. The first
   // capture is also the moment the transcript and the folder become known, so both
   // are read once here; later turns arrive on the meta push below.
+  // Since Fix 5 (plan-02) a capture also comes from Claude Code's own session record,
+  // through the same onUpdate, so a chat with no hooks is still a chat. The record's
+  // live status arrives beside it and is kept on the tab, never saved.
+  // Fix 11: a busy status also starts the spinner (spinnerState.ts, onRecordStatus),
+  // through applyNotif like every other notif change, so a chat with no hooks shows
+  // as working in the sidebar and the rail the same way a hooked one does.
   useEffect(() => {
     window.afterterm.claudeSession.onUpdate(({ tabId, sessionId, cwd }) => {
       stateRef.current.setClaudeSession(tabId, sessionId, cwd);
       refreshClaudeMeta(tabId, sessionId, cwd);
       refreshGit(tabId, cwd);
+    });
+    return window.afterterm.claudeRecord.onStatus(({ tabId, status }) => {
+      stateRef.current.setClaudeRecordStatus(tabId, status);
+      // State still holds the previous status here: the setter above lands on the next render.
+      const tab = stateRef.current.tabs.find(t => t.id === tabId);
+      if (!tab || tab.asleep) return;
+      // The thread's Claude has gone (/exit): its background work stopped or left with
+      // it, and no hook title will come to say so (plan-02, Fix 7).
+      const hadBackground = !!tab.backgroundTasks;
+      const background = backgroundAfterRecord(hadBackground, tab.recordStatus, status ?? undefined);
+      if (background !== hadBackground) stateRef.current.setBackgroundTasks(tabId, background);
+      const next = onRecordStatus(tab.notification, status ?? undefined);
+      // The tick only clears a tab it has a clock for, so make sure there is one.
+      if (next === 'working') getTiming(tabId, Date.now());
+      applyNotif(tabId, tab.notification, next);
     });
   }, []);
 
@@ -936,6 +957,13 @@ export function App() {
     // the app behind another window it stays until the thread is looked at.
     const viewing = stateRef.current.activeTabId === tabId && document.hasFocus();
     applyNotif(tabId, cur, onViewedTitle(next, viewing));
+    // The badge above may clear at once, but the background work it announced is
+    // still running: a ⏳ is kept as its own flag, viewed or not, until the hook's
+    // ✅ (plan-02, Fix 7; the restart window reads it; backgroundAfterTitle says why
+    // ▶, ⚠ and ⚙ leave it).
+    const hadBackground = !!stateRef.current.tabs.find(t => t.id === tabId)?.backgroundTasks;
+    const background = backgroundAfterTitle(hadBackground, type);
+    if (background !== hadBackground) stateRef.current.setBackgroundTasks(tabId, background);
 
     if (!type) return;
     // Working indicator is sidebar-only, no toast while Claude is mid-turn
@@ -998,8 +1026,9 @@ export function App() {
   }, [state.setTabNotification]);
 
   // Clock tick: clear a tab's `working` spinner after its output has been silent long
-  // enough (fixes the stuck-spinner bug where Stop's ✅ never fires). Also prunes
-  // timing entries for closed tabs.
+  // enough (fixes the stuck-spinner bug where Stop's ✅ never fires), unless Claude
+  // Code's record still says busy (plan-02, Fix 11: a stalled turn keeps its spinner).
+  // Also prunes timing entries for closed tabs.
   useEffect(() => {
     const id = setInterval(() => {
       const now = Date.now();
@@ -1007,7 +1036,7 @@ export function App() {
       for (const tab of s.tabs) {
         if (tab.notification !== 'working') continue;
         const timing = timingRef.current.get(tab.id);
-        if (timing) applyNotif(tab.id, 'working', onTick('working', timing, now));
+        if (timing) applyNotif(tab.id, 'working', onTick('working', timing, now, tab.recordStatus));
       }
       for (const id2 of [...timingRef.current.keys()]) {
         if (!s.tabs.some(t => t.id === id2)) timingRef.current.delete(id2);
@@ -1124,6 +1153,11 @@ export function App() {
   // them for the quit flush below, then asks main to start Setup and quit. When
   // main cannot go ahead (a copy that is not installed, Setup not starting) the
   // window closes and the notice says why.
+  // Computed from state on every render, so a status that changes while the window
+  // is open (Claude Code's record, a hook title, a prompt mark, the process tree)
+  // redraws its row at once. plan-02, Fixes 6 to 10: Claude's own record first, the
+  // hook's notification as the fallback, and for a thread with no live Claude its
+  // shell, from the prompt marks or else its process tree.
   const awakeThreads = (): AwakeThread[] => state.tabs.filter(t => !t.asleep).map(t => {
     const plan = wakePlan(t);
     return {
@@ -1131,10 +1165,22 @@ export function App() {
       name: threadName(t),
       kind: threadKind(t),
       resumes: !!plan.resumeSessionId,
-      midTurn: isMidTurn(t.notification),
+      midTurn: isMidTurn(t.recordStatus, t.notification),
+      background: hasBackgroundTask(t.recordStatus, t.notification, t.backgroundTasks),
+      claudeAlive: t.recordStatus !== undefined,
+      shellBusy: shellBusy(t.atPrompt, t.hasChildren),
       rerunPort: plan.runCommand !== null ? t.port : undefined,
     };
   });
+
+  // Whichever button opened the restart window (the title bar's or the About
+  // window's), read Claude Code's session records now rather than up to two seconds
+  // ago. The result is ignored: any status that changed arrives on onStatus and the
+  // rows re-render with it.
+  useEffect(() => {
+    if (updateWindow !== 'restart') return;
+    void window.afterterm.claudeRecord.refresh().catch(() => { /* the timer's next read covers it */ });
+  }, [updateWindow]);
 
   const restartNow = useCallback(async () => {
     const s = stateRef.current;
@@ -1345,10 +1391,21 @@ export function App() {
     });
   }, []);
 
+  // Whether each awake thread's shell has a process below it, from main's process
+  // list, pushed when it changes: the restart window's fallback for a shell with no
+  // prompt marks (plan-02, Fix 8). Kept on the tab, never saved; a value for a thread
+  // already asleep is dropped by the setter.
+  useEffect(() => {
+    window.afterterm.pty.onChildren(({ tabId, hasChildren }) => {
+      stateRef.current.setHasChildren(tabId, hasChildren);
+    });
+  }, []);
+
   // Harness hook: the current record of one thread (drive eval
-  // "window.__afterterm.tab('tab-1')"), so a test can check port, lastCommand and
-  // asleep without going through the saved file's two second debounce. Extended,
-  // not replaced, for the same reason as openLocalhost's hook above.
+  // "window.__afterterm.tab('tab-1')"), so a test can check port, lastCommand,
+  // asleep, and recordStatus, atPrompt, hasChildren and backgroundTasks (never saved,
+  // so only here), without going through the saved file's two second debounce.
+  // Extended, not replaced, for the same reason as openLocalhost's hook above.
   useEffect(() => {
     const win = window as unknown as { __afterterm?: Record<string, unknown> };
     win.__afterterm = {
@@ -1393,6 +1450,12 @@ export function App() {
   // (commandMarks.ts). It is what a sleeping server re-runs on wake.
   const handleCommand = useCallback((tabId: string, command: string) => {
     stateRef.current.setLastCommand(tabId, command);
+  }, []);
+
+  // Whether the thread's shell sits at its prompt, from the same marks: what the
+  // restart window reads for a thread with no live Claude (plan-02, Fix 8).
+  const handlePromptState = useCallback((tabId: string, atPrompt: boolean) => {
+    stateRef.current.setAtPrompt(tabId, atPrompt);
   }, []);
 
   // The Files list of the chat on screen is read when it comes on screen (a
@@ -1660,6 +1723,7 @@ export function App() {
               onExit={handlePtyExit}
               onTail={handleTail}
               onCommand={handleCommand}
+              onPromptState={handlePromptState}
               fileContext={fileContextFor}
               onOpenFileLink={openFileLink}
               fileLinkMenu={fileLinkMenu}
@@ -1767,7 +1831,7 @@ export function App() {
         const tab = state.tabs.find(t => t.id === pendingConfirm.tabId);
         const text = pendingConfirm.kind === 'close'
           ? closeConfirmText(pendingConfirm.port)
-          : sleepConfirmText(pendingConfirm.port, tab?.lastCommand);
+          : sleepConfirmText(pendingConfirm.port, tab ? wakePlan(tab) : { resumeSessionId: null, runCommand: null });
         return (
           <ConfirmDialog
             title={text.title}
@@ -1775,7 +1839,7 @@ export function App() {
             confirmLabel={text.confirm}
             cancelLabel={text.cancel}
             // Only closing is destructive: a slept thread is still there, and Wake
-            // brings its server back.
+            // brings it back (its server, or its chat when it holds a session id).
             danger={pendingConfirm.kind === 'close'}
             onConfirm={() => {
               // The thread may have been slept or closed by other means while the

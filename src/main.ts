@@ -4,7 +4,16 @@ import fs from 'fs';
 import os from 'os';
 import { execFile, execFileSync, execSync, spawn } from 'child_process';
 import * as pty from 'node-pty';
-import { reconcileClaudeHook, HOOK_SCRIPT_NAME } from './claude-hook-install';
+import {
+  reconcileClaudeHook,
+  hookReconcileAllowed,
+  needsHookRepair,
+  hookRepairWait,
+  HOOK_REPAIR_LIMIT,
+  HOOK_REPAIR_WINDOW_MS,
+  HOOK_SCRIPT_NAME,
+} from './claude-hook-install';
+import type { ReconcileResult } from './claude-hook-install';
 import { runSetupCheck, issueUrl, failureNote, ISSUES_URL } from './setup-check.ts';
 import type { Runner } from './setup-check.ts';
 import { initUpdater } from './updater.ts';
@@ -13,7 +22,18 @@ import type { DetectDeps } from './editor-detect.ts';
 import type { EditorInfo } from './editors.ts';
 import { readPrefs, updatePrefs } from './prefs.ts';
 import { planSpawn } from './shell-integration.ts';
-import { readTranscriptMeta, isSessionId, findTranscript, projectDirName } from './claude-transcript.ts';
+import { readTranscriptMeta, isSessionId, findTranscript, projectDirName, transcriptPath } from './claude-transcript.ts';
+import {
+  CLAUDE_CWD_RE,
+  RECORD_MAX_BYTES,
+  holdLastGood,
+  isRecordFileName,
+  listRefreshPlan,
+  parseSessionRecord,
+  staleListPids,
+  threadFeeds,
+} from './claude-session-record.ts';
+import type { HeldRecord, ListAsk, RecordRead, RecordStatus, SessionRecord } from './claude-session-record.ts';
 import { gitInfo } from './git-info.ts';
 import { isThreadId, parseTail, serializeTail, tailFilePath, trimTail } from './thread-tail.ts';
 import {
@@ -23,6 +43,7 @@ import {
   parseMsysPs,
   parseNetstatListeners,
   parseProcessList,
+  shellHasChildren,
   tabPorts,
   trackFirstSeen,
 } from './server-detect.ts';
@@ -390,6 +411,8 @@ let treeDirty = true;
 
 let pollRunning = false;
 let pollAgain = false;
+// Callers waiting for the next poll to finish (nextPollDone).
+let pollWaiters: Array<() => void> = [];
 let serverPollTimer: NodeJS.Timeout | null = null;
 let burstTimer: NodeJS.Timeout | null = null;
 let lastBurstPollAt = 0;
@@ -446,6 +469,13 @@ async function pollServers(reason: string): Promise<void> {
     const key = listenerKey(listeners);
     const stale = Date.now() - cachedProcsAt > SERVER_PROC_MAX_AGE_MS;
     if (key !== lastListenerKey || treeDirty || stale || cachedProcs.length === 0) {
+      // The flag is taken when the read starts, not when it ends, so a tree marked
+      // dirty while the read runs (a PTY created, a Claude session record naming a
+      // process this read may have missed) gets the queued re-run's read too. For the
+      // same reason cachedProcsAt is when the read started: the list holds every
+      // process that existed by then.
+      const readStartedAt = Date.now();
+      treeDirty = false;
       try {
         const json = await runCommand(
           'powershell.exe',
@@ -458,9 +488,10 @@ async function pollServers(reason: string): Promise<void> {
         // re-read the process list, so the two lists never date apart.
         const psPath = liveMsysPsPath();
         cachedMsys = psPath ? await readMsysProcs(psPath, reason) : [];
-        cachedProcsAt = Date.now();
-        treeDirty = false;
+        cachedProcsAt = readStartedAt;
       } catch (err) {
+        // Nothing was read, so whatever made the tree dirty still stands.
+        treeDirty = true;
         if (!warnedProcList) {
           warnedProcList = true;
           console.warn(`[servers] process list failed (${reason}), ports left as they were:`, err);
@@ -492,12 +523,32 @@ async function pollServers(reason: string): Promise<void> {
     pollRunning = false;
     if (pollAgain) {
       pollAgain = false;
+      // The waiters wait on this re-run: it is the one that answers their request.
       void pollServers('a poll was requested while one was running');
+    } else {
+      const waiters = pollWaiters;
+      pollWaiters = [];
+      for (const done of waiters) done();
     }
   }
 }
 
+/**
+ * Resolves when the next poll to finish has finished, including a re-run queued while
+ * one was running, or after `timeoutMs` at the latest. A caller that has just asked
+ * for a fresh process list (treeDirty plus pollServers) awaits this, because
+ * pollServers itself returns at once when a poll is already running.
+ */
+function nextPollDone(timeoutMs: number): Promise<void> {
+  return new Promise<void>(resolve => {
+    const timer = setTimeout(resolve, timeoutMs);
+    pollWaiters.push(() => { clearTimeout(timer); resolve(); });
+  });
+}
+
 function startServerPolling(): void {
+  // Claude Code's session records are read on the same lifetime: while any PTY is alive.
+  startClaudeRecordPolling();
   if (serverPollTimer) return;
   serverPollTimer = setInterval(() => {
     if (ptys.size === 0) { stopServerPolling(); return; }
@@ -508,6 +559,7 @@ function startServerPolling(): void {
 function stopServerPolling(): void {
   if (serverPollTimer) { clearInterval(serverPollTimer); serverPollTimer = null; }
   if (burstTimer) { clearTimeout(burstTimer); burstTimer = null; }
+  stopClaudeRecordPolling();
 }
 
 /**
@@ -529,13 +581,14 @@ function noteOutputForServers(): void {
   }, delay);
 }
 
-/** A tab's PTY has gone: forget it, and clear its port in the UI straight away. */
+/** A tab's PTY has gone: forget it, and clear its port and its Claude status in the UI straight away. */
 function forgetServerTab(tabId: string): void {
   shellPids.delete(tabId);
   treeDirty = true;
   const last = lastPortSent.get(tabId);
   lastPortSent.delete(tabId);
   if (typeof last === 'number') sendPort(tabId, null);
+  forgetRecordTab(tabId);
 }
 
 /** taskkill a pid and its Windows subtree. Never rejects: a dead pid is normal. */
@@ -581,6 +634,313 @@ async function killTree(tabId: string, pid: number, info: ShellInfo | undefined)
   await Promise.all(rest.map(p => taskkillTree(p)));
 }
 
+// ─── Claude Code's session record: each thread's session id and live status ───
+
+// Claude Code keeps `<Claude folder>\sessions\<pid>.json` for every running claude.exe
+// (claude-session-record.ts says what is in it and how each value is checked). Read
+// every two seconds while a PTY is alive, it gives a thread whose shell runs a Claude
+// two things the hooks give only when they run: the session id, so a chat with no
+// hooks is still a chat and resumes, and a live status (busy, idle, waiting, shell),
+// which the renderer keeps on the tab and never saves. The hooks stay the fallback.
+//
+// Cost: listing the folder and reading a handful of small files. The process tree
+// comes from the server watcher's cached list, never a PowerShell of its own, and the
+// running check (process.kill with signal 0) is made only for Claudes in afterterm's
+// own threads and for the few records the list is out of step with: a claude.exe
+// started since the list was taken, or a new one on a pid the list knows as another
+// process. Such a record asks the watcher for a fresh list, at most every 10 seconds,
+// and only once per pid (listRefreshPlan).
+
+const CLAUDE_RECORD_POLL_MS = 2_000;
+const CLAUDE_RECORD_REFRESH_MIN_GAP_MS = 10_000;
+// How long a fresh pass (the restart window opening) waits for the process list it
+// asked for. One poll can take up to 30 seconds (netstat 10, PowerShell 15, ps 5), and
+// the wait can span a poll already running plus the re-run queued behind it, so this
+// limit can be what ends the wait. Then the pass matches against the list it already
+// had, which is what a timer pass does anyway.
+const CLAUDE_RECORD_FRESH_WAIT_MS = 20_000;
+// A folder holding more files than this is read only this far, so a tick stays cheap
+// whatever is in it.
+const CLAUDE_RECORD_MAX_FILES = 200;
+// A session whose transcript is not at the expected place may have moved worktree, so
+// every project folder is searched for it (findTranscript), but at most this often.
+const TRANSCRIPT_RESCAN_MS = 30_000;
+
+let claudeRecordTimer: NodeJS.Timeout | null = null;
+let claudeRecordTick: Promise<void> | null = null;
+let lastRecordListRefreshAt = 0;
+let warnedClaudeRecords = false;
+let warnedShellChildren = false;
+// Each record file's last good read, standing in while the file is caught mid-write.
+let heldRecords = new Map<string, HeldRecord>();
+// The pids a fresh process list was asked for, and which of those asking has stopped for.
+let listAsks = new Map<number, ListAsk>();
+// Per thread, what this reader last sent: the id (each is sent once) and the status
+// (sent only when it changes). Dropped when the thread's PTY goes (forgetRecordTab).
+const recordSessionSent = new Map<string, string>();
+const recordStatusSent = new Map<string, RecordStatus | null>();
+// Per thread, whether its shell has a process below it, as last sent on `pty:children`
+// (plan-02, Fix 8). Each record tick walks the same cached list for it, as its own
+// step after the pass (runClaudeRecordTick), so it costs one tree walk per shell. It
+// is the restart window's fallback for a shell with no prompt
+// marks, and only a true counts there.
+const shellChildrenSent = new Map<string, boolean | null>();
+// The list is re-read on the first server poll after it is SERVER_PROC_MAX_AGE_MS old,
+// so a healthy list can be up to a poll interval and the read itself older than that.
+// Past this the reads are failing, and the tree is not trusted to say anything.
+const SHELL_CHILDREN_MAX_AGE_MS = SERVER_PROC_MAX_AGE_MS + 2 * SERVER_POLL_MS;
+// Sessions whose transcript has been seen (one never goes away), and when each one
+// not yet seen was last searched for across the project folders.
+const transcriptsSeen = new Set<string>();
+const transcriptMissAt = new Map<string, number>();
+
+function startClaudeRecordPolling(): void {
+  if (claudeRecordTimer) return;
+  claudeRecordTimer = setInterval(() => {
+    if (ptys.size === 0) { stopClaudeRecordPolling(); return; }
+    void runClaudeRecordTick(false);
+  }, CLAUDE_RECORD_POLL_MS);
+}
+
+function stopClaudeRecordPolling(): void {
+  if (claudeRecordTimer) { clearInterval(claudeRecordTimer); claudeRecordTimer = null; }
+}
+
+/**
+ * True while the pid is a running process: the cached list can be a minute old, and a
+ * hard-killed Claude leaves its record behind for a while. Signal 0 sends nothing, it
+ * only asks; Claude Code checks its own records the same way. Windows answers for the
+ * multiple of 4 at or below the number asked about, which is why record names that are
+ * not a multiple of 4 are refused (isRecordFileName).
+ */
+function pidRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    // EPERM means it exists and is just not ours to signal.
+    return (err as NodeJS.ErrnoException)?.code !== 'ESRCH';
+  }
+}
+
+/**
+ * Every record file in the folder, read and validated: one entry per file, with a null
+ * record when the read or the parse failed (holdLastGood decides what that means).
+ * Only record names are opened (isRecordFileName): the `<pid>.<hash>.key` files beside
+ * them hold a token and are never read. Plain files only, so a link placed in the
+ * folder is not followed.
+ */
+function readSessionRecords(dir: string): RecordRead[] {
+  let entries: fs.Dirent[];
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return []; }
+  const out: RecordRead[] = [];
+  for (const entry of entries) {
+    if (!entry.isFile() || !isRecordFileName(entry.name)) continue;
+    if (out.length >= CLAUDE_RECORD_MAX_FILES) break;
+    const file = path.join(dir, entry.name);
+    let record: SessionRecord | null = null;
+    try {
+      if (fs.statSync(file).size <= RECORD_MAX_BYTES) {
+        record = parseSessionRecord(fs.readFileSync(file, 'utf-8'), entry.name);
+      }
+    } catch { /* gone since the listing, or mid-write: the next tick reads it */ }
+    out.push({ name: entry.name, record });
+  }
+  return out;
+}
+
+/**
+ * Whether a session has a transcript, which is what makes its id safe to resume. The
+ * expected place is checked every tick (one stat); the search of every project folder
+ * runs at most every TRANSCRIPT_RESCAN_MS per session.
+ */
+function recordTranscriptExists(sessionId: string, cwd: string): boolean {
+  if (transcriptsSeen.has(sessionId)) return true;
+  const projectsDir = getClaudeProjectsDir();
+  let found = false;
+  try { found = fs.existsSync(transcriptPath(projectsDir, cwd, sessionId)); } catch { found = false; }
+  if (!found) {
+    const now = Date.now();
+    if (now - (transcriptMissAt.get(sessionId) ?? 0) < TRANSCRIPT_RESCAN_MS) return false;
+    if (transcriptMissAt.size > 500) transcriptMissAt.clear();
+    transcriptMissAt.set(sessionId, now);
+    found = findTranscript(projectsDir, cwd, sessionId, fs) !== null;
+  }
+  if (found) {
+    if (transcriptsSeen.size > 1000) transcriptsSeen.clear();
+    transcriptsSeen.add(sessionId);
+    transcriptMissAt.delete(sessionId);
+  }
+  return found;
+}
+
+/** The cached process list with Git Bash's MSYS parents applied, as pollServers uses it. */
+function bridgedProcs(): ServerProc[] {
+  return cachedMsys.length > 0 ? applyMsysParents(cachedProcs, cachedMsys) : cachedProcs;
+}
+
+function sendRecordStatus(tabId: string, status: RecordStatus | null): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('claude-record:status', { tabId, status });
+  }
+}
+
+function sendShellChildren(tabId: string, hasChildren: boolean | null): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('pty:children', { tabId, hasChildren });
+  }
+}
+
+/**
+ * Each live shell's hasChildren from the cached list, sent when it changes. null when
+ * the list is too old or empty, or cannot place the shell (shellHasChildren).
+ */
+function sendShellChildrenChanges(): void {
+  const fresh = cachedProcs.length > 0 && Date.now() - cachedProcsAt <= SHELL_CHILDREN_MAX_AGE_MS;
+  const procs = fresh ? bridgedProcs() : [];
+  for (const [tabId, info] of shellPids) {
+    const value = fresh ? shellHasChildren(procs, info.pid, info.shellId) : null;
+    if ((shellChildrenSent.get(tabId) ?? null) === value) continue;
+    shellChildrenSent.set(tabId, value);
+    sendShellChildren(tabId, value);
+    if (process.env.AFTERTERM_HARNESS === '1') {
+      console.log(`[harness] shell children ${tabId} hasChildren=${value === null ? 'unknown' : value}`);
+    }
+  }
+}
+
+async function claudeRecordPass(fresh: boolean): Promise<void> {
+  if (shellPids.size === 0) return;
+  // A file caught mid-write keeps its last good record for a tick or two, so the
+  // status does not blip to null (which would read as "not mid-turn").
+  const merged = holdLastGood(readSessionRecords(getClaudeSessionsDir()), heldRecords);
+  heldRecords = merged.held;
+  let records = merged.records;
+  // Each pid is asked about once per pass.
+  const running = new Map<number, boolean>();
+  const isRunning = (pid: number) => {
+    let alive = running.get(pid);
+    if (alive === undefined) { alive = pidRunning(pid); running.set(pid, alive); }
+    return alive;
+  };
+
+  // A claude.exe the list is out of step with cannot be placed in its tree until the
+  // list is read again. The server watcher reads it; a fresh pass (the restart window
+  // opening) waits for that read, a timer pass picks the result up next time.
+  const now = Date.now();
+  const plan = listRefreshPlan(
+    records.length > 0 ? staleListPids(records, bridgedProcs(), isRunning) : [],
+    listAsks,
+    cachedProcsAt,
+    now,
+    fresh || now - lastRecordListRefreshAt >= CLAUDE_RECORD_REFRESH_MIN_GAP_MS,
+  );
+  listAsks = plan.asked;
+  // A fresh pass also waits on a list asked for on an earlier pass and not read yet;
+  // asking again makes sure a read is running or queued for it to wait on.
+  const mustWait = fresh && (plan.ask.length > 0 || plan.waiting);
+  if (plan.ask.length > 0) lastRecordListRefreshAt = now;
+  if (plan.ask.length > 0 || mustWait) {
+    treeDirty = true;
+    // Taken before the poll is asked for, so a poll that finishes at once still counts.
+    const done = mustWait ? nextPollDone(CLAUDE_RECORD_FRESH_WAIT_MS) : null;
+    void pollServers('a Claude session record names a process the list does not know yet');
+    if (done) {
+      await done;
+      // The wait can be many seconds: match what the records say now, not before it,
+      // and ask the system again whether each pid is running.
+      const again = holdLastGood(readSessionRecords(getClaudeSessionsDir()), heldRecords);
+      heldRecords = again.held;
+      records = again.records;
+      running.clear();
+    }
+  }
+
+  // Read after any await above, so a tab whose PTY went meanwhile is not in it.
+  const feeds = threadFeeds({
+    records,
+    shellPids: shellPidMap(),
+    procs: bridgedProcs(),
+    transcriptExists: recordTranscriptExists,
+    isRunning,
+  });
+  for (const [tabId, feed] of feeds) {
+    let sent = false;
+    if ((recordStatusSent.get(tabId) ?? null) !== feed.status) {
+      recordStatusSent.set(tabId, feed.status);
+      sendRecordStatus(tabId, feed.status);
+      sent = true;
+    }
+    // Decision 3 (plan-02): the last id stays when the record goes, so only a new id
+    // is ever sent, never a clear.
+    if (feed.sessionId && feed.cwd && recordSessionSent.get(tabId) !== feed.sessionId) {
+      recordSessionSent.set(tabId, feed.sessionId);
+      // One thread's push failing must not hold up the others.
+      try { pushClaudeSession(tabId, feed.sessionId, feed.cwd); } catch { recordSessionSent.delete(tabId); }
+      sent = true;
+    }
+    // A tester can confirm the reader only ever matches a claude.exe in its own threads' trees.
+    if (sent && process.env.AFTERTERM_HARNESS === '1') {
+      console.log(`[harness] claude-record ${tabId} pid=${feed.pid ?? 'none'} status=${feed.status ?? 'none'} session=${feed.sessionId ? feed.sessionId.slice(0, 8) : 'none'}`);
+    }
+  }
+}
+
+/**
+ * One pass, never two at once, never throwing. A timer pass is skipped while one is
+ * running; a fresh pass (claude-record:refresh) waits for the running one and then
+ * runs its own, so the records it resolves after were read after it was asked for.
+ * When the process list is out of step with a record, the fresh pass also waits for
+ * the next process list read to complete (nextPollDone, which covers a read already
+ * running or queued behind one) before it matches, up to CLAUDE_RECORD_FRESH_WAIT_MS.
+ */
+function runClaudeRecordTick(fresh: boolean): Promise<void> {
+  if (claudeRecordTick) {
+    return fresh ? claudeRecordTick.then(() => runClaudeRecordTick(true)) : claudeRecordTick;
+  }
+  const pass: Promise<void> = claudeRecordPass(fresh)
+    .catch(err => {
+      if (!warnedClaudeRecords) {
+        warnedClaudeRecords = true;
+        console.warn('[claude-record] a pass failed, statuses left as they were:', err);
+      }
+    })
+    // Its own step, run whether or not the pass threw: a failing pass must never
+    // leave the renderer holding an old hasChildren past SHELL_CHILDREN_MAX_AGE_MS.
+    .then(() => sendShellChildrenChanges())
+    .catch(err => {
+      if (!warnedShellChildren) {
+        warnedShellChildren = true;
+        console.warn('[shell-children] sending what each shell runs failed:', err);
+      }
+    })
+    .finally(() => { if (claudeRecordTick === pass) claudeRecordTick = null; });
+  claudeRecordTick = pass;
+  return pass;
+}
+
+/** A tab's PTY has gone, and its Claude with it: say so once, and forget what was sent. */
+function forgetRecordTab(tabId: string): void {
+  const last = recordStatusSent.get(tabId) ?? null;
+  recordStatusSent.delete(tabId);
+  recordSessionSent.delete(tabId);
+  if (last !== null) sendRecordStatus(tabId, null);
+  const lastChildren = shellChildrenSent.get(tabId) ?? null;
+  shellChildrenSent.delete(tabId);
+  if (lastChildren !== null) sendShellChildren(tabId, null);
+}
+
+// A fresh read on demand: the renderer asks when the restart window opens, so its rows
+// start from what Claude Code says now. Resolves when the pass is done.
+// It also asks for a fresh process list, not waited for: a shell with no prompt marks
+// is judged by its process tree, and the cached list can be a minute old. The next
+// timer pass after that read sends what has changed, and the rows follow.
+ipcMain.handle('claude-record:refresh', async () => {
+  await runClaudeRecordTick(true);
+  treeDirty = true;
+  void pollServers('the restart window opened');
+});
+
 // ─── Window creation ──────────────────────────────────────────────────────────
 
 function getIconPath() {
@@ -609,7 +969,17 @@ function getClaudeDir() {
   return process.env.CLAUDE_CONFIG_DIR || path.join(app.getPath('home'), '.claude');
 }
 
-function reconcileNotifierHook() {
+function reconcileNotifierHook(): ReconcileResult | null {
+  // A test launch (AFTERTERM_USER_DATA_DIR set) that does not name its own Claude
+  // folder (CLAUDE_CONFIG_DIR) must not touch the real one: its throwaway prefs.json
+  // can hold an opt-out that would strip the real hooks (2026-11-06). The check sits
+  // here, not in the callers, so startup and the setup check both get it, and it
+  // covers the hook script copy as well as the entries. The sandbox build
+  // sets CLAUDE_CONFIG_DIR itself before this runs, so it still installs into its own folder.
+  if (!hookReconcileAllowed(process.env)) {
+    console.log('[claude-hook] skipped: this is a test launch (AFTERTERM_USER_DATA_DIR is set) with no CLAUDE_CONFIG_DIR, so the real Claude folder is left alone');
+    return null;
+  }
   try {
     const result = reconcileClaudeHook({
       scriptSource: getHookScriptSource(),
@@ -618,9 +988,115 @@ function reconcileNotifierHook() {
     });
     console.log(`[claude-hook] ${result.status} — ${result.detail}`);
     if (result.showToast) pushSetupToast();
+    return result;
   } catch (err) {
     console.error('[claude-hook] reconcile failed:', err);
+    return null;
   }
+}
+
+// ─── Claude hook repair: put afterterm's entries back while the app runs ─────
+
+// The launch reconcile above is not enough on its own: on 2026-11-06 a test launch
+// removed afterterm's entries and every chat ran with no hooks for 21 hours. This
+// poll of the Claude folder's settings.json puts them back within a few seconds, and
+// a running chat picks them up with no restart. The decision is needsHookRepair
+// (claude-hook-install.ts); the repair is reconcileNotifierHook, so the test launch
+// guard and the opt-out apply to it exactly as at launch.
+//
+// A poll, not fs.watch: a watch on the folder was tried first, and it fails both
+// ways the folder can go while the app runs (measured on Electron 35.7.5's runtime).
+// A real delete (rmSync, Remove-Item) raises no error and sends 'rename' events
+// without end, 266,399 in 2 seconds, holding main at a full core until quit. A move
+// or rename (Explorer's delete to the Recycle Bin is a move) sends nothing at all,
+// so the watch silently stops. One stat every 3 seconds has neither problem, costs
+// nothing, and sees a replaced file, a deleted file and a missing folder alike.
+const HOOK_POLL_MS = 3000;
+const HOOK_REPAIR_DEBOUNCE_MS = 1000; // one check after a run of changes settles
+let hookPollStarted = false;
+let hookPollStopped = false;
+let hookPollTimer: NodeJS.Timeout | null = null;
+type HookSample = { exists: boolean; mtimeMs: number; ctimeMs: number; size: number };
+let hookLastSample: HookSample | null = null;
+let hookCheckTimer: NodeJS.Timeout | null = null;
+let hookRepairTimes: number[] = []; // performance.now() of each repair, for the loop guard
+let hookRepairCapWarned = false;
+
+function scheduleHookCheck(delay = HOOK_REPAIR_DEBOUNCE_MS) {
+  if (hookPollStopped) return;
+  if (hookCheckTimer) clearTimeout(hookCheckTimer);
+  hookCheckTimer = setTimeout(() => { hookCheckTimer = null; checkHookEntries(); }, delay);
+}
+
+// One stat of settings.json; a check is scheduled on the first sample and whenever
+// the file appears, goes, or changes time or size. A missing folder is exists=false.
+// ctimeMs is compared too: a same-size copy that keeps the modified time, or a file
+// renamed over it, changes only that.
+function sampleHookSettings() {
+  let sample: HookSample = { exists: false, mtimeMs: 0, ctimeMs: 0, size: 0 };
+  try {
+    const st = fs.statSync(path.join(getClaudeDir(), 'settings.json'));
+    sample = { exists: true, mtimeMs: st.mtimeMs, ctimeMs: st.ctimeMs, size: st.size };
+  } catch { /* missing, or the folder is: exists=false */ }
+  const last = hookLastSample;
+  hookLastSample = sample;
+  if (last && last.exists === sample.exists && last.mtimeMs === sample.mtimeMs &&
+    last.ctimeMs === sample.ctimeMs && last.size === sample.size) return;
+  scheduleHookCheck();
+}
+
+function checkHookEntries() {
+  if (hookPollStopped) return;
+  const claudeDir = getClaudeDir();
+  // No Claude folder: Claude Code is not set up (or the folder went), nothing to repair into.
+  if (!fs.existsSync(claudeDir)) return;
+  let text: string | null;
+  try {
+    text = fs.readFileSync(path.join(claudeDir, 'settings.json'), 'utf-8');
+  } catch (err) {
+    // Missing counts as needing repair. Any other read error (busy mid-replace) is not
+    // guessed at: forgetting the last sample makes the next poll schedule another
+    // check, since an unchanged file would otherwise never be looked at again.
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+      hookLastSample = null;
+      return;
+    }
+    text = null;
+  }
+  // Read on every check, never cached, so an opt-out written while the app runs
+  // stops the repair at once. A prefs.json that could not be read comes back empty,
+  // which counts as enabled, the same rule reconcile follows at launch.
+  const check = needsHookRepair(text, readPrefs(getPrefsPath()).prefs);
+  if (!check.repair) return;
+  const now = performance.now();
+  hookRepairTimes = hookRepairTimes.filter(t => now - t < HOOK_REPAIR_WINDOW_MS);
+  const wait = hookRepairWait(hookRepairTimes, now);
+  if (wait > 0) {
+    if (!hookRepairCapWarned) {
+      hookRepairCapWarned = true;
+      console.warn(`[claude-hook] afterterm's entries were removed from settings.json ${HOOK_REPAIR_LIMIT} times within a minute; something keeps removing them, so repairs are held to ${HOOK_REPAIR_LIMIT} a minute (next in ${Math.ceil(wait / 1000)}s)`);
+    }
+    scheduleHookCheck(wait);
+    return;
+  }
+  hookRepairTimes.push(now);
+  const result = reconcileNotifierHook();
+  if (result?.changed) console.log(`[claude-hook] repaired: ${check.reason}; ${result.detail}`);
+}
+
+function startHookRepairPoll() {
+  if (hookPollStarted) return;
+  // A test launch that may not touch the real Claude folder gets no poll at all.
+  if (!hookReconcileAllowed(process.env)) return;
+  hookPollStarted = true;
+  sampleHookSettings();
+  hookPollTimer = setInterval(sampleHookSettings, HOOK_POLL_MS);
+}
+
+function stopHookRepairPoll() {
+  hookPollStopped = true;
+  if (hookPollTimer) { clearInterval(hookPollTimer); hookPollTimer = null; }
+  if (hookCheckTimer) { clearTimeout(hookCheckTimer); hookCheckTimer = null; }
 }
 
 // One-time "notifications enabled" toast through the existing overlay path. Uses a
@@ -1568,14 +2044,23 @@ function getClaudeSessionDir() {
 // SECURITY: these files are world-writable on disk — validate before trusting. The
 // sessionId is later typed into a shell as `claude --resume <id>`, so accept only a
 // canonical UUID (no shell metacharacters / newlines) and an absolute, clean path.
+// CLAUDE_CWD_RE lives in claude-session-record.ts, which holds Claude Code's own
+// record to the same rule.
 const CLAUDE_UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
-const CLAUDE_CWD_RE = /^[A-Za-z]:\\[^\r\n;&|`$<>"'*?\t]*$/;
 
 // Where Claude Code keeps its session transcripts, one folder per cwd. Read-only:
 // afterterm never writes anything under it. AFTERTERM_CLAUDE_PROJECTS_DIR is the test
 // override, so a harness run can point at a fixture folder instead of the real one.
 function getClaudeProjectsDir() {
   return process.env.AFTERTERM_CLAUDE_PROJECTS_DIR || path.join(getClaudeDir(), 'projects');
+}
+
+// Where Claude Code keeps one record per running claude.exe (claude-session-record.ts).
+// Read-only, and never created. AFTERTERM_CLAUDE_SESSIONS_DIR is the test override: a
+// harness run whose Claude folder is a scratch one can still read the records of the
+// real Claude its test chats run under.
+function getClaudeSessionsDir() {
+  return process.env.AFTERTERM_CLAUDE_SESSIONS_DIR || path.join(getClaudeDir(), 'sessions');
 }
 
 // The first user prompt and the current model for one session, or the not-found
@@ -1594,20 +2079,27 @@ function readAndPushClaudeSession(tabId: string) {
     const obj = JSON.parse(raw) as { sessionId?: unknown; cwd?: unknown };
     if (typeof obj?.sessionId !== 'string' || typeof obj?.cwd !== 'string') return;
     if (!CLAUDE_UUID_RE.test(obj.sessionId) || !CLAUDE_CWD_RE.test(obj.cwd)) return;
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('claude-session:update', { tabId, sessionId: obj.sessionId, cwd: obj.cwd });
-      // The hook rewrites this file on UserPromptSubmit and Stop, so once a turn. Read
-      // the transcript on the same beat: that is what keeps the model current after a
-      // /model switch, and gives a nameless chat its first-prompt fallback.
-      const meta = readClaudeMeta(obj.sessionId, obj.cwd);
-      // Edited files, Phase 2: from the chat's first turn on, watch the folder it
-      // works in, so files its commands change can be attributed to it.
-      watchChatFolder(tabId, meta.cwd || obj.cwd);
-      mainWindow.webContents.send('claude-session:meta', {
-        tabId, sessionId: obj.sessionId, firstPrompt: meta.firstPrompt, model: meta.model, cwd: meta.cwd,
-      });
-    }
+    pushClaudeSession(tabId, obj.sessionId, obj.cwd);
   } catch { /* missing / mid-write / unparseable — ignore, next write retries */ }
+}
+
+// A captured session, whichever source found it (the hook's file, or Claude Code's
+// own record, read beside the server watcher), reaches the renderer the same way: the
+// id and folder for setClaudeSession, then the transcript read and the folder watch
+// that follow a capture. Both callers have validated the id and the folder.
+function pushClaudeSession(tabId: string, sessionId: string, cwd: string): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send('claude-session:update', { tabId, sessionId, cwd });
+  // The hook rewrites its file on UserPromptSubmit and Stop, so once a turn. Read
+  // the transcript on the same beat: that is what keeps the model current after a
+  // /model switch, and gives a nameless chat its first-prompt fallback.
+  const meta = readClaudeMeta(sessionId, cwd);
+  // Edited files, Phase 2: from the chat's first turn on, watch the folder it
+  // works in, so files its commands change can be attributed to it.
+  watchChatFolder(tabId, meta.cwd || cwd);
+  mainWindow.webContents.send('claude-session:meta', {
+    tabId, sessionId, firstPrompt: meta.firstPrompt, model: meta.model, cwd: meta.cwd,
+  });
 }
 
 let claudeWatchStarted = false;
@@ -2195,6 +2687,10 @@ app.on('before-quit', async (e) => {
   app.quit();
 });
 
+// will-quit, not before-quit: before-quit can be cancelled (the PTY drain above), and
+// the hook repair poll should keep working until the app really goes.
+app.on('will-quit', stopHookRepairPoll);
+
 // ─── Installer mode: the setup check ─────────────────────────────────────────
 
 // A process runner for setup-check.ts: stdin in, stdout and stderr out, a hard
@@ -2310,6 +2806,8 @@ app.whenReady().then(async () => {
   createNotifierWindow();
   createWindow();
   reconcileNotifierHook();
+  // After the launch reconcile, so the poll starts from a complete settings.json.
+  startHookRepairPoll();
   startClaudeSessionWatch();
   // Editors: last launch's list at once, then a fresh detection in the background
   // (asynchronous, so it never holds the main thread; see detectDeps).
