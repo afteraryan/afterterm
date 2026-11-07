@@ -22,4 +22,5 @@ the phase so a reader of PHASES.md can see what was verified.
 `manual-testing/` holds every screenshot Aryan sends with a bug during his manual testing,
 numbered and named for what it shows, committed and never deleted, the same rule as the phase
 folders. The bug itself is an entry in `docs/bugs.md` that links the screenshot. Agreed on
-2026-09-08.
+2026-09-08. Since 2026-11-07 a bug's screenshots go on its issue in Linear, so nothing new is
+added to this folder; what is already here stays.
