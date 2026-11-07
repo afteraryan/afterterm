@@ -296,5 +296,24 @@ console.log('\nsleepWake: wakePlan, a session id wins over the server rule (plan
   check('and wakes in the folder Claude was in', plan.cwd === 'D:\\Work\\app');
 }
 
+console.log('\nsleepWake: wakePlan, a command that starts Claude is never a server command\n');
+{
+  // No usable id (no prompt sent yet, or the hook and the record never gave one),
+  // a port in the tree from something Claude started, and `claude` as the last
+  // command: running it again would start a fresh session, not a server.
+  const base = { cwd: 'D:\\Work', claudeCwd: undefined, claudeSessionId: undefined, shellId: 'cmd', port: 3000 };
+  for (const cmd of ['claude', '  claude  ', 'Claude', 'CLAUDE.EXE', 'claude.exe', 'claude.cmd', 'claude --resume abc', 'claude.exe --model haiku']) {
+    const plan = wakePlan({ ...base, lastCommand: cmd });
+    check(`no id, a port and ${JSON.stringify(cmd)}: no runCommand and no resume`,
+      plan.runCommand === null && plan.resumeSessionId === null, show(plan));
+  }
+  check('a command that only starts with the letters claude still re-runs',
+    wakePlan({ ...base, lastCommand: 'claudette serve' }).runCommand === 'claudette serve');
+  check('a command that names claude later on still re-runs',
+    wakePlan({ ...base, lastCommand: 'npx claude-server' }).runCommand === 'npx claude-server');
+  check('npm run dev with a port still re-runs',
+    wakePlan({ ...base, lastCommand: 'npm run dev' }).runCommand === 'npm run dev');
+}
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail > 0 ? 1 : 0);

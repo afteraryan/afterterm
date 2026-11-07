@@ -383,6 +383,10 @@ console.log('\nthreadView: sleepConfirmText\n');
   check('a Claude that started the server itself: Wake resumes the chat, never "runs claude again"',
     claudeServer.body === 'This thread is listening on :3000. Sleeping it stops the server; Wake resumes the chat.',
     claudeServer.body);
+  const claudeNoId = sleepConfirmText(3000, plan({ ...server, port: 3000, lastCommand: 'claude' }));
+  check('no id and `claude` as the last command: no promise to run it again, Wake opens a fresh prompt',
+    claudeNoId.body === 'This thread is listening on :3000. Sleeping it stops the server; Wake opens a fresh prompt.',
+    claudeNoId.body);
   const badId = sleepConfirmText(48765, plan({ ...server, claudeSessionId: 'not-a-uuid', lastCommand: 'npm start' }));
   check('an invalid session id is no id: Wake runs the command again',
     badId.body === 'This thread is listening on :48765. Sleeping it stops the server; Wake runs npm start again.',

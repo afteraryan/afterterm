@@ -134,8 +134,15 @@ export function asleepSinceText(
 // itself, whose last command is `claude` and which has a port, woke by running a
 // fresh `claude` instead of resuming. Only a thread with no valid id gets the port
 // and command rule.
+//
+// A last command that starts Claude Code (first word `claude`, `claude.exe` or
+// `claude.cmd`, any case) is never a server command, id or not. A port in such a
+// thread's tree belongs to something Claude started, and typing `claude` again would
+// start a fresh session, not bring a server back. With no valid id the thread wakes
+// in its folder, which is what the restart window's row for it says.
 const CONTROL_CHAR_RE = /[\x00-\x1f\x7f]/;
 const RUN_COMMAND_MAX_LENGTH = 500;
+const CLAUDE_COMMAND_RE = /^claude(\.exe|\.cmd)?(\s|$)/i;
 
 export function wakePlan(
   tab: Pick<Tab, 'cwd' | 'claudeCwd' | 'claudeSessionId' | 'shellId' | 'port' | 'lastCommand'>,
@@ -149,6 +156,7 @@ export function wakePlan(
     && trimmed.length > 0
     && trimmed.length <= RUN_COMMAND_MAX_LENGTH
     && !CONTROL_CHAR_RE.test(trimmed)
+    && !CLAUDE_COMMAND_RE.test(trimmed)
       ? trimmed
       : null;
   return {
