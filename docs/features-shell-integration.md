@@ -177,7 +177,7 @@ This was verified directly, not just reasoned about: `shell-integration.test.ts`
 
 ## Testing with the harness
 
-`scripts/agent-harness/launch.mjs` gained `--env KEY=VALUE` (repeatable) specifically for this phase, so a custom-prompt test could point `USERPROFILE` and `HOME` at a scratch home directory without ever touching the user's real one: pwsh derives `$PROFILE` from the Documents folder, which itself expands `%USERPROFILE%` (verified on this machine), and Git Bash reads `~/.bash_profile` from `HOME`. Redirecting both is what lets a test prove the bootstrap wraps a *real* custom prompt rather than only the shell's stock one, with zero risk to the person's actual profile files.
+`scripts/agent-harness/launch.mjs` gained `--env KEY=VALUE` (repeatable) specifically for this phase, so a custom-prompt test could point `USERPROFILE` and `HOME` at a scratch home directory without ever touching the user's real one: pwsh derives `$PROFILE` from the Documents folder, which itself expands `%USERPROFILE%` (verified on this machine), and Git Bash reads `~/.bash_profile` from `HOME`. Redirecting both is what lets a test prove the bootstrap wraps a *real* custom prompt rather than only the shell's stock one, with zero risk to the person's actual profile files. That redirects only the shell profiles: it does not move Claude Code's folder, which only `CLAUDE_CONFIG_DIR` does (`scripts/agent-harness/README.md`).
 
 Two log lines came with this phase, both gated on `AFTERTERM_HARNESS=1`:
 
@@ -186,6 +186,20 @@ Two log lines came with this phase, both gated on `AFTERTERM_HARNESS=1`:
 
 Verified in the harness on 2026-09-08 for pwsh, Windows PowerShell and Git Bash directly (cmd was re-run too, as a regression check, since the planner now owns its behaviour as well): a thread restored from a saved session woke in its saved folder, with the header showing the correct branch read from that folder's `.git/HEAD`; `drive marks --tab <id>` reported "at prompt: yes" once the shell settled; `cd`-ing into a sibling folder changed `Tab.cwd` and the header's branch line within a couple of seconds; typing `npm start -- <port>` turned the row green with the port, named the thread by the command, showed "Running on :port" in the header chip and a "Last ran" row on the hover card; Sleep asked "Wake runs npm start -- <port> again" and the asleep pane read "Server asleep since just now · runs npm start -- <port>"; Wake re-typed the command and the server was listening again within a few seconds, matching cmd's behaviour exactly. WSL's coverage remains unit-tests-only, as stated above.
 
+## The marks also say whether a shell is running a command (2026-11-07)
+
+The marks have a second reader: the restart window's "Command stops" row (`docs/features-updates.md`; `docs/plan-02-restart-window-and-hook-fixes.md`, Fix 8). `commandMarks.ts`'s `atPrompt` is true from a B mark until the shell is handed a command. `Terminal/index.tsx` reports it upward (`onPromptState`) on a thread's first mark and on every change, and `app.tsx` keeps it as the transient `Tab.atPrompt` (never saved, cleared when the thread sleeps). A thread that has produced no marks reports nothing, and the window reads that as "no marks", not as busy. Besides Enter at a prompt, three cases turn `atPrompt` off:
+
+- **A pasted line.** A chunk with a carriage return outside a bracketed paste (right-click paste or Ctrl+V of text ending in a newline) submits the line, so `onInput` clears `atPrompt`. No command is captured from it: the buffer does not hold the pasted text yet.
+- **A command afterterm types itself.** On Wake, a chat's `claude --resume <id>` and a server's last command go straight to the PTY (`writeCommand`, `onCommandSent`). At a prompt, `atPrompt` clears at once. Typed before the shell has drawn its first prompt, the shell runs it at that prompt, so that prompt's B mark must not count: `sentAhead` survives the A mark and is used up by the next B.
+- **A Claude open in the shell.** The marks say "not at the prompt" the whole time, so the restart window reads them only for a thread with no live Claude.
+
+**When there are no marks.** For a shell with integration opted out, or one that never emits them, the window falls back to whether the shell has a process below it (`hasChildren`, from the server watcher's process list, sent as `pty:children`; `shellHasChildren` in `server-detect.ts`). Git Bash counts two levels down, because its launcher keeps the interactive bash as its one child; WSL is unknown, since its processes are not in the Windows tree. Only a yes counts as busy. A built-in such as PowerShell's `Start-Sleep` has no child process, which is why the marks come first. With neither signal the thread is unknown and the window shows no "Safe to restart".
+
+**A known limit:** cmd with echo on prints its prompt, marks included, before every line of a batch file run without `@echo off`, so a B mark arrives while the batch is still running and `atPrompt` reads true until it ends. Accepted at the plan's review (2026-11-07).
+
+Tested on 2026-11-07 in the harness (`docs/screenshots/restart-window-and-hook-fixes/`): cmd running `ping -n 120`, PowerShell 7 running `Start-Sleep`, Git Bash running `sleep 90`, and cmd with the opt-out and a 60 second `ping`.
+
 ## Limits
 
 - WSL shell integration has not been exercised end to end on the development machine; only its planning logic (`planSpawn`'s `wsl.exe --cd` mapping) and the OSC 7 conversion are unit-tested.
@@ -193,6 +207,7 @@ Verified in the harness on 2026-09-08 for pwsh, Windows PowerShell and Git Bash 
 - An rc file (Git Bash/WSL) or a broken bootstrap (PowerShell) can silently turn the integration off for a shell, with no visible error and no way today to tell from inside the app that it happened, short of `drive marks` reporting "at prompt: no" forever.
 - zsh and fish inside a WSL distro get no cwd capture or prompt marks at all; the hook is bash-only.
 - A process running inside a WSL distro is invisible to server detection, since that walk only ever covers Windows processes.
+- **An inherited cmd `PROMPT` defeats the cmd opt-out.** When afterterm is started from a cmd thread inside afterterm, the launching shell's `PROMPT` already holds afterterm's marks and is passed on, so a cmd thread with `"shellIntegration": { "cmd": "off" }` still draws marks, and one with integration on carries them twice. To test the cmd opt-out from inside afterterm, remove `PROMPT` from the launching shell first (`set PROMPT=`). Open in `docs/bugs.md` (2026-11-07).
 
 ## The CLAUDE.md record (moved here 2026-09-20)
 

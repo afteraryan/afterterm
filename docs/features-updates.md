@@ -10,7 +10,7 @@ An installed afterterm checks GitHub for a newer release and says so with an "Up
 
 | File | What it holds |
 |---|---|
-| `src/update-check.ts` | Pure, unit-tested (`src/update-check.test.ts`, in `npm test`): versions (`parseVersion`, `compareVersions`, `isNewer`), the release and its asset (`parseRelease`, `assetNameFor`, `parseDigest`, `downloadSource`), Later and Skip (`isSuppressed`, `LATER_MS`), the state shape (`UpdateState`, `titleBarButtonShows`), texts (`megabytes`, `percent`, `lastCheckedText`, `errorText`), the restart window's rows (`restartRows`, `restartStatus`), the record of an update restart (`asPendingUpdate`, `updateLanded`), old downloads (`installerVersion`, `staleDownloads`), the release-notes parser (`parseNotes`, `parseInline`) and `samePath`. |
+| `src/update-check.ts` | Pure, unit-tested (`src/update-check.test.ts`, in `npm test`): versions (`parseVersion`, `compareVersions`, `isNewer`), the release and its asset (`parseRelease`, `assetNameFor`, `parseDigest`, `downloadSource`), Later and Skip (`isSuppressed`, `LATER_MS`), the state shape (`UpdateState`, `titleBarButtonShows`), texts (`megabytes`, `percent`, `lastCheckedText`, `errorText`), the restart window's rules (`isMidTurn`, `hasBackgroundTask`, `shellBusy`, `restartRows`, `restartStatus`), the record of an update restart (`asPendingUpdate`, `updateLanded`), old downloads (`installerVersion`, `staleDownloads`), the release-notes parser (`parseNotes`, `parseInline`) and `samePath`. |
 | `src/updater.ts` | Main process: `initUpdater` (called from `main.ts`'s `whenReady`). Reads which copy this is, runs the timer, fetches the release, downloads with progress and the hash, starts Setup, and the IPC. |
 | `src/prefs.ts` | The prefs.json keys: `updateChecks`, `updateSkippedVersion`, `updateLaterUntil`, `updateLastChecked`, `pendingUpdate`. |
 | `src/renderer/sessionMigration.ts` | `wakeAfterUpdate` in session.json. |
@@ -58,20 +58,71 @@ Progress reaches the renderer at most every 100ms through `update:state`.
 
 ## The restart window
 
-Opened by the white "Restart to update" button, or by the About window's own. Shown every time, busy or not. One row per awake thread (asleep threads are not listed), from `restartRows`:
+Opened by the white "Restart to update" button, or by the About window's own. Shown every time, busy or not. One row per awake thread (asleep threads are not listed), from `restartRows` in `update-check.ts`, drawn by `RestartToUpdate`. The rows follow the threads live while the window is open. When the window opens, the renderer asks main for a fresh read of Claude Code's session records (`claude-record:refresh`) and for a fresh process list, so the rows start from what is true now and not from the last 2 second read.
 
-| Thread | Row |
+Until 2026-11-07 the window said "Safe to restart" whenever no chat it recognised was mid-turn, so anything it could not see read as safe: a chat with no hooks mid-reply, a reply that paused for a few seconds, a background task, a shell running a command, an exited chat whose shell ran something (the evidence is in `note-03-restart-window-said-safe-while-a-chat-was-running.md`). Now each thread is judged from the signals below, and "Safe to restart" shows only when afterterm knows every thread is idle (`plan-02-restart-window-and-hook-fixes.md`, Fixes 5 to 10).
+
+### What each row reads
+
+| Signal | Where it comes from | What it decides |
+|---|---|---|
+| Record status (`busy`, `waiting`, `idle`, `shell`) | Claude Code's own session record, read by main every 2 seconds (`claude-session-record.ts`), kept on the tab as `recordStatus`, never saved | `busy` or `waiting` is mid-turn; `shell` is a background task; any status at all means a Claude is alive in the thread |
+| Notification (`working`, `compacting`, `attention`, `background`) | The hook's title | The same two, for a Claude the record cannot see (WSL) or when the record is silent |
+| Prompt marks | OSC 133 through `commandMarks.ts`, kept on the tab as `atPrompt` | Whether a shell with no live Claude is running a command |
+| Child processes | The server watcher's process list, sent as `pty:children`, kept on the tab as `hasChildren` | The same, only for a shell that has produced no marks |
+| Session id | `wakePlan`'s `resumeSessionId` | Whether the thread resumes |
+| Port and last command | `wakePlan`'s `runCommand` | Whether a server runs again |
+
+### The rows
+
+The first rule that applies wins. A warning row is in `--need` yellow.
+
+| Thread | Row | Warns |
+|---|---|---|
+| A Claude mid-turn: record `busy` or `waiting`, or a notification of `working`, `compacting` or `attention`. With or without a session id | "Stops mid-turn" | Yes |
+| A Claude with a background task: record `shell`, or the notification `background` (either alone is enough) | "Background task stops" | Yes |
+| A Claude alive and idle, with a usable session id | "Resumes" | No |
+| A Claude alive and idle, no usable id yet (no message sent) | "Opens in its folder" | No |
+| No Claude, a session id, the shell at its prompt | "Resumes" | No |
+| No Claude, a session id, the shell running a command | "Command stops" (it still resumes afterwards) | Yes |
+| No Claude, a session id, the shell's state unknown | "Resumes", counted as unknown | No |
+| No Claude, no id, a port and a command that runs again | "Runs again on :5173" | No |
+| No Claude, no id, running any other command | "Command stops" | Yes |
+| No Claude, no id, at its prompt | "Opens in its folder" | No |
+| No Claude, no id, no marks and no child process | "Opens in its folder", counted as unknown | No |
+
+Notes on the rows:
+
+- Mid-turn wins over a background task: the turn is the bigger loss. A notification counts even when no record is read, since a hook only fires from a live Claude.
+- The background rule keeps its "or" on purpose. The hook's hourglass also covers background agents and session crons, which the record was never seen to report as `shell`, so letting an idle record overrule it would call a restart safe while a background agent runs. The cost is a stale hourglass (it stays until the thread is looked at) warning after its task has ended.
+- A thread with a live Claude is never judged by its shell: the prompt marks say "not at the prompt" the whole time Claude is open. A Claude with a server in its tree reads "Resumes" or "Opens in its folder", not "Runs again", because its last command is `claude`, and running that again would start a new Claude and not the server.
+- A chat that was exited stays a chat (Aryan, 2026-11-07, Decision 3): it keeps its session id, reads "Resumes" at a prompt and "Command stops" while its shell runs something, and it resumes either way after the restart.
+- "Runs again" applies even while the shell is busy, since the server is that running command and running it again is what the wake is for.
+
+### Whether a shell is running a command
+
+`shellBusy` in `update-check.ts`: `atPrompt` false is busy, true is at the prompt. Only when the thread has produced no marks at all (`atPrompt` absent: integration opted out, or a shell that never emits one) does `hasChildren` count, and only a yes counts: no child, or a process list too old to say, is unknown and never safe. The prompt marks come first because a child process misses a shell's built-ins: PowerShell's `Start-Sleep` runs inside the shell. How `atPrompt` is kept, including a pasted line and a command afterterm types itself, is in `docs/features-shell-integration.md`.
+
+Limits, all seen in the 2026-11-07 live test:
+
+- With no marks, the child process list is cached by main for up to a minute, so with the window closed a short command may never be seen. Opening the window asks for a fresh list, and the row changes within about 3 seconds.
+- A WSL shell's processes are not in the Windows tree, so a WSL thread with no marks is unknown, and a WSL chat has no record, so it stays on the hooks alone.
+- cmd with echo on draws its prompt, marks included, before every line of a batch file run without `@echo off`, so such a run reads as at the prompt.
+
+### The status line
+
+| Rows | Status line |
 |---|---|
-| A chat whose session can be resumed (`wakePlan` gives a `resumeSessionId`) | "Resumes" |
-| The same chat while its spinner is on (notification `working` or `compacting`) or while it waits on a permission prompt (`attention`, the bell); `isMidTurn` | "Stops mid-turn", in `--need` yellow |
-| A server whose last command runs again on wake (`wakePlan` gives a `runCommand`) | "Runs again on :5173" |
-| Anything else | "Opens in its folder" |
+| Nothing warns and nothing is unknown | "Safe to restart" (soft green, a check) |
+| Only chats that stop mid-turn warn | "1 chat stops mid-turn" / "2 chats stop mid-turn" (yellow, a bell) |
+| Any other warning | "1 thread is busy" / "2 threads are busy" (yellow, a bell), counting every row that warns |
+| Nothing warns but something is unknown | No status line at all; the spacer keeps the buttons where they were |
 
-The status line: "Safe to restart" (soft green, a check) or "1 chat stops mid-turn" / "2 chats stop mid-turn" (yellow, a bell). The rows follow the threads live while the window is open.
+The footer carries `data-status` (`safe`, `warn` or `none`) and each row `data-outcome` and, for an unknown one, `data-unknown`, for a tester.
 
-**What "Stops mid-turn" means** (for docs, not the screen): afterterm resumes that chat itself with `claude --resume`, but Claude does not finish the reply it was in the middle of, and a permission prompt it was waiting on is gone; the user sends that message again.
+**What "Stops mid-turn" means** (for docs, not the screen): afterterm resumes that chat itself with `claude --resume`, but Claude does not finish the reply it was in the middle of, and a permission prompt or question it was waiting on is gone; the user sends that message again.
 
-A chat waiting on a permission prompt counts as mid-turn too (Aryan, 2026-10-30, after the Phase 2 review): its pending tool call is lost the same way.
+A chat waiting on a permission prompt counts as mid-turn too (Aryan, 2026-10-30, after the Phase 2 review): its pending tool call is lost the same way. Since 2026-11-07 the record's `waiting` status also covers a question, and it arrives within a second, where the hook's needs-you state took about 7 seconds and left the window calling the chat idle in between.
 
 ## Restart now
 
@@ -144,11 +195,14 @@ Harness (Phase 2 self-test, 2026-10-30, captures in `docs/screenshots/auto-updat
 3. Selectors: `[data-update-button]` (with the phase as its value), `[data-update-notice]`, `[data-whats-new]`, `[data-version-button]`, `[data-about-row]` (the row's state), `[data-about-notes]`, `[data-auto-switch]`, `[data-restart-rows]` (rows carry `data-outcome`), `[data-restart-now]`, `[data-updated-pill]`.
 4. Hooks on `window.__afterterm`: `update()` (the state), `wake(id)`, and `setNotification(id, 'working')` to put a chat mid-turn (the spinner logic clears it after 2.5 seconds of silence, so hold it with an interval while capturing).
 5. To make a shell a chat without a real Claude Code session, write `<data-dir>\claude-sessions\<tab>.json` with a made-up UUID, as the hook would.
+   Since 2026-11-07 `window.__afterterm.tab(id)` also shows a thread's `recordStatus`, `atPrompt` and `hasChildren`, and a test that runs a real Claude Code under a scratch `CLAUDE_CONFIG_DIR` points the record reader at the real folders with `AFTERTERM_CLAUDE_SESSIONS_DIR` and `AFTERTERM_CLAUDE_PROJECTS_DIR` (read only; see `docs/features-claude-session-resume.md`).
 6. The launch after an update: seed `--session` with `wakeAfterUpdate` and `--prefs` with a `pendingUpdate` whose `to` is the dev build's version.
 
 What was checked: the button and the notice, What's new folding open, the download with progress in the button and the notice, the ready state, the restart window with a chat mid-turn and with nothing busy (the rows update live), Restart now refused in a dev build without writing anything, the About window at 375px in every state (ready, What's new open 583px and shut again, found, downloading, newest version), the checksum refusal deleting the file, Later (24 hours in prefs), Skip (still hidden after a new check, shown in About), the switch writing prefs, the GitHub link, the after-update launch (workspace, the server thread active, exactly the listed threads awake, a server running its command again, the pill, What's new), and a normal launch with a leftover `wakeAfterUpdate` (everything asleep, Home, no pill). The sandbox installer was built once to prove Setup compiles.
 
 Phase 3 (2026-10-31, captures and recordings in `docs/screenshots/auto-update-phase-3/`): the test build installed for real and updated twice from inside the app (0.10.0 to 0.11.0 to 0.12.0) through a local feed, driven over CDP (`AFTERTERM_REMOTE_DEBUG_PORT`, which Setup passes on to the reopened app with the rest of the environment) and Setup's window through UI Automation. Checked: the installed-copy check (and a real GitHub check finding nothing for the test build), the checksum refusal, the verified download, the restart window, the quit, Setup's update window, the version in Settings > Apps, the shortcuts unchanged, the reopen on the same thread with the awake threads woken and the pill, and a plain reinstall waking nothing. It found the two bugs fixed above (the install folder's registry key, Setup's window opening behind). The test scripts lived in the session's scratchpad: start the installed exe through WMI with `ShowWindow = 1` (the harness's `spawnViaWmi` hides it, which suits only the dev build's wrapper), and write a `harness.json` with the port so `drive.mjs --data-dir` works.
+
+Restart window and hook fixes (2026-11-07, captures and recordings in `docs/screenshots/restart-window-and-hook-fixes/`, results in its README): the dev build, real Claude Code 2.1.319 on Haiku, a test feed offering 0.99.0. Every row of the plan passed (chat with and without hooks mid-reply, a reply paused for 4 seconds, cmd, PowerShell 7 and Git Bash running commands, a background task, an exited chat, a question and a permission prompt, idle threads, a chat with no hook-saved id waking by `claude --resume`, a chat that started a dev server), except WSL, which is not installed. A dev build refuses Restart now, so Sleep then Wake stood in for the restart; a real update restart on the installed test build (`npm run installer -- --sandbox`) is the one stage left.
 
 ## Not in this round
 
