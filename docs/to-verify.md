@@ -47,8 +47,10 @@ Self-tested in the dev build through the harness on 2026-11-07 with real Claude 
 3. Within about 5 seconds the entries are back in the file, and a chat that was open gets its working and done states again on its next message. If you turn Claude notifications off in `prefs.json` first, they stay gone.
 
 ### Real update restart on the installed test build
-**Status:** result to be added
-A real update restart where a chat with no hook-saved session id comes back resumed. A dev build refuses Restart now, so only the installed test build proves it. Result to be added.
+**Status:** passed in the self-test, waiting for Aryan
+On 2026-11-07 the "afterterm (test)" copy was installed at 0.15.0 (this branch's build). A chat was started with `--setting-sources local` (no hooks, so no hook-saved id) and answered one prompt. The restart window read **Resumes** and **Safe to restart**, **Restart now** updated it to 0.16.0, and the reopened app typed `claude --resume` with the same session id in the chat's folder. Captures 20-sandbox-05, 06, 09 and 10 and the two 20-sandbox recordings are in `docs/screenshots/restart-window-and-hook-fixes/`.
+1. When the next real update arrives, have a chat that never ran its hooks open (start one with `claude --setting-sources local` and send a message).
+2. Press **Restart to update** and then **Restart now**: after the restart the chat still shows the chat icon and comes back resumed, not as a plain terminal.
 
 ---
 
