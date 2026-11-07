@@ -354,6 +354,34 @@ console.log('\nreconcileClaudeHook tests\n');
   check('empty key: events that held only ours are gone', !('Stop' in s.hooks) && !('SessionStart' in s.hooks));
 }
 
+// 15d. The same in command mode (claudeHookMode "command" in prefs): afterterm's hook
+//      then carries the script's name inside a -Command text, and the opt-out still
+//      removes only that hook from a group shared with another tool.
+{
+  const b = sandbox();
+  fs.writeFileSync(b.prefsPath, JSON.stringify({ claudeNotifications: 'enabled', claudeHookToastShown: true, claudeHookMode: 'command' }), 'utf-8');
+  reconcileClaudeHook(opts(b)); // registers in command mode
+  const s0 = readSettings(b.claudeDir);
+  const theirs = { type: 'command', command: 'pwsh', args: ['-File', 'C:\\mine\\my-hook.ps1'] };
+  const shared = groupsFor(s0, 'Stop')[0];
+  const wasCommandMode = shared.hooks[0].args[1] === '-Command';
+  shared.hooks.push(theirs); // the other tool's hook shares afterterm's group
+  fs.writeFileSync(path.join(b.claudeDir, 'settings.json'), JSON.stringify(s0, null, 2), 'utf-8');
+  fs.writeFileSync(b.prefsPath, JSON.stringify({ claudeNotifications: 'disabled', claudeHookToastShown: true, claudeHookMode: 'command' }), 'utf-8');
+  const r = reconcileClaudeHook(opts(b));
+  const s = readSettings(b.claudeDir);
+  check('command mode, shared group: the entry really was in command mode', wasCommandMode);
+  check('command mode, shared group: the opt-out removed ours', r.status === 'removed' && r.changed, r.status);
+  check('command mode, shared group: afterterm\'s hook is gone from every event',
+    ['SessionStart', 'UserPromptSubmit', 'Notification', 'Stop', 'PreCompact'].every((e) => !hasOurEntry(s, e)) &&
+    !JSON.stringify(s).includes(HOOK_SCRIPT_NAME));
+  check('command mode, shared group: the other tool\'s hook is kept, the group keeps its matcher',
+    groupsFor(s, 'Stop').length === 1 &&
+    JSON.stringify(groupsFor(s, 'Stop')[0].hooks) === JSON.stringify([theirs]) &&
+    groupsFor(s, 'Stop')[0].matcher === '',
+    JSON.stringify(groupsFor(s, 'Stop')));
+}
+
 // 16. A test launch leaves the Claude folder alone (hookReconcileAllowed): reconcile
 //     may run unless AFTERTERM_USER_DATA_DIR is set without CLAUDE_CONFIG_DIR.
 {

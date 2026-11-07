@@ -41,7 +41,8 @@ if (opts.help) {
                         --env with several pairs separated by ";"). Cannot override
                         AFTERTERM_USER_DATA_DIR, AFTERTERM_DISPLAY,
                         AFTERTERM_REMOTE_DEBUG_PORT, AFTERTERM_HARNESS or
-                        AFTERTERM_OPEN_EXTERNAL
+                        AFTERTERM_OPEN_EXTERNAL. An inherited CLAUDE_CONFIG_DIR is
+                        dropped, so only --env sets it
   --open-external     let "Open localhost:port" and "Open in File Explorer" really open
                         a browser or an Explorer window (sets AFTERTERM_OPEN_EXTERNAL=1).
                         Off by default: a harness run only logs them, so nothing lands on

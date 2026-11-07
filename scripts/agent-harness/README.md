@@ -164,12 +164,15 @@ or the same thing as one flag:
 npm run harness -- --session "$env:TEMP\session-copy.json" --env "USERPROFILE=$env:TEMP\afterterm-scratch-home;HOME=$env:TEMP\afterterm-scratch-home"
 ```
 
-A scratch `USERPROFILE` or `HOME` only changes what the shells inside the app
-read: their profiles and rc files. It does **not** move the Claude folder.
-Electron's `app.getPath('home')` ignores both variables on Windows (tested on
-Electron 35.7.5, 2026-11-07: with both set to a scratch folder it still returned
-the real home), so afterterm still looks for Claude Code's settings in the real
-`~/.claude`. Only `CLAUDE_CONFIG_DIR` redirects the Claude folder
+A scratch `USERPROFILE` or `HOME` means two different things inside one run.
+Afterterm's own lookup ignores it: Electron's `app.getPath('home')` ignores both
+variables on Windows (tested on Electron 35.7.5, 2026-11-07: with both set to a
+scratch folder it still returned the real home), so afterterm still looks for
+Claude Code's settings in the real `~/.claude`. Everything started inside the app
+follows it: the shells read their profiles and rc files from it, and a `claude` in a
+thread follows `USERPROFILE` too (Node's `os.homedir()` does on Windows, verified
+2026-11-07), so it looks in `<scratch home>\.claude`, which has no hooks and no
+login. Only `CLAUDE_CONFIG_DIR` redirects the Claude folder for both
 (`--env CLAUDE_CONFIG_DIR=<scratch folder>`, and create the folder first: with no
 folder the hook install skips).
 
@@ -181,13 +184,15 @@ skipped: ...` line. So afterterm itself writes nothing to the real `~/.claude` i
 such a run, with or without a scratch home. A `claude` started inside a thread is
 a separate program: it still writes its own transcripts and records to whatever
 Claude folder it sees. With a scratch `CLAUDE_CONFIG_DIR` it inherits that folder
-and needs its own login; with no `CLAUDE_CONFIG_DIR`, the chats in the run use the
-production app's copy of the hook script, not this branch's. Pass a scratch
-`CLAUDE_CONFIG_DIR` when the test needs the hook installed.
+and needs its own login. With a scratch home and no `CLAUDE_CONFIG_DIR` it looks in
+`<scratch home>\.claude` (see above). Only with neither does it see the real
+Claude folder, and then the chats in the run use the production app's copy of the
+hook script, not this branch's. Pass a scratch `CLAUDE_CONFIG_DIR` when the test
+needs the hook installed.
 
 A `CLAUDE_CONFIG_DIR` set in the launching shell is dropped, like the Claude Code
-session variables above, so the dev build never sees the real Claude folder by
-accident. Only `--env CLAUDE_CONFIG_DIR=<folder>` sets it.
+session variables above, so the hook install, and a seeded opt-out, never reach
+the real Claude folder by accident. Only `--env CLAUDE_CONFIG_DIR=<folder>` sets it.
 
 ```powershell
 New-Item -ItemType Directory -Force "$env:TEMP\afterterm-scratch-claude" | Out-Null
@@ -196,7 +201,7 @@ npm run harness -- --session "$env:TEMP\session-copy.json" --env "CLAUDE_CONFIG_
 
 **Never seed `claudeNotifications: "disabled"` in a throwaway `prefs.json`
 (`--prefs`, or by hand) unless the same launch also passes a scratch
-`CLAUDE_CONFIG_DIR`.** The hook tests do exactly that, on purpose. The opt-out is
+`CLAUDE_CONFIG_DIR`.** The hook tests seed it that way, on purpose. The opt-out is
 read from the throwaway profile and carried out on whatever Claude folder the app
 sees, and a build older than the launch guard above (0.15.0 and earlier) sees the
 real one whenever `CLAUDE_CONFIG_DIR` is unset. On 2026-11-06 a smoke test of the
