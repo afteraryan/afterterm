@@ -30,8 +30,8 @@ The issues are in workspace "afteraryan builds", team `Afteraryan builds` (key A
 3. **While you work, keep it true.** Add a comment of a sentence or two at each new stage: cause found, plan agreed, PR opened, self-test passed. Change the status the moment it stops being true; do not leave it all for the end.
 4. **If you are blocked on Aryan,** move it to Needs your decision and put the question in a comment.
 5. **If you stop before it is finished** (paused, handed off, session ending), comment where it stands and what is next. If nobody will carry on, move it back to Todo.
-6. **When it is finished and self-tested,** move it to Fixed, check it, with a comment: what changed, the PR, where he can try it (a release or a replica dev build), and numbered steps to check it. He is never asked to try half-built work.
-7. **Only Aryan moves an issue to Done.** If he says it does not work, move it back to Todo with his words in a comment.
+6. **When it ships, move it to Done.** Shipped means its PR is merged after the self-test, or the change is made when there is no PR. Comment with what changed and the PR. Nobody checks it again. A PR waiting for Aryan to merge it is blocked on him (rule 4), with the PR in the comment. Only when something needs his own judgement (how it looks, his own hardware or accounts), move it to Fixed, check it instead, with numbered steps to check it. He is never asked to try half-built work. Work that is dropped goes to Canceled, with the reason.
+7. **A problem found after Done is a new issue,** linked to the old one with `relatedTo`. If Aryan says something in Fixed, check it does not work, move it back to Todo with his words in a comment.
 8. **One session per issue.** In Progress with a recent comment means someone is on it: ask before taking it. A subagent gets the issue id in its prompt; the session that started the work keeps the issue current.
 
 | Status | What it means |
@@ -40,8 +40,8 @@ The issues are in workspace "afteraryan builds", team `Afteraryan builds` (key A
 | Needs your decision | Nobody can start until Aryan decides or designs something |
 | Todo | Ready to start |
 | In Progress | An agent is working on it now |
-| Fixed, check it | Finished and self-tested, waiting for Aryan to try it |
-| Done | Aryan has checked it |
+| Fixed, check it | Finished, but waiting for something only Aryan can judge (rare) |
+| Done | Shipped: merged after the self-test |
 | Canceled, Duplicate | Not being done |
 
 **A new issue has:** project `afterterm`; a short, plain title; priority 2 (something lost or broken), 3 (a feature misbehaves) or 4 (cosmetic or a request); a `Bug` or `Feature` label; and one label from the Area group: Sidebar, Rail, Terminal, File links, Thread states, Threads, Projects, Install and updates, Notifications, Home, Sleep and restore, App window, Agent workflow. If none fits, add one to the group and tell Aryan.
@@ -448,7 +448,7 @@ Procedures an agent follows while working on this repo (not product docs, not re
 - `docs/guide-02-releases.md` — versioning (semver) + how to cut a tagged, version-stamped release (`npm run release`)
 - `docs/ideas.md` — feature ideas backlog
 - `docs/bugs.md`: the list of open bugs up to 2026-11-07. Frozen for the Linear trial: open bugs are issues in Linear now (see "All work is tracked in Linear"). Platform constraints are under Known Limitations above.
-- `docs/to-verify.md`: changes that reached Aryan's build before 2026-11-07 and are still waiting for him to check them, each with how to check it. New changes wait in Linear's Fixed, check it status instead.
+- `docs/to-verify.md`: changes that reached Aryan's build before 2026-11-07 and are still waiting for him to check them, each with how to check it. New changes are tracked on their Linear issue instead.
 - `docs/bugs-fixed.md`: bugs fixed up to 2026-11-07, newest first, with the PR each landed in. Frozen for the Linear trial: a fixed issue's comment in Linear and `CHANGELOG.md`'s Fixed list carry this now.
 - `docs/note-01-duplicate-notifications-dispatcher.md` — why both the Windows popup and the overlay fired inside afterterm, and the settings.json dispatcher fix (incl. a TODO to make the self-install hook use the same approach)
 - `docs/features-projects-and-threads.md`: the full record of Phases 0 to 4 (Home, projects, the project page, thread identity, sleep and wake, history, the tail), moved out of CLAUDE.md on 2026-09-20
