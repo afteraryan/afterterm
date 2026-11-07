@@ -677,3 +677,129 @@ This is a feature request, not a defect. There is no button or setting that make
 3. When **Update available** appears beside the version number, the download starts only after clicking it and then **Update**.
 
 **Evidence:** Only the description above. Aryan's words: "There should be a button to auto-download updates. There has to be a configurator in it where I can suggest auto-downloading updates or some shit."
+
+---
+
+## Update can install a newer version than the notice offered without saying so
+
+**Observed:** 2026-11-06 by Aryan during manual testing · **Phase:** none of the numbered phases (the automatic updates round, released as 0.11.0; Update downloading the newest release is from 0.12.1) · **Status:** open · **Severity:** medium (the update works, but the app installs a version it did not offer and does not say so) · **Screenshot:** none attached
+
+**What happens:**
+On version 13 the notice offers version 14. If version 15 has come out since the last check, pressing **Update** downloads and installs 15, and nothing says the version changed. The notice closes on the press and the title bar shows "Downloading 40%" with no version number. The only place 15 appears is the notice, if it is opened again: "Downloading afterterm 15".
+
+A second case with the same silence: with 14 already downloaded and the button showing **Restart to update**, the next check after 15 comes out turns the button back into **Update available**, with no message, and 15 has to be downloaded.
+
+Aryan expects this to be transparent: pressing **Update** should first say that a newer version than the one offered exists, and then update. What it should say and do is still to be decided with Aryan, as part of the whole update experience.
+
+**Steps to make it happen again:**
+1. In an installed afterterm, wait for **Update available** to offer the next version.
+2. Let a newer release come out before pressing anything.
+3. Click **Update available**, then **Update**. The title bar shows the download's percentage with no version.
+4. Click the title bar button: the notice names the newer version, and nothing says it is not the one offered.
+
+**Evidence:** Aryan's words: "if I'm on version 13 and I see there is an update for version 14, but at the backend there is an update for version 15 ... when I update version 13 to 14, it actually does update to 15, right? I want this to be more transparent. When I click on Update, it should first check, 'Hey, even for 13, there is another newer 15,' and then you update it, right? We'll have to decide and discuss the entire user experience with this." What the app does was read from the source on `main` (19b6129) on 2026-11-06, not tried in the running app. `docs/features-updates.md` records the switch to the newer version being tested on 2026-11-01 with a test feed (`docs/screenshots/update-download-latest/`). The **Restart to update** case comes from the source only and has not been run.
+
+---
+
+## What's new shows only the newest release when an update skips versions
+
+**Observed:** 2026-11-06 by Aryan during manual testing · **Phase:** none of the numbered phases (the automatic updates round, released as 0.11.0) · **Status:** open · **Severity:** low (a feature request: nothing is broken or lost) · **Screenshot:** none attached
+
+**What happens:**
+What's new shows the notes of one release only, the version being installed. Going from 13 to 15, the notes for 14 are never shown, before the update or after it.
+
+Aryan wants the notes shown cumulatively: the version you are on, and all the release notes from that version to the new one. How that should work is still to be decided with Aryan.
+
+**Steps to make it happen again:**
+1. In an installed afterterm that is two or more releases behind, click **Update available**.
+2. Open **What's new** in the notice: only the newest release's notes are there.
+3. Update and restart, then open What's new from the "Updated to" pill: again only that one release's notes.
+
+**Evidence:** Aryan's words: "maybe we have to cumulatively show: you're on this version, and in all these versions, these are all the release notes from this to this. I am not sure how it will work, but we need to do that too." What the app does was read from the source on `main` (19b6129) on 2026-11-06, not tried in the running app.
+
+---
+
+## Restart window says "Safe to restart" while a chat is in the middle of a reply
+
+**Observed:** 2026-11-06 by Aryan during manual testing · **Phase:** none of the numbered phases (the automatic updates round, released as 0.11.0; the restart window is from that round's Phase 2) · **Status:** open · **Severity:** high (the window calls a restart safe when it would stop a running reply, and that chat is not one of the ones that resume) · **Screenshot:** `docs/screenshots/manual-testing/22-restart-window-says-safe-to-restart-while-a-chat-is-running.png`
+
+**What happens:**
+On 0.13.0, with a chat still working, clicking **Restart to update** opened "Restart afterterm to update?" with a green "Safe to restart" at the bottom. The working chat was listed with a shell icon and "Opens in its folder", not as a chat and not as "Stops mid-turn". Aryan expects the window not to call the restart safe while a thread is still running. After the restart that chat came back as a plain terminal, and Aryan had to start Claude and resume it by hand.
+
+Tested on 0.15.0 on 2026-11-07: the window also says "Safe to restart" for a chat that stalled mid-reply, a shell running a long command, and a chat with a background task running. A thread whose Claude has exited reads "Resumes" while its shell runs a command.
+
+**Steps to make it happen again:**
+With **Restart to update** showing, have one of these running, then click the button:
+1. A chat started with `claude --setting-sources local` (no hooks), in the middle of a reply: shell icon, "Opens in its folder", "Safe to restart".
+2. A shell running `ping -n 120 127.0.0.1`, or `Start-Sleep -Seconds 90` in PowerShell: "Opens in its folder", "Safe to restart".
+3. A chat whose turn ended with a background task still running: "Resumes", "Safe to restart".
+4. A chat where you ran `/exit`, then a long command in the same shell: "Resumes".
+
+**Evidence:** Aryan's words: "Literally, a thread was running. It was not over, but when I clicked on the 'Restart to update' button, it showed me that it's safe to update." The screenshot, taken at 14:39, shows v0.13.0 and the window listing Latest resume version (Resumes), Hidden version 15 update jump (shell icon, Opens in its folder) and Project colour picker bug record (Resumes), with "Safe to restart" below them. Behind the window, Hidden version 15 update jump is the open thread and Claude Code in it reads "Whirring... (1m 17s". Saved record of that thread at 14:42 (`tab-321`): `claudeTitle` "Hidden version 15 update jump", title "◐ Hidden version 15 update jump", no `claudeSessionId`.
+
+**Diagnosis, test results and the fixes needed:** written up, at Aryan's request, in [`docs/note-03-restart-window-said-safe-while-a-chat-was-running.md`](note-03-restart-window-said-safe-while-a-chat-was-running.md). Captures and recordings of the tests: `docs/screenshots/restart-window-hypothesis-test/`. The build brief with Aryan's decisions, handed off and not built yet: [`docs/plan-02-restart-window-and-hook-fixes.md`](plan-02-restart-window-and-hook-fixes.md).
+
+---
+
+## Starting afterterm with a throwaway profile can remove its hooks from the real Claude Code settings
+
+**Observed:** 2026-11-06 while working out the entry above, at Aryan's request · **Phase:** none of the numbered phases (the self-installed notification hook) · **Status:** open · **Severity:** high (until the next normal launch, chats show no working, needs-you or done state, send no toasts and do not save their session id) · **Screenshot:** none attached
+
+**What happens:**
+A build started with `AFTERTERM_USER_DATA_DIR` pointing at a throwaway folder, whose `prefs.json` says `"claudeNotifications": "disabled"`, removes afterterm's hook entries from the user's real `~/.claude/settings.json`. Chats already running lose their hooks as well as new ones. The app that is running does not notice.
+
+**Steps to make it happen again:**
+Set `CLAUDE_CONFIG_DIR` to a scratch copy of the Claude folder, or this changes the real settings. A scratch `USERPROFILE` or `HOME` does not protect them.
+1. Make a folder with a `prefs.json` holding `{"claudeNotifications":"disabled"}`.
+2. Start any afterterm build with `AFTERTERM_USER_DATA_DIR` set to that folder.
+3. Open `settings.json` in the scratch Claude folder: about a second after launch its afterterm entries are gone, and `"hooks"` is `{}` if they were the only ones.
+
+**Evidence:** On Aryan's machine on 2026-11-06, the Claude Code session cutting the 0.15.0 release started the packaged build this way at 14:35:50 for a smoke test. The throwaway `prefs.json` and the real `settings.json` were both last written at 14:35:52, and `settings.json` holds `"hooks": {}`. That session's turn ended at 14:37:02 with no Stop hook record, its previous one being at 14:34:16; a session started at 14:37:55 has no hook records at all. The hooks came back at 12:08:57 on 2026-11-07, one second after Aryan restarted afterterm, 21 hours 33 minutes later. The steps above were run on 2026-11-07 with the exact exe from the incident and a scratch Claude folder. In the main session transcripts changed since 2026-10-01, 1,012 of 1,018 finished turns from 2026-10-15 to 2026-11-05 have a Stop hook record, and the three turns finished on 2026-11-06 after 14:35:52 have none. The full record is in [`docs/note-03-restart-window-said-safe-while-a-chat-was-running.md`](note-03-restart-window-said-safe-while-a-chat-was-running.md).
+
+---
+
+## Turning Claude notifications off also deletes another tool's hook that shares a group with afterterm's
+
+**Observed:** 2026-11-07 while testing the entry above, at Aryan's request · **Phase:** none of the numbered phases (the self-installed notification hook) · **Status:** open · **Severity:** medium (another tool's hook is lost and is not restored when notifications are turned back on; Aryan's own settings had no such hook) · **Screenshot:** none attached
+
+**What happens:**
+With `claudeNotifications` set to `"disabled"`, a launch removes every hook group holding an afterterm hook, including any other hook in that same group. A hook in its own group survives. Turning notifications back on restores only afterterm's entries.
+
+**Steps to make it happen again:**
+Use a scratch `CLAUDE_CONFIG_DIR`.
+1. In its `settings.json`, add a second hook to the group that holds afterterm's `UserPromptSubmit` entry.
+2. Start afterterm with `"claudeNotifications":"disabled"` in `prefs.json`: the second hook is gone.
+3. Start it again with notifications on: afterterm's entry returns, the second hook does not.
+
+**Evidence:** Run on 2026-11-07 with the 0.15.0 exe: the hook named `someone-elses-hook-same-group` was deleted, and `someone-elses-hook-own-group` stayed. Recorded in [`docs/note-03-restart-window-said-safe-while-a-chat-was-running.md`](note-03-restart-window-said-safe-while-a-chat-was-running.md).
+
+---
+
+## The harness README says a scratch home keeps a run away from the real Claude settings, and it does not
+
+**Observed:** 2026-11-07 while testing the entries above, at Aryan's request · **Phase:** none of the numbered phases (the agent harness, Phase 6's scratch home section) · **Status:** open · **Severity:** high (an agent trusting this and seeding the opt-out would remove the real hooks) · **Screenshot:** none attached
+
+**What happens:**
+`scripts/agent-harness/README.md` says a run with a scratch `USERPROFILE` and `HOME` "never touches the real `~/.claude/hooks` or `~/.claude/settings.json`". A launch set up that way still works on the real Claude folder. Only `CLAUDE_CONFIG_DIR` keeps a run away from it.
+
+**Steps to make it happen again:**
+1. Start Electron with `USERPROFILE` and `HOME` set to a scratch folder and print `app.getPath('home')`: it returns the real home.
+2. Or start afterterm the same way, with a `settings.json` in `<scratch>\.claude`, no opt-out: that file is left untouched while prefs show the install ran.
+
+**Evidence:** Run on 2026-11-07: Electron 35.7.5 returned `C:\Users\Aryan` with both variables pointing at the scratch folder. Recorded in [`docs/note-03-restart-window-said-safe-while-a-chat-was-running.md`](note-03-restart-window-said-safe-while-a-chat-was-running.md).
+
+---
+
+## A long link in a chat message that runs onto a second row does not open when clicked
+
+**Observed:** 2026-11-07 by Aryan during manual testing · **Phase:** pre-existing (clickable links in terminal output) · **Status:** open · **Severity:** medium (a link in a chat cannot be opened by clicking it) · **Screenshot:** none kept (the one Aryan sent also showed a video call, so at his request it is not in the repo)
+
+**What happens:**
+A link in Claude Code's last message is divided into two lines, and clicking on it does not open it.
+
+**Steps to make it happen again:**
+1. In a chat, have Claude Code print a link too long to fit on one row of the terminal, so that it carries on in the next row.
+2. Click the link.
+3. It does not open.
+
+**Evidence:** Aryan's words: "the link in the last message is divided into 2 lines and hence clicking on it doesn't open it". The screenshot he sent showed the thread Linear in the project afterterm, on Opus 5.5 and the branch `manual-testing-fixes`. Its last message, from the turn marked "done 12:35 PM", had the line "Sign in to Linear (https://linear.app/authorize?response_type=code...". The first row of the link ended in `&co` and the second row started with `de_challenge_method=S256`.
