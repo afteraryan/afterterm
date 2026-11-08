@@ -1,0 +1,71 @@
+== Row 1a: click header worktree item (tab-1: cwd=project root, claudeCwd=<worktree>\src\renderer)
+hovered [data-meta='worktree'][0] at (780, 71) of 1 match(es), waited 500ms
+"Open in File Explorer | disabled=false"
+clicked [data-meta='worktree'][0] at (780, 71) of 1 match(es)
+(nothing opened)
+folder: D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+editor: (none opened)
+file: (none opened)
+reveal: (none)
+-- harness.log:
+[harness] projects:openInExplorer D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+
+== Row 1b: click header editor button
+hovered [data-action='editor'][0] at (1205, 60) of 1 match(es), waited 500ms
+"Open in VS Code"
+clicked [data-action='editor'][0] at (1205, 60) of 1 match(es)
+(nothing opened)
+folder: D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+editor: vscode:c:\users\aryan\appdata\local\programs\microsoft vs code\code.exe D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+file: (none opened)
+reveal: (none)
+-- harness.log:
+[harness] projects:openInExplorer D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+[harness] editors:open VS Code D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+
+== Row 1c: sidebar menu on tab-1: Open in File Explorer (log lines before: 2)
+clicked .ctx-menu-item[4] at (308, 381) of 8 match(es)
+(nothing opened)
+folder: D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+editor: vscode:c:\users\aryan\appdata\local\programs\microsoft vs code\code.exe D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+file: (none opened)
+reveal: (none)
+-- harness.log (now 3 lines):
+[harness] projects:openInExplorer D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+[harness] editors:open VS Code D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+[harness] projects:openInExplorer D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+
+== Row 1d: sidebar menu on tab-1: Open in VS Code
+right-clicked .side-panel .th[0] at (208, 208) of 5 match(es)
+clicked .ctx-menu-item[5] at (308, 418) of 8 match(es)
+(nothing opened)
+folder: D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+editor: vscode:c:\users\aryan\appdata\local\programs\microsoft vs code\code.exe D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+file: (none opened)
+reveal: (none)
+-- harness.log (now 4 lines):
+[harness] projects:openInExplorer D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+[harness] editors:open VS Code D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+[harness] projects:openInExplorer D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+[harness] editors:open VS Code D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+7 match(es) for .ctx-menu-item
+[0] <div class="menu-item ctx-menu-item"> Wake
+[1] <div class="menu-item ctx-menu-item"> Mark as unread
+[2] <div class="menu-item ctx-menu-item"> Move to project
+[3] <div class="menu-item ctx-menu-item"> Open project page
+[4] <div class="menu-item ctx-menu-item"> Open in File Explorer
+[5] <div class="menu-item ctx-menu-item"> Rename
+[6] <div class="menu-item ctx-menu-item danger"> Close
+7 match(es) for .menu-item
+[0] <div class="menu-item ctx-menu-item"> Wake
+[1] <div class="menu-item ctx-menu-item"> Mark as unread
+[2] <div class="menu-item ctx-menu-item"> Move to project
+[3] <div class="menu-item ctx-menu-item"> Open project page
+[4] <div class="menu-item ctx-menu-item"> Open in File Explorer
+[5] <div class="menu-item ctx-menu-item"> Rename
+[6] <div class="menu-item ctx-menu-item danger"> Close
+
+== Row 1e: header dots menu on tab-1: Open in File Explorer (log lines before: 4)
+clicked .ctx-menu-item[4] at (1160, 254) of 7 match(es)
+-- harness.log (now 5 lines), last:
+[harness] projects:openInExplorer D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
