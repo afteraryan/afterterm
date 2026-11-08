@@ -1,0 +1,45 @@
+== Row 2a: header's project item on tab-1 (log lines before: 5)
+hovered [data-meta='project'][0] at (411, 71) of 1 match(es), waited 500ms
+"Open in File Explorer"
+clicked [data-meta='project'][0] at (411, 71) of 1 match(es)
+(nothing opened)
+folder: D:\Pitara\Work\Tinkering\afterterm
+editor: vscode:c:\users\aryan\appdata\local\programs\microsoft vs code\code.exe D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+file: (none opened)
+reveal: (none)
+-- harness.log (now 6 lines), last:
+[harness] projects:openInExplorer D:\Pitara\Work\Tinkering\afterterm
+0 match(es) for .ctx-menu-item
+11 match(es) for .ctx-menu-item
+[0] <div class="menu-item ctx-menu-item"> Open
+[1] <div class="menu-item ctx-menu-item"> New thread here
+[2] <div class="menu-item ctx-menu-item"> New thread with shell
+[3] <div class="menu-item ctx-menu-item"> Unpin
+[4] <div class="menu-item ctx-menu-item"> Open project page
+[5] <div class="menu-item ctx-menu-item"> Open in File Explorer
+[6] <div class="menu-item ctx-menu-item"> Open in VS Code
+[7] <div class="menu-item ctx-menu-item"> Edit project
+[8] <div class="menu-item ctx-menu-item"> Archive
+[9] <div class="menu-item ctx-menu-item"> Rename
+[10] <div class="menu-item ctx-menu-item danger"> Delete project
+
+== Row 2b: project menu: Open in File Explorer (log lines before: 6)
+clicked .ctx-menu-item[5] at (310, 383) of 11 match(es)
+(nothing opened)
+folder: D:\Pitara\Work\Tinkering\afterterm
+editor: vscode:c:\users\aryan\appdata\local\programs\microsoft vs code\code.exe D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+file: (none opened)
+reveal: (none)
+-- harness.log (now 7 lines), last:
+[harness] projects:openInExplorer D:\Pitara\Work\Tinkering\afterterm
+
+== Row 2c: project menu: Open in VS Code
+right-clicked .side-panel .pj[0] at (208, 173) of 1 match(es)
+clicked .ctx-menu-item[6] at (310, 420) of 11 match(es)
+(nothing opened)
+folder: D:\Pitara\Work\Tinkering\afterterm
+editor: vscode:c:\users\aryan\appdata\local\programs\microsoft vs code\code.exe D:\Pitara\Work\Tinkering\afterterm
+file: (none opened)
+reveal: (none)
+-- harness.log (now 8 lines), last:
+[harness] editors:open VS Code D:\Pitara\Work\Tinkering\afterterm

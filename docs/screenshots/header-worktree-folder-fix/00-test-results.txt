@@ -1,0 +1,53 @@
+AFT-45: a thread's folder actions open the top of its git working tree
+Harness run, 2026-11-08, secondary display (DISPLAY2, window at x=2240 y=126, checked with drive bounds).
+Fixture: one project "Worktree test project" (folder D:\Pitara\Work\Tinkering\afterterm) with five asleep threads, made-up
+session ids, loaded with --claude-resume all so claudeCwd is kept. Nothing was woken. This worktree is a linked worktree of
+the main checkout, like Aryan's Revy App case.
+
+What each thread's own folder (claudeCwd, else cwd) is, and what the controls opened. "opened" is what `drive opened` read
+back from window.__afterterm, and each line also appears in the harness log as [harness] projects:openInExplorer or
+[harness] editors:open.
+
+1. Chat in a worktree subfolder
+   thread folder : D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder\src\renderer
+   header worktree item -> Explorer : D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+   header editor button -> VS Code  : D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+   sidebar right-click, Open in File Explorer -> D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+   sidebar right-click, Open in VS Code       -> D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+   header project item -> Explorer : D:\Pitara\Work\Tinkering\afterterm   (the project root, unchanged)
+   (before the fix the first four opened the thread folder, ...\src\renderer)
+
+2. Chat at the worktree top
+   header editor button -> VS Code  : D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+
+3. Shell in a subfolder of the main checkout (cwd D:\Pitara\Work\Tinkering\afterterm\src, no worktree item)
+   header editor button -> VS Code  : D:\Pitara\Work\Tinkering\afterterm
+
+4. Shell in a folder with no git (a scratch folder)
+   header editor button -> VS Code  : that scratch folder itself, unchanged
+
+5. Chat whose folder was deleted (claudeCwd ...\worktree-folder\deleted-folder\inner, inside a real worktree)
+   header worktree item : disabled, tip "Folder not found"
+   header editor button : disabled, tip "Folder not found"
+   nothing opened (the guard that keeps a deleted folder from resolving to the worktree above it)
+
+Main process log, in order (8 launches, one per click that opened something):
+[harness] projects:openInExplorer D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+[harness] editors:open VS Code D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+[harness] projects:openInExplorer D:\Pitara\Work\Tinkering\afterterm
+[harness] projects:openInExplorer D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+[harness] editors:open VS Code D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+[harness] editors:open VS Code D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+[harness] editors:open VS Code D:\Pitara\Work\Tinkering\afterterm
+[harness] editors:open VS Code <scratch folder with no git>
+
+Captures
+01-chat-in-worktree-subfolder-header.png         the header of thread 1 (worktree item, editor button)
+02-header-buttons-open-the-worktree-top.mp4      screencast of the clicks (the page changes little, so it is sparse)
+03-chat-in-subfolder-hover-worktree-item.png     the worktree item's "Open in File Explorer" tip
+04-chat-in-subfolder-sidebar-menu.png            thread 1's right-click menu
+05-chat-with-deleted-folder-buttons-disabled.png thread 5, worktree item disabled with "Folder not found"
+06-shell-in-repo-subfolder-header.png            thread 3, editor button tip
+
+Not tested: a live (awake) chat or shell moving into a subfolder (every thread here was asleep and no real Claude Code was
+started); the real Explorer or VS Code launching (the harness only logs them).
