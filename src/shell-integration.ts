@@ -222,11 +222,13 @@ export const BASH_PRECMD_FUNCTION = '__afterterm_precmd';
 // PROMPT_COMMAND again or the bootstrap has not run yet. Each entry goes together
 // with one neighbouring `;` and the spaces round it, wherever it sits (start, middle
 // or end), so what is left still parses; no other `;;` is touched (a `case` branch
-// ends in one). An entry joined to its neighbours by anything but `;` is left as it
-// is. A value with none of afterterm's text is returned as it came.
+// ends in one). An entry has to start the value or follow a `;`, and to end the value
+// or be followed by a `;`; one joined to its neighbours any other way (`a && entry`,
+// `entry || b`, or glued to another word) is left as it is. A value with none of
+// afterterm's text is returned as it came.
 const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const BASH_HOOK_ENTRY = new RegExp(
-  '\\s*;?\\s*(?:' + escapeRegExp(BASH_BOOTSTRAP) + '|' + escapeRegExp(BASH_PRECMD_FUNCTION) + ')\\s*(?=;|$)',
+  '(?:^\\s*|\\s*;\\s*)(?:' + escapeRegExp(BASH_BOOTSTRAP) + '|' + escapeRegExp(BASH_PRECMD_FUNCTION) + ')\\s*(?=;|$)',
   'g',
 );
 export function stripBashHook(promptCommand: string): string {

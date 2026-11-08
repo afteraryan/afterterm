@@ -184,6 +184,14 @@ console.log('\nshell-integration: stripBashHook\n');
   check('a case statement with ;; in it is left intact beside an entry at the start',
     stripBashHook(BASH_BOOTSTRAP + '; ' + caseStmt) === caseStmt);
   check('a case statement alone is returned as it came', stripBashHook(caseStmt) === caseStmt);
+  // An entry joined to its neighbours by anything but a semicolon is left as it came,
+  // since removing only the entry would leave a syntax error.
+  check('an entry joined by && is left untouched',
+    stripBashHook('a && ' + BASH_PRECMD_FUNCTION) === 'a && ' + BASH_PRECMD_FUNCTION);
+  check('an entry joined by || is left untouched',
+    stripBashHook(BASH_PRECMD_FUNCTION + ' || b') === BASH_PRECMD_FUNCTION + ' || b');
+  check('an entry glued to another word is left untouched',
+    stripBashHook('x' + BASH_PRECMD_FUNCTION) === 'x' + BASH_PRECMD_FUNCTION);
 }
 
 console.log('\nshell-integration: appendWslEnv\n');
@@ -362,6 +370,13 @@ console.log('\nshell-integration: planSpawn\n');
     const lowerOn = nested({ shell: cmdShell, env: { ...baseEnv, Prompt: wrapCmdPrompt('$M$P$G') } });
     check('a PROMPT kept under another letter case is wrapped once, with no second key',
       lowerOn.env.Prompt === wrapCmdPrompt('$M$P$G') && lowerOn.env.PROMPT === undefined, show(lowerOn.env));
+    // Not nested too: before the fix a second key PROMPT was added beside Prompt, so two
+    // variables differing only in letter case reached the shell. Now the wrap goes on the
+    // key already there, for every launch.
+    const lowerNotNested = plan({ shell: cmdShell, env: { ...baseEnv, Prompt: '$M$P$G' } });
+    check('not nested, a PROMPT kept under another letter case is wrapped under that key, with no second key',
+      lowerNotNested.env.Prompt === wrapCmdPrompt('$M$P$G') && lowerNotNested.env.PROMPT === undefined,
+      show(lowerNotNested.env));
   }
 
   // ── the same inherited integration, for every other shell ──

@@ -5,7 +5,9 @@ const fixedPath = process.argv[2], basePath = process.argv[3];
 const fixed = await import(pathToFileURL(fixedPath).href);
 const base = await import(pathToFileURL(basePath).href);
 const cmd = { id: 'cmd', command: 'cmd.exe', args: [] };
-const plan = (m, env, prefs) => m.planSpawn({ shell: cmd, cwd: undefined, home: 'C:\\', env, prefs, dirExists: () => false });
+// inheritedFromAfterterm: the fixed planner strips an inherited prompt only when afterterm was started
+// from an afterterm thread (main.ts: process.env.AFTERTERM === '1'); the baseline planner ignores it.
+const plan = (m, env, prefs) => m.planSpawn({ shell: cmd, cwd: undefined, home: 'C:\\', env, prefs, dirExists: () => false, inheritedFromAfterterm: true });
 const OFF = { shellIntegration: { cmd: 'off' } };
 const marked = (v) => fixed.wrapCmdPrompt(v);
 const cases = {
