@@ -130,10 +130,12 @@ Options:
 
 `--env AFTERTERM_NOTIFY_STATE=<state or file>` (dev builds only) replaces the question
 the toast hold asks Windows before a toast shows (AFT-72, `docs/features-notifications.md`):
-a state's name (`busy`, `fullscreen` and `presentation` hold the toasts; `accepts`,
-`unknown` and the rest show them), or the path of a file holding one, read on every
+a state's name (`busy`, `fullscreen`, `presentation` and `window-fullscreen` hold the
+toasts; `accepts`, `unknown` and the rest show them), or the path of a file holding one, read on every
 question, so a test can change the state mid-run by writing the file. Every answer is
-logged as `[harness] notifier: <state> from <source> in <ms> ms, <what happened>`, and
+logged as `[harness] notifier: <state> from <source> in <ms> ms, <what happened>` (without
+the override the source carries the helper's line, `quns=5 fg=1`: Windows' own answer and
+whether the foreground window covers its monitor), and
 `drive eval "window.afterterm.harness.notifier()"` returns whether the overlay is visible,
 the hold, the polling, the last answer and the PowerShell helper's pid. Push a toast with
 `drive eval "window.afterterm.notify.push({ id: 'x-1', tabId: 'x', type: 'done', primaryLabel: 'Test', message: 'Finished' })"`.
