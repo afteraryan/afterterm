@@ -1,0 +1,20 @@
+{
+  "visible": false,
+  "onScreen": false,
+  "hold": {
+    "toasts": false,
+    "held": false,
+    "probing": false,
+    "pushPending": false
+  },
+  "polling": false,
+  "probes": 6,
+  "lastProbe": {
+    "state": "accepts",
+    "source": "windows",
+    "ms": 1,
+    "at": 1794170543795
+  },
+  "helperPid": null,
+  "override": null
+}

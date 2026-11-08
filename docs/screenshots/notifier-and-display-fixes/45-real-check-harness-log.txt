@@ -1,0 +1,12 @@
+AFT-72 toast hold, real check without the override (2026-11-09): the dev build's [harness] notifier lines.
+Every answer came from Windows through the helper; 'helper started' marks the question that started it.
+
+[harness] notifier:main-focus true
+[harness] notifier:main-focus false
+[harness] notifier: accepts from windows (helper started) in 638 ms, shown (visible true)
+[harness] notifier: accepts from windows in 1 ms, left on screen (visible true)
+[harness] notifier: accepts from windows in 1 ms, shown (visible true)
+[harness] notifier: accepts from windows in 1 ms, shown (visible true)
+[harness] notifier: accepts from windows in 0 ms, left on screen (visible true)
+[harness] notifier:main-focus true
+[harness] notifier: accepts from windows in 1 ms, left on screen (visible true)
