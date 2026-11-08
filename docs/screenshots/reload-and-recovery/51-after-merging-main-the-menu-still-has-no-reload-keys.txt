@@ -1,0 +1,13 @@
+[harness] menu key Edit > Undo role=undo key=CommandOrControl+Z
+[harness] menu key Edit > Redo role=redo key=Control+Y
+[harness] menu key Edit > Cut role=cut key=CommandOrControl+X
+[harness] menu key Edit > Copy role=copy key=CommandOrControl+C
+[harness] menu key Edit > Paste role=paste key=CommandOrControl+V
+[harness] menu key Edit > Select All role=selectall key=CommandOrControl+A
+[harness] menu key View > Toggle Developer Tools role=toggledevtools key=Ctrl+Shift+I
+[harness] menu key View > Actual Size role=resetzoom key=CommandOrControl+0
+[harness] menu key View > Zoom In role=zoomin key=CommandOrControl+Plus
+[harness] menu key View > Zoom Out role=zoomout key=CommandOrControl+-
+[harness] menu key View > Toggle Full Screen role=togglefullscreen key=F11
+[harness] menu key Window > Minimize role=minimize key=CommandOrControl+M
+[harness] menu key Window > Close role=close key=CommandOrControl+W
