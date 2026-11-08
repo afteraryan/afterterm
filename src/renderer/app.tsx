@@ -40,6 +40,7 @@ import type { SessionFiles } from '../session-files';
 import type { FilesButtonProps } from './components/FilesButton';
 import { filesListView } from './filesView';
 import { panesFor, splitOf, paneDropTarget } from './splitView';
+import { PANEL_DEFAULT_WIDTH, clampPanelWidth, savedUi } from './panelWidth';
 import type { PaneTarget } from './splitView';
 import type { FileLinkContext, FileLinkTarget } from './components/Terminal/fileLinks';
 import type { MenuItem } from './components/Menu';
@@ -84,6 +85,13 @@ export function App() {
   // Whether the panel is hidden (Ctrl+Shift+B, the toggle). Persisted in
   // session.json as ui.panelHidden (Phase 8); the rail is never hidden.
   const [panelHidden, setPanelHidden] = useState(false);
+  // The panel's width in pixels (AFT-30): the person's own, from dragging its right
+  // edge, or the default. Persisted as ui.panelWidth only when it is not the
+  // default. What is drawn is this held to the window (shownPanelWidth), so a width
+  // chosen in a big window is kept, not overwritten, when the window gets small.
+  const [panelWidth, setPanelWidth] = useState(PANEL_DEFAULT_WIDTH);
+  const [windowWidth, setWindowWidth] = useState(() => window.innerWidth);
+  const shownPanelWidth = clampPanelWidth(panelWidth, windowWidth);
   // The transient slide: the panel is shut on the way to Home and slides open
   // again on the way back (design-03 decision 1), without touching the
   // persisted flag above. Never true while panelHidden already is.
@@ -180,6 +188,30 @@ export function App() {
   stateRef.current = state;
   const panelHiddenRef = useRef(panelHidden);
   panelHiddenRef.current = panelHidden;
+  const panelWidthRef = useRef(panelWidth);
+  panelWidthRef.current = panelWidth;
+  // A window resize re-renders the app only when it changes the width the panel is
+  // drawn at (the width is held to half the window, so most resizes change
+  // nothing). windowWidth is kept in step wherever the width itself changes
+  // (changePanelWidth, the restore), so what is drawn is always the chosen width
+  // held to the real window.
+  useEffect(() => {
+    const onResize = () => {
+      const width = window.innerWidth;
+      setWindowWidth(prev => clampPanelWidth(panelWidthRef.current, prev) === clampPanelWidth(panelWidthRef.current, width) ? prev : width);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  // The panel's edge was dragged (settled) or double-clicked back to the default.
+  // After a drag the terminals were held still, so they are fitted once now (the
+  // drag has already put the panel at its final width, so the layout is settled); a
+  // reset animates, and the terminal area's own ResizeObserver fits when it ends.
+  const changePanelWidth = useCallback((width: number, settled: boolean) => {
+    setPanelWidth(width);
+    setWindowWidth(window.innerWidth);
+    if (settled) terminalRef.current?.refit();
+  }, []);
   const screenRef = useRef(screen);
   screenRef.current = screen;
 
@@ -626,6 +658,8 @@ export function App() {
       if (session) {
         state.restoreSession(session);
         setPanelHidden(!!session.ui?.panelHidden);
+        setPanelWidth(session.ui?.panelWidth ?? PANEL_DEFAULT_WIDTH);
+        setWindowWidth(window.innerWidth);
         setScreen(initialScreen(session.groups));
       } else {
         setScreen(initialScreen([]));
@@ -674,11 +708,11 @@ export function App() {
   useEffect(() => {
     if (!initialized) return;
     const timer = setTimeout(() => {
-      const data = serializeSession(state.tabs, state.groups, state.activeTabId, { panelHidden }, undefined, state.splits);
+      const data = serializeSession(state.tabs, state.groups, state.activeTabId, savedUi(panelHidden, panelWidth), undefined, state.splits);
       window.afterterm.session.save(JSON.stringify(data));
     }, 2000);
     return () => clearTimeout(timer);
-  }, [initialized, state.tabs, state.groups, state.activeTabId, state.splits, panelHidden]);
+  }, [initialized, state.tabs, state.groups, state.activeTabId, state.splits, panelHidden, panelWidth]);
 
   // Keyboard shortcuts from main process
   useEffect(() => {
@@ -1290,7 +1324,7 @@ export function App() {
       // would come back with it shown (found in the Phase 8 self-test).
       // An update restart also records which threads were awake, to wake them on
       // the other side; on any other quit the list is empty and nothing is written.
-      const data = serializeSession(sleepAllForShutdown(s.tabs, Date.now()), s.groups, s.activeTabId, { panelHidden: panelHiddenRef.current }, wakeAfterUpdateRef.current, s.splits);
+      const data = serializeSession(sleepAllForShutdown(s.tabs, Date.now()), s.groups, s.activeTabId, savedUi(panelHiddenRef.current, panelWidthRef.current), wakeAfterUpdateRef.current, s.splits);
       window.afterterm.session.saveSync(JSON.stringify(data));
     };
     window.addEventListener('beforeunload', flush);
@@ -1472,6 +1506,7 @@ export function App() {
       // Phase 8: the persisted panel flag, read by the harness's `rail` command,
       // and the panel's own row order, the list Ctrl+Shift+Down/Up walks.
       panelHidden: () => panelHiddenRef.current,
+      panelWidth: () => panelWidthRef.current,
       panelOrder: () => panelRef.current?.visibleIds() ?? [],
     };
   }, []);
@@ -1663,6 +1698,8 @@ export function App() {
           groups={state.groups}
           activeTabId={state.activeTabId}
           hidden={panelHidden || panelShut}
+          width={shownPanelWidth}
+          onWidthChange={changePanelWidth}
           now={now}
           shells={shells}
           onActivate={handleActivate}

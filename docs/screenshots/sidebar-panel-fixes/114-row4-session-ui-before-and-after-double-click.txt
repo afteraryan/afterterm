@@ -1,0 +1,5 @@
+session.json ui BEFORE double-click: {"panelHidden":false,"panelWidth":640}
+before : {"panelPx":640,"screenW":520,"bodyResizing":false,"stateKey":640,"ev":[]}
+double-clicked .panel-resizer at (716, 406)
+after  : {"panelPx":264,"screenW":896,"bodyResizing":false,"stateKey":264,"ev":[]}
+session.json ui AFTER double-click (after the 2 s save): {"panelHidden":false}

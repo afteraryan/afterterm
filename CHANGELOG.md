@@ -4,6 +4,10 @@ What changed for the person using afterterm, release by release. Each release li
 
 ## Unreleased
 
+### Added
+
+- **You can now drag the sidebar's right edge to make it wider or narrower.** It stops at a narrow minimum and at half of the window, and double-clicking the edge puts it back to its normal width. afterterm remembers the width the next time you open it.
+
 ### Fixed
 
 - **You can select text in the terminal again after searching with the find bar.** After you searched, the terminal kept jumping the selection back to the search result whenever new output arrived, so your own selection was lost within a moment. Now clicking in the terminal ends the search: the highlights and the match count go, the bar keeps its text, and your selection stays. Press Enter or an arrow in the bar to search again.

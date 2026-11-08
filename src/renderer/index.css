@@ -221,10 +221,12 @@ html, body, #root {
   margin-top: -32px;
 }
 
-/* While the divider is held, nothing else reacts to the pointer and nothing is
-   selected. */
+/* While the divider is held, or the side panel's edge is (SidePanel.css,
+   .panel-resizer), nothing else reacts to the pointer and nothing is selected. */
 body.dividing,
-body.dividing * {
+body.dividing *,
+body.panel-resizing,
+body.panel-resizing * {
   cursor: col-resize !important;
   user-select: none !important;
 }
