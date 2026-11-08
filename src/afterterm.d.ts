@@ -91,8 +91,8 @@ interface AftertermRecoveryAPI {
   noteUi(ui: import('./renderer/sleepWake.ts').RememberedUi): void;
   // Main asks the terminals to redraw (the GPU process went away).
   onRepaint(callback: () => void): void;
-  // Harness only: crash the page, or end the GPU process. Ignored otherwise.
-  test(what: 'crash' | 'gpu'): void;
+  // Harness only: crash the page, end the GPU process, or report the page unresponsive. Ignored otherwise.
+  test(what: 'crash' | 'gpu' | 'unresponsive'): void;
 }
 
 interface ClaudeSessionUpdate {

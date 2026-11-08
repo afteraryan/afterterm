@@ -115,7 +115,8 @@ contextBridge.exposeInMainWorld('afterterm', {
   // the page restores: the shells main still holds and what the page last showed
   // (both empty on a launch). noteUi keeps main's copy of the screen current.
   // onRepaint: main asks the terminals to redraw after the GPU process went away.
-  // test (harness only, main ignores it otherwise): crash the page or end the GPU process.
+  // test (harness only, main ignores it otherwise): crash the page, end the GPU process, or
+  // report the page unresponsive while a test keeps it busy.
   recovery: {
     state: (): Promise<{ threads: { tabId: string; port?: number | null }[]; ui: { screen: 'home' | 'workspace' | 'project'; projectId?: string; activeTabId?: string } | null }> =>
       ipcRenderer.invoke('recovery:state'),
@@ -124,7 +125,7 @@ contextBridge.exposeInMainWorld('afterterm', {
     onRepaint: (callback: () => void): void => {
       ipcRenderer.on('recovery:repaint', () => callback());
     },
-    test: (what: 'crash' | 'gpu'): void =>
+    test: (what: 'crash' | 'gpu' | 'unresponsive'): void =>
       ipcRenderer.send('recovery:test', what),
   },
 

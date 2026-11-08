@@ -1295,16 +1295,24 @@ function recoveryLog(line: string): void {
 }
 
 // When each window's page was last reloaded by recovery, so a page that crashes as
-// soon as it loads is not reloaded forever (allowReload).
+// soon as it loads is not reloaded in a tight loop (allowReload), and the reload
+// waiting for its turn when one was refused.
 const recoveryReloads = new Map<string, number[]>();
+const recoveryRetries = new Map<string, NodeJS.Timeout>();
 
 function reloadForRecovery(win: BrowserWindow, label: string, why: string): void {
+  if (recoveryRetries.has(label)) return;
   setTimeout(() => {
     if (win.isDestroyed() || isQuitting) return;
     const decision = allowReload(recoveryReloads.get(label) ?? [], Date.now());
     recoveryReloads.set(label, decision.times);
     if (!decision.allowed) {
-      recoveryLog(`${label}: not reloading after ${why}: already reloaded ${RELOAD_LIMIT} times in ${RELOAD_WINDOW_MS / 1000}s`);
+      const wait = decision.retryInMs ?? RELOAD_WINDOW_MS;
+      recoveryLog(`${label}: not reloading after ${why} yet: reloaded ${RELOAD_LIMIT} times in ${RELOAD_WINDOW_MS / 1000}s, trying again in ${Math.ceil(wait / 1000)}s`);
+      recoveryRetries.set(label, setTimeout(() => {
+        recoveryRetries.delete(label);
+        reloadForRecovery(win, label, why);
+      }, wait));
       return;
     }
     recoveryLog(`${label}: reloading the page after ${why}`);
@@ -1389,11 +1397,19 @@ ipcMain.handle('recovery:state', () => {
   return { threads, ui: rememberedUi };
 });
 
-// Harness only: make the window's renderer crash, or end the GPU process the way
-// Aryan did by hand, to test the recovery (drive eval "window.afterterm.recovery.test('crash')").
+// Harness only: make the window's renderer crash, end the GPU process the way Aryan
+// did by hand, or tell the hang handler the page is unresponsive, to test the
+// recovery (drive eval "window.afterterm.recovery.test('crash')"). The last one
+// exists because Chromium's own hang report never came in a harness run: a page kept
+// busy for two minutes with input waiting was never reported unresponsive (the
+// harness window never has focus and other windows can cover it). So a test keeps the
+// page really busy and sends the report itself; what follows is the real path.
 ipcMain.on('recovery:test', (_event, what: unknown) => {
   if (process.env.AFTERTERM_HARNESS !== '1') return;
-  if (what === 'crash') {
+  if (what === 'unresponsive') {
+    console.log('[harness] recovery:test unresponsive');
+    setTimeout(() => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.emit('unresponsive'); }, 2000);
+  } else if (what === 'crash') {
     console.log('[harness] recovery:test crash');
     setTimeout(() => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.forcefullyCrashRenderer(); }, 100);
   } else if (what === 'gpu') {

@@ -33,6 +33,8 @@ console.log('\nwindow-recovery: a crashing page is not reloaded forever\n');
   const fourth = allowReload(third.times, 4000);
   check('a fourth within the minute is refused', !fourth.allowed, show(fourth));
   check('a refused reload is not counted', show(fourth.times) === '[1000,2000,3000]', show(fourth.times));
+  check('and is tried again when the oldest leaves the minute', fourth.retryInMs === 1000 + RELOAD_WINDOW_MS - 4000, show(fourth));
+  check('an allowed reload has no retry', first.retryInMs === undefined, show(first));
   const later = allowReload(fourth.times, 1000 + RELOAD_WINDOW_MS);
   check('once the first has left the minute, one more is allowed', later.allowed, show(later));
   check('and the times outside the minute are dropped', show(later.times) === `[2000,3000,${1000 + RELOAD_WINDOW_MS}]`, show(later.times));

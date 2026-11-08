@@ -16,8 +16,10 @@
 // that it comes back by itself.
 export const HANG_GRACE_MS = 15_000;
 
-// A page that crashes again as soon as it loads must not be reloaded forever: at
-// most RELOAD_LIMIT reloads within RELOAD_WINDOW_MS, then main stops and logs why.
+// A page that crashes again as soon as it loads must not be reloaded in a tight
+// loop: at most RELOAD_LIMIT reloads within RELOAD_WINDOW_MS. A reload refused for
+// that waits until the oldest of them leaves the window and is tried then, so the
+// window still comes back by itself once whatever crashed it has passed.
 export const RELOAD_LIMIT = 3;
 export const RELOAD_WINDOW_MS = 60_000;
 
@@ -26,15 +28,19 @@ export const RELOAD_WINDOW_MS = 60_000;
 export const RELOAD_DELAY_MS = 1_000;
 
 // Whether one more reload is allowed now, given when the earlier ones ran. Returns
-// the times to keep (the ones still inside the window, plus now when allowed).
+// the times to keep (the ones still inside the window, plus now when allowed) and,
+// when refused, how long until one is allowed again.
 export function allowReload(
   times: readonly number[],
   now: number,
   limit = RELOAD_LIMIT,
   windowMs = RELOAD_WINDOW_MS,
-): { allowed: boolean; times: number[] } {
+): { allowed: boolean; times: number[]; retryInMs?: number } {
   const recent = times.filter(t => now - t < windowMs && t <= now);
-  if (recent.length >= limit) return { allowed: false, times: recent };
+  if (recent.length >= limit) {
+    const oldest = Math.min(...recent);
+    return { allowed: false, times: recent, retryInMs: oldest + windowMs - now };
+  }
   return { allowed: true, times: [...recent, now] };
 }
 
