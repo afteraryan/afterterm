@@ -178,12 +178,16 @@ Ctrl+R in a terminal went to the shell, but Ctrl+Shift+R (which xterm ignores) a
 focus outside a terminal reloaded.
 
 `src/app-menu.ts` (`appMenuTemplate`) is Electron's default Windows menu without those two
-items, set in `main.ts` before the windows open. Every other key the default menu answered stays
+items (and without its Help menu, which has no keys), set in `main.ts` before the windows open. Every other key the default menu answered stays
 (copy and paste in text fields, Ctrl+0, Ctrl+Plus and Ctrl+Minus, F11, Ctrl+Shift+I for the
 developer tools, Ctrl+M, Ctrl+W). The keys are not swallowed in `before-input-event` instead,
 because the terminal needs Ctrl+R (reverse history search in PowerShell and bash). F5 was never
 in the menu; in cmd it recalls the last command, as it should. Unit test: `src/app-menu.test.ts`
 (no reload role anywhere in the menu, every other default role kept).
+
+One exception is kept on purpose: the developer tools (Ctrl+Shift+I, in every build) have their
+own Ctrl+R, Ctrl+Shift+R and F5, which reload the page while the developer tools window has
+focus, and the app menu has no say over them.
 
 **How it was tested.** A key sent through CDP (`drive key`) never reaches a menu item: Electron
 runs a menu role on `BaseWindow.getFocusedWindow()` (read from Electron 35's own code), and a

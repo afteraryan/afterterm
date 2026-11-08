@@ -4,18 +4,20 @@
 // Electron gives every app a default menu when the app sets none, and the window
 // keeps its keys even with the menu bar hidden. Its View menu holds Reload
 // (Ctrl+R) and Force Reload (Ctrl+Shift+R). A reload restarts the window's page,
-// which restores session.json, so every thread came back asleep and the app
-// landed on Home: one key press stopped every shell, server and chat. A key only
-// reaches the menu when the page did not use it, so Ctrl+R in a terminal went to
-// the shell, but Ctrl+Shift+R (which the terminal ignores) and Ctrl+R anywhere
-// outside a terminal reloaded the window.
+// which restores session.json, so one key press sent the app to Home and put
+// every thread to sleep (the shells kept running out of sight, which AFT-33's
+// window recovery deals with). A key only reaches the menu when the page did not
+// use it, so Ctrl+R in a terminal went to the shell, but Ctrl+Shift+R (which the
+// terminal ignores) and Ctrl+R anywhere outside a terminal reloaded the window.
 //
-// This is Electron's default Windows menu without those two items: every other
-// key it answered (copy and paste in text fields, the zoom keys, F11, Ctrl+Shift+I
-// for the developer tools, Ctrl+M and Ctrl+W) keeps working as before. The keys
-// are not swallowed in main's before-input-event instead, because the terminal
-// needs Ctrl+R: it is reverse history search in PowerShell and bash. F5 was never
-// in the menu.
+// This is Electron's default Windows menu without those two items and without
+// its Help menu, which has no keys: every other key it answered (copy and paste in
+// text fields, the zoom keys, F11, Ctrl+Shift+I for the developer tools, Ctrl+M
+// and Ctrl+W) keeps working as before. The keys are not swallowed in main's
+// before-input-event instead, because the terminal needs Ctrl+R: it is reverse
+// history search in PowerShell and bash. F5 was never in the menu. The developer
+// tools, kept in every build, have their own reload keys while their window has
+// focus; this menu has no say over those.
 import type { MenuItemConstructorOptions } from 'electron';
 
 // The two roles that reload the window's page. Never in afterterm's menu.
