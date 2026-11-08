@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useLayoutEffect, useCallback, useState, forwardRef, useImperativeHandle } from 'react';
-import { Terminal } from '@xterm/xterm';
+import { Terminal, type ILinkProvider } from '@xterm/xterm';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
@@ -16,6 +16,7 @@ import { JUMP_THRESHOLD_LINES, JumpState, JumpTarget, initialJumpState, onScroll
 import { JumpButton, JumpButtonHandle } from '../JumpButton';
 import { isWindowsDrivePath, osc7ToWindowsPath } from '../../../shell-paths';
 import { createFileLinkProvider, trackToolLines, hideTip, type FileLinkContext, type FileLinkProvider, type FileLinkTarget } from './fileLinks';
+import { createWebLinkProvider } from './webLinks';
 import { Menu, type MenuItem } from '../Menu';
 import { SPLIT_MIN, SPLIT_MAX, SPLIT_DEFAULT } from '../../splitView';
 import type { PaneTarget } from '../../splitView';
@@ -326,6 +327,8 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
   // Each terminal's file-link provider, kept so the harness can ask one for the
   // links on a row without moving a mouse (window.__afterterm.fileLinks).
   const fileLinkProvidersRef = useRef(new Map<string, FileLinkProvider>());
+  // And each one's provider for links cut over several rows (window.__afterterm.webLinks).
+  const webLinkProvidersRef = useRef(new Map<string, ILinkProvider>());
 
   // The menu a right-click on a file link opens. The terminal gives up the keyboard
   // while it is up, so an Esc to close it does not reach the shell, where it would
@@ -482,6 +485,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
     promptReportedRef.current.delete(tabId);
     jumpRef.current.delete(tabId);
     fileLinkProvidersRef.current.delete(tabId);
+    webLinkProvidersRef.current.delete(tabId);
     if (tabId === activeRef.current) setJump(null);
 
     const destroy = api.pty.destroy(tabId).finally(() => {
@@ -544,6 +548,21 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
           try { fitAddon.fit(); } catch { /* container hidden or disposed */ }
         }, 80);
       };
+
+      // A link cut over several rows (AFT-61, webLinks.ts): read whole from a chat's
+      // transcript, or joined at the column it was cut at. Registered before the
+      // addon below, because xterm gives a cell to the first provider with a link on
+      // it, and the addon only ever has the first row's part.
+      const webLinks = createWebLinkProvider(
+        term,
+        () => {
+          const chat = fileContextRef.current?.(tabId)?.chat;
+          return chat ? { sessionId: chat.sessionId, cwd: chat.cwd } : null;
+        },
+        url => window.afterterm.shell.openExternal(url),
+      );
+      term.registerLinkProvider(webLinks);
+      webLinkProvidersRef.current.set(tabId, webLinks);
 
       // Plain URLs in output → underlined + clickable, opening the default browser
       term.loadAddon(new WebLinksAddon((_event, uri) => window.afterterm.shell.openExternal(uri)));
@@ -1147,6 +1166,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         commandState(tabId: string): CommandMarkState | null;
         viewport(tabId?: string): { viewportY: number; baseY: number } | null;
         fileLinks(tabId: string, row: number): Promise<{ text: string; range: unknown }[]>;
+        webLinks(tabId: string, row: number): Promise<{ text: string; range: unknown }[]>;
         openFileLink(tabId: string, row: number, index?: number): Promise<boolean>;
         cellCentre(tabId: string, row: number, col: number): { x: number; y: number } | null;
         findRow(tabId: string, text: string): number;
@@ -1173,6 +1193,13 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       // would get them on a hover, and a click on one of them.
       fileLinks: (tabId, row) => new Promise(resolve => {
         const provider = fileLinkProvidersRef.current.get(tabId);
+        if (!provider) { resolve([]); return; }
+        provider.provideLinks(row, links => resolve((links ?? []).map(l => ({ text: l.text, range: l.range }))));
+      }),
+      // AFT-61: the links cut over several rows that reach one 1-based row, the
+      // way xterm gets them on a hover (the addon's one-row links are not here).
+      webLinks: (tabId, row) => new Promise(resolve => {
+        const provider = webLinkProvidersRef.current.get(tabId);
         if (!provider) { resolve([]); return; }
         provider.provideLinks(row, links => resolve((links ?? []).map(l => ({ text: l.text, range: l.range }))));
       }),

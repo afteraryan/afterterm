@@ -68,6 +68,8 @@ interface AftertermSessionFilesAPI {
   openPasted(sessionId: string, cwd: string, key: string): Promise<{ ok: boolean; error?: string; path?: string }>;
   // The same file's path without opening it (Show in File Explorer, Copy path).
   pastedPath(sessionId: string, cwd: string, key: string): Promise<string | null>;
+  // AFT-61: for each prefix, the chat's links that start with it, most recently written first.
+  urls(sessionId: string, cwd: string, prefixes: string[]): Promise<Record<string, string[]>>;
 }
 
 interface AftertermSessionAPI {
