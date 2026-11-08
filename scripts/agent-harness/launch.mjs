@@ -41,7 +41,8 @@ if (opts.help) {
                         --env with several pairs separated by ";"). Cannot override
                         AFTERTERM_USER_DATA_DIR, AFTERTERM_DISPLAY,
                         AFTERTERM_REMOTE_DEBUG_PORT, AFTERTERM_HARNESS or
-                        AFTERTERM_OPEN_EXTERNAL
+                        AFTERTERM_OPEN_EXTERNAL. An inherited CLAUDE_CONFIG_DIR is
+                        dropped, so only --env sets it
   --open-external     let "Open localhost:port" and "Open in File Explorer" really open
                         a browser or an Explorer window (sets AFTERTERM_OPEN_EXTERNAL=1).
                         Off by default: a harness run only logs them, so nothing lands on
@@ -138,8 +139,14 @@ if (!fs.existsSync(forgeCli)) fail(`electron-forge CLI not found at ${forgeCli};
 // ("Transcript saving is off", seen 2026-09-25 in the edited-files self-test), so
 // a replica left for Aryan would lose every turn he takes in it. They are dropped;
 // --env can still set one on purpose.
+// CLAUDE_CONFIG_DIR is dropped too, for a different reason: if the launching shell has
+// it set to the real Claude folder, the dev build would see that folder, and a seeded
+// opt-out (claudeNotifications "disabled" in --prefs) would strip the real hooks, which
+// the launch guard in main.ts (a test launch with no CLAUDE_CONFIG_DIR skips the hook
+// install) does not stop because the variable is set. It reaches the dev build only
+// when passed through --env on purpose.
 const inherited = Object.fromEntries(
-  Object.entries(process.env).filter(([k]) => !/^(CLAUDECODE|CLAUDE_CODE_.*|CLAUDE_PID|CLAUDE_EFFORT)$/i.test(k)),
+  Object.entries(process.env).filter(([k]) => !/^(CLAUDECODE|CLAUDE_CODE_.*|CLAUDE_PID|CLAUDE_EFFORT|CLAUDE_CONFIG_DIR)$/i.test(k)),
 );
 
 const env = {

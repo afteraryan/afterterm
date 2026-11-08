@@ -1,0 +1,82 @@
+Row 9 timings: the in-page sampler's log, 2026-11-07, tab-7 (chat with hooks, Claude Code 2.1.319 on Haiku)
+
+How it was taken: the sampler below was pasted into the page through `drive eval` just before each prompt was
+sent, then the restart window was opened. Every 100 ms it read tab-7's record status and notification
+(window.__afterterm.tab), whether the last 25 lines of tab-7's buffer held dialog text (DIALOG), how many restart
+window rows read "Stops mid-turn" (every other thread was idle, so any such row was tab-7's), and the footer's
+data-status ("window-closed" before the window opened). It logged a line only when one of those changed. Times are
+seconds from the moment the sampler was pasted in.
+
+The sampler:
+
+(() => {
+  if (window.__r9) clearInterval(window.__r9.timer);
+  const r = { t0: Date.now(), log: [], last: '', snaps: [] };
+  r.timer = setInterval(() => {
+    const t = window.__afterterm.tab('tab-7');
+    let tail = window.__afterterm.tail('tab-7', 25) || [];
+    if (Array.isArray(tail)) tail = tail.join('\n');
+    const dlg = /Do you want|Enter to select|Esc to cancel|Enter to confirm/.test(tail) ? 'DIALOG' : 'no-dialog';
+    const rows = [...document.querySelectorAll('[data-restart-rows] .tr')];
+    const mid = rows.filter(x => x.dataset.outcome === 'stops-mid-turn').length;
+    const st = document.querySelector('[data-status]')?.dataset.status ?? 'window-closed';
+    const key = ['record=' + (t?.recordStatus ?? '-'), 'notif=' + (t?.notification ?? '-'), dlg, 'midTurnRows=' + mid, 'footer=' + st].join(' | ');
+    if (key !== r.last) { r.last = key; r.log.push(((Date.now() - r.t0) / 1000).toFixed(1) + 's ' + key); if (dlg === 'DIALOG' && r.snaps.length < 3) r.snaps.push(tail.split('\n').slice(-14).join('\n')); }
+  }, 100);
+  window.__r9 = r; return 'r9 on';
+})()
+
+== (a) The question. Prompt: "Before doing anything else, use your AskUserQuestion tool to ask me one yes/no
+question: should you write a haiku? Do nothing else until I answer."
+
+   0.1s record=idle | notif=- | no-dialog | midTurnRows=0 | footer=window-closed
+   1.9s record=idle | notif=- | no-dialog | midTurnRows=0 | footer=safe
+   2.0s record=busy | notif=working | no-dialog | midTurnRows=1 | footer=warn
+   5.5s record=busy | notif=working | DIALOG | midTurnRows=1 | footer=warn
+   6.1s record=waiting | notif=working | DIALOG | midTurnRows=1 | footer=warn
+   8.3s record=waiting | notif=- | DIALOG | midTurnRows=1 | footer=warn
+  12.6s record=waiting | notif=attention | DIALOG | midTurnRows=1 | footer=warn
+
+Read: dialog text in the buffer at 5.5 s, record waiting at 6.1 s (0.6 s later), the working notification gone at
+8.3 s, the hook's attention at 12.6 s (7.1 s after the dialog). The row read "Stops mid-turn" from 2.0 s on, with no
+gap. The buffer text the sampler matched at 5.5 s (its last 14 lines):
+
+ [ ] Haiku
+
+Should I write a haiku?
+
+> 1. Yes
+    rWrite a haiku now. [
+  2. No
+     Do not write a haiku.
+  3. Type something.
+  4. Chat about this
+
+Enter to select · ↑/↓ to navigate · Esc to cancel
+
+== (b) The file write. Prompt: "Create a file named hello.txt in the current folder containing only the word hello."
+
+   0.1s record=idle | notif=- | no-dialog | midTurnRows=0 | footer=window-closed
+   2.6s record=busy | notif=working | no-dialog | midTurnRows=1 | footer=warn
+   7.2s record=busy | notif=working | DIALOG | midTurnRows=1 | footer=warn
+   7.6s record=waiting | notif=working | DIALOG | midTurnRows=1 | footer=warn
+  10.0s record=waiting | notif=- | DIALOG | midTurnRows=1 | footer=warn
+  14.7s record=waiting | notif=attention | DIALOG | midTurnRows=1 | footer=warn
+
+Read: dialog text at 7.2 s, record waiting at 7.6 s (0.4 s later), working gone at 10.0 s, the hook's attention at
+14.7 s (7.5 s after the dialog). The row read "Stops mid-turn" from 2.6 s on, with no gap. The buffer text the
+sampler matched at 7.2 s (its last 14 lines, with the dotted divider lines left out):
+
+ Create file
+ hello.txt
+ 1 hello
+ Do you want to create hello.txt?
+ > 1. Yes
+   2. Yes, and switch to accept edits (auto-approve file edits and common file commands) for this session
+      (shift+tab)
+   3. No
+
+ Esc to cancel · Tab to amend
+
+The stills 09a and 09b were taken a moment after the sampler first matched and show the turn still drawing, not the
+dialog. Frames from the recording a few seconds later show the dialogs with the window open: 09c and 09d.

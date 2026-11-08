@@ -8,6 +8,22 @@ What changed for the person using afterterm, release by release. Each release li
 
 - **A long link that ran onto a second line opened only half of the address, or nothing.** Now clicking any line of it opens the whole link, even after you change the font size.
 
+## 0.16.0 (2026-11-08)
+
+### Fixed
+
+- **The "Restart afterterm to update?" window now says "Stops mid-turn" for a chat that is in the middle of a reply.** Before, such a chat could read "Safe to restart", for example when its hooks (the small scripts Claude Code runs so afterterm knows what a chat is doing) were missing, or when Claude paused for a few seconds. A chat waiting at a question or a permission prompt counts too, from the moment it asks.
+- **The same window now says "Background task stops" for a chat that still has a background task running.**
+- **It now says "Command stops" for a shell that is running a command,** such as a long `ping` or PowerShell's `Start-Sleep`. A chat you have exited says it too while its shell runs something.
+- **It says "Safe to restart" only when every thread is known to be idle.** When it cannot tell what a shell is doing, it shows no status line at all, instead of calling the restart safe.
+- **A chat whose session was never recorded by the hook now still comes back as a chat, and resumes after a restart or a wake.** afterterm now also reads Claude Code's own record of the running session, so such a chat gets the chat icon within a couple of seconds of its first message. Before, it came back as a plain terminal.
+- **A chat you exited stays a chat,** and Wake resumes its conversation.
+- **A chat that started its own dev server now resumes the chat on Wake.** Before, Wake started a new Claude session instead. The question asked before putting such a thread to sleep now says "Wake resumes the chat."
+- **The spinner in the sidebar no longer drops out when Claude pauses in the middle of a reply,** and it now shows for a chat whose hooks are missing.
+- **afterterm now puts its Claude Code hooks back within a few seconds if they go missing while it runs.** Hooks are what give a chat its working, done and needs-you states and its toasts. Before, they stayed missing until the next launch.
+- **Turning Claude notifications off no longer removes another tool's hook** that shares a group with afterterm's in the Claude Code settings. Only afterterm's own hook goes.
+- **Starting a test copy of afterterm with a throwaway profile can no longer remove the real Claude Code hooks.** On 2026-11-06 that left every chat without its states and toasts for 21 hours.
+
 ## 0.15.0 (2026-11-06)
 
 ### You can now give a project any colour you want

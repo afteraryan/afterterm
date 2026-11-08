@@ -1,3 +1,4 @@
+// NOTE: the settings it writes name the real hook script (~/.claude/hooks/afterterm-notify.ps1) by path, read only. An agent must not run it unless that is the intent.
 // Writes the settings files the remaining live tests use. Only writes under the scratch
 // folder; the real afterterm hook script is referenced read-only.
 import fs from 'node:fs';

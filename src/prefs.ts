@@ -1,12 +1,14 @@
 // prefs.json helpers for the main process.
 //
 // %APPDATA%\afterterm\prefs.json holds the app's small settings: the Claude hook
-// opt-out (owned by claude-hook-install.ts, which keeps its own reader), the time
-// the app was last opened, and the hand-picked editorPath.
+// opt-out (acted on by claude-hook-install.ts, which reads it through readPrefs
+// below), the time the app was last opened, the hand-picked editorPath and the
+// update choices.
 //
-// One rule everywhere: a prefs.json that is not valid JSON is treated as empty
-// when reading and is never overwritten. Someone hand-edited it and made a typo;
-// silently replacing it would throw away the rest of their settings.
+// One rule everywhere: a prefs.json that is not valid JSON, or that could not be
+// read, is treated as empty when reading and is never overwritten. Someone
+// hand-edited it and made a typo; silently replacing it would throw away the rest
+// of their settings.
 
 import fs from 'fs';
 
@@ -36,34 +38,48 @@ export interface AftertermPrefs {
   [key: string]: unknown;
 }
 
-// The file's contents, plus whether it was readable at all. `usable` is false
-// only when the file exists and does not parse, which is the one case where
-// writing is refused. A missing file is usable: it gets created on first write.
-export function readPrefs(prefsPath: string): { prefs: AftertermPrefs; usable: boolean } {
+// The file's contents, plus whether it was readable at all. Only a missing file
+// is usable as empty: it gets created on first write. A file that does not parse,
+// or that could not be read (locked by another program, access denied, a folder in
+// its place), gives usable=false, and writing is refused: what it holds is unknown,
+// and a write would replace it. `reason` says why, for a log line.
+export function readPrefs(prefsPath: string): { prefs: AftertermPrefs; usable: boolean; reason?: string } {
   let raw: string;
   try {
     raw = fs.readFileSync(prefsPath, 'utf-8');
-  } catch {
-    return { prefs: {}, usable: true };
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT') return { prefs: {}, usable: true };
+    return { prefs: {}, usable: false, reason: `could not be read (${code ?? String(err)})` };
   }
   try {
     const parsed = JSON.parse(raw.replace(/^\uFEFF/, ''));
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
       return { prefs: parsed as AftertermPrefs, usable: true };
     }
-  } catch { /* falls through to the unusable result below */ }
-  return { prefs: {}, usable: false };
+    return { prefs: {}, usable: false, reason: 'is not a JSON object' };
+  } catch {
+    return { prefs: {}, usable: false, reason: 'is not valid JSON' };
+  }
 }
 
 // Merge a patch into prefs.json, keeping every other key. Returns false when the
-// file was left alone because it does not parse, or when the write failed.
+// file was left alone because it does not parse or could not be read, or when the
+// write failed. Either way one warning names the file, the reason and the keys that
+// were not saved, so a dropped write (the editor pick, Skip or Later, the pending
+// update note) shows in the log.
 export function updatePrefs(prefsPath: string, patch: Partial<AftertermPrefs>): boolean {
-  const { prefs, usable } = readPrefs(prefsPath);
-  if (!usable) return false;
+  const { prefs, usable, reason } = readPrefs(prefsPath);
+  const keys = Object.keys(patch).join(', ');
+  if (!usable) {
+    console.warn(`[prefs] ${prefsPath} ${reason}; left as it is, so ${keys} was not saved`);
+    return false;
+  }
   try {
     fs.writeFileSync(prefsPath, JSON.stringify({ ...prefs, ...patch }, null, 2) + '\n', 'utf-8');
     return true;
-  } catch {
+  } catch (err) {
+    console.warn(`[prefs] ${prefsPath} could not be written (${(err as NodeJS.ErrnoException).code ?? String(err)}), so ${keys} was not saved`);
     return false;
   }
 }

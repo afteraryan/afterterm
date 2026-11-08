@@ -23,11 +23,17 @@
 // then the silence clear takes over if Claude does not resume), Esc or Ctrl+C in
 // it (onInterrupt, to quiet), or the hook's next title (onTitle, unchanged).
 //
+// plan-02 (Fix 11) adds Claude Code's own session record as a third signal: its busy
+// status starts working from quiet (onRecordStatus) and holds it through silence
+// (onTick), so a chat with no hooks has a spinner and a stalled turn keeps it.
+//
 // This is empirically grounded (scripts/spinner-harness): across pure-think, tool-
 // heavy, and mixed turns the PTY was never silent for more than ~450ms while Claude
 // worked; at idle it is silent indefinitely; at a permission/compaction pause it goes
 // silent for seconds and then resumes in a burst. Those three regimes are cleanly
 // separable by an output-silence threshold.
+
+import type { RecordStatus } from '../claude-session-record.ts';
 
 export type Notif = 'working' | 'done' | 'attention' | 'background' | 'compacting' | undefined;
 
@@ -81,8 +87,30 @@ export function onOutput(current: Notif, timing: TabTiming, at: number, byteLen:
 // A periodic clock tick. Clears `working` after sustained output silence. Only ever
 // acts on `working`; attention/compacting/done are left for a title or re-arm to
 // change, so a silent permission wait stays "needs permission", not blank.
-export function onTick(current: Notif, timing: TabTiming, at: number): Notif {
-  if (current === 'working' && at - timing.lastOutputAt > SILENCE_CLEAR_MS) return undefined;
+//
+// `record` is what Claude Code's own session record says (plan-02, Fix 11). While it
+// says busy, Claude is working however quiet the output is, so silence does not clear
+// `working`: a turn that stalled for a few seconds used to lose its spinner for the
+// rest of the turn (note-03, row 3). Once the record goes idle the silence rule
+// applies again, measured from the last output, so a turn that ended long ago clears
+// on the next tick.
+export function onTick(current: Notif, timing: TabTiming, at: number, record?: RecordStatus): Notif {
+  if (current === 'working' && record !== 'busy' && at - timing.lastOutputAt > SILENCE_CLEAR_MS) return undefined;
+  return current;
+}
+
+// A new status from Claude Code's session record (Fix 11). Busy starts the spinner
+// from quiet only, so a chat with no hooks (no ▶ title ever comes) still shows that
+// it is working. It never replaces done, needs-you, compacting or background: a hook
+// title knows more than the record there, and the record is read every 2 seconds, so
+// the first busy of a short turn can land after its ✅ and would otherwise wipe the
+// finished turn's done badge (silence then clears the working it put there). A chat
+// with no hooks never has done, so it loses nothing by this. Every other status
+// leaves the notif alone: idle does not clear working (the silence clear in onTick
+// does that, now that the record no longer holds it), and waiting does not set
+// needs-you, which stays the hook's to say.
+export function onRecordStatus(current: Notif, record: RecordStatus | undefined): Notif {
+  if (record === 'busy' && current === undefined) return 'working';
   return current;
 }
 
@@ -120,6 +148,39 @@ export function onAnswer(current: Notif, timing: TabTiming, at: number): Notif {
 // end kept its spinner until they switched away and back (docs/bugs-fixed.md).
 export function clearsWhenSeen(n: Notif): boolean {
   return n === 'done' || n === 'background';
+}
+
+// Whether a chat still has background work running, as far as the hook's titles say
+// (plan-02, Fix 7; Tab.backgroundTasks). The ⏳ title is the only signal for a
+// background agent or a session cron (/loop, schedules): Claude Code's record says
+// `shell` only for a background shell command. The ⏳ badge itself is cleared the
+// moment the thread is seen (clearsWhenSeen), so the restart window cannot read it
+// from `notification`: this flag holds it instead, and viewing never clears it. A ⏳
+// title sets it; only a ✅ (done) clears it, since that is the hook's Stop running
+// with nothing left (a Stop with tasks remaining sends ⏳ again). ▶, ⚠ and ⚙ leave it
+// alone: a new turn can be interrupted with Esc, and Claude Code runs no Stop hook on
+// an interrupt, so no ⏳ would come back; and a background agent's own permission
+// prompt raises ⚠ while the agent still runs (seen in the 2026-11-07 live retest).
+// While those last the thread is mid-turn anyway. An undecorated title (undefined)
+// changes nothing. The Claude going away clears it too (backgroundAfterRecord), and
+// so does sleep.
+export function backgroundAfterTitle(current: boolean, titleNotif: Notif): boolean {
+  if (titleNotif === 'background') return true;
+  if (titleNotif === 'done') return false;
+  return current;
+}
+
+// The same flag when Claude Code's record for the thread changes. A record that goes
+// away (a status, then none) means the thread's Claude has gone: a /exit either
+// stopped its background work or left it detached from this thread, and no hook title
+// will come to clear the flag, so it clears here. Any other change (a first status,
+// one status to another, none to none) leaves it as it was.
+export function backgroundAfterRecord(
+  current: boolean,
+  previous: RecordStatus | undefined,
+  next: RecordStatus | undefined,
+): boolean {
+  return previous !== undefined && next === undefined ? false : current;
 }
 
 // What a title's notif becomes when it lands on a thread. On the thread the user

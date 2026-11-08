@@ -10,7 +10,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import {
   onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, clearsWhenSeen, initTiming,
-  SILENCE_CLEAR_MS, REARM_AFTER_QUIET_MS,
+  onRecordStatus, backgroundAfterTitle, backgroundAfterRecord, SILENCE_CLEAR_MS, REARM_AFTER_QUIET_MS,
 } from './spinnerState.ts';
 import type { Notif } from './spinnerState.ts';
 
@@ -46,6 +46,48 @@ console.log('\nspinnerState — unit rules\n');
     onTick('attention', initTiming(0), 999999) === 'attention');
   check('tick never clears compacting', onTick('compacting', initTiming(0), 999999) === 'compacting');
   check('tick never clears done', onTick('done', initTiming(0), 999999) === 'done');
+}
+
+// ── Claude Code's session record (plan-02, Fix 11) ───────────────────────────
+{
+  // A stalled turn: the output goes quiet for longer than the window, the record
+  // still says busy, so the spinner stays.
+  const t = initTiming(1000);
+  check('record busy: working survives silence past the window',
+    onTick('working', t, 1000 + SILENCE_CLEAR_MS * 10, 'busy') === 'working');
+  check('record idle: the silence clear applies as before',
+    onTick('working', t, 1000 + SILENCE_CLEAR_MS + 1, 'idle') === undefined);
+  check('record waiting or shell: the silence clear applies too',
+    onTick('working', t, 1000 + SILENCE_CLEAR_MS + 1, 'waiting') === undefined
+    && onTick('working', t, 1000 + SILENCE_CLEAR_MS + 1, 'shell') === undefined);
+  check('no record (none read, or WSL): the silence clear applies as before',
+    onTick('working', t, 1000 + SILENCE_CLEAR_MS + 1, undefined) === undefined);
+  check('record busy does not turn other states into working on a tick',
+    onTick(undefined, t, 999999, 'busy') === undefined && onTick('done', t, 999999, 'busy') === 'done');
+
+  // The record going idle after a long busy stretch: the next tick clears at once,
+  // since the silence is measured from the last output, not from the status change.
+  let n: Notif = 'working';
+  n = onTick(n, t, 60_000, 'busy');
+  check('held through a minute of busy silence', n === 'working');
+  n = onTick(n, t, 60_500, 'idle');
+  check('cleared on the first tick after the record says idle', n === undefined);
+}
+{
+  check('busy from quiet starts working (a chat with no hooks)', onRecordStatus(undefined, 'busy') === 'working');
+  check('busy keeps working', onRecordStatus('working', 'busy') === 'working');
+  // The first busy of a short turn, read up to 2 s late, can land after the turn's ✅.
+  check('busy never replaces done (a late busy must not wipe a finished turn)', onRecordStatus('done', 'busy') === 'done');
+  check('busy never replaces needs-you, compacting or background',
+    onRecordStatus('attention', 'busy') === 'attention'
+    && onRecordStatus('compacting', 'busy') === 'compacting'
+    && onRecordStatus('background', 'busy') === 'background');
+  check('idle does not clear working by itself (the silence clear does)', onRecordStatus('working', 'idle') === 'working');
+  check('waiting does not set needs-you (that is the hook\'s)', onRecordStatus(undefined, 'waiting') === undefined
+    && onRecordStatus('working', 'waiting') === 'working');
+  check('shell and no record change nothing',
+    onRecordStatus(undefined, 'shell') === undefined && onRecordStatus('done', undefined) === 'done'
+    && onRecordStatus('working', undefined) === 'working');
 }
 
 // ── onOutput: refresh clock + re-arm ────────────────────────────────────────
@@ -204,6 +246,43 @@ check('interrupt leaves background alone', onInterrupt('background') === 'backgr
   const unseen = onViewedTitle(onTitle('working', 'background', t, 1000), false);
   check('turn ending with background tasks, not viewed: background', unseen === 'background');
   check('the badge left on a thread not in view clears on opening it', clearsWhenSeen(unseen));
+}
+
+// ── The background work flag (plan-02, Fix 7) ───────────────────────────────
+{
+  check('a ⏳ title sets the flag', backgroundAfterTitle(false, 'background') === true);
+  check('a second ⏳ keeps it', backgroundAfterTitle(true, 'background') === true);
+  check('a ✅ title (Stop ran with nothing left) clears it', backgroundAfterTitle(true, 'done') === false);
+  // A new turn can be interrupted with Esc, which runs no Stop hook, so no ⏳ comes back.
+  check('a ▶ title (a new turn) leaves it set', backgroundAfterTitle(true, 'working') === true);
+  // A background agent's own permission prompt raises ⚠ while the agent runs.
+  check('a ⚠ title (a background agent asking permission) leaves it set', backgroundAfterTitle(true, 'attention') === true);
+  check('a ⚙ title leaves it set', backgroundAfterTitle(true, 'compacting') === true);
+  check('▶, ⚠ and ⚙ never set it',
+    backgroundAfterTitle(false, 'working') === false && backgroundAfterTitle(false, 'attention') === false
+    && backgroundAfterTitle(false, 'compacting') === false);
+  check('a turn interrupted after ▶ keeps it until a later ✅',
+    backgroundAfterTitle(backgroundAfterTitle(backgroundAfterTitle(false, 'background'), 'working'), undefined) === true);
+  check('an undecorated title changes nothing',
+    backgroundAfterTitle(true, undefined) === true && backgroundAfterTitle(false, undefined) === false);
+  // The badge clears on the viewed thread; the flag does not. Viewing is not a title,
+  // so nothing here can clear it: only onViewedTitle touches the badge.
+  const t = initTiming(0);
+  const title: Notif = 'background';
+  const badge = onViewedTitle(onTitle('working', title, t, 1000), true);
+  const flag = backgroundAfterTitle(false, title);
+  check('on the thread being viewed the ⏳ badge clears but the flag is set', badge === undefined && flag === true);
+
+  // The thread's Claude going away (/exit): no hook title will come to clear it.
+  check('the record going from idle to none clears the flag', backgroundAfterRecord(true, 'idle', undefined) === false);
+  check('the record going from shell to none clears the flag', backgroundAfterRecord(true, 'shell', undefined) === false);
+  check('a first status keeps the flag', backgroundAfterRecord(true, undefined, 'idle') === true);
+  check('one status to another keeps the flag',
+    backgroundAfterRecord(true, 'busy', 'idle') === true && backgroundAfterRecord(true, 'idle', 'shell') === true);
+  check('no record before or after (a Claude the reader cannot see) keeps the flag',
+    backgroundAfterRecord(true, undefined, undefined) === true);
+  check('nothing ever sets the flag from the record', backgroundAfterRecord(false, undefined, 'shell') === false
+    && backgroundAfterRecord(false, 'idle', undefined) === false);
 }
 
 // ── Replay real captured traces ─────────────────────────────────────────────

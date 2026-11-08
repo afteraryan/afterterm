@@ -24,6 +24,10 @@ const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0
 // sleptAt records when, notification is cleared (a sleeping thread has nothing
 // to notify about), and wokeAt is cleared (a thread that was woken and then put
 // back to sleep should not still carry a stale "woken this launch" stamp).
+// recordStatus goes too: it is what a running Claude was doing, and a sleeping
+// thread has no running Claude. So do atPrompt and hasChildren, what the shell
+// was doing (plan-02, Fix 8): a woken thread starts from no prompt marks seen.
+// And backgroundTasks (Fix 7): sleep kills the Claude and whatever it left running.
 // Everything else, session id, cwd, claudeTitle, model, branch, worktree,
 // fontSize, is left exactly as it was: sleep records a process going away, not
 // a thread losing its identity.
@@ -31,6 +35,10 @@ export function sleepTab(tab: Tab, now: number): Tab {
   const next: Tab = { ...tab, asleep: true, sleptAt: now };
   delete next.notification;
   delete next.wokeAt;
+  delete next.recordStatus;
+  delete next.atPrompt;
+  delete next.hasChildren;
+  delete next.backgroundTasks;
   return next;
 }
 
@@ -91,7 +99,9 @@ export function asleepLabel(sleptAt: number | undefined, now: number): string {
 // would be a second copy of kindWord's rule. `lastCommand` only ever adds the
 // " · runs <command>" suffix for a Server with a non-empty (trimmed) command;
 // a Chat or Shell never shows it, and a Server with no captured command yet
-// reads the same plain sentence as before Phase 5.
+// reads the same plain sentence as before Phase 5. The asleep pane passes
+// wakePlan's runCommand here, not the raw lastCommand, so the line names only a
+// command Wake will really run (a last command that started Claude is not one).
 export function asleepSinceText(
   kind: 'Chat' | 'Server' | 'Shell',
   sleptAt: number | undefined,
@@ -119,28 +129,75 @@ export function asleepSinceText(
 // sequence into what looks like a plain command), and is at most 500
 // characters. Anything else, no port, no command, a command that fails a
 // check, yields null: the thread wakes as a plain shell in its folder instead
-// (the Phase 4 behaviour, kept as the fallback). A server never resumes a
-// chat, so resumeSessionId is always null here regardless of whatever a
-// (malformed) tab might otherwise carry.
+// (the Phase 4 behaviour, kept as the fallback).
+//
+// A valid session id wins over the server rule (plan-02, Fix 9, Aryan's Decision 3
+// of 2026-11-07: a thread that holds a session id stays a chat for good). Such a
+// thread resumes its chat and never re-runs a command, so runCommand is null. The
+// rule used to be the other way round, and a Claude that started a dev server
+// itself, whose last command is `claude` and which has a port, woke by running a
+// fresh `claude` instead of resuming. Only a thread with no valid id gets the port
+// and command rule.
+//
+// A last command that starts Claude Code (startsClaudeCode) is never a server
+// command, id or not. A port in such a thread's tree belongs to something Claude
+// started, and typing `claude` again would start a fresh session, not bring a server
+// back. With no valid id the thread wakes in its folder, which is what the restart
+// window's row for it says.
 const CONTROL_CHAR_RE = /[\x00-\x1f\x7f]/;
 const RUN_COMMAND_MAX_LENGTH = 500;
+// The program a command line starts names Claude Code when its last path segment is
+// `claude`, `claude.exe` or `claude.cmd`, or it is the npm package itself, with or
+// without a version.
+const CLAUDE_PROGRAM_RE = /^claude(\.exe|\.cmd)?$/i;
+const CLAUDE_PACKAGE_RE = /^@anthropic-ai\/claude-code(@\S*)?$/i;
+
+// The first word of a command line, with surrounding quotes taken off, and the rest.
+function firstWord(line: string): { word: string; rest: string } {
+  const quote = line[0];
+  if (quote === '"' || quote === "'") {
+    const end = line.indexOf(quote, 1);
+    if (end > 0) return { word: line.slice(1, end), rest: line.slice(end + 1).trimStart() };
+  }
+  const m = /^(\S*)\s*([\s\S]*)$/.exec(line)!;
+  return { word: m[1], rest: m[2] };
+}
+
+// Whether a command line starts Claude Code: `claude`, `claude.exe` or `claude.cmd`
+// (any case), the same at the end of a quoted or unquoted path
+// (`"C:\Users\me\.local\bin\claude.exe" --resume`), the package `@anthropic-ai/claude-code`,
+// and any of those after `npx` and its flags (`npx claude`, `npx -y
+// @anthropic-ai/claude-code`). A name that only begins with claude is not it
+// (`claudette serve`, `npx claude-server`).
+export function startsClaudeCode(command: string): boolean {
+  let { word, rest } = firstWord(command.trim());
+  if (/^npx(\.cmd)?$/i.test(word)) {
+    do { ({ word, rest } = firstWord(rest)); } while (word.startsWith('-') && rest);
+  }
+  if (CLAUDE_PACKAGE_RE.test(word)) return true;
+  const program = word.split(/[\\/]/).pop() ?? '';
+  return CLAUDE_PROGRAM_RE.test(program);
+}
 
 export function wakePlan(
   tab: Pick<Tab, 'cwd' | 'claudeCwd' | 'claudeSessionId' | 'shellId' | 'port' | 'lastCommand'>,
 ): { cwd: string | undefined; shellId: string | undefined; resumeSessionId: string | null; runCommand: string | null } {
+  const resumeSessionId = tab.claudeSessionId && UUID_RE.test(tab.claudeSessionId) ? tab.claudeSessionId : null;
   const trimmed = tab.lastCommand?.trim();
   const runCommand =
-    tab.port !== undefined
+    !resumeSessionId
+    && tab.port !== undefined
     && trimmed
     && trimmed.length > 0
     && trimmed.length <= RUN_COMMAND_MAX_LENGTH
     && !CONTROL_CHAR_RE.test(trimmed)
+    && !startsClaudeCode(trimmed)
       ? trimmed
       : null;
   return {
     cwd: tab.claudeCwd ?? tab.cwd,
     shellId: tab.shellId,
-    resumeSessionId: runCommand ? null : (tab.claudeSessionId && UUID_RE.test(tab.claudeSessionId) ? tab.claudeSessionId : null),
+    resumeSessionId,
     runCommand,
   };
 }

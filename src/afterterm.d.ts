@@ -124,6 +124,21 @@ interface AftertermClaudeSessionAPI {
   onMeta(callback: (data: ClaudeSessionMetaPush) => void): void;
 }
 
+// A thread's live Claude status from Claude Code's own session record (main reads
+// <Claude folder>\sessions\<pid>.json, src/claude-session-record.ts). null when the
+// thread has no live Claude: none started, exited, or its PTY has gone.
+interface ClaudeRecordStatusPush {
+  tabId: string;
+  status: import('./claude-session-record.ts').RecordStatus | null;
+}
+
+interface AftertermClaudeRecordAPI {
+  // Pushed only when a thread's status changes. Returns the unsubscribe function.
+  onStatus(callback: (data: ClaudeRecordStatusPush) => void): () => void;
+  // Read the records now (the restart window opening); resolves when the read is done.
+  refresh(): Promise<void>;
+}
+
 interface AftertermGitAPI {
   info(cwd: string): Promise<GitInfo>;
   // One round trip for a whole list, in the same order. Capped at 500 entries.
@@ -219,6 +234,15 @@ interface PtyPort {
   port: number | null;
 }
 
+// Whether a tab's shell has a process running below it, from main's cached process
+// list (server-detect.ts, shellHasChildren). null when the list is too old to say or
+// the tree could not be read (a WSL shell, a shell newer than the list). The restart
+// window's fallback for a shell with no prompt marks (plan-02, Fix 8).
+interface PtyChildren {
+  tabId: string;
+  hasChildren: boolean | null;
+}
+
 interface AftertermPtyAPI {
   create(tabId: string, shellId?: string, cwd?: string): Promise<{ pid: number }>;
   write(tabId: string, data: string): void;
@@ -236,6 +260,9 @@ interface AftertermPtyAPI {
   // The listening port of a tab's server, pushed whenever it changes (including to
   // null when the server stops). Registered once, for every tab.
   onPort(callback: (data: PtyPort) => void): void;
+  // Whether a tab's shell has a process below it, pushed when it changes (including
+  // to null when it can no longer be told). Registered once, for every tab.
+  onChildren(callback: (data: PtyChildren) => void): void;
 }
 
 interface AftertermDialogAPI {
@@ -280,6 +307,7 @@ interface AftertermAPI {
   sessionFiles: AftertermSessionFilesAPI;
   session: AftertermSessionAPI;
   claudeSession: AftertermClaudeSessionAPI;
+  claudeRecord: AftertermClaudeRecordAPI;
   threads: AftertermThreadsAPI;
   git: AftertermGitAPI;
   update: AftertermUpdateAPI;

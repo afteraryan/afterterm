@@ -184,6 +184,39 @@ export function descendantPids(procs: Proc[], rootPid: number): Set<number> {
 }
 
 /**
+ * Whether a shell has a process running below it, the restart window's fallback for a
+ * thread with no prompt marks (plan-02, Fix 8): true when something is there, false
+ * when nothing is, null when this list cannot say.
+ *
+ * Null for WSL, whose Linux processes are not in the Windows tree, and for a shell pid
+ * missing from the list, which means the list was taken before the shell started.
+ *
+ * Git Bash's `bin\bash.exe` is a launcher that keeps the interactive
+ * `usr\bin\bash.exe` running as its one child, so for it only a process two levels
+ * down counts. For every other shell one level is enough: the shell is the
+ * interactive process itself, and ConPTY's console host is afterterm's child, not the
+ * shell's. `procs` is the list with the MSYS parents applied, so a Git Bash tree is
+ * whole. A false here is never "safe": the shell's built-ins (PowerShell's
+ * Start-Sleep) run with no process at all, which is why prompt marks come first.
+ */
+export function shellHasChildren(procs: Proc[], shellPid: number, shellId: string): boolean | null {
+  if (shellId === 'wsl') return null;
+  if (!Array.isArray(procs) || !procs.some(p => p.pid === shellPid)) return null;
+  const tree = descendantPids(procs, shellPid);
+  const depth = shellId === 'gitbash' ? 2 : 1;
+  let level = new Set<number>([shellPid]);
+  for (let d = 0; d < depth; d++) {
+    const next = new Set<number>();
+    for (const p of procs) {
+      if (p.pid !== shellPid && tree.has(p.pid) && level.has(p.ppid) && !level.has(p.pid)) next.add(p.pid);
+    }
+    if (next.size === 0) return false;
+    level = next;
+  }
+  return true;
+}
+
+/**
  * The port to show for a process tree, or null when nothing in it listens.
  *
  * A thread gets one port in the UI, so when its tree listens on several the latest one

@@ -10,12 +10,13 @@
 // afterterm-notify.ps1 exits immediately unless AFTERTERM=1, so the global
 // registration is inert in the user's other terminals.
 //
-// This module imports only Node built-ins (no Electron) so it can be unit-tested
-// directly. main.ts supplies the real paths.
+// This module imports only Node built-ins and prefs.ts (no Electron) so it can be
+// unit-tested directly. main.ts supplies the real paths.
 
 import fs from 'fs';
 import path from 'path';
 import { execFileSync } from 'child_process';
+import { readPrefs } from './prefs.ts';
 
 export const HOOK_SCRIPT_NAME = 'afterterm-notify.ps1';
 
@@ -63,6 +64,21 @@ export interface ReconcileOpts {
   powershell?: string; // override the detected pwsh/powershell (tests)
 }
 
+// Whether this launch may touch the Claude folder at all. AFTERTERM_USER_DATA_DIR is
+// set only by test launches (the agent harness, a hand-made smoke test): it moves
+// prefs.json to a throwaway folder, but the Claude folder moves only with
+// CLAUDE_CONFIG_DIR. Without that, a launch would read its opt-out from the
+// throwaway prefs and carry it out on the real ~/.claude, which removed the real
+// hooks for 21 hours on 2026-11-06 (docs/note-03-restart-window-said-safe-while-a-chat-was-running.md).
+// So a test launch that does not name its own Claude folder leaves the real one alone
+// (hook entries and the script copy). A normal launch sets neither; the test
+// installer's sandbox build sets CLAUDE_CONFIG_DIR itself, so it keeps working.
+export function hookReconcileAllowed(env: { AFTERTERM_USER_DATA_DIR?: string; CLAUDE_CONFIG_DIR?: string }): boolean {
+  const testLaunch = !!env.AFTERTERM_USER_DATA_DIR;
+  const ownClaudeFolder = !!env.CLAUDE_CONFIG_DIR;
+  return !testLaunch || ownClaudeFolder;
+}
+
 function readJson<T>(file: string): T | null {
   try {
     return JSON.parse(fs.readFileSync(file, 'utf-8')) as T;
@@ -77,13 +93,18 @@ function writeJson(file: string, obj: unknown): void {
 
 // Prefer pwsh (UTF-8 stdout by default); fall back to Windows PowerShell, which
 // is always present on Windows. The hook script forces UTF-8 either way.
+// Looked up once per run: `where.exe` is a process start on main's thread, and the
+// settings.json poll in main.ts may call reconcile again while the app runs.
+let detectedPowershell: string | undefined;
 function detectPowershell(): string {
+  if (detectedPowershell) return detectedPowershell;
   try {
     execFileSync('where.exe', ['pwsh'], { stdio: 'ignore' });
-    return 'pwsh';
+    detectedPowershell = 'pwsh';
   } catch {
-    return 'powershell';
+    detectedPowershell = 'powershell';
   }
+  return detectedPowershell;
 }
 
 // The arguments every afterterm hook entry runs the script with. -ExecutionPolicy
@@ -135,6 +156,9 @@ function isAftertermGroup(group: unknown): boolean {
 }
 
 // Strip afterterm's entries from settings.json; leave every other hook intact.
+// Only afterterm's own hook leaves a group: a group that also holds another tool's
+// hook keeps that hook and its matcher, and is dropped only when nothing is left
+// (an opt-out used to delete the whole group, and the other tool's hook with it).
 // Returns true if anything was removed (settings.json then rewritten).
 function removeAftertermEntries(settingsPath: string): boolean {
   const s = readJson<{ hooks?: Record<string, unknown[]> }>(settingsPath);
@@ -143,8 +167,20 @@ function removeAftertermEntries(settingsPath: string): boolean {
   for (const event of Object.keys(s.hooks)) {
     const arr = s.hooks[event];
     if (!Array.isArray(arr)) continue;
-    const kept = arr.filter((g) => !isAftertermGroup(g));
-    if (kept.length !== arr.length) removed = true;
+    let eventRemoved = false;
+    const kept: unknown[] = [];
+    for (const group of arr) {
+      if (!isAftertermGroup(group)) {
+        kept.push(group);
+        continue;
+      }
+      eventRemoved = true;
+      const g = group as { hooks: { args?: unknown[] }[] };
+      const rest = g.hooks.filter((h) => !isAftertermHook(h));
+      if (rest.length > 0) kept.push({ ...g, hooks: rest });
+    }
+    if (!eventRemoved) continue; // nothing of ours here: leave the event as it is
+    removed = true;
     if (kept.length === 0) delete s.hooks[event];
     else s.hooks[event] = kept;
   }
@@ -155,7 +191,13 @@ function removeAftertermEntries(settingsPath: string): boolean {
 export function reconcileClaudeHook(opts: ReconcileOpts): ReconcileResult {
   const { scriptSource, claudeDir, prefsPath } = opts;
   const settingsPath = path.join(claudeDir, 'settings.json');
-  const prefs = readJson<Prefs>(prefsPath) ?? {};
+  // readPrefs strips a byte order mark (a hand edit can leave one) and says whether
+  // the file could be read and parsed. One that could not is treated as empty, so
+  // the hook is enabled: hooks are the default and safe state, and a damaged file is
+  // far more likely than an opt-out. It is never written over below.
+  // needsHookRepair (the poll in main.ts) follows the same rule.
+  const { prefs: readPrefsValue, usable: prefsUsable } = readPrefs(prefsPath);
+  const prefs: Prefs = readPrefsValue;
   const enabled = prefs.claudeNotifications !== 'disabled'; // default: enabled
 
   // ── Opt-out path ──────────────────────────────────────────────────────────
@@ -221,13 +263,16 @@ export function reconcileClaudeHook(opts: ReconcileOpts): ReconcileResult {
   const changed = added > 0 || upgraded > 0;
   if (changed) writeJson(settingsPath, settings);
 
-  // One-time toast: only the first time we ever register on this machine.
-  const showToast = added > 0 && !prefs.claudeHookToastShown;
+  // One-time toast: only the first time we ever register on this machine. Not when
+  // prefs.json could not be read: the toast could not be recorded, so it would repeat.
+  const showToast = added > 0 && !prefs.claudeHookToastShown && prefsUsable;
 
   // Persist prefs: record that notifications are enabled + that the toast fired.
+  // Never over a prefs.json that could not be read or parsed: a file we cannot read
+  // may hold an opt-out and other settings (editor, update choices) a rewrite would wipe.
   const nextPrefs: Prefs = { ...prefs, claudeNotifications: 'enabled' };
   if (showToast) nextPrefs.claudeHookToastShown = true;
-  if (JSON.stringify(nextPrefs) !== JSON.stringify(prefs)) writeJson(prefsPath, nextPrefs);
+  if (prefsUsable && JSON.stringify(nextPrefs) !== JSON.stringify(prefs)) writeJson(prefsPath, nextPrefs);
 
   return {
     status: added > 0 ? 'registered' : upgraded > 0 ? 'upgraded' : 'already-current',
@@ -239,4 +284,66 @@ export function reconcileClaudeHook(opts: ReconcileOpts): ReconcileResult {
         ? `rewrote ${upgraded} existing hook entr${upgraded === 1 ? 'y' : 'ies'} for ${mode} mode`
         : 'already registered',
   };
+}
+
+// ── Repair while the app runs ────────────────────────────────────────────────
+//
+// Reconcile used to run only at launch, so when a test launch removed afterterm's
+// entries on 2026-11-06 every chat ran with no hooks for 21 hours. main.ts now
+// polls the Claude folder's settings.json and asks needsHookRepair after each
+// change; a running chat picks hooks up live, so putting them back is enough
+// (docs/note-03-restart-window-said-safe-while-a-chat-was-running.md).
+
+export interface HookRepairCheck {
+  repair: boolean;
+  missing: string[]; // the events with no afterterm entry; empty when repair is false
+  reason: string; // plain words for main's log line
+}
+
+function isPlainObject(v: unknown): boolean {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+// Whether afterterm's entries need putting back, from settings.json's text (null when
+// there is no such file) and prefs.json as readPrefs gives it (empty when the file
+// could not be read or parsed, which counts as enabled, as it does for reconcile).
+// It counts an entry as present exactly as reconcileClaudeHook does (isAftertermGroup),
+// so once a repair has run the next check finds nothing to do: afterterm writes only
+// when something is missing, and cannot loop against Claude Code's own writes.
+export function needsHookRepair(settingsText: string | null, prefs: Prefs): HookRepairCheck {
+  const leave = (reason: string): HookRepairCheck => ({ repair: false, missing: [], reason });
+  if (prefs.claudeNotifications === 'disabled') return leave('notifications are turned off in prefs.json');
+  const events = HOOK_EVENTS.map((e) => e.event);
+  if (settingsText === null) return { repair: true, missing: events, reason: 'settings.json is missing' };
+  let settings: unknown;
+  try {
+    settings = JSON.parse(settingsText);
+  } catch {
+    return leave('settings.json is not valid JSON; left alone');
+  }
+  // Reconcile cannot merge into a file that is not an object, or into hooks that are
+  // not an object, so a write would not stick and would repeat on every change.
+  if (!isPlainObject(settings)) return leave('settings.json is not a JSON object; left alone');
+  const hooks = (settings as { hooks?: unknown }).hooks;
+  if (hooks != null && !isPlainObject(hooks)) return leave('the hooks key in settings.json is not an object; left alone');
+  const byEvent = (hooks ?? {}) as Record<string, unknown>;
+  const missing = events.filter((event) => {
+    const groups = byEvent[event];
+    return !(Array.isArray(groups) && groups.some(isAftertermGroup));
+  });
+  if (missing.length === 0) return leave('every afterterm entry is in place');
+  return { repair: true, missing, reason: `settings.json had no afterterm entry for ${missing.join(', ')}` };
+}
+
+// A guard against a loop needsHookRepair should never allow (another tool that strips
+// the entries each time afterterm puts them back, say): at most HOOK_REPAIR_LIMIT
+// repairs within HOOK_REPAIR_WINDOW_MS. `recent` holds the times of earlier repairs.
+// Returns 0 when a repair may run now, else how long until the oldest repair in the
+// window leaves it.
+export const HOOK_REPAIR_LIMIT = 3;
+export const HOOK_REPAIR_WINDOW_MS = 60_000;
+export function hookRepairWait(recent: number[], now: number): number {
+  const inWindow = recent.filter((t) => now - t < HOOK_REPAIR_WINDOW_MS);
+  if (inWindow.length < HOOK_REPAIR_LIMIT) return 0;
+  return Math.min(...inWindow) + HOOK_REPAIR_WINDOW_MS - now;
 }

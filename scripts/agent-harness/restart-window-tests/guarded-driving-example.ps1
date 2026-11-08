@@ -1,3 +1,4 @@
+# NOTE: its recordFor helper reads the real sessions folder ($env:USERPROFILE\.claude\sessions) by design, and skips the .key files beside the records. An agent must not run it unless reading the real records is the intent.
 # The last two checks, with a hard guard: nothing is typed unless the target thread is
 # confirmed active on screen, in manual mode, with no dialog up. Any failure aborts.
 param([string] $DD, [string] $Rw)

@@ -39,6 +39,7 @@ stranger." Mnemonic: **break it → X, add to it → Y, fix it → Z.**
 | `v0.13.0` | Two threads side by side, a shorter header status chip |
 | `v0.14.0` | File links open in the file's own app, a right-click menu on them, image tags open, opening a file never runs it |
 | `v0.15.0` | Any colour for a project, a smaller project window, rename a thread or a project |
+| `v0.16.0` | The restart window tells the truth, hooks repair themselves, a chat with no hook-saved id resumes |
 
 (`v0.1.0`–`v0.4.1` were backfilled onto the existing history; releases from `v0.5.0` on were cut with `npm run release`.)
 
@@ -71,6 +72,24 @@ What's new shows: headings, bullets, bold and links render, images are skipped.
 - **A Claude Code session can't push the version-bump commit straight to `main`** — the
   auto-mode classifier blocks direct pushes to the default branch. Open a one-line bump
   PR, merge it, then run the release. Aryan running it locally can just commit to `main`.
+
+## Smoke-testing the packaged build before you publish it
+
+Launch the packaged `afterterm.exe` with both of these set, so the test cannot touch the
+real app's files:
+
+- `AFTERTERM_USER_DATA_DIR=<scratch folder>`: the test reads and writes its own
+  `session.json` and `prefs.json`.
+- `CLAUDE_CONFIG_DIR=<scratch folder>` (create the folder first): the test installs its hook
+  into that folder, not into the real `~/.claude`. Only this variable moves the Claude folder.
+  A scratch `USERPROFILE` or `HOME` does not: Electron ignores both for the home folder on
+  Windows. A build without the guard that skips the hook install in a test launch (0.15.0
+  and earlier) has no other protection.
+
+**Never seed `claudeNotifications` in the scratch `prefs.json`.** On 2026-11-06 the 0.15.0
+smoke test seeded `"disabled"` with no `CLAUDE_CONFIG_DIR`, and the opt-out removed afterterm's
+hooks from the real `~/.claude/settings.json` for 21 hours
+([`note-03`](note-03-restart-window-said-safe-while-a-chat-was-running.md)).
 
 ## Writing the notes
 

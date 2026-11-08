@@ -50,6 +50,13 @@ export interface CommandMarkState {
    * prompt line while they were typing. Reset by A, by B and by Enter.
    */
   typed: string;
+  /**
+   * A command afterterm typed into the shell itself (on wake: a chat's `claude
+   * --resume`, a server's last command, onCommandSent) before the shell had drawn
+   * its prompt. The shell reads it at its next prompt and runs it at once, so that
+   * prompt's B mark does not mean "at the prompt". Absent when there is none.
+   */
+  sentAhead?: boolean;
 }
 
 export function initialCommandMarkState(): CommandMarkState {
@@ -69,12 +76,23 @@ export function initialCommandMarkState(): CommandMarkState {
  * C (command start) / D (command finished): the shell is telling us input has
  * been handed off (a command is running or just ran), so this is no longer a
  * bare, untouched prompt; atPrompt clears the same as it does after Enter.
+ *
+ * A command afterterm sent ahead of the prompt (sentAhead) survives A and is
+ * used up by B: the shell runs it as soon as that prompt is drawn, so B leaves
+ * atPrompt off once.
  */
 export function onMark(state: CommandMarkState, mark: Mark, cursor: { row: number; col: number }): CommandMarkState {
   switch (mark) {
     case 'A':
-      return { atPrompt: false, promptEnd: null, typed: '' };
+      return state.sentAhead
+        ? { atPrompt: false, promptEnd: null, typed: '', sentAhead: true }
+        : { atPrompt: false, promptEnd: null, typed: '' };
     case 'B':
+      // A known limit, accepted (plan-02 review, 2026-11-07): cmd with echo on
+      // prints its PROMPT, marks included, before every line of a batch file run
+      // without @echo off, so a B arrives while the batch is still running and
+      // atPrompt reads true until it ends.
+      if (state.sentAhead) return { atPrompt: false, promptEnd: { ...cursor }, typed: '' };
       return { atPrompt: true, promptEnd: { ...cursor }, typed: '' };
     case 'C':
     case 'D':
@@ -83,13 +101,31 @@ export function onMark(state: CommandMarkState, mark: Mark, cursor: { row: numbe
 }
 
 /**
- * Apply one chunk of user input (everything xterm's onData hands over except
- * Enter, which goes to onEnter instead). Only meaningful at a fresh prompt, so
- * it is a no-op outside one.
+ * afterterm typed a whole command line into the shell itself, Enter included (a
+ * chat's `claude --resume` or a server's last command, on wake). Nothing of it
+ * passes through onData, so neither onEnter nor onInput sees it. At a prompt the
+ * shell runs it now, so atPrompt clears; before the prompt is drawn the shell
+ * runs it at its next prompt, so that prompt's B must not count (sentAhead).
+ * No command is captured: the line is afterterm's own, not something typed.
+ */
+export function onCommandSent(state: CommandMarkState): CommandMarkState {
+  if (state.atPrompt) return { ...state, atPrompt: false, typed: '' };
+  return { ...state, sentAhead: true };
+}
+
+/**
+ * Apply one chunk of user input (everything xterm's onData hands over except a
+ * lone Enter, which goes to onEnter instead). Only meaningful at a fresh prompt,
+ * so it is a no-op outside one.
  *
  * The chunk is scanned character by character:
  * - a printable character (0x20 and above, not DEL) is appended;
  * - backspace (DEL 0x7f, or 0x08) drops the last character typed so far;
+ * - a carriage return outside a bracketed paste submits the line: a paste
+ *   ending in a newline (right-click paste, Ctrl+V; xterm turns pasted newlines
+ *   into CR) reaches here as one chunk, and the shell runs it. atPrompt clears
+ *   and the rest of the chunk is not read. No command is captured from such a
+ *   chunk: the buffer onEnter reads from does not hold the pasted text yet;
  * - an escape sequence is skipped whole: "ESC [" up to its final byte (0x40 to
  *   0x7e) covers arrows, Home/End/Delete, the focus reports xterm emits on tab
  *   switch (ESC [ I / ESC [ O) and the bracketed-paste markers ESC [ 200~ and
@@ -99,24 +135,31 @@ export function onMark(state: CommandMarkState, mark: Mark, cursor: { row: numbe
  *
  * Because the paste markers are ordinary CSI sequences, the pasted body between
  * them is appended by the printable rule with no special case: a pasted command
- * is typed text too.
+ * is typed text too. A CR between them does not submit: a shell that turned on
+ * bracketed paste (bash does) holds a pasted newline until Enter.
  */
 export function onInput(state: CommandMarkState, data: string): CommandMarkState {
   if (!state.atPrompt) return state;
   let typed = state.typed;
+  let inPaste = false;
   let i = 0;
   while (i < data.length) {
     const ch = data[i];
     const code = data.charCodeAt(i);
+    if (ch === '\r' && !inPaste) return { ...state, atPrompt: false, typed: '' };
     if (ch === '\x1b') {
       i++;
       if (data[i] === '[') {
         i++;
+        const from = i;
         while (i < data.length) {
           const final = data.charCodeAt(i);
           i++;
           if (final >= 0x40 && final <= 0x7e) break;
         }
+        const csi = data.slice(from, i);
+        if (csi === '200~') inPaste = true;
+        else if (csi === '201~') inPaste = false;
       } else if (data[i] === 'O') {
         i += 2;
       } else {
