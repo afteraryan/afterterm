@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useLayoutEffect } from 'react';
 import { Tab, Group, GroupColor, nextGroupColor, TabNotification, ProjectIconId } from '../components/TabBar/types';
 import type { SavedSession } from '../sessionMigration';
+import type { RecordStatus } from '../../claude-session-record';
 import { insertNewThread, nextActiveTabAfterArchive, nextCustomName, threadFolder, threadName } from '../threadView';
 import { claudeSummaryTitle } from '../chatTitle';
 // Named apart from the hook's own sleepTab/wakeTab callbacks below: these are the
@@ -321,6 +322,58 @@ export function useTabState() {
     });
   }, []);
 
+  // The live status from Claude Code's own session record, pushed by main only when
+  // it changes. Never persisted (sessionMigration.ts's whitelist leaves it out). Same
+  // no-op-when-unchanged rule as setPort; null deletes the key, so a thread with no
+  // live Claude carries no status at all.
+  const setClaudeRecordStatus = useCallback((tabId: string, status: RecordStatus | null) => {
+    setTabs(prev => {
+      let changed = false;
+      const next = prev.map(t => {
+        if (t.id !== tabId) return t;
+        const value = status ?? undefined;
+        if (value === t.recordStatus) return t;
+        changed = true;
+        const updated = { ...t, recordStatus: value };
+        if (value === undefined) delete updated.recordStatus;
+        return updated;
+      });
+      return changed ? next : prev;
+    });
+  }, []);
+
+  // What a live thread is doing, for the restart window: atPrompt from the terminal's
+  // prompt marks and hasChildren from main's process list (plan-02, Fix 8), and
+  // backgroundTasks from the hook's ⏳ title (Fix 7). All transient, all no-ops when
+  // unchanged (atPrompt flips on every command, so a render per prompt is the most
+  // this costs). undefined or null deletes the key, and so does a false
+  // backgroundTasks. A value for a thread that is already asleep is dropped: sleepTab
+  // has just cleared them, and a mark, a list read or a title that raced the sleep
+  // must not leave a stale one for the wake.
+  const setLiveField = useCallback((tabId: string, key: 'atPrompt' | 'hasChildren' | 'backgroundTasks', value: boolean | undefined) => {
+    setTabs(prev => {
+      let changed = false;
+      const next = prev.map(t => {
+        if (t.id !== tabId || t[key] === value) return t;
+        if (t.asleep && value !== undefined) return t;
+        changed = true;
+        const updated = { ...t, [key]: value };
+        if (value === undefined) delete updated[key];
+        return updated;
+      });
+      return changed ? next : prev;
+    });
+  }, []);
+  const setAtPrompt = useCallback((tabId: string, atPrompt: boolean | undefined) => {
+    setLiveField(tabId, 'atPrompt', atPrompt);
+  }, [setLiveField]);
+  const setHasChildren = useCallback((tabId: string, hasChildren: boolean | null) => {
+    setLiveField(tabId, 'hasChildren', hasChildren ?? undefined);
+  }, [setLiveField]);
+  const setBackgroundTasks = useCallback((tabId: string, running: boolean) => {
+    setLiveField(tabId, 'backgroundTasks', running ? true : undefined);
+  }, [setLiveField]);
+
   const setTabNotification = useCallback((tabId: string, notification: TabNotification | undefined) => {
     setTabs(prev => prev.map(t => t.id === tabId ? { ...t, notification } : t));
   }, []);
@@ -635,7 +688,8 @@ export function useTabState() {
     setActiveTabId, activateTab, makeSplit, ungroup, setSplitRatio,
     addTab, closeTab, renameTab, setThreadName, updateTabCwd, setClaudeSession, setTabNotification, setTabFontSize,
     sleepTab, wakeTab, resumeFromHistory,
-    setClaudeMeta, setGitInfo, setPort, setLastCommand, setUnread,
+    setClaudeMeta, setGitInfo, setPort, setLastCommand, setUnread, setClaudeRecordStatus,
+    setAtPrompt, setHasChildren, setBackgroundTasks,
     createConfiguredGroup, addToGroup, removeFromGroup,
     renameGroup, setGroupColor, updateGroup, toggleGroupCollapse, setGroupCollapsedMany, deleteGroup,
     togglePin, setGroupArchived, touchActivity, openProject, bringProjectIn,

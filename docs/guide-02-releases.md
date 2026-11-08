@@ -72,6 +72,24 @@ What's new shows: headings, bullets, bold and links render, images are skipped.
   auto-mode classifier blocks direct pushes to the default branch. Open a one-line bump
   PR, merge it, then run the release. Aryan running it locally can just commit to `main`.
 
+## Smoke-testing the packaged build before you publish it
+
+Launch the packaged `afterterm.exe` with both of these set, so the test cannot touch the
+real app's files:
+
+- `AFTERTERM_USER_DATA_DIR=<scratch folder>`: the test reads and writes its own
+  `session.json` and `prefs.json`.
+- `CLAUDE_CONFIG_DIR=<scratch folder>` (create the folder first): the test installs its hook
+  into that folder, not into the real `~/.claude`. Only this variable moves the Claude folder.
+  A scratch `USERPROFILE` or `HOME` does not: Electron ignores both for the home folder on
+  Windows. A build without the guard that skips the hook install in a test launch (0.15.0
+  and earlier) has no other protection.
+
+**Never seed `claudeNotifications` in the scratch `prefs.json`.** On 2026-11-06 the 0.15.0
+smoke test seeded `"disabled"` with no `CLAUDE_CONFIG_DIR`, and the opt-out removed afterterm's
+hooks from the real `~/.claude/settings.json` for 21 hours
+([`note-03`](note-03-restart-window-said-safe-while-a-chat-was-running.md)).
+
 ## Writing the notes
 
 The notes are what people read in What's new, usually with no idea what changed or why. Aryan,

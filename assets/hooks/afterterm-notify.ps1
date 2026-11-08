@@ -68,11 +68,11 @@ $IsAutoMode = ($payload.permission_mode -eq 'auto')
 $SessionId = if ($payload.session_id) { [string]$payload.session_id } else { '' }
 
 # --- Report the session id + cwd to afterterm (resume-on-restart) --------------
-# This deliberately does NOT use the terminalSequence/title channel: when the user
-# also has another notify hook registered, Claude Code writes only the FIRST hook's
-# terminal output and silently drops ours — so the title channel can't carry this.
-# Instead afterterm hands us a private per-tab file path via env (AFTERTERM_TAB_ID +
-# AFTERTERM_SESSION_DIR) and we write the mapping straight to disk.
+# This deliberately does NOT use the terminalSequence/title channel. afterterm hands
+# us a private per-tab file path via env (AFTERTERM_TAB_ID + AFTERTERM_SESSION_DIR)
+# and we write the mapping straight to disk. That file is afterterm's own channel for
+# this one tab, and it carries the session id and cwd as data, instead of squeezing
+# them through a title string that the shell and other programs in it can also write to.
 # Completely inert when the env isn't set (i.e. not launched by this afterterm).
 #
 # ONLY user-turn events may claim the tab (see $CaptureEvents). Claude Code runs a

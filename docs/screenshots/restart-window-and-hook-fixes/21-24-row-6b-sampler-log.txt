@@ -1,0 +1,96 @@
+Row 6b: the in-page sampler log for tab-1, 2026-11-07, harness instance rw-fixes-live-2, Claude Code 2.1.319 on Haiku
+
+Every 100 ms the sampler read tab-1's title glyph (BUSY is Claude's own spinner, IDLE its idle mark, HOOK:<glyph> a title
+the notify hook set), its record status, notification and backgroundTasks flag (window.__afterterm.tab), the restart
+window's row outcome and footer status ("window-closed" when the window was not open), and which thread was in view
+(.th.sel). It logged a line only when one of those changed. Columns: local time, seconds since the sampler started.
+tab-1 was the thread in view for the whole run.
+
+Parts, by time: (a) background ping, 17:10:14 to 17:12:24 (the ping ended and Claude's own report turn began at 17:12:19);
+(b) first background agent, 17:12:54 to 17:14:30 (its PowerShell ping raised a permission prompt at 17:13:08, approved at
+17:13:22); (b) second background agent on the Bash tool, 17:14:56 to 17:15:47 (flag set at 17:15:01, cleared at 17:15:42);
+(c) one more prompt, 17:16:22 to 17:16:32; (d) background ping, then /exit and Exit and stop tasks, 17:16:47 to 17:17:27.
+
+The sampler code is in s6.js form below the log.
+
+17:10:14    0.1s title=plain | record=idle | notif=- | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:10:15    1.4s title=BUSY | record=idle | notif=- | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:10:15    1.8s title=BUSY | record=busy | notif=working | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:10:16    2.0s title=HOOK:▶ | record=busy | notif=working | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:10:16    2.3s title=BUSY | record=busy | notif=working | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:10:21    7.4s title=IDLE | record=busy | notif=- | backgroundTasks=true | row=- | footer=window-closed | inView=tab-1
+17:10:21    7.8s title=IDLE | record=shell | notif=- | backgroundTasks=true | row=- | footer=window-closed | inView=tab-1
+17:10:27   13.7s title=IDLE | record=shell | notif=- | backgroundTasks=true | row=background-stops | footer=warn | inView=tab-1
+17:10:30   16.3s title=IDLE | record=shell | notif=- | backgroundTasks=true | row=- | footer=window-closed | inView=tab-1
+17:12:19  125.6s title=BUSY | record=shell | notif=- | backgroundTasks=true | row=- | footer=window-closed | inView=tab-1
+17:12:20  126.3s title=HOOK:▶ | record=busy | notif=working | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:12:22  128.7s title=IDLE | record=busy | notif=- | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:12:24  130.3s title=IDLE | record=idle | notif=- | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:12:54  160.8s title=BUSY | record=idle | notif=- | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:12:55  161.5s title=HOOK:▶ | record=idle | notif=working | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:12:55  161.8s title=BUSY | record=idle | notif=working | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:12:56  162.4s title=BUSY | record=busy | notif=working | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:13:01  167.5s title=IDLE | record=busy | notif=working | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:13:01  167.6s title=HOOK:⏳ | record=busy | notif=- | backgroundTasks=true | row=- | footer=window-closed | inView=tab-1
+17:13:02  168.5s title=HOOK:⏳ | record=waiting | notif=- | backgroundTasks=true | row=- | footer=window-closed | inView=tab-1
+17:13:08  174.1s title=HOOK:⚠ | record=waiting | notif=attention | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:13:20  186.4s title=HOOK:⚠ | record=waiting | notif=attention | backgroundTasks=- | row=stops-mid-turn | footer=warn | inView=tab-1
+17:13:21  187.9s title=HOOK:⚠ | record=waiting | notif=attention | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:13:22  188.9s title=HOOK:⚠ | record=waiting | notif=working | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:13:23  189.0s title=BUSY | record=waiting | notif=working | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:13:24  190.6s title=BUSY | record=busy | notif=working | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:13:58  224.9s title=BUSY | record=busy | notif=working | backgroundTasks=- | row=stops-mid-turn | footer=warn | inView=tab-1
+17:14:00  226.8s title=BUSY | record=busy | notif=working | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:14:26  252.1s title=HOOK:▶ | record=busy | notif=working | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:14:28  254.9s title=HOOK:✅ | record=busy | notif=- | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:14:29  255.0s title=IDLE | record=busy | notif=- | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:14:30  256.8s title=IDLE | record=idle | notif=- | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:14:56  282.2s title=BUSY | record=idle | notif=- | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:14:56  282.9s title=HOOK:▶ | record=busy | notif=working | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:14:57  283.2s title=BUSY | record=busy | notif=working | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:15:01  287.0s title=BUSY | record=busy | notif=- | backgroundTasks=true | row=- | footer=window-closed | inView=tab-1
+17:15:07  293.1s title=BUSY | record=busy | notif=- | backgroundTasks=true | row=stops-mid-turn | footer=warn | inView=tab-1
+17:15:08  294.7s title=BUSY | record=busy | notif=- | backgroundTasks=true | row=- | footer=window-closed | inView=tab-1
+17:15:42  328.7s title=HOOK:▶ | record=busy | notif=working | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:15:45  331.2s title=HOOK:✅ | record=busy | notif=- | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:15:45  331.3s title=IDLE | record=busy | notif=- | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:15:47  333.1s title=IDLE | record=idle | notif=- | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:16:22  368.9s title=BUSY | record=idle | notif=- | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:16:23  369.3s title=BUSY | record=busy | notif=working | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:16:23  369.7s title=HOOK:▶ | record=busy | notif=working | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:16:23  369.8s title=BUSY | record=busy | notif=working | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:16:25  372.0s title=HOOK:✅ | record=busy | notif=- | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:16:26  372.1s title=IDLE | record=busy | notif=- | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:16:27  373.3s title=IDLE | record=idle | notif=- | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:16:31  377.1s title=IDLE | record=idle | notif=- | backgroundTasks=- | row=resumes | footer=safe | inView=tab-1
+17:16:32  378.7s title=IDLE | record=idle | notif=- | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:16:47  393.8s title=BUSY | record=idle | notif=- | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:16:48  394.5s title=HOOK:▶ | record=idle | notif=working | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:16:48  394.8s title=BUSY | record=idle | notif=working | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:16:49  395.4s title=BUSY | record=busy | notif=working | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:16:52  398.2s title=IDLE | record=busy | notif=- | backgroundTasks=true | row=- | footer=window-closed | inView=tab-1
+17:16:53  399.4s title=IDLE | record=shell | notif=- | backgroundTasks=true | row=- | footer=window-closed | inView=tab-1
+17:16:58  404.2s title=IDLE | record=shell | notif=- | backgroundTasks=true | row=background-stops | footer=warn | inView=tab-1
+17:16:59  405.8s title=IDLE | record=shell | notif=- | backgroundTasks=true | row=- | footer=window-closed | inView=tab-1
+17:17:05  411.4s title=IDLE | record=waiting | notif=- | backgroundTasks=true | row=- | footer=window-closed | inView=tab-1
+17:17:16  422.6s title=BUSY | record=waiting | notif=- | backgroundTasks=true | row=- | footer=window-closed | inView=tab-1
+17:17:17  423.5s title=BUSY | record=- | notif=- | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:17:18  424.7s title=plain | record=- | notif=- | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+17:17:25  431.9s title=plain | record=- | notif=- | backgroundTasks=- | row=resumes | footer=safe | inView=tab-1
+17:17:27  433.5s title=plain | record=- | notif=- | backgroundTasks=- | row=- | footer=window-closed | inView=tab-1
+
+--- sampler ---
+(() => {
+  if (window.__s6) clearInterval(window.__s6.timer);
+  const glyph = (t) => { const c = [...(t || '')][0] || ''; if ('◐◓◑◒'.includes(c)) return 'BUSY'; if (c === '✳') return 'IDLE'; if ('▶✅⚠⏳⚙'.includes(c)) return 'HOOK:' + c; return 'plain'; };
+  const r = { t0: Date.now(), log: [], last: '' };
+  r.timer = setInterval(() => {
+    const t = window.__afterterm.tab('tab-1');
+    const row = document.querySelector('[data-restart-rows] .tr');
+    const st = document.querySelector('[data-status]')?.dataset.status ?? 'window-closed';
+    const sel = document.querySelector('.th.sel')?.dataset.tid ?? '-';
+    const key = ['title=' + glyph(t?.title), 'record=' + (t?.recordStatus ?? '-'), 'notif=' + (t?.notification ?? '-'), 'backgroundTasks=' + (t?.backgroundTasks ?? '-'), 'row=' + (row ? row.dataset.outcome : '-'), 'footer=' + st, 'inView=' + sel].join(' | ');
+    if (key !== r.last) { r.last = key; r.log.push(new Date().toTimeString().slice(0, 8) + ' ' + ((Date.now() - r.t0) / 1000).toFixed(1).padStart(6) + 's ' + key); }
+  }, 100);
+  window.__s6 = r; return 's6 on';
+})()

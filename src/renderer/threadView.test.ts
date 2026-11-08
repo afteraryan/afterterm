@@ -11,6 +11,7 @@ import {
   initialScreen, nextActiveTabAfterArchive,
 } from './threadView.ts';
 import type { ThreadState } from './threadView.ts';
+import { wakePlan } from './sleepWake.ts';
 import type { Tab, Group, TabNotification } from './components/TabBar/types.ts';
 
 let pass = 0, fail = 0;
@@ -336,7 +337,15 @@ console.log('\nthreadView: needsSleepConfirm\n');
 
 console.log('\nthreadView: sleepConfirmText\n');
 {
-  const withCommand = sleepConfirmText(48765, 'npm start');
+  // `wake` is the thread's wakePlan, built here from real tabs so the text and
+  // the wake can never disagree.
+  const plan = wakePlan;
+  const server = {
+    cwd: 'D:\\Work', claudeCwd: undefined, claudeSessionId: undefined as string | undefined, shellId: 'cmd',
+    port: 48765, lastCommand: undefined as string | undefined,
+  };
+
+  const withCommand = sleepConfirmText(48765, plan({ ...server, lastCommand: 'npm start' }));
   check('title', withCommand.title === 'Sleep the server on :48765?', withCommand.title);
   check('body names the command Wake re-runs',
     withCommand.body === 'This thread is listening on :48765. Sleeping it stops the server; Wake runs npm start again.',
@@ -344,20 +353,44 @@ console.log('\nthreadView: sleepConfirmText\n');
   check('confirm label', withCommand.confirm === 'Sleep thread');
   check('cancel label', withCommand.cancel === 'Cancel');
 
-  const noCommand = sleepConfirmText(48765);
+  const noCommand = sleepConfirmText(48765, plan({ ...server, lastCommand: undefined }));
   check('body falls back to "opens a fresh prompt" with no captured command',
     noCommand.body === 'This thread is listening on :48765. Sleeping it stops the server; Wake opens a fresh prompt.',
     noCommand.body);
 
-  const whitespaceCommand = sleepConfirmText(48765, '   ');
+  const whitespaceCommand = sleepConfirmText(48765, plan({ ...server, lastCommand: '   ' }));
   check('a whitespace-only command is treated as no command',
     whitespaceCommand.body === 'This thread is listening on :48765. Sleeping it stops the server; Wake opens a fresh prompt.',
     whitespaceCommand.body);
 
-  const emptyCommand = sleepConfirmText(48765, '');
+  const emptyCommand = sleepConfirmText(48765, plan({ ...server, lastCommand: '' }));
   check('an empty-string command is treated as no command',
     emptyCommand.body === 'This thread is listening on :48765. Sleeping it stops the server; Wake opens a fresh prompt.',
     emptyCommand.body);
+
+  // plan-02, Fix 9: a thread holding a session id resumes its chat on wake and
+  // re-runs nothing, so the text must not promise the command again.
+  const chat = sleepConfirmText(48765, plan({
+    ...server, claudeSessionId: '3d71b0f2-26cb-4ad3-8371-6504ab2e37e2', lastCommand: 'npm start',
+  }));
+  check('a thread with a session id: the server stops and Wake resumes the chat',
+    chat.body === 'This thread is listening on :48765. Sleeping it stops the server; Wake resumes the chat.',
+    chat.body);
+  check('and the title is the same', chat.title === 'Sleep the server on :48765?');
+  const claudeServer = sleepConfirmText(3000, plan({
+    ...server, port: 3000, claudeSessionId: '3d71b0f2-26cb-4ad3-8371-6504ab2e37e2', lastCommand: 'claude',
+  }));
+  check('a Claude that started the server itself: Wake resumes the chat, never "runs claude again"',
+    claudeServer.body === 'This thread is listening on :3000. Sleeping it stops the server; Wake resumes the chat.',
+    claudeServer.body);
+  const claudeNoId = sleepConfirmText(3000, plan({ ...server, port: 3000, lastCommand: 'claude' }));
+  check('no id and `claude` as the last command: no promise to run it again, Wake opens a fresh prompt',
+    claudeNoId.body === 'This thread is listening on :3000. Sleeping it stops the server; Wake opens a fresh prompt.',
+    claudeNoId.body);
+  const badId = sleepConfirmText(48765, plan({ ...server, claudeSessionId: 'not-a-uuid', lastCommand: 'npm start' }));
+  check('an invalid session id is no id: Wake runs the command again',
+    badId.body === 'This thread is listening on :48765. Sleeping it stops the server; Wake runs npm start again.',
+    badId.body);
 }
 
 console.log('\nthreadView: foldThreads\n');

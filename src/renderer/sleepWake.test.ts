@@ -5,6 +5,7 @@
 import { isDeepStrictEqual } from 'util';
 import {
   sleepTab, wakeTab, restoredTab, sleepAllForShutdown, asleepLabel, asleepSinceText, wakePlan,
+  startsClaudeCode,
 } from './sleepWake.ts';
 import type { Tab } from './components/TabBar/types.ts';
 import type { SavedTab } from './sessionMigration.ts';
@@ -57,6 +58,25 @@ console.log('\nsleepWake: sleepTab\n');
   const tab = chatTab({ wokeAt: 50 });
   const asleep = sleepTab(tab, NOW);
   check('a stale wokeAt is cleared on sleep', !('wokeAt' in asleep));
+}
+{
+  // Claude Code's live status (plan-02, Fix 5): a sleeping thread has no running Claude.
+  const tab = chatTab({ recordStatus: 'busy' });
+  const asleep = sleepTab(tab, NOW);
+  check('recordStatus is cleared on sleep', !('recordStatus' in asleep));
+  check('and the session id stays (Decision 3)', asleep.claudeSessionId === tab.claudeSessionId);
+}
+{
+  // What the shell was doing (plan-02, Fix 8): a woken thread starts from no marks.
+  const tab = chatTab({ atPrompt: false, hasChildren: true });
+  const asleep = sleepTab(tab, NOW);
+  check('atPrompt is cleared on sleep', !('atPrompt' in asleep));
+  check('hasChildren is cleared on sleep', !('hasChildren' in asleep));
+}
+{
+  // What a live Claude left running (plan-02, Fix 7): sleep kills it.
+  const asleep = sleepTab(chatTab({ backgroundTasks: true }), NOW);
+  check('backgroundTasks is cleared on sleep', !('backgroundTasks' in asleep));
 }
 
 console.log('\nsleepWake: wakeTab\n');
@@ -154,6 +174,16 @@ console.log('\nsleepWake: asleepSinceText\n');
     asleepSinceText('Server', NOW - 60_000, NOW, '  npm start  ') === 'Server asleep since 1m ago · runs npm start');
   check('a Chat with a lastCommand never shows the "runs" part (chats resume, they do not re-run commands)',
     asleepSinceText('Chat', NOW - 60_000, NOW, 'npm start') === 'Chat asleep since 1m ago');
+  // The pane passes wakePlan's runCommand, so the line says only what Wake will do.
+  const asleepServer = (lastCommand: string) => ({
+    cwd: 'D:\\Work', claudeCwd: undefined, claudeSessionId: undefined, shellId: 'cmd', port: 3000, lastCommand,
+  });
+  check('a Server whose last command started Claude: no "runs claude", since Wake opens a fresh prompt',
+    asleepSinceText('Server', NOW - 60_000, NOW, wakePlan(asleepServer('claude')).runCommand ?? undefined)
+      === 'Server asleep since 1m ago');
+  check('a Server whose last command is a real server command still names it',
+    asleepSinceText('Server', NOW - 60_000, NOW, wakePlan(asleepServer('npm run dev')).runCommand ?? undefined)
+      === 'Server asleep since 1m ago · runs npm run dev');
   check('a Shell with a lastCommand never shows the "runs" part (not a server)',
     asleepSinceText('Shell', NOW - 60_000, NOW, 'npm start') === 'Shell asleep since 1m ago');
 }
@@ -233,18 +263,104 @@ console.log('\nsleepWake: wakePlan runCommand (Phase 5)\n');
   const plan = wakePlan(exactly500);
   check('a lastCommand of exactly 500 characters is accepted', plan.runCommand === 'x'.repeat(500));
 }
+console.log('\nsleepWake: wakePlan, a session id wins over the server rule (plan-02, Fix 9)\n');
 {
-  // A malformed tab that somehow carries both a valid session id and a port
-  // with a runnable command: the server behaviour wins, resumeSessionId stays
-  // null. A chat never re-runs a shell command.
-  const weird = {
+  // A chat that was exited and then ran a server in the same shell: it holds both a
+  // valid session id and a port with a runnable command. It stays a chat (Decision 3),
+  // so it resumes and the command is not re-run.
+  const both = {
     cwd: 'D:\\Work', claudeCwd: undefined,
     claudeSessionId: '3d71b0f2-26cb-4ad3-8371-6504ab2e37e2', shellId: 'cmd',
     port: 5173, lastCommand: 'npm start',
   };
-  const plan = wakePlan(weird);
-  check('a runnable command always forces resumeSessionId to null, even with a valid session id present',
+  const plan = wakePlan(both);
+  check('a session id plus a port and a command: resumes the chat',
+    plan.resumeSessionId === both.claudeSessionId, show(plan));
+  check('and does not re-run the command', plan.runCommand === null, show(plan));
+}
+{
+  const server = {
+    cwd: 'D:\\Work', claudeCwd: undefined, claudeSessionId: undefined, shellId: 'cmd',
+    port: 5173, lastCommand: 'npm start',
+  };
+  const plan = wakePlan(server);
+  check('no session id plus a port and a command: re-runs the command, resumes nothing',
     plan.runCommand === 'npm start' && plan.resumeSessionId === null, show(plan));
+}
+{
+  // An invalid id is no id: the server rule applies.
+  const bad = {
+    cwd: 'D:\\Work', claudeCwd: undefined, claudeSessionId: 'not-a-uuid', shellId: 'cmd',
+    port: 5173, lastCommand: 'npm start',
+  };
+  const plan = wakePlan(bad);
+  check('an invalid session id plus a port and a command: re-runs the command',
+    plan.runCommand === 'npm start' && plan.resumeSessionId === null, show(plan));
+}
+{
+  // A Claude that started a dev server itself: the last command entered at the
+  // prompt is `claude` and the tree listens on a port. It used to wake by running
+  // a fresh `claude`; it resumes its session.
+  const claudeServer = {
+    cwd: 'D:\\Work', claudeCwd: 'D:\\Work\\app',
+    claudeSessionId: '3d71b0f2-26cb-4ad3-8371-6504ab2e37e2', shellId: 'cmd',
+    port: 3000, lastCommand: 'claude',
+  };
+  const plan = wakePlan(claudeServer);
+  check('a Claude that started a server itself resumes rather than running `claude` fresh',
+    plan.resumeSessionId === claudeServer.claudeSessionId && plan.runCommand === null, show(plan));
+  check('and wakes in the folder Claude was in', plan.cwd === 'D:\\Work\\app');
+}
+
+console.log('\nsleepWake: wakePlan, a command that starts Claude is never a server command\n');
+{
+  // No usable id (no prompt sent yet, or the hook and the record never gave one),
+  // a port in the tree from something Claude started, and `claude` as the last
+  // command: running it again would start a fresh session, not a server.
+  const base = { cwd: 'D:\\Work', claudeCwd: undefined, claudeSessionId: undefined, shellId: 'cmd', port: 3000 };
+  for (const cmd of ['claude', '  claude  ', 'Claude', 'CLAUDE.EXE', 'claude.exe', 'claude.cmd', 'claude --resume abc', 'claude.exe --model haiku']) {
+    const plan = wakePlan({ ...base, lastCommand: cmd });
+    check(`no id, a port and ${JSON.stringify(cmd)}: no runCommand and no resume`,
+      plan.runCommand === null && plan.resumeSessionId === null, show(plan));
+  }
+  check('a command that only starts with the letters claude still re-runs',
+    wakePlan({ ...base, lastCommand: 'claudette serve' }).runCommand === 'claudette serve');
+  check('a command that names claude later on still re-runs',
+    wakePlan({ ...base, lastCommand: 'npx claude-server' }).runCommand === 'npx claude-server');
+  check('npm run dev with a port still re-runs',
+    wakePlan({ ...base, lastCommand: 'npm run dev' }).runCommand === 'npm run dev');
+
+  // Other ways to start Claude Code: npx, a path to the program, the npm package.
+  const claudeForms = [
+    'npx claude',
+    'npx @anthropic-ai/claude-code',
+    'npx @anthropic-ai/claude-code@latest --model haiku',
+    'npx -y @anthropic-ai/claude-code',
+    'NPX Claude',
+    '@anthropic-ai/claude-code',
+    'C:\\Users\\me\\.local\\bin\\claude.exe',
+    'C:\\Users\\me\\.local\\bin\\claude.exe --resume abc',
+    '"C:\\Program Files\\Claude\\claude.exe" --model haiku',
+    "'C:\\tools\\claude.cmd'",
+    'C:\\Users\\me\\AppData\\Roaming\\npm\\claude.cmd',
+    '/c/Users/me/.local/bin/claude.exe',
+    '~/.local/bin/claude',
+  ];
+  for (const cmd of claudeForms) {
+    const plan = wakePlan({ ...base, lastCommand: cmd });
+    check(`no id, a port and ${JSON.stringify(cmd)}: no runCommand and no resume`,
+      plan.runCommand === null && plan.resumeSessionId === null, show(plan));
+  }
+  for (const cmd of ['claudette serve', 'npx claude-server', 'npx vite', '"C:\\tools\\claude-server.exe" --port 3000', 'C:\\claude\\server.exe']) {
+    check(`${JSON.stringify(cmd)} is a server command and re-runs`,
+      wakePlan({ ...base, lastCommand: cmd }).runCommand === cmd);
+  }
+}
+{
+  check('startsClaudeCode: a bare npx is not Claude', !startsClaudeCode('npx'));
+  check('startsClaudeCode: npx with only flags is not Claude', !startsClaudeCode('npx -y'));
+  check('startsClaudeCode: an empty line is not Claude', !startsClaudeCode('   '));
+  check('startsClaudeCode: an unclosed quote is read as a plain word', !startsClaudeCode('"claude-server --x'));
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

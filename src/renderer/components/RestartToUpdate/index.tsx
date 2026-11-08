@@ -3,7 +3,12 @@
 // row per awake thread with what happens to it, one status line, Not now and
 // Restart now. No version, no paragraph. The rows come from restartRows in
 // src/update-check.ts; what "Stops mid-turn" means is in docs/features-updates.md,
-// not on screen.
+// not on screen. When nothing warns but afterterm cannot tell what a thread is
+// doing (restartStatus gives null) there is no status line at all, never "Safe to
+// restart"; the spacer keeps the buttons where they were.
+//
+// For a tester: each row carries data-outcome, and data-unknown when it is one
+// afterterm cannot judge; the footer carries data-status, "safe", "warn" or "none".
 import React, { useState } from 'react';
 import { restartStatus } from '../../../update-check';
 import type { RestartRow } from '../../../update-check';
@@ -29,7 +34,7 @@ export function RestartToUpdate({ rows, onCancel, onConfirm }: RestartToUpdatePr
           {rows.length > 0 && (
             <div className="up-tlist" data-restart-rows="">
               {rows.map(r => (
-                <div className="tr" key={r.id} data-outcome={r.outcome}>
+                <div className="tr" key={r.id} data-outcome={r.outcome} data-unknown={r.unknown ? '' : undefined}>
                   <KindIcon kind={r.kind} size={14} />
                   <span className="n">{r.name}</span>
                   <span className={`w${r.warn ? ' warn' : ''}`}>{r.text}</span>
@@ -37,10 +42,10 @@ export function RestartToUpdate({ rows, onCancel, onConfirm }: RestartToUpdatePr
               ))}
             </div>
           )}
-          <div className="up-dfoot">
-            {status.ok
+          <div className="up-dfoot" data-status={status === null ? 'none' : status.ok ? 'safe' : 'warn'}>
+            {status !== null && (status.ok
               ? <span className="up-dstat ok"><IconCheck size={13} />{status.text}</span>
-              : <span className="up-dstat warn"><IconBell size={12} />{status.text}</span>}
+              : <span className="up-dstat warn"><IconBell size={12} />{status.text}</span>)}
             <span className="sp" />
             <button className="b q s" disabled={busy} onClick={close}>Not now</button>
             <button

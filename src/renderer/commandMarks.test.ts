@@ -3,7 +3,7 @@
 // Exits 0 if all pass, 1 on any failure.
 
 import {
-  parseOsc133, initialCommandMarkState, onMark, onEnter, onInput, cleanCommand,
+  parseOsc133, initialCommandMarkState, onMark, onEnter, onInput, onCommandSent, cleanCommand,
 } from './commandMarks.ts';
 import type { Mark, CommandMarkState } from './commandMarks.ts';
 
@@ -185,6 +185,53 @@ console.log('\ncommandMarks: onInput\n');
   const before = { ...atPrompt };
   onInput(atPrompt, 'x');
   check('onInput does not mutate its input state', show(atPrompt) === show(before));
+}
+{
+  // plan-02 review, Fix 8: a paste ending in a newline reaches onData as one chunk
+  // ending in CR (right-click paste, Ctrl+V), not as a lone Enter, and cmd runs it.
+  const atPrompt: CommandMarkState = { atPrompt: true, promptEnd: { row: 1, col: 4 }, typed: '' };
+  const pastedRun = onInput(atPrompt, 'ping -n 120 127.0.0.1\r');
+  check('a pasted line ending in CR leaves the prompt', pastedRun.atPrompt === false, show(pastedRun));
+  check('and clears what was typed', pastedRun.typed === '');
+  check('and keeps promptEnd', pastedRun.promptEnd !== null && pastedRun.promptEnd.row === 1);
+  check('a typed prefix then a pasted line with CR also leaves the prompt',
+    onInput(onInput(atPrompt, 'echo '), 'hi\r').atPrompt === false);
+  check('a CR in the middle of a chunk leaves the prompt (the first line runs)',
+    onInput(atPrompt, 'dir\recho two').atPrompt === false);
+  check('a chunk with no CR stays at the prompt', onInput(atPrompt, 'ping -n 120').atPrompt === true);
+  // A shell that turned on bracketed paste holds a pasted newline until Enter.
+  const bracketed = onInput(atPrompt, '\x1b[200~ping -n 120\r\x1b[201~');
+  check('a CR inside a bracketed paste does not leave the prompt',
+    bracketed.atPrompt === true && bracketed.typed === 'ping -n 120', show(bracketed));
+  check('a CR after a bracketed paste ends does leave it',
+    onInput(atPrompt, '\x1b[200~ping\x1b[201~\r').atPrompt === false);
+  const notAtPrompt: CommandMarkState = { atPrompt: false, promptEnd: null, typed: '' };
+  check('a chunk with CR outside the prompt changes nothing', onInput(notAtPrompt, 'x\r') === notAtPrompt);
+}
+{
+  // plan-02 review, Fix 8: a command afterterm types itself on wake (`claude
+  // --resume`, a server's last command) never passes through onData.
+  const atPrompt = onMark(onMark(initialCommandMarkState(), 'A', { row: 0, col: 0 }), 'B', { row: 0, col: 4 });
+  const sent = onCommandSent(atPrompt);
+  check('sent at the prompt: atPrompt clears at once', sent.atPrompt === false && !sent.sentAhead, show(sent));
+  check('and the next prompt counts again once it is drawn',
+    onMark(onMark(sent, 'A', { row: 5, col: 0 }), 'B', { row: 5, col: 4 }).atPrompt === true);
+
+  // Sent before the shell drew its first prompt: the shell runs it at that prompt.
+  const early = onCommandSent(initialCommandMarkState());
+  check('sent before any prompt: remembered as sent ahead', early.sentAhead === true && early.atPrompt === false, show(early));
+  const afterA = onMark(early, 'A', { row: 0, col: 0 });
+  check('A keeps the command sent ahead', afterA.sentAhead === true && afterA.atPrompt === false, show(afterA));
+  const afterB = onMark(afterA, 'B', { row: 0, col: 4 });
+  check('the B of the prompt that runs it does not count as at the prompt',
+    afterB.atPrompt === false && !afterB.sentAhead, show(afterB));
+  check('Enter there reads no command', onEnter(afterB, () => 'claude --resume x').command === null);
+  const nextPrompt = onMark(onMark(afterB, 'A', { row: 9, col: 0 }), 'B', { row: 9, col: 4 });
+  check('the prompt after the command ends counts again', nextPrompt.atPrompt === true, show(nextPrompt));
+
+  const before = { ...atPrompt };
+  onCommandSent(atPrompt);
+  check('onCommandSent does not mutate its input state', show(atPrompt) === show(before));
 }
 {
   // A and B both start a fresh line, so both drop whatever was typed before.
