@@ -6,7 +6,8 @@ import { insertNewThread, nextActiveTabAfterArchive, nextCustomName, threadFolde
 import { claudeSummaryTitle } from '../chatTitle';
 // Named apart from the hook's own sleepTab/wakeTab callbacks below: these are the
 // pure record transforms, the callbacks are the state actions that apply them.
-import { sleepTab as sleepTabRecord, wakeTab as wakeTabRecord, restoredTab } from '../sleepWake';
+import { sleepTab as sleepTabRecord, wakeTab as wakeTabRecord, restoreWithLive } from '../sleepWake';
+import type { LiveThread } from '../sleepWake';
 import { historyEntryFor, appendHistory, removeHistoryEntry, tabFromHistory, maxNumericId } from '../history';
 import { lastWorkedThread, enteringRecent, moveGroupsToTop } from '../attention';
 import { placeProject as placeProjectRecord } from '../panelView';
@@ -649,8 +650,11 @@ export function useTabState() {
   }, [activateTab]);
 
   // `saved` has already been through migrateSession, so every field is present and
-  // well typed; nothing here needs to guess at defaults.
-  const restoreSession = useCallback((saved: SavedSession) => {
+  // well typed; nothing here needs to guess at defaults. `live` is the shells main
+  // still holds (AFT-33): empty on a launch, the threads that kept running when the
+  // page was reloaded. Returns which threads were re-attached and the live shells no
+  // saved thread names (the caller ends those).
+  const restoreSession = useCallback((saved: SavedSession, live: readonly LiveThread[] = []): { reattached: string[]; orphans: string[] } => {
     // Reset counters to avoid ID collisions. History ids count as taken ids, not
     // just live tab ids: a closed thread keeps its id in its project's history and
     // its scrollback tail still sits at threads/<id>.txt, so handing that id to a
@@ -666,14 +670,16 @@ export function useTabState() {
     const activeId = saved.activeTabId || saved.tabs[0]?.id || '';
     // Every restored thread starts asleep (sleepWake.ts, restoredTab): nothing is
     // spawned until the user wakes something, which is what keeps a relaunch from
-    // cold-starting N shells (and N `claude --resume` processes) at once.
+    // cold-starting N shells (and N `claude --resume` processes) at once. The one
+    // exception is a thread whose shell is still running in main because only the
+    // page reloaded (AFT-33): it comes back awake, re-attached (restoreWithLive).
     // A saved claudeTitle names the thread from the first paint. A file written
     // before that field existed may still carry Claude's own summary as the raw
     // title (Claude's own glyph in front of it), so that is the fallback, read
     // before the restored shell replaces the title with something like "cmd.exe".
-    setTabs(saved.tabs.map(t => {
-      const claudeTitle = t.claudeTitle || claudeSummaryTitle(t.title);
-      const tab = restoredTab(t, now);
+    const restored = restoreWithLive(saved.tabs, live, now);
+    setTabs(restored.tabs.map(tab => {
+      const claudeTitle = tab.claudeTitle || claudeSummaryTitle(tab.title);
       return claudeTitle ? { ...tab, claudeTitle } : tab;
     }));
     setGroups(saved.groups);
@@ -681,6 +687,7 @@ export function useTabState() {
     splitCounter = maxSplitNumber(saved.splits ?? []);
     setActiveTabId(activeId);
     resetOrderBaseRef.current = true;
+    return { reattached: restored.reattached, orphans: restored.orphans };
   }, []);
 
   return {
