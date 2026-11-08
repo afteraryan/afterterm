@@ -4,7 +4,9 @@ What changed for the person using afterterm, release by release. Each release li
 
 ## Unreleased
 
-Nothing yet.
+### Fixed
+
+- **Notification toasts now always appear on top of your other windows.** Before, a toast could arrive behind the windows in front of you, for example behind another app's always-on-top window, and stay there unseen. Each toast now puts itself back on top of every window when it appears.
 
 ## 0.16.1 (2026-11-08)
 
