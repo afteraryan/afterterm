@@ -4,7 +4,7 @@
 
 import {
   PANEL_DEFAULT_WIDTH, PANEL_MIN_WIDTH, PANEL_MAX_SHARE, PANEL_SAVED_MAX,
-  panelMaxWidth, clampPanelWidth, widthAfterDrag, asPanelWidth,
+  panelMaxWidth, clampPanelWidth, widthAfterDrag, asPanelWidth, savedUi,
 } from './panelWidth.ts';
 
 let pass = 0, fail = 0;
@@ -67,6 +67,26 @@ console.log('\npanelWidth: asPanelWidth (what a saved file may hold)\n');
   check('null is dropped', asPanelWidth(null) === undefined);
   check('undefined is dropped', asPanelWidth(undefined) === undefined);
   check('an object is dropped', asPanelWidth({ width: 300 }) === undefined);
+}
+
+console.log('\npanelWidth: savedUi (what the panel writes into session.json)\n');
+{
+  check('the default width writes no panelWidth', show(savedUi(false, PANEL_DEFAULT_WIDTH)) === show({ panelHidden: false }), show(savedUi(false, PANEL_DEFAULT_WIDTH)));
+  check('the hidden flag is kept beside it', show(savedUi(true, PANEL_DEFAULT_WIDTH)) === show({ panelHidden: true }));
+  check('a custom width is written', show(savedUi(false, 340)) === show({ panelHidden: false, panelWidth: 340 }), show(savedUi(false, 340)));
+  check('a custom width and the hidden flag are both written', show(savedUi(true, 500)) === show({ panelHidden: true, panelWidth: 500 }));
+  check('a width from a big window is kept as chosen, not held to this window', savedUi(false, 900).panelWidth === 900);
+  check('a width below the minimum is clamped up first', savedUi(false, 100).panelWidth === PANEL_MIN_WIDTH, show(savedUi(false, 100)));
+  check('a width above the saved maximum is clamped down first', savedUi(false, 99999).panelWidth === PANEL_SAVED_MAX, show(savedUi(false, 99999)));
+  check('a fraction is rounded', savedUi(false, 300.4).panelWidth === 300, show(savedUi(false, 300.4)));
+  check('a fraction that rounds to the default writes no panelWidth', show(savedUi(false, 264.3)) === show({ panelHidden: false }));
+  check('NaN writes no panelWidth', show(savedUi(false, NaN)) === show({ panelHidden: false }));
+  check('Infinity writes no panelWidth', show(savedUi(false, Infinity)) === show({ panelHidden: false }));
+  for (const w of [180, 264, 340, 640, 900, 4000, 100, 99999, 300.4]) {
+    const ui = savedUi(false, w);
+    const back = asPanelWidth(ui.panelWidth);
+    check(`what is written for ${w} reads back as written (or as the default when none is written)`, ui.panelWidth === undefined ? back === undefined : back === ui.panelWidth, show({ ui, back }));
+  }
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

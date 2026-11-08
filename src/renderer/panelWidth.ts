@@ -46,11 +46,24 @@ export function widthAfterDrag(startWidth: number, startX: number, x: number, wi
 
 // A width read back from session.json, or undefined when there is none to use.
 // A wrongly typed or out-of-range value is dropped rather than clamped, the same
-// rule as every other saved field: the panel then has its default width. Whole
-// pixels only, so a hand-edited 300.4 reads as 300.
+// rule as every other saved field: the panel then has its default width. A
+// fraction is rounded to a whole pixel, so a hand-edited 300.4 reads as 300.
 export function asPanelWidth(v: unknown): number | undefined {
   if (typeof v !== 'number' || !Number.isFinite(v)) return undefined;
   const w = Math.round(v);
   if (w < PANEL_MIN_WIDTH || w > PANEL_SAVED_MAX) return undefined;
   return w;
+}
+
+// What the panel contributes to session.json's `ui`: the hidden flag, and the
+// width only once the person has chosen one. A width at the default (or one that
+// is not a number at all) saves no key, so a reset leaves the file as it was
+// before the panel could be resized. Any other width is held to the saved range
+// first, the same one asPanelWidth accepts on load (not to the current window:
+// the width the person chose is what is kept, whatever size the window is now),
+// so what is written always reads back as written.
+export function savedUi(panelHidden: boolean, panelWidth: number): { panelHidden: boolean; panelWidth?: number } {
+  if (!Number.isFinite(panelWidth)) return { panelHidden };
+  const width = Math.min(PANEL_SAVED_MAX, Math.max(PANEL_MIN_WIDTH, Math.round(panelWidth)));
+  return width === PANEL_DEFAULT_WIDTH ? { panelHidden } : { panelHidden, panelWidth: width };
 }

@@ -56,8 +56,12 @@ export function usePanelResize({ panelRef, onChange }: Options): PanelResize {
       width = widthAfterDrag(startWidth, startX, ev.clientX, window.innerWidth);
       panel.style.setProperty('--sidebar', `${width}px`);
     };
-    // Ends the drag once, however it ends: the release, a cancel, or the pointer
-    // capture being taken away (which fires after a normal release too).
+    // Ends the drag once, however it ends: the release, a cancel, the pointer
+    // capture being taken away (which fires after a normal release too), or the
+    // window losing focus (Alt+Tab with the button held). The last one is what
+    // makes sure body.panel-resizing, which pauses the terminals' refit, cannot
+    // stay on if the browser sends none of the others. The width reached so far is
+    // kept, as on a release.
     let ended = false;
     const up = () => {
       if (ended) return;
@@ -66,6 +70,7 @@ export function usePanelResize({ panelRef, onChange }: Options): PanelResize {
       handle.removeEventListener('pointerup', up);
       handle.removeEventListener('pointercancel', up);
       handle.removeEventListener('lostpointercapture', up);
+      window.removeEventListener('blur', up);
       handle.classList.remove('active');
       document.body.classList.remove('panel-resizing');
       setResizing(false);
@@ -76,6 +81,7 @@ export function usePanelResize({ panelRef, onChange }: Options): PanelResize {
     handle.addEventListener('pointerup', up);
     handle.addEventListener('pointercancel', up);
     handle.addEventListener('lostpointercapture', up);
+    window.addEventListener('blur', up);
   }, [panelRef, onChange]);
 
   const onDoubleClick = useCallback(() => {
