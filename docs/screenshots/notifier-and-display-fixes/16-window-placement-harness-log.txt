@@ -1,0 +1,75 @@
+[22:49:23.595] == P1 launch (no restore flag): harness placement
+[22:49:25.714] x=2240 y=126 w=1280 h=780 onSecondary=True
+[22:49:25.720] == P2 a move by hand (no display or power change near it)
+[22:49:27.337] moved to x=2400 y=186 w=1280 h=780 onSecondary=True
+[22:49:32.885] state after 3.5 s: home.bounds={"x":2016,"y":-30,"width":1280,"height":780} pendingMove=null
+[22:49:32.897] prefs.json windowBounds={"x":2016,"y":-30,"width":1280,"height":780} windowDisplayId=1111811793
+[22:49:34.731] captured D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\notifier-and-display\docs\screenshots\notifier-and-display-fixes\displays\11-placement-moved-by-hand-display2.png
+[22:49:43.064] == P3 quit, relaunch with AFTERTERM_RESTORE_PLACEMENT=1
+[22:49:47.034] hwnd=3476576 WM_CLOSE posted; electron 56196 exited
+[22:49:59.339] electron : pid 16912 D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\notifier-and-display\node_modules\electron\dist\electron.exe
+[22:50:00.952] x=2240 y=126 w=1280 h=780 onSecondary=True
+[22:50:02.373] captured D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\notifier-and-display\docs\screenshots\notifier-and-display-fixes\displays\12-placement-relaunch-opens-where-it-was-display2.png
+[22:50:27.020]    (that relaunch opened at the harness centre: launch.mjs rewrites prefs.json on every launch, so the saved home was gone before the app started; the app then took the centre as its home. Redone below with the saved window keys passed through --prefs.)
+[22:50:27.044] == P3b move by hand again, then quit and relaunch with the saved window keys and AFTERTERM_RESTORE_PLACEMENT=1
+[22:50:29.157] moved to x=2400 y=186 w=1280 h=780 onSecondary=True
+[22:50:32.721] saved and seeded: {"windowBounds":{"x":2016,"y":-30,"width":1280,"height":780},"windowDisplayId":1111811793,"windowDisplayBounds":{"x":1536,"y":-216,"width":1920,"height":1080},"windowMaximized":false}
+[22:50:38.848] hwnd=14223290 WM_CLOSE posted; electron 16912 exited
+[22:50:51.035] electron : pid 4996 D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\notifier-and-display\node_modules\electron\dist\electron.exe
+[22:50:55.219] after relaunch: x=2400 y=186 w=1280 h=780 onSecondary=True
+[22:50:57.870] captured D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\notifier-and-display\docs\screenshots\notifier-and-display-fixes\displays\12-placement-relaunch-opens-where-it-was-display2.png
+[22:51:13.353] == D1 a display is removed and Windows moves the window; the display comes back
+[22:51:15.430] sim display-removed: displayChanges=1 home.bounds={"x":2016,"y":-30,"width":1280,"height":780}
+[22:51:17.034] Windows' move (made by the test right after): moved to x=2100 y=140 w=1280 h=780 onSecondary=True
+[22:51:22.726] state after 3.5 s: home.bounds={"x":2016,"y":-30,"width":1280,"height":780} (unchanged = not kept as the home)
+[22:51:22.750] prefs.json windowBounds={"x":2016,"y":-30,"width":1280,"height":780}
+[22:51:24.389] captured D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\notifier-and-display\docs\screenshots\notifier-and-display-fixes\displays\13-placement-moved-during-a-display-change-display2.png
+[22:51:24.404] -- sim display-added, the home display missing from the list (not back yet)
+[22:51:27.543] decision: {"action":"stay","reason":"its display is not there"}  window: x=2100 y=140 w=1280 h=780 onSecondary=True
+[22:51:27.554] -- sim display-added, the home display back and the window said to be on a made-up laptop display (id 999)
+[22:51:29.117] decision: {"action":"move","bounds":{"x":2016,"y":-30,"width":1280,"height":780},"maximize":false,"displayId":1111811793}
+[22:51:31.308] window after: x=2400 y=186 w=1280 h=780 onSecondary=True
+[22:51:32.724] captured D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\notifier-and-display\docs\screenshots\notifier-and-display-fixes\displays\14-placement-back-on-its-display-display2.png
+[22:51:32.738] -- sim display-added with the real displays (window already on its display)
+[22:51:34.144] decision: {"action":"stay","reason":"already on its display"}
+[22:51:34.198] log: [window] moved during a display or power change: not kept as its home
+[22:51:34.210] log: [harness] window home after display-added (harness): stays, its display is not there
+[22:51:34.221] log: [window] back on its display 1111811793 after display-added (harness)
+[22:51:34.234] log: [harness] window home after display-added (harness): stays, already on its display
+[22:51:45.935] == D2 a move by hand more than 5 s after the last display change becomes the new home
+[22:51:53.949] moved to x=2300 y=150 w=1280 h=780 onSecondary=True
+[22:52:00.745] state after 3.5 s: home.bounds={"x":1916,"y":-66,"width":1280,"height":780}
+[22:52:03.321] sim resume, the window said to be on the made-up laptop display: decision {"action":"move","bounds":{"x":1916,"y":-66,"width":1280,"height":780},"maximize":false,"displayId":1111811793} (the target is the new home, not the old one)
+[22:52:05.763] window after: x=2300 y=150 w=1280 h=780 onSecondary=True
+[22:52:05.777] == D3 a move while a user move is still being decided is left alone
+[22:52:07.149] moved to x=2350 y=170 w=1280 h=780 onSecondary=True
+[22:52:16.294] moved to x=2380 y=180 w=1280 h=780 onSecondary=True
+[22:52:19.731] sim unlock-screen 1 s into a move by hand: decision {"action":"move","bounds":{"x":1996,"y":-36,"width":1280,"height":780},"maximize":false,"displayId":1111811793}
+[22:52:24.008] window after: x=2380 y=180 w=1280 h=780 onSecondary=True
+[22:52:41.369]    (D3 did not catch a move still being decided: each test step takes about 3 s to start (pwsh, then node), longer than the 2 s decision, so the move was already the home when the event was played. That rule is covered by the unit test 'the user is dragging it right now'.)
+[22:52:41.391] == M1 a maximized home: relaunch opens maximized on its display
+[22:52:41.459] seeded: {"windowBounds":{"x":2016,"y":-30,"width":1280,"height":780},"windowDisplayId":1111811793,"windowDisplayBounds":{"x":1536,"y":-216,"width":1920,"height":1080},"windowMaximized":true}
+[22:52:53.658] hwnd=1119046 WM_CLOSE posted; electron 4996 exited
+[22:53:18.441] electron : pid 25552 D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\notifier-and-display\node_modules\electron\dist\electron.exe
+[22:53:20.239] after relaunch: x=1911 y=-9 w=1938 h=1050 onSecondary=False
+[22:53:21.996] home: {"bounds":{"x":2016,"y":-30,"width":1280,"height":780},"displayId":1111811793,"displayBounds":{"x":1536,"y":-216,"width":1920,"height":1080},"maximized":true}
+[22:53:23.447] captured D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\notifier-and-display\docs\screenshots\notifier-and-display-fixes\displays\15-placement-relaunch-opens-maximized-display2.png
+[22:53:23.462] -- sim display-added with the window said to be on the made-up laptop display, while maximized
+[22:53:25.079] decision: {"action":"move","bounds":{"x":2016,"y":-30,"width":1280,"height":780},"maximize":true,"displayId":1111811793}
+[22:53:27.607] window after: x=1911 y=-9 w=1938 h=1050 onSecondary=False
+[22:53:29.055] home after: {"bounds":{"x":2016,"y":-30,"width":1280,"height":780},"displayId":1111811793,"displayBounds":{"x":1536,"y":-216,"width":1920,"height":1080},"maximized":true}
+[22:53:55.753]    (x=1911 y=-9 w=1938 h=1050 is a window maximized on the secondary display: its work area 1920x1032 at 1920,0 plus the 9 px invisible border Windows gives a maximized window on every side, which is why the edge check reads false.)
+[22:53:55.778] == P4 control: the same saved home, relaunched without AFTERTERM_RESTORE_PLACEMENT, opens at the harness centre as before
+[22:54:00.133] hwnd=4723212 WM_CLOSE posted; electron 25552 exited
+[22:54:13.843] electron : pid 26852 D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\notifier-and-display\node_modules\electron\dist\electron.exe
+[22:54:15.714] after relaunch: x=2240 y=126 w=1280 h=780 onSecondary=True
+[22:54:15.752] log: [window] moved during a display or power change: not kept as its home
+[22:54:15.767] log: [harness] window home after display-added (harness): stays, its display is not there
+[22:54:15.782] log: [window] back on its display 1111811793 after display-added (harness)
+[22:54:15.799] log: [harness] window home after display-added (harness): stays, already on its display
+[22:54:15.824] log: [window] back on its display 1111811793 after resume (harness)
+[22:54:15.842] log: [window] moved during a display or power change: not kept as its home
+[22:54:15.865] log: [window] back on its display 1111811793 after unlock-screen (harness)
+[22:54:15.882] log: [window] back on its display 1111811793 after display-added (harness)
+[22:54:19.701] stopped: 10 process(es) gone
+[22:54:19.716] data dir kept at C:\Users\Aryan\AppData\Local\Temp\claude\fa0123314555e1c0\a0efc8aa-7861-41bd-83eb-c902edfef41f\scratchpad\s7\run-place (delete it yourself if you want it gone)

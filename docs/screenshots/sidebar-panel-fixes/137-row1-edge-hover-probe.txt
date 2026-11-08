@@ -1,0 +1,3 @@
+pointer away  : {"hovered":false,"cursor":"col-resize","lineColour":"rgba(0, 0, 0, 0)"}
+pointer on it : {"hovered":true,"cursor":"col-resize","lineColour":"rgba(255, 255, 255, 0.22)"}
+shot: docs\screenshots\sidebar-panel-fixes\136-row1-edge-hover-line-and-cursor-same-session.png

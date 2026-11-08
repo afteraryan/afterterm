@@ -66,6 +66,10 @@ export interface TerminalAreaHandle {
   readAllTails(): Record<string, string[]>;
   // Gives the keyboard to the active thread's terminal; nothing if it has none.
   focusActive(): void;
+  // Fits every terminal on screen to its column now (which resizes their PTYs).
+  // For a caller that held the refit back while it moved the pane, the side
+  // panel's edge being dragged (AFT-30).
+  refit(): void;
 }
 
 interface TerminalAreaProps {
@@ -408,13 +412,42 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
     requestAnimationFrame(() => findInputRef.current?.select());
   }, []);
 
+  // One search addon per terminal, built here so a search can be ended by replacing
+  // the addon. The addon re-runs its last search 200ms after any output to keep its
+  // highlights current, and every run selects the match it finds, which replaces
+  // whatever the user had selected (AFT-44). clearDecorations does not stop that
+  // and cannot cancel a re-run already waiting; disposing the addon does both.
+  const attachSearch = useCallback((term: Terminal, tabId: string) => {
+    const search = new SearchAddon();
+    term.loadAddon(search);
+    search.onDidChangeResults(({ resultIndex, resultCount }) => {
+      if (tabId === activeRef.current) {
+        setMatchInfo({ current: resultCount > 0 ? resultIndex + 1 : 0, total: resultCount });
+      }
+    });
+    return search;
+  }, []);
+
+  // Ends a terminal's search: its highlights and its counter go, and nothing selects
+  // a match on its own any more. The match that is selected stays selected, so a
+  // closed bar still leaves the found text ready to copy. The bar keeps its text:
+  // Enter or the arrows start a fresh search from wherever the selection is. With
+  // nothing selected (after a plain click) Enter searches from the top of the
+  // scrollback and Shift+Enter from the bottom.
+  const endSearch = useCallback((tabId: string) => {
+    const info = termsRef.current.get(tabId);
+    if (!info) return;
+    info.search.dispose();
+    info.search = attachSearch(info.term, tabId);
+    if (tabId === activeRef.current) setMatchInfo(null);
+  }, [attachSearch]);
+
   const closeFind = useCallback(() => {
     setFindOpen(false);
     setMatchInfo(null);
-    const info = termsRef.current.get(activeRef.current);
-    info?.search.clearDecorations();
-    info?.term.focus();
-  }, []);
+    endSearch(activeRef.current);
+    termsRef.current.get(activeRef.current)?.term.focus();
+  }, [endSearch]);
 
   const runFind = useCallback((text: string, dir: 'next' | 'prev', incremental = false) => {
     const info = termsRef.current.get(activeRef.current);
@@ -589,13 +622,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       term.registerLinkProvider(fileLinks);
       fileLinkProvidersRef.current.set(tabId, fileLinks);
 
-      const search = new SearchAddon();
-      term.loadAddon(search);
-      search.onDidChangeResults(({ resultIndex, resultCount }) => {
-        if (tabId === activeRef.current) {
-          setMatchInfo({ current: resultCount > 0 ? resultIndex + 1 : 0, total: resultCount });
-        }
-      });
+      const search = attachSearch(term, tabId);
 
       term.open(container);
 
@@ -664,6 +691,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
 
         if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'a') {
           event.preventDefault();
+          if (findOpenRef.current && tabId === activeRef.current) endSearch(tabId);
           term.selectAll();
           return false;
         }
@@ -680,8 +708,17 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       // A press that closes the link menu only closes it: without this, a right-click
       // to dismiss the menu would go on to paste into the terminal.
       let pressClosedMenu = false;
-      container.addEventListener('mousedown', () => {
+      container.addEventListener('mousedown', (event) => {
         pressClosedMenu = linkMenuRef.current !== null;
+        // A left or right press in the terminal takes the selection from the find
+        // bar. A search left running keeps re-selecting its match as output arrives,
+        // which wipes out the text being selected, and makes a right-click copy the
+        // match again instead of pasting (AFT-44). Capture phase: this runs before
+        // xterm starts the selection. The bar stays open with its text.
+        // This is `mousedown` on purpose, not `pointerdown`: xterm's scrollbar
+        // cancels `pointerdown`, so a press on the scrollbar never gets here and
+        // does not end the search. Do not switch it to `pointerdown`.
+        if ((event.button === 0 || event.button === 2) && findOpenRef.current && tabId === activeRef.current) endSearch(tabId);
       }, { capture: true });
 
       // Right-click: copy the selection (and clear it) if there is one; on a file
@@ -967,7 +1004,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
     } finally {
       creatingRef.current.delete(tabId);
     }
-  }, [openFind, resumeTab, reportPrompt, writeCommand]);
+  }, [openFind, endSearch, attachSearch, resumeTab, reportPrompt, writeCommand]);
 
   // Reconcile the terminals with the tab list. `asleep` is the source of truth:
   // awake with no terminal → build one (a wake, or a brand new thread); asleep with
@@ -1033,7 +1070,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
   // bar (search is scoped to a single terminal).
   useEffect(() => {
     if (findOpenRef.current) {
-      for (const info of termsRef.current.values()) info.search.clearDecorations();
+      for (const id of [...termsRef.current.keys()]) endSearch(id);
       setFindOpen(false);
       setMatchInfo(null);
     }
@@ -1134,11 +1171,14 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
 
   // Resize the terminals on screen when the pane resizes (the window, the
   // panel sliding). The divider does not resize the pane, only its columns, and
-  // is handled on its own below.
+  // is handled on its own below. While the side panel's edge is held
+  // (body.panel-resizing, SidePanel/usePanelResize.ts) the pane changes width on
+  // every move and nothing refits, the same rule as the divider; the panel
+  // calls refit() on release.
   useEffect(() => {
     if (!rootRef.current) return;
     const observer = new ResizeObserver(() => {
-      if (dividingRef.current) return;
+      if (dividingRef.current || document.body.classList.contains('panel-resizing')) return;
       for (const id of panesRef.current) termsRef.current.get(id)?.scheduleFit();
     });
     observer.observe(rootRef.current);
@@ -1206,7 +1246,8 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       return tails;
     },
     focusActive: () => { termsRef.current.get(activeRef.current)?.term.focus(); },
-  }), []);
+    refit: fitVisible,
+  }), [fitVisible]);
 
   // Read by scripts/agent-harness/drive.mjs, which drives the app for phase testing
   // and has no other way to see what a terminal is showing (the xterm buffer is not
@@ -1229,6 +1270,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         openFileLink(tabId: string, row: number, index?: number): Promise<boolean>;
         cellCentre(tabId: string, row: number, col: number): { x: number; y: number } | null;
         findRow(tabId: string, text: string): number;
+        selection(tabId?: string): { has: boolean; text: string; position: unknown } | null;
       };
     };
     // Extended, never replaced: app.tsx hangs its own harness value
@@ -1285,6 +1327,12 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         if (y < 0 || y >= info.term.rows) return null;
         const r = screen.getBoundingClientRect();
         return { x: r.left + (col - 0.5) * (r.width / info.term.cols), y: r.top + (y + 0.5) * (r.height / info.term.rows) };
+      },
+      // AFT-44: what one terminal has selected right now (xterm's own answer).
+      selection: (tabId = activeRef.current) => {
+        const info = termsRef.current.get(tabId);
+        if (!info) return null;
+        return { has: info.term.hasSelection(), text: info.term.getSelection(), position: info.term.getSelectionPosition() ?? null };
       },
       // The last 1-based buffer row whose text contains `text`, or 0.
       findRow: (tabId, text) => {
@@ -1347,7 +1395,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         }}
       />
       <span className="find-count">
-        {findText ? (matchInfo ? `${matchInfo.current}/${matchInfo.total}` : '…') : ''}
+        {findText && matchInfo ? `${matchInfo.current}/${matchInfo.total}` : ''}
       </span>
       <button className="find-btn" title="Previous (Shift+Enter)" onClick={() => runFind(findText, 'prev')}>↑</button>
       <button className="find-btn" title="Next (Enter)" onClick={() => runFind(findText, 'next')}>↓</button>

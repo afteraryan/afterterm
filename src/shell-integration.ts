@@ -24,6 +24,40 @@ export function integrationEnabled(prefs: unknown, shellId: string): boolean {
   return (si as Record<string, unknown>)[shellId] !== 'off';
 }
 
+// ─── cmd: the marked PROMPT ──────────────────────────────────────────────────
+
+// What afterterm wraps round a cmd prompt ($E is ESC in PROMPT syntax): OSC 133;A
+// (prompt start), then OSC 9;9 with the cwd (cmd's own $P), before the user's own
+// visible prompt, and OSC 133;B (prompt end) after it. The wrap and the strip below
+// both build on these two constants, so they cannot drift apart: the strip finds
+// afterterm's marks by exactly what the wrap writes.
+export const CMD_MARK_START = '$E]133;A$E\\$E]9;9;$P$E\\';
+export const CMD_MARK_END = '$E]133;B$E\\';
+
+export function wrapCmdPrompt(visible: string): string {
+  return CMD_MARK_START + visible + CMD_MARK_END;
+}
+
+// The user's own prompt, recovered from a PROMPT that carries afterterm's marks
+// (one wrap or several). A PROMPT reaches a cmd thread already marked when afterterm
+// is launched from a cmd thread of another afterterm: the launching shell's PROMPT
+// is inherited by the new app and every shell it starts. Marks are recognised by
+// CMD_MARK_START, the 133;A mark followed at once by the cwd report, exactly as
+// afterterm writes it; a PROMPT without it is returned as it came. The signature
+// cannot tell afterterm's marks from a user's own copy of them: Microsoft's cmd recipe
+// for the Windows Terminal contains the same text when it is spelled with `$E` (cmd
+// reads `$e` the same, and the recipe uses lower case, which does not match). So
+// planSpawn calls this only when afterterm itself was started from an afterterm
+// thread (SpawnPlanInput.inheritedFromAfterterm), where such a PROMPT is afterterm's.
+// Whatever the user added around the marks (for example `set PROMPT=%PROMPT%> `) is
+// kept.
+export function stripCmdPromptMarks(prompt: string): string {
+  if (!prompt.includes(CMD_MARK_START)) return prompt;
+  let out = prompt;
+  while (out.includes(CMD_MARK_START)) out = out.split(CMD_MARK_START).join('');
+  return out.split(CMD_MARK_END).join('');
+}
+
 // ─── PowerShell (pwsh and Windows PowerShell) ───────────────────────────────
 
 // Wraps the prompt function once, so it runs after the user's own profile has had
@@ -178,6 +212,33 @@ export const BASH_HOOK =
 // out of PROMPT_COMMAND without needing it in an env var of its own.
 export const BASH_BOOTSTRAP = 'eval "$AFTERTERM_BASH_HOOK" 2>/dev/null || unset PROMPT_COMMAND';
 
+// The name of the function the installed hook leaves in PROMPT_COMMAND (the hook above
+// defines it; a test checks BASH_HOOK still does).
+export const BASH_PRECMD_FUNCTION = '__afterterm_precmd';
+
+// PROMPT_COMMAND with afterterm's own entries taken back out: the bootstrap, and the
+// installed hook's function. The hook unexports PROMPT_COMMAND once it has installed,
+// so a launching shell normally passes none of this on; it can when the user exports
+// PROMPT_COMMAND again or the bootstrap has not run yet. Each entry goes together
+// with one neighbouring `;` and the spaces round it, wherever it sits (start, middle
+// or end), so what is left still parses; no other `;;` is touched (a `case` branch
+// ends in one). An entry has to start the value or follow a `;`, and to end the value
+// or be followed by a `;`; one joined to its neighbours any other way (`a && entry`,
+// `entry || b`, or glued to another word) is left as it is. A value with none of
+// afterterm's text is returned as it came.
+const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const BASH_HOOK_ENTRY = new RegExp(
+  '(?:^\\s*|\\s*;\\s*)(?:' + escapeRegExp(BASH_BOOTSTRAP) + '|' + escapeRegExp(BASH_PRECMD_FUNCTION) + ')\\s*(?=;|$)',
+  'g',
+);
+export function stripBashHook(promptCommand: string): string {
+  if (!promptCommand.includes(BASH_BOOTSTRAP) && !promptCommand.includes(BASH_PRECMD_FUNCTION)) {
+    return promptCommand;
+  }
+  // An entry at the start leaves its trailing `;` behind, so the ends are trimmed too.
+  return promptCommand.replace(BASH_HOOK_ENTRY, '').replace(/^[ ;]+|[ ;]+$/g, '');
+}
+
 // ─── WSL: WSLENV ─────────────────────────────────────────────────────────────
 
 // Appends names to a WSLENV value (colon-separated), skipping ones already
@@ -209,21 +270,68 @@ export interface SpawnPlanInput {
   env: Record<string, string>;      // the already-cleaned env main.ts built (AFTERTERM=1 etc. are in it)
   prefs: unknown;                   // the parsed prefs.json object, or undefined
   dirExists: (p: string) => boolean;
+  // True when this afterterm was itself started from a thread of another afterterm
+  // (main.ts: process.env.AFTERTERM === '1', which main never sets on its own
+  // process). Only then is the inherited env cleaned of afterterm's integration
+  // (withoutInheritedIntegration); otherwise a PROMPT that happens to look like
+  // afterterm's marks is the user's own and is left as it is. Default false.
+  inheritedFromAfterterm?: boolean;
 }
 
 export interface SpawnPlan {
   command: string;
   args: string[];
   cwd: string;
-  env: Record<string, string>;      // a copy of input env with the integration keys added, or identical when off
+  env: Record<string, string>;      // a copy of input env, with afterterm's inherited integration taken out when inheritedFromAfterterm, then this shell's integration keys added when it is on
   integration: boolean;             // whether the hook was injected
   cwdFallback: boolean;             // true when the requested cwd was not used
 }
 
 const KNOWN_SHELLS = new Set(['cmd', 'pwsh', 'powershell', 'gitbash', 'wsl']);
 
+// The key an environment already holds a variable under, whatever its letter case
+// (Windows ignores case, and a copy of process.env keeps the case it was set in), or
+// the plain name when there is none.
+function findEnvKey(env: Record<string, string>, name: string): string {
+  const upper = name.toUpperCase();
+  return Object.keys(env).find(k => k.toUpperCase() === upper) ?? name;
+}
+
+// A copy of env with afterterm's own shell integration taken back out of it, so that
+// a shell does not receive the integration of the afterterm that launched this one
+// (planSpawn calls it only when SpawnPlanInput.inheritedFromAfterterm is true):
+//   PROMPT               the marks are stripped, the user's own prompt kept
+//                        (removed when nothing else was in it)
+//   PROMPT_COMMAND       the bash bootstrap and the installed hook's function are
+//                        stripped, anything else kept
+//   AFTERTERM_BASH_HOOK  removed (planSpawn sets it again where it belongs)
+// AFTERTERM, AFTERTERM_TAB_ID and AFTERTERM_SESSION_DIR need nothing here: main.ts
+// sets all three afresh for every shell. WSLENV is left alone, since it only names
+// variables, and a name with no variable behind it forwards nothing.
+export function withoutInheritedIntegration(env: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = { ...env };
+  for (const key of Object.keys(out)) {
+    const value = out[key];
+    if (typeof value !== 'string') continue;
+    const upper = key.toUpperCase();
+    if (upper === 'PROMPT') {
+      const original = stripCmdPromptMarks(value);
+      if (original === value) continue;
+      if (original) out[key] = original; else delete out[key];
+    } else if (key === 'PROMPT_COMMAND') {
+      const original = stripBashHook(value);
+      if (original === value) continue;
+      if (original) out[key] = original; else delete out[key];
+    } else if (key === 'AFTERTERM_BASH_HOOK') {
+      delete out[key];
+    }
+  }
+  return out;
+}
+
 export function planSpawn(input: SpawnPlanInput): SpawnPlan {
   const { shell, cwd, home, env, prefs, dirExists } = input;
+  const inheritedFromAfterterm = input.inheritedFromAfterterm === true;
   const known = KNOWN_SHELLS.has(shell.id);
   const enabled = known && integrationEnabled(prefs, shell.id);
 
@@ -252,14 +360,22 @@ export function planSpawn(input: SpawnPlanInput): SpawnPlan {
     cwdFallback = true;
   }
 
-  const outEnv: Record<string, string> = { ...env };
+  // When this afterterm was started from a thread of another afterterm, start from
+  // what it inherited with the first one's integration taken out, for every shell,
+  // then add what is on for this one. Without this the launching shell's marked
+  // PROMPT (and the like) goes down to every shell it starts: cmd would wrap the marks
+  // a second time, and the opt-out would not hold because the marks are already
+  // there. Not started that way, nothing inherited is afterterm's, so the env is
+  // copied as it is (a user's own Windows Terminal PROMPT, spelled with $E, looks just
+  // like afterterm's marks and must stay).
+  const outEnv = inheritedFromAfterterm ? withoutInheritedIntegration(env) : { ...env };
 
   if (shell.id === 'cmd' && enabled) {
-    // Same three pieces as Phase 5, just relocated: OSC 133;A, then OSC 9;9 (the
-    // cwd, via cmd's own $P), then the user's own visible prompt (or the default
-    // $P$G), then OSC 133;B. $E is ESC in cmd's PROMPT syntax.
-    const visible = outEnv.PROMPT || '$P$G';
-    outEnv.PROMPT = `$E]133;A$E\\$E]9;9;$P$E\\${visible}$E]133;B$E\\`;
+    // OSC 133;A, then OSC 9;9 (the cwd, via cmd's own $P), then the user's own
+    // visible prompt (or the default $P$G), then OSC 133;B. The user's own prompt is
+    // what is left once any inherited marks are gone, so the wrap happens once.
+    const promptKey = findEnvKey(outEnv, 'PROMPT');
+    outEnv[promptKey] = wrapCmdPrompt(outEnv[promptKey] || '$P$G');
   } else if ((shell.id === 'pwsh' || shell.id === 'powershell') && enabled) {
     args = ['-NoExit', '-EncodedCommand', pwshEncodedCommand()];
   } else if (shell.id === 'gitbash' && enabled) {

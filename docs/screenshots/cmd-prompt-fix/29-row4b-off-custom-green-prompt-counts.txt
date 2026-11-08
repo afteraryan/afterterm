@@ -1,0 +1,31 @@
+Row 4b: cmd integration OFF in prefs.json, the launching shell had a marked custom green prompt ($E[32m$P$G) in its environment.
+Launched from PowerShell with $env:PROMPT = $E]133;A$E\$E]9;9;$P$E\$E[32m$P$G$E]133;B$E\   (wrapCmdPrompt from src/shell-integration.ts); --prefs {"shellIntegration":{"cmd":"off"}}.
+
+> drive marks --tab tab-cmd-1
+at prompt: no
+prompt end: (none)
+
+> drive eval window.__count()   (counts over the raw PTY data of the whole run, a listener registered before Wake)
+"{\"A\":0,\"B\":0,\"cwd\":0,\"anyOsc133prefix\":0,\"anyOsc99prefix\":0,\"green\":7,\"chunks\":9,\"bytes\":697}"
+
+Prompt lines visible in the terminal (lines starting with a path and ending a prompt): 5
+
+> drive tail 40 --tab tab-cmd-1
+Microsoft Windows [Version 10.0.26200.9711]
+(c) Microsoft Corporation. All rights reserved.
+
+C:\Users\Aryan\AppData\Local\Temp\tcp>echo ROW 4b - custom green prompt inherited marked, cmd opt-out
+ROW 4b - custom green prompt inherited marked, cmd opt-out
+
+C:\Users\Aryan\AppData\Local\Temp\tcp>
+C:\Users\Aryan\AppData\Local\Temp\tcp>
+C:\Users\Aryan\AppData\Local\Temp\tcp>echo %PROMPT%
+$E[32m$P$G
+
+C:\Users\Aryan\AppData\Local\Temp\tcp>
+
+> raw PTY data, ESC shown as <ESC>, BEL as <BEL>
+"<ESC>[?9001h<ESC>[?1004h<ESC>[?25l<ESC>[2J<ESC>[m<ESC>[H\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n<ESC>[H<ESC>]0;C:\\WINDOWS\\SYSTEM32\\cmd.exe<BEL><ESC>[?25hMicrosoft Windows [Version 10.0.26200.9711]\r\n(c) Microsoft Corporation. All rights reserved.<ESC>[?25l<ESC>[32m<ESC>[4;1HC:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp><ESC>[?25h<ESC>[m<ESC>[32mecho ROW 4b - custom green prompt inherited marked, cmd opt-out<ESC>[m\r\n<ESC>[?25l<ESC>[32mROW 4b - custom green prompt inherited marked, cmd opt-out<ESC>[7;1HC:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp><ESC>[?25h<ESC>[m\r\n<ESC>[32mC:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp><ESC>[m\r\n<ESC>[32mC:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp><ESC>[m<ESC>[32mecho %PROMPT%<ESC>[m\r\n<ESC>[?25l<ESC>[32m$E[32m$P$G<ESC>[12;1HC:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp><ESC>[?25h"
+
+> harness log
+[harness] pty:create tab-cmd-1 shell=cmd integration=off cwd=C:\Users\Aryan\AppData\Local\Temp\tcp cwdFallback=false args=[]

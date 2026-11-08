@@ -1,0 +1,190 @@
+=== row 8 on a69503f, 2026-11-09T00:43:33.6317324+05:30
+--- setup: tab-2 selected (asleep pane expected)
+{
+  "activeRow": "tab-2",
+  "bars": 0,
+  "focus": "b p big",
+  "count": null,
+  "input": null,
+  "tab-2 hasSel": false,
+  "tab-2 selLen": 0,
+  "tab-2 selStart": "",
+  "other hasSel": true,
+  "other selLen": 1950
+}
+--- setup: tab-2 awake
+{
+  "activeRow": "tab-2",
+  "bars": 0,
+  "focus": "xterm-helper-textarea",
+  "count": null,
+  "input": null,
+  "tab-2 hasSel": false,
+  "tab-2 selLen": 0,
+  "tab-2 selStart": "",
+  "other hasSel": true,
+  "other selLen": 1950,
+  "lastRow": "-find-selection\\cwd>"
+}
+--- setup: tab-2 has output and a writer
+{
+  "activeRow": "tab-2",
+  "bars": 0,
+  "focus": "xterm-helper-textarea",
+  "count": null,
+  "input": null,
+  "tab-2 hasSel": false,
+  "tab-2 selLen": 0,
+  "tab-2 selStart": "",
+  "other hasSel": true,
+  "other selLen": 1950,
+  "lastRow": "live writer tick 6 ok"
+}
+--- setup: back on tab-1
+{
+  "activeRow": "tab-1",
+  "bars": 0,
+  "focus": "xterm-helper-textarea",
+  "count": null,
+  "input": null,
+  "tab-1 hasSel": true,
+  "tab-1 selLen": 1950,
+  "tab-1 selStart": "Microsoft Windows [Versi",
+  "other hasSel": false,
+  "other selLen": 0,
+  "lastRow": "live writer tick 287 ok"
+}
+--- 8a: tab-1 bar open, search live
+{
+  "activeRow": "tab-1",
+  "bars": 1,
+  "focus": "find-input",
+  "count": "1/31",
+  "input": "blue",
+  "tab-1 hasSel": true,
+  "tab-1 selLen": 4,
+  "tab-1 selStart": "blue",
+  "other hasSel": false,
+  "other selLen": 0,
+  "lastRow": "live writer tick 294 ok"
+}
+--- 8a: after switching to tab-2 (bar must be closed)
+{
+  "activeRow": "tab-2",
+  "bars": 0,
+  "focus": "xterm-helper-textarea",
+  "count": null,
+  "input": null,
+  "tab-2 hasSel": false,
+  "tab-2 selLen": 0,
+  "tab-2 selStart": "",
+  "other hasSel": true,
+  "other selLen": 4,
+  "lastRow": "live writer tick 19 ok"
+}
+--- 8b: tab-2 bar open, search live
+{
+  "activeRow": "tab-2",
+  "bars": 1,
+  "focus": "find-input",
+  "count": "1/31",
+  "input": "blue",
+  "tab-2 hasSel": true,
+  "tab-2 selLen": 4,
+  "tab-2 selStart": "blue",
+  "other hasSel": true,
+  "other selLen": 4,
+  "lastRow": "live writer tick 25 ok"
+}
+  [t+49ms] connected
+  [t+57ms] cells found
+  [t+448ms] released
+drag from row 15 col 5 (row 10 ) to row 19 col 20 (row 14 ), 12 steps
++0ms (read at 2ms) selection: {"has":true,"text":"10 red green blue yellow orange violet\r\nrow 11 red green blue yellow ... :18}}} | last row: ["live writer tick 26 ok"]
++1000ms (read at 1009ms) selection: {"has":true,"text":"10 red green blue yellow orange violet\r\nrow 11 red green blue  ... :18}}} | last row: ["live writer tick 28 ok"]
++3000ms (read at 3007ms) selection: {"has":true,"text":"10 red green blue yellow orange violet\r\nrow 11 red green blue  ... :18}}} | last row: ["live writer tick 32 ok"]
+--- 8b: tab-2 after the reads
+{
+  "activeRow": "tab-2",
+  "bars": 1,
+  "focus": "xterm-helper-textarea",
+  "count": "",
+  "input": "blue",
+  "tab-2 hasSel": true,
+  "tab-2 selLen": 191,
+  "tab-2 selStart": "10 red green blue yellow",
+  "other hasSel": true,
+  "other selLen": 4,
+  "lastRow": "live writer tick 32 ok"
+}
+--- 8c: back on tab-1 (bar must be closed)
+{
+  "activeRow": "tab-1",
+  "bars": 0,
+  "focus": "xterm-helper-textarea",
+  "count": null,
+  "input": null,
+  "tab-1 hasSel": true,
+  "tab-1 selLen": 4,
+  "tab-1 selStart": "blue",
+  "other hasSel": true,
+  "other selLen": 191,
+  "lastRow": "live writer tick 313 ok"
+}
+  [t+48ms] connected
+  [t+55ms] cells found
+  [t+428ms] released
+drag from row 25 col 5 (row 20 ) to row 29 col 20 (row 24 ), 12 steps
++0ms (read at 3ms) selection: {"has":true,"text":"20 red green blue yellow orange violet\r\nrow 21 red green blue yellow ... 28}}} | last row: ["live writer tick 314 ok"]
++1000ms (read at 1005ms) selection: {"has":true,"text":"20 red green blue yellow orange violet\r\nrow 21 red green blue  ... 28}}} | last row: ["live writer tick 316 ok"]
++3000ms (read at 3016ms) selection: {"has":true,"text":"20 red green blue yellow orange violet\r\nrow 21 red green blue  ... 28}}} | last row: ["live writer tick 320 ok"]
+--- 8c: tab-1 after a drag with no search
+{
+  "activeRow": "tab-1",
+  "bars": 0,
+  "focus": "xterm-helper-textarea",
+  "count": null,
+  "input": null,
+  "tab-1 hasSel": true,
+  "tab-1 selLen": 191,
+  "tab-1 selStart": "20 red green blue yellow",
+  "other hasSel": true,
+  "other selLen": 191,
+  "lastRow": "live writer tick 321 ok"
+}
+--- 8c: tab-1 searched again, bar open
+{
+  "activeRow": "tab-1",
+  "bars": 1,
+  "focus": "find-input",
+  "count": "21/31",
+  "input": "blue",
+  "tab-1 hasSel": true,
+  "tab-1 selLen": 4,
+  "tab-1 selStart": "blue",
+  "other hasSel": true,
+  "other selLen": 191,
+  "lastRow": "live writer tick 326 ok"
+}
+  [t+47ms] connected
+  [t+53ms] cells found
+  [t+432ms] released
+drag from row 11 col 5 (row 6 ) to row 14 col 20 (row 9 ), 12 steps
++0ms (read at 2ms) selection: {"has":true,"text":"6 red green blue yellow orange violet\r\nrow 7 red green blue yellow o ... 13}}} | last row: ["live writer tick 327 ok"]
++1000ms (read at 1007ms) selection: {"has":true,"text":"6 red green blue yellow orange violet\r\nrow 7 red green blue ye ... 13}}} | last row: ["live writer tick 329 ok"]
++3000ms (read at 3011ms) selection: {"has":true,"text":"6 red green blue yellow orange violet\r\nrow 7 red green blue ye ... 13}}} | last row: ["live writer tick 333 ok"]
+--- 8c: tab-1 after the reads
+{
+  "activeRow": "tab-1",
+  "bars": 1,
+  "focus": "xterm-helper-textarea",
+  "count": "",
+  "input": "blue",
+  "tab-1 hasSel": true,
+  "tab-1 selLen": 144,
+  "tab-1 selStart": "6 red green blue yellow ",
+  "other hasSel": true,
+  "other selLen": 191,
+  "lastRow": "live writer tick 333 ok"
+}
+=== done 2026-11-09T00:44:11.5451761+05:30

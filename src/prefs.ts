@@ -35,6 +35,14 @@ export interface AftertermPrefs {
   updateLaterUntil?: number;
   updateLastChecked?: number;
   pendingUpdate?: unknown;
+  // The main window's home (window-placement.ts, AFT-15): its normal bounds, the
+  // display it is on (id and bounds) and whether it is maximized, in Electron's
+  // screen coordinates. Written when the user moves or resizes the window, read
+  // at launch to open it there and when a display comes back.
+  windowBounds?: { x: number; y: number; width: number; height: number };
+  windowDisplayId?: number;
+  windowDisplayBounds?: { x: number; y: number; width: number; height: number };
+  windowMaximized?: boolean;
   [key: string]: unknown;
 }
 

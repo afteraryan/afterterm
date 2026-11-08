@@ -1,0 +1,16 @@
+== Project page, Asleep tab, thread row menu on 'Row 1 chat in worktree subfolder' (claudeCwd = <worktree>\src\renderer)
+right-clicked .tl[data-tab-id][0] at (674, 338) of 6 match(es)
+7 match(es) for .ctx-menu-item
+[0] <div class="menu-item ctx-menu-item"> Wake
+[1] <div class="menu-item ctx-menu-item"> Mark as unread
+[2] <div class="menu-item ctx-menu-item"> Move to project
+[3] <div class="menu-item ctx-menu-item"> Open in File Explorer
+[4] <div class="menu-item ctx-menu-item"> Open in VS Code
+[5] <div class="menu-item ctx-menu-item"> Rename
+[6] <div class="menu-item ctx-menu-item danger"> Close
+-- log lines before: 20
+clicked .ctx-menu-item[3] at (774, 474) of 7 match(es)
+[harness] projects:openInExplorer D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+clicked .ctx-menu-item[4] at (774, 510) of 7 match(es)
+[harness] editors:open VS Code D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+-- log lines after: 22

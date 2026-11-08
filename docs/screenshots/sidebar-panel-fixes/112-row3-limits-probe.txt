@@ -1,0 +1,12 @@
+drag from (360, 406) to (-240, 406) in 12 steps, hold 500ms
+before   : {"panelPx":284,"screenW":880,"bodyResizing":false,"stateKey":284,"ev":[]}
+pressed  : {"panelPx":284,"screenW":880,"bodyResizing":true,"stateKey":284,"ev":[]}
+held     : {"panelPx":180,"screenW":880,"bodyResizing":true,"stateKey":284,"ev":[]}
+shot: docs\screenshots\sidebar-panel-fixes\111-row3-drag-far-left-stops-at-180.png
+released : {"panelPx":180,"screenW":984,"bodyResizing":false,"stateKey":180,"ev":[]}
+drag from (256, 406) to (1156, 406) in 12 steps, hold 500ms
+before   : {"panelPx":180,"screenW":984,"bodyResizing":false,"stateKey":180,"ev":[]}
+pressed  : {"panelPx":180,"screenW":984,"bodyResizing":true,"stateKey":180,"ev":[]}
+held     : {"panelPx":640,"screenW":984,"bodyResizing":true,"stateKey":180,"ev":[]}
+shot: docs\screenshots\sidebar-panel-fixes\113-row3-drag-far-right-stops-at-half-640.png
+released : {"panelPx":640,"screenW":520,"bodyResizing":false,"stateKey":640,"ev":[]}

@@ -1,0 +1,37 @@
+CMD_MARK_START = $E]133;A$E\$E]9;9;$P$E\
+CMD_MARK_END   = $E]133;B$E\
+
+== inherited: single wrap of $P$G (what a parent afterterm exports) 
+   value: $E]133;A$E\$E]9;9;$P$E\$P$G$E]133;B$E\
+   BASELINE fac29ed integration on  -> PROMPT = $E]133;A$E\$E]9;9;$P$E\$E]133;A$E\$E]9;9;$P$E\$P$G$E]133;B$E\$E]133;B$E\
+   BASELINE fac29ed integration off -> PROMPT = $E]133;A$E\$E]9;9;$P$E\$P$G$E]133;B$E\
+   FIXED  HEAD integration on  -> PROMPT = $E]133;A$E\$E]9;9;$P$E\$P$G$E]133;B$E\
+   FIXED  HEAD integration off -> PROMPT = $P$G
+
+== inherited: double wrap of $P$G 
+   value: $E]133;A$E\$E]9;9;$P$E\$E]133;A$E\$E]9;9;$P$E\$P$G$E]133;B$E\$E]133;B$E\
+   BASELINE fac29ed integration on  -> PROMPT = $E]133;A$E\$E]9;9;$P$E\$E]133;A$E\$E]9;9;$P$E\$E]133;A$E\$E]9;9;$P$E\$P$G$E]133;B$E\$E]133;B$E\$E]133;B$E\
+   BASELINE fac29ed integration off -> PROMPT = $E]133;A$E\$E]9;9;$P$E\$E]133;A$E\$E]9;9;$P$E\$P$G$E]133;B$E\$E]133;B$E\
+   FIXED  HEAD integration on  -> PROMPT = $E]133;A$E\$E]9;9;$P$E\$P$G$E]133;B$E\
+   FIXED  HEAD integration off -> PROMPT = $P$G
+
+== inherited: single wrap of $E[32m$P$G (custom green prompt) 
+   value: $E]133;A$E\$E]9;9;$P$E\$E[32m$P$G$E]133;B$E\
+   BASELINE fac29ed integration on  -> PROMPT = $E]133;A$E\$E]9;9;$P$E\$E]133;A$E\$E]9;9;$P$E\$E[32m$P$G$E]133;B$E\$E]133;B$E\
+   BASELINE fac29ed integration off -> PROMPT = $E]133;A$E\$E]9;9;$P$E\$E[32m$P$G$E]133;B$E\
+   FIXED  HEAD integration on  -> PROMPT = $E]133;A$E\$E]9;9;$P$E\$E[32m$P$G$E]133;B$E\
+   FIXED  HEAD integration off -> PROMPT = $E[32m$P$G
+
+== inherited: double wrap of $E[32m$P$G 
+   value: $E]133;A$E\$E]9;9;$P$E\$E]133;A$E\$E]9;9;$P$E\$E[32m$P$G$E]133;B$E\$E]133;B$E\
+   BASELINE fac29ed integration on  -> PROMPT = $E]133;A$E\$E]9;9;$P$E\$E]133;A$E\$E]9;9;$P$E\$E]133;A$E\$E]9;9;$P$E\$E[32m$P$G$E]133;B$E\$E]133;B$E\$E]133;B$E\
+   BASELINE fac29ed integration off -> PROMPT = $E]133;A$E\$E]9;9;$P$E\$E]133;A$E\$E]9;9;$P$E\$E[32m$P$G$E]133;B$E\$E]133;B$E\
+   FIXED  HEAD integration on  -> PROMPT = $E]133;A$E\$E]9;9;$P$E\$E[32m$P$G$E]133;B$E\
+   FIXED  HEAD integration off -> PROMPT = $E[32m$P$G
+
+== inherited: no PROMPT at all 
+   value: undefined
+   BASELINE fac29ed integration on  -> PROMPT = $E]133;A$E\$E]9;9;$P$E\$P$G$E]133;B$E\
+   BASELINE fac29ed integration off -> PROMPT = undefined
+   FIXED  HEAD integration on  -> PROMPT = $E]133;A$E\$E]9;9;$P$E\$P$G$E]133;B$E\
+   FIXED  HEAD integration off -> PROMPT = undefined

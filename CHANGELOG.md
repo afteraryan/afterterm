@@ -4,7 +4,18 @@ What changed for the person using afterterm, release by release. Each release li
 
 ## Unreleased
 
-Nothing yet.
+### Added
+
+- **You can now drag the sidebar's right edge to make it wider or narrower.** It stops at a narrow minimum and at half of the window, and double-clicking the edge puts it back to its normal width. afterterm remembers the width the next time you open it.
+
+### Fixed
+
+- **You can select text in the terminal again after searching with the find bar.** After you searched, the terminal kept jumping the selection back to the search result whenever new output arrived, so your own selection was lost within a moment. Now clicking in the terminal ends the search: the highlights and the match count go, the bar keeps its text, and your selection stays. Press Enter or an arrow in the bar to search again.
+- **Turning off afterterm's Command Prompt integration now works in a second copy of afterterm (the test build, for one) started from a Command Prompt inside afterterm.** Before, the second copy inherited the first one's prompt with afterterm's marks already in it (the invisible marks afterterm adds to a prompt so it can tell where each command starts and which folder the shell is in). It then added the marks again, so each prompt carried them twice, or carried them even with the integration turned off. Now it takes the first set out, keeps your own prompt, and adds the marks once, or not at all when you have turned them off. Git Bash and WSL started that way no longer inherit afterterm's prompt hook either.
+- **The worktree item and the editor button in a chat's header now open the worktree folder, not a folder inside it.** So do Open in File Explorer and Open in your editor in a thread's right-click menu, and a thread in an ordinary repository opens the repository's top folder, never a folder above its project. A thread outside git still opens its own folder.
+- **Notification toasts now always appear on top of your other windows.** Before, a toast could arrive behind the windows in front of you, for example behind another app's always-on-top window, and stay there unseen. Each toast now puts itself back on top of every window when it appears.
+- **afterterm now opens where you left it, and comes back to its screen after the laptop sleeps.** Before, it always opened in the middle of the main screen, and after you closed the lid with afterterm on a second monitor, Windows moved it (and its toasts) to the main screen and it stayed there. afterterm now remembers which screen and where you put its window, opens there, and moves back when that screen returns after sleep, unless you moved the window yourself in the meantime.
+- **The Other projects list at the bottom of the sidebar now closes when you click anywhere outside it, press Esc, or switch to another window.** Before, it stayed open until you clicked its own row again, even when you clicked in the terminal, the header or the rail.
 
 ## 0.16.1 (2026-11-08)
 

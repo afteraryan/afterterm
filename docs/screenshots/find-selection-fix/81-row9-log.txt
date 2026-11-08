@@ -1,0 +1,62 @@
+=== row 9 on a69503f, 2026-11-09T00:44:51.2685167+05:30
+--- row 9: start (bar closed, writer shows typed=[] )
+{
+  "activeRow": "tab-1",
+  "bars": 0,
+  "focus": "xterm-helper-textarea",
+  "count": null,
+  "hasSel": false,
+  "selText": "",
+  "copyCount": 3,
+  "copied": "6 red green blue yellow orange",
+  "lastRow": "live writer tick 17 typed=[]"
+}
+--- row 9: bar open, search live, the match is selected
+{
+  "activeRow": "tab-1",
+  "bars": 1,
+  "focus": "find-input",
+  "count": "1/31",
+  "hasSel": true,
+  "selText": "blue",
+  "copyCount": 0,
+  "copied": null,
+  "lastRow": "live writer tick 23 typed=[]"
+}
+--- row 9: after the FIRST right-click (match copied, selection cleared)
+{
+  "activeRow": "tab-1",
+  "bars": 1,
+  "focus": "xterm-helper-textarea",
+  "count": "",
+  "hasSel": false,
+  "selText": "",
+  "copyCount": 1,
+  "copied": "blue",
+  "lastRow": "live writer tick 24 typed=[]"
+}
+--- row 9: 1.5 s later, writer has written 3 more times (selection must still be empty)
+{
+  "activeRow": "tab-1",
+  "bars": 1,
+  "focus": "xterm-helper-textarea",
+  "count": "",
+  "hasSel": false,
+  "selText": "",
+  "copyCount": 1,
+  "copied": "blue",
+  "lastRow": "live writer tick 28 typed=[]"
+}
+--- row 9: after the SECOND right-click (nothing copied again, PASTE-MARK reached the writer)
+{
+  "activeRow": "tab-1",
+  "bars": 1,
+  "focus": "xterm-helper-textarea",
+  "count": "",
+  "hasSel": false,
+  "selText": "",
+  "copyCount": 1,
+  "copied": "blue",
+  "lastRow": "live writer tick 31 typed=[PASTE-MARK]"
+}
+=== done 2026-11-09T00:45:00.9311936+05:30

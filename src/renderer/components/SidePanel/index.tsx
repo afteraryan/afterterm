@@ -26,6 +26,7 @@ import { isWaitingState } from '../../attention';
 import { relativeTime } from '../../homeView';
 import { ThreadHoverCard } from '../ThreadHoverCard';
 import { usePanelDrag, GENERAL } from './usePanelDrag';
+import { usePanelResize } from './usePanelResize';
 import { foldLimit, partnerOf, splitOf } from '../../splitView';
 import type { Split, PaneTarget } from '../../splitView';
 import type { ListKey } from './usePanelDrag';
@@ -320,6 +321,12 @@ export interface SidePanelProps {
   // the persisted Ctrl+Shift+B state and the transient slide-shut on the way to
   // Home (app.tsx).
   hidden: boolean;
+  // AFT-30: the panel's width in pixels (the person's own, or the default), and
+  // what a drag on its right edge asks for. `settled` is true when the drag has
+  // ended (the terminals can refit now) and false for a double-click reset the
+  // panel is still animating to.
+  width: number;
+  onWidthChange: (width: number, settled: boolean) => void;
   // The clock the Recent rule (3 days) and the docked Other rows' "2d" read.
   now: number;
   shells: { id: string; name: string }[];
@@ -386,7 +393,7 @@ export interface SidePanelProps {
 
 export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function SidePanel(props, ref) {
   const {
-    tabs, groups, activeTabId, hidden, now, shells,
+    tabs, groups, activeTabId, hidden, width, onWidthChange, now, shells,
     onActivate, onClose, onSleep, onWake, onSetUnread, onRenameThread, onOpenLocalhost, threadExplorer, threadEditor, onNewTab,
     onOpenChooser, onOpenProjectPage, onTogglePin,
     onNewProject, editors, folderExists, projectActions,
@@ -408,12 +415,15 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
   // things you do, not settings.
   const [query, setQuery] = useState('');
   const [dockOpen, setDockOpen] = useState(false);
+  const dockRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   // A project to bring into view (revealProject), and the row being highlighted
   // after it arrives. `seq` makes a second open of the same project count again.
   const [reveal, setReveal] = useState<{ groupId: string; seq: number } | null>(null);
   const [flash, setFlash] = useState<{ groupId: string; seq: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const resize = usePanelResize({ panelRef, onChange: onWidthChange });
   const lineRef = useRef<HTMLDivElement>(null);
   const ghostRef = useRef<HTMLDivElement>(null);
   // Which thread row the pointer is resting on, the rectangle the card points at,
@@ -665,6 +675,38 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
     const t = setTimeout(() => setArrived({ projects: new Set(), threads: new Set(), other: new Set() }), ENTER_MS);
     return () => clearTimeout(t);
   }, [arrived]);
+
+  // The open Other projects drawer closes on a click anywhere outside it, on
+  // Escape and when the window loses focus (AFT-37). The listeners are on the
+  // document in the capture phase: the terminal is an xterm canvas that takes
+  // focus on mousedown and can stop the event before it bubbles, so a bubbling
+  // listener would never see a click there. It closes on the release, not the
+  // press: the open drawer takes room from the list above it, so closing it on the
+  // press can make the list grow and its rows slide before the release, and the
+  // click would land on another row. A press on the drawer itself (its rows, its
+  // toggle) is left to their own click handlers, so the toggle still opens and
+  // closes it as before. A press on the title bar's drag area or the window's
+  // buttons never reaches the page, so it closes nothing while the window stays
+  // focused; blur closes the drawer once focus leaves the window.
+  useEffect(() => {
+    if (!dockOpen) return;
+    const close = () => setDockOpen(false);
+    const onRelease = (e: PointerEvent) => {
+      if (e.target instanceof Node && dockRef.current?.contains(e.target)) return;
+      close();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+    };
+    document.addEventListener('pointerup', onRelease, true);
+    document.addEventListener('keydown', onKey, true);
+    window.addEventListener('blur', close);
+    return () => {
+      document.removeEventListener('pointerup', onRelease, true);
+      document.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('blur', close);
+    };
+  }, [dockOpen]);
 
   // A project that has folded away and left Recent is no longer folding.
   useEffect(() => {
@@ -947,7 +989,12 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
 
   return (
     <>
-      <div className={`side-panel${hidden ? ' hidden' : ''}${drag && !drag.returning ? ' dragmode' : ''}`} inert={hidden}>
+      <div
+        ref={panelRef}
+        className={`side-panel${hidden ? ' hidden' : ''}${drag && !drag.returning ? ' dragmode' : ''}${resize.resizing ? ' resizing' : ''}`}
+        style={{ '--sidebar': `${width}px` } as React.CSSProperties}
+        inert={hidden}
+      >
         <div className="side-body">
           {/* The Search box (design-03 decision 13): typing filters the panel in
               place; Ctrl+Shift+P still opens the palette, the only place closed
@@ -1050,7 +1097,7 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
               clicking one brings it in. Hidden while a search is narrowing the
               list. */}
           {otherCount > 0 && !filtered && (
-            <div className={`dock${dockOpen ? ' open' : ''}`} data-dock="">
+            <div className={`dock${dockOpen ? ' open' : ''}`} data-dock="" ref={dockRef}>
               <div className={`dlist${dockOpen ? ' open' : ''}`} inert={!dockOpen}>
                 <div>
                   {others.map(entry => (
@@ -1081,6 +1128,16 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
             panel so it keeps the panel's row styles. */}
         {card}
       </div>
+
+      {/* The strip on the panel's right edge that resizes it (AFT-30): drag to
+          change the width, double-click for the default. It sits outside the
+          panel, which clips what it holds, and is gone while the panel is hidden. */}
+      <div
+        className={`panel-resizer${hidden ? ' hidden' : ''}`}
+        data-panel-resizer=""
+        onPointerDown={resize.onPointerDown}
+        onDoubleClick={resize.onDoubleClick}
+      />
 
       {menu && (
         <Menu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />
