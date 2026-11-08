@@ -443,6 +443,7 @@ Research and design documents live in `docs/`. Naming convention: `research-NN-<
 Procedures an agent follows while working on this repo (not product docs, not research) live in `docs/agent-workflow/`, one file per procedure, plain names. Read the one you need when you need it:
 
 - `docs/agent-workflow/replica-and-build-swap.md`: leaving Aryan a replica dev build after a phase (the data copy, `--claude-resume all`, why `--open-external` is needed) and replacing his production build without a release (build in the worktree, swap after he closes afterterm)
+- `docs/agent-workflow/fable-orchestration.md`: read it whenever a Fable session orchestrates a round of work through agents; the orchestrator writes no code and runs no tests itself.
 
 - `docs/research-00-terminal-landscape-and-stack-validation.md` — pre-build stack/landscape research
 - `docs/design-01-persistent-pty-host.md` — design for a detached PTY-host daemon so terminals survive an app update (not yet built)
