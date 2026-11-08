@@ -1170,6 +1170,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         openFileLink(tabId: string, row: number, index?: number): Promise<boolean>;
         cellCentre(tabId: string, row: number, col: number): { x: number; y: number } | null;
         findRow(tabId: string, text: string): number;
+        selection(tabId?: string): { has: boolean; text: string; position: unknown } | null;
       };
     };
     // Extended, never replaced: app.tsx hangs its own harness value
@@ -1223,6 +1224,12 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         if (y < 0 || y >= info.term.rows) return null;
         const r = screen.getBoundingClientRect();
         return { x: r.left + (col - 0.5) * (r.width / info.term.cols), y: r.top + (y + 0.5) * (r.height / info.term.rows) };
+      },
+      // AFT-44: what one terminal has selected right now (xterm's own answer).
+      selection: (tabId = activeRef.current) => {
+        const info = termsRef.current.get(tabId);
+        if (!info) return null;
+        return { has: info.term.hasSelection(), text: info.term.getSelection(), position: info.term.getSelectionPosition() ?? null };
       },
       // The last 1-based buffer row whose text contains `text`, or 0.
       findRow: (tabId, text) => {
