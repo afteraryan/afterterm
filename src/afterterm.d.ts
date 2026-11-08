@@ -76,6 +76,23 @@ interface AftertermSessionAPI {
   save(data: string): Promise<void>;
   saveSync(data: string): void;
   load(): Promise<any>;
+  // AFT-33: the latest state, kept by main in memory only (never written to disk).
+  remember(data: string): void;
+}
+
+// AFT-33: getting the window back without losing threads (src/window-recovery.ts,
+// restoreWithLive and screenAfterReload in src/renderer/sleepWake.ts).
+interface AftertermRecoveryAPI {
+  // The shells main still holds (empty on a launch) and what the page last showed.
+  state(): Promise<{
+    threads: import('./renderer/sleepWake.ts').LiveThread[];
+    ui: import('./renderer/sleepWake.ts').RememberedUi | null;
+  }>;
+  noteUi(ui: import('./renderer/sleepWake.ts').RememberedUi): void;
+  // Main asks the terminals to redraw (the GPU process went away).
+  onRepaint(callback: () => void): void;
+  // Harness only: crash the page, or end the GPU process. Ignored otherwise.
+  test(what: 'crash' | 'gpu'): void;
 }
 
 interface ClaudeSessionUpdate {
@@ -244,7 +261,9 @@ interface PtyChildren {
 }
 
 interface AftertermPtyAPI {
-  create(tabId: string, shellId?: string, cwd?: string): Promise<{ pid: number }>;
+  // attached: main already held a running shell for this tab and the terminal joined
+  // it (the page was reloaded, AFT-33); nothing was spawned.
+  create(tabId: string, shellId?: string, cwd?: string): Promise<{ pid: number; attached: boolean }>;
   write(tabId: string, data: string): void;
   resize(tabId: string, cols: number, rows: number): void;
   destroy(tabId: string): Promise<void>;
@@ -306,6 +325,7 @@ interface AftertermAPI {
   files: AftertermFilesAPI;
   sessionFiles: AftertermSessionFilesAPI;
   session: AftertermSessionAPI;
+  recovery: AftertermRecoveryAPI;
   claudeSession: AftertermClaudeSessionAPI;
   claudeRecord: AftertermClaudeRecordAPI;
   threads: AftertermThreadsAPI;

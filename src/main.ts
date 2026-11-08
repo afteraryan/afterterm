@@ -17,6 +17,7 @@ import type { ReconcileResult } from './claude-hook-install';
 import { runSetupCheck, issueUrl, failureNote, ISSUES_URL } from './setup-check.ts';
 import type { Runner } from './setup-check.ts';
 import { initUpdater } from './updater.ts';
+import { HANG_GRACE_MS, RELOAD_DELAY_MS, RELOAD_LIMIT, RELOAD_WINDOW_MS, afterChildGone, afterRendererGone, allowReload } from './window-recovery.ts';
 import { detectEditors } from './editor-detect.ts';
 import type { DetectDeps } from './editor-detect.ts';
 import type { EditorInfo } from './editors.ts';
@@ -1219,6 +1220,7 @@ function createNotifierWindow() {
 
   notifierWindow.loadURL(notifierUrl);
   notifierWindow.on('closed', () => { notifierWindow = null; });
+  guardRenderer(notifierWindow, 'notifier');
 
   // The white bar. The overlay is a transparent layered window, and DWM briefly
   // turns its non-client (caption) rendering on around a show and around a
@@ -1266,6 +1268,141 @@ function harnessWindowPlacement(): { x: number; y: number; width: number; height
   };
 }
 
+// ─── Window recovery (AFT-33) ───────────────────────────────────────────────
+
+// The window comes back by itself when its page crashes, hangs or loses its
+// graphics, without closing the app: every shell lives here in main, so the page
+// can be loaded again and re-attach to them (restoreWithLive in sleepWake.ts,
+// pty:create's attach below). The rules are pure in window-recovery.ts.
+
+// Every recovery event, one line each, in <userData>\recovery.log as well as the
+// console, so what happened to a window nobody was watching can be read afterwards
+// (a packaged build has no other log). Capped: past RECOVERY_LOG_MAX_BYTES the file
+// keeps its newer half.
+const RECOVERY_LOG_MAX_BYTES = 256 * 1024;
+
+function recoveryLog(line: string): void {
+  console.log(`[recovery] ${line}`);
+  try {
+    const file = path.join(app.getPath('userData'), 'recovery.log');
+    try {
+      if (fs.statSync(file).size > RECOVERY_LOG_MAX_BYTES) {
+        fs.writeFileSync(file, fs.readFileSync(file, 'utf-8').slice(-RECOVERY_LOG_MAX_BYTES / 2), 'utf-8');
+      }
+    } catch { /* no file yet */ }
+    fs.appendFileSync(file, `${new Date().toISOString()} ${line}\n`, 'utf-8');
+  } catch { /* the log is a help, never a reason to fail */ }
+}
+
+// When each window's page was last reloaded by recovery, so a page that crashes as
+// soon as it loads is not reloaded forever (allowReload).
+const recoveryReloads = new Map<string, number[]>();
+
+function reloadForRecovery(win: BrowserWindow, label: string, why: string): void {
+  setTimeout(() => {
+    if (win.isDestroyed() || isQuitting) return;
+    const decision = allowReload(recoveryReloads.get(label) ?? [], Date.now());
+    recoveryReloads.set(label, decision.times);
+    if (!decision.allowed) {
+      recoveryLog(`${label}: not reloading after ${why}: already reloaded ${RELOAD_LIMIT} times in ${RELOAD_WINDOW_MS / 1000}s`);
+      return;
+    }
+    recoveryLog(`${label}: reloading the page after ${why}`);
+    win.webContents.reload();
+  }, RELOAD_DELAY_MS);
+}
+
+// A window's page: reloaded when its renderer process goes away, and when it has
+// been unresponsive for HANG_GRACE_MS (its renderer is ended first, which reports
+// as gone and reloads through the same path; Electron's own advice for a hung page).
+function guardRenderer(win: BrowserWindow, label: string): void {
+  const contents = win.webContents;
+  let hangTimer: NodeJS.Timeout | null = null;
+  const clearHang = () => {
+    if (hangTimer) { clearTimeout(hangTimer); hangTimer = null; }
+  };
+  contents.on('render-process-gone', (_e, details) => {
+    clearHang();
+    recoveryLog(`${label}: renderer gone, reason=${details.reason} exitCode=${details.exitCode}`);
+    if (afterRendererGone(details.reason, isQuitting) === 'reload') reloadForRecovery(win, label, `the renderer ${details.reason}`);
+  });
+  contents.on('unresponsive', () => {
+    recoveryLog(`${label}: unresponsive; ending it if it still is in ${HANG_GRACE_MS / 1000}s`);
+    if (hangTimer) return;
+    hangTimer = setTimeout(() => {
+      hangTimer = null;
+      if (win.isDestroyed() || isQuitting) return;
+      recoveryLog(`${label}: still unresponsive after ${HANG_GRACE_MS / 1000}s, ending its renderer`);
+      contents.forcefullyCrashRenderer();
+    }, HANG_GRACE_MS);
+  });
+  contents.on('responsive', () => {
+    if (!hangTimer) return;
+    clearHang();
+    recoveryLog(`${label}: responsive again`);
+  });
+  win.on('closed', clearHang);
+}
+
+// The GPU process going away is what took the terminals' text in AFT-33. Chromium
+// starts a new one by itself; the main window's terminals are told to redraw (a
+// fresh WebGL renderer each), which keeps their scrollback, unlike a reload. Any
+// other process going away is only logged.
+app.on('child-process-gone', (_e, details) => {
+  recoveryLog(`process gone: type=${details.type} reason=${details.reason} exitCode=${details.exitCode}${details.name ? ` name=${details.name}` : ''}`);
+  if (afterChildGone(details.type, details.reason) === 'repaint' && mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('recovery:repaint');
+  }
+});
+
+// What the page last showed (screen, project page, active thread), kept in memory
+// only: it exists for a page that reloads inside one run of the app, never on a
+// launch (screenAfterReload in sleepWake.ts).
+type RememberedUi = { screen: 'home' | 'workspace' | 'project'; projectId?: string; activeTabId?: string };
+let rememberedUi: RememberedUi | null = null;
+
+ipcMain.on('recovery:ui', (_event, ui: unknown) => {
+  if (!ui || typeof ui !== 'object') return;
+  const u = ui as Record<string, unknown>;
+  if (u.screen !== 'home' && u.screen !== 'workspace' && u.screen !== 'project') return;
+  rememberedUi = {
+    screen: u.screen,
+    ...(typeof u.projectId === 'string' ? { projectId: u.projectId } : {}),
+    ...(typeof u.activeTabId === 'string' ? { activeTabId: u.activeTabId } : {}),
+  };
+});
+
+// Asked by the page as it restores the session: the shells main still holds (with
+// the port each was last seen on), and what the page last showed. Empty on a
+// launch. The record status and children flags are sent on change only, so they are
+// forgotten here and the next pass sends every live thread's again to the new page.
+ipcMain.handle('recovery:state', () => {
+  const threads = [...ptys.keys()].map(tabId => ({
+    tabId,
+    ...(lastPortSent.has(tabId) ? { port: lastPortSent.get(tabId) ?? null } : {}),
+  }));
+  if (threads.length > 0) {
+    recordStatusSent.clear();
+    shellChildrenSent.clear();
+    recoveryLog(`main: page loaded with ${threads.length} live shell(s): ${threads.map(t => t.tabId).join(', ')}`);
+  }
+  return { threads, ui: rememberedUi };
+});
+
+// Harness only: make the window's renderer crash, or end the GPU process the way
+// Aryan did by hand, to test the recovery (drive eval "window.afterterm.recovery.test('crash')").
+ipcMain.on('recovery:test', (_event, what: unknown) => {
+  if (process.env.AFTERTERM_HARNESS !== '1') return;
+  if (what === 'crash') {
+    console.log('[harness] recovery:test crash');
+    setTimeout(() => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.forcefullyCrashRenderer(); }, 100);
+  } else if (what === 'gpu') {
+    const gpu = app.getAppMetrics().find(m => m.type === 'GPU');
+    console.log(`[harness] recovery:test gpu pid=${gpu?.pid ?? 'none'}`);
+    if (gpu) { try { process.kill(gpu.pid); } catch (err) { console.log(`[harness] recovery:test gpu failed: ${String(err)}`); } }
+  }
+});
+
 function createWindow() {
   const placement = harnessWindowPlacement();
   mainWindow = new BrowserWindow({
@@ -1300,6 +1437,7 @@ function createWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
   }
+  guardRenderer(mainWindow, 'main');
 
   // Coming back to afterterm with a toast up is when DWM revisits the overlay's
   // frame and can leave the white bar (see createNotifierWindow); repaint it.
@@ -1851,6 +1989,16 @@ ipcMain.handle('editors:choose', async () => {
 // ─── IPC: create PTY ─────────────────────────────────────────────────────────
 
 ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: string) => {
+  // AFT-33: the page reloaded (or came back after a crash) while this thread's shell
+  // kept running. The page's new terminal attaches to it: nothing is spawned, and the
+  // shell's output already goes to this window's page, whichever page it holds now.
+  // `attached` tells the page not to type a resume or a server command into it.
+  const existing = ptys.get(tabId);
+  if (existing) {
+    if (process.env.AFTERTERM_HARNESS === '1') console.log(`[harness] pty:attach ${tabId} pid=${existing.pid}`);
+    return { pid: existing.pid, attached: true };
+  }
+
   const shell = getShellById(shellId);
 
   // Clean PATH: strip stray quotes that corrupt cmd.exe's command resolution.
@@ -1975,7 +2123,7 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
     if (ptys.size === 0) stopServerPolling();
   });
 
-  return { pid: p.pid };
+  return { pid: p.pid, attached: false };
 });
 
 // ─── IPC: write to PTY ───────────────────────────────────────────────────────
@@ -2657,7 +2805,21 @@ ipcMain.handle('git:infoMany', (_event, cwds: unknown) => {
   );
 });
 
+// The page's latest state, in memory (AFT-33). The file is written two seconds after
+// a change; a page that crashes or hangs never writes its last changes, and a page
+// reloaded after that must still find the threads it had (a thread created a second
+// before, whose shell main still holds). So the page also sends its state here a
+// moment after every change (session:remember), and every save lands here too. A
+// page loading inside one run of the app reads this copy; a launch has none and
+// reads the file.
+let rememberedSession: string | null = null;
+
+ipcMain.on('session:remember', (_event, data: unknown) => {
+  if (typeof data === 'string') rememberedSession = data;
+});
+
 ipcMain.handle('session:save', (_event, data: string) => {
+  if (typeof data === 'string') rememberedSession = data;
   try {
     fs.writeFileSync(getSessionPath(), data, 'utf-8');
   } catch {}
@@ -2666,6 +2828,7 @@ ipcMain.handle('session:save', (_event, data: string) => {
 // Synchronous save — used on window 'beforeunload' so the last state (e.g. a fresh
 // cwd) is flushed before the renderer tears down. sendSync blocks until written.
 ipcMain.on('session:save-sync', (event, data: string) => {
+  if (typeof data === 'string') rememberedSession = data;
   try {
     fs.writeFileSync(getSessionPath(), data, 'utf-8');
   } catch {}
@@ -2673,6 +2836,11 @@ ipcMain.on('session:save-sync', (event, data: string) => {
 });
 
 ipcMain.handle('session:load', () => {
+  if (rememberedSession !== null) {
+    try {
+      return JSON.parse(rememberedSession);
+    } catch { /* fall back to the file */ }
+  }
   try {
     return JSON.parse(fs.readFileSync(getSessionPath(), 'utf-8'));
   } catch {
