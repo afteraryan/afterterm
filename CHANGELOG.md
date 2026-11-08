@@ -4,7 +4,9 @@ What changed for the person using afterterm, release by release. Each release li
 
 ## Unreleased
 
-Nothing yet.
+### Fixed
+
+- **A Command Prompt thread no longer sends the prompt marks twice, and turning the marks off for Command Prompt now works, when afterterm was started from a Command Prompt thread of another afterterm.** The new afterterm used to inherit the first one's marked prompt and mark it again. Now it takes the marks back out first, keeps your own prompt, and adds the marks once, or not at all when you have turned them off. The same clean-up covers the other shells.
 
 ## 0.16.1 (2026-11-08)
 
