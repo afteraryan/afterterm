@@ -1,0 +1,40 @@
+AFT-45, fix round 1 after review 1: a deleted worktree is noticed, and a thread's folder never opens above its project
+Harness run, 2026-11-08, secondary display (DISPLAY2, window at x=2240 y=126). Every thread asleep, made-up session ids,
+scratch Claude folder. A real scratch git repo with a linked worktree (.claude/worktrees/x) was built for this run, so the
+git reads are real.
+
+Fixture
+  project "Repo project"     folder = the scratch repo's top (R)
+  project "Package project"  folder = R/packages/app (a package inside the repo, like a monorepo)
+  tab-1 chat in project "Repo project", session folder R/.claude/worktrees/x/apps (inside the linked worktree)
+  tab-2 shell in "Package project", folder R/packages/app/src
+  tab-3 shell in "Repo project", folder R/packages/app/src
+  tab-4 shell with no project (General), folder R/packages/app/src
+
+Rule: never open a folder above the project. Editor button (header), read back with `drive opened`:
+  tab-1 -> R/.claude/worktrees/x        a worktree under the project folder: the worktree top wins
+  tab-2 -> R/packages/app               the git top (R) is above the project folder, so the project folder is opened
+  tab-3 -> R                            the git top equals the project folder
+  tab-4 -> R                            no project (General): the git top
+
+Finding 1: a worktree deleted while afterterm is open
+  Before: tab-1 header shows branch wf-x and the worktree item; the editor button reads "Open in VS Code".
+  I removed R/.claude/worktrees/x from outside the app (Remove-Item) at 22:56:04.
+  22:56:09 (the next git poll): the editor button had become "Folder not found" (disabled), the worktree item was gone, the
+  header branch read main (git-info walked up to R). Clicking the button opened nothing. The sidebar menu showed Open in
+  File Explorer and Open in VS Code both disabled. (Review 1 predicted that without the re-check this state opened R; I did not run
+  the old code to see it.)
+
+Main process log (editors:open, one per click that opened something, nothing for the deleted worktree):
+  [harness] editors:open VS Code R/.claude/worktrees/x
+  [harness] editors:open VS Code R/packages/app
+  [harness] editors:open VS Code R
+  [harness] editors:open VS Code R
+
+Captures
+  08-fix1-worktree-chat-before-delete.png                  tab-1 before the delete
+  09-fix7-general-shell-opens-repo-top.png                 tab-4 (General) header, editor button tip
+  10-fix1-deleted-worktree-editor-button-disabled.png      tab-1 after the delete: "Folder not found"
+  11-fix1-deleted-worktree-thread-menu-disabled.png        tab-1 right-click menu with both Open items disabled
+
+Not tested: real Explorer and VS Code launches (the harness only logs them); an awake chat (every thread here was asleep).
