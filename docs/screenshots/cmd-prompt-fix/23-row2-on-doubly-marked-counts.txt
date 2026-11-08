@@ -1,0 +1,32 @@
+Row 2: integration on (default), the launching shell had a DOUBLY marked PROMPT in its environment (two generations of afterterm).
+Launched from PowerShell with $env:PROMPT = $E]133;A$E\$E]9;9;$P$E\$E]133;A$E\$E]9;9;$P$E\$P$G$E]133;B$E\$E]133;B$E\   (wrapCmdPrompt applied twice, from src/shell-integration.ts); no --prefs.
+
+> drive marks --tab tab-cmd-1
+at prompt: yes
+prompt end: row 11 col 38
+
+> drive eval window.__count()   (counts over the raw PTY data of the whole run, a listener registered before Wake)
+"{\"A\":5,\"B\":5,\"cwd\":5,\"anyOsc133prefix\":10,\"anyOsc99prefix\":5,\"green\":0,\"chunks\":7,\"bytes\":979}"
+
+Prompt lines visible in the terminal (lines starting with a path and ending a prompt): 5
+
+> drive tail 40 --tab tab-cmd-1
+Microsoft Windows [Version 10.0.26200.9711]
+(c) Microsoft Corporation. All rights reserved.
+
+C:\Users\Aryan\AppData\Local\Temp\tcp>echo ROW 2 - inherited DOUBLY marked PROMPT, integration on
+ROW 2 - inherited DOUBLY marked PROMPT, integration on
+
+C:\Users\Aryan\AppData\Local\Temp\tcp>
+C:\Users\Aryan\AppData\Local\Temp\tcp>
+C:\Users\Aryan\AppData\Local\Temp\tcp>echo %PROMPT%
+$E]133;A$E\$E]9;9;$P$E\$P$G$E]133;B$E\
+
+C:\Users\Aryan\AppData\Local\Temp\tcp>
+
+> raw PTY data, ESC shown as <ESC>, BEL as <BEL>
+"<ESC>[?9001h<ESC>[?1004h<ESC>[?25l<ESC>[2J<ESC>[m<ESC>[H\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n<ESC>[H<ESC>]0;C:\\WINDOWS\\SYSTEM32\\cmd.exe<BEL><ESC>[?25h<ESC>[?25lMicrosoft Windows [Version 10.0.26200.9711]\r\n(c) Microsoft Corporation. All rights reserved.<ESC>[4;1H<ESC>[?25h<ESC>]133;A<ESC>\\<ESC>]9;9;C:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp<ESC>\\C:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp><ESC>]133;B<ESC>\\echo ROW 2 - inherited DOUBLY marked PROMPT, integration on\r\n<ESC>[?25lROW 2 - inherited DOUBLY marked PROMPT, integration on<ESC>[7;1H<ESC>[?25h<ESC>]133;A<ESC>\\<ESC>]9;9;C:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp<ESC>\\C:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp><ESC>]133;B<ESC>\\\r\n<ESC>]133;A<ESC>\\<ESC>]9;9;C:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp<ESC>\\C:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp><ESC>]133;B<ESC>\\\r\n<ESC>]133;A<ESC>\\<ESC>]9;9;C:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp<ESC>\\C:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp><ESC>]133;B<ESC>\\echo %PROMPT%\r\n<ESC>[?25l$E]133;A$E\\$E]9;9;$P$E\\$P$G$E]133;B$E\\<ESC>[12;1H<ESC>[?25h<ESC>]133;A<ESC>\\<ESC>]9;9;C:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp<ESC>\\C:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp><ESC>]133;B<ESC>\\"
+
+> harness log
+[harness] pty:create tab-cmd-1 shell=cmd integration=on cwd=C:\Users\Aryan\AppData\Local\Temp\tcp cwdFallback=false args=[]
+(The harness log of the shared data dir also holds the spawn lines of earlier launches; only this launch line is kept here.)

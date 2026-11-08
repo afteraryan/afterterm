@@ -1,0 +1,4030 @@
+
+> afterterm@0.16.1 test
+> node src/editor-detect.test.ts && node src/claude-hook-install.test.ts && node src/renderer/spinnerState.test.ts && node src/renderer/sessionMigration.test.ts && node src/renderer/projectColour.test.ts && node src/renderer/sidebarWalk.test.ts && node src/renderer/threadView.test.ts && node src/renderer/attention.test.ts && node src/renderer/panelView.test.ts && node src/renderer/splitView.test.ts && node src/renderer/homeView.test.ts && node src/renderer/chooserView.test.ts && node src/renderer/paletteView.test.ts && node src/claude-transcript.test.ts && node src/git-info.test.ts && node src/renderer/chatTitle.test.ts && node src/renderer/sleepWake.test.ts && node src/renderer/history.test.ts && node src/thread-tail.test.ts && node src/server-detect.test.ts && node src/renderer/commandMarks.test.ts && node src/shell-paths.test.ts && node src/shell-integration.test.ts && node src/renderer/jumpScroll.test.ts && node src/renderer/toastExpiry.test.ts && node src/session-files.test.ts && node src/session-files-store.test.ts && node src/renderer/filesView.test.ts && node src/command-files.test.ts && node src/renderer/filePaths.test.ts && node src/renderer/webLinks.test.ts && node src/file-index.test.ts && node src/setup-check.test.ts && node src/update-check.test.ts && node src/claude-session-record.test.ts
+
+(node:45560) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/editor-detect.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+editor-detect: editorPath from prefs.json
+
+  PASS  a prefs editorPath that is a file is the primary editor
+  PASS  the prefs editor carries source prefs
+  PASS  the prefs editor keeps its product from the exe name
+  PASS  detection still lists the editors found by the later steps
+  PASS  a valid prefs path is not reported invalid
+  PASS  a deleted prefs editorPath falls through to the PATH hit
+  PASS  a deleted prefs editorPath is not reported invalid
+  PASS  a prefs folder holding Code.exe is accepted
+  PASS  an accepted prefs folder is not reported invalid
+  PASS  a prefs folder with no known editor exe is reported invalid
+  PASS  the rest of the search still runs after an invalid prefs folder
+  PASS  an unknown exe picked by hand has product other
+  PASS  an unknown exe is named after its file
+
+editor-detect: the code command
+
+  PASS  a code.cmd shim resolves to the exe one level up
+  PASS  the resolved shim has product vscode
+  PASS  the resolved shim has source path
+  PASS  a Cursor shim three levels down resolves to Cursor.exe
+  PASS  a code command that opens Cursor is labelled Cursor
+  PASS  a Store app execution alias is used as it stands
+  PASS  the Store alias has product vscode
+  PASS  with two code commands on PATH the first one is primary
+  PASS  the second code command is still listed
+  PASS  a shim in an unusual layout is resolved by reading it
+  PASS  a shim that resolves to nothing is skipped
+
+editor-detect: standard install folders
+
+  PASS  with no code on PATH the install folders are searched in the stated order
+  PASS  install folder hits carry source install
+  PASS  the Insiders exe is identified as Insiders
+  PASS  a missing ProgramFiles variable does not stop the search
+
+editor-detect: the uninstall registry
+
+  PASS  the registry finds an install in a custom folder
+  PASS  a registry hit carries source registry
+  PASS  DisplayIcon is used when InstallLocation is missing, with the icon index stripped
+  PASS  an Insiders registry entry is identified as Insiders
+
+editor-detect: nothing found, and duplicates
+
+  PASS  nothing found gives an empty list
+  PASS  nothing found is not an invalid prefs path
+  PASS  one editor found by all four steps is listed once
+  PASS  the duplicate keeps the source of the step that found it first
+  PASS  ids are stable and built from product and lower-cased path
+
+editor-detect: isKnownEditorExe
+
+  PASS  Code.exe is a known editor exe
+  PASS  the check is case-insensitive
+  PASS  an unrelated exe is not a known editor exe
+
+40 passed, 0 failed
+
+(node:34916) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/claude-hook-install.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+reconcileClaudeHook tests
+
+  PASS  fresh: status registered
+  PASS  fresh: changed + showToast
+  PASS  fresh: all 5 events registered
+  PASS  fresh: Notification matcher is permission_prompt
+  PASS  fresh: script copied into ~/.claude/hooks
+  PASS  fresh: prefs records enabled + toastShown
+  PASS  rerun: status already-current
+  PASS  rerun: no change, no toast
+  PASS  rerun: Stop still has exactly 1 of our entries
+  PASS  merge: status registered
+  PASS  merge: user permissions untouched
+  PASS  merge: user Stop hook preserved
+  PASS  merge: afterterm Stop entry added alongside (2 groups)
+  PASS  disable: status removed
+  PASS  disable: afterterm entries gone from all events
+  PASS  disable: user Stop hook survived
+  PASS  disable: empty event keys cleaned up
+  PASS  disabled-noop: status
+  PASS  no-claude-dir: skipped
+  PASS  no-claude-dir: dir not created
+  PASS  bad-json: skipped
+  PASS  bad-json: file untouched
+  PASS  re-enable: registered again
+  PASS  re-enable: no second toast
+  PASS  version-bump: script refreshed on disk
+  PASS  version-bump: settings unchanged (already-current)
+  PASS  bypass: fresh args are -NoProfile -ExecutionPolicy Bypass -File <script>
+  PASS  upgrade: status upgraded, changed, no toast
+  PASS  upgrade: every event now passes Bypass
+  PASS  upgrade: command kept as it was
+  PASS  upgrade: Notification matcher kept
+  PASS  upgrade: no duplicates (Stop still has 2 groups)
+  PASS  upgrade: the user's own Stop hook untouched
+  PASS  upgrade: second run is already-current
+  PASS  hand-written: already-current
+  PASS  hand-written: file untouched
+  PASS  command mode: upgraded
+  PASS  command mode: args run the script text
+  PASS  command mode: still one entry of ours per event
+  PASS  command mode: rerun already-current
+  PASS  shared group: status removed and written
+  PASS  shared group: afterterm hook is gone
+  PASS  shared group: the other tool's hook is kept
+  PASS  shared group: the group keeps its matcher
+  PASS  only-ours group: removed, and the event key with it when nothing is left
+  PASS  only-ours group: beside another tool's group, only ours goes
+  PASS  another tool's group in an event of its own is untouched
+  PASS  other settings kept
+  PASS  shared group: a second opt-out run finds nothing to remove
+  PASS  opt-out, no hooks key: disabled-noop, nothing changed
+  PASS  opt-out, no hooks key: file not written
+  PASS  opt-out, hooks of another tool only: disabled-noop, nothing changed
+  PASS  opt-out, hooks of another tool only: file not written
+  PASS  opt-out, no settings file: disabled-noop, nothing changed
+  PASS  opt-out, no settings file: file not written
+  PASS  re-enable after a shared group: registered again, no toast
+  PASS  re-enable after a shared group: afterterm's hook is its own group again, same matcher
+  PASS  re-enable after a shared group: the other tool's hook is still there, in its own group
+  PASS  re-enable after a shared group: the next run is already-current
+  PASS  empty key: the opt-out removed ours
+  PASS  empty key: an unrelated empty event key is kept
+  PASS  empty key: events that held only ours are gone
+  PASS  command mode, shared group: the entry really was in command mode
+  PASS  command mode, shared group: the opt-out removed ours
+  PASS  command mode, shared group: afterterm's hook is gone from every event
+  PASS  command mode, shared group: the other tool's hook is kept, the group keeps its matcher
+  PASS  launch rule: neither set (a normal launch) runs reconcile
+  PASS  launch rule: only CLAUDE_CONFIG_DIR set (the sandbox build) runs reconcile
+  PASS  launch rule: both set (a test launch with its own Claude folder) runs reconcile
+  PASS  launch rule: only AFTERTERM_USER_DATA_DIR set (a test launch on the real folder) skips reconcile
+  PASS  launch rule: empty values count as not set
+  PASS  repair check: all five present, no repair
+  PASS  repair check: no prefs file ({}) counts as enabled
+  PASS  repair check: one event missing, repair
+  PASS  repair check: one event missing, names only that event
+  PASS  repair check: the reason names the missing event
+  PASS  repair check: hooks key missing, repair with all five missing
+  PASS  repair check: hooks null, repair (reconcile treats it as no hooks)
+  PASS  repair check: settings.json missing, repair when enabled
+  PASS  repair check: settings.json not valid JSON (garbage), left alone
+  PASS  repair check: settings.json not valid JSON (an empty file), left alone
+  PASS  repair check: settings.json not valid JSON (a byte order mark first), left alone
+  PASS  repair check: settings.json is [], not an object, left alone
+  PASS  repair check: settings.json is null, not an object, left alone
+  PASS  repair check: settings.json is 42, not an object, left alone
+  PASS  repair check: settings.json is "text", not an object, left alone
+  PASS  repair check: hooks is [], not an object, left alone
+  PASS  repair check: hooks is "text", not an object, left alone
+  PASS  repair check: hooks is 3, not an object, left alone
+  PASS  repair check: opted out, no repair even with every entry missing
+  PASS  repair check: opted out, no repair when settings.json is missing
+  PASS  repair check: opted out, no repair when one event is missing
+  PASS  repair check: prefs.json that does not parse counts as enabled, repair
+  PASS  repair check: another tool's groups only, repair with all five missing
+  PASS  repair check: an event that is not a list counts as missing
+  PASS  repair check: afterterm's hook in a group shared with another tool counts as present
+  PASS  repair check: entries in command mode count as present
+  PASS  no loop, no settings file: the check asked for a repair
+  PASS  no loop, no settings file: after one reconcile the check finds nothing to do
+  PASS  no loop, no settings file: the next reconcile writes nothing
+  PASS  no loop, no hooks key: the check asked for a repair
+  PASS  no loop, no hooks key: after one reconcile the check finds nothing to do
+  PASS  no loop, no hooks key: the next reconcile writes nothing
+  PASS  no loop, another tool's groups only: the check asked for a repair
+  PASS  no loop, another tool's groups only: after one reconcile the check finds nothing to do
+  PASS  no loop, another tool's groups only: the next reconcile writes nothing
+  PASS  no loop, an event that is not a list: the check asked for a repair
+  PASS  no loop, an event that is not a list: after one reconcile the check finds nothing to do
+  PASS  no loop, an event that is not a list: the next reconcile writes nothing
+  PASS  no loop, another tool's groups: kept as they were, ours added beside them
+  PASS  end to end: the launch reconcile left a complete file
+  PASS  end to end: the check asks for a repair of all five
+  PASS  end to end: repair registered and wrote, no toast
+  PASS  end to end: all five entries are back
+  PASS  end to end: the file is exactly as the launch reconcile left it
+  PASS  end to end: other settings untouched
+  PASS  end to end: the next check finds nothing to do
+  PASS  loop guard: no earlier repairs, repair now
+  PASS  loop guard: fewer than the limit in the window, repair now
+  PASS  loop guard: the limit reached, wait until the oldest leaves the window
+  PASS  loop guard: once the oldest has left the window, repair again
+  PASS  loop guard: repairs older than the window do not count
+  PASS  BOM prefs: an opt-out is read and removes our entries
+  PASS  BOM prefs: the opt-out file is left byte for byte
+  PASS  BOM prefs: claudeHookToastShown is read, so a fresh registration shows no toast
+  PASS  BOM prefs: nothing new to record, so the file is left byte for byte
+  PASS  BOM prefs: a first registration records enabled and the toast
+  PASS  BOM prefs: the other settings are kept
+  PASS  unparseable prefs (garbage): the poll's check also counts it as enabled
+  PASS  unparseable prefs (garbage): treated as enabled, entries registered
+  PASS  unparseable prefs (garbage): no toast, since it could not be recorded
+  PASS  unparseable prefs (garbage): the file is left byte for byte
+  PASS  unparseable prefs (garbage): a second run is already-current and still leaves it
+  PASS  unparseable prefs (garbage): after the repair the poll's check finds nothing to do
+  PASS  unparseable prefs (a JSON array): the poll's check also counts it as enabled
+  PASS  unparseable prefs (a JSON array): treated as enabled, entries registered
+  PASS  unparseable prefs (a JSON array): no toast, since it could not be recorded
+  PASS  unparseable prefs (a JSON array): the file is left byte for byte
+  PASS  unparseable prefs (a JSON array): a second run is already-current and still leaves it
+  PASS  unparseable prefs (a JSON array): after the repair the poll's check finds nothing to do
+  PASS  readPrefs: a missing file is usable and empty
+  PASS  readPrefs: a file that cannot be read is not usable
+  PASS  updatePrefs: refuses to write over a file it could not read
+  PASS  updatePrefs: the refusal logs one warning naming the file, the reason and the key
+  PASS  readPrefs: says why a file is not usable
+  PASS  reconcile: a prefs.json that cannot be read counts as enabled, entries registered, no throw
+  PASS  reconcile: nothing is written in place of the prefs.json it could not read
+
+147 passed, 0 failed
+
+(node:24568) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/renderer/spinnerState.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+spinnerState - unit rules
+
+  PASS  ▶ title sets working
+  PASS  ✅ title sets done
+  PASS  ⚠ title sets attention
+  PASS  ⚙ title sets compacting
+  PASS  undecorated title leaves working untouched
+  PASS  title refreshes the silence clock
+  PASS  working held just under the silence window
+  PASS  working cleared just past the silence window
+  PASS  tick never clears attention (silent permission wait stays a prompt)
+  PASS  tick never clears compacting
+  PASS  tick never clears done
+  PASS  record busy: working survives silence past the window
+  PASS  record idle: the silence clear applies as before
+  PASS  record waiting or shell: the silence clear applies too
+  PASS  no record (none read, or WSL): the silence clear applies as before
+  PASS  record busy does not turn other states into working on a tick
+  PASS  held through a minute of busy silence
+  PASS  cleared on the first tick after the record says idle
+  PASS  busy from quiet starts working (a chat with no hooks)
+  PASS  busy keeps working
+  PASS  busy never replaces done (a late busy must not wipe a finished turn)
+  PASS  busy never replaces needs-you, compacting or background
+  PASS  idle does not clear working by itself (the silence clear does)
+  PASS  waiting does not set needs-you (that is the hook's)
+  PASS  shell and no record change nothing
+  PASS  output refreshes clock → no false clear right after
+  PASS  arrow keys at a permission prompt leave it needs-you (no re-arm after quiet)
+  PASS  output at a permission prompt still refreshes the clock
+  PASS  attention does NOT re-arm on the immediate render burst
+  PASS  repeated output bursts at a permission prompt keep it needs-you
+  PASS  compacting re-arms to working after quiet
+  PASS  empty output does not re-arm
+  PASS  output while working stays working
+  PASS  interrupt clears working
+  PASS  interrupt clears attention (Esc or Ctrl+C at a prompt cancels it)
+  PASS  interrupt leaves undefined alone
+  PASS  interrupt leaves done alone
+  PASS  interrupt leaves compacting alone
+  PASS  interrupt leaves background alone
+  PASS  Enter at a permission prompt moves attention to working
+  PASS  Enter refreshes the silence clock to the answer time
+  PASS  Enter then output keeps working
+  PASS  Enter then silence holds working inside the window
+  PASS  Enter then silence ends working past the window
+  PASS  Enter then ✅ ends in done
+  PASS  Enter while working stays working
+  PASS  Enter while done stays done
+  PASS  Enter while compacting stays compacting
+  PASS  Enter while background stays background
+  PASS  Enter while quiet stays quiet
+  PASS  Enter outside attention leaves the clock alone
+  PASS  prompt story: still needs-you after render, arrows and a long look
+  PASS  prompt story: Enter answers it (working)
+  PASS  prompt story: ends in done
+  PASS  Esc at a prompt goes quiet
+  PASS  output after Esc stays quiet
+  PASS  done clears when seen
+  PASS  background clears when seen
+  PASS  needs-you does not clear when seen
+  PASS  working does not clear when seen
+  PASS  compacting does not clear when seen
+  PASS  quiet has nothing to clear
+  PASS  background on the viewed thread clears at once
+  PASS  done on the viewed thread clears at once
+  PASS  background on a thread not in view stays
+  PASS  done on a thread not in view stays
+  PASS  needs-you on the viewed thread stays
+  PASS  working on the viewed thread stays
+  PASS  compacting on the viewed thread stays
+  PASS  an undecorated title on the viewed thread stays quiet
+  PASS  turn ending with background tasks, viewed: quiet
+  PASS  turn ending with background tasks, not viewed: background
+  PASS  the badge left on a thread not in view clears on opening it
+  PASS  a ⏳ title sets the flag
+  PASS  a second ⏳ keeps it
+  PASS  a ✅ title (Stop ran with nothing left) clears it
+  PASS  a ▶ title (a new turn) leaves it set
+  PASS  a ⚠ title (a background agent asking permission) leaves it set
+  PASS  a ⚙ title leaves it set
+  PASS  ▶, ⚠ and ⚙ never set it
+  PASS  a turn interrupted after ▶ keeps it until a later ✅
+  PASS  an undecorated title changes nothing
+  PASS  on the thread being viewed the ⏳ badge clears but the flag is set
+  PASS  the record going from idle to none clears the flag
+  PASS  the record going from shell to none clears the flag
+  PASS  a first status keeps the flag
+  PASS  one status to another keeps the flag
+  PASS  no record before or after (a Claude the reader cannot see) keeps the flag
+  PASS  nothing ever sets the flag from the record
+
+spinnerState - replay of real captured turns
+
+  PASS  [think] turn bracketed ▶→✅
+  PASS  [think] spinner held all turn (0 silence false-clears)
+  PASS  [think] max in-turn gap (438ms) < silence window (2500ms)
+  PASS  [tools] turn bracketed ▶→✅
+  PASS  [tools] spinner held all turn (0 silence false-clears)
+  PASS  [tools] max in-turn gap (254ms) < silence window (2500ms)
+  PASS  [mixed] turn bracketed ▶→✅
+  PASS  [mixed] spinner held all turn (0 silence false-clears)
+  PASS  [mixed] max in-turn gap (442ms) < silence window (2500ms)
+
+98 passed, 0 failed
+
+(node:5016) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/renderer/sessionMigration.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+sessionMigration: a 0.8.1 file loads with defaults
+
+  PASS  returns a session
+  PASS  version is stamped
+  PASS  all three tabs survive
+  PASS  both groups survive, including the empty one
+  PASS  every tab gets lastActiveAt = now and asleep = false
+  PASS  every group gets pinned/archived = false and lastActiveAt = now
+  PASS  activeTabId is kept
+  PASS  every group gets history = [] (Phase 4)
+  PASS  no tab gets a sleptAt out of nowhere (Phase 4)
+  PASS  no tab gets a port out of nowhere (Phase 5)
+  PASS  no tab gets a lastCommand out of nowhere (Phase 5)
+
+sessionMigration: SESSION_FORMAT_VERSION is 3 (the saved project order, 2026-11-01)
+
+  PASS  the version constant is 3
+
+sessionMigration: model, branch, worktree (Phase 3)
+
+  PASS  model is absent, not null
+  PASS  branch is absent, not null
+  PASS  worktree is absent, not null
+  PASS  model kept
+  PASS  branch kept
+  PASS  worktree kept
+  PASS  a numeric model is dropped
+  PASS  an object branch is dropped
+  PASS  an array worktree is dropped
+  PASS  claudeTitle is kept
+  PASS  a non-string claudeTitle is dropped
+  PASS  firstPrompt is stripped
+  PASS  claudeTitle is written back
+  PASS  firstPrompt is never written
+
+sessionMigration: a name given with Rename
+
+  PASS  customName is kept
+  PASS  a non-string customName is dropped
+  PASS  a history entry keeps customName
+  PASS  a history entry drops a non-string customName
+  PASS  customName is written back
+
+sessionMigration: a project colour from the wheel, and white
+
+  PASS  a colour code is kept
+  PASS  white is kept
+  PASS  a colour code is written back
+
+sessionMigration: sleptAt and history (Phase 4)
+
+  PASS  asleep kept true
+  PASS  sleptAt kept
+  PASS  a good history entry survives
+  PASS  history entry fields kept
+  PASS  a string sleptAt is dropped
+  PASS  an Infinity sleptAt is dropped
+  PASS  a NaN sleptAt is dropped
+  PASS  a string history becomes []
+  PASS  an object history becomes []
+  PASS  only the one good entry is kept
+  PASS  the surviving entry is the good one
+
+sessionMigration: port and lastCommand (Phase 5)
+
+  PASS  port is absent, not null
+  PASS  lastCommand is absent, not null
+  PASS  port kept
+  PASS  lastCommand kept
+  PASS  a string port is dropped
+  PASS  a float port is dropped
+  PASS  a zero port is dropped
+  PASS  a negative port is dropped
+  PASS  a port above 65535 is dropped
+  PASS  a NaN port is dropped
+  PASS  an Infinity port is dropped
+  PASS  a numeric lastCommand is dropped
+  PASS  an object lastCommand is dropped
+  PASS  port is written when present
+  PASS  lastCommand is written when present
+  PASS  port key exists (as undefined) when absent, same pattern as every other persisted key
+  PASS  lastCommand key exists (as undefined) when absent
+  PASS  undefined port is absent on disk
+  PASS  undefined lastCommand is absent on disk
+  PASS  port survives serialize -> migrate
+  PASS  lastCommand survives serialize -> migrate
+
+sessionMigration: unread (Phase 7)
+
+  PASS  unread is absent, not false
+  PASS  true is kept
+  PASS  false is dropped, absent rather than stored
+  PASS  the string "true" is dropped
+  PASS  a numeric 1 is dropped
+  PASS  an object is dropped
+  PASS  a tab that never had the key stays absent
+  PASS  true is written to disk
+  PASS  true survives serialize -> migrate
+  PASS  a tab that was never marked has no unread key on disk at all
+
+sessionMigration: Group.icon (Phase 8)
+
+  PASS  a valid icon id is kept
+  PASS  an id not in the ten-icon list is dropped
+  PASS  a non-string icon is dropped
+  PASS  an absent icon stays absent
+  PASS  icon survives serialize -> migrate
+
+sessionMigration: ui.panelHidden (Phase 8)
+
+  PASS  a file with no ui key loads with ui as {}
+  PASS  ui.panelHidden true is kept
+  PASS  ui.panelHidden false is kept (not coerced to absent)
+  PASS  a string panelHidden is dropped, ui becomes {}
+  PASS  a non-object ui becomes {}
+  PASS  ui is written to disk
+  PASS  ui.panelHidden survives serialize -> migrate
+
+sessionMigration: existing values are preserved
+
+  PASS  claude session id and cwd kept
+  PASS  fontSize, title, groupId, cwd kept
+  PASS  ungrouped tab has no groupId and keeps its shellId
+  PASS  group label, colour, collapsed, cwd, shellId kept
+  PASS  collapsed = true survives
+  PASS  explicit tab lastActiveAt/asleep kept
+  PASS  explicit group pinned/archived/lastActiveAt kept
+
+sessionMigration: wrong types fall back to defaults
+
+  PASS  string / Infinity / NaN lastActiveAt on tabs become now
+  PASS  string "false" asleep becomes false, not true
+  PASS  numeric pinned and null archived become false
+  PASS  string group lastActiveAt becomes now
+  PASS  missing collapsed becomes false, string collapsed becomes false
+  PASS  non-string activeTabId becomes empty
+
+sessionMigration: bad entries are dropped, bad files rejected
+
+  PASS  tab entries that are not objects or lack a string id are dropped
+  PASS  group entries that are not objects or lack a string id are dropped
+  PASS  activeTabId pointing at no surviving tab becomes empty
+  PASS  missing groups array is treated as empty
+  PASS  null returns null
+  PASS  undefined returns null
+  PASS  a string returns null
+  PASS  {} returns null
+  PASS  an array returns null
+  PASS  tabs that is not an array returns null
+  PASS  empty tabs is a session with zero tabs, not null
+
+sessionMigration: transient fields stripped, unknown keys kept, idempotent
+
+  PASS  notification and claudeRestorable are stripped
+  PASS  unknown tab key survives
+  PASS  unknown group key survives
+  PASS  version is normalised to the current format
+  PASS  recordStatus is stripped on load
+  PASS  recordStatus is never written, even when set on the in-memory tab
+  PASS  and nothing else about the tab changes
+  PASS  atPrompt is stripped on load
+  PASS  hasChildren is stripped on load
+  PASS  atPrompt and hasChildren are never written, even when set on the in-memory tab
+  PASS  and nothing else about the tab changes for them
+  PASS  backgroundTasks is stripped on load
+  PASS  backgroundTasks is never written, even when set on the in-memory tab
+  PASS  and nothing else about the tab changes for it
+  PASS  migrating a migrated session changes nothing (even with a later now)
+  PASS  migration does not mutate its input
+  PASS  sleptAt and history survive a second migration unchanged
+
+serializeSession: persisted keys only, 0.8.1 compatible
+
+  PASS  includes version
+  PASS  top-level shape is still {tabs, groups, activeTabId} plus version and ui (Phase 8)
+  PASS  ui defaults to {} when serializeSession is called without one (a pre-Phase-8 call site)
+  PASS  tab emits only the persisted keys (no notification, claudeRestorable, wokeAt or unknown keys)
+  PASS  every 0.8.1 tab key is present with the same value
+  PASS  0.8.1 group keys unchanged and new group flags written
+  PASS  activeTabId written as given
+  PASS  sleptAt is written when set
+  PASS  wokeAt is never written, even when set on the in-memory tab
+  PASS  undefined optionals are absent on disk
+  PASS  sleptAt is absent on disk for a tab that never slept
+  PASS  groups are copied, not shared with state
+  PASS  a group without history serializes with history: [] (defensive)
+
+round trip: serialize then migrate is stable
+
+  PASS  serialize -> JSON -> migrate reproduces the migrated session
+  PASS  a second save of the reloaded session is byte-identical
+  PASS  model survives serialize -> migrate
+  PASS  branch survives serialize -> migrate
+  PASS  worktree survives serialize -> migrate
+  PASS  a shell tab with none of the three still has none after the round trip
+
+wakeAfterUpdate: the threads an update restart wakes
+
+  PASS  kept: ids of threads still in the file, once each, strings only
+  PASS  absent when the file has none
+  PASS  absent when it is not a list
+  PASS  absent when none of its ids survive
+  PASS  a normal save never writes it
+  PASS  an empty list is not written
+  PASS  the update quit writes it
+  PASS  and it survives the next load
+
+splits: two threads side by side (design-06)
+
+  PASS  a split comes back: its pair, its sides and its divider
+  PASS  its two threads are next to each other, left then right
+  PASS  absent when the file has none
+  PASS  a split whose thread is gone is dropped
+  PASS  a split across two projects (a project and General) is dropped
+  PASS  ...and its threads keep their order
+  PASS  a splits value that is not a list is ignored
+  PASS  a save with no split writes no splits key
+  PASS  a save writes the splits
+  PASS  and they survive the next load
+  PASS  serialize -> migrate -> serialize is stable
+
+167 passed, 0 failed
+
+(node:8036) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/renderer/projectColour.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+projectColour: isCustomColor
+
+  PASS  a full code is custom
+  PASS  capitals count
+  PASS  a set name is not
+  PASS  a short code is not (only full codes are saved)
+  PASS  text that is not hex is not
+
+projectColour: hex and rgb
+
+  PASS  hexToRgb
+  PASS  rgbToHex pads each part
+
+projectColour: hsv
+
+  PASS  red
+  PASS  green
+  PASS  blue
+  PASS  no saturation is white
+  PASS  no brightness is black
+  PASS  hue 360 is red again
+  PASS  black reads with no division by zero
+  PASS  white has no saturation
+  PASS  a code survives going through the wheel and back
+  PASS  teal opens on the wheel at its own colour
+  PASS  blue opens on the wheel at its own colour
+  PASS  purple opens on the wheel at its own colour
+  PASS  orange opens on the wheel at its own colour
+  PASS  red opens on the wheel at its own colour
+  PASS  green opens on the wheel at its own colour
+  PASS  pink opens on the wheel at its own colour
+  PASS  yellow opens on the wheel at its own colour
+  PASS  white opens on the wheel at its own colour
+
+projectColour: a code as it is typed
+
+  PASS  one digit
+  PASS  two digits
+  PASS  three digits is the short form
+  PASS  another short form
+  PASS  four digits
+  PASS  five digits
+  PASS  six digits
+  PASS  capitals become lower case
+  PASS  spaces around it are ignored
+  PASS  a # alone is nothing yet
+  PASS  empty is nothing
+  PASS  a letter that is not hex is nothing
+  PASS  seven digits is nothing
+
+projectColour: the wheel
+
+  PASS  the top is red
+  PASS  the right is a quarter round
+  PASS  the left is three quarters round
+  PASS  the centre has no saturation
+  PASS  halfway out is half saturated
+  PASS  past the edge counts as the edge
+  PASS  the selector sits at the centre with no saturation
+  PASS  the selector is at the top for red
+  PASS  the selector is at the right for a quarter round
+  PASS  selector and point agree
+
+projectColour: groupColors
+
+  PASS  a set name uses the table
+  PASS  white is a set colour
+  PASS  a code is its own border and text
+  PASS  a code gets the same tint as the set colours
+  PASS  an unknown value draws as the first set colour
+
+projectColour: the set colours
+
+  PASS  white is last, beside yellow
+  PASS  every set colour has a look
+  PASS  a new project skips colours in use, custom ones included
+  PASS  white comes after the others are used
+
+57 passed, 0 failed
+
+(node:42932) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/renderer/sidebarWalk.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+sidebarWalk: computeSegments
+
+  PASS  only ungrouped tabs: one tab segment per tab in order
+  PASS  only ungrouped tabs: no group segments
+  PASS  no tabs and no groups: empty list
+  PASS  one group with tabs: a single group segment holding both tabs
+  PASS  zero-tab group: still produces a group segment
+  PASS  zero-tab group: its tabs list is empty
+  PASS  zero-tab group: comes after the ungrouped tab
+  PASS  zero-tab groups: appended after every tab and live group, in groups order
+  PASS  interleaved: visible order follows the tabs, not the groups array
+  PASS  non-contiguous group: exactly one segment for the group
+  PASS  non-contiguous group: emitted at its first appearance with all its tabs in tabs order
+  PASS  orphan groupId: rendered as a plain tab segment
+  PASS  orphan groupId: no group segment invented for the unknown id
+  PASS  orphan groupId: full shape
+  PASS  no tabs, two groups: two group segments in groups order
+  PASS  no tabs, two groups: every segment is a group with empty tabs
+  PASS  mixed: every group appears exactly once
+  PASS  mixed: every tab appears exactly once across all segments
+  PASS  mixed: full shape
+  PASS  identity: group segment holds the original group object
+  PASS  identity: group segment holds the original tab object
+
+21 passed, 0 failed
+
+(node:45236) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/renderer/threadView.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+threadView: threadFolder
+
+  PASS  a chat with claudeCwd opens its Claude folder, not the shell cwd
+  PASS  a shell with only a cwd opens that cwd
+  PASS  no folder at all is undefined
+
+threadView: threadFolderTarget
+
+  PASS  a worktree chat targets the worktree, not the project root
+  PASS  a chat in the project root targets the root
+  PASS  a shell targets its own cwd
+  PASS  a folder not checked yet is not missing
+  PASS  a folder main checked and found gone is missing
+  PASS  the worktree being gone disables it even when the project root exists
+  PASS  a thread with no folder has no target
+
+threadView: insertNewThread
+
+  PASS  a new thread goes before its project's first thread
+  PASS  in a later project it goes first in that project, not first overall
+  PASS  a project with no threads yet gets it at the end
+  PASS  a thread with no project (General) goes at the end as before
+  PASS  the input list is not changed
+  PASS  the newest of two new threads is first
+
+threadView: projectLookChanges and applyProjectLook
+
+  PASS  nothing changed gives no updates
+  PASS  a pin or an activity stamp is not a look change
+  PASS  a colour change is reported for that project only
+  PASS  an icon change is reported
+  PASS  a rename is reported
+  PASS  a project new in the list is not a change
+  PASS  a project removed from the list is not a change
+  PASS  the project's toast takes the new name, colour and icon
+  PASS  another project's toast is untouched
+  PASS  a General toast is untouched
+  PASS  no matching toast returns the same array
+
+threadView: threadKind
+
+  PASS  a tab with a claude session id is a chat
+  PASS  a tab with no claude session id is a shell
+  PASS  an empty-string session id is a shell, not a chat
+
+threadView: threadState
+
+  PASS  asleep wins over a pending notification
+  PASS  asleep with no notification is still asleep
+  PASS  attention maps to needs-you
+  PASS  working maps to working
+  PASS  done maps to done
+  PASS  compacting maps to compacting
+  PASS  background maps to background
+  PASS  no notification maps to quiet
+  PASS  a captured port with no notification is running
+  PASS  asleep beats a captured port
+  PASS  attention beats a captured port
+  PASS  working beats a captured port
+  PASS  done beats a captured port
+  PASS  compacting beats a captured port
+  PASS  background beats a captured port
+  PASS  no port and no notification is quiet
+
+threadView: threadState, unread precedence (Phase 7)
+
+  PASS  unread wins over asleep
+  PASS  unread wins over a pending attention notification
+  PASS  unread wins over working
+  PASS  unread wins over done
+  PASS  unread wins over a captured port
+  PASS  unread wins over asleep with a captured port too
+  PASS  unread false is the same as absent: falls through to the ordinary rules
+  PASS  no unread field at all falls through to the ordinary rules
+
+threadView: chipText (the header chip, design-06)
+
+  PASS  working: the spinner alone, Working on hover
+  PASS  running server: the port alone, Running on hover
+  PASS  needs you keeps its words
+  PASS  done keeps its word
+  PASS  running with no port falls back to the word
+
+threadView: stateLabel
+
+  PASS  unread label
+  PASS  needs-you label
+  PASS  working label
+  PASS  running label
+  PASS  done label
+  PASS  asleep label
+  PASS  compacting label
+  PASS  background label
+  PASS  quiet label is empty (chip hidden)
+
+threadView: stateBreathes
+
+  PASS  needs-you breathes
+  PASS  unread breathes
+  PASS  done breathes
+  PASS  exactly unread, needs-you and done breathe, nothing else
+
+threadView: displayTitle
+
+  PASS  strips done glyph
+  PASS  strips attention glyph
+  PASS  strips background glyph
+  PASS  strips compacting glyph
+  PASS  strips working glyph
+  PASS  strips the restorable marker glyph
+  PASS  strips a braille spinner glyph
+  PASS  strips a Claude busy-cycle glyph (\u25D0)
+  PASS  strips an older Claude busy-cycle glyph (\u2722)
+  PASS  a plain path is untouched
+  PASS  a title with no glyph is untouched
+  PASS  empty title falls back to Terminal
+  PASS  a glyph with nothing after it falls back to Terminal
+
+threadView: a name given with Rename
+
+  PASS  it wins over a chat's claudeTitle
+  PASS  it wins over a server's last command
+  PASS  it wins over a shell's live title
+  PASS  automaticThreadName ignores it
+  PASS  nextCustomName trims the text
+  PASS  an empty text removes the name
+  PASS  blank text removes the name
+  PASS  saving the automatic name unchanged sets nothing
+  PASS  typing the automatic name over a given name removes it
+  PASS  a new name replaces the old one
+
+threadView: threadName
+
+  PASS  a chat with a captured claudeTitle uses it, ignoring the raw title
+  PASS  claudeTitle wins even while the raw title carries a hook state (not clobbered by "working")
+  PASS  a chat with no claudeTitle but a Claude summary glyph on the raw title uses that summary
+  PASS  a chat with no claudeTitle, no summary glyph, but a firstPrompt falls back to it
+  PASS  restored chat: shell reasserted a plain "cmd.exe" title, no claudeTitle yet, falls back to firstPrompt
+  PASS  a chat with nothing captured at all falls back to displayTitle of the raw title
+  PASS  a chat with nothing captured and a hook state title shows the stripped state text as a last resort
+  PASS  empty-string claudeTitle is treated as not captured, falls through to the summary glyph
+  PASS  a shell tab always uses displayTitle, ignoring firstPrompt even when present
+  PASS  a shell tab with a hook-style title (should not normally happen) still just strips the glyph
+  PASS  a shell with a port and a command is named by the command, not the live title
+  PASS  a shell with a port and a command is named by the command even when the live title differs
+  PASS  asleep makes no difference: the port persists through sleep and still names the thread by the command
+  PASS  a shell with a port but no command keeps the live title
+  PASS  a shell with a command but no port keeps the live title
+  PASS  a chat with a port and a command keeps its Claude name, not the command
+  PASS  a whitespace-only command falls back to the live title
+
+threadView: modelLabel
+
+  PASS  undefined model is null
+  PASS  empty string model is null
+  PASS  claude-opus-5 is "Opus 5"
+  PASS  claude-opus-5[1m] is "Opus 5 · 1M"
+  PASS  claude-fable-5-1 is "Fable 5.1"
+
+threadView: kindWord
+
+  PASS  a chat (session id) is Chat, even with a port set
+  PASS  a session id beats a port
+  PASS  no session id but a port is Server
+  PASS  no session id and no port is Shell
+  PASS  an empty-string session id with no port is Shell
+
+threadView: runningLabel, localhostUrl, openLocalhostLabel
+
+  PASS  runningLabel
+  PASS  localhostUrl
+  PASS  openLocalhostLabel
+
+threadView: needsCloseConfirm
+
+  PASS  awake with a port needs confirm
+  PASS  awake with no port needs no confirm
+  PASS  asleep with a port needs no confirm (nothing running to lose)
+  PASS  asleep with no port needs no confirm
+
+threadView: closeConfirmText
+
+  PASS  title
+  PASS  body
+  PASS  confirm label
+  PASS  cancel label
+
+threadView: needsSleepConfirm
+
+  PASS  awake with a port needs confirm
+  PASS  awake with no port needs no confirm
+  PASS  asleep with a port needs no confirm (nothing running to lose)
+  PASS  asleep with no port needs no confirm
+  PASS  needsSleepConfirm agrees with needsCloseConfirm on every combination
+
+threadView: sleepConfirmText
+
+  PASS  title
+  PASS  body names the command Wake re-runs
+  PASS  confirm label
+  PASS  cancel label
+  PASS  body falls back to "opens a fresh prompt" with no captured command
+  PASS  a whitespace-only command is treated as no command
+  PASS  an empty-string command is treated as no command
+  PASS  a thread with a session id: the server stops and Wake resumes the chat
+  PASS  and the title is the same
+  PASS  a Claude that started the server itself: Wake resumes the chat, never "runs claude again"
+  PASS  no id and `claude` as the last command: no promise to run it again, Wake opens a fresh prompt
+  PASS  an invalid session id is no id: Wake runs the command again
+
+threadView: foldThreads
+
+  PASS  fewer than limit: nothing hidden
+  PASS  fewer than limit: showMore is false
+  PASS  fewer than limit: not forced open
+  PASS  fewer than limit: shown is the full list in order
+  PASS  exactly limit: nothing hidden
+  PASS  exactly limit: showMore is false
+  PASS  exactly limit: not forced open (last index is inside the fold)
+  PASS  more than limit, collapsed, active inside fold: shows first 5
+  PASS  more than limit, collapsed: hiddenCount is 2
+  PASS  more than limit: showMore is true
+  PASS  active inside fold: not forced open
+  PASS  expanded: shows everything
+  PASS  expanded: hiddenCount is 0
+  PASS  expanded: showMore still true (there is more than the limit)
+  PASS  expanded with active inside fold: not forced open
+  PASS  active beyond the fold forces the list open even though expanded is false
+  PASS  active beyond the fold: forcedOpen is true
+  PASS  active beyond the fold: showMore stays true
+  PASS  active beyond the fold and expanded: forcedOpen is still true (regardless of expanded)
+  PASS  custom limit: shows first 3
+  PASS  custom limit: hiddenCount is 2
+  PASS  custom limit: active inside custom fold, not forced
+  PASS  custom limit: active beyond the custom fold forces open
+  PASS  active id not present in the list: treated as not beyond the fold
+  PASS  a waiting thread beyond the fold (index 6) forces the list open
+  PASS  a waiting thread at index 2, already inside the fold, does not force it open
+  PASS  no isWaiting predicate keeps the old behaviour (not forced open)
+
+threadView: projectCounts
+
+  PASS  needsYou counts only needs-you
+  PASS  working and running are separate counts, not added together (Aryan, 2026-09-25)
+  PASS  background is its own count, not under working (Aryan, 2026-09-25: the hourglass)
+  PASS  background is zero when none
+  PASS  a project with only background threads has no spinner pill
+  PASS  only servers count under running (the play pill)
+  PASS  a project with only a working chat has no play pill
+  PASS  a project with only a server has no spinner pill
+  PASS  all zero when nothing needs-you/working/running
+  PASS  empty list is zero and zero
+  PASS  compacting is its own count, not in working or running (Phase 8 handoff, Aryan)
+  PASS  compacting is zero when none
+  PASS  needsYou counts unread alongside needs-you (Phase 7, "waiting for you")
+  PASS  an asleep unread thread still counts as needsYou (via threadState, since asleep never wins over unread)
+
+threadView: toastMessage
+
+  PASS  toastMessage(attention) is "Needs permission"
+  PASS  toastMessage(done) is "Done"
+  PASS  toastMessage(background) is "Background tasks running"
+  PASS  toastMessage(compacting) is "Compacting context"
+  PASS  toastMessage(working) is "(empty, no toast)"
+
+threadView: initialScreen
+
+  PASS  no projects still opens Home
+  PASS  one project opens Home
+  PASS  several projects open Home
+
+threadView: nextActiveTabAfterArchive
+
+  PASS  an active thread outside the archived project is kept
+  PASS  an active thread inside the archived project hands over to the first thread outside it
+  PASS  a thread in a second archived project is skipped
+  PASS  the active thread is left alone when every thread is in an archived project
+  PASS  an unknown active id is left alone
+  PASS  a General thread is never treated as archived
+
+threadView: statusText (the hover card Status row)
+
+  PASS  a quiet thread has no status
+  PASS  an asleep thread reads Asleep with no age
+  PASS  a server reads Running on its port
+  PASS  a working chat reads Working
+  PASS  background reads Background tasks
+  PASS  needs-you reads Needs you
+  PASS  an asleep thread marked unread reads Unread
+  PASS  an asleep server reads Asleep, not its port
+
+threadView: placeThread (dragging a thread)
+
+  PASS  a thread dragged between two threads of its own project lands there
+  PASS  dragged between two threads of another project, it joins that project there
+  PASS  dropped on a project row (before its first thread) it goes in at the top
+  PASS  after a project's last thread
+  PASS  taken out of its project into General, above the General thread
+  PASS  a General thread carries no groupId key at all
+  PASS  into General with no anchor: after the last General thread
+  PASS  into a project with no threads: the end of the list
+  PASS  the other threads keep their order
+  PASS  dropped where it already is changes nothing
+  PASS  dropped before itself changes nothing
+  PASS  an unknown thread changes nothing
+
+225 passed, 0 failed
+
+(node:44404) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/renderer/attention.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+attention: countStates
+
+  PASS  needs-you counts as waiting
+  PASS  unread counts as waiting
+  PASS  needs-you and unread together both count as waiting
+  PASS  working counts as working, not running
+  PASS  running counts as running, not working
+  PASS  done counts as finished
+  PASS  compacting counts as its own bucket, not working (Phase 8)
+  PASS  background counts only in its own bucket, not working (the rail leaves it out)
+  PASS  asleep counts as nothing
+  PASS  quiet counts as nothing
+  PASS  empty list is all zero
+  PASS  a mixed list tallies each bucket correctly
+  PASS  isWaitingState is true for needs-you
+  PASS  isWaitingState is true for unread
+  PASS  isWaitingState is false for every other state
+
+attention: countTabs
+
+  PASS  countTabs maps every tab through threadState before counting
+  PASS  an asleep unread tab counts as waiting even though it has no process
+  PASS  empty tabs is all zero
+
+attention: projectAttention
+
+  PASS  map has an entry per non-archived group
+  PASS  archived group D has no entry
+  PASS  group A counts its own two tabs
+  PASS  group B counts its one finished tab
+  PASS  a project with zero tabs gets a present all-zero entry, not omitted
+  PASS  a general (no groupId) tab is not attributed to any project
+
+attention: totalAttention
+
+  PASS  a needs-you thread in an archived project is not in the total
+  PASS  a groupId naming no group is treated as General and counted
+  PASS  no tabs is all zero
+
+attention: railProjects
+
+  PASS  only projects with something waiting, finished, working or compacting are on the rail
+  PASS  an archived project with a needs-you thread never appears on the rail
+  PASS  a project with only a working thread is on the rail (Aryan 2026-09-29: its tile shows the working count)
+  PASS  an archived project with a working thread never appears on the rail
+  PASS  a project with only background tasks is not on the rail
+  PASS  a project with only a running server is not on the rail
+  PASS  a project with nothing pending is not on the rail
+  PASS  a project with only a compacting thread is on the rail (Phase 8, Aryan 2026-09-19)
+  PASS  caller order is kept among the ones shown (not resorted)
+
+attention: panelLists
+
+  PASS  RECENT_WINDOW_MS is exactly 3 days
+  PASS  exactly 3 days old is recent
+  PASS  exactly 3 days old is not in other
+  PASS  one ms past 3 days with no awake tab falls to other
+  PASS  one ms past 3 days is not in recent
+  PASS  an awake tab keeps a project recent past the window
+  PASS  and it is not also in other
+  PASS  a stale project with no tabs is in other
+  PASS  a pinned project is in neither list
+  PASS  an archived project is in Other, even with fresh activity and an awake thread
+  PASS  recent keeps the saved order, not activity order
+  PASS  using a project in Recent does not move it
+  PASS  without the hold it is in Other
+  PASS  held, it stays in Recent
+  PASS  once archived the hold no longer keeps it
+  PASS  other keeps caller order
+
+attention: isRecentProject, enteringRecent, moveGroupsToTop (the order rules)
+
+  PASS  a project used today is recent
+  PASS  an old project with an awake thread is recent
+  PASS  an old project with only asleep threads is not
+  PASS  a pinned project is not in Recent
+  PASS  an archived project is not in Recent
+  PASS  a project stamped back into the window is entering
+  PASS  waking a thread in an Other project is entering
+  PASS  using a project already in Recent is not entering
+  PASS  an archived project coming back is entering
+  PASS  unpinning is not entering
+  PASS  a new project is entering
+  PASS  a project that aged out and comes back enters again
+  PASS  moveGroupsToTop puts one project first
+  PASS  several keep their own order
+  PASS  the pinned order is untouched
+  PASS  no ids returns the same array
+  PASS  already at the top returns the same array
+  PASS  the entering project is at the top of Recent and the rest keep their order
+
+attention: lastWorkedThread
+
+  PASS  null for a project with no threads
+  PASS  the highest lastActiveAt wins, asleep or not
+  PASS  a tie goes to the earlier thread in tab order
+  PASS  a waiting thread does not jump the queue (that is the rail tile rule, not this one)
+
+attention: firstThreadToOpen
+
+  PASS  null for an empty list
+  PASS  the first thread waiting for you wins, even when it is not the most recently active
+  PASS  the first waiting thread in list order wins, unread included
+  PASS  falls back to the first finished thread in list order
+  PASS  falls back to the most recently active awake thread
+  PASS  null when every thread is asleep with nothing pending
+
+80 passed, 0 failed
+
+(node:48668) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/renderer/panelView.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+panelView: panelSections
+
+  PASS  general holds the loose tab
+  PASS  pinned holds G1 with its tab
+  PASS  recent holds G2
+  PASS  other holds the stale G3 first
+  PASS  archived G4 is in Other, after the stale G3, and nowhere else (2026-11-01)
+  PASS  a pinned project never appears in recent or other
+  PASS  an empty project still appears with an empty tabs list
+  PASS  pinned keeps walk order regardless of activity
+  PASS  recent keeps the saved project order
+  PASS  pinned keeps the saved project order too, even with no threads
+  PASS  a thread naming a missing project is in General
+
+panelView: placeProject (dragging a project)
+
+  PASS  a project dragged above the first in Recent goes first
+  PASS  a project dragged to the end of Recent goes last
+  PASS  reordering inside Pinned
+  PASS  dropping a Recent project into Pinned pins it there
+  PASS  and it leaves Recent
+  PASS  dragging a pinned project into Recent unpins it there
+  PASS  dropping where it already is changes nothing
+  PASS  dropping before itself changes nothing
+  PASS  the last one dropped at the end changes nothing
+  PASS  a quiet project dropped into Recent stays in Recent
+  PASS  an unknown project changes nothing
+
+panelView: filterPanel
+
+  PASS  an empty query is unfiltered
+  PASS  an empty query returns every section unchanged
+  PASS  a whitespace-only query is treated as empty
+  PASS  a project name match keeps all of its threads
+  PASS  a non-matching project is dropped entirely
+  PASS  a thread name match keeps only the matching thread
+  PASS  the general list is empty when nothing there matches
+  PASS  other is always empty while filtered
+  PASS  filtered is true
+  PASS  noMatches is true when general, pinned and recent are all empty
+  PASS  the match is case-insensitive
+
+panelView: visibleThreadIds
+
+  PASS  order is general, then pinned, then recent
+  PASS  a collapsed project contributes no rows
+  PASS  fold-hidden rows past the limit are not visible
+  PASS  a waiting thread past the fold keeps the whole project visible
+  PASS  other contributes no rows to the cycle
+  PASS  crossing project boundaries keeps a single flat order
+
+panelView: cycleThreadId
+
+  PASS  dir 1 moves to the next id
+  PASS  dir -1 moves to the previous id
+  PASS  dir 1 wraps from the last to the first
+  PASS  dir -1 wraps from the first to the last
+  PASS  an id not in the list starts at the first for dir 1
+  PASS  an id not in the list starts at the last for dir -1
+  PASS  an empty list returns null
+  PASS  a single-element list wraps to itself
+
+panelView: revealScrollTop
+
+  PASS  a region already in view does not move
+  PASS  a region below the view moves just far enough to show its bottom
+  PASS  a region above the view moves to its top
+  PASS  a region cut at the top of the view moves to its top
+  PASS  a region taller than the view aligns to its top
+  PASS  never scrolls above 0
+  PASS  a stop close to the start snaps to 0 so the first heading shows
+  PASS  no snap when the region would not fit from 0
+  PASS  the margin counts: a row flush with the bottom edge still moves
+
+56 passed, 0 failed
+
+(node:9600) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/renderer/splitView.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+createSplit
+  PASS  dropped on the right half: dragged thread is b
+  PASS  dragged row moves just after the other
+  PASS  dropped on the left half: dragged thread is a
+  PASS  dragged row moves just before the other
+  PASS  new split starts at half and half
+  PASS  a thread with itself makes nothing
+  PASS  an unknown thread makes nothing
+  PASS  old split of the dragged thread ends
+  PASS  new split holds the two
+  PASS  rows reordered for the new split
+
+panes on screen
+  PASS  active in a split: both halves, left to right
+  PASS  active not in a split: alone
+  PASS  nothing active: nothing
+  PASS  partner of a
+  PASS  partner of b
+  PASS  no partner
+
+refused drops
+  PASS  same project: allowed, on the half under the pointer
+  PASS  other project: Same project only
+  PASS  General onto a project thread: Same project only
+  PASS  General onto General: allowed
+  PASS  a thread of a deleted project counts as General
+  PASS  a split on screen: Two at most over the whole pane
+  PASS  a split on screen refuses even a same-project thread
+  PASS  dragging a half of the split on screen: no target
+  PASS  dragging the thread on screen onto itself: no target
+  PASS  nothing on screen: no target
+  PASS  a thread from another split onto a lone thread: allowed
+
+ending a split
+  PASS  Ungroup ends only that split
+  PASS  a thread in no split: same array back
+  PASS  closing the focused half leaves the other half on screen
+  PASS  closing the focused right half leaves the left on screen
+  PASS  closing the other half keeps the focused one
+  PASS  closing a lone active thread: the next in the list
+  PASS  closing the last thread in the list: the one before
+  PASS  closing the only thread: nothing
+
+moving threads in the panel
+  PASS  a split thread moved to another project ends its split
+  PASS  ...and lands in that project
+  PASS  a split thread moved to General ends its split
+  PASS  the left half moved to the end takes its partner along
+  PASS  ...and the split stays
+  PASS  the right half moved to the top takes its partner along, order kept
+  PASS  the right half dropped above its partner stays put
+  PASS  another thread dropped between a split lands below it
+  PASS  ...from above as well
+  PASS  ...and from another project
+  PASS  a split thread moved to another project between that project's pair lands below the pair
+  PASS  ...its own split ends, the other stays
+  PASS  a pair dropped between another pair lands below it, both pairs whole
+
+the divider
+  PASS  ratio set
+  PASS  ratio clamped to a quarter
+  PASS  ratio clamped to three quarters
+  PASS  unchanged ratio: same array
+  PASS  not a number: half
+
+the cycle order (Aryan's 1, 2+3, 4)
+  PASS  the split puts 3 right after 2
+  PASS  panel order passes through both halves
+  PASS  Down from 1: 2, 3, 4, then back to 1
+  PASS  what Down shows: the split with 2 focused, still the split with 3, then 4 alone
+  PASS  Up from 4: 3, 2, 1
+  PASS  session order has the halves together
+
+the fold never cuts a split
+  PASS  a split across the fold line: one more row shows
+  PASS  a split inside the fold: the limit stays
+  PASS  a split starting just past the fold: the limit stays
+  PASS  fewer rows than the limit: the limit stays
+  PASS  the cycle sees the sixth row too
+
+restoring splits from session.json
+  PASS  a good split comes back with its sides and ratio
+  PASS  ...and the tabs are unchanged
+  PASS  a thread that is gone: dropped
+  PASS  two projects: dropped
+  PASS  a project thread and a General one: dropped
+  PASS  two General threads: kept
+  PASS  a thread with itself: dropped
+  PASS  a thread in two splits: only the first kept
+  PASS  a missing ratio is half
+  PASS  a ratio out of range is clamped
+  PASS  no id: dropped
+  PASS  not a list: none
+  PASS  junk entries skipped
+  PASS  halves that are apart are put next to each other, a then b
+  PASS  split ids are counted
+
+79 passed, 0 failed
+(node:43912) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/renderer/homeView.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+homeView: dateHeading
+
+  PASS  formats a fixed Sunday with no year
+  PASS  a different weekday and month
+  PASS  never includes a year
+
+homeView: relativeTime
+
+  PASS  the same instant is now
+  PASS  59s is now
+  PASS  60s is 1m
+  PASS  5m is 5m
+  PASS  59m is 59m
+  PASS  1h (3600s) is 1h
+  PASS  23h is 23h
+  PASS  1d (24h) is 1d
+  PASS  6d is 6d
+  PASS  7d is 1w
+  PASS  29d is 4w
+  PASS  30d is 1mo
+  PASS  364d is 12mo
+  PASS  365d is 1y
+  PASS  two years
+
+homeView: homeSections
+
+  PASS  pinned holds only the non-archived pinned project
+  PASS  projects holds every unpinned project, archived ones included, by lastActiveAt desc (2026-11-01)
+  PASS  ties in lastActiveAt keep the caller's array order (sidebar order)
+  PASS  there is no Archived list any more
+  PASS  an archived project never appears in pinned
+
+homeView: homeSections Show more fold
+
+  PASS  shownProjects is limited to 4 by default
+  PASS  hiddenCount is the remainder
+  PASS  showAll shows every project
+  PASS  showAll: hiddenCount is 0
+  PASS  a custom limit is respected
+  PASS  a custom limit: hiddenCount matches
+  PASS  fewer than the limit: nothing hidden
+
+homeView: homeTotals
+
+  PASS  needsYou counts non-archived project threads plus General, not archived
+  PASS  working counts working threads the same way, apart from running
+  PASS  no tabs: every total is zero
+  PASS  compacting is its own total, not counted under working or running (Phase 8 handoff, Aryan)
+  PASS  background is its own total, not counted under working (the hourglass pill)
+  PASS  background total is zero when none
+  PASS  an unread thread counts under needsYou, same as needs-you (Phase 7, "waiting for you")
+
+homeView: filterThreads
+
+  PASS  empty query returns every thread, unchanged order
+  PASS  matches case-insensitively against the glyph-stripped title
+  PASS  matches from the start of the stripped title, past where the glyph was
+  PASS  a query with no match returns nothing
+  PASS  whitespace-only query behaves like empty
+  PASS  a chat with no title yet matches a word from its first prompt
+  PASS  the same chat does not match its live shell title
+
+homeView: splitLiveAsleep
+
+  PASS  live holds the awake tabs, in order
+  PASS  asleep holds the sleeping tabs, in order
+  PASS  an empty list splits into two empty lists
+
+homeView: lastHereLine
+
+  PASS  null (first launch) shows nothing
+  PASS  59 minutes ago shows nothing (within the hour)
+  PASS  exactly 1 hour ago shows nothing (boundary is exclusive)
+  PASS  61 minutes ago shows the line
+  PASS  2 days ago shows the line
+  PASS  a future timestamp shows nothing
+  PASS  NaN shows nothing
+  PASS  Infinity shows nothing
+
+homeView: hasNoProjects (the "Create your first project" button)
+
+  PASS  no groups at all: empty state
+  PASS  only archived projects: no empty state (they are rows in Projects)
+  PASS  one live project: no empty state
+  PASS  one pinned project: no empty state
+  PASS  live beside archived: no empty state
+
+60 passed, 0 failed
+
+(node:10320) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/renderer/chooserView.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+chooserView: chooserItems, current project
+
+  PASS  current project is first
+  PASS  current project is tagged current
+  PASS  current project dropped when the query does not match it
+  PASS  current project kept when the query matches it (substring of both)
+  PASS  no current project: nothing tagged current
+
+chooserView: chooserItems, No project
+
+  PASS  No project present on empty query
+  PASS  No project present when query matches "no"
+  PASS  No project present when query matches "general"
+  PASS  No project present when query matches "no project"
+  PASS  No project absent when the query matches nothing about it
+
+chooserView: chooserItems, ordering of other projects
+
+  PASS  pinned first (by lastActiveAt desc within pinned), then unpinned (by lastActiveAt desc)
+
+chooserView: chooserItems, archived excluded
+
+  PASS  archived project excluded
+
+chooserView: chooserItems, case-insensitive substring
+
+  PASS  matches regardless of case
+  PASS  matches a lowercase substring of a mixed-case label
+
+chooserView: chooserItems, current project not repeated
+
+  PASS  current project appears exactly once
+
+chooserView: defaultShell
+
+  PASS  returns the project shellId
+  PASS  returns undefined when the project has no shellId
+  PASS  returns undefined when there is no current project
+  PASS  returns undefined when the current id does not match any group
+
+19 passed, 0 failed
+
+(node:63524) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/renderer/paletteView.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+paletteView: rankMatch
+
+  PASS  prefix match ranks 0
+  PASS  non-prefix substring match ranks 1
+  PASS  no match still gets a rank (caller is responsible for filtering)
+  PASS  case-insensitive prefix match
+  PASS  empty query ranks everything 0
+
+paletteView: paletteResults, empty query
+
+  PASS  lists every project, archived ones too (2026-11-01)
+  PASS  lists all threads, including General, ordered by lastActiveAt desc
+
+paletteView: paletteResults, substring match
+
+  PASS  substring match on group label
+  PASS  substring match on displayTitle with the hook glyph stripped
+
+paletteView: paletteResults, prefix ranks above substring
+
+  PASS  prefix match (B) ranks above substring match (A) despite lower lastActiveAt
+  PASS  prefix match (t2) ranks above substring match (t1) among threads
+
+paletteView: paletteResults, archived projects are listed like any other (2026-11-01)
+
+  PASS  an archived project is listed
+  PASS  threads of an archived project are listed
+
+paletteView: paletteResults, each thread carries its group
+
+  PASS  a thread with a project carries that group
+  PASS  a General thread carries no group
+
+paletteView: paletteResults, threadName fallback
+
+  PASS  matches a word of the first prompt
+  PASS  does not match the live shell title once a first prompt stands in for it
+
+paletteView: paletteResults, no results
+
+  PASS  no results gives an empty projects array
+  PASS  no results gives an empty threads array
+  PASS  no results gives an empty history array
+
+paletteView: paletteResults, history
+
+  PASS  a query matching a history title returns it
+  PASS  the returned history row carries its owning group
+  PASS  existing project and thread results are unchanged by the new field
+  PASS  archived project history is listed
+  PASS  prefix match (h2) ranks above substring match (h1) despite an older closedAt
+  PASS  same rank, ordered by closedAt descending
+  PASS  history results capped at 8
+  PASS  the 8 kept are the newest by closedAt
+
+28 passed, 0 failed
+
+(node:1560) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/claude-transcript.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+claude-transcript: projectDirName
+
+  PASS  a plain repo path becomes dashes
+  PASS  a worktree path keeps the dot folder as an extra dash
+  PASS  spaces and dashes each become one dash
+  PASS  the transcript path joins the folder and the session id
+
+claude-transcript: isSessionId
+
+  PASS  a canonical UUID is a session id
+  PASS  a path fragment is not a session id
+  PASS  a non-string is not a session id
+
+claude-transcript: firstPrompt
+
+  PASS  a string content is the prompt
+  PASS  an array whose first part is text is the prompt
+  PASS  a tool_result user line is skipped
+  PASS  a sidechain user line is skipped
+  PASS  an isMeta user line is skipped
+  PASS  a slash command is skipped
+  PASS  an XML wrapped content is skipped
+  PASS  a partial trailing line is ignored
+  PASS  whitespace collapses and only the first line is kept
+  PASS  a long prompt is cut to 120 characters plus an ellipsis
+  PASS  a prompt of exactly 120 characters is not cut
+  PASS  an empty file has no prompt
+  PASS  a file with only assistant lines has no prompt
+  PASS  a user line with empty content has no prompt
+
+claude-transcript: latestModel
+
+  PASS  a matching attachment gives the context suffix back
+  PASS  after a /model switch the assistant model wins without a suffix
+  PASS  a synthetic assistant model is skipped
+  PASS  a sidechain assistant model is skipped
+  PASS  a partial leading line is ignored
+  PASS  an attachment alone gives the model
+  PASS  no assistant and no attachment gives null
+  PASS  an empty tail gives null
+  PASS  the head attachment is found on its own
+  PASS  a chunk with no attachment gives null
+  PASS  a fallback attachment from the head restores the suffix
+  PASS  a fallback attachment for another model is ignored
+  PASS  the tail attachment wins over the head one
+
+claude-transcript: modelDisplayName
+
+  PASS  "claude-opus-5" displays as "Opus 5"
+  PASS  "claude-opus-5[1m]" displays as "Opus 5 · 1M"
+  PASS  "claude-sonnet-5" displays as "Sonnet 5"
+  PASS  "claude-fable-5-1" displays as "Fable 5.1"
+  PASS  "claude-fable-5" displays as "Fable 5"
+  PASS  "claude-haiku-4-5-20251001" displays as "Haiku 4.5"
+  PASS  "sonnet" displays as "Sonnet"
+  PASS  "opus" displays as "Opus"
+  PASS  "haiku" displays as "Haiku"
+  PASS  "OPUS" displays as "Opus"
+  PASS  "my-model" displays as "my-model"
+  PASS  "" displays as ""
+
+claude-transcript: readTranscriptMeta
+
+  PASS  a small file gives the prompt
+  PASS  a small file gives the model
+  PASS  a small file exists
+  PASS  the fixture really is above 512 KB
+  PASS  a big file gives the prompt from the head
+  PASS  a big file gives the model from the tail
+  PASS  a big file takes the context suffix from the head attachment
+  PASS  a head attachment for another model leaves the assistant model unchanged
+  PASS  a missing file gives the not found result
+  PASS  an invalid session id gives the not found result without a read
+  PASS  an empty cwd gives the not found result
+
+claude-transcript: latestCwd and findTranscript (a session that moved worktree)
+
+  PASS  latestCwd takes the newest entry that carries a cwd
+  PASS  latestCwd ignores an unparseable trailing line
+  PASS  latestCwd is null when no entry carries a cwd
+  PASS  findTranscript looks past the recorded folder and finds the moved file
+  PASS  findTranscript prefers the expected place when the file is there
+  PASS  findTranscript gives null for a session that is nowhere
+  PASS  findTranscript rejects a bad id
+  PASS  without readdirSync the expected place is the only answer
+  PASS  readTranscriptMeta with the old cwd still finds the moved session
+  PASS  and reports the new cwd from its tail
+  PASS  and still gives the first prompt
+  PASS  a missing session carries a null cwd
+
+69 passed, 0 failed
+
+(node:40720) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/git-info.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+git-info: parseHead
+
+  PASS  a branch ref gives the branch
+  PASS  a branch with slashes keeps them
+  PASS  CRLF is trimmed
+  PASS  a detached HEAD gives the short hash
+  PASS  a tag ref is not a branch
+  PASS  empty text gives null
+  PASS  nonsense gives null
+
+git-info: parseGitFile
+
+  PASS  a gitdir line gives the path
+  PASS  a relative gitdir line gives the path
+  PASS  CRLF is trimmed
+  PASS  a file that is not a gitdir pointer gives null
+
+git-info: an ordinary checkout
+
+  PASS  a repo on a branch reports the branch
+  PASS  a repo on a branch has no worktree
+  PASS  a repo on a branch reports its root
+  PASS  a subfolder walks up to the repo
+  PASS  a checkout's top is its own folder
+  PASS  a subfolder's top is the checkout
+  PASS  a detached HEAD reports the short hash
+  PASS  an unreadable HEAD gives a null branch but keeps the root
+  PASS  a missing HEAD gives a null branch
+
+git-info: a linked worktree
+
+  PASS  an absolute gitdir gives the worktree branch
+  PASS  an absolute gitdir gives the worktree folder relative to the repo
+  PASS  an absolute gitdir gives the main repo as the root
+  PASS  forward slashes in the gitdir are handled
+  PASS  a relative gitdir resolves against the folder holding the .git file
+  PASS  a subfolder of a worktree walks up to the worktree
+  PASS  a worktree's top is its own folder, not the main repo
+  PASS  a subfolder of a worktree has the worktree as its top
+  PASS  CRLF in both files is handled
+  PASS  a worktree outside the main repo keeps its full path
+  PASS  a .git file that is not a gitdir pointer gives nulls
+  PASS  a .git file that is not a gitdir pointer still marks the top
+
+git-info: no repository
+
+  PASS  a folder with no .git anywhere gives all nulls
+  PASS  an empty cwd gives all nulls
+  PASS  a missing cwd gives all nulls
+
+git-info: the real repository (skipped when there is no .git above cwd)
+
+  PASS  the real repository reports a branch
+  PASS  the real repository root contains a .git entry
+  PASS  a real worktree folder is printed with backslashes and no leading separator
+
+38 passed, 0 failed
+
+(node:20772) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/renderer/chatTitle.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+chatTitle: claudeSummaryTitle, idle glyph
+
+  PASS  idle glyph strips to the summary
+
+chatTitle: claudeSummaryTitle, current busy cycle (U+25D0 to U+25D3)
+
+  PASS  \u25D0 (first frame)
+  PASS  \u25D1
+  PASS  \u25D2
+  PASS  \u25D3 (last frame)
+
+chatTitle: claudeSummaryTitle, older busy cycle (dingbat stars, U+2722 to U+273F) and the middle dot
+
+  PASS  \u2722 (first of the older cycle)
+  PASS  \u2733 (also an older-cycle frame, same glyph as idle)
+  PASS  \u2736
+  PASS  \u273B
+  PASS  \u273D
+  PASS  \u273F (last of the older cycle)
+  PASS  middle dot \u00B7
+
+chatTitle: claudeSummaryTitle rejects hook titles and shell titles
+
+  PASS  a working hook title is not a Claude summary
+  PASS  a done hook title is not a Claude summary
+  PASS  an attention hook title is not a Claude summary
+  PASS  a background hook title is not a Claude summary
+  PASS  a compacting hook title is not a Claude summary
+  PASS  the bare SessionStart hook title is not a Claude summary
+  PASS  a plain shell title is not a Claude summary
+  PASS  a full path shell title is not a Claude summary
+  PASS  a folder-name shell title is not a Claude summary
+
+chatTitle: claudeSummaryTitle edge cases
+
+  PASS  empty string is not a Claude summary
+  PASS  a glyph alone (no summary yet) returns null
+  PASS  a glyph followed only by whitespace returns null
+  PASS  CRLF between the glyph and the summary is stripped
+  PASS  extra spaces between the glyph and the summary are stripped
+  PASS  trailing whitespace on the summary is trimmed
+
+chatTitle: CLAUDE_TITLE_GLYPH regex directly
+
+  PASS  matches the idle glyph
+  PASS  matches a busy-cycle glyph
+  PASS  does not match a hook glyph
+  PASS  does not match a shell title
+
+chatTitle: HOOK_TITLE_GLYPH and isHookTitle
+
+  PASS  working
+  PASS  done
+  PASS  needs permission
+  PASS  background
+  PASS  compacting
+  PASS  CRLF and extra spaces after the glyph still count
+  PASS  a Claude summary glyph is not a hook title
+  PASS  a shell title is not a hook title
+  PASS  the bare SessionStart title (no glyph at all) is not a hook title
+  PASS  empty string is not a hook title
+
+41 passed, 0 failed
+
+(node:57392) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/renderer/sleepWake.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+sleepWake: sleepTab
+
+  PASS  asleep is true
+  PASS  sleptAt is now
+  PASS  notification is removed
+  PASS  wokeAt is removed
+  PASS  session id, cwd, claudeTitle, model, branch, worktree, fontSize all survive
+  PASS  id, title, groupId, cwd untouched
+  PASS  sleepTab does not mutate its input
+  PASS  port survives sleep untouched
+  PASS  lastCommand survives sleep untouched
+  PASS  a stale wokeAt is cleared on sleep
+  PASS  recordStatus is cleared on sleep
+  PASS  and the session id stays (Decision 3)
+  PASS  atPrompt is cleared on sleep
+  PASS  hasChildren is cleared on sleep
+  PASS  backgroundTasks is cleared on sleep
+
+sleepWake: wakeTab
+
+  PASS  asleep is false
+  PASS  sleptAt is removed
+  PASS  wokeAt is now
+  PASS  lastActiveAt is now
+  PASS  identity fields survive
+  PASS  port survives wake untouched
+  PASS  lastCommand survives wake untouched
+
+sleepWake: sleepTab then wakeTab round trip
+
+  PASS  no sleptAt after sleep then wake
+  PASS  no notification after sleep then wake
+  PASS  ends awake
+
+sleepWake: restoredTab
+
+  PASS  starts asleep
+  PASS  sleptAt is the saved sleptAt
+  PASS  no notification
+  PASS  no wokeAt
+  PASS  sleptAt falls back to lastActiveAt when the file has none
+  PASS  still starts asleep
+  PASS  port survives restore untouched
+  PASS  lastCommand survives restore untouched
+
+sleepWake: sleepAllForShutdown
+
+  PASS  an awake tab becomes asleep with sleptAt = now
+  PASS  an already-asleep tab keeps its original sleptAt
+
+sleepWake: asleepLabel
+
+  PASS  undefined sleptAt reads "just now"
+  PASS  59s ago reads "just now"
+  PASS  60s ago reads "1m"
+  PASS  5 minutes ago reads "5m"
+  PASS  2 days ago reads "2d"
+  PASS  3 weeks ago reads "3w"
+
+sleepWake: asleepSinceText
+
+  PASS  chat, no sleptAt
+  PASS  shell, 2 days
+  PASS  chat, 59s (still "just now")
+  PASS  server, 2 days, no lastCommand: plain sentence, no "runs" part
+  PASS  server, 2 days, with a lastCommand: "runs" suffix
+  PASS  server, just now, with a lastCommand
+  PASS  server with a whitespace-only lastCommand: no "runs" part
+  PASS  server with an empty lastCommand: no "runs" part
+  PASS  server with a lastCommand carrying surrounding whitespace: trimmed in the sentence
+  PASS  a Chat with a lastCommand never shows the "runs" part (chats resume, they do not re-run commands)
+  PASS  a Server whose last command started Claude: no "runs claude", since Wake opens a fresh prompt
+  PASS  a Server whose last command is a real server command still names it
+  PASS  a Shell with a lastCommand never shows the "runs" part (not a server)
+
+sleepWake: wakePlan
+
+  PASS  chat: cwd prefers claudeCwd
+  PASS  chat: resumeSessionId is the valid uuid
+  PASS  chat: shellId passed through
+  PASS  chat: runCommand is null (no port)
+  PASS  shell: cwd is the plain cwd
+  PASS  shell: resumeSessionId is null (no session id at all)
+  PASS  shell: runCommand is null (no port)
+  PASS  an invalid session id yields resumeSessionId null, not the garbage id
+  PASS  a chat with no claudeCwd falls back to cwd
+
+sleepWake: wakePlan runCommand (Phase 5)
+
+  PASS  server: runCommand is the trimmed lastCommand
+  PASS  server: resumeSessionId is null
+  PASS  server: surrounding whitespace is trimmed
+  PASS  server with no lastCommand: runCommand is null
+  PASS  server with a whitespace-only lastCommand: runCommand is null (empty after trim)
+  PASS  no port at all: runCommand is null even with a lastCommand present
+  PASS  a lastCommand containing CR/LF is rejected (control characters)
+  PASS  a lastCommand containing an escape byte is rejected
+  PASS  a lastCommand over 500 characters is rejected
+  PASS  a lastCommand of exactly 500 characters is accepted
+
+sleepWake: wakePlan, a session id wins over the server rule (plan-02, Fix 9)
+
+  PASS  a session id plus a port and a command: resumes the chat
+  PASS  and does not re-run the command
+  PASS  no session id plus a port and a command: re-runs the command, resumes nothing
+  PASS  an invalid session id plus a port and a command: re-runs the command
+  PASS  a Claude that started a server itself resumes rather than running `claude` fresh
+  PASS  and wakes in the folder Claude was in
+
+sleepWake: wakePlan, a command that starts Claude is never a server command
+
+  PASS  no id, a port and "claude": no runCommand and no resume
+  PASS  no id, a port and "  claude  ": no runCommand and no resume
+  PASS  no id, a port and "Claude": no runCommand and no resume
+  PASS  no id, a port and "CLAUDE.EXE": no runCommand and no resume
+  PASS  no id, a port and "claude.exe": no runCommand and no resume
+  PASS  no id, a port and "claude.cmd": no runCommand and no resume
+  PASS  no id, a port and "claude --resume abc": no runCommand and no resume
+  PASS  no id, a port and "claude.exe --model haiku": no runCommand and no resume
+  PASS  a command that only starts with the letters claude still re-runs
+  PASS  a command that names claude later on still re-runs
+  PASS  npm run dev with a port still re-runs
+  PASS  no id, a port and "npx claude": no runCommand and no resume
+  PASS  no id, a port and "npx @anthropic-ai/claude-code": no runCommand and no resume
+  PASS  no id, a port and "npx @anthropic-ai/claude-code@latest --model haiku": no runCommand and no resume
+  PASS  no id, a port and "npx -y @anthropic-ai/claude-code": no runCommand and no resume
+  PASS  no id, a port and "NPX Claude": no runCommand and no resume
+  PASS  no id, a port and "@anthropic-ai/claude-code": no runCommand and no resume
+  PASS  no id, a port and "C:\\Users\\me\\.local\\bin\\claude.exe": no runCommand and no resume
+  PASS  no id, a port and "C:\\Users\\me\\.local\\bin\\claude.exe --resume abc": no runCommand and no resume
+  PASS  no id, a port and "\"C:\\Program Files\\Claude\\claude.exe\" --model haiku": no runCommand and no resume
+  PASS  no id, a port and "'C:\\tools\\claude.cmd'": no runCommand and no resume
+  PASS  no id, a port and "C:\\Users\\me\\AppData\\Roaming\\npm\\claude.cmd": no runCommand and no resume
+  PASS  no id, a port and "/c/Users/me/.local/bin/claude.exe": no runCommand and no resume
+  PASS  no id, a port and "~/.local/bin/claude": no runCommand and no resume
+  PASS  "claudette serve" is a server command and re-runs
+  PASS  "npx claude-server" is a server command and re-runs
+  PASS  "npx vite" is a server command and re-runs
+  PASS  "\"C:\\tools\\claude-server.exe\" --port 3000" is a server command and re-runs
+  PASS  "C:\\claude\\server.exe" is a server command and re-runs
+  PASS  startsClaudeCode: a bare npx is not Claude
+  PASS  startsClaudeCode: npx with only flags is not Claude
+  PASS  startsClaudeCode: an empty line is not Claude
+  PASS  startsClaudeCode: an unclosed quote is read as a plain word
+
+112 passed, 0 failed
+
+(node:63504) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/renderer/history.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+history: HISTORY_MAX
+
+  PASS  HISTORY_MAX is 100
+
+history: historyEntryFor
+
+  PASS  chat entry shape: id, title, kind, sessionId, cwd, closedAt, nothing else
+  PASS  chat entry id is the tab id
+  PASS  chat entry kind is chat
+  PASS  chat entry sessionId is claudeSessionId
+  PASS  chat entry cwd prefers claudeCwd
+  PASS  chat entry closedAt is now
+  PASS  shell entry shape: id, title, kind, cwd, closedAt, no sessionId key at all
+  PASS  shell entry kind is shell
+  PASS  shell entry has no sessionId key (not even undefined)
+  PASS  shell entry cwd falls back to cwd (no claudeCwd)
+  PASS  no cwd key when the tab has none
+
+history: appendHistory
+
+  PASS  newest entry goes first
+  PASS  order otherwise preserved
+  PASS  does not mutate the input array
+  PASS  dedupes by id, new entry replaces the old one
+  PASS  stays at HISTORY_MAX after the cap
+  PASS  newest entry is first
+  PASS  the oldest existing entry (e99, appended last so pushed to the end) is dropped
+
+history: removeHistoryEntry
+
+  PASS  removes the matching entry
+  PASS  removing an id not present changes nothing
+
+history: isResumable
+
+  PASS  chat with a UUID is resumable
+  PASS  chat without a sessionId is not resumable
+  PASS  chat with a garbage sessionId is not resumable
+  PASS  shell with a UUID is still not resumable (nothing to resume)
+
+history: a name given with Rename
+
+  PASS  a chat's name goes into its entry
+  PASS  a shell's name goes into its entry
+  PASS  a thread with no such name has no key for it
+  PASS  a resumed chat keeps it
+  PASS  a resumed shell keeps it
+  PASS  a resumed thread with no such name has no key for it
+
+history: tabFromHistory
+
+  PASS  same id as the history entry
+  PASS  title and claudeTitle both set for a chat
+  PASS  groupId and shellId from the group
+  PASS  cwd prefers the entry cwd over the group cwd
+  PASS  claudeSessionId and claudeCwd set for a chat
+  PASS  asleep is false and wokeAt is now
+  PASS  lastActiveAt is now
+  PASS  shell has no claudeSessionId
+  PASS  shell has no claudeCwd
+  PASS  shell has no claudeTitle
+  PASS  shell cwd from the entry
+  PASS  cwd falls back to the group cwd when the entry has none
+
+history: maxNumericId
+
+  PASS  largest N across mixed ids
+  PASS  no matching prefix gives 0
+  PASS  empty iterable gives 0
+  PASS  a different prefix ("group-") is scoped independently
+
+history: historyTitleMatches
+
+  PASS  case-insensitive substring match
+  PASS  non-matching substring
+  PASS  empty query matches everything
+
+50 passed, 0 failed
+
+(node:53604) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/thread-tail.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+thread-tail: constants and paths
+
+  PASS  the line cap is 200
+  PASS  the byte cap is 64 KB
+  PASS  a tail file is <dir>/<id>.txt
+
+thread-tail: isThreadId
+
+  PASS  a normal tab id is accepted
+  PASS  underscores and digits are accepted
+  PASS  64 characters are accepted
+  PASS  65 characters are rejected
+  PASS  an empty string is rejected
+  PASS  ".." is rejected
+  PASS  a forward slash is rejected
+  PASS  a backslash is rejected
+  PASS  a dot in the name is rejected
+  PASS  a number is rejected
+  PASS  null is rejected
+  PASS  undefined is rejected
+  PASS  an object is rejected
+
+thread-tail: trimTail
+
+  PASS  only the last 200 lines are kept
+  PASS  the last line survives
+  PASS  the first kept line is the 200th from the end
+  PASS  a custom line cap is honoured
+  PASS  trailing whitespace is stripped
+  PASS  trailing empty lines are dropped
+  PASS  a blank line in the middle is kept
+  PASS  an all-blank tail becomes empty
+  PASS  an empty array stays empty
+  PASS  the byte cap drops lines from the front
+  PASS  the kept bytes are within the cap
+  PASS  multi-byte characters count as their UTF-8 size
+  PASS  a single line larger than the cap yields nothing
+  PASS  a non-array gives an empty tail
+  PASS  non-string entries are coerced, not thrown on
+
+thread-tail: serialize and parse
+
+  PASS  the body ends in a newline
+  PASS  the round trip is exact
+  PASS  an empty tail round trips to empty
+  PASS  CRLF in the file is handled
+  PASS  a leading BOM is stripped
+  PASS  a BOM-only file gives no lines
+  PASS  an empty file gives no lines
+  PASS  a non-string gives no lines
+  PASS  a file with no final newline keeps its last line
+
+40 passed, 0 failed
+
+(node:63112) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/server-detect.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+server-detect: parseNetstatListeners
+
+  PASS  only listening TCP rows are returned
+  PASS  an IPv4 wildcard row parses
+  PASS  a loopback IPv4 row parses
+  PASS  an IPv6 wildcard row parses
+  PASS  an IPv6 loopback row parses
+  PASS  a dual-stack listener appears twice
+  PASS  ESTABLISHED rows are ignored
+  PASS  TIME_WAIT rows are ignored
+  PASS  UDP rows are ignored
+  PASS  the header row is ignored
+  PASS  LF-only output parses the same
+  PASS  leading whitespace is tolerated
+  PASS  a lowercase state is tolerated
+  PASS  an empty string gives nothing
+  PASS  a non-string gives nothing
+  PASS  pure garbage gives nothing
+  PASS  a short row is ignored
+  PASS  a non-numeric pid is ignored
+  PASS  port 0 is ignored
+  PASS  a port above 65535 is ignored
+  PASS  an address with no colon is ignored
+  PASS  a missing port after the colon is ignored
+  PASS  a non-numeric port is ignored
+  PASS  pid 0 is kept (the system idle owner still parses)
+
+server-detect: parseProcessList
+
+  PASS  an array of two rows parses
+  PASS  pid, ppid and created come through
+  PASS  a single bare object parses as one row
+  PASS  a null creation time becomes null
+  PASS  a missing creation time becomes null
+  PASS  rows without a numeric pid are dropped
+  PASS  a missing parent pid becomes 0
+  PASS  unparseable JSON gives nothing
+  PASS  an empty string gives nothing
+  PASS  whitespace gives nothing
+  PASS  a non-string gives nothing
+  PASS  a JSON scalar gives nothing
+  PASS  an array of scalars gives nothing
+
+server-detect: descendantPids
+
+  PASS  the root is in its own tree
+  PASS  a direct child is in the tree
+  PASS  a grandchild is in the tree
+  PASS  a second child is in the tree
+  PASS  an unrelated sibling is not in the tree
+  PASS  the parent is not in the tree
+  PASS  the tree has exactly four members
+  PASS  a child older than its parent is rejected (pid reuse)
+  PASS  a child younger than its parent is kept
+  PASS  a rejected child's subtree is rejected too
+  PASS  an unknown parent creation time keeps the edge
+  PASS  an unknown child creation time keeps the edge
+  PASS  a two-process cycle terminates
+  PASS  a process that parents itself terminates
+  PASS  an empty process list still contains the root
+  PASS  a pid missing from the list still contains itself
+  PASS  a negative root pid gives an empty set
+  PASS  a non-integer root pid gives an empty set
+
+server-detect: shellHasChildren (plan-02, Fix 8)
+
+  PASS  a shell with nothing below it: false
+  PASS  a shell running a program: true
+  PASS  pwsh with nothing below it: false
+  PASS  a shell missing from the list (it started after the list was taken): null
+  PASS  an empty list: null
+  PASS  WSL: null, its processes are not in the Windows tree
+  PASS  a child older than the shell (pid reuse) does not count
+  PASS  Git Bash at its prompt: the launcher's own bash does not count
+  PASS  Git Bash running a command below its bash: true
+  PASS  the same tree as cmd would count the bash itself
+
+server-detect: portForTree
+
+  PASS  with no first-seen map the lowest port in the tree wins
+  PASS  a listener outside the tree is ignored
+  PASS  a tree with no listeners gives null
+  PASS  an empty tree gives null
+  PASS  the only member listening decides the port
+  PASS  a lower port found later still wins
+  PASS  the latest listener wins over a lower, older port
+  PASS  the latest listener wins when it is the lower port
+  PASS  ports first seen on the same poll fall back to the lowest
+  PASS  an empty first-seen map falls back to the lowest
+  PASS  a port missing from the map loses to one that is in it
+  PASS  a dual-stack duplicate does not change the winner
+  PASS  a listener outside the tree is ignored even when it is the latest
+
+server-detect: trackFirstSeen
+
+  PASS  a new listener is stamped with now
+  PASS  a listener already known keeps its first time
+  PASS  a second listener is stamped with the later time
+  PASS  a listener that stopped is pruned
+  PASS  a listener that is still up survives the prune
+  PASS  a listener that comes back is stamped as new
+  PASS  a disappeared-and-back listener now wins the port
+  PASS  a dual-stack listener makes one entry
+  PASS  no listeners at all empties the map
+  PASS  a missing listener list prunes rather than throwing
+
+server-detect: listenerKey
+
+  PASS  order does not change the key
+  PASS  a dual-stack duplicate does not change the key
+  PASS  a new port changes the key
+  PASS  the same port on a new pid changes the key
+  PASS  an empty list gives an empty key
+  PASS  the key is the sorted pid:port pairs
+
+server-detect: tabPorts
+
+  PASS  every tab gets an entry
+  PASS  a server deep in a tab's tree is found
+  PASS  a tab with no server gets null
+  PASS  a second tab gets its own port
+  PASS  a listener owned by nobody in any tree is ignored
+  PASS  no tabs gives no entries
+  PASS  an empty process list still reports the shell pid itself
+  PASS  no listeners gives null for every tab
+  PASS  a first-seen map is forwarded, so the latest port wins per tab
+
+server-detect: parseMsysPs
+
+  PASS  the header is skipped and every process row is parsed
+  PASS  pid, ppid and winpid come from the first four columns
+  PASS  a row whose parent is MSYS root keeps ppid 1
+  PASS  a command with spaces does not break the row
+  PASS  a ? tty parses like a cons tty
+  PASS  CRLF and LF give the same rows
+  PASS  garbage lines are skipped and good rows survive
+  PASS  empty text gives no rows
+  PASS  non-text gives no rows
+
+server-detect: applyMsysParents
+
+  PASS  before the merge the walk stops at the MSYS gap
+  PASS  after the merge the whole chain is reachable
+  PASS  the bridged row now names the real shell as its parent
+  PASS  the input array is not mutated
+  PASS  created times are carried through untouched
+  PASS  a row whose MSYS parent is 1 is left alone
+  PASS  a row MSYS also names is re-pointed at the MSYS parent
+  PASS  the skipped fork stub is still in the tree
+  PASS  a proc no ps row mentions is left alone
+  PASS  portForTree finds nothing before the merge
+  PASS  portForTree finds the server through the merged list
+  PASS  tabPorts reports the port for the Git Bash tab
+  PASS  tabPorts still reports null for that tab without the merge
+  PASS  a parent winpid missing from the process list changes nothing
+  PASS  an MSYS parent that resolves to the row itself changes nothing
+  PASS  the created-time guard still drops a bridged edge that runs backwards
+  PASS  no ps rows leaves the list as it was
+  PASS  an empty process list stays empty
+
+130 passed, 0 failed
+
+(node:54344) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/renderer/commandMarks.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+commandMarks: parseOsc133
+
+  PASS  A parses to A
+  PASS  B parses to B
+  PASS  C parses to C
+  PASS  D parses to D
+  PASS  D;0 parses to D (only the first character matters)
+  PASS  B;k=i parses to B
+  PASS  garbage parses to null
+  PASS  an empty string parses to null
+  PASS  a lowercase a parses to null (case sensitive)
+  PASS  a digit parses to null
+
+commandMarks: initialCommandMarkState
+
+  PASS  starts not at a prompt
+  PASS  starts with no promptEnd
+  PASS  starts with nothing typed
+
+commandMarks: onMark transitions
+
+  PASS  A clears atPrompt
+  PASS  A clears promptEnd
+  PASS  B sets atPrompt
+  PASS  B stamps promptEnd at the given cursor
+  PASS  C clears atPrompt
+  PASS  C leaves promptEnd as it was (not cleared, just no longer "fresh")
+  PASS  D clears atPrompt
+  PASS  D leaves promptEnd as it was
+  PASS  a second A clears a stale promptEnd from a previous B
+  PASS  onMark does not mutate its input state
+
+commandMarks: onEnter outside the prompt
+
+  PASS  readFrom is never called when not at a prompt
+  PASS  command is null when not at a prompt
+  PASS  state is returned unchanged
+  PASS  readFrom is never called when promptEnd is missing
+  PASS  command is null when promptEnd is missing
+
+commandMarks: onEnter at the prompt
+
+  PASS  readFrom is called with the remembered promptEnd
+  PASS  the command is cleaned (trailing whitespace trimmed)
+  PASS  atPrompt turns off after Enter
+  PASS  promptEnd is left in place (harmless once atPrompt is false; a new B overwrites it)
+  PASS  an empty read yields command null
+  PASS  atPrompt still turns off
+  PASS  a bell character in the middle of a read is stripped
+  PASS  a long read is capped at 500 characters
+  PASS  the first Enter returns the typed command
+  PASS  the second Enter in a row is not at the prompt
+  PASS  the second Enter reads nothing
+  PASS  readFrom is never called on the second Enter
+
+commandMarks: onInput
+
+  PASS  printable characters accumulate across chunks
+  PASS  DEL drops the last character
+  PASS  backspace (0x08) drops the last character too
+  PASS  backspace on empty typed text is harmless
+  PASS  an arrow key sequence is ignored
+  PASS  Home/End sequences are ignored
+  PASS  Delete (ESC [ 3 ~) is ignored
+  PASS  SS3 arrows (ESC O A) are ignored, the letter does not leak in
+  PASS  a bare Esc is ignored
+  PASS  Ctrl+C and other control characters are ignored
+  PASS  the focus-out report (ESC [ O) is ignored
+  PASS  the focus-in report (ESC [ I) is ignored
+  PASS  a bracketed paste is appended as typed text
+  PASS  a paste after typing appends to what was typed
+  PASS  onInput outside the prompt is a no-op
+  PASS  onInput does not mutate its input state
+  PASS  a pasted line ending in CR leaves the prompt
+  PASS  and clears what was typed
+  PASS  and keeps promptEnd
+  PASS  a typed prefix then a pasted line with CR also leaves the prompt
+  PASS  a CR in the middle of a chunk leaves the prompt (the first line runs)
+  PASS  a chunk with no CR stays at the prompt
+  PASS  a CR inside a bracketed paste does not leave the prompt
+  PASS  a CR after a bracketed paste ends does leave it
+  PASS  a chunk with CR outside the prompt changes nothing
+  PASS  sent at the prompt: atPrompt clears at once
+  PASS  and the next prompt counts again once it is drawn
+  PASS  sent before any prompt: remembered as sent ahead
+  PASS  A keeps the command sent ahead
+  PASS  the B of the prompt that runs it does not count as at the prompt
+  PASS  Enter there reads no command
+  PASS  the prompt after the command ends counts again
+  PASS  onCommandSent does not mutate its input state
+  PASS  A resets typed
+  PASS  B resets typed
+
+commandMarks: onEnter, typed text versus the buffer
+
+  PASS  stray output printed on the prompt line is dropped in favour of the typed text
+  PASS  Enter resets typed
+  PASS  tab completion keeps the buffer
+  PASS  history recall (nothing typed) keeps the buffer
+  PASS  a command edited in the middle keeps the buffer
+  PASS  a buffer equal to the typed text is used as is
+  PASS  trailing spaces in the typed text are trimmed before comparing and reporting
+  PASS  a buffer shorter than the typed text keeps the buffer
+  PASS  an empty buffer read is still no command, even with typed text
+
+commandMarks: cleanCommand
+
+  PASS  trims both ends
+  PASS  keeps internal whitespace exactly as typed (no collapsing)
+  PASS  an empty string is null
+  PASS  a whitespace-only string is null
+  PASS  control characters are stripped
+  PASS  a string of only control characters is null
+  PASS  CR/LF are stripped (no multi-line smuggling)
+  PASS  DEL (0x7f) is stripped
+  PASS  exactly 500 characters is kept whole
+  PASS  501 characters is capped to 500
+  PASS  a normal short command is returned as is
+
+95 passed, 0 failed
+
+(node:35604) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/shell-paths.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+shell-paths: parseOsc7
+
+  PASS  a distro host with a home path parses
+  PASS  a dotted distro name parses
+  PASS  a real hostname in the host slot still parses (afterterm treats it as the distro)
+  PASS  an empty host (file:///path) parses
+  PASS  a root path parses
+  PASS  a single-segment path parses (still an absolute path, leading slash present)
+  PASS  a host with no path at all is rejected
+  PASS  a host with no path and empty host is rejected
+  PASS  a non-file scheme is rejected
+  PASS  an ftp scheme is rejected
+  PASS  a bare path with no scheme is rejected
+  PASS  an empty string is rejected
+  PASS  a non-string is rejected
+  PASS  a number is rejected
+  PASS  a percent-encoded space decodes
+  PASS  a percent-encoded space in the middle of two segments decodes
+  PASS  a malformed percent escape is left as is, not thrown on
+  PASS  trailing whitespace is trimmed
+  PASS  trailing whitespace is trimmed even with nothing else wrong
+  PASS  the scheme match is case-insensitive
+  PASS  a percent-encoded slash decodes into a literal slash, no extra validation on it
+  PASS  digits in the host are accepted as-is
+  PASS  a deep path with several segments parses whole
+  PASS  leading whitespace is not stripped, only trailing
+  PASS  a malformed escape at the very end is left as is
+
+shell-paths: linuxPathToWindows, /mnt drvfs form
+
+  PASS  /mnt/c/Users/x -> C:\Users\x
+  PASS  /mnt/c -> C:\
+  PASS  /mnt/c/ -> C:\ (trailing slash alone normalises away)
+  PASS  /mnt/C/ upper-case drive letter is upper-cased and works the same
+  PASS  /mnt/d/a/b/c -> D:\a\b\c, deep paths keep every segment
+  PASS  lower-case drive letters upper-case too
+  PASS  /mnt/cc/x, a two-letter segment, is not a drive: falls through to a distro path
+  PASS  /mnt/cc/x with no distro is null, since it is not a drive path after all
+  PASS  /mnt alone (no trailing slash, no drive) is a distro path
+  PASS  /mnt/ alone is a distro path too
+
+shell-paths: linuxPathToWindows, MSYS /<drive> form
+
+  PASS  /c/Users/x -> C:\Users\x
+  PASS  /c alone -> C:\
+  PASS  /c/ alone -> C:\
+  PASS  /d/a/b -> D:\a\b
+  PASS  /cc/x, a two-letter first segment, is not MSYS drive form: it is a distro path
+  PASS  /cc/x with no distro is null
+
+shell-paths: linuxPathToWindows, distro (UNC) form
+
+  PASS  /home/x -> \\wsl$\Ubuntu\home\x
+  PASS  / -> \\wsl$\Ubuntu\, the distro root
+  PASS  /home/a%20b, already decoded before this call, keeps its space
+  PASS  a dotted distro name works
+  PASS  a hostname-shaped distro name works, afterterm treats it as opaque
+  PASS  a non-mount path with an empty distro is null (would be a UNC path with no distro)
+  PASS  a non-mount path with no distro argument at all is null
+  PASS  "." and ".." segments are passed through, not resolved
+
+shell-paths: linuxPathToWindows, more drive-form edge cases
+
+  PASS  /mnt/1/x, a digit instead of a letter, is not a drive: falls through to a distro path
+  PASS  /1/x, a digit first segment, is not MSYS drive form either
+  PASS  an empty path string is null, it is not an absolute path
+  PASS  an empty path string with no distro is null too
+  PASS  a path missing its leading slash is null, only absolute Linux paths translate
+  PASS  a relative-looking distro path is also null
+
+shell-paths: linuxPathToWindows, rejections
+
+  PASS  a backslash inside the path is rejected
+  PASS  a backslash inside an /mnt path is rejected too
+  PASS  a NUL byte is rejected
+  PASS  a non-string path is rejected
+  PASS  a distro name containing a backslash is rejected
+  PASS  a distro name containing a NUL is rejected
+
+shell-paths: osc7ToWindowsPath
+
+  PASS  a distro home path becomes a WSL UNC path
+  PASS  spaces and percent-escapes survive the full pipeline
+  PASS  the distro root round trips to a WSL UNC root
+  PASS  a malformed payload gives null (parseOsc7 fails first)
+  PASS  an empty host with a non-mount path gives null (no distro to build a UNC path with)
+  PASS  an empty host with an /mnt path still works, since that branch needs no distro
+  PASS  a host with no path gives null
+
+shell-paths: isWslUncPath
+
+  PASS  a \\wsl$\ path with a distro and a subpath is true
+  PASS  a \\wsl$\ path with just the distro is true
+  PASS  a \\wsl.localhost\ path is true
+  PASS  a \\wsl.localhost\ path with just the distro is true
+  PASS  the prefix match is case-insensitive
+  PASS  a bare \\wsl$\ prefix with nothing after it is false, there is no distro
+  PASS  a bare \\wsl.localhost\ prefix with nothing after it is false
+  PASS  \\wsl$ with no trailing backslash at all is false
+  PASS  an ordinary UNC share is false
+  PASS  a drive path is false
+  PASS  "wsl$" without leading backslashes is false, it is not a UNC path
+  PASS  a single leading backslash is false, UNC needs two
+  PASS  an empty string is false
+  PASS  a non-string is false
+  PASS  "wsl.localhost" without leading slashes is false
+  PASS  a dotted distro after wsl$ is still true
+
+shell-paths: wslUncToLinux
+
+  PASS  a home path parses
+  PASS  the bare distro (no subpath) is the distro root
+  PASS  wsl.localhost with a trailing slash on the root stays the root
+  PASS  a trailing slash on a non-root path is dropped
+  PASS  a dotted distro name parses
+  PASS  a hostname-shaped distro name parses
+  PASS  a C:\ path is not a WSL path
+  PASS  a plain UNC share with no distro segment concept is not a WSL path
+  PASS  a bare prefix with no distro is null
+  PASS  a non-string is null
+  PASS  an empty string is null
+  PASS  wsl.localhost with a deep subpath parses
+
+shell-paths: round trips through the distro (UNC) form
+
+  PASS  round trip for "/home/aryan" / Ubuntu
+  PASS  round trip for "/" / Ubuntu
+  PASS  round trip for "/etc/hosts" / Ubuntu-22.04
+  PASS  round trip for "/home/a b" / DESKTOP-A1
+  PASS  round trip for "/var/log" / Ubuntu
+
+shell-paths: windowsPathToWsl
+
+  PASS  C:\Users\x -> /mnt/c/Users/x
+  PASS  c:\ (lower-case drive) -> /mnt/c
+  PASS  D:\ -> /mnt/d
+  PASS  a deep path keeps every segment
+  PASS  a trailing backslash on a deep path drops cleanly
+  PASS  a UNC path is null
+  PASS  a relative path is null
+  PASS  an empty string is null
+  PASS  a non-string is null
+  PASS  a WSL UNC path is not a drive path, so it is null
+  PASS  a bare drive letter with no backslash is null
+
+shell-paths: isWindowsDrivePath
+
+  PASS  C:\ is a drive path
+  PASS  C:\Users\x is a drive path
+  PASS  a lower-case drive letter counts
+  PASS  a forward-slash path is not a drive path
+  PASS  a UNC path is not a drive path
+  PASS  a relative path is not a drive path
+  PASS  a bare drive letter with no backslash is not a drive path
+  PASS  a WSL UNC path is not a drive path
+  PASS  an empty string is not a drive path
+  PASS  a non-string is not a drive path
+  PASS  a digit instead of a letter is not a drive path
+  PASS  two letters before the colon is not a drive path
+  PASS  the match only cares about the prefix, trailing content is fine
+
+125 passed, 0 failed
+
+(node:7980) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/shell-integration.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+shell-integration: integrationEnabled
+
+  PASS  a missing shellIntegration key is enabled
+  PASS  an explicit "off" is disabled
+  PASS  an explicit "on" is enabled
+  PASS  a different shell turned off does not affect this one
+  PASS  "off" is case-sensitive, "Off" stays enabled
+  PASS  undefined prefs is enabled
+  PASS  null prefs is enabled
+  PASS  a non-object prefs (string) is enabled
+  PASS  a non-object prefs (number) is enabled
+  PASS  a non-object shellIntegration is enabled
+  PASS  a null shellIntegration is enabled
+  PASS  every shell id can be turned off independently
+  PASS  an unknown shell id with no entry is enabled
+
+shell-integration: pwshEncodedCommand
+
+  PASS  the encoded command is a non-empty base64 string
+  PASS  it round-trips back to the bootstrap script
+  PASS  a custom script argument round-trips too
+  PASS  the default and a custom script give different encodings
+
+shell-integration: PWSH_BOOTSTRAP shape
+
+  PASS  sets a wrap guard
+  PASS  saves the original prompt function
+  PASS  defines a replacement prompt
+  PASS  emits OSC 133;A
+  PASS  emits OSC 133;B
+  PASS  emits OSC 9;9
+  PASS  gates the cwd report on the FileSystem provider
+  PASS  restores $? with a suppressed Write-Error
+
+shell-integration: BASH_HOOK and BASH_BOOTSTRAP shape
+
+  PASS  BASH_HOOK has no newline characters
+  PASS  BASH_HOOK is non-empty
+  PASS  BASH_HOOK wraps PS1 with OSC 133;A
+  PASS  BASH_HOOK wraps PS1 with OSC 133;B
+  PASS  BASH_HOOK reports cwd with OSC 9;9
+  PASS  BASH_HOOK reports the WSL case with OSC 7 file://
+  PASS  BASH_HOOK unexports itself once installed
+  PASS  BASH_HOOK defines the precmd function
+  PASS  BASH_HOOK embeds the literal bootstrap text to strip it out
+  PASS  BASH_BOOTSTRAP has no newline characters
+  PASS  BASH_BOOTSTRAP evaluates the hook env var
+  PASS  BASH_BOOTSTRAP falls back to unsetting itself on failure
+
+shell-integration: SHELL_INTEGRATION_ENV_KEYS
+
+  PASS  lists PROMPT_COMMAND and AFTERTERM_BASH_HOOK
+
+shell-integration: the cmd marks and stripCmdPromptMarks
+
+  PASS  CMD_MARK_START is the prompt-start mark then the cwd report
+  PASS  CMD_MARK_END is the prompt-end mark
+  PASS  wrapCmdPrompt puts the visible prompt between the marks
+  PASS  a prompt with no marks is returned as it came
+  PASS  one wrap is stripped back to the original
+  PASS  two wraps (two generations) are stripped back to the original
+  PASS  five wraps are stripped back to the original
+  PASS  text the user added after the marks is kept
+  PASS  a user own cwd report (the Windows Terminal recipe) is left alone
+  PASS  a user own prompt-end mark alone is left alone
+  PASS  an empty prompt stays empty
+
+shell-integration: stripBashHook
+
+  PASS  the installed hook function is the one BASH_HOOK defines
+  PASS  a PROMPT_COMMAND without afterterm text is returned as it came
+  PASS  the bootstrap alone strips to nothing
+  PASS  the installed function alone strips to nothing
+  PASS  anything before the bootstrap is kept, tidied
+  PASS  anything before the installed function is kept, tidied
+  PASS  anything after the bootstrap is kept, tidied
+
+shell-integration: appendWslEnv
+
+  PASS  undefined existing gives just the new names, no leading colon
+  PASS  an empty existing string gives just the new names
+  PASS  existing entries are kept, new ones appended
+  PASS  a duplicate name is not added twice
+  PASS  all names already present changes nothing
+  PASS  an empty names list changes nothing
+  PASS  a real WSLENV example gains both keys
+
+shell-integration: planSpawn
+
+  PASS  a missing cwd falls back to home
+  PASS  a stale cwd (dirExists false) falls back to home
+  PASS  a valid cwd is used as-is
+  PASS  a WSL UNC cwd for the wsl shell is honoured through -d/--cd
+  PASS  the wsl UNC case still uses home as the process cwd
+  PASS  the wsl UNC case is not a fallback (the request was honoured)
+  PASS  the wsl UNC case never calls dirExists
+  PASS  a WSL UNC cwd for a non-wsl shell falls back to home
+  PASS  a WSL UNC cwd for a non-wsl shell never calls dirExists
+  PASS  the wsl.localhost UNC form is also honoured
+  PASS  cmd with integration on injects PROMPT
+  PASS  cmd integration flag is true
+  PASS  cmd preserves a custom PROMPT as the visible part
+  PASS  cmd with integration off leaves PROMPT untouched
+  PASS  cmd integration flag is false when off
+  PASS  cmd args pass through unchanged when off
+  PASS  inherited marked prompt, integration on, is wrapped once: no custom prompt (default $P$G)
+  PASS  inherited marked prompt, integration on, carries each mark once: no custom prompt (default $P$G)
+  PASS  inherited marked prompt, integration off, is the plain original: no custom prompt (default $P$G)
+  PASS  inherited marked prompt, integration off, has no marks at all: no custom prompt (default $P$G)
+  PASS  integration flag follows the opt-out: no custom prompt (default $P$G)
+  PASS  inherited marked prompt, integration on, is wrapped once: the plain $P$G
+  PASS  inherited marked prompt, integration on, carries each mark once: the plain $P$G
+  PASS  inherited marked prompt, integration off, is the plain original: the plain $P$G
+  PASS  inherited marked prompt, integration off, has no marks at all: the plain $P$G
+  PASS  integration flag follows the opt-out: the plain $P$G
+  PASS  inherited marked prompt, integration on, is wrapped once: the custom $M$P$G
+  PASS  inherited marked prompt, integration on, carries each mark once: the custom $M$P$G
+  PASS  inherited marked prompt, integration off, is the plain original: the custom $M$P$G
+  PASS  inherited marked prompt, integration off, has no marks at all: the custom $M$P$G
+  PASS  integration flag follows the opt-out: the custom $M$P$G
+  PASS  inherited marked prompt, integration on, is wrapped once: a fancy colour prompt
+  PASS  inherited marked prompt, integration on, carries each mark once: a fancy colour prompt
+  PASS  inherited marked prompt, integration off, is the plain original: a fancy colour prompt
+  PASS  inherited marked prompt, integration off, has no marks at all: a fancy colour prompt
+  PASS  integration flag follows the opt-out: a fancy colour prompt
+  PASS  a doubly-marked prompt comes out single with integration on
+  PASS  a doubly-marked prompt comes out plain with integration off
+  PASS  three generations of afterterm still give one wrap
+  PASS  the opt-out recovers the original after three generations
+  PASS  text added after the marks in the launching shell is kept, wrapped once
+  PASS  a user own cwd report is kept as the visible prompt with integration on
+  PASS  a user own cwd report is left alone with integration off
+  PASS  a PROMPT kept under another letter case is stripped too, under that key
+  PASS  a PROMPT kept under another letter case is wrapped once, with no second key
+  PASS  an inherited marked PROMPT is stripped for pwsh
+  PASS  an inherited marked PROMPT is stripped for powershell
+  PASS  an inherited marked PROMPT is stripped for gitbash
+  PASS  an inherited marked PROMPT is stripped for wsl
+  PASS  an inherited marked PROMPT is stripped for made-up
+  PASS  a PROMPT that held only marks is removed
+  PASS  with gitbash off, an inherited bash hook is removed from the environment
+  PASS  with wsl off, an inherited bash hook is removed from the environment
+  PASS  with pwsh off, an inherited bash hook is removed from the environment
+  PASS  with gitbash off, text next to the inherited bootstrap is kept
+  PASS  with gitbash on, an inherited bash hook still ends as one hook
+  PASS  with wsl on, an inherited WSLENV is not doubled
+  PASS  unrelated variables, and a PROMPT_COMMAND with no afterterm text, are left alone
+  PASS  withoutInheritedIntegration leaves its input untouched
+  PASS  withoutInheritedIntegration returns the user own values only
+  PASS  pwsh with integration on uses -NoExit -EncodedCommand
+  PASS  pwsh integration flag is true
+  PASS  pwsh env is unchanged besides being a copy
+  PASS  powershell with integration off keeps its own (empty) args
+  PASS  powershell integration flag is false when off
+  PASS  gitbash with integration on sets PROMPT_COMMAND to the bootstrap
+  PASS  gitbash with integration on sets AFTERTERM_BASH_HOOK
+  PASS  gitbash keeps its own args (--login -i)
+  PASS  gitbash integration flag is true
+  PASS  gitbash with integration off has no PROMPT_COMMAND
+  PASS  gitbash with integration off has no AFTERTERM_BASH_HOOK
+  PASS  gitbash integration flag is false when off
+  PASS  wsl with integration on sets PROMPT_COMMAND
+  PASS  wsl with integration on sets AFTERTERM_BASH_HOOK
+  PASS  wsl with integration on sets WSLENV with both keys, no leading colon
+  PASS  wsl with no explicit cwd keeps its own (empty) args
+  PASS  wsl appends to an existing WSLENV rather than replacing it
+  PASS  wsl with integration off sets no env keys
+  PASS  wsl integration flag is false when off
+  PASS  an unknown shell id gets no integration
+  PASS  an unknown shell id passes its own args through unchanged
+  PASS  an unknown shell id gets a plain env copy
+  PASS  an unknown shell id still resolves command and cwd
+  PASS  the input env object is untouched after a run with integration on
+  PASS  the returned env is a different object from the input
+  PASS  the input env object is untouched after a run with integration off
+  PASS  the returned env is still a copy, not the same reference
+
+shell-integration: real-shell checks (skipped when a binary is missing)
+
+  PASS  pwsh: emits OSC 133;A
+  PASS  pwsh: emits OSC 9;9;C:\
+  PASS  pwsh: emits OSC 133;B
+  PASS  powershell: emits OSC 133;A
+  PASS  powershell: emits OSC 9;9;C:\
+  PASS  powershell: emits OSC 133;B
+  PASS  pwsh custom prompt: shows the failure state after the bad command
+  PASS  pwsh custom prompt: shows the success state after the good command
+  PASS  pwsh custom prompt: the marks wrap the custom text in order (A, 9;9, text, B)
+  PASS  powershell custom prompt: shows the failure state after the bad command
+  PASS  powershell custom prompt: shows the success state after the good command
+  PASS  powershell custom prompt: the marks wrap the custom text in order (A, 9;9, text, B)
+  PASS  git bash: emits OSC 9;9;C:\Windows
+  PASS  git bash: emits OSC 133;A
+  PASS  git bash: emits OSC 133;B
+  PASS  git bash: PROMPT_COMMAND becomes just __afterterm_precmd
+  PASS  git bash: AFTERTERM_BASH_HOOK is no longer exported (export -p count is 0)
+  PASS  git bash: reports the new cwd after cd
+  PASS  git bash rc-file case: RCHOOK still runs on every prompt
+  PASS  git bash rc-file case: an rc addition to PROMPT_COMMAND survives install
+
+170 passed, 0 failed
+
+(node:55176) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/renderer/jumpScroll.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+jumpScroll: initialJumpState
+
+  PASS  starts with no target
+  PASS  starts at position 0 by default
+  PASS  an initial position is kept
+  PASS  an initial position still starts with no target
+
+jumpScroll: nothing to scroll (max <= 0)
+
+  PASS  max 0 is always hidden
+  PASS  a negative max is always hidden
+  PASS  position clamps to 0 when max is negative
+  PASS  an existing target is cleared once max drops to 0
+
+jumpScroll: scrolling up (position decreases) shows top
+
+  PASS  scrolling up past the threshold shows top
+  PASS  position is sampled
+  PASS  landing exactly on the threshold while scrolling up hides top
+  PASS  scrolling up within the threshold shows nothing
+  PASS  scrolling all the way to the top shows nothing
+
+jumpScroll: scrolling down (position increases) shows bottom
+
+  PASS  scrolling down with plenty of room left shows bottom
+  PASS  already at the bottom, scrolling down (no-op) shows nothing
+  PASS  within the threshold of the bottom, scrolling down shows nothing
+  PASS  landing exactly threshold-distance from the bottom hides the button
+
+jumpScroll: unchanged position keeps the target, dropping it once in reach
+
+  PASS  an unchanged position at the bottom stays hidden
+  PASS  an unchanged position keeps a showing top target
+  PASS  an unchanged position keeps a showing bottom target
+  PASS  an unchanged position drops top once its own distance is within threshold
+  PASS  an unchanged position drops bottom once its own distance is within threshold
+
+jumpScroll: the two edge cases the spec calls out explicitly
+
+  PASS  jumping to the top hides the button on the next sample
+  PASS  the jumped-to position is recorded
+  PASS  new output that grows position and max together stays hidden
+  PASS  repeated new output while following the bottom stays hidden
+
+jumpScroll: threshold is a parameter, not hardcoded (lines vs pixels)
+
+  PASS  landing exactly on the 3-line threshold while scrolling up hides top
+  PASS  one line past the 3-line threshold while scrolling up shows top
+  PASS  JUMP_THRESHOLD_LINES is 3
+  PASS  JUMP_THRESHOLD_PX is 48
+
+jumpScroll: position is always clamped to 0..max
+
+  PASS  a negative sampled position clamps to 0
+  PASS  a sampled position beyond max clamps to max
+
+jumpScroll: the animated terminal jump (jumpDurationMs, jumpLineAt)
+
+  PASS  no distance means no duration
+  PASS  a short jump takes at least the base
+  PASS  distance is unsigned
+  PASS  a long jump is capped
+  PASS  a non-finite distance gives no duration
+  PASS  at time zero the viewport is still at the start
+  PASS  once the duration is up the viewport is exactly at the end
+  PASS  past the duration it stays at the end
+  PASS  with no duration it is at the end at once
+  PASS  ease-out: past the midpoint of the distance at half the time
+  PASS  progress only ever moves toward the end
+  PASS  a negative elapsed time is treated as the start
+  PASS  the line is an integer
+  PASS  reduced motion reads false without a window (plain Node)
+
+jumpScroll: a wheel over the button (wheelToLines)
+
+  PASS  a 100px notch over 20px cells is 5 lines
+  PASS  upward is negative
+  PASS  a small delta is damped to 30%
+  PASS  the fractional remainder carries over into whole lines
+  PASS  line mode passes the delta through
+  PASS  page mode scrolls rows per page
+  PASS  zero delta scrolls nothing and keeps the carry
+  PASS  no cell height (nothing laid out) scrolls nothing
+  PASS  a non-finite delta scrolls nothing
+  PASS  negative carries round toward zero the same way
+
+jumpScroll: only scrolling the user started counts (isUserScroll)
+
+  PASS  a scroll right after a wheel counts
+  PASS  a scroll at the edge of the window still counts
+  PASS  a scroll after the window does not
+  PASS  no input ever (0) does not count once time has passed
+  PASS  a scrollbar drag counts however long ago the pointer went down
+  PASS  a non-finite stamp never counts
+
+jumpScroll: idle hide and hold
+
+  PASS  the button goes after about a second idle
+  PASS  a move during the scroll (jitter) does not hold it
+  PASS  a move right at the scroll does not hold it
+  PASS  a move once the scrolling has paused holds it
+  PASS  the pause is shorter than the idle wait, so the user can still reach it
+
+67 passed, 0 failed
+
+(node:11160) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/renderer/toastExpiry.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+toastExpiry: the lifetime and the starting clock
+
+  PASS  a toast lives 5 seconds
+  PASS  starts not focused
+  PASS  starts with nothing hovered
+  PASS  starts with no toasts
+  PASS  not focused: the clock is stopped
+  PASS  focused and nothing hovered: the clock runs
+  PASS  no toasts: no next deadline
+
+toastExpiry: a toast that arrives while the window is focused
+
+  PASS  gets now + 5s
+  PASS  is not expired just before
+  PASS  is expired at its deadline
+  PASS  is the next deadline
+  PASS  a second toast gets its own 5s
+  PASS  the first keeps its deadline
+  PASS  the next deadline is the sooner one
+  PASS  only the first is expired at its deadline
+  PASS  both are expired later
+
+toastExpiry: a toast that arrives while the window is not focused
+
+  PASS  waits (null deadline)
+  PASS  never expires while unfocused
+  PASS  no next deadline
+  PASS  focus gives it 5s from that moment
+  PASS  losing focus before it goes pauses it again
+  PASS  focus again gives a fresh 5s
+
+toastExpiry: the pointer on a card
+
+  PASS  pauses the card under it
+  PASS  and every other card
+  PASS  the clock is stopped
+  PASS  nothing expires while hovered
+  PASS  moving to another card keeps them paused
+  PASS  pointer off: every toast gets a fresh 5s
+  PASS  a toast arriving while a card is hovered waits too
+  PASS  the hovered card is dropped
+  PASS  the others start a fresh 5s
+  PASS  the clock runs again
+  PASS  hover while unfocused keeps it waiting
+  PASS  focus with the pointer still on the card keeps it waiting
+  PASS  then the pointer off starts its 5s
+
+toastExpiry: changes that change nothing
+
+  PASS  the same ids return the same object
+  PASS  the same focus returns the same object
+  PASS  the same hover returns the same object
+  PASS  a hover that does not flip the clock keeps the deadlines
+  PASS  a hovered id that is not a live card does not pause
+
+toastExpiry: a toast replaced by a newer one for the same thread
+
+  PASS  the old id is gone
+  PASS  the new one gets a full 5s
+
+toastExpiry: the last toast goes
+
+  PASS  no deadlines left
+  PASS  no next deadline
+  PASS  focus is kept
+
+45 passed, 0 failed
+
+(node:8876) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/session-files.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+what may go to Windows' default app
+  PASS  .exe never goes to the default app
+  PASS  .EXE neither
+  PASS  .com never goes to the default app
+  PASS  .COM neither
+  PASS  .bat never goes to the default app
+  PASS  .BAT neither
+  PASS  .cmd never goes to the default app
+  PASS  .CMD neither
+  PASS  .scr never goes to the default app
+  PASS  .SCR neither
+  PASS  .pif never goes to the default app
+  PASS  .PIF neither
+  PASS  .msi never goes to the default app
+  PASS  .MSI neither
+  PASS  .msp never goes to the default app
+  PASS  .MSP neither
+  PASS  .msu never goes to the default app
+  PASS  .MSU neither
+  PASS  .msix never goes to the default app
+  PASS  .MSIX neither
+  PASS  .appx never goes to the default app
+  PASS  .APPX neither
+  PASS  .application never goes to the default app
+  PASS  .APPLICATION neither
+  PASS  .appref-ms never goes to the default app
+  PASS  .APPREF-MS neither
+  PASS  .gadget never goes to the default app
+  PASS  .GADGET neither
+  PASS  .cpl never goes to the default app
+  PASS  .CPL neither
+  PASS  .msc never goes to the default app
+  PASS  .MSC neither
+  PASS  .dll never goes to the default app
+  PASS  .DLL neither
+  PASS  .sys never goes to the default app
+  PASS  .SYS neither
+  PASS  .lnk never goes to the default app
+  PASS  .LNK neither
+  PASS  .url never goes to the default app
+  PASS  .URL neither
+  PASS  .website never goes to the default app
+  PASS  .WEBSITE neither
+  PASS  .hta never goes to the default app
+  PASS  .HTA neither
+  PASS  .reg never goes to the default app
+  PASS  .REG neither
+  PASS  .inf never goes to the default app
+  PASS  .INF neither
+  PASS  .scf never goes to the default app
+  PASS  .SCF neither
+  PASS  .ps1 never goes to the default app
+  PASS  .PS1 neither
+  PASS  .psm1 never goes to the default app
+  PASS  .PSM1 neither
+  PASS  .psd1 never goes to the default app
+  PASS  .PSD1 neither
+  PASS  .vbs never goes to the default app
+  PASS  .VBS neither
+  PASS  .vbe never goes to the default app
+  PASS  .VBE neither
+  PASS  .js never goes to the default app
+  PASS  .JS neither
+  PASS  .jse never goes to the default app
+  PASS  .JSE neither
+  PASS  .mjs never goes to the default app
+  PASS  .MJS neither
+  PASS  .cjs never goes to the default app
+  PASS  .CJS neither
+  PASS  .wsf never goes to the default app
+  PASS  .WSF neither
+  PASS  .wsh never goes to the default app
+  PASS  .WSH neither
+  PASS  .ws never goes to the default app
+  PASS  .WS neither
+  PASS  .jar never goes to the default app
+  PASS  .JAR neither
+  PASS  .jnlp never goes to the default app
+  PASS  .JNLP neither
+  PASS  .py never goes to the default app
+  PASS  .PY neither
+  PASS  .pyw never goes to the default app
+  PASS  .PYW neither
+  PASS  .pyc never goes to the default app
+  PASS  .PYC neither
+  PASS  .rb never goes to the default app
+  PASS  .RB neither
+  PASS  .pl never goes to the default app
+  PASS  .PL neither
+  PASS  .php never goes to the default app
+  PASS  .PHP neither
+  PASS  .lua never goes to the default app
+  PASS  .LUA neither
+  PASS  .sh never goes to the default app
+  PASS  .SH neither
+  PASS  .bash never goes to the default app
+  PASS  .BASH neither
+  PASS  .ahk never goes to the default app
+  PASS  .AHK neither
+  PASS  .au3 never goes to the default app
+  PASS  .AU3 neither
+  PASS  .pwa never goes to the default app
+  PASS  .PWA neither
+  PASS  .ts never goes to the default app
+  PASS  .TS neither
+  PASS  .tsx never goes to the default app
+  PASS  .TSX neither
+  PASS  .jsx never goes to the default app
+  PASS  .JSX neither
+  PASS  .mts never goes to the default app
+  PASS  .MTS neither
+  PASS  .css never goes to the default app
+  PASS  .CSS neither
+  PASS  .json never goes to the default app
+  PASS  .JSON neither
+  PASS  .yaml never goes to the default app
+  PASS  .YAML neither
+  PASS  .yml never goes to the default app
+  PASS  .YML neither
+  PASS  .toml never goes to the default app
+  PASS  .TOML neither
+  PASS  .xml never goes to the default app
+  PASS  .XML neither
+  PASS  .env never goes to the default app
+  PASS  .ENV neither
+  PASS  .md never goes to the default app
+  PASS  .MD neither
+  PASS  .mdx never goes to the default app
+  PASS  .MDX neither
+  PASS  .docm never goes to the default app
+  PASS  .DOCM neither
+  PASS  .xlsm never goes to the default app
+  PASS  .XLSM neither
+  PASS  .pptm never goes to the default app
+  PASS  .PPTM neither
+  PASS  .iso never goes to the default app
+  PASS  .ISO neither
+  PASS  .img never goes to the default app
+  PASS  .IMG neither
+  PASS  .vhd never goes to the default app
+  PASS  .VHD neither
+  PASS  clip.mp4 may
+  PASS  CLIP.MP4 may
+  PASS  song.mp3 may
+  PASS  page.html may
+  PASS  report.pdf may
+  PASS  sheet.xlsx may
+  PASS  shot.png may
+  PASS  notes.txt may
+  PASS  run.log may
+  PASS  a.tar.gz may
+  PASS  only the real ending counts
+  PASS  a video named like a script is a video
+  PASS  an NTFS stream is not the type it is named as
+  PASS  a trailing dot is not the type
+  PASS  a trailing space is not the type
+  PASS  no ending at all
+  PASS  a dotfile
+  PASS  the folder's ending does not count
+classification
+  PASS  md is a document
+  PASS  MDX upper case is a document
+  PASS  txt is a document
+  PASS  ts is code
+  PASS  html is code (design choice)
+  PASS  pdf is code (design choice)
+  PASS  png is an image
+  PASS  svg is an image
+  PASS  no extension is code
+  PASS  .gitignore has no extension
+  PASS  baseName on backslashes
+  PASS  baseName on slashes
+paths
+  PASS  absolute drive path
+  PASS  UNC path is absolute
+  PASS  msys path is absolute
+  PASS  relative is not absolute
+  PASS  forward slashes become backslashes
+  PASS  lower drive letter upper-cased
+  PASS  msys path converted
+  PASS  relative resolved against base
+  PASS  dot and dot-dot segments resolved
+  PASS  trailing separator dropped
+  PASS  drive root kept
+  PASS  UNC kept
+  PASS  key ignores case and separators
+  PASS  inside: a file in the folder
+  PASS  inside: the folder itself
+  PASS  not inside: a sibling with the same prefix
+  PASS  empty path is not inside anything
+edits from Claude's tools
+  PASS  one row per path (case-insensitive dedupe)
+  PASS  newest first
+  PASS  created flag survives a later Edit
+  PASS  newest time kept
+  PASS  newest spelling kept
+  PASS  document kind
+  PASS  an Edit does not mark created
+  PASS  relative path resolved against the entry cwd
+  PASS  NotebookEdit read from notebook_path
+  PASS  a failed edit is not listed
+  PASS  an image Claude made is left out
+  PASS  an edit still waiting for its result is not listed
+  PASS  Read is not an edit
+  PASS  source is tool
+  PASS  edit events keep every successful edit, image included
+  PASS  the pending edit lands once its result arrives
+subagents
+  PASS  a subagent document is listed
+  PASS  marked as the subagent's
+  PASS  a sidechain line in the main file counts as a subagent too
+  PASS  the chat's own edit outranks its subagent's for the same file
+pasted images
+  PASS  four images
+  PASS  newest first
+  PASS  numbers from imagePasteIds
+  PASS  numbers from the [Image #N] text when imagePasteIds is absent
+  PASS  time from the entry
+  PASS  media type kept
+  PASS  cwd kept for the temp copy
+  PASS  offset not exposed to the renderer
+  PASS  a line read twice does not duplicate
+  PASS  images do not count as changed files
+  PASS  a single paste counts once
+  PASS  the same image pasted again (same number, same bytes) is listed once, counted twice
+  PASS  it takes the time of its latest paste, so it sorts first
+  PASS  a third paste counts three
+  PASS  the counted image still owns the temp file (it is the newest #3)
+  PASS  the same number with different bytes is a second image
+  PASS  an image inside a subagent is not a paste
+  PASS  an image a tool returned (a screenshot) is not a paste
+temp copies of pasted images
+  PASS  temp path shape
+  PASS  the newest paste of a number owns the temp file
+  PASS  an older paste of the same number does not
+  PASS  a unique number owns it
+  PASS  an unknown key owns nothing
+shell windows
+  PASS  two windows
+  PASS  a finished command has its end
+  PASS  a running command is open-ended
+  PASS  the window carries the command's cwd
+  PASS  the result closes it
+  PASS  commands are not changed files
+robustness
+  PASS  junk and partial lines are ignored
+  PASS  latest cwd from parsed lines
+  PASS  edit events are capped
+  PASS  the list still has one row per path
+files the chat read or sent (for links)
+  PASS  a Read path is a ref, resolved against the cwd
+  PASS  every file SendUserFile sent is a ref
+  PASS  refs are not changed files
+  PASS  an image Claude wrote stays out of the list but is an edit event, so it links
+  PASS  a Read with no path adds nothing
+mergeChanged
+  PASS  one row per path across lists
+  PASS  newest first
+  PASS  created from either
+  PASS  newest time
+  PASS  tool outranks command
+  PASS  view merges command files in
+excluded folders
+  PASS  a scratchpad script under Claude's temp folder is left out
+  PASS  a command-made file there is left out too
+  PASS  the rest stays
+  PASS  no exclusions: everything
+  PASS  the edit events keep it (a link to it still resolves)
+
+web links in the transcript (AFT-61)
+  PASS  sentence full stop off
+  PASS  a closing bracket it never opened off
+  PASS  both, in either order
+  PASS  a bracket it opened stays
+  PASS  markdown bold and a backtick off
+  PASS  a query is left alone
+  PASS  a prompt's link, without its full stop
+  PASS  a markdown link's target, without the bracket
+  PASS  a reply's bare link
+  PASS  a tool call's and its output's link, not run into the escaped newline
+  PASS  a link with no dotted host is not kept
+  PASS  a localhost link is kept (a dev server's)
+  PASS  kept once each
+  PASS  by prefix, the most recently written first
+  PASS  nothing for a prefix it never saw
+  PASS  written again, it is the most recent
+  PASS  the limit holds
+  PASS  no more than MAX_URLS kept
+  PASS  the oldest went first
+  PASS  a shortened copy ending in "…" is never kept, as the character or as \u2026
+  PASS  a link in a line the pre-check skips is still read
+
+277 passed, 0 failed
+(node:42860) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/session-files-store.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+first read
+  PASS  the written document is listed
+  PASS  created
+  PASS  the paste is read across chunk boundaries and non-ASCII text
+  PASS  a big read yields between chunks
+appending
+  PASS  the appended edit shows up
+  PASS  only the new bytes were read
+  PASS  nothing duplicated
+a half-written last line
+  PASS  not listed while its result line is half written
+  PASS  listed once the line is complete
+subagents
+  PASS  subagent dir shape
+  PASS  a subagent's document is listed
+  PASS  marked as the subagent's
+pasted image bytes
+  PASS  decoded bytes match the pasted PNG
+  PASS  an unknown key gives null
+missing and concurrent
+  PASS  an unknown session gives null
+  PASS  two reads at once do not double-count
+a rewritten, shorter file starts over
+  PASS  old rows gone, new row there
+
+17 passed, 0 failed
+(node:54972) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/renderer/filesView.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+button label
+  PASS  several files
+  PASS  one file
+  PASS  nothing changed: no button
+  PASS  nonsense: no button
+how long ago
+  PASS  seconds read as now
+  PASS  minutes
+  PASS  hours
+  PASS  days
+  PASS  weeks after two weeks
+  PASS  a clock skewed into the future reads now
+folder labels
+  PASS  inside the chat folder: relative with slashes
+  PASS  in the folder itself: project root
+  PASS  case and slashes of the chat folder do not matter
+  PASS  outside the folder, in home: ~
+  PASS  outside everything: the full folder
+  PASS  outside the chat folder, inside the project: relative to the project
+  PASS  the chat folder wins over the project folder
+  PASS  no chat folder known
+  PASS  a sibling folder with the same prefix is outside
+pasted labels
+  PASS  today: the clock time
+  PASS  earlier: the date
+  PASS  morning time zero-padded
+the list
+  PASS  count is documents and code only
+  PASS  documents newest first
+  PASS  code newest first
+  PASS  New tag data
+  PASS  folder and time on a row
+  PASS  pasted newest first
+  PASS  pasted label
+  PASS  an image pasted twice carries ×2
+  PASS  an image pasted once carries nothing
+  PASS  repeat tag: three times
+  PASS  code starts folded when there are documents
+  PASS  there is a button
+  PASS  only code: the Code row starts unfolded
+  PASS  only code: no documents
+  PASS  only pasted images: nothing counted, so no button
+  PASS  only pasted images: the Code row does not start open
+  PASS  no data yet: empty view
+
+39 passed, 0 failed
+(node:44684) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/command-files.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+what the watch ignores
+  PASS  a document in the folder is kept
+  PASS  node_modules is ignored
+  PASS  .git is ignored
+  PASS  out and dist are ignored
+  PASS  .vite is ignored
+  PASS  case does not matter
+  PASS  another chat's worktree under .claude\worktrees is ignored
+  PASS  other .claude files are kept
+  PASS  a folder merely named like one is only ignored as a folder
+  PASS  sed's temp file is ignored
+  PASS  a .tmp file is ignored
+  PASS  an editor backup is ignored
+  PASS  outside the folder is ignored
+  PASS  the folder itself is ignored
+checkout-like commands
+  PASS  git checkout is bulk
+  PASS  git pull is bulk
+  PASS  git -C path stash is bulk
+  PASS  after cd && is bulk
+  PASS  git restore a file is not bulk
+  PASS  git status is not bulk
+  PASS  cat > file is not bulk
+  PASS  a command mentioning git later is judged by its first git call
+attribution
+  PASS  a file made during the command is listed
+  PASS  it is New
+  PASS  a file changed during the command is listed, not New
+  PASS  a file changed by hand later is left out
+  PASS  an image is left out
+  PASS  source is command
+  PASS  newest first
+  PASS  just before the recorded start still counts
+  PASS  well before the start does not
+  PASS  just after the result still counts
+  PASS  well after the result does not
+  PASS  a command still running counts up to now
+  PASS  a change outside the command's folder is left out
+  PASS  a change in a subfolder of the command's folder counts
+  PASS  a git checkout window claims nothing
+  PASS  a window with no folder claims nothing
+  PASS  several changes to one file are one row, newest time
+  PASS  two chats running a command in the same folder at once both get the file
+windows from a real-shaped transcript
+  PASS  the parser marks a checkout window bulk
+  PASS  cat > notes.md is attributed; the checkout's change is not
+pruning and saving
+  PASS  capped to the newest
+  PASS  old changes dropped
+  PASS  saved entries merge with fresh ones, junk dropped
+  PASS  a non-array save is ignored
+
+46 passed, 0 failed
+(node:30864) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/renderer/filePaths.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+what looks like a path
+  PASS  relative with a slash
+  PASS  backslashes
+  PASS  drive path
+  PASS  ./ and ../
+  PASS  ~/
+  PASS  a name with an extension
+  PASS  a folder path
+  PASS  a URL is not (the web-links addon has those)
+  PASS  a version number is not
+  PASS  a plain word is not
+  PASS  a fraction is not
+  PASS  a single character is not
+  PASS  a lone .md is not a name with an extension
+:line suffixes
+  PASS  path:line
+  PASS  path:line:col
+  PASS  a drive colon is not a line
+Claude Code tool lines
+  PASS  Update(...) gives its path
+  PASS  the range covers exactly the path
+  PASS  Write(...) with the older ⏺ glyph
+  PASS  a tool path with spaces stays whole
+  PASS  Read(...) too
+  PASS  a tool line cut by Claude Code with no closing bracket
+  PASS  a bare name in a tool line
+paths inside a Bash command
+  PASS  the redirect target
+  PASS  the heredoc word is not a path
+  PASS  cp source and target
+paths in reply text
+  PASS  after "in"
+  PASS  in former backticks, sentence punctuation dropped
+  PASS  with a line number
+  PASS  in parentheses
+  PASS  in quotes
+  PASS  a URL in the same line is left alone
+  PASS  an ordinary sentence has none
+  PASS  a trailing ellipsis dot is dropped
+paths that start with a dot (2026-09-26)
+  PASS  a dot folder keeps its dot
+  PASS  .claude/commands keeps its dot
+  PASS  a backup file in a dot folder
+  PASS  ./ still works
+  PASS  an ellipsis in front is still dropped
+  PASS  a comma in front is still dropped
+  PASS  it resolves inside the chat folder
+bare names
+  PASS  index.tsx is bare
+  PASS  src/index.tsx is not
+  PASS  C:x is not
+resolving
+  PASS  relative: the chat folder, then the project folder
+  PASS  absolute as written
+  PASS  ~ is the home folder
+  PASS  Git Bash /c/ path
+  PASS  a POSIX path is not a Windows file
+  PASS  ./ and ../
+  PASS  same folder twice gives one candidate
+  PASS  no folders known: nothing to try
+bare names and tool lines matched to the chat's own edits
+  PASS  no time: the newest of two same names
+  PASS  and it says one other shares the name
+  PASS  a line that appeared right after the first edit opens the first
+  PASS  a line after the second edit opens the second
+  PASS  a name the chat did not change links nowhere
+  PASS  case does not matter
+  PASS  a tail cut mid-folder-name matches nothing
+  PASS  a partial path narrows it
+  PASS  a line long after every edit falls back to the newest
+every file name with an extension (2026-09-26)
+  PASS  an image name has an extension
+  PASS  a PDF and a JSON file too
+  PASS  a folder name has none
+  PASS  an image the chat sent or wrote links by its bare name, newest first
+  PASS  one file touched twice counts once in the note
+  PASS  on disk, a written folder narrows the matches
+  PASS  a bare name keeps them all (shallowest first as main returns them)
+  PASS  a tail cut mid-folder matches nothing
+  PASS  ./ in front is ignored
+a path split over two lines
+  PASS  joined when it runs to the edge and the next line goes on
+  PASS  the second part's range
+  PASS  not joined when it stops short of the edge
+  PASS  not joined when the next line starts with a space-separated word only if it is a token
+  PASS  a tool block wrapped short of the edge still joins
+paths with spaces in them (2026-09-30)
+  PASS  a full path is rejoined across its spaces, longest first
+  PASS  the full stop after a folder path is not part of it
+  PASS  a reading's end is where its text stops in the line
+  PASS  at most six more words are tried
+  PASS  a folder with brackets in its name
+  PASS  a closing bracket around the whole path is dropped
+  PASS  a relative path with a space in a folder name
+  PASS  a path with an extension is already whole
+  PASS  a path ending in a separator is already whole
+  PASS  a gap wider than one space is not a name
+  PASS  a word with a character no path has stops it
+  PASS  a path with a :line suffix is not extended
+  PASS  a tool line keeps its spaces already, and is not extended
+a path with spaces wrapped at one of them (2026-09-30)
+  PASS  joined with the space the wrap dropped
+  PASS  the second part starts after the indent
+  PASS  not joined when the next word would have fitted (a real line break)
+  PASS  not joined when the line goes on after the path
+  PASS  not joined after a path with an extension
+  PASS  not joined after a bare word
+the top of the chat's worktree (2026-09-30)
+  PASS  the chat folder, then the worktree top, then the project folder
+  PASS  a chat at its worktree top tries that folder once
+  PASS  an absolute path ignores the folders
+paths Claude Code shortened with …
+  PASS  the tail after the ellipsis
+  PASS  no ellipsis: null
+  PASS  an ellipsis at the end gives nothing to match
+  PASS  the shortened tool line is found whole
+a tool line whose path wraps (2026-11-06)
+  PASS  a tool line open at the row end is a tool candidate
+  PASS  wrapped at a space, it joins the next row without the bracket
+  PASS  a tool line closed on its row does not join
+  PASS  nor does a closed one with no extension
+  PASS  the edge join stops at the first space
+  PASS  and runs on over the spaces, without the bracket
+how it opens
+  PASS  markdown in the editor
+  PASS  code in the editor
+  PASS  an image in its app
+  PASS  a folder in Explorer
+  PASS  clip.mp4 in its own app
+  PASS  CLIP.MOV in its own app
+  PASS  song.mp3 in its own app
+  PASS  page.html in its own app
+  PASS  page.htm in its own app
+  PASS  report.pdf in its own app
+  PASS  sheet.xlsx in its own app
+  PASS  data.csv in its own app
+  PASS  notes.txt in its own app
+  PASS  run.log in its own app
+  PASS  photo.svg in its own app
+  PASS  bundle.tar.gz in its own app
+  PASS  main.ts never goes to its Windows default
+  PASS  App.tsx never goes to its Windows default
+  PASS  tool.js never goes to its Windows default
+  PASS  tool.mjs never goes to its Windows default
+  PASS  tool.py never goes to its Windows default
+  PASS  run.bat never goes to its Windows default
+  PASS  run.cmd never goes to its Windows default
+  PASS  run.ps1 never goes to its Windows default
+  PASS  run.vbs never goes to its Windows default
+  PASS  config.json never goes to its Windows default
+  PASS  README.md never goes to its Windows default
+  PASS  setup.exe never goes to its Windows default
+  PASS  setup.msi never goes to its Windows default
+  PASS  tool.hta never goes to its Windows default
+  PASS  link.lnk never goes to its Windows default
+  PASS  site.url never goes to its Windows default
+  PASS  Dockerfile never goes to its Windows default
+  PASS  .env.local never goes to its Windows default
+  PASS  a name that only ends like a listed type
+  PASS  a line number goes to the editor, whatever the type
+  PASS  a line number on a log too
+  PASS  a folder with a line number is still a folder
+[Image #N] tags
+  PASS  finds every tag on a row
+  PASS  the span covers the whole tag
+  PASS  the second span too
+  PASS  a tag alone under a message
+  PASS  no tag
+  PASS  not a number
+  PASS  a tag wrapped at its space is found
+  PASS  it starts on the first row
+  PASS  it ends after the bracket on the second
+  PASS  a row ending in the word alone is not a tag
+  PASS  a whole tag is not a wrapped one
+  PASS  one image with the number
+  PASS  none others
+  PASS  the newest of two with the number
+  PASS  and it says there is another
+  PASS  a number not pasted
+
+161 passed, 0 failed
+(node:34548) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/renderer/webLinks.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+where a link starts on a row
+  PASS  one link
+  PASS  two links
+  PASS  a link inside another one's run is part of it
+  PASS  ends at a quote
+  PASS  ends at "…"
+  PASS  the cut columns: three in a chat, one in a shell
+
+the cut column, in a chat
+  PASS  the measured layout: the first row is full width
+  PASS  a reply's bare link opens whole
+  PASS  over its two rows, the indent left out
+  PASS  a named link's "(link)": the bracket is not part of it
+  PASS  its last row stops before the bracket
+  PASS  tool output is cut five short
+  PASS  a link in tool output opens whole, over three rows
+  PASS  your own prompt is cut one short and opens whole
+  PASS  a wrapped row with Claude Code's indent still joins in a chat
+  PASS  cut short of every cut column: not joined
+  PASS  the test row ends in the bracket at full width
+  PASS  a link closed by a bracket at the edge is not joined
+  PASS  a line Claude Code shortened with "…" is not given out as whole
+
+the cut column, in a shell
+  PASS  a link the terminal wrapped opens whole
+  PASS  a program that cuts at full width: joined
+  PASS  a program that cut at 100 in a 112 column terminal: not joined
+  PASS  five short is a chat's, not a shell's
+  PASS  a wrapped row that starts with a space: the link ended at the edge
+
+the limitation of the column rule, and the transcript that removes it
+  PASS  a complete link ending exactly at the edge is joined to the next word by the column rule
+  PASS  with the transcript it stays one row, the link itself
+
+the transcript
+  PASS  follows a link down its rows
+  PASS  the rows spell out exactly the link
+  PASS  a different link is not spelled out
+  PASS  two links with the same first row: the rows below decide
+  PASS  a shorter link that runs on into more link characters is not the one shown
+  PASS  a link Claude Code shortened with "…" opens whole from the transcript
+  PASS  underlined up to the "…"
+  PASS  a link that stops just before "…" is not complete
+  PASS  so the real link wins over a shortened copy
+  PASS  a link that ends before a bracket on its row
+
+all the links on the rows
+  PASS  the prefixes asked about: one per link start
+  PASS  nothing in the transcript: the column rule; a one-row link is the addon's
+  PASS  from the transcript, both, the one-row one too
+  PASS  the test link puts a second "https://" on its second row
+  PASS  a link's own later rows are not read as starts
+  PASS  no more than MAX_LINK_ROWS rows
+  PASS  asked from the second row, the link is still found from its start above
+
+43 passed, 0 failed
+(node:45208) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/file-index.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+indexing
+  PASS  a deep screenshot is found by its bare name
+  PASS  case does not matter
+  PASS  two files with one name are both returned
+  PASS  shallow files come first
+  PASS  node_modules is not indexed
+  PASS  another chat's worktree is not indexed
+  PASS  so burger.png has exactly one match
+  PASS  .claude\commands is indexed
+  PASS  .git and out are not walked
+  PASS  a path argument uses its name
+  PASS  an unknown name finds nothing
+  PASS  an empty name finds nothing
+  PASS  build time kept
+  PASS  not truncated
+the cap
+  PASS  a folder past the cap is marked partial
+  PASS  and holds at most the cap
+
+16 passed, 0 failed
+(node:3016) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/setup-check.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+setup-check tests
+
+  PASS  ok: Claude Code found with version and install kind
+  PASS  ok: notifications and resume ok, file mode
+  PASS  ok: only the registered entry was tried
+  PASS  ok: no report, facts not gathered
+  PASS  ok: helper ran with the registered args
+  PASS  ok: helper got the afterterm env
+  PASS  none: not found, both skipped
+  PASS  none: no helper test, no report
+  PASS  known path: found off PATH
+  PASS  fallback: two tests, second passed
+  PASS  fallback: working mode is command, both ok
+  PASS  fallback: no report
+  PASS  blocked: both failed
+  PASS  blocked: facts gathered
+  PASS  blocked: issue title
+  PASS  blocked: report names both tests and the stderr
+  PASS  blocked: report has no user name
+  PASS  blocked: report has the policy table
+  PASS  blocked: the note says Windows blocked it
+  PASS  disableAllHooks: failed
+  PASS  disableAllHooks: title says so
+  PASS  disableAllHooks: the note names the cause
+  PASS  managed: failed
+  PASS  managed: report names the file
+  PASS  no settings: failed with no tests
+  PASS  no settings: title
+  PASS  other hooks: 5 of ours, 1 other
+  PASS  version parse
+  PASS  install kinds
+  PASS  modeOf
+  PASS  anonymize is case-insensitive
+  PASS  parseFacts survives junk
+  PASS  issue url: repo, title and fenced body
+  PASS  issue url: short enough for ShellExecute
+  PASS  formatReport is stable
+  PASS  issue url: a long report is shortened to fit and says so
+
+36 passed, 0 failed
+
+(node:35588) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/update-check.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+update-check: versions
+
+  PASS  plain version parses
+  PASS  a leading v is dropped
+  PASS  a prerelease suffix is not a version
+  PASS  two parts is not a version
+  PASS  a number is not a version
+  PASS  0.11.0 is newer than 0.10.0
+  PASS  numbers compare as numbers, not text (0.10.0 > 0.9.0)
+  PASS  1.0.0 is newer than 0.99.99
+  PASS  the same version is not newer
+  PASS  an older version is not newer
+  PASS  garbage is never newer
+
+update-check: the asset and its digest
+
+  PASS  asset name
+  PASS  sandbox asset name
+  PASS  sha256 digest parses, lowercased
+  PASS  sha512 is not accepted
+  PASS  a short hash is not accepted
+  PASS  no digest is null
+
+update-check: parseRelease
+
+  PASS  a newer release with a digest is offered
+  PASS  version without the v
+  PASS  the sha256 is carried
+  PASS  the size is carried
+  PASS  the notes are the body
+  PASS  same version: none
+  PASS  older than running: none
+  PASS  no digest: not offered
+  PASS  a sha1 digest: not offered
+  PASS  asset with another name: not offered
+  PASS  no assets at all: not offered
+  PASS  a draft is not offered
+  PASS  a prerelease is not offered
+  PASS  a non-object is not a release
+  PASS  an error body (rate limit) is not a release
+  PASS  the sandbox ignores the real asset
+  PASS  the sandbox takes its own asset
+  PASS  a bad size becomes 0, the update is still offered
+
+update-check: old downloads
+
+  PASS  an installer file name gives its version
+  PASS  an unfinished download too
+  PASS  the sandbox name with its base
+  PASS  another file is not an installer
+  PASS  after updating to 0.11.0: the old and current installers and every partial go
+
+update-check: downloadSource
+
+  PASS  https is always allowed
+  PASS  http is never allowed
+  PASS  a local path is refused without the test feed
+  PASS  a local path with the test feed
+  PASS  a file URL with the test feed
+  PASS  a file URL without the test feed
+  PASS  a relative path is refused
+
+update-check: settings, Later and Skip
+
+  PASS  checks are on by default
+  PASS  checks off when disabled
+  PASS  nothing set: shown
+  PASS  skipped version: hidden
+  PASS  a newer version than the skipped one: shown
+  PASS  Later pressed a minute ago: hidden
+  PASS  Later pressed a day ago: shown again
+  PASS  Later is 24 hours
+  PASS  a bad Later value is ignored
+
+update-check: the title bar button
+
+  PASS  idle: no button
+  PASS  available: button
+  PASS  available but hidden by Later or Skip: no button
+  PASS  downloading shows even when it was hidden
+  PASS  ready shows
+  PASS  percent rounds down
+  PASS  percent with no total is 0
+  PASS  percent never passes 100
+  PASS  megabytes
+
+update-check: texts
+
+  PASS  checked today
+  PASS  checked yesterday
+  PASS  checked earlier
+  PASS  never checked
+  PASS  checksum text
+  PASS  network text
+  PASS  not installed text
+  PASS  no error, no text
+
+update-check: the restart window, mid-turn and background (Fixes 6 and 7)
+
+  PASS  the record says busy: mid-turn, with no notification at all (a chat with no hooks)
+  PASS  the record says waiting: mid-turn at once, before any hook title
+  PASS  the record busy through a stall that cleared working
+  PASS  no record, the spinner: mid-turn
+  PASS  no record, waiting on a permission prompt: mid-turn
+  PASS  a mid-turn notification counts even when the record says idle
+  PASS  idle, shell and no record, with done, background or quiet: not mid-turn
+  PASS  the record says shell: a background task
+  PASS  no record, the background notification: a background task
+  PASS  the record says idle under a background badge: still a background task
+  PASS  the record says busy or waiting under a background badge: still a background task
+  PASS  busy, idle, waiting and no record with no background title: none
+  PASS  the background flag alone is a background task (the badge cleared by viewing)
+  PASS  the flag off or absent adds nothing
+
+update-check: the restart window, busy shells (Fix 8)
+
+  PASS  marks say not at the prompt: busy, whatever the process tree says
+  PASS  marks say at the prompt: at the prompt, even with a process below the shell
+  PASS  no marks, a process below the shell: busy
+  PASS  no marks, nothing below the shell: unknown, never safe
+  PASS  no marks, the process list too old to say: unknown
+
+update-check: the restart window, rows (Fix 10)
+
+  PASS  Claude alive and busy or waiting, with a session id: Stops mid-turn, warns
+  PASS  Claude alive and busy, no session id yet (a chat with no hooks): Stops mid-turn, warns
+  PASS  Claude alive with a background task: Background task stops, warns
+  PASS  Claude alive and idle, id usable: Resumes, no warning (the marks are not read while Claude is open)
+  PASS  Claude alive and idle, no usable id yet: Opens in its folder, no warning
+  PASS  No Claude, a session id, at its prompt: Resumes, no warning
+  PASS  No Claude, a session id, running a command: Command stops, warns
+  PASS  No Claude, no id, a port and a re-runnable command: Runs again on :5173, no warning
+  PASS  No Claude, no id, running any other command: Command stops, warns
+  PASS  No Claude, no id, at its prompt: Opens in its folder, no warning
+  PASS  No Claude, no marks, no child process: Opens in its folder, no warning, counts as unknown
+  PASS  mid-turn wins over a background task
+  PASS  a mid-turn notification with no record (a WSL chat on hooks) still stops mid-turn, not Command stops
+  PASS  a background notification with no record still reads Background task stops
+  PASS  a server whose shell is busy: Runs again, since the server is the running command
+  PASS  a server with no marks and nothing below the shell: Runs again, not unknown
+  PASS  an exited chat with no marks and nothing below the shell: Resumes, counted as unknown
+  PASS  a live idle Claude never counts as unknown
+  PASS  a live idle Claude with no id and a port in its tree: Opens in its folder, not Runs again
+  PASS  order is kept
+  PASS  kind and name are carried through
+  PASS  nothing warns, nothing unknown: Safe to restart
+  PASS  nothing awake: Safe to restart
+  PASS  only one chat stops mid-turn: 1 chat stops mid-turn
+  PASS  only two chats stop mid-turn: 2 chats stop mid-turn
+  PASS  a background task: 1 thread is busy
+  PASS  a shell running a command: 1 thread is busy
+  PASS  a chat mid-turn and a busy shell: 2 threads are busy, every warning counted
+  PASS  three warnings of mixed kinds: 3 threads are busy
+  PASS  nothing warns but something is unknown: no status line
+  PASS  a warning with something unknown still shows the warning
+
+update-check: after the restart
+
+  PASS  a pending update round-trips
+  PASS  a bad screen is dropped
+  PASS  no to: not a pending update
+  PASS  landed when running the new version
+  PASS  not landed when the old version is still running (install failed)
+  PASS  nothing pending: not landed
+
+update-check: release notes
+
+  PASS  plain text
+  PASS  bold
+  PASS  link
+  PASS  a non-http link is plain text
+  PASS  backticks are dropped
+  PASS  five blocks (two headings, two lists, one paragraph)
+  PASS  first block is the heading
+  PASS  two bullets
+  PASS  a wrapped bullet is joined
+  PASS  bold inside a bullet
+  PASS  the image line is skipped
+  PASS  a star bullet counts
+  PASS  a plain paragraph
+  PASS  empty notes, no blocks
+  PASS  no HTML is ever produced
+
+update-check: the installed copy
+
+  PASS  same path ignores case and a trailing slash
+  PASS  same path with accented letters
+  PASS  a different folder is not the same path
+  PASS  the engine's InstallLocation wins
+  PASS  without it, the uninstaller's folder (quoted, with spaces)
+  PASS  an unquoted uninstaller path
+  PASS  nothing usable: null
+
+update-check: releaseToDownload (Update downloads the newest release)
+
+  PASS  a newer release out since the last check is the one downloaded
+  PASS  the same release: that one
+  PASS  the check failed (offline, rate limited): the release already shown
+  PASS  the latest has no installer yet: the release already shown
+  PASS  the latest has no digest: the release already shown
+  PASS  nothing newer than this copy any more (the release was pulled): nothing to download
+
+157 passed, 0 failed
+
+(node:28896) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Pitara/Work/Tinkering/afterterm/.claude/worktrees/cmd-prompt/src/claude-session-record.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+claude-session-record: isRecordFileName
+
+  PASS  a record name is accepted
+  PASS  the key file beside it is refused
+  PASS  a key file mid-write is refused
+  PASS  a record mid-write is refused
+  PASS  a name that is not a number is refused
+  PASS  an upper-case extension is refused
+  PASS  a bare extension is refused
+  PASS  a path is refused
+  PASS  a pid that is not a multiple of 4 is refused
+  PASS  a leading zero is refused
+  PASS  pid 0 is refused
+
+claude-session-record: parseSessionRecord
+
+  PASS  a full record parses
+  PASS  status "busy" is kept
+  PASS  status "idle" is kept
+  PASS  status "waiting" is kept
+  PASS  status "shell" is kept
+  PASS  an empty status (Claude starting up) is null
+  PASS  an unknown status is null
+  PASS  bad JSON is refused
+  PASS  an empty file is refused
+  PASS  a JSON array is refused
+  PASS  a JSON string is refused
+  PASS  a pid that disagrees with the file name is refused
+  PASS  a pid written as a string is refused
+  PASS  a file name with a leading zero is refused
+  PASS  a file name that is not a multiple of 4 is refused
+  PASS  pid 0 is refused
+  PASS  a pid past 32 bits is refused
+  PASS  a key file name is refused even with record text in it
+  PASS  a record over the size cap is refused
+  PASS  a leading byte order mark is fine
+  PASS  a record with no pid inside takes the file name
+  PASS  a record missing every other field parses with every field null
+  PASS  a sessionId that is not a UUID is null
+  PASS  and the status still comes through
+  PASS  a braced UUID is not canonical
+  PASS  a numeric sessionId is null
+  PASS  a cwd with a shell metacharacter is null: "D:\\Work & play"
+  PASS  a cwd with a shell metacharacter is null: "D:\\a|b"
+  PASS  a cwd with a shell metacharacter is null: "D:\\$env"
+  PASS  a cwd with a shell metacharacter is null: "D:\\x`y"
+  PASS  a cwd with a shell metacharacter is null: "D:\\Aryan's"
+  PASS  a cwd with a shell metacharacter is null: "D:\\a\"b"
+  PASS  a cwd with a shell metacharacter is null: "D:\\a>b"
+  PASS  a cwd with a shell metacharacter is null: "D:\\a\nb"
+  PASS  a cwd that is not an absolute Windows path is null: relative\path
+  PASS  a cwd that is not an absolute Windows path is null: \\server\share
+  PASS  a cwd that is not an absolute Windows path is null: /c/Users
+  PASS  a cwd that is not an absolute Windows path is null: C:/Users
+  PASS  CLAUDE_CWD_RE takes a plain absolute path
+  PASS  procStartFt (the FILETIME) is taken over procStart
+  PASS  procStart alone is used
+  PASS  a procStart that is not digits is null
+  PASS  a numeric procStart is read as its digits
+  PASS  a kind that is not a plain word is null
+  PASS  the other kinds are kept
+
+claude-session-record: holdLastGood
+
+  PASS  a good read is used
+  PASS  failed read 1 in a row (mid-write): the last good record stands in
+  PASS  failed read 2 in a row (mid-write): the last good record stands in
+  PASS  failed read 3 in a row: the record is dropped
+  PASS  a file no longer listed is gone at once, held or not
+  PASS  a good read after a failed one replaces the held record and resets the count
+  PASS  a file that never read well is not held
+
+claude-session-record: procStartReadings
+
+  PASS  a FILETIME reads as one exact UTC time
+  PASS  a FILETIME with sub-millisecond digits rounds down
+  PASS  .NET ticks of a local time read back to UTC first
+  PASS  and the same ticks read as UTC are offered too
+  PASS  ticks in a UTC zone have one reading
+  PASS  daylight saving start: the instant is read back exactly
+  PASS  daylight saving end: the instant is read back exactly
+  PASS  far from a change the first lookup is already right
+  PASS  repeated hour, second pass, 06:00Z reads back exactly
+  PASS  repeated hour, first pass, 05:00Z reads back exactly
+  PASS  repeated hour, second pass, 06:05Z reads back exactly
+  PASS  repeated hour, first pass, 05:05Z reads back exactly
+  PASS  repeated hour, second pass, 06:10Z reads back exactly
+  PASS  repeated hour, first pass, 05:10Z reads back exactly
+  PASS  repeated hour, second pass, 06:15Z reads back exactly
+  PASS  repeated hour, first pass, 05:15Z reads back exactly
+  PASS  repeated hour, second pass, 06:20Z reads back exactly
+  PASS  repeated hour, first pass, 05:20Z reads back exactly
+  PASS  repeated hour, second pass, 06:25Z reads back exactly
+  PASS  repeated hour, first pass, 05:25Z reads back exactly
+  PASS  repeated hour, second pass, 06:30Z reads back exactly
+  PASS  repeated hour, first pass, 05:30Z reads back exactly
+  PASS  repeated hour, second pass, 06:35Z reads back exactly
+  PASS  repeated hour, first pass, 05:35Z reads back exactly
+  PASS  repeated hour, second pass, 06:40Z reads back exactly
+  PASS  repeated hour, first pass, 05:40Z reads back exactly
+  PASS  repeated hour, second pass, 06:45Z reads back exactly
+  PASS  repeated hour, first pass, 05:45Z reads back exactly
+  PASS  repeated hour, second pass, 06:50Z reads back exactly
+  PASS  repeated hour, first pass, 05:50Z reads back exactly
+  PASS  repeated hour, second pass, 06:55Z reads back exactly
+  PASS  repeated hour, first pass, 05:55Z reads back exactly
+  PASS  null has no reading
+  PASS  letters have no reading
+  PASS  a number below either epoch has no reading
+
+claude-session-record: pidLooksAlive
+
+  PASS  a listed pid with the same start time is alive
+  PASS  a dead pid (not in the list) is not
+  PASS  a reused pid (start times disagree) is not alive
+  PASS  a start time within the tolerance is alive
+  PASS  a start time just past the tolerance is not
+  PASS  a list with no creation time for the pid trusts the pid
+  PASS  a record with no start time trusts the pid
+  PASS  a start time in an unknown shape trusts the pid
+  PASS  .NET ticks of local time match the list
+  PASS  .NET ticks of UTC match the list too
+  PASS  .NET ticks of another time do not
+  PASS  a New York Claude started 09:00Z on 8 March stays alive
+  PASS  a New York Claude started 09:00Z on 1 November stays alive
+
+claude-session-record: matchRecordsToThreads
+
+  PASS  the nested Claude loses to the one nearest the shell
+  PASS  the second thread gets its own Claude
+  PASS  a thread with no Claude has no entry
+  PASS  a Claude outside every thread is matched to none
+  PASS  an interactive record wins over a nearer one of another kind
+  PASS  with no interactive record the nearest is taken
+  PASS  a candidate the check refuses gives way to the next one
+  PASS  the check is asked only about candidates in the threads' trees
+  PASS  and stops at the first it accepts
+  PASS  no records gives an empty map
+  PASS  a Git Bash tree without the MSYS bridge finds nothing
+  PASS  with the bridge applied the Claude is found
+
+claude-session-record: recordFeed
+
+  PASS  no record: no id, no folder, status null
+  PASS  an interactive record whose transcript exists hands over its id
+  PASS  a record with no transcript yet hands over no id
+  PASS  but its status is still sent
+  PASS  a bg record supplies the status
+  PASS  but never an id, even with a transcript (bg)
+  PASS  a daemon record supplies the status
+  PASS  but never an id, even with a transcript (daemon)
+  PASS  a daemon-worker record supplies the status
+  PASS  but never an id, even with a transcript (daemon-worker)
+  PASS  a kindless record supplies the status
+  PASS  but never an id, even with a transcript (kindless)
+  PASS  a record whose folder failed validation hands over no id
+  PASS  and the transcript is not even looked for
+  PASS  a record with no id hands over none
+  PASS  a transcript check that throws counts as no transcript
+  PASS  the transcript is looked up by the record id and folder
+
+claude-session-record: threadFeeds
+
+  PASS  a live Claude feeds its id and status
+  PASS  a record on a reused pid is ignored
+  PASS  a record whose process just died is ignored
+  PASS  a thread with no Claude gets the empty feed
+  PASS  a background session gives the status alone
+  PASS  every thread with a shell gets a feed
+  PASS  the running check is asked only about Claudes in afterterm's threads
+  PASS  no threads, no feeds
+
+claude-session-record: unlistedRunningPids and staleListPids
+
+  PASS  a running pid the list has not seen is reported, a dead one is not
+  PASS  nothing to report when every record is listed
+  PASS  a listed pid in a thread's tree whose start time disagrees asks for a fresh list
+  PASS  an unlisted running pid asks too
+  PASS  a record whose start time agrees does not
+  PASS  and the running check is not asked about it
+  PASS  a disagreeing pid the list puts outside every thread asks too
+  PASS  a disagreeing pid that is no longer running does not ask
+
+claude-session-record: listRefreshPlan
+
+  PASS  a new stale pid is asked about
+  PASS  while its read has not happened it is not asked again, and the caller can wait
+  PASS  still stale after a read that started since: asking stops
+  PASS  and stays stopped
+  PASS  a pid no longer stale is forgotten
+  PASS  so it can be asked about again later
+  PASS  under the rate limit nothing new is asked or remembered
+  PASS  a pid asked about long ago with no read since stops being asked
+
+164 passed, 0 failed
+
+
