@@ -677,7 +677,8 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
   // click would land on another row. A press on the drawer itself (its rows, its
   // toggle) is left to their own click handlers, so the toggle still opens and
   // closes it as before. A press on the title bar's drag area or the window's
-  // buttons never reaches the page, so blur is what closes it then.
+  // buttons never reaches the page, so it closes nothing while the window stays
+  // focused; blur closes the drawer once focus leaves the window.
   useEffect(() => {
     if (!dockOpen) return;
     const close = () => setDockOpen(false);
