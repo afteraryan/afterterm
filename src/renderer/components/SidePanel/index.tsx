@@ -667,26 +667,34 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
     return () => clearTimeout(t);
   }, [arrived]);
 
-  // The open Other projects drawer closes on a press anywhere outside it and on
-  // Escape (AFT-37). The listener is on the document in the capture phase: the
-  // terminal is an xterm canvas that takes focus on mousedown and can stop the
-  // event before it bubbles, so a bubbling listener would never see a click there.
-  // A press on the drawer itself (its rows, its toggle) is left to their own click
-  // handlers, so the toggle still opens and closes it as before.
+  // The open Other projects drawer closes on a click anywhere outside it, on
+  // Escape and when the window loses focus (AFT-37). The listeners are on the
+  // document in the capture phase: the terminal is an xterm canvas that takes
+  // focus on mousedown and can stop the event before it bubbles, so a bubbling
+  // listener would never see a click there. It closes on the release, not the
+  // press: the open drawer takes room from the list above it, so closing it on the
+  // press can make the list grow and its rows slide before the release, and the
+  // click would land on another row. A press on the drawer itself (its rows, its
+  // toggle) is left to their own click handlers, so the toggle still opens and
+  // closes it as before. A press on the title bar's drag area or the window's
+  // buttons never reaches the page, so blur is what closes it then.
   useEffect(() => {
     if (!dockOpen) return;
-    const onPress = (e: PointerEvent) => {
+    const close = () => setDockOpen(false);
+    const onRelease = (e: PointerEvent) => {
       if (e.target instanceof Node && dockRef.current?.contains(e.target)) return;
-      setDockOpen(false);
+      close();
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setDockOpen(false);
+      if (e.key === 'Escape') close();
     };
-    document.addEventListener('pointerdown', onPress, true);
+    document.addEventListener('pointerup', onRelease, true);
     document.addEventListener('keydown', onKey, true);
+    window.addEventListener('blur', close);
     return () => {
-      document.removeEventListener('pointerdown', onPress, true);
+      document.removeEventListener('pointerup', onRelease, true);
       document.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('blur', close);
     };
   }, [dockOpen]);
 

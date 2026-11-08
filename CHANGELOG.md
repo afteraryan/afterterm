@@ -6,7 +6,9 @@ What changed for the person using afterterm, release by release. Each release li
 
 ### Fixed
 
-- **The Other projects list at the bottom of the sidebar now closes when you click anywhere outside it, or press Esc.** Before, it stayed open until you clicked its own row again, even when you clicked in the terminal, the header or the rail.
+- **Turning off afterterm's Command Prompt integration now works in a second copy of afterterm (the test build, for one) started from a Command Prompt inside afterterm.** Before, the second copy inherited the first one's prompt with afterterm's marks already in it (the invisible marks afterterm adds to a prompt so it can tell where each command starts and which folder the shell is in). It then added the marks again, so each prompt carried them twice, or carried them even with the integration turned off. Now it takes the first set out, keeps your own prompt, and adds the marks once, or not at all when you have turned them off. Git Bash and WSL started that way no longer inherit afterterm's prompt hook either.
+- **The worktree item and the editor button in a chat's header now open the worktree folder, not a folder inside it.** So do Open in File Explorer and Open in your editor in a thread's right-click menu, and a thread in an ordinary repository opens the repository's top folder, never a folder above its project. A thread outside git still opens its own folder.
+- **The Other projects list at the bottom of the sidebar now closes when you click anywhere outside it, press Esc, or switch to another window.** Before, it stayed open until you clicked its own row again, even when you clicked in the terminal, the header or the rail.
 
 ## 0.16.1 (2026-11-08)
 

@@ -1,0 +1,32 @@
+Row 3: cmd integration OFF in prefs.json, the launching shell had a marked PROMPT in its environment.
+Launched from PowerShell with $env:PROMPT = $E]133;A$E\$E]9;9;$P$E\$P$G$E]133;B$E\   (wrapCmdPrompt from src/shell-integration.ts); --prefs {"shellIntegration":{"cmd":"off"}}.
+
+> drive marks --tab tab-cmd-1
+at prompt: no
+prompt end: (none)
+
+> drive eval window.__count()   (counts over the raw PTY data of the whole run, a listener registered before Wake)
+"{\"A\":0,\"B\":0,\"cwd\":0,\"anyOsc133prefix\":0,\"anyOsc99prefix\":0,\"green\":0,\"chunks\":8,\"bytes\":610}"
+
+Prompt lines visible in the terminal (lines starting with a path and ending a prompt): 5
+
+> drive tail 40 --tab tab-cmd-1
+Microsoft Windows [Version 10.0.26200.9711]
+(c) Microsoft Corporation. All rights reserved.
+
+C:\Users\Aryan\AppData\Local\Temp\tcp>echo ROW 3 - inherited marked PROMPT, cmd opt-out
+ROW 3 - inherited marked PROMPT, cmd opt-out
+
+C:\Users\Aryan\AppData\Local\Temp\tcp>
+C:\Users\Aryan\AppData\Local\Temp\tcp>
+C:\Users\Aryan\AppData\Local\Temp\tcp>echo %PROMPT%
+$P$G
+
+C:\Users\Aryan\AppData\Local\Temp\tcp>
+
+> raw PTY data, ESC shown as <ESC>, BEL as <BEL>
+"<ESC>[?9001h<ESC>[?1004h<ESC>[?25l<ESC>[2J<ESC>[m<ESC>[H\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n<ESC>[H<ESC>]0;C:\\WINDOWS\\SYSTEM32\\cmd.exe<BEL><ESC>[?25h<ESC>[?25lMicrosoft Windows [Version 10.0.26200.9711]\r\n(c) Microsoft Corporation. All rights reserved.<ESC>[4;1HC:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp><ESC>[?25hecho ROW 3 - inherited marked PROMPT, cmd opt-out\r\n<ESC>[?25lROW 3 - inherited marked PROMPT, cmd opt-out<ESC>[7;1HC:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp><ESC>[?25h\r\nC:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp>\r\nC:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp>echo %PROMPT%\r\n<ESC>[?25l$P$G<ESC>[12;1HC:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp><ESC>[?25h"
+
+> harness log
+[harness] pty:create tab-cmd-1 shell=cmd integration=off cwd=C:\Users\Aryan\AppData\Local\Temp\tcp cwdFallback=false args=[]
+(The harness log of the shared data dir also holds the spawn lines of earlier launches; only this launch line is kept here.)

@@ -1,0 +1,31 @@
+Row 1: integration on (default), the launching shell had a marked PROMPT in its environment (what a parent afterterm exports for $P$G).
+Launched from PowerShell with $env:PROMPT = $E]133;A$E\$E]9;9;$P$E\$P$G$E]133;B$E\   (built by wrapCmdPrompt from src/shell-integration.ts); no --prefs. Second run of this row, made to get a complete recording; the first run gave the same counts (5, 5, 5).
+
+> drive marks --tab tab-cmd-1
+at prompt: yes
+prompt end: row 11 col 38
+
+> drive eval window.__count()   (counts over the raw PTY data of the whole run, a listener registered before Wake)
+"{\"A\":5,\"B\":5,\"cwd\":5,\"anyOsc133prefix\":10,\"anyOsc99prefix\":5,\"green\":0,\"chunks\":8,\"bytes\":965}"
+
+Prompt lines visible in the terminal (lines starting with a path and ending a prompt): 5
+
+> drive tail 40 --tab tab-cmd-1
+Microsoft Windows [Version 10.0.26200.9711]
+(c) Microsoft Corporation. All rights reserved.
+
+C:\Users\Aryan\AppData\Local\Temp\tcp>echo ROW 1 - inherited marked PROMPT, integration on
+ROW 1 - inherited marked PROMPT, integration on
+
+C:\Users\Aryan\AppData\Local\Temp\tcp>
+C:\Users\Aryan\AppData\Local\Temp\tcp>
+C:\Users\Aryan\AppData\Local\Temp\tcp>echo %PROMPT%
+$E]133;A$E\$E]9;9;$P$E\$P$G$E]133;B$E\
+
+C:\Users\Aryan\AppData\Local\Temp\tcp>
+
+> raw PTY data, ESC shown as <ESC>, BEL as <BEL>
+"<ESC>[?9001h<ESC>[?1004h<ESC>[?25l<ESC>[2J<ESC>[m<ESC>[H\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n<ESC>[H<ESC>]0;C:\\WINDOWS\\SYSTEM32\\cmd.exe<BEL><ESC>[?25hMicrosoft Windows [Version 10.0.26200.9711]<ESC>[?25l\r\n(c) Microsoft Corporation. All rights reserved.<ESC>[4;1H<ESC>[?25h<ESC>]133;A<ESC>\\<ESC>]9;9;C:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp<ESC>\\C:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp><ESC>]133;B<ESC>\\echo ROW 1 - inherited marked PROMPT, integration on\r\n<ESC>[?25lROW 1 - inherited marked PROMPT, integration on<ESC>[7;1H<ESC>[?25h<ESC>]133;A<ESC>\\<ESC>]9;9;C:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp<ESC>\\C:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp><ESC>]133;B<ESC>\\\r\n<ESC>]133;A<ESC>\\<ESC>]9;9;C:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp<ESC>\\C:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp><ESC>]133;B<ESC>\\\r\n<ESC>]133;A<ESC>\\<ESC>]9;9;C:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp<ESC>\\C:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp><ESC>]133;B<ESC>\\echo %PROMPT%\r\n<ESC>[?25l$E]133;A$E\\$E]9;9;$P$E\\$P$G$E]133;B$E\\<ESC>[12;1H<ESC>[?25h<ESC>]133;A<ESC>\\<ESC>]9;9;C:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp<ESC>\\C:\\Users\\Aryan\\AppData\\Local\\Temp\\tcp><ESC>]133;B<ESC>\\"
+
+> harness log
+[harness] pty:create tab-cmd-1 shell=cmd integration=on cwd=C:\Users\Aryan\AppData\Local\Temp\tcp cwdFallback=false args=[]

@@ -1,0 +1,25 @@
+Run 1: integration on (the default), the launching shell had the marked PROMPT in its environment.
+Launched from a PowerShell with: $env:PROMPT = '$E]133;A$E\$E]9;9;$P$E\$P$G$E]133;B$E\'
+
+> drive marks --tab tab-cmd-1
+at prompt: yes
+prompt end: row 9 col 64
+
+> drive eval window.__mk   (raw PTY data counted by a second listener on the thread, over 3 Enters and one echo command: 4 prompts)
+"{\"A\":4,\"B\":4,\"cwd\":4,\"chunks\":5}"
+A = OSC 133;A (prompt start), B = OSC 133;B (prompt end), cwd = OSC 9;9 (cwd report). 4 prompts, 4 of each: one set of marks per prompt. (The first prompt, counted before this, also came as one of each: A=1, B=1, cwd=1.) Before the fix the count would have been 8 of each, the marks twice.
+
+> drive tail 12
+Microsoft Windows [Version 10.0.26200.9711]
+(c) Microsoft Corporation. All rights reserved.
+
+D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt>
+D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt>
+D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt>
+D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt>echo %PROMPT%
+$E]133;A$E\$E]9;9;$P$E\$P$G$E]133;B$E\
+
+D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt>
+
+> harness log
+[harness] pty:create tab-cmd-1 shell=cmd integration=on cwd=D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt cwdFallback=false args=[]

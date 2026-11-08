@@ -1,0 +1,24 @@
+Row: nested (started from an afterterm thread), integration on, inherited marked PROMPT
+Launched from a PowerShell with PROMPT=[$E]133;A$E\$E]9;9;$P$E\$P$G$E]133;B$E\], AFTERTERM=[1] (nested = True), cmd opt-out = False.
+
+> raw pty data counted by a listener on the thread (A = OSC 133;A, B = OSC 133;B, D = OSC 133;D, cwd = OSC 9;9), over the first prompt, 3 Enters and one echo command (5 prompts)
+"{\"A\":5,\"B\":5,\"D\":0,\"cwd\":5,\"bytes\":1108}"
+
+> drive marks --tab tab-cmd-1
+at prompt: yes
+prompt end: row 9 col 64
+
+> drive tail 12
+Microsoft Windows [Version 10.0.26200.9711]
+(c) Microsoft Corporation. All rights reserved.
+
+D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt>
+D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt>
+D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt>
+D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt>echo %PROMPT%
+$E]133;A$E\$E]9;9;$P$E\$P$G$E]133;B$E\
+
+D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt>
+
+> harness log
+[harness] pty:create tab-cmd-1 shell=cmd integration=on cwd=D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt cwdFallback=false args=[]
