@@ -1,0 +1,12 @@
+Lines from the dev build's harness log during Part B: the Claude session record reader (one line each time the status it sends for tab-3 changes) and the hook install into the scratch Claude folder.
+session=none is expected: the reader looks for transcripts in the scratch Claude folder, while this Claude wrote its transcript to the real one; the chat's session id came through the hook's file channel instead. The hook line's long dash is written here as a hyphen.
+
+[claude-hook] registered - registered 5 hook event(s) using pwsh
+[harness] claude-record tab-3 pid=12672 status=idle session=none
+[harness] claude-record tab-3 pid=12672 status=busy session=none
+[harness] claude-record tab-3 pid=12672 status=idle session=none
+[harness] claude-record tab-3 pid=12672 status=busy session=none
+[harness] claude-record tab-3 pid=12672 status=idle session=none
+[harness] claude-record tab-3 pid=12672 status=busy session=none
+[harness] claude-record tab-3 pid=12672 status=idle session=none
+[harness] claude-record tab-3 pid=none status=none session=none

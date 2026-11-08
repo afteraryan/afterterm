@@ -1,0 +1,108 @@
+Part B state log for the thread "Title shell" (tab-3) running a real Claude Code 2.1.319 (Haiku), sampled in the page; one line per change.
+The sampler ran at about one sample a second (Chromium throttles timers on this window), so a change is accurate to about a second.
+Columns: time (UTC, local is UTC+5:30) | raw window title | notification (the state drawn) | background work flag | Claude record status ("-" = none) | kind | asleep or awake.
+
+17:32:09.217  plain | - | no-flag | - | shell | awake
+17:32:43.255  plain - claude  --model haiku | - | no-flag | - | shell | awake
+17:32:46.217  claude | - | no-flag | - | shell | awake
+17:33:15.228  ✳ Claude Code | - | no-flag | - | shell | awake
+17:33:16.223  work | - | no-flag | idle | shell | awake
+17:33:51.218  ◐ Claude Code | - | no-flag | idle | chat | awake
+17:33:52.214  ◑ Background agent ping test | working | no-flag | busy | chat | awake
+17:33:53.223  ◐ Background agent ping test | working | no-flag | busy | chat | awake
+17:33:54.216  ◑ Background agent ping test | working | no-flag | busy | chat | awake
+17:33:54.419  ◐ Background agent ping test | working | no-flag | busy | chat | awake
+17:33:57.228  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:33:58.227  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:33:59.253  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:00.227  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:01.228  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:02.227  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:03.224  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:04.221  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:05.220  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:06.221  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:07.223  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:08.217  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:09.215  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:10.226  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:11.214  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:12.215  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:13.227  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:14.224  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:15.223  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:16.228  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:17.232  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:18.247  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:19.233  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:20.222  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:21.226  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:22.224  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:24.229  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:25.300  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:26.214  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:27.229  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:28.224  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:29.221  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:30.217  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:44.216  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:46.224  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:47.220  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:48.222  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:49.215  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:50.228  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:51.222  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:52.228  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:53.225  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:54.214  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:55.226  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:56.222  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:57.219  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:58.219  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:34:59.216  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:00.225  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:01.225  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:02.219  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:03.223  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:04.218  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:05.216  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:06.214  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:07.226  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:08.217  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:10.227  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:11.227  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:12.222  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:13.232  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:14.217  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:15.215  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:16.216  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:17.227  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:18.216  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:19.221  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:20.212  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:21.216  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:22.219  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:23.218  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:24.228  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:25.227  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:26.225  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:27.218  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:28.223  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:29.223  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:30.222  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:31.220  ◑ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:32.216  ◐ Background agent ping test | background | bg-flag | busy | chat | awake
+17:35:33.228  ◑ Background agent ping test | working | bg-flag | busy | chat | awake
+17:35:34.225  ◐ Background agent ping test | working | bg-flag | busy | chat | awake
+17:35:35.227  ✳ Background agent ping test | - | no-flag | busy | chat | awake
+17:35:37.226  ✳ Background agent ping test | - | no-flag | idle | chat | awake
+17:36:17.050  ◑ Background agent ping test | working | no-flag | busy | chat | awake
+17:36:17.228  ⚙ work - compacting | compacting | no-flag | busy | chat | awake
+17:36:18.218  ✳ Background agent ping test | - | no-flag | busy | chat | awake
+17:36:19.215  ✳ Background agent ping test | - | no-flag | idle | chat | awake
+17:37:11.214  ◐ Background agent ping test | working | no-flag | busy | chat | awake
+17:37:11.719  ⚙ work - compacting | compacting | no-flag | busy | chat | awake
+17:37:12.217  ✳ Background agent ping test | - | no-flag | busy | chat | awake
+17:37:13.212  ✳ Background agent ping test | - | no-flag | idle | chat | awake
+17:37:45.215   | - | no-flag | - | chat | awake
+17:37:46.214  plain | - | no-flag | - | chat | awake
