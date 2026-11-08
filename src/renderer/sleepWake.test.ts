@@ -5,7 +5,7 @@
 import { isDeepStrictEqual } from 'util';
 import {
   sleepTab, wakeTab, restoredTab, sleepAllForShutdown, asleepLabel, asleepSinceText, wakePlan,
-  startsClaudeCode,
+  startsClaudeCode, reattachedTab, restoreWithLive, screenAfterReload,
 } from './sleepWake.ts';
 import type { Tab } from './components/TabBar/types.ts';
 import type { SavedTab } from './sessionMigration.ts';
@@ -361,6 +361,68 @@ console.log('\nsleepWake: wakePlan, a command that starts Claude is never a serv
   check('startsClaudeCode: npx with only flags is not Claude', !startsClaudeCode('npx -y'));
   check('startsClaudeCode: an empty line is not Claude', !startsClaudeCode('   '));
   check('startsClaudeCode: an unclosed quote is read as a plain word', !startsClaudeCode('"claude-server --x'));
+}
+
+console.log('\nsleepWake: a reload keeps the threads whose shell is still running (AFT-33)\n');
+{
+  // What the unload flush wrote: every thread stamped asleep (sleepAllForShutdown).
+  const flushed = sleepAllForShutdown([
+    chatTab({ id: 'tab-1', port: 5173, notification: 'working' }),
+    chatTab({ id: 'tab-2', claudeSessionId: undefined, claudeCwd: undefined }),
+    chatTab({ id: 'tab-3', asleep: true, sleptAt: NOW - 86_400_000 }),
+  ], NOW) as SavedTab[];
+
+  const back = reattachedTab(flushed[0], { tabId: 'tab-1', port: 5173 });
+  check('a thread with a live shell comes back awake', back.asleep === false, show(back));
+  check('with no sleptAt (it never slept)', !('sleptAt' in back), show(back));
+  check('with no notification and no wokeAt', !('notification' in back) && !('wokeAt' in back), show(back));
+  check('keeping its session id, folder, name and font size',
+    back.claudeSessionId === flushed[0].claudeSessionId && back.claudeCwd === flushed[0].claudeCwd
+    && back.claudeTitle === 'Fix the spinner' && back.fontSize === 15, show(back));
+  check('the port main sees now wins', reattachedTab(flushed[0], { tabId: 'tab-1', port: 3000 }).port === 3000);
+  check('a port main says is gone is dropped', !('port' in reattachedTab(flushed[0], { tabId: 'tab-1', port: null })));
+  check('the saved port stands while main has not looked', reattachedTab(flushed[0], { tabId: 'tab-1' }).port === 5173);
+  check('the saved record is not changed', flushed[0].asleep === true && flushed[0].sleptAt === NOW);
+
+  const r = restoreWithLive(flushed, [{ tabId: 'tab-1', port: 5173 }, { tabId: 'tab-2', port: null }], NOW + 5);
+  check('both live threads are re-attached', show(r.reattached) === '["tab-1","tab-2"]', show(r.reattached));
+  check('they come back awake', r.tabs[0].asleep === false && r.tabs[1].asleep === false, show(r.tabs));
+  check('a thread with no live shell comes back asleep, as on a launch',
+    isDeepStrictEqual(r.tabs[2], restoredTab(flushed[2], NOW + 5)), show(r.tabs[2]));
+  check('and keeps when it went to sleep', r.tabs[2].sleptAt === NOW - 86_400_000, show(r.tabs[2]));
+  check('the order of the tabs is kept', show(r.tabs.map(t => t.id)) === '["tab-1","tab-2","tab-3"]');
+  check('no orphans when every live shell has a tab', r.orphans.length === 0, show(r.orphans));
+
+  const launch = restoreWithLive(flushed, [], NOW + 5);
+  check('a launch (no live shells) brings every thread back asleep, unchanged',
+    launch.tabs.every(t => t.asleep) && launch.reattached.length === 0
+    && isDeepStrictEqual(launch.tabs, flushed.map(t => restoredTab(t, NOW + 5))), show(launch));
+
+  const orphan = restoreWithLive(flushed, [{ tabId: 'tab-1' }, { tabId: 'tab-9' }], NOW + 5);
+  check('a live shell no saved tab names is an orphan', show(orphan.orphans) === '["tab-9"]', show(orphan.orphans));
+  check('and does not make a tab of its own', orphan.tabs.length === 3, show(orphan.tabs.map(t => t.id)));
+}
+
+console.log('\nsleepWake: a reloaded page opens where it was (AFT-33)\n');
+{
+  const groups = ['group-1', 'group-2'];
+  const tabs = ['tab-1', 'tab-2'];
+  check('nothing remembered (a launch): null, the caller opens Home', screenAfterReload(null, groups, tabs) === null);
+  check('undefined counts as nothing remembered', screenAfterReload(undefined, groups, tabs) === null);
+  check('the workspace with its active thread',
+    show(screenAfterReload({ screen: 'workspace', activeTabId: 'tab-2' }, groups, tabs)) === '{"screen":"workspace","activeTabId":"tab-2"}');
+  check('Home stays Home', show(screenAfterReload({ screen: 'home' }, groups, tabs)) === '{"screen":"home"}');
+  check('a project page whose project is there',
+    show(screenAfterReload({ screen: 'project', projectId: 'group-2', activeTabId: 'tab-1' }, groups, tabs))
+      === '{"screen":"project","projectId":"group-2","activeTabId":"tab-1"}');
+  check('a project page whose project is gone opens Home',
+    show(screenAfterReload({ screen: 'project', projectId: 'group-9' }, groups, tabs)) === '{"screen":"home"}');
+  check('a project page with no project id opens Home',
+    show(screenAfterReload({ screen: 'project' }, groups, tabs)) === '{"screen":"home"}');
+  check('an active thread that is gone is left out',
+    show(screenAfterReload({ screen: 'workspace', activeTabId: 'tab-7' }, groups, tabs)) === '{"screen":"workspace"}');
+  check('a screen name it does not know: null',
+    screenAfterReload({ screen: 'board' as 'home' }, groups, tabs) === null);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

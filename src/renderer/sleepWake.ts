@@ -70,6 +70,86 @@ export function restoredTab(saved: SavedTab, now: number): Tab {
   return next;
 }
 
+// A thread whose shell main still holds when the window's page loads (AFT-33). That
+// happens only when the page was reloaded or came back after a crash or a hang while
+// the app itself kept running: on a launch main holds no shell at all. `port` is
+// what main's server watcher last sent for it: a number while something in the
+// shell's tree listens, null when nothing does, absent when it has not looked yet.
+export interface LiveThread {
+  tabId: string;
+  port?: number | null;
+}
+
+// What a tab from session.json becomes when main still holds a live shell for it:
+// awake, and the terminal layer re-attaches a fresh xterm to that shell instead of
+// spawning one (main's pty:create answers `attached`). Nothing is typed into it, so a
+// chat's Claude Code and a server keep running untouched. Its scrollback from before
+// the reload is gone with the old page. sleptAt goes (the saved file stamps every
+// thread asleep at the unload flush, sleepAllForShutdown, and this one never slept),
+// and so do notification and wokeAt, as in restoredTab. The port is main's when it
+// has one, since the server may have stopped or started while the page was away.
+export function reattachedTab(saved: SavedTab, live: LiveThread): Tab {
+  const next: Tab = { ...(saved as Tab), asleep: false };
+  delete next.sleptAt;
+  delete next.notification;
+  delete next.wokeAt;
+  if (typeof live.port === 'number') next.port = live.port;
+  else if (live.port === null) delete next.port;
+  return next;
+}
+
+// Every saved tab as it comes back: re-attached when main holds a live shell for it,
+// asleep otherwise (restoredTab). A launch has no live shells, so everything is
+// asleep, as it always was. A live shell no saved tab names is an orphan (a thread
+// created in the moment before a crash, before the state reached main); the caller
+// ends it, since nothing could ever show or reach it.
+export function restoreWithLive(
+  saved: SavedTab[],
+  live: readonly LiveThread[],
+  now: number,
+): { tabs: Tab[]; reattached: string[]; orphans: string[] } {
+  const byId = new Map(live.map(l => [l.tabId, l]));
+  const reattached: string[] = [];
+  const tabs = saved.map(t => {
+    const l = byId.get(t.id);
+    if (!l) return restoredTab(t, now);
+    reattached.push(t.id);
+    return reattachedTab(t, l);
+  });
+  const savedIds = new Set(saved.map(t => t.id));
+  const orphans = live.filter(l => !savedIds.has(l.tabId)).map(l => l.tabId);
+  return { tabs, reattached, orphans };
+}
+
+// The screen, project page and active thread the page last showed, kept by main in
+// memory only (AFT-33), so it exists only when the page reloads inside one run of the
+// app, never on a launch.
+export interface RememberedUi {
+  screen: 'home' | 'workspace' | 'project';
+  projectId?: string;
+  activeTabId?: string;
+}
+
+// Where a reloaded page opens: back on the screen it showed, with the same thread
+// active. A project page whose project is gone opens Home, and an active thread that
+// is gone is left out (the saved activeTabId stands). null when main remembers
+// nothing, which is every launch: the caller opens Home as always (initialScreen).
+export function screenAfterReload(
+  ui: RememberedUi | null | undefined,
+  groupIds: readonly string[],
+  tabIds: readonly string[],
+): { screen: 'home' | 'workspace' | 'project'; projectId?: string; activeTabId?: string } | null {
+  if (!ui) return null;
+  const activeTabId = ui.activeTabId && tabIds.includes(ui.activeTabId) ? ui.activeTabId : undefined;
+  const withActive = activeTabId ? { activeTabId } : {};
+  if (ui.screen === 'project') {
+    if (ui.projectId && groupIds.includes(ui.projectId)) return { screen: 'project', projectId: ui.projectId, ...withActive };
+    return { screen: 'home', ...withActive };
+  }
+  if (ui.screen === 'workspace' || ui.screen === 'home') return { screen: ui.screen, ...withActive };
+  return null;
+}
+
 // Run on the quit flush so the saved file records when the app actually
 // closed, not "now" the next time it happens to load. Every awake tab is put
 // to sleep as of `now`; a tab that was already asleep keeps its original
