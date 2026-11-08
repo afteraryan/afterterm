@@ -31,11 +31,12 @@ export interface ThreadMenuActions {
   // localhost:port (servers)"). Absent for a chat, a plain shell, or an asleep
   // server, same conditions the builders check before inserting the item.
   openLocalhost?: () => void;
-  // "Open in File Explorer" for the thread's own folder (Phase 9): the folder
-  // its Claude session reports for a chat, often a worktree, the shell's cwd
-  // otherwise (threadFolder in threadView.ts). Absent when the thread has no
-  // folder at all, so the item stays out of the menu; `missing` disables it
-  // with the same "Folder not found" tip the project menu uses.
+  // "Open in File Explorer" for the thread's own folder (Phase 9): the top of the
+  // git working tree its folder is in (a worktree chat opens its worktree, even
+  // when the session is in a subfolder of it), never above the project, else the
+  // folder itself (threadFolderTarget in threadView.ts). Absent when the thread
+  // has no folder at all, so the item stays out of the menu; `missing` disables
+  // it with the same "Folder not found" tip the project menu uses.
   openInExplorer?: { missing: boolean; open: () => void };
   // "Open in <editor>" for the same folder, one entry per detected editor, the
   // primary first. Only the row menu shows these; the header carries its own
