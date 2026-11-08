@@ -1,0 +1,27 @@
+[01:01:48.733] == R1 (review 1, defect 2) a saved home whose top is 6 px above the secondary's work area (y -222 against -216), relaunched with AFTERTERM_RESTORE_PLACEMENT=1
+[01:01:48.765] seeded: {"windowBounds":{"width":1280,"height":780,"y":-222,"x":2016},"windowDisplayId":1111811793,"windowDisplayBounds":{"width":1920,"height":1080,"y":-216,"x":1536},"windowMaximized":false}
+[01:01:59.431] electron : pid 11516 D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\notifier-and-display\node_modules\electron\dist\electron.exe
+[01:02:01.112] after launch: x=2400 y=0 w=1280 h=780 onSecondary=True  (before the fix this home was refused and the window opened at the centre)
+[01:02:02.534] home now: {"x":2016,"y":-216,"width":1280,"height":780} displayChanges=0
+[01:02:03.881] captured D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\notifier-and-display\docs\screenshots\notifier-and-display-fixes\displays\19-placement-high-home-opens-at-the-top-edge-display2.png
+[01:02:18.687] == R2 (review 1, defect 1) a lock and an unlock are not display changes; a move right after the unlock is the user's
+[01:02:20.414] sim lock-screen: displayChanges=0
+[01:02:21.924] sim unlock-screen: displayChanges=0 decision={"action":"stay","reason":"already on its display"}
+[01:02:23.211] a move by hand right after the unlock: moved to x=2400 y=186 w=1280 h=780 onSecondary=True
+[01:02:28.377] state after 3.5 s: home.bounds={"x":2016,"y":-30,"width":1280,"height":780} (the new place: kept as the home; before the fix it was 'not kept')
+[01:02:28.389] == R3 (review 1, judgement 4) ids swapped between the two displays
+[01:02:29.760] sim display-removed: displayChanges=1
+[01:02:31.134] Windows' move right after: moved to x=2100 y=140 w=1280 h=780 onSecondary=True
+[01:02:35.958] state after 3.5 s: home.bounds={"x":2016,"y":-30,"width":1280,"height":780} (unchanged)
+[01:02:37.325] sim display-added with the ids swapped, the window said to be on the display that now has the home's id (the primary's bounds): decision {"action":"move","bounds":{"x":2016,"y":-30,"width":1280,"height":780},"maximize":false,"displayId":1187339973}
+[01:02:39.173] window after: x=2400 y=186 w=1280 h=780 onSecondary=True
+[01:02:40.452] captured D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\notifier-and-display\docs\screenshots\notifier-and-display-fixes\displays\20-placement-back-home-with-swapped-ids-display2.png
+[01:02:40.464] == R4 (review 1, judgement 6) the harness guard: the home display said to be 10000 px to the right
+[01:02:41.797] decision: {"action":"stay","reason":"its place is off the harness display (not moved)"}
+[01:02:43.663] window after: x=2400 y=186 w=1280 h=780 onSecondary=True (not moved)
+[01:02:43.711] log: [harness] window home after unlock-screen (harness): stays, already on its display
+[01:02:43.724] log: [window] moved during a display or power change: not kept as its home
+[01:02:43.734] log: [window] back on its display 1187339973 after display-added (harness)
+[01:02:43.743] log: [harness] window home after display-added (harness): stays, its place is off the harness display (not moved)
+[01:02:46.567] stopped: 10 process(es) gone
+[01:02:46.578] data dir kept at C:\Users\Aryan\AppData\Local\Temp\claude\fa0123314555e1c0\a0efc8aa-7861-41bd-83eb-c902edfef41f\scratchpad\s7\run-place2 (delete it yourself if you want it gone)

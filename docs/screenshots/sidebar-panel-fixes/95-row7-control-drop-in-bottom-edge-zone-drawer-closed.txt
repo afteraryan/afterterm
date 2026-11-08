@@ -1,0 +1,13 @@
+Control run, drawer CLOSED, branch fix-drawer-outside-click (48273a7).
+Purpose: my first row-7 attempt (drawer open) dropped a thread at y=448, inside the list's bottom
+edge-scroll zone (list bottom edge was about y=455 with the drawer open), and nothing moved. This
+control drops at y=722 with the drawer closed (list bottom edge 723.5): the same edge zone.
+Result: the thread does not move there either, so it is how the panel's drag behaves at the very
+edge of the list, not something the open drawer causes.
+
+list rect: {"x":84,"y":129,"width":248,"height":594.5,"top":129,"right":332,"bottom":723.5,"left":84}
+drag from (204, 242) to (204, 722) in 12 steps, hold 500ms
+before   : {"dockOpen":false,"g":"g-r1","top":0}
+pressed  : {"dockOpen":false,"g":"g-r1","top":0}
+held     : {"dockOpen":false,"g":"g-r1","top":466}
+released : {"dockOpen":false,"g":"g-r1","top":466}
