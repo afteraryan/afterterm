@@ -4,7 +4,9 @@ What changed for the person using afterterm, release by release. Each release li
 
 ## Unreleased
 
-Nothing yet.
+### Fixed
+
+- **The Other projects list at the bottom of the sidebar now closes when you click anywhere outside it, or press Esc.** Before, it stayed open until you clicked its own row again, even when you clicked in the terminal, the header or the rail.
 
 ## 0.16.1 (2026-11-08)
 
