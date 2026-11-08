@@ -4,7 +4,9 @@ What changed for the person using afterterm, release by release. Each release li
 
 ## Unreleased
 
-Nothing yet.
+### Fixed
+
+- **Pressing Ctrl+Shift+R no longer sends afterterm to Home and puts every thread to sleep.** That key, and Ctrl+R outside a terminal, reloaded afterterm's window, which stopped every shell, server and chat in it. No key reloads the window now. Ctrl+R still reaches the terminal, where it searches your command history in PowerShell and bash.
 
 ## 0.16.1 (2026-11-08)
 

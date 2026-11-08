@@ -652,6 +652,11 @@ particularly often: sleep, wake and the scrollback tail file are all main-proces
   CDP-dispatched keys (verified: `key b --ctrl --shift` toggles the side panel),
   but keys typed into an xterm.js terminal reach the shell only if the terminal
   has focus (click it first).
+- `key` never reaches an application menu item: Electron runs a menu role on the
+  window that has OS focus, and a harness window never has it, so even before
+  AFT-26's fix `key r --ctrl --shift` did not reload. To see which keys the menu
+  answers, read the `[harness] menu key <path> role=<role> key=<key>` lines a
+  harness run logs once at startup (`logMenuKeys` in `src/main.ts`).
 - The app's context menus close on an outside click, not on Escape: after a
   `rightclick`, dismiss with `click "#root"` (or act on a `.ctx-menu-item`).
 - One harness run per port. A second `launch` on a busy port is refused.
