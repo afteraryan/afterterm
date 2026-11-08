@@ -16,6 +16,12 @@ through **Resume** on a project page's History tab or the search palette, both o
 recreate the tab and run `claude --resume` the same way a wake does. Nothing ever
 resumes by itself, not even the tab you were looking at when the app closed.
 
+A reload of the window inside one run of the app (a crash, a hang, `drive reload`) is
+not a launch and resumes nothing either (AFT-33, 2026-11-08): main still holds every
+running shell, so a chat whose shell is alive comes back awake with its terminal
+attached to the same shell and the same running Claude Code, and nothing is typed into
+it. See `docs/features-window-recovery.md`.
+
 This is deliberate and important, and the reason has not changed. Resuming every saved
 session at once cold-starts N `claude` processes *plus their MCP servers*
 simultaneously, and on a loaded or lower-RAM machine that memory spike can OOM-crash the
