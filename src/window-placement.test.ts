@@ -5,6 +5,7 @@
 import {
   SETTLE_MS, TITLE_BAR_PX, asRect, sameHome, homeFromPrefs, homeToPrefs, findHomeDisplay,
   reachable, placeOn, startupPlacement, isWindowsMove, pruneEvents, moveBack, displayMatching,
+  countsAsDisplayChange, landsOn,
 } from './window-placement.ts';
 import type { DisplayInfo, WindowHome, Rect } from './window-placement.ts';
 
@@ -60,6 +61,20 @@ console.log('\nwindow-placement: finding the home display\n');
   check('the same monitor with a new id is found by its bounds', findHomeDisplay(home, [laptop, renumbered])?.id === 7);
   const moved = { ...monitor, id: 7, bounds: { ...monitor.bounds, x: -1920 } };
   check('a new id and a new place is not the same monitor', findHomeDisplay(home, [laptop, moved]) === null);
+
+  // Chromium's id is a hash of the output's device name, so a driver or dock
+  // change can swap the two ids (review 1 of PR 92, probe 1).
+  const swapped = [{ ...laptop, id: 2 }, { ...monitor, id: 1 }];
+  const sw = findHomeDisplay(home, swapped);
+  check('ids swapped: the monitor is found by its bounds, not the laptop by the id', sw !== null && show(sw.bounds) === show(monitor.bounds), show(sw));
+  const swp = startupPlacement(home, swapped);
+  check('ids swapped: the window opens on the monitor, where it was', swp !== null && swp.displayId === 1 && show(swp.bounds) === show(onMonitor), show(swp));
+  const swb = moveBack({ home, windowDisplayId: 2, displays: swapped, userMovePending: false, minimized: false });
+  check('ids swapped, the window on the laptop: it goes back to the monitor', swb.action === 'move' && swb.displayId === 1 && show(swb.bounds) === show(onMonitor), show(swb));
+  const twoMonitors = [{ ...monitor, id: 3, bounds: { ...monitor.bounds, x: 5000 } }, { ...monitor, id: 2 }];
+  check('id and bounds together win over the id or the bounds alone', findHomeDisplay(home, twoMonitors)?.id === 2);
+  const rescaledSameId = { ...monitor, bounds: { ...monitor.bounds, width: 1280, height: 720 } };
+  check('the same id with new bounds (rescaled) is still found by its id', findHomeDisplay(home, [laptop, rescaledSameId])?.id === 2);
 }
 
 console.log('\nwindow-placement: a window that can be reached\n');
@@ -95,8 +110,26 @@ console.log('\nwindow-placement: where the window opens\n');
   check('nothing remembered: Electron decides', startupPlacement(null, both) === null);
   check('the home display is not connected: Electron decides', startupPlacement(home, [laptop]) === null);
   check('the monitor came back with a new id: still found', startupPlacement(home, [laptop, { ...monitor, id: 9 }])?.displayId === 9);
+  // Review 1 of PR 92, probe 3: a home whose top was a few pixels above the work
+  // area used to open centred on the primary (and lose its home); now it is moved
+  // down into the work area.
+  const high = { ...home, bounds: { ...onMonitor, y: monitor.workArea.y - 6 } };
+  const hp = startupPlacement(high, both);
+  check('a top 6 px above the work area: opens on the monitor at its top edge', hp !== null && hp.displayId === 2 && hp.bounds.y === monitor.workArea.y && hp.bounds.x === onMonitor.x, show(hp));
   const offTop = { ...home, bounds: { ...onMonitor, y: monitor.workArea.y - 50 } };
-  check('its title bar would be off the display: Electron decides', startupPlacement(offTop, both) === null);
+  const op = startupPlacement(offTop, both);
+  check('a top 50 px above: also moved down, still on the monitor', op !== null && op.bounds.y === monitor.workArea.y, show(op));
+
+  // Probe 2: the monitor went from 100% to 150% (1280x720 DIP), same id and origin.
+  const scaled: DisplayInfo = { id: 2, bounds: { x: 1536, y: -216, width: 1280, height: 720 }, workArea: { x: 1536, y: -216, width: 1280, height: 688 } };
+  const sp = startupPlacement(home, [laptop, scaled]);
+  const inside = (r: Rect, wa: Rect) => r.x >= wa.x && r.y >= wa.y && r.x + r.width <= wa.x + wa.width && r.y + r.height <= wa.y + wa.height;
+  check('a rescaled monitor: the window is wholly inside its work area', sp !== null && inside(sp.bounds, scaled.workArea), show(sp));
+  check('a rescaled monitor: as large as the work area allows', sp !== null && sp.bounds.width === 1280 && sp.bounds.height === 688, show(sp));
+  check('a rescaled monitor: on the monitor', sp?.displayId === 2);
+  const narrow: DisplayInfo = { id: 2, bounds: monitor.bounds, workArea: { ...monitor.workArea, width: 1500 } };
+  const np = startupPlacement(home, [laptop, narrow]);
+  check('a narrower work area: moved left to fit, size kept', np !== null && np.bounds.width === 1280 && np.bounds.x + np.bounds.width === narrow.workArea.x + narrow.workArea.width, show(np));
 }
 
 console.log('\nwindow-placement: whose move was it\n');
@@ -156,7 +189,32 @@ console.log('\nwindow-placement: when the window stays where it is\n');
 
   const offDisplay = { ...home, bounds: { ...onMonitor, y: -400 } };
   const off = moveBack({ ...base, home: offDisplay, windowDisplayId: 1 });
-  check('its place would be off the display: stays', off.action === 'stay' && off.reason === 'its place is off the display', show(off));
+  check('a place above the display: goes back, moved inside it', off.action === 'move' && off.bounds.y === monitor.workArea.y, show(off));
+}
+
+console.log('\nwindow-placement: a lock or an unlock is not a display change (review 1 of PR 92)\n');
+{
+  check('a display added counts', countsAsDisplayChange('display-added'));
+  check('a display removed counts', countsAsDisplayChange('display-removed'));
+  check('a display changed counts', countsAsDisplayChange('display-metrics-changed'));
+  check('sleep counts', countsAsDisplayChange('suspend'));
+  check('wake counts', countsAsDisplayChange('resume'));
+  check('a lock does not count', !countsAsDisplayChange('lock-screen'));
+  check('an unlock does not count', !countsAsDisplayChange('unlock-screen'));
+
+  // Probe 4: Aryan unlocks at T with the window on the monitor and drags it to
+  // the laptop between T+3 s and T+4 s. Only display changes are noted, so the
+  // unlock is not among them and the drag is his.
+  const T = 100_000;
+  const noted = [{ event: 'unlock-screen', at: T }].filter(e => countsAsDisplayChange(e.event)).map(e => e.at);
+  check("a drag 3 to 4 s after an unlock is the user's", !isWindowsMove(T + 3000, T + 4000, noted), show(noted));
+  // So the laptop became the home, and the check 6 s after the unlock leaves it there.
+  const laptopHome: WindowHome = { bounds: { x: 100, y: 50, width: 1280, height: 700 }, displayId: 1, displayBounds: laptop.bounds, maximized: false };
+  const after = moveBack({ home: laptopHome, windowDisplayId: 1, displays: both, userMovePending: false, minimized: false });
+  check('the check after the unlock does not undo it', after.action === 'stay' && after.reason === 'already on its display', show(after));
+  // A wake still counts: the same drag 3 s after a resume is Windows'.
+  const woke = [{ event: 'resume', at: T }].filter(e => countsAsDisplayChange(e.event)).map(e => e.at);
+  check("the same drag 3 s after a wake is Windows'", isWindowsMove(T + 3000, T + 4000, woke));
 }
 
 console.log('\nwindow-placement: the display a window is on\n');
@@ -164,6 +222,11 @@ console.log('\nwindow-placement: the display a window is on\n');
   check('the window on the monitor', displayMatching(onMonitor, both)?.id === 2);
   check('mostly on the laptop', displayMatching({ x: 900, y: 100, width: 1000, height: 600 }, both)?.id === 1);
   check('on no display', displayMatching({ x: 9000, y: 9000, width: 10, height: 10 }, both) === null);
+
+  // The harness guard: a move back is made only when it lands on the harness display.
+  check('a place on the monitor lands on the monitor', landsOn(onMonitor, both, 2));
+  check('a place on the laptop does not land on the monitor', !landsOn({ x: 100, y: 50, width: 1280, height: 700 }, both, 2));
+  check('a place on no display lands nowhere', !landsOn({ x: 10_000, y: 0, width: 1280, height: 780 }, both, 2));
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

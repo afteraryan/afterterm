@@ -9,11 +9,12 @@
 // opens there, and when the home display comes back while the window sits on
 // another one, the window goes back home.
 //
-// Whose move was it? Windows moves the window around a display or power change
-// (a display added, removed or changed, sleep, wake, lock, unlock), so a move
-// within SETTLE_MS of one of those is Windows' and does not change the home. Any
-// other move is the user's and becomes the new home, so a window the user moved
-// by hand is never taken back.
+// Whose move was it? Windows moves the window when the display set changes (a
+// display added, removed or changed, the machine going to sleep or waking), so a
+// move within SETTLE_MS of one of those is Windows' and does not change the home.
+// A lock or an unlock changes no display, so it does not count: a move made just
+// after unlocking is the user's. Any other move is the user's and becomes the new
+// home, so a window the user moved by hand is never taken back.
 //
 // Every rectangle is in Electron's screen coordinates (DIP), the same ones
 // BrowserWindow.getBounds and screen.getAllDisplays use.
@@ -33,11 +34,23 @@ export interface WindowHome {
   maximized: boolean;
 }
 
-// A move this close (before or after) to a display or power change is Windows'.
+// A move that began within this long after a display change is Windows'. Main
+// decides SAVE_DELAY_MS after the move ends, so a change up to that long after
+// the move counts too; a later one is not seen.
 export const SETTLE_MS = 5000;
 // How long main waits after the last move before deciding whose it was, so that
 // a display change that lands just after the move is seen.
 export const SAVE_DELAY_MS = 2000;
+
+// Which events change the display set (and so make a move near them Windows').
+// Electron's names: screen's display-added, display-removed and
+// display-metrics-changed, powerMonitor's suspend and resume. Not lock-screen or
+// unlock-screen: no display changes then, and a monitor that drops off while the
+// screen is locked sends display-removed anyway.
+const DISPLAY_CHANGES = new Set(['display-added', 'display-removed', 'display-metrics-changed', 'suspend', 'resume']);
+export function countsAsDisplayChange(event: string): boolean {
+  return DISPLAY_CHANGES.has(event);
+}
 // How much of the window must be on a display for the window to count as
 // reachable there: the top TITLE_BAR_PX rows (the title bar, to grab it by), at
 // least MIN_VISIBLE_PX wide.
@@ -87,11 +100,15 @@ export function homeToPrefs(home: WindowHome): {
   };
 }
 
-// The home display among the displays present: by id, else the display with
-// exactly the remembered bounds (the same monitor, given a new id).
+// The home display among the displays present: the one with both the remembered
+// id and the remembered bounds; else the one with the remembered bounds (the same
+// monitor, given a new id, or two monitors whose ids were swapped, which happens
+// since Chromium's id is a hash of the output's device name); else the one with
+// the remembered id (the same monitor, moved in the arrangement or rescaled).
 export function findHomeDisplay(home: WindowHome, displays: DisplayInfo[]): DisplayInfo | null {
-  return displays.find(d => d.id === home.displayId)
+  return displays.find(d => d.id === home.displayId && sameRect(d.bounds, home.displayBounds))
     ?? displays.find(d => sameRect(d.bounds, home.displayBounds))
+    ?? displays.find(d => d.id === home.displayId)
     ?? null;
 }
 
@@ -104,20 +121,28 @@ export function reachable(bounds: Rect, workArea: Rect): boolean {
 }
 
 // The home bounds on the display as it is now: moved with the display if the
-// display moved in the arrangement, and no larger than its work area.
+// display moved in the arrangement, no larger than its work area, and moved
+// inside it. So a present home display always gives a window that is wholly on
+// screen, even after the display got smaller (a higher scale, a lower resolution)
+// or when the home's top edge sat a few pixels above the work area.
 export function placeOn(home: WindowHome, display: DisplayInfo): Rect {
+  const wa = display.workArea;
   const dx = display.bounds.x - home.displayBounds.x;
   const dy = display.bounds.y - home.displayBounds.y;
+  const width = Math.min(home.bounds.width, wa.width);
+  const height = Math.min(home.bounds.height, wa.height);
+  const within = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
   return {
-    x: home.bounds.x + dx,
-    y: home.bounds.y + dy,
-    width: Math.min(home.bounds.width, display.workArea.width),
-    height: Math.min(home.bounds.height, display.workArea.height),
+    x: within(home.bounds.x + dx, wa.x, wa.x + wa.width - width),
+    y: within(home.bounds.y + dy, wa.y, wa.y + wa.height - height),
+    width,
+    height,
   };
 }
 
-// Where the window opens: its home, when the home display is present and the
-// window would be reachable there. null means Electron's default placement.
+// Where the window opens: its home, when the home display is present (placeOn
+// then always gives a reachable place; reachable stays as a check). null means
+// Electron's default placement.
 export function startupPlacement(home: WindowHome | null, displays: DisplayInfo[]):
   { bounds: Rect; maximized: boolean; displayId: number } | null {
   if (!home) return null;
@@ -129,7 +154,9 @@ export function startupPlacement(home: WindowHome | null, displays: DisplayInfo[
 }
 
 // Whether a move (its first and last bounds change) was Windows': some display
-// or power change happened within SETTLE_MS before it started or after it ended.
+// change (countsAsDisplayChange) happened within SETTLE_MS before it started or
+// after it ended. Main asks SAVE_DELAY_MS after the end, so in practice "after"
+// means up to SAVE_DELAY_MS.
 export function isWindowsMove(firstAt: number, lastAt: number, eventTimes: number[], settleMs = SETTLE_MS): boolean {
   return eventTimes.some(t => t >= firstAt - settleMs && t <= lastAt + settleMs);
 }
@@ -169,8 +196,16 @@ export function moveBack(input: MoveBackInput): MoveBack {
   return { action: 'move', bounds, maximize: home.maximized, displayId: display.id };
 }
 
+// Whether a rectangle lands on the given display (the one it overlaps most).
+// main's harness guard: a move back is made under the harness only when it
+// lands on the harness's own display, so made-up display positions can never put
+// the dev window on the monitor a person is using.
+export function landsOn(bounds: Rect, displays: DisplayInfo[], displayId: number): boolean {
+  return displayMatching(bounds, displays)?.id === displayId;
+}
+
 // The display a rectangle overlaps most, like Electron's screen.getDisplayMatching
-// (for the tests, and for a harness run that passes made-up displays).
+// but over any list of displays (landsOn, and the tests). null when it overlaps none.
 export function displayMatching(bounds: Rect, displays: DisplayInfo[]): DisplayInfo | null {
   let best: DisplayInfo | null = null;
   let bestArea = 0;

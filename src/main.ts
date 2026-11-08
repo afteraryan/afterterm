@@ -23,7 +23,7 @@ import type { EditorInfo } from './editors.ts';
 import { readPrefs, updatePrefs } from './prefs.ts';
 import {
   SAVE_DELAY_MS, homeFromPrefs, homeToPrefs, sameHome, findHomeDisplay, startupPlacement,
-  isWindowsMove, pruneEvents, moveBack,
+  isWindowsMove, pruneEvents, moveBack, countsAsDisplayChange, landsOn,
 } from './window-placement.ts';
 import type { DisplayInfo, WindowHome, MoveBack } from './window-placement.ts';
 import { planSpawn } from './shell-integration.ts';
@@ -1279,8 +1279,9 @@ function harnessWindowPlacement(): { x: number; y: number; width: number; height
 // maximized) is kept in prefs.json, the window opens there, and when its display
 // comes back while the window sits elsewhere, it goes back. The rules are pure, in
 // window-placement.ts; this is the wiring. A move within 5 seconds of a display
-// or power change is Windows' and leaves the home alone; any other move is the
-// user's and becomes the new home, so a window moved by hand is never taken back.
+// change (a display added, removed or changed, sleep or wake; not a lock or an
+// unlock) is Windows' and leaves the home alone; any other move is the user's and
+// becomes the new home, so a window moved by hand is never taken back.
 let windowHome: WindowHome | null = null;
 let displayChangeTimes: number[] = [];
 let pendingMove: { first: number; last: number } | null = null;
@@ -1352,7 +1353,15 @@ function checkWindowHome(trigger: string, test?: { displays: DisplayInfo[]; wind
   const displays = test?.displays ?? displayInfos();
   const windowDisplayId = test?.windowDisplayId ?? screen.getDisplayMatching(win.getBounds()).id;
   const userMovePending = !!pendingMove && !isWindowsMove(pendingMove.first, pendingMove.last, displayChangeTimes);
-  const decision = moveBack({ home: windowHome, windowDisplayId, displays, userMovePending, minimized: win.isMinimized() });
+  let decision = moveBack({ home: windowHome, windowDisplayId, displays, userMovePending, minimized: win.isMinimized() });
+  // Under the harness the window moves only onto the harness's own display, the
+  // same rule windowStart keeps at launch: made-up display positions from
+  // harness:window-home must never put the dev window on the monitor a person is
+  // using. Checked against the real displays.
+  if (decision.action === 'move' && process.env.AFTERTERM_HARNESS === '1'
+    && !landsOn(decision.bounds, displayInfos(), getTargetDisplay().id)) {
+    decision = { action: 'stay', reason: 'its place is off the harness display (not moved)' };
+  }
   if (decision.action === 'move') {
     // Our own move is not a move to remember (the home is where it is going).
     ignoreMovesUntil = Date.now() + 1000;
@@ -1373,21 +1382,27 @@ function checkWindowHome(trigger: string, test?: { displays: DisplayInfo[]; wind
 }
 
 // Registered once, after the main window exists. The display set changing and
-// the machine sleeping, waking, locking and unlocking are the moments Windows
-// moves windows; a display coming back, a wake and an unlock are when the window
-// may go home. The external monitor can take a few seconds to come back after a
-// wake, hence two checks; display-added covers it arriving later still.
+// the machine sleeping and waking are the moments Windows moves windows
+// (countsAsDisplayChange); a lock or an unlock changes no display, so a move made
+// right after unlocking is the user's. A display coming back, a wake and an
+// unlock are when the window may go home. The external monitor can take a few
+// seconds to come back after a wake, hence two checks; display-added covers it
+// arriving later still. display-metrics-changed is noted but triggers no check:
+// it also fires when the taskbar or a scale setting changes, and a check then
+// could undo a move the user has just made.
+function noteIfDisplayChange(event: string) {
+  if (countsAsDisplayChange(event)) noteDisplayChange();
+}
 function watchWindowHome() {
-  screen.on('display-removed', noteDisplayChange);
-  screen.on('display-metrics-changed', noteDisplayChange);
+  screen.on('display-removed', () => noteIfDisplayChange('display-removed'));
+  screen.on('display-metrics-changed', () => noteIfDisplayChange('display-metrics-changed'));
   screen.on('display-added', () => {
-    noteDisplayChange();
+    noteIfDisplayChange('display-added');
     setTimeout(() => checkWindowHome('a display was added'), 1500);
   });
-  powerMonitor.on('suspend', noteDisplayChange);
-  powerMonitor.on('lock-screen', noteDisplayChange);
+  powerMonitor.on('suspend', () => noteIfDisplayChange('suspend'));
   const afterWake = (event: string) => () => {
-    noteDisplayChange();
+    noteIfDisplayChange(event);
     for (const ms of [1500, 6000]) setTimeout(() => checkWindowHome(event), ms);
   };
   powerMonitor.on('resume', afterWake('resume'));
@@ -1402,7 +1417,7 @@ if (process.env.AFTERTERM_HARNESS === '1') {
     let decision: MoveBack | null | undefined;
     const event = sim?.event ?? 'state';
     if (event !== 'state') {
-      noteDisplayChange();
+      noteIfDisplayChange(event);
       if (event === 'display-added' || event === 'resume' || event === 'unlock-screen') {
         const test = Array.isArray(sim?.displays) && typeof sim?.windowDisplayId === 'number'
           ? { displays: sim.displays, windowDisplayId: sim.windowDisplayId }
