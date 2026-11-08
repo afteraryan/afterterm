@@ -128,6 +128,17 @@ Options:
   the values, a value could be private) are recorded in the run record as
   `extraEnv` and printed in the launch summary.
 
+`--env AFTERTERM_NOTIFY_STATE=<state or file>` (dev builds only) replaces the question
+the toast hold asks Windows before a toast shows (AFT-72, `docs/features-notifications.md`):
+a state's name (`busy`, `fullscreen` and `presentation` hold the toasts; `accepts`,
+`unknown` and the rest show them), or the path of a file holding one, read on every
+question, so a test can change the state mid-run by writing the file. Every answer is
+logged as `[harness] notifier: <state> from <source> in <ms> ms, <what happened>`, and
+`drive eval "window.afterterm.harness.notifier()"` returns whether the overlay is visible,
+the hold, the polling, the last answer and the PowerShell helper's pid. Push a toast with
+`drive eval "window.afterterm.notify.push({ id: 'x-1', tabId: 'x', type: 'done', primaryLabel: 'Test', message: 'Finished' })"`.
+`docs/screenshots/notifier-and-display-fixes/scripts/hold-test.mjs` plays every state.
+
 `--env AFTERTERM_NO_EDITORS=1` makes a harness run behave as if no editor were
 installed, so a machine with VS Code can test that case (a code file goes to
 Notepad, logged as `[harness] files:open Notepad <file>`).
