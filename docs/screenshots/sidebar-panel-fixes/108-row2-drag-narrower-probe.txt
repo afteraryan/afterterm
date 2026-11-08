@@ -1,0 +1,7 @@
+drag from (460, 406) to (360, 406) in 12 steps, hold 700ms
+before   : {"panelPx":384,"screenW":776,"bodyResizing":false,"stateKey":384,"ev":[]}
+pressed  : {"panelPx":384,"screenW":776,"bodyResizing":true,"stateKey":384,"ev":[]}
+held     : {"panelPx":284,"screenW":776,"bodyResizing":true,"stateKey":384,"ev":[]}
+shot: docs\screenshots\sidebar-panel-fixes\107-row2-held-drag-narrower-terminal-not-refit.png
+tail-at-hold: ["    Lines:          42","    Columns:        97","    Keyboard rate:  31","    Keyboard delay: 1","    Code page:      437","","","C:\\Users\\Aryan\\AppData\\Local\\Temp\\claude\\fa0123314555e1c0\\a0efc8aa-7861-41bd-83eb-c902edfef41f\\sc","ratchpad\\tester-sidebar-panel\\cwd>"]
+released : {"panelPx":284,"screenW":880,"bodyResizing":false,"stateKey":284,"ev":[]}

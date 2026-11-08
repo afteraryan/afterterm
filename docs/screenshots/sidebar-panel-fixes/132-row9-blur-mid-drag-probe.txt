@@ -1,0 +1,10 @@
+drag from (676, 406) to (526, 406) in 12 steps, hold 600ms
+before   : {"panelPx":600,"screenW":560,"bodyResizing":false,"stateKey":600,"ev":[]}
+pressed  : {"panelPx":600,"screenW":560,"bodyResizing":true,"stateKey":600,"ev":[]}
+held     : {"panelPx":450,"screenW":560,"bodyResizing":true,"stateKey":600,"ev":[]}
+shot: docs\screenshots\sidebar-panel-fixes\130-row9-drag-held-before-blur.png
+at-hold  : "blur dispatched"
+after-ev : {"panelPx":450,"screenW":712,"bodyResizing":false,"stateKey":450,"ev":["blur@179507"]}
+shot: docs\screenshots\sidebar-panel-fixes\131-row9-after-blur-button-still-down.png
+released : {"panelPx":450,"screenW":712,"bodyResizing":false,"stateKey":450,"ev":["blur@179507"]}
+session.json ui after the blur commit: {"panelHidden":false,"panelWidth":450}
