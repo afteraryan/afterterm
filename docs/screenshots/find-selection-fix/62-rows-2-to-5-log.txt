@@ -1,0 +1,236 @@
+=== rows 2 to 5, take 5 on a69503f, 2026-11-09T00:41:26.2312282+05:30
+--- row 2: bar open, search for blue done
+{
+  "bars": 1,
+  "focus": "find-input",
+  "count": "2/31",
+  "input": "blue",
+  "selText": "blue",
+  "selPos": {
+    "start": {
+      "x": 16,
+      "y": 5
+    },
+    "end": {
+      "x": 20,
+      "y": 5
+    }
+  },
+  "lastRow": "live writer tick 21 ok"
+}
+--- row 2: drag-select row 10 col 5 to row 14 col 20, bar open
+  [t+46ms] connected
+  [t+52ms] cells found
+  [t+437ms] released
+drag from row 15 col 5 (row 10 ) to row 19 col 20 (row 14 ), 12 steps
++0ms (read at 2ms) selection: {"has":true,"text":"10 red green blue yellow orange violet\r\nrow 11 red green blue yellow orange violet\r\nrow 12 red green blue yellow orange violet\r\nrow 13 red green blue yellow orange violet\r\nrow 14 red green bl","position":{"start":{"x":4,"y":14},"end":{"x":19,"y":18}}} | last row: ["live writer tick 23 ok"]
++1000ms (read at 1010ms) selection: {"has":true,"text":"10 red green blue yellow orange violet\r\nrow 11 red green blue yellow orange violet\r\nrow 12 red green blue yellow orange violet\r\nrow 13 red green blue yellow orange violet\r\nrow 14 red green bl","position":{"start":{"x":4,"y":14},"end":{"x":19,"y":18}}} | last row: ["live writer tick 25 ok"]
++3000ms (read at 3004ms) selection: {"has":true,"text":"10 red green blue yellow orange violet\r\nrow 11 red green blue yellow orange violet\r\nrow 12 red green blue yellow orange violet\r\nrow 13 red green blue yellow orange violet\r\nrow 14 red green bl","position":{"start":{"x":4,"y":14},"end":{"x":19,"y":18}}} | last row: ["live writer tick 29 ok"]
+--- row 2: state after the reads
+{
+  "bars": 1,
+  "focus": "xterm-helper-textarea",
+  "count": "",
+  "input": "blue",
+  "selText": "10 red green blue yellow orange violet\r\n...(191 chars)",
+  "selPos": {
+    "start": {
+      "x": 4,
+      "y": 14
+    },
+    "end": {
+      "x": 19,
+      "y": 18
+    }
+  },
+  "lastRow": "live writer tick 29 ok"
+}
+--- row 3: Enter in the find bar
+--- row 3: after first Enter
+{
+  "bars": 1,
+  "focus": "find-input",
+  "count": "11/31",
+  "input": "blue",
+  "selText": "blue",
+  "selPos": {
+    "start": {
+      "x": 17,
+      "y": 14
+    },
+    "end": {
+      "x": 21,
+      "y": 14
+    }
+  },
+  "lastRow": "live writer tick 31 ok"
+}
+--- row 3: after second Enter
+{
+  "bars": 1,
+  "focus": "find-input",
+  "count": "12/31",
+  "input": "blue",
+  "selText": "blue",
+  "selPos": {
+    "start": {
+      "x": 17,
+      "y": 15
+    },
+    "end": {
+      "x": 21,
+      "y": 15
+    }
+  },
+  "lastRow": "live writer tick 33 ok"
+}
+--- row 3: two seconds later
+{
+  "bars": 1,
+  "focus": "find-input",
+  "count": "12/31",
+  "input": "blue",
+  "selText": "blue",
+  "selPos": {
+    "start": {
+      "x": 17,
+      "y": 15
+    },
+    "end": {
+      "x": 21,
+      "y": 15
+    }
+  },
+  "lastRow": "live writer tick 37 ok"
+}
+--- row 4: Esc in the find box
+--- row 4: bar closed with Esc
+{
+  "bars": 0,
+  "focus": "xterm-helper-textarea",
+  "count": null,
+  "input": null,
+  "selText": "blue",
+  "selPos": {
+    "start": {
+      "x": 17,
+      "y": 15
+    },
+    "end": {
+      "x": 21,
+      "y": 15
+    }
+  },
+  "lastRow": "live writer tick 38 ok"
+}
+  [t+45ms] connected
+  [t+51ms] cells found
+  [t+440ms] released
+drag from row 25 col 5 (row 20 ) to row 29 col 20 (row 24 ), 12 steps
++0ms (read at 1ms) selection: {"has":true,"text":"20 red green blue yellow orange violet\r\nrow 21 red green blue yellow orange violet\r\nrow 22 red green blue yellow orange violet\r\nrow 23 red green blue yellow orange violet\r\nrow 24 red green bl","position":{"start":{"x":4,"y":24},"end":{"x":19,"y":28}}} | last row: ["live writer tick 40 ok"]
++1000ms (read at 1010ms) selection: {"has":true,"text":"20 red green blue yellow orange violet\r\nrow 21 red green blue yellow orange violet\r\nrow 22 red green blue yellow orange violet\r\nrow 23 red green blue yellow orange violet\r\nrow 24 red green bl","position":{"start":{"x":4,"y":24},"end":{"x":19,"y":28}}} | last row: ["live writer tick 42 ok"]
++3000ms (read at 3015ms) selection: {"has":true,"text":"20 red green blue yellow orange violet\r\nrow 21 red green blue yellow orange violet\r\nrow 22 red green blue yellow orange violet\r\nrow 23 red green blue yellow orange violet\r\nrow 24 red green bl","position":{"start":{"x":4,"y":24},"end":{"x":19,"y":28}}} | last row: ["live writer tick 46 ok"]
+--- row 4: state after the reads
+{
+  "bars": 0,
+  "focus": "xterm-helper-textarea",
+  "count": null,
+  "input": null,
+  "selText": "20 red green blue yellow orange violet\r\n...(191 chars)",
+  "selPos": {
+    "start": {
+      "x": 4,
+      "y": 24
+    },
+    "end": {
+      "x": 19,
+      "y": 28
+    }
+  },
+  "lastRow": "live writer tick 46 ok"
+}
+--- row 5: reopen the bar, search, close with the x button
+--- row 5: bar reopened (text kept?)
+{
+  "bars": 1,
+  "focus": "find-input",
+  "count": "",
+  "input": "blue",
+  "selText": "20 red green blue yellow orange violet\r\n...(191 chars)",
+  "selPos": {
+    "start": {
+      "x": 4,
+      "y": 24
+    },
+    "end": {
+      "x": 19,
+      "y": 28
+    }
+  },
+  "lastRow": "live writer tick 47 ok"
+}
+--- row 5: Enter pressed, search live
+{
+  "bars": 1,
+  "focus": "find-input",
+  "count": "21/31",
+  "input": "blue",
+  "selText": "blue",
+  "selPos": {
+    "start": {
+      "x": 17,
+      "y": 24
+    },
+    "end": {
+      "x": 21,
+      "y": 24
+    }
+  },
+  "lastRow": "live writer tick 51 ok"
+}
+--- row 5: bar closed with the x
+{
+  "bars": 0,
+  "focus": "xterm-helper-textarea",
+  "count": null,
+  "input": null,
+  "selText": "blue",
+  "selPos": {
+    "start": {
+      "x": 17,
+      "y": 24
+    },
+    "end": {
+      "x": 21,
+      "y": 24
+    }
+  },
+  "lastRow": "live writer tick 53 ok"
+}
+  [t+49ms] connected
+  [t+55ms] cells found
+  [t+430ms] released
+drag from row 11 col 5 (row 6 ) to row 14 col 20 (row 9 ), 12 steps
++0ms (read at 1ms) selection: {"has":true,"text":"6 red green blue yellow orange violet\r\nrow 7 red green blue yellow orange violet\r\nrow 8 red green blue yellow orange violet\r\nrow 9 red green blu","position":{"start":{"x":4,"y":10},"end":{"x":19,"y":13}}} | last row: ["live writer tick 55 ok"]
++1000ms (read at 1007ms) selection: {"has":true,"text":"6 red green blue yellow orange violet\r\nrow 7 red green blue yellow orange violet\r\nrow 8 red green blue yellow orange violet\r\nrow 9 red green blu","position":{"start":{"x":4,"y":10},"end":{"x":19,"y":13}}} | last row: ["live writer tick 57 ok"]
++3000ms (read at 3017ms) selection: {"has":true,"text":"6 red green blue yellow orange violet\r\nrow 7 red green blue yellow orange violet\r\nrow 8 red green blue yellow orange violet\r\nrow 9 red green blu","position":{"start":{"x":4,"y":10},"end":{"x":19,"y":13}}} | last row: ["live writer tick 61 ok"]
+--- row 5: state after the reads
+{
+  "bars": 0,
+  "focus": "xterm-helper-textarea",
+  "count": null,
+  "input": null,
+  "selText": "6 red green blue yellow orange violet\r\nr...(144 chars)",
+  "selPos": {
+    "start": {
+      "x": 4,
+      "y": 10
+    },
+    "end": {
+      "x": 19,
+      "y": 13
+    }
+  },
+  "lastRow": "live writer tick 61 ok"
+}
+=== done 2026-11-09T00:41:52.2246224+05:30
