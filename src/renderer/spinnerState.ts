@@ -27,6 +27,21 @@
 // status starts working from quiet (onRecordStatus) and holds it through silence
 // (onTick), so a chat with no hooks has a spinner and a stalled turn keeps it.
 //
+// 2026-11-08 (AFT-25, AFT-43): background is a live state, not a badge. A thread is
+// background while the hook's last word on its background work was ⏳ (the flag
+// Tab.backgroundTasks, backgroundAfterTitle) and nothing louder is going on: every
+// change of notif goes through withBackground, so a quiet thread with that flag shows
+// background, viewed or not, until the hook's ✅ (the Stop that ran with nothing left),
+// the thread's Claude going away or sleep. Seeing it no longer clears it; done still
+// clears when seen (clearsWhenSeen).
+//
+// 2026-11-08 (AFT-42): a cancelled compaction sends no hook event (Claude Code runs
+// PostCompact only after a compaction that finished), so compacting also ends on Esc
+// or Ctrl+C in the thread (onInterrupt), on the session record leaving busy for idle
+// (onRecordStatus), and after COMPACT_SILENCE_CLEAR_MS of output silence while the
+// record does not say busy (onTick). Claude Code's compaction spinner animates, so the
+// output is not silent while a compaction really runs.
+//
 // This is empirically grounded (scripts/spinner-harness): across pure-think, tool-
 // heavy, and mixed turns the PTY was never silent for more than ~450ms while Claude
 // worked; at idle it is silent indefinitely; at a permission/compaction pause it goes
@@ -50,6 +65,13 @@ export const SILENCE_CLEAR_MS = 2500;
 // same way; it no longer does (see the header), since moving the cursor through
 // a permission prompt's options echoes output too.
 export const REARM_AFTER_QUIET_MS = 1500;
+
+// Clear `compacting` once output has been silent this long and the record does not
+// say busy (AFT-42). Longer than SILENCE_CLEAR_MS because a compaction is long and a
+// false clear has nothing to bring it back: Claude Code 2.1.319 draws an animated
+// spinner ("Compacting conversation") for as long as a compaction runs, so seconds of
+// silence mean it has ended (cancelled, failed or finished) and the prompt is idle.
+export const COMPACT_SILENCE_CLEAR_MS = 5000;
 
 // Per-tab timing the decisions read/update. Kept tiny and serializable so the driver
 // can hold one per tab in a plain Map.
@@ -84,18 +106,23 @@ export function onOutput(current: Notif, timing: TabTiming, at: number, byteLen:
   return current;
 }
 
-// A periodic clock tick. Clears `working` after sustained output silence. Only ever
-// acts on `working`; attention/compacting/done are left for a title or re-arm to
-// change, so a silent permission wait stays "needs permission", not blank.
+// A periodic clock tick. Clears `working` after sustained output silence, and
+// `compacting` after a longer one (AFT-42: a compaction cancelled with nothing after
+// it used to keep its icon until some later redraw). Attention, done and background
+// are left for a title or a key to change, so a silent permission wait stays "needs
+// permission", not blank.
 //
 // `record` is what Claude Code's own session record says (plan-02, Fix 11). While it
-// says busy, Claude is working however quiet the output is, so silence does not clear
-// `working`: a turn that stalled for a few seconds used to lose its spinner for the
-// rest of the turn (note-03, row 3). Once the record goes idle the silence rule
-// applies again, measured from the last output, so a turn that ended long ago clears
-// on the next tick.
+// says busy, Claude is working however quiet the output is, so silence clears neither
+// state: a turn that stalled for a few seconds used to lose its spinner for the rest
+// of the turn (note-03, row 3). Once the record goes idle the silence rule applies
+// again, measured from the last output, so a turn that ended long ago clears on the
+// next tick.
 export function onTick(current: Notif, timing: TabTiming, at: number, record?: RecordStatus): Notif {
-  if (current === 'working' && record !== 'busy' && at - timing.lastOutputAt > SILENCE_CLEAR_MS) return undefined;
+  if (record === 'busy') return current;
+  const quiet = at - timing.lastOutputAt;
+  if (current === 'working' && quiet > SILENCE_CLEAR_MS) return undefined;
+  if (current === 'compacting' && quiet > COMPACT_SILENCE_CLEAR_MS) return undefined;
   return current;
 }
 
@@ -109,17 +136,25 @@ export function onTick(current: Notif, timing: TabTiming, at: number, record?: R
 // leaves the notif alone: idle does not clear working (the silence clear in onTick
 // does that, now that the record no longer holds it), and waiting does not set
 // needs-you, which stays the hook's to say.
+//
+// The one exception is compacting (AFT-42). Main pushes a status only when it
+// changes, so idle or shell arriving while the thread shows compacting means Claude
+// Code has just stopped being busy: the compaction is over, finished or cancelled,
+// and no hook says so after a cancel. (Shell is idle with a background shell task.)
 export function onRecordStatus(current: Notif, record: RecordStatus | undefined): Notif {
   if (record === 'busy' && current === undefined) return 'working';
+  if (current === 'compacting' && (record === 'idle' || record === 'shell')) return undefined;
   return current;
 }
 
 // A real user interrupt (Esc / Ctrl+C) ends the turn from afterterm's view: a
-// working turn stops, and a permission prompt is cancelled (Esc at Claude Code's
-// prompt declines it, Ctrl+C aborts the turn), so attention goes quiet too. Done,
-// compacting and background are left for a title to change.
+// working turn stops, a permission prompt is cancelled (Esc at Claude Code's prompt
+// declines it, Ctrl+C aborts the turn), so attention goes quiet too, and a
+// compaction is cancelled (Claude Code says "Compaction canceled." and runs no hook,
+// AFT-42). Done and background are left alone: an interrupt neither answers a
+// finished turn nor stops background work.
 export function onInterrupt(current: Notif): Notif {
-  return current === 'working' || current === 'attention' ? undefined : current;
+  return current === 'working' || current === 'attention' || current === 'compacting' ? undefined : current;
 }
 
 // Enter pressed in the thread. At a permission prompt that is the answer (allow,
@@ -136,34 +171,40 @@ export function onAnswer(current: Notif, timing: TabTiming, at: number): Notif {
   return 'working';
 }
 
-// The badges that only report a turn that has ended: `done` (✅) and `background`
-// (⏳, the turn ended with background tasks or session crons still running).
-// Seeing the thread is all either asks for, so both clear when it is looked at.
-// Needs-you is not one (a permission prompt is still waiting after a look), and
-// neither are working and compacting, which are a turn still in progress. This is
-// the one rule behind both clearing paths in app.tsx: activating a thread
-// (clearThreadBadges) and a title landing on the thread being viewed
-// (handleNotification, through onViewedTitle). They used to disagree: the viewing
-// path cleared only done, so a ⏳ that arrived while the user watched the turn
-// end kept its spinner until they switched away and back (docs/bugs-fixed.md).
+// The badge that only reports a turn that has ended: `done` (✅). Seeing the thread
+// is all it asks for, so it clears when it is looked at. Needs-you is not one (a
+// permission prompt is still waiting after a look), and neither are working and
+// compacting, which are a turn still in progress. This is the one rule behind both
+// clearing paths in app.tsx: activating a thread (clearThreadBadges) and a title
+// landing on the thread being viewed (handleNotification, through onViewedTitle).
+//
+// `background` (⏳) cleared here too until 2026-11-08, as a "finished while you were
+// away" badge. That hid the work it announced: a chat opened while its background
+// agent still ran lost the hourglass for the rest of the run (AFT-43), and a chat on
+// screen when its turn ended never showed it at all (AFT-25). It is a live state now
+// (withBackground). What still holds from the 2026-09-25 fix (PR #39) is that the
+// spinner stops when the turn ends: a ⏳ on the viewed thread swaps the spinner for
+// the hourglass.
 export function clearsWhenSeen(n: Notif): boolean {
-  return n === 'done' || n === 'background';
+  return n === 'done';
 }
 
 // Whether a chat still has background work running, as far as the hook's titles say
 // (plan-02, Fix 7; Tab.backgroundTasks). The ⏳ title is the only signal for a
 // background agent or a session cron (/loop, schedules): Claude Code's record says
-// `shell` only for a background shell command. The ⏳ badge itself is cleared the
-// moment the thread is seen (clearsWhenSeen), so the restart window cannot read it
-// from `notification`: this flag holds it instead, and viewing never clears it. A ⏳
-// title sets it; only a ✅ (done) clears it, since that is the hook's Stop running
-// with nothing left (a Stop with tasks remaining sends ⏳ again). ▶, ⚠ and ⚙ leave it
-// alone: a new turn can be interrupted with Esc, and Claude Code runs no Stop hook on
-// an interrupt, so no ⏳ would come back; and a background agent's own permission
-// prompt raises ⚠ while the agent still runs (seen in the 2026-11-07 live retest).
-// While those last the thread is mid-turn anyway. An undecorated title (undefined)
-// changes nothing. The Claude going away clears it too (backgroundAfterRecord), and
-// so does sleep.
+// `shell` only for a background shell command, and busy both for a turn and for a
+// background agent. Viewing never clears this flag, and since 2026-11-08 it is what
+// the background state is drawn from (withBackground), so the restart window and the
+// sidebar agree. A ⏳ title sets it; only a ✅ (done) clears it, since that is the
+// hook's Stop running with nothing left (a Stop with tasks remaining sends ⏳ again;
+// when a task ends Claude Code starts a turn to tell the model, so that Stop comes on
+// its own). ▶, ⚠ and ⚙ leave it alone: a new turn can be interrupted with Esc, and
+// Claude Code runs no Stop hook on an interrupt, so no ⏳ would come back; and a
+// background agent's own permission prompt raises ⚠ while the agent still runs (seen
+// in the 2026-11-07 live retest). An undecorated title (undefined) changes nothing.
+// The Claude going away clears it too (backgroundAfterRecord), and so does sleep. An
+// idle record does not: a session cron is counted by the hook and leaves the record
+// idle between its runs.
 export function backgroundAfterTitle(current: boolean, titleNotif: Notif): boolean {
   if (titleNotif === 'background') return true;
   if (titleNotif === 'done') return false;
@@ -184,9 +225,24 @@ export function backgroundAfterRecord(
 }
 
 // What a title's notif becomes when it lands on a thread. On the thread the user
-// is looking at, with the window focused, a done or background badge has already
-// been seen, so it clears at once; anything else, or any thread not in view,
-// keeps it until the thread is opened.
+// is looking at, with the window focused, a done badge has already been seen, so it
+// clears at once; anything else, or any thread not in view, keeps it until the
+// thread is opened.
 export function onViewedTitle(next: Notif, viewing: boolean): Notif {
   return viewing && clearsWhenSeen(next) ? undefined : next;
+}
+
+// The notif a thread is given, once its background work flag is known (AFT-25,
+// AFT-43). Every change of notif in app.tsx goes through here, so background is a
+// state with a lifetime rather than a badge: a thread with background work running
+// shows background whenever nothing louder (needs-you, working, done, compacting) is
+// going on, whether or not it is being viewed. An interrupted turn, a silence clear,
+// a cancelled compaction or a seen done falls back to background while the work
+// runs, and a thread whose flag has cleared (its Claude went away) drops a leftover
+// background to quiet. The hook's ✅ is what ends it in the ordinary case: the flag
+// clears and the notif is done, which clears when seen.
+export function withBackground(next: Notif, background: boolean): Notif {
+  if (next === undefined && background) return 'background';
+  if (next === 'background' && !background) return undefined;
+  return next;
 }

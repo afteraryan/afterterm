@@ -10,8 +10,10 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import {
   onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, clearsWhenSeen, initTiming,
-  onRecordStatus, backgroundAfterTitle, backgroundAfterRecord, SILENCE_CLEAR_MS, REARM_AFTER_QUIET_MS,
+  onRecordStatus, backgroundAfterTitle, backgroundAfterRecord, withBackground,
+  SILENCE_CLEAR_MS, REARM_AFTER_QUIET_MS, COMPACT_SILENCE_CLEAR_MS,
 } from './spinnerState.ts';
+import type { RecordStatus } from '../claude-session-record.ts';
 import type { Notif } from './spinnerState.ts';
 
 let pass = 0, fail = 0;
@@ -44,8 +46,44 @@ console.log('\nspinnerState — unit rules\n');
   // tick must never blank a paused/finished state — only working
   check('tick never clears attention (silent permission wait stays a prompt)',
     onTick('attention', initTiming(0), 999999) === 'attention');
-  check('tick never clears compacting', onTick('compacting', initTiming(0), 999999) === 'compacting');
   check('tick never clears done', onTick('done', initTiming(0), 999999) === 'done');
+  check('tick never clears background', onTick('background', initTiming(0), 999999) === 'background');
+}
+
+// ── onTick: a compaction that ended with no hook title (AFT-42) ───────────────
+{
+  const t = initTiming(1000);
+  check('the compacting silence window is longer than the working one', COMPACT_SILENCE_CLEAR_MS > SILENCE_CLEAR_MS);
+  check('compacting held past the working window (a compaction is long)',
+    onTick('compacting', t, 1000 + SILENCE_CLEAR_MS + 1) === 'compacting');
+  check('compacting held just under its own window',
+    onTick('compacting', t, 1000 + COMPACT_SILENCE_CLEAR_MS) === 'compacting');
+  check('compacting cleared just past its own window (cancelled, nothing after it)',
+    onTick('compacting', t, 1000 + COMPACT_SILENCE_CLEAR_MS + 1) === undefined);
+  check('record busy: compacting survives any silence',
+    onTick('compacting', t, 1000 + COMPACT_SILENCE_CLEAR_MS * 20, 'busy') === 'compacting');
+  check('record idle, shell, waiting or none: the compacting silence clear applies',
+    onTick('compacting', t, 1000 + COMPACT_SILENCE_CLEAR_MS + 1, 'idle') === undefined
+    && onTick('compacting', t, 1000 + COMPACT_SILENCE_CLEAR_MS + 1, 'shell') === undefined
+    && onTick('compacting', t, 1000 + COMPACT_SILENCE_CLEAR_MS + 1, 'waiting') === undefined
+    && onTick('compacting', t, 1000 + COMPACT_SILENCE_CLEAR_MS + 1, undefined) === undefined);
+}
+{
+  // Claude Code's compaction spinner animates: output every few hundred ms keeps the
+  // compacting state for as long as the compaction runs, however long that is.
+  const t = initTiming(0);
+  let n: Notif = onTitle('working', 'compacting', t, 0);
+  for (let at = 300; at <= 60_000; at += 300) {
+    n = onOutput(n, t, at, 40);
+    n = onTick(n, t, at + 150);
+  }
+  check('a minute of compaction spinner output keeps compacting', n === 'compacting');
+  // Esc: "Compaction canceled." renders, then nothing.
+  n = onOutput(n, t, 60_200, 120);
+  n = onTick(n, t, 60_200 + COMPACT_SILENCE_CLEAR_MS);
+  check('after the cancel renders: still compacting inside the window', n === 'compacting');
+  n = onTick(n, t, 60_200 + COMPACT_SILENCE_CLEAR_MS + 500);
+  check('after the cancel renders: quiet once the window passes', n === undefined);
 }
 
 // ── Claude Code's session record (plan-02, Fix 11) ───────────────────────────
@@ -88,6 +126,15 @@ console.log('\nspinnerState — unit rules\n');
   check('shell and no record change nothing',
     onRecordStatus(undefined, 'shell') === undefined && onRecordStatus('done', undefined) === 'done'
     && onRecordStatus('working', undefined) === 'working');
+  // AFT-42: the record leaving busy while the thread shows compacting is the
+  // compaction ending (finished or cancelled); no hook says so after a cancel.
+  check('idle ends compacting', onRecordStatus('compacting', 'idle') === undefined);
+  check('shell ends compacting (idle, with a background shell task)', onRecordStatus('compacting', 'shell') === undefined);
+  check('waiting and no record leave compacting',
+    onRecordStatus('compacting', 'waiting') === 'compacting' && onRecordStatus('compacting', undefined) === 'compacting');
+  check('idle and shell end only compacting',
+    onRecordStatus('background', 'idle') === 'background' && onRecordStatus('attention', 'idle') === 'attention'
+    && onRecordStatus('done', 'shell') === 'done');
 }
 
 // ── onOutput: refresh clock + re-arm ────────────────────────────────────────
@@ -144,8 +191,10 @@ check('interrupt clears working', onInterrupt('working') === undefined);
 check('interrupt clears attention (Esc or Ctrl+C at a prompt cancels it)', onInterrupt('attention') === undefined);
 check('interrupt leaves undefined alone', onInterrupt(undefined) === undefined);
 check('interrupt leaves done alone', onInterrupt('done') === 'done');
-check('interrupt leaves compacting alone', onInterrupt('compacting') === 'compacting');
-check('interrupt leaves background alone', onInterrupt('background') === 'background');
+// AFT-42: Esc or Ctrl+C during a compaction cancels it ("Compaction canceled."), and
+// Claude Code runs no hook after a cancel.
+check('interrupt cancels compacting', onInterrupt('compacting') === undefined);
+check('interrupt leaves background alone (it does not stop background work)', onInterrupt('background') === 'background');
 
 // ── onAnswer (Phase 7) ──────────────────────────────────────────────────────
 {
@@ -219,15 +268,17 @@ check('interrupt leaves background alone', onInterrupt('background') === 'backgr
 // ── clearsWhenSeen / onViewedTitle: what a look at the thread clears ─────────
 {
   check('done clears when seen', clearsWhenSeen('done'));
-  check('background clears when seen', clearsWhenSeen('background'));
+  // AFT-43: background is a live state now, not a badge, so a look does not clear it.
+  check('background does not clear when seen', !clearsWhenSeen('background'));
   check('needs-you does not clear when seen', !clearsWhenSeen('attention'));
   check('working does not clear when seen', !clearsWhenSeen('working'));
   check('compacting does not clear when seen', !clearsWhenSeen('compacting'));
   check('quiet has nothing to clear', !clearsWhenSeen(undefined));
 
-  // The bug: a ⏳ landing on the thread being viewed kept its spinner, because
-  // only done was cleared on this path while activation cleared both.
-  check('background on the viewed thread clears at once', onViewedTitle('background', true) === undefined);
+  // AFT-25: a ⏳ landing on the thread being viewed used to clear at once, so a
+  // chat on screen when its turn ended never showed its background agent. It stays
+  // now, and the spinner still stops (working gives way to background).
+  check('background on the viewed thread stays', onViewedTitle('background', true) === 'background');
   check('done on the viewed thread clears at once', onViewedTitle('done', true) === undefined);
   check('background on a thread not in view stays', onViewedTitle('background', false) === 'background');
   check('done on a thread not in view stays', onViewedTitle('done', false) === 'done');
@@ -237,15 +288,16 @@ check('interrupt leaves background alone', onInterrupt('background') === 'backgr
   check('an undecorated title on the viewed thread stays quiet', onViewedTitle(undefined, true) === undefined);
 }
 {
-  // A background turn end, the way handleNotification runs it: onTitle, then the
-  // viewing rule. Viewed, the thread goes quiet; not viewed, it keeps the badge
-  // for activation to clear.
+  // A background turn end, the way handleNotification runs it: the flag, then
+  // onTitle, then the viewing rule, then withBackground. Viewed or not, the thread
+  // shows background, and the spinner has stopped.
   const t = initTiming(0);
-  const viewed = onViewedTitle(onTitle('working', 'background', t, 1000), true);
-  check('turn ending with background tasks, viewed: quiet', viewed === undefined);
-  const unseen = onViewedTitle(onTitle('working', 'background', t, 1000), false);
+  const flag = backgroundAfterTitle(false, 'background');
+  const viewed = withBackground(onViewedTitle(onTitle('working', 'background', t, 1000), true), flag);
+  check('turn ending with background tasks, viewed: background, not the spinner', viewed === 'background');
+  const unseen = withBackground(onViewedTitle(onTitle('working', 'background', t, 1000), false), flag);
   check('turn ending with background tasks, not viewed: background', unseen === 'background');
-  check('the badge left on a thread not in view clears on opening it', clearsWhenSeen(unseen));
+  check('opening it leaves background (AFT-43)', !clearsWhenSeen(unseen));
 }
 
 // ── The background work flag (plan-02, Fix 7) ───────────────────────────────
@@ -265,13 +317,12 @@ check('interrupt leaves background alone', onInterrupt('background') === 'backgr
     backgroundAfterTitle(backgroundAfterTitle(backgroundAfterTitle(false, 'background'), 'working'), undefined) === true);
   check('an undecorated title changes nothing',
     backgroundAfterTitle(true, undefined) === true && backgroundAfterTitle(false, undefined) === false);
-  // The badge clears on the viewed thread; the flag does not. Viewing is not a title,
-  // so nothing here can clear it: only onViewedTitle touches the badge.
+  // On the thread being viewed both the state and the flag are set by a ⏳ now.
   const t = initTiming(0);
   const title: Notif = 'background';
-  const badge = onViewedTitle(onTitle('working', title, t, 1000), true);
   const flag = backgroundAfterTitle(false, title);
-  check('on the thread being viewed the ⏳ badge clears but the flag is set', badge === undefined && flag === true);
+  const shown = withBackground(onViewedTitle(onTitle('working', title, t, 1000), true), flag);
+  check('on the thread being viewed a ⏳ sets the flag and shows background', shown === 'background' && flag === true);
 
   // The thread's Claude going away (/exit): no hook title will come to clear it.
   check('the record going from idle to none clears the flag', backgroundAfterRecord(true, 'idle', undefined) === false);
@@ -283,6 +334,153 @@ check('interrupt leaves background alone', onInterrupt('background') === 'backgr
     backgroundAfterRecord(true, undefined, undefined) === true);
   check('nothing ever sets the flag from the record', backgroundAfterRecord(false, undefined, 'shell') === false
     && backgroundAfterRecord(false, 'idle', undefined) === false);
+}
+
+// ── withBackground: background as a live state (AFT-25, AFT-43) ──────────────
+{
+  check('quiet with background work shows background', withBackground(undefined, true) === 'background');
+  check('quiet with none stays quiet', withBackground(undefined, false) === undefined);
+  check('a leftover background with no work left goes quiet', withBackground('background', false) === undefined);
+  check('background with work running stays', withBackground('background', true) === 'background');
+  check('louder states win over background work',
+    withBackground('working', true) === 'working' && withBackground('attention', true) === 'attention'
+    && withBackground('done', true) === 'done' && withBackground('compacting', true) === 'compacting');
+  check('louder states are untouched without background work',
+    withBackground('working', false) === 'working' && withBackground('done', false) === 'done');
+}
+
+// A thread the way app.tsx drives it: every event updates the flag first, then
+// settles the notif against it, and opening the thread clears only what
+// clearsWhenSeen says. Plays whole stories through the real functions.
+function thread() {
+  const t = initTiming(0);
+  let notif: Notif = undefined;
+  let bg = false;
+  let record: RecordStatus | undefined = undefined;
+  return {
+    title(n: Notif, at: number, viewing: boolean) {
+      bg = backgroundAfterTitle(bg, n);
+      notif = withBackground(onViewedTitle(onTitle(notif, n, t, at), viewing), bg);
+    },
+    output(at: number, len = 50) { notif = withBackground(onOutput(notif, t, at, len), bg); },
+    tick(at: number) { notif = withBackground(onTick(notif, t, at, record), bg); },
+    esc() { notif = withBackground(onInterrupt(notif), bg); },
+    open() { if (clearsWhenSeen(notif)) notif = withBackground(undefined, bg); },
+    record(next: typeof record) {
+      bg = backgroundAfterRecord(bg, record, next);
+      record = next;
+      notif = withBackground(onRecordStatus(notif, next), bg);
+    },
+    get notif() { return notif; },
+    get bg() { return bg; },
+  };
+}
+{
+  // AFT-43: the turn ends with a background agent while another thread is in view,
+  // then the chat is opened, then the user moves on and comes back.
+  const th = thread();
+  th.title('working', 1000, false);
+  th.title('background', 9000, false);
+  check('AFT-43: not in view, the ⏳ shows background', th.notif === 'background');
+  th.open();
+  check('AFT-43: opening the chat keeps background', th.notif === 'background');
+  th.tick(60_000);
+  th.open();
+  check('AFT-43: a minute later and another look, still background', th.notif === 'background');
+  // The agent ends: Claude Code starts a turn to tell the model, and its Stop has nothing left.
+  th.title('working', 120_000, true);
+  check('AFT-43: the report turn shows working', th.notif === 'working');
+  th.title('done', 130_000, true);
+  check('AFT-43: its ✅ on the viewed chat ends background and clears done', th.notif === undefined && !th.bg);
+}
+{
+  // AFT-25: the chat is on screen the whole time.
+  const th = thread();
+  th.title('working', 1000, true);
+  th.title('background', 9000, true);
+  check('AFT-25: on screen, the ⏳ shows background (the spinner stops)', th.notif === 'background');
+  th.output(9500, 3000);
+  th.tick(9500 + SILENCE_CLEAR_MS + 1);
+  th.tick(600_000);
+  check('AFT-25: background holds through output and silence', th.notif === 'background');
+}
+{
+  // A new prompt while the background work runs, then Esc: no Stop hook runs, so no
+  // ⏳ comes back, and the thread falls back to background.
+  const th = thread();
+  th.title('background', 1000, true);
+  th.title('working', 5000, true);
+  check('a new turn over background work shows working', th.notif === 'working');
+  th.esc();
+  check('Esc on that turn falls back to background', th.notif === 'background');
+}
+{
+  // A new turn whose ✅ never comes: the silence clear drops working to background.
+  const th = thread();
+  th.title('background', 1000, true);
+  th.title('working', 5000, true);
+  th.tick(5000 + SILENCE_CLEAR_MS + 1);
+  check('a silence-cleared turn over background work shows background', th.notif === 'background');
+}
+{
+  // A ✅ on a thread not in view while background was showing: done, then the look
+  // clears it to quiet, since the flag went with the ✅.
+  const th = thread();
+  th.title('background', 1000, false);
+  th.title('done', 2000, false);
+  check('a ✅ not in view shows done', th.notif === 'done' && !th.bg);
+  th.open();
+  check('opening it then goes quiet', th.notif === undefined);
+}
+{
+  // The thread's Claude goes away (/exit): the record goes from a value to none.
+  const th = thread();
+  th.record('busy');
+  th.title('background', 1000, true);
+  th.record(undefined);
+  check('the Claude going away ends background', th.notif === undefined && !th.bg);
+}
+{
+  // A background agent's own permission prompt: needs-you, answered, then background.
+  const th = thread();
+  th.title('background', 1000, false);
+  th.title('attention', 2000, false);
+  check('the agent\'s permission prompt shows needs-you', th.notif === 'attention' && th.bg);
+  th.esc();
+  check('declining it falls back to background', th.notif === 'background');
+}
+{
+  // AFT-42: a compaction cancelled with Esc, on a thread with and without background work.
+  const th = thread();
+  th.title('compacting', 1000, true);
+  th.esc();
+  check('AFT-42: Esc during a compaction goes quiet at once', th.notif === undefined);
+  const th2 = thread();
+  th2.title('background', 500, true);
+  th2.title('compacting', 1000, true);
+  th2.esc();
+  check('AFT-42: with background work running it falls back to background', th2.notif === 'background');
+}
+{
+  // AFT-42: the same cancel seen through the record: busy while compacting, then idle.
+  const th = thread();
+  th.record('idle');
+  th.title('compacting', 1000, true);
+  th.record('busy');
+  th.tick(1000 + COMPACT_SILENCE_CLEAR_MS * 3);
+  check('AFT-42: a busy record holds compacting through silence', th.notif === 'compacting');
+  th.record('idle');
+  check('AFT-42: the record going idle ends it', th.notif === undefined);
+}
+{
+  // AFT-42: no record at all (none read, or WSL), and no key: silence ends it.
+  const th = thread();
+  th.title('compacting', 1000, false);
+  th.output(1200, 300);
+  th.tick(1200 + COMPACT_SILENCE_CLEAR_MS);
+  check('AFT-42: no record, inside the window: compacting', th.notif === 'compacting');
+  th.tick(1200 + COMPACT_SILENCE_CLEAR_MS + 500);
+  check('AFT-42: no record, past the window: quiet', th.notif === undefined);
 }
 
 // ── Replay real captured traces ─────────────────────────────────────────────
@@ -341,6 +539,42 @@ for (const name of ['think', 'tools', 'mixed']) {
     `${r.falseClears} false-clears`);
   check(`[${name}] max in-turn gap (${r.maxInTurnGap}ms) < silence window (${SILENCE_CLEAR_MS}ms)`,
     r.maxInTurnGap < SILENCE_CLEAR_MS, `${r.maxInTurnGap}ms`);
+}
+
+// The compaction probe (compact-probe.mjs): a turn, its ✅, then /compact. The
+// compacting state must survive the 3.6 s quiet stretch after the ⚙ (that gap ends
+// in output, which re-arms working), and nothing may be left showing at the end.
+{
+  const file = 'compact.jsonl';
+  if (!fs.existsSync(FIX_DIR + file)) { check('[compact] fixture present', false, 'missing ' + file); }
+  else {
+    const entries: Entry[] = fs.readFileSync(FIX_DIR + file, 'utf-8').split('\n').filter(Boolean).map(l => JSON.parse(l));
+    const timing = initTiming(0);
+    let notif: Notif = undefined;
+    let compactAt: number | null = null;
+    let clearedWhileCompacting = false;
+    let nextTick = 0;
+    const tickTo = (t: number) => {
+      while (nextTick <= t) {
+        const before = notif;
+        notif = onTick(notif, timing, nextTick);
+        if (before === 'compacting' && notif !== 'compacting') clearedWhileCompacting = true;
+        nextTick += TICK_MS;
+      }
+    };
+    for (const e of entries) {
+      tickTo(e.at);
+      notif = onOutput(notif, timing, e.at, e.len);
+      if (e.title != null) {
+        notif = onTitle(notif, e.notif ?? undefined, timing, e.at);
+        if (e.notif === 'compacting') compactAt = e.at;
+      }
+    }
+    tickTo(entries[entries.length - 1].at + COMPACT_SILENCE_CLEAR_MS + TICK_MS);
+    check('[compact] the ⚙ title was seen', compactAt !== null);
+    check('[compact] silence never cut the compaction short (its 3.6 s gap ends in a re-arm)', !clearedWhileCompacting);
+    check('[compact] nothing is left showing at the end', notif === undefined, `ended ${notif}`);
+  }
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

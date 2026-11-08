@@ -28,7 +28,7 @@ import type { Screen } from './components/ScreenNav';
 import { useTabState, threadGitCwd } from './hooks/useTabState';
 import { Tab, TabNotification, nextGroupColor } from './components/TabBar/types';
 import { groupColors } from './projectColour';
-import { onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, onRecordStatus, backgroundAfterTitle, backgroundAfterRecord, clearsWhenSeen, initTiming, TabTiming } from './spinnerState';
+import { onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, onRecordStatus, backgroundAfterTitle, backgroundAfterRecord, clearsWhenSeen, withBackground, initTiming, TabTiming } from './spinnerState';
 import { migrateSession, serializeSession } from './sessionMigration';
 import { sleepAllForShutdown, wakePlan } from './sleepWake';
 import { toastMessage, initialScreen, threadName, automaticThreadName, threadKind, needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText, localhostUrl, threadFolder, threadFolderTarget, projectLookChanges } from './threadView';
@@ -579,8 +579,15 @@ export function App() {
     if (!t) { t = initTiming(now); timingRef.current.set(tabId, t); }
     return t;
   };
-  const applyNotif = (tabId: string, cur: TabNotification | undefined, next: TabNotification | undefined) => {
-    if (next !== cur) stateRef.current.setTabNotification(tabId, next);
+  // Every change of notif lands here, with the thread's background work flag
+  // (Tab.backgroundTasks) as it stands after the event being handled: a caller that
+  // changes the flag in the same event passes the new value, since state still holds
+  // the old one until the next render. withBackground (spinnerState.ts) turns a quiet
+  // thread with background work into background, so the hourglass stays for as long
+  // as the work runs, viewed or not (AFT-25, AFT-43).
+  const applyNotif = (tabId: string, cur: TabNotification | undefined, next: TabNotification | undefined, background: boolean) => {
+    const settled = withBackground(next, background);
+    if (settled !== cur) stateRef.current.setTabNotification(tabId, settled);
   };
 
   // Load shells + restore session on mount
@@ -764,10 +771,12 @@ export function App() {
       const hadBackground = !!tab.backgroundTasks;
       const background = backgroundAfterRecord(hadBackground, tab.recordStatus, status ?? undefined);
       if (background !== hadBackground) stateRef.current.setBackgroundTasks(tabId, background);
+      // A busy record starts working from quiet; idle or shell ends a compaction that
+      // was cancelled (AFT-42). A thread left with background work shows background.
       const next = onRecordStatus(tab.notification, status ?? undefined);
       // The tick only clears a tab it has a clock for, so make sure there is one.
       if (next === 'working') getTiming(tabId, Date.now());
-      applyNotif(tabId, tab.notification, next);
+      applyNotif(tabId, tab.notification, next, background);
     });
   }, []);
 
@@ -854,17 +863,19 @@ export function App() {
     refreshGit(tabId, tab?.claudeCwd ?? cwd);
   }, []);
 
-  // Opening a thread clears what it had finished telling you: a 'done' or
-  // 'background' badge, the unread mark, and any overlay toast for it. It does
-  // not clear needs-you (Phase 7, design-03 decision 4): a permission prompt is
-  // still waiting after you look at it, and only answering it (Enter), cancelling
-  // it (Esc or Ctrl+C) or the hook's next title ends it, all in spinnerState.ts.
-  // 'working' and 'compacting' are ongoing-turn state, not unseen badges, so they
-  // keep spinning. The same rule (clearsWhenSeen) clears a title that lands on
-  // the thread while it is being viewed, in handleNotification.
+  // Opening a thread clears what it had finished telling you: a 'done' badge, the
+  // unread mark, and any overlay toast for it. It does not clear needs-you (Phase 7,
+  // design-03 decision 4): a permission prompt is still waiting after you look at
+  // it, and only answering it (Enter), cancelling it (Esc or Ctrl+C) or the hook's
+  // next title ends it, all in spinnerState.ts. 'working' and 'compacting' are
+  // ongoing-turn state, not unseen badges, so they keep spinning, and since
+  // 2026-11-08 so is 'background': it lasts while the background work runs (AFT-43),
+  // and a seen done falls back to it when there is still some (withBackground). The
+  // same rule (clearsWhenSeen) clears a title that lands on the thread while it is
+  // being viewed, in handleNotification.
   const clearThreadBadges = useCallback((tabId: string) => {
     const tab = stateRef.current.tabs.find(t => t.id === tabId);
-    if (clearsWhenSeen(tab?.notification)) stateRef.current.setTabNotification(tabId, undefined);
+    if (clearsWhenSeen(tab?.notification)) stateRef.current.setTabNotification(tabId, withBackground(undefined, !!tab?.backgroundTasks));
     if (tab?.unread) stateRef.current.setUnread(tabId, false);
     window.afterterm.notify.dismissTab(tabId);
   }, []);
@@ -947,23 +958,24 @@ export function App() {
     // plain title (see spinnerState.ts / docs/bugs.md), so it can't stop the spinner.
     const now = Date.now();
     const timing = getTiming(tabId, now);
-    const cur = stateRef.current.tabs.find(t => t.id === tabId)?.notification;
-    const next = onTitle(cur, type, timing, now);
-    // The user is looking at this thread right now: the same test that suppresses
-    // the toast below. A `done` or `background` that lands on the viewed thread
-    // has already been seen, so it clears at once instead of waiting for the next
-    // activation (Aryan, 2026-09-19 for done; background since 2026-09-25, when a
-    // ⏳ on the viewed thread kept its spinner until a switch away and back). With
-    // the app behind another window it stays until the thread is looked at.
-    const viewing = stateRef.current.activeTabId === tabId && document.hasFocus();
-    applyNotif(tabId, cur, onViewedTitle(next, viewing));
-    // The badge above may clear at once, but the background work it announced is
-    // still running: a ⏳ is kept as its own flag, viewed or not, until the hook's
-    // ✅ (plan-02, Fix 7; the restart window reads it; backgroundAfterTitle says why
-    // ▶, ⚠ and ⚙ leave it).
-    const hadBackground = !!stateRef.current.tabs.find(t => t.id === tabId)?.backgroundTasks;
+    const current = stateRef.current.tabs.find(t => t.id === tabId);
+    const cur = current?.notification;
+    // The background work flag first, since the notif below is settled against it: a
+    // ⏳ sets it, viewed or not, and only the hook's ✅ clears it (plan-02, Fix 7; the
+    // restart window reads it; backgroundAfterTitle says why ▶, ⚠ and ⚙ leave it).
+    const hadBackground = !!current?.backgroundTasks;
     const background = backgroundAfterTitle(hadBackground, type);
     if (background !== hadBackground) stateRef.current.setBackgroundTasks(tabId, background);
+    const next = onTitle(cur, type, timing, now);
+    // The user is looking at this thread right now: the same test that suppresses
+    // the toast below. A `done` that lands on the viewed thread has already been
+    // seen, so it clears at once instead of waiting for the next activation (Aryan,
+    // 2026-09-19). With the app behind another window it stays until the thread is
+    // looked at. A ⏳ stays either way since 2026-11-08: the background work it
+    // announced is still running (AFT-25, AFT-43), and the turn's spinner still
+    // stops, since the hourglass replaces it.
+    const viewing = stateRef.current.activeTabId === tabId && document.hasFocus();
+    applyNotif(tabId, cur, onViewedTitle(next, viewing), background);
 
     if (!type) return;
     // Working indicator is sidebar-only, no toast while Claude is mid-turn
@@ -988,12 +1000,13 @@ export function App() {
     });
   }, [state.setTabNotification]);
 
-  // Esc or Ctrl+C in a terminal ends the working turn from afterterm's view and
-  // cancels a permission prompt, so both the spinner and needs-you clear. Leaves
-  // other notifs alone.
+  // Esc or Ctrl+C in a terminal ends the working turn from afterterm's view,
+  // cancels a permission prompt and cancels a compaction (AFT-42), so the spinner,
+  // needs-you and compacting clear; a thread with background work running falls
+  // back to background. Leaves other notifs alone.
   const handleUserInput = useCallback((tabId: string) => {
-    const cur = stateRef.current.tabs.find(t => t.id === tabId)?.notification;
-    applyNotif(tabId, cur, onInterrupt(cur));
+    const tab = stateRef.current.tabs.find(t => t.id === tabId);
+    applyNotif(tabId, tab?.notification, onInterrupt(tab?.notification), !!tab?.backgroundTasks);
   }, [state.setTabNotification]);
 
   // Enter in a terminal. At a permission prompt this is the answer, so needs-you
@@ -1002,8 +1015,8 @@ export function App() {
   const handleAnswer = useCallback((tabId: string) => {
     const now = Date.now();
     const timing = getTiming(tabId, now);
-    const cur = stateRef.current.tabs.find(t => t.id === tabId)?.notification;
-    applyNotif(tabId, cur, onAnswer(cur, timing, now));
+    const tab = stateRef.current.tabs.find(t => t.id === tabId);
+    applyNotif(tabId, tab?.notification, onAnswer(tab?.notification, timing, now), !!tab?.backgroundTasks);
   }, [state.setTabNotification]);
 
   // A real keystroke in a thread. An unread chat the user is typing in is no
@@ -1021,22 +1034,24 @@ export function App() {
   const handleOutput = useCallback((tabId: string, byteLen: number) => {
     const now = Date.now();
     const timing = getTiming(tabId, now);
-    const cur = stateRef.current.tabs.find(t => t.id === tabId)?.notification;
-    applyNotif(tabId, cur, onOutput(cur, timing, now, byteLen));
+    const tab = stateRef.current.tabs.find(t => t.id === tabId);
+    applyNotif(tabId, tab?.notification, onOutput(tab?.notification, timing, now, byteLen), !!tab?.backgroundTasks);
   }, [state.setTabNotification]);
 
   // Clock tick: clear a tab's `working` spinner after its output has been silent long
-  // enough (fixes the stuck-spinner bug where Stop's ✅ never fires), unless Claude
-  // Code's record still says busy (plan-02, Fix 11: a stalled turn keeps its spinner).
-  // Also prunes timing entries for closed tabs.
+  // enough (fixes the stuck-spinner bug where Stop's ✅ never fires), and its
+  // `compacting` after a longer silence (AFT-42: a cancelled compaction sends no hook
+  // title), unless Claude Code's record still says busy (plan-02, Fix 11: a stalled
+  // turn keeps its spinner). A thread with background work running falls back to
+  // background. Also prunes timing entries for closed tabs.
   useEffect(() => {
     const id = setInterval(() => {
       const now = Date.now();
       const s = stateRef.current;
       for (const tab of s.tabs) {
-        if (tab.notification !== 'working') continue;
+        if (tab.notification !== 'working' && tab.notification !== 'compacting') continue;
         const timing = timingRef.current.get(tab.id);
-        if (timing) applyNotif(tab.id, 'working', onTick('working', timing, now, tab.recordStatus));
+        if (timing) applyNotif(tab.id, tab.notification, onTick(tab.notification, timing, now, tab.recordStatus), !!tab.backgroundTasks);
       }
       for (const id2 of [...timingRef.current.keys()]) {
         if (!s.tabs.some(t => t.id === id2)) timingRef.current.delete(id2);
