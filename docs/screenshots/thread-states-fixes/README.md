@@ -50,7 +50,7 @@ Same harness set-up as above (port 9341, its own data dir, scratch `CLAUDE_CONFI
 | 13 | Ctrl+C ends the command | The prompt is back and the hourglass goes at once (`atPrompt` true, no flag) | 66 | Pass |
 | 14 | `Start-Sleep 600`, then `__afterterm.setNotification('tab-1', 'background')` | `notification: background` and `backgroundTasks: true`; still there 3.5 s later; Ctrl+C then clears both | 67 | Pass |
 
-The review's two busy-record cases (an agent's permission prompt answered with Enter, a `/compact` that finishes while an agent runs) need a record that says busy, which only a real Claude Code gives: unit-tested only (`spinnerState.test.ts`).
+The review's two busy-record cases need a record that says busy, which only a real Claude Code gives: an agent's permission prompt answered with Enter (back to the hourglass once the main turn has ended, since review 2 only then) is unit-tested only (`spinnerState.test.ts`), and a `/compact` that finishes while an agent runs is a known gap (compacting stays until the agent's report turn), also in the unit tests.
 
 ## Not tested here
 

@@ -50,23 +50,27 @@ console.log('\nspinnerState — unit rules\n');
   check('tick never clears background', onTick('background', initTiming(0), 999999) === 'background');
 }
 
-// ── onTick: a busy record held by a background agent (review 1 of PR #90) ────
+// ── onTick: a busy record holds working and compacting (Fix 11), background or not ──
 {
-  // Claude Code 2.1.319 kept its record busy for a background agent's whole run in the
-  // 2026-11-08 live test, so with background work a busy record says nothing about a turn.
+  // Review 1 of PR #90 tried letting busy hold nothing while background work ran;
+  // review 2 took it out (the silence it needed never comes during an agent's run, and
+  // it dropped a paused turn's spinner in a chat with a background dev server).
   const t = initTiming(1000);
-  check('record busy, no background work: working held through silence (Fix 11, unchanged)',
-    onTick('working', t, 1000 + SILENCE_CLEAR_MS * 10, 'busy', false) === 'working');
-  check('record busy, background work running: working cleared after the silence window',
-    onTick('working', t, 1000 + SILENCE_CLEAR_MS + 1, 'busy', true) === undefined);
-  check('record busy, background work running: working held inside the window',
-    onTick('working', t, 1000 + SILENCE_CLEAR_MS, 'busy', true) === 'working');
-  check('record busy, background work running: compacting cleared after its window',
-    onTick('compacting', t, 1000 + COMPACT_SILENCE_CLEAR_MS + 1, 'busy', true) === undefined);
-  check('record busy, no background work: compacting held',
-    onTick('compacting', t, 1000 + COMPACT_SILENCE_CLEAR_MS * 10, 'busy', false) === 'compacting');
-  check('the flag defaults to none (callers without it keep Fix 11\'s hold)',
+  check('record busy: working held through silence (Fix 11)',
     onTick('working', t, 1000 + SILENCE_CLEAR_MS * 10, 'busy') === 'working');
+  check('record busy: compacting held through silence',
+    onTick('compacting', t, 1000 + COMPACT_SILENCE_CLEAR_MS * 10, 'busy') === 'compacting');
+}
+{
+  // Review 2's case: a chat with a background dev server (flag set for the session),
+  // and a later turn that pauses for longer than the silence window with the record
+  // busy. The spinner holds, as 0.16.0 shipped.
+  const th = thread();
+  th.title('background', 1000, false);
+  th.record('busy');
+  th.title('working', 60_000, true);
+  th.tick(60_000 + SILENCE_CLEAR_MS * 4);
+  check('background dev server, a later turn paused with the record busy: still working', th.notif === 'working');
 }
 
 // ── backgroundAfterPrompt: the shell's own prompt ends background work ───────
@@ -382,6 +386,15 @@ check('interrupt leaves background alone (it does not stop background work)', on
   onTitle('background', 'attention', t5, 100, true);
   onTitle('attention', 'attention', t5, 150, true);
   check('a second needs-you title keeps the first one\'s note', t5.attentionOverBackground === true);
+  const t6 = initTiming(0);
+  onTitle(undefined, 'working', t6, 50, true);
+  onTitle('background', 'attention', t6, 100, true);
+  check('with a turn open (a ▶ and no Stop since), needs-you over background is not noted', onAnswer('attention', t6, 200) === 'working');
+  const t7 = initTiming(0);
+  onTitle(undefined, 'working', t7, 50, true);
+  onTitle('working', 'background', t7, 80, true);
+  onTitle('background', 'attention', t7, 100, true);
+  check('after the turn\'s ⏳ closes it, needs-you over background is noted', onAnswer('attention', t7, 200) === 'background');
   onTitle('attention', 'working', t5, 200, true);
   check('any other decorated title drops the note', t5.attentionOverBackground === undefined);
 }
@@ -413,7 +426,7 @@ function thread() {
       notif = withBackground(onViewedTitle(onTitle(notif, n, t, at, bg), viewing), bg);
     },
     output(at: number, len = 50) { notif = withBackground(onOutput(notif, t, at, len), bg); },
-    tick(at: number) { notif = withBackground(onTick(notif, t, at, record, bg), bg); },
+    tick(at: number) { notif = withBackground(onTick(notif, t, at, record), bg); },
     esc() { notif = withBackground(onInterrupt(notif), bg); },
     enter(at: number) { notif = withBackground(onAnswer(notif, t, at), bg); },
     prompt(atPrompt: boolean) {
@@ -585,17 +598,38 @@ function thread() {
   check('and Esc on that turn falls back to the hourglass', th.notif === 'background');
 }
 {
-  // Review 1, scenario B: /compact while a background agent runs (record busy for
-  // the agent), and the compaction finishes without Esc: no idle record comes.
+  // Review 2, finding 1: an ordinary turn's own prompt reaches background first. The
+  // record says waiting within a second of the prompt, the hook's ⚠ comes some seconds
+  // later, and in between the silence clear turns working into background (the flag is
+  // set by a background dev server from an earlier turn). The turn is still open, so
+  // the ⚠ is the main loop's and Enter gives working.
+  const th = thread();
+  th.title('background', 1000, false);
+  th.title('working', 60_000, true);
+  th.output(60_500, 400);
+  th.record('waiting');
+  th.tick(60_500 + SILENCE_CLEAR_MS + 500);
+  check('ordinary turn, record waiting, 2.5 s of silence: the thread shows background', th.notif === 'background');
+  th.title('attention', 67_000, true);
+  check('the hook\'s ⚠ then shows needs-you', th.notif === 'attention');
+  th.enter(70_000);
+  check('Enter answers the turn\'s own prompt with working, not the hourglass', th.notif === 'working');
+}
+{
+  // Review 1, scenario B, a known gap: /compact while a background agent runs, and the
+  // compaction finishes without Esc. The record stays busy for the agent and the title
+  // keeps redrawing, so neither the idle rule nor the silence rule ends it: compacting
+  // stays until the agent's report turn starts (its ▶), and that turn's ✅ ends it all.
   const th = thread();
   th.record('busy');
   th.title('background', 1000, true);
   th.title('compacting', 30_000, true);
-  th.output(31_000, 400);
-  th.tick(31_000 + COMPACT_SILENCE_CLEAR_MS);
-  check('compaction over agent work, inside the window: compacting', th.notif === 'compacting');
-  th.tick(31_000 + COMPACT_SILENCE_CLEAR_MS + 500);
-  check('record busy for the agent: a finished compaction clears to the hourglass', th.notif === 'background');
+  for (let at = 31_000; at <= 90_000; at += 960) { th.output(at, 31); th.tick(at + 480); }
+  check('known gap: a finished compaction over agent work keeps compacting while the agent runs', th.notif === 'compacting');
+  th.title('working', 91_000, true);
+  check('the agent\'s report turn replaces it with working', th.notif === 'working');
+  th.title('done', 99_000, true);
+  check('and its ✅ ends the turn and the background work', th.notif === undefined && !th.bg);
 }
 {
   // Review 1, finding 2a: a Claude whose record afterterm cannot read. /exit brings

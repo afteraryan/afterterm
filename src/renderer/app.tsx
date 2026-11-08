@@ -1079,9 +1079,8 @@ export function App() {
   // enough (fixes the stuck-spinner bug where Stop's ✅ never fires), and its
   // `compacting` after a longer silence (AFT-42: a cancelled compaction sends no hook
   // title), unless Claude Code's record still says busy for a turn (plan-02, Fix 11: a
-  // stalled turn keeps its spinner). With background work running a busy record holds
-  // nothing, since it stays busy for a background agent's whole run, and the cleared
-  // state falls back to background. Also prunes timing entries for closed tabs.
+  // stalled turn keeps its spinner). A thread with background work running falls back
+  // to background. Also prunes timing entries for closed tabs.
   useEffect(() => {
     const id = setInterval(() => {
       const now = Date.now();
@@ -1089,8 +1088,7 @@ export function App() {
       for (const tab of s.tabs) {
         if (tab.notification !== 'working' && tab.notification !== 'compacting') continue;
         const timing = timingRef.current.get(tab.id);
-        const background = !!tab.backgroundTasks;
-        if (timing) applyNotif(tab.id, tab.notification, onTick(tab.notification, timing, now, tab.recordStatus, background), background);
+        if (timing) applyNotif(tab.id, tab.notification, onTick(tab.notification, timing, now, tab.recordStatus), !!tab.backgroundTasks);
       }
       for (const id2 of [...timingRef.current.keys()]) {
         if (!s.tabs.some(t => t.id === id2)) timingRef.current.delete(id2);
@@ -1469,12 +1467,14 @@ export function App() {
       tab: (tabId: string) => stateRef.current.tabs.find(t => t.id === tabId) ?? null,
       // Automatic updates: wake a thread, and give one a state, so a test can fill
       // the restart window (a chat mid-turn) without a real Claude Code session.
-      // 'background' also sets the background work flag, as the hook's ⏳ does: the
-      // state is drawn from that flag since 2026-11-08 (withBackground), so without it
-      // the next output chunk would drop the state again.
       wake: (tabId: string) => wakeThreadRef.current(tabId),
+      // 'background' also sets the background work flag, as the hook's ⏳ does, and
+      // quiet (undefined) clears it: the state is drawn from that flag since
+      // 2026-11-08 (withBackground), so without it the next output chunk would undo
+      // the state set here.
       setNotification: (tabId: string, n: TabNotification | undefined) => {
         if (n === 'background') stateRef.current.setBackgroundTasks(tabId, true);
+        else if (n === undefined) stateRef.current.setBackgroundTasks(tabId, false);
         stateRef.current.setTabNotification(tabId, n);
       },
       update: () => updateRef.current,
