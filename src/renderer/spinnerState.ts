@@ -87,6 +87,10 @@ export const COMPACT_SILENCE_CLEAR_MS = 5000;
 // can hold one per tab in a plain Map.
 export interface TabTiming {
   lastOutputAt: number;
+  // Set by a needs-you title that arrived while the thread had background work and
+  // was showing background (or quiet): the prompt is a background agent's, the main
+  // loop is idle, so answering it goes back to background (onAnswer). Absent otherwise.
+  attentionOverBackground?: boolean;
 }
 
 export function initTiming(now: number): TabTiming {
@@ -97,8 +101,21 @@ export function initTiming(now: number): TabTiming {
 // nothing: we deliberately do NOT clear `working` on a plain title (that was the
 // old early-stop bug); silence is what clears it. A title change is itself bytes on
 // the wire, so it also refreshes the silence clock.
-export function onTitle(current: Notif, titleNotif: Notif, timing: TabTiming, at: number): Notif {
+//
+// `background` is the thread's background work flag after this title. A needs-you
+// title that lands while it is set and the thread shows background (or quiet) is a
+// background agent asking: no turn of the main loop is running. That is noted on the
+// timing for onAnswer. A second needs-you title keeps the first one's note; any other
+// decorated title drops it.
+export function onTitle(current: Notif, titleNotif: Notif, timing: TabTiming, at: number, background = false): Notif {
   timing.lastOutputAt = at;
+  if (titleNotif === 'attention') {
+    if (current !== 'attention') {
+      timing.attentionOverBackground = background && (current === 'background' || current === undefined);
+    }
+  } else if (titleNotif !== undefined) {
+    delete timing.attentionOverBackground;
+  }
   return titleNotif === undefined ? current : titleNotif;
 }
 
@@ -140,8 +157,9 @@ export function onOutput(current: Notif, timing: TabTiming, at: number, byteLen:
 // real new turn over background work that goes quiet for SILENCE_CLEAR_MS shows the
 // hourglass until its own ⏳ or ✅. Note that Claude Code also redraws its window
 // title about once a second while it waits on a background agent (the same live
-// run), and a title is output, so in practice the silence these need may not come
-// until that stops.
+// run), and a title is output, so in practice the silence this needs may not come
+// until that stops; the agent's permission prompt is therefore handled in onAnswer
+// instead, and a /compact finishing over agent work may keep compacting until then.
 export function onTick(current: Notif, timing: TabTiming, at: number, record?: RecordStatus, background = false): Notif {
   if (record === 'busy' && !background) return current;
   const quiet = at - timing.lastOutputAt;
@@ -189,10 +207,19 @@ export function onInterrupt(current: Notif): Notif {
 // by the hook's own ▶ title, and Enter at a shell has no turn to affect. The
 // caller refreshes the clock with `at` so the silence window is measured from the
 // answer, not from the prompt's own render seconds or minutes earlier.
+//
+// The exception (2026-11-09, review 1 of PR #90): a needs-you that arrived over
+// background (onTitle's note) is a background agent's prompt while the main loop is
+// idle, so the answer goes back to background, not working. Waiting for silence
+// would not do it: the record stays busy for the agent and Claude Code redraws its
+// window title about once a second while it waits on one (both measured 2026-11-08),
+// so the output never goes quiet until the agent's report turn ends.
 export function onAnswer(current: Notif, timing: TabTiming, at: number): Notif {
   if (current !== 'attention') return current;
   timing.lastOutputAt = at;
-  return 'working';
+  const overBackground = timing.attentionOverBackground === true;
+  delete timing.attentionOverBackground;
+  return overBackground ? 'background' : 'working';
 }
 
 // The badge that only reports a turn that has ended: `done` (✅). Seeing the thread

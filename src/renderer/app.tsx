@@ -1001,7 +1001,9 @@ export function App() {
     const hadBackground = !!current?.backgroundTasks;
     const background = backgroundAfterTitle(hadBackground, type);
     if (background !== hadBackground) stateRef.current.setBackgroundTasks(tabId, background);
-    const next = onTitle(cur, type, timing, now);
+    // The flag goes to onTitle too: a needs-you over background is a background
+    // agent's prompt, which Enter answers back to background (onAnswer).
+    const next = onTitle(cur, type, timing, now, background);
     // The user is looking at this thread right now: the same test that suppresses
     // the toast below. A `done` that lands on the viewed thread has already been
     // seen, so it clears at once instead of waiting for the next activation (Aryan,

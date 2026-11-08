@@ -362,6 +362,30 @@ check('interrupt leaves background alone (it does not stop background work)', on
     && backgroundAfterRecord(false, 'idle', undefined) === false);
 }
 
+// ── onTitle's note and onAnswer: an agent's prompt over background ────────────
+{
+  const t = initTiming(0);
+  onTitle('background', 'attention', t, 100, true);
+  check('needs-you over background with the flag: noted', t.attentionOverBackground === true);
+  check('Enter then goes back to background', onAnswer('attention', t, 200) === 'background');
+  check('the note is used once', t.attentionOverBackground === undefined);
+  const t2 = initTiming(0);
+  onTitle(undefined, 'attention', t2, 100, true);
+  check('needs-you over a quiet thread with the flag: noted too', onAnswer('attention', t2, 200) === 'background');
+  const t3 = initTiming(0);
+  onTitle('working', 'attention', t3, 100, true);
+  check('needs-you over working (a main turn): Enter gives working', onAnswer('attention', t3, 200) === 'working');
+  const t4 = initTiming(0);
+  onTitle('background', 'attention', t4, 100, false);
+  check('needs-you with no background work: Enter gives working', onAnswer('attention', t4, 200) === 'working');
+  const t5 = initTiming(0);
+  onTitle('background', 'attention', t5, 100, true);
+  onTitle('attention', 'attention', t5, 150, true);
+  check('a second needs-you title keeps the first one\'s note', t5.attentionOverBackground === true);
+  onTitle('attention', 'working', t5, 200, true);
+  check('any other decorated title drops the note', t5.attentionOverBackground === undefined);
+}
+
 // ── withBackground: background as a live state (AFT-25, AFT-43) ──────────────
 {
   check('quiet with background work shows background', withBackground(undefined, true) === 'background');
@@ -386,7 +410,7 @@ function thread() {
   return {
     title(n: Notif, at: number, viewing: boolean) {
       bg = backgroundAfterTitle(bg, n);
-      notif = withBackground(onViewedTitle(onTitle(notif, n, t, at), viewing), bg);
+      notif = withBackground(onViewedTitle(onTitle(notif, n, t, at, bg), viewing), bg);
     },
     output(at: number, len = 50) { notif = withBackground(onOutput(notif, t, at, len), bg); },
     tick(at: number) { notif = withBackground(onTick(notif, t, at, record, bg), bg); },
@@ -515,8 +539,9 @@ function thread() {
 }
 {
   // Review 1, scenario A: a background agent asks for permission and Enter answers
-  // it. No Stop hook runs (the main loop is idle), and the record stays busy for the
-  // agent's whole run, as measured on 2026-11-08.
+  // it. No Stop hook runs (the main loop is idle), the record stays busy for the
+  // agent's whole run and Claude Code redraws its title about once a second while it
+  // waits on the agent (both measured on 2026-11-08), so the output never goes quiet.
   const th = thread();
   th.record('busy');
   th.title('working', 1000, true);
@@ -526,11 +551,38 @@ function thread() {
   th.record('waiting');
   th.enter(25_000);
   th.record('busy');
-  check('Enter answers it: working', th.notif === 'working');
-  th.tick(25_000 + SILENCE_CLEAR_MS);
-  check('inside the silence window: still working', th.notif === 'working');
-  th.tick(25_000 + SILENCE_CLEAR_MS + 500);
-  check('record busy for the agent: the spinner gives way to the hourglass after the silence', th.notif === 'background');
+  check('Enter answers the agent\'s prompt: straight back to the hourglass', th.notif === 'background');
+  for (let at = 26_000; at <= 120_000; at += 960) { th.output(at, 31); th.tick(at + 480); }
+  check('a minute and a half of title redraws with the record busy: still the hourglass', th.notif === 'background');
+  th.title('working', 121_000, true);
+  th.title('done', 130_000, true);
+  check('the agent\'s report turn then ends it as usual', th.notif === undefined && !th.bg);
+}
+{
+  // The ordinary case, no background work: a question or permission prompt in the
+  // main turn, answered with Enter, gives working as before, and Claude's output
+  // keeps it.
+  const th = thread();
+  th.record('busy');
+  th.title('working', 1000, true);
+  th.title('attention', 5000, true);
+  th.enter(8000);
+  check('no background work: Enter at a permission prompt gives working', th.notif === 'working');
+  th.output(8300, 800);
+  th.tick(8300 + SILENCE_CLEAR_MS);
+  check('no background work: Claude resuming keeps working', th.notif === 'working');
+}
+{
+  // A new turn over background work (▶ after the ⏳) asks a question of its own: the
+  // main loop is running, so its answer gives working.
+  const th = thread();
+  th.title('background', 1000, true);
+  th.title('working', 5000, true);
+  th.title('attention', 8000, true);
+  th.enter(9000);
+  check('a prompt in a new turn over background work: Enter gives working', th.notif === 'working');
+  th.esc();
+  check('and Esc on that turn falls back to the hourglass', th.notif === 'background');
 }
 {
   // Review 1, scenario B: /compact while a background agent runs (record busy for
