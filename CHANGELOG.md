@@ -4,6 +4,10 @@ What changed for the person using afterterm, release by release. Each release li
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.16.0 (2026-11-08)
+
 ### Fixed
 
 - **The "Restart afterterm to update?" window now says "Stops mid-turn" for a chat that is in the middle of a reply.** Before, such a chat could read "Safe to restart", for example when its hooks (the small scripts Claude Code runs so afterterm knows what a chat is doing) were missing, or when Claude paused for a few seconds. A chat waiting at a question or a permission prompt counts too, from the moment it asks.
