@@ -1336,7 +1336,7 @@ function settleMove() {
   const win = mainWindow;
   if (!move || !win || win.isDestroyed() || win.isMinimized() || win.isFullScreen()) return;
   if (isWindowsMove(move.first, move.last, displayChangeTimes)) {
-    console.log('[window] moved during a display or power change: not kept as its home');
+    console.log('[window] moved during a display change, a sleep or a wake: not kept as its home');
     return;
   }
   const home = placementNow(win);

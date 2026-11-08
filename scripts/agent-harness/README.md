@@ -79,7 +79,9 @@ Main-process support lives in `src/main.ts`:
   through `--prefs`. Under `AFTERTERM_HARNESS=1`, `drive eval "window.afterterm.harness.windowHome()"`
   reads the window's home and the displays, and `windowHome({ event, displays, windowDisplayId })`
   plays `display-removed`, `display-added`, `resume` or `unlock-screen` into the same code with a
-  made-up display list.
+  made-up display list. A move back is made only when it lands on the `AFTERTERM_DISPLAY` display
+  (checked against the real displays), so a made-up list cannot move the dev window onto the
+  monitor a person is using; a refused move logs "its place is off the harness display".
 
 ## Launch
 

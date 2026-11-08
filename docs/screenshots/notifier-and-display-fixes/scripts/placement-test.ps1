@@ -7,14 +7,19 @@
 #   state      window.afterterm.harness.windowHome() (the home, the pending move, the displays)
 #   sim        plays an event: -Event display-removed|display-added|resume|unlock-screen,
 #              -Fake: the window is said to be on a made-up laptop display (the primary's
-#              bounds, id 999); -NoHome: the secondary display is left out of the list
+#              bounds, id 999); -NoHome: the secondary display is left out of the list;
+#              -Swap: the two real displays swap ids, and the window is said to be on
+#              the one that now has the home's id (the primary's bounds);
+#              -FarAway: the home display keeps its id but is said to sit 10000 px to
+#              the right (the harness guard must refuse the move; if it failed, the
+#              window would land on no display at all, never on the primary)
 #   capture    whole display 2 to -Out
 param(
   [Parameter(Mandatory = $true)][string]$Step,
   [Parameter(Mandatory = $true)][string]$DataDir,
   [int]$X = 0, [int]$Y = 0,
   [string]$Event = '',
-  [switch]$Fake, [switch]$NoHome,
+  [switch]$Fake, [switch]$NoHome, [switch]$Swap, [switch]$FarAway,
   [string]$Out = '',
   [string]$Repo = 'D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\notifier-and-display'
 )
@@ -61,6 +66,30 @@ switch ($Step) {
   }
   'state' { Eval "window.afterterm.harness.windowHome()" }
   'sim' {
+    if ($Swap) {
+      Eval @"
+(async () => {
+  const s = await window.afterterm.harness.windowHome();
+  const homeId = s.home.displayId;
+  const other = s.displays.find(d => d.id !== homeId);
+  const displays = s.displays.map(d => d.id === homeId ? { ...d, id: other.id } : d.id === other.id ? { ...d, id: homeId } : d);
+  return window.afterterm.harness.windowHome({ event: '$Event', displays, windowDisplayId: homeId });
+})()
+"@
+      break
+    }
+    if ($FarAway) {
+      Eval @"
+(async () => {
+  const s = await window.afterterm.harness.windowHome();
+  const homeId = s.home.displayId;
+  const far = r => ({ ...r, x: r.x + 10000 });
+  const displays = s.displays.map(d => d.id === homeId ? { ...d, bounds: far(d.bounds), workArea: far(d.workArea) } : { ...d, id: 999 });
+  return window.afterterm.harness.windowHome({ event: '$Event', displays, windowDisplayId: 999 });
+})()
+"@
+      break
+    }
     if (-not $Fake) { Eval "window.afterterm.harness.windowHome({ event: '$Event' })"; break }
     # The displays as main sees them, with the primary replaced by a made-up laptop
     # display (same bounds, id 999) that the window is said to be on.

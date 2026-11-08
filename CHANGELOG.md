@@ -6,7 +6,7 @@ What changed for the person using afterterm, release by release. Each release li
 
 ### Fixed
 
-- **afterterm now opens where you left it, and comes back to its screen after the laptop sleeps.** Before, it always opened in the middle of the main screen, and after you closed the lid with afterterm on a second monitor, Windows moved it (and its pop-ups) to the main screen and it stayed there. afterterm now remembers which screen and where you put its window, opens there, and moves back when that screen returns after sleep, unless you moved the window yourself in the meantime.
+- **afterterm now opens where you left it, and comes back to its screen after the laptop sleeps.** Before, it always opened in the middle of the main screen, and after you closed the lid with afterterm on a second monitor, Windows moved it (and its toasts) to the main screen and it stayed there. afterterm now remembers which screen and where you put its window, opens there, and moves back when that screen returns after sleep, unless you moved the window yourself in the meantime.
 
 ## 0.16.1 (2026-11-08)
 
