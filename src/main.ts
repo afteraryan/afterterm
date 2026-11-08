@@ -60,8 +60,8 @@ import { attributeCommandChanges, isIgnoredChange, mergeSaved, pruneChanges } fr
 import type { FsChange } from './command-files.ts';
 import { buildNameIndex, findByName } from './file-index.ts';
 import type { IndexFs, NameIndex } from './file-index.ts';
-import { HOLD_POLL_MS, holdStep, initialHold, holdsToasts, stateWord } from './notify-hold.ts';
-import type { HoldEvent, NotifyState, OverlayHold } from './notify-hold.ts';
+import { HOLD_POLL_MS, holdStep, initialHold, stateWord } from './notify-hold.ts';
+import type { HoldEvent, HoldStep, NotifyState, OverlayHold } from './notify-hold.ts';
 import { NotifyStateProbe } from './notify-state-probe.ts';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
@@ -1688,7 +1688,7 @@ function setNotifierOnScreen(onScreen: boolean) {
   }
 }
 
-function stepNotifierHold(event: HoldEvent) {
+function stepNotifierHold(event: HoldEvent): HoldStep {
   const before = notifierHold;
   const step = holdStep(before, event);
   notifierHold = step.next;
@@ -1712,15 +1712,17 @@ function stepNotifierHold(event: HoldEvent) {
       notifyProbeCount += 1;
       lastNotifyProbe = { ...answer, at: Date.now() };
       const wasHeld = notifierHold.held;
-      stepNotifierHold({ type: 'answer', state: answer.state });
+      const done = stepNotifierHold({ type: 'answer', state: answer.state });
       if (process.env.AFTERTERM_HARNESS === '1') {
-        const result = !notifierHold.toasts ? 'no toasts'
-          : holdsToasts(answer.state) ? (wasHeld ? 'still held' : 'held')
-          : (wasHeld ? 'shown after the hold' : 'shown');
+        const result = !done.next.toasts ? 'no toasts'
+          : done.next.held ? (wasHeld ? 'still held' : 'held')
+          : done.show ? (wasHeld ? 'shown after the hold' : 'shown')
+          : 'left on screen';
         console.log(`[harness] notifier: ${answer.state} from ${answer.source} in ${answer.ms} ms, ${result} (visible ${!!notifierWindow?.isVisible()})`);
       }
     });
   }
+  return step;
 }
 
 // A full-screen app or a presentation came in front with the overlay up: hide it
