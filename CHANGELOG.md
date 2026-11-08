@@ -4,6 +4,10 @@ What changed for the person using afterterm, release by release. Each release li
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.16.1 (2026-11-08)
+
 ### Fixed
 
 - **A long link that ran onto a second line opened only half of the address, or nothing.** Now clicking any line of it opens the whole link, even after you change the font size.
