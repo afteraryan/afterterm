@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, screen, shell, nativeImage, powerMonitor } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain, dialog, screen, shell, nativeImage, powerMonitor } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
@@ -17,6 +17,7 @@ import type { ReconcileResult } from './claude-hook-install';
 import { runSetupCheck, issueUrl, failureNote, ISSUES_URL } from './setup-check.ts';
 import type { Runner } from './setup-check.ts';
 import { initUpdater } from './updater.ts';
+import { appMenuTemplate } from './app-menu.ts';
 import { detectEditors } from './editor-detect.ts';
 import type { DetectDeps } from './editor-detect.ts';
 import type { EditorInfo } from './editors.ts';
@@ -1300,6 +1301,30 @@ function harnessWindowPlacement(): { x: number; y: number; width: number; height
     width,
     height,
   };
+}
+
+// Harness only: every application menu item that answers a key, logged once at
+// startup as `[harness] menu key <path> role=<role> key=<accelerator>`, so a test
+// can see which keys the menu acts on. A menu item's key acts only while its
+// window has OS focus, which a harness window never takes, so a key sent through
+// CDP cannot show it (AFT-26).
+function logMenuKeys() {
+  if (process.env.AFTERTERM_HARNESS !== '1') return;
+  const menu = Menu.getApplicationMenu();
+  if (!menu) {
+    console.log('[harness] menu none');
+    return;
+  }
+  const walk = (items: Electron.MenuItem[], trail: string) => {
+    for (const item of items) {
+      const name = `${trail}${item.label || item.role || item.type}`;
+      const roleKey = (item as unknown as { getDefaultRoleAccelerator?: () => string | undefined }).getDefaultRoleAccelerator?.();
+      const key = item.accelerator || roleKey;
+      if (key) console.log(`[harness] menu key ${name} role=${item.role ?? '-'} key=${key}`);
+      if (item.submenu) walk(item.submenu.items, `${name} > `);
+    }
+  };
+  walk(menu.items, '');
 }
 
 // ─── The main window's home (AFT-15) ─────────────────────────────────────────
@@ -3173,6 +3198,10 @@ app.whenReady().then(async () => {
   }
   // Before any window loads: the preload reads app:last-opened-at synchronously.
   initLastOpenedAt();
+  // Electron's default menu without Reload and Force Reload (AFT-26): Ctrl+R and
+  // Ctrl+Shift+R reloaded the window, and a reload put every thread to sleep.
+  // Set before the windows, so no window ever has the default menu's keys.
+  Menu.setApplicationMenu(Menu.buildFromTemplate(appMenuTemplate()));
   // Automatic updates (src/updater.ts): its IPC is there before the renderer
   // asks; the registry read and the first check run later, off the launch path.
   initUpdater({
@@ -3184,6 +3213,7 @@ app.whenReady().then(async () => {
   });
   createNotifierWindow();
   createWindow();
+  logMenuKeys();
   watchWindowHome();
   reconcileNotifierHook();
   // After the launch reconcile, so the poll starts from a complete settings.json.
