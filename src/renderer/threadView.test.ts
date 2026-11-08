@@ -59,6 +59,44 @@ console.log('\nthreadView: threadFolderTarget\n');
   check('a thread with no folder has no target', threadFolderTarget({}, { 'D:\\repo': true }) === undefined);
 }
 
+console.log('\nthreadView: threadFolderTarget opens the top of the git working tree (AFT-45)\n');
+{
+  const wt = 'D:\\repo\\.claude\\worktrees\\phase-6-firebase';
+  const sub = wt + '\\apps\\web';
+  const sess = { cwd: 'D:\\repo', claudeCwd: sub };
+  const inSub = threadFolderTarget(sess, { [sub]: true }, wt);
+  check('a worktree chat whose session moved into a subfolder opens the worktree top',
+    inSub?.folder === wt && inSub.missing === false, show(inSub));
+  const atTop = threadFolderTarget({ cwd: 'D:\\repo', claudeCwd: wt }, { [wt]: true }, wt);
+  check('a chat at the worktree top opens the worktree top', atTop?.folder === wt && atTop.missing === false, show(atTop));
+  const repoSub = threadFolderTarget({ cwd: 'D:\\repo\\src\\renderer', claudeCwd: 'D:\\repo\\src\\renderer' }, {}, 'D:\\repo');
+  check('a plain repo chat in a subfolder opens the repo top', repoSub?.folder === 'D:\\repo', show(repoSub));
+  const shellSub = threadFolderTarget({ cwd: 'D:\\repo\\docs' }, {}, 'D:\\repo');
+  check('a shell in a subfolder of a repo opens the repo top', shellSub?.folder === 'D:\\repo', show(shellSub));
+  const noGit = threadFolderTarget({ cwd: 'C:\\Users\\me\\notes' }, {}, null);
+  check('a shell in no git tree opens its own folder', noGit?.folder === 'C:\\Users\\me\\notes', show(noGit));
+  check('a top that is undefined opens the thread folder (nothing read yet)',
+    threadFolderTarget(sess, {}, undefined)?.folder === sub);
+  check('a thread with no folder has no target even with a top', threadFolderTarget({}, {}, 'D:\\repo') === undefined);
+
+  // A top read for an earlier folder must not carry the thread somewhere else.
+  const elsewhere = threadFolderTarget({ cwd: 'C:\\Users\\me\\notes' }, {}, 'D:\\repo');
+  check('a top the folder is not inside is ignored (a cd since the git read)',
+    elsewhere?.folder === 'C:\\Users\\me\\notes', show(elsewhere));
+  const sibling = threadFolderTarget({ cwd: 'D:\\repo-two\\src' }, {}, 'D:\\repo');
+  check('a folder that only starts with the same letters is not inside the top',
+    sibling?.folder === 'D:\\repo-two\\src', show(sibling));
+  const caseless = threadFolderTarget({ cwd: 'd:\\Repo\\SRC' }, {}, 'D:\\repo');
+  check('the top matches whatever the letter case', caseless?.folder === 'D:\\repo', show(caseless));
+  const slashes = threadFolderTarget({ claudeCwd: 'D:/repo/src' }, {}, 'D:\\repo');
+  check('forward slashes in the folder still count as inside the top', slashes?.folder === 'D:\\repo', show(slashes));
+
+  // A deleted worktree must stay missing, not fall back to the repo that held it.
+  const gone = threadFolderTarget({ cwd: 'D:\\repo', claudeCwd: sub }, { [sub]: false }, 'D:\\repo');
+  check('a thread folder main found gone stays missing and keeps its own folder',
+    gone?.folder === sub && gone.missing === true, show(gone));
+}
+
 console.log('\nthreadView: insertNewThread\n');
 {
   const ids = (ts: Tab[]) => ts.map(t => t.id).join(',');

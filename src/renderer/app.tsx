@@ -295,15 +295,26 @@ export function App() {
     });
   };
 
+  // The top of each thread's git working tree, filled by every git read
+  // (noteGitInfo) and not saved. File links try paths from it, and a thread's
+  // Open in File Explorer and Open in <editor> open it (threadFolderTarget).
+  const gitTopsRef = useRef(new Map<string, string>());
+
   // What the thread menu's "Open in File Explorer" gets for a thread: nothing
   // when the thread has no folder (the item is then left out), otherwise the
   // folder's checked existence and the launch. `folderExists` is only ever
   // false for a folder main has actually checked and found missing; an
   // unchecked one counts as present, so the item never starts out disabled.
   const threadExplorer = (tab: Tab) => {
-    const target = threadFolderTarget(tab, folderExists);
+    const target = threadFolderTarget(tab, folderExists, gitTopsRef.current.get(tab.id));
     if (!target) return undefined;
-    return { missing: target.missing, open: () => openFolderInExplorer(target.folder) };
+    // The target is worked out again at the click: the working tree's top is
+    // kept in a ref that fills after the render, so the folder shown may be the
+    // newer one.
+    return {
+      missing: target.missing,
+      open: () => openFolderInExplorer(threadFolderTarget(tab, folderExists, gitTopsRef.current.get(tab.id))?.folder ?? target.folder),
+    };
   };
 
   // Launches an editor on a folder, for a project (its root) and a thread (its
@@ -327,9 +338,13 @@ export function App() {
   // editor twin of threadExplorer: the header's editor button and the thread
   // menu entries. Undefined when the thread has no folder or no editor was found.
   const threadEditor = (tab: Tab) => {
-    const target = threadFolderTarget(tab, folderExists);
+    const target = threadFolderTarget(tab, folderExists, gitTopsRef.current.get(tab.id));
     if (!target || editors.length === 0) return undefined;
-    return { editors, missing: target.missing, open: (editorId: string) => openFolderInEditor(target.folder, editorId) };
+    return {
+      editors,
+      missing: target.missing,
+      open: (editorId: string) => openFolderInEditor(threadFolderTarget(tab, folderExists, gitTopsRef.current.get(tab.id))?.folder ?? target.folder, editorId),
+    };
   };
 
   // ── Edited files (docs/edited-files) ──────────────────────────────────────
@@ -388,7 +403,6 @@ export function App() {
   // not saved: the first read after a launch fills it again.
   const filesByTabRef = useRef(filesByTab);
   filesByTabRef.current = filesByTab;
-  const gitTopsRef = useRef(new Map<string, string>());
   const fileContextFor = useCallback((tabId: string): FileLinkContext | null => {
     const tab = stateRef.current.tabs.find(t => t.id === tabId);
     if (!tab) return null;
