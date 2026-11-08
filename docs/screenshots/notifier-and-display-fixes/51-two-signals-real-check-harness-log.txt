@@ -1,0 +1,11 @@
+AFT-72 toast hold, real check after adding the foreground window signal (2026-11-09), no override: the dev build's [harness] notifier lines.
+The helper's line says which signal fired: quns is Windows' own answer (5 = accepts), fg is the foreground window covering its monitor.
+The stand-in (a borderless always-on-top window at the secondary display's full bounds, in front) was held by fg=1 while Windows still said accepts.
+
+[harness] notifier:main-focus true
+[harness] notifier: accepts from windows quns=5 fg=0, helper started in 490 ms, shown (visible true)
+[harness] notifier:main-focus false
+[harness] notifier: window-fullscreen from windows quns=5 fg=1 in 39 ms, held (visible false)
+[harness] notifier: window-fullscreen from windows quns=5 fg=1 in 3 ms, still held (visible false)
+[harness] notifier:main-focus true
+[harness] notifier: accepts from windows quns=5 fg=0 in 2 ms, shown after the hold (visible true)

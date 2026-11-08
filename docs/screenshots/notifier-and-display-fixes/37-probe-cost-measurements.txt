@@ -16,3 +16,7 @@ The helper that stays (src/notify-state-probe.ts, Reflection.Emit, one line per 
   dispose() ended it; no powershell.exe left behind (checked by pid).
   in the dev build (45-real-check-harness-log.txt): 638 ms for the question that started it,
   then 0 to 1 ms; helperPid null after the toasts went (44-real-check-after-the-toasts-went-helper-gone.json).
+
+After adding the foreground window check to the same helper (2026-11-09, eleven P/Invokes instead of one):
+  run directly with Node: 738 ms to the first answer, then 2, 3, 4 ms;
+  in the dev build (51-two-signals-real-check-harness-log.txt): 490 ms to start, then 2 to 39 ms.
