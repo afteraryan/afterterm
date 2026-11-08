@@ -1663,8 +1663,9 @@ function pushToNotifier(toast: unknown) {
 // overlay above every window, so a toast would land on top of a game, a slide
 // show or a full-screen video. Windows' own notifications stay quiet then, and so
 // does afterterm: before a toast shows, main asks Windows
-// (SHQueryUserNotificationState, through notify-state-probe.ts); while it says
-// busy, Direct3D full screen or presentation mode the overlay stays hidden with
+// (SHQueryUserNotificationState, and whether the foreground window covers its
+// whole monitor, both through notify-state-probe.ts); while either says a
+// full-screen app, Direct3D full screen or presentation mode the overlay stays hidden with
 // its toasts in it, and main asks again every 3 seconds; when the state ends the
 // overlay shows and is raised as before. While toasts are on screen main keeps
 // asking every 3 seconds, so a full-screen app that comes in front later hides
@@ -1681,7 +1682,8 @@ let notifierHold: OverlayHold = initialHold();
 let notifierHoldTimer: NodeJS.Timeout | null = null;
 // Whether the overlay's page has been told the overlay is on screen.
 let notifierOnScreen = false;
-const notifyStateProbe = new NotifyStateProbe();
+// Its foreground check skips this process's windows (the main window, the overlay).
+const notifyStateProbe = new NotifyStateProbe({ ownPid: process.pid });
 let notifyProbeCount = 0;
 let lastNotifyProbe: { state: NotifyState; source: string; ms: number; at: number } | null = null;
 
@@ -1702,7 +1704,10 @@ async function askNotifyState(): Promise<{ state: NotifyState; source: string; m
   const override = notifyStateOverride();
   if (override) return { ...override, ms: 0 };
   const answer = await notifyStateProbe.query();
-  return { state: answer.state, source: answer.started ? 'windows (helper started)' : 'windows', ms: answer.ms };
+  // The helper's line says which signal fired: quns is Windows' answer, fg the
+  // foreground window covering its monitor.
+  const said = answer.line ? ` ${answer.line}` : '';
+  return { state: answer.state, source: `windows${said}${answer.started ? ', helper started' : ''}`, ms: answer.ms };
 }
 
 function setNotifierOnScreen(onScreen: boolean) {

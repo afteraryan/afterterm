@@ -45,7 +45,8 @@ console.log('\nnotify-hold: which states hold the toasts\n');
   check('not present (locked, screen saver) shows', !holdsToasts('not-present'));
   check('quiet time shows', !holdsToasts('quiet-time'));
   check('a Store app in front shows', !holdsToasts('app'));
-  check('exactly three states hold', NOTIFY_STATES.filter(holdsToasts).length === 3);
+  check('a foreground window covering its monitor holds', holdsToasts('window-fullscreen'));
+  check('exactly four states hold', NOTIFY_STATES.filter(holdsToasts).length === 4);
   check('the poll is every 3 seconds', HOLD_POLL_MS === 3000);
 }
 
@@ -67,6 +68,28 @@ console.log('\nnotify-hold: reading the helper\'s answer\n');
   check('a byte order mark in front still reads (PowerShell 5.1 can write one)', parseProbeLine('\uFEFFquns=2') === 'busy');
   check('text around the value is unknown', parseProbeLine('quns=2 extra') === 'unknown');
   check('a negative number is unknown', parseProbeLine('quns=-2') === 'unknown');
+}
+
+console.log('\nnotify-hold: the foreground window signal\n');
+{
+  check('accepts and fg=0 is accepts', parseProbeLine('quns=5 fg=0') === 'accepts');
+  check('accepts and fg=1 holds as window-fullscreen', parseProbeLine('quns=5 fg=1') === 'window-fullscreen');
+  check('busy and fg=1 names Windows\' reason', parseProbeLine('quns=2 fg=1') === 'busy');
+  check('presentation and fg=0 is presentation', parseProbeLine('quns=4 fg=0') === 'presentation');
+  check('Direct3D full screen and fg=1 is fullscreen', parseProbeLine('quns=3 fg=1') === 'fullscreen');
+  check('a Store app and fg=1 holds as window-fullscreen', parseProbeLine('quns=7 fg=1') === 'window-fullscreen');
+  check('not present (locked) and fg=1 holds as window-fullscreen', parseProbeLine('quns=1 fg=1') === 'window-fullscreen');
+  check('Windows\' call failed, fg=1: held', parseProbeLine('quns=err fg=1') === 'window-fullscreen');
+  check('Windows\' call failed, fg=0: unknown, shows', parseProbeLine('quns=err fg=0') === 'unknown');
+  check('both failed: unknown', parseProbeLine('quns=err fg=err') === 'unknown');
+  check('the foreground check failed: Windows\' answer stands', parseProbeLine('quns=5 fg=err') === 'accepts');
+  check('the foreground check failed with busy: busy', parseProbeLine('quns=2 fg=err') === 'busy');
+  check('the order does not matter', parseProbeLine('fg=1 quns=5') === 'window-fullscreen');
+  check('a carriage return after the pair is fine', parseProbeLine('quns=5 fg=1\r') === 'window-fullscreen');
+  check('fg=1 alone holds', parseProbeLine('fg=1') === 'window-fullscreen');
+  check('fg=2 is not 1, so it does not hold', parseProbeLine('quns=5 fg=2') === 'accepts');
+  check('an unknown token makes the whole line unknown', parseProbeLine('quns=5 fg=1 x=1') === 'unknown');
+  check('window-fullscreen is an override word too', stateWord('window-fullscreen') === 'window-fullscreen');
 }
 
 console.log('\nnotify-hold: the override words\n');
@@ -102,7 +125,7 @@ console.log('\nnotify-hold: a failed probe shows the toast\n');
 
 console.log('\nnotify-hold: a toast while a full-screen app is in front waits\n');
 {
-  for (const state of ['busy', 'fullscreen', 'presentation'] as const) {
+  for (const state of ['busy', 'fullscreen', 'presentation', 'window-fullscreen'] as const) {
     const s = play(initialHold(), [push, answer(state)]);
     check(`${state}: not shown`, s[1].show === false, actions(s[1]));
     check(`${state}: held`, s[1].next.held === true, show(s[1].next));

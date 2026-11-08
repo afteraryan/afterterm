@@ -9,6 +9,13 @@
 // state ends they show and are raised as before. The rail and the sidebar are
 // not touched: only the overlay waits.
 //
+// A second signal from the same helper (decided 2026-11-09): Windows' answer
+// looks at the primary display only, so a full-screen app on another monitor
+// read as "accepts" in the real check. The helper also reports whether the
+// foreground window covers the whole monitor it is on (not the desktop, not the
+// taskbar, not afterterm's own windows, not an ordinary maximized window with a
+// title bar). Either signal holds the toasts.
+//
 // Pure and DOM-free: main keeps an OverlayHold and acts on each HoldStep.
 
 // What SHQueryUserNotificationState answered, by name. 'unknown' is every
@@ -21,10 +28,11 @@ export type NotifyState =
   | 'accepts'       // QUNS_ACCEPTS_NOTIFICATIONS (5): nothing in the way
   | 'quiet-time'    // QUNS_QUIET_TIME (6): the first hour after a new user signs in
   | 'app'           // QUNS_APP (7): a Store app in front
+  | 'window-fullscreen' // Windows said none of the above, but the foreground window covers its whole monitor
   | 'unknown';
 
 export const NOTIFY_STATES: readonly NotifyState[] = [
-  'not-present', 'busy', 'fullscreen', 'presentation', 'accepts', 'quiet-time', 'app', 'unknown',
+  'not-present', 'busy', 'fullscreen', 'presentation', 'accepts', 'quiet-time', 'app', 'window-fullscreen', 'unknown',
 ];
 
 const QUNS_STATES: Record<number, NotifyState> = {
@@ -42,20 +50,34 @@ const QUNS_STATES: Record<number, NotifyState> = {
 // screen goes off it at most this long after one comes in front.
 export const HOLD_POLL_MS = 3000;
 
-// The three states Windows' own notifications stay quiet for. Everything else,
-// 'unknown' included, shows: a probe that failed must never hide toasts.
+// The three states Windows' own notifications stay quiet for, and a foreground
+// window that covers its whole monitor. Everything else, 'unknown' included,
+// shows: a probe that failed must never hide toasts.
 export function holdsToasts(state: NotifyState): boolean {
-  return state === 'busy' || state === 'fullscreen' || state === 'presentation';
+  return state === 'busy' || state === 'fullscreen' || state === 'presentation' || state === 'window-fullscreen';
 }
 
-// One line from the helper: "quns=<n>" on success, "hr=<n>" for a failed call,
-// "error" when the call could not be made. Anything that is not a known
-// "quns=" value is 'unknown'. Spaces, a carriage return and a byte order mark
-// around it are allowed (JavaScript's \s covers all three).
+// One line from the helper: "quns=<n> fg=<1|0>", where quns is Windows' answer
+// ("err" when the call failed) and fg is whether the foreground window covers
+// its whole monitor ("err" when that could not be read). Windows' answer wins
+// when it holds (it names the reason); otherwise fg=1 holds as
+// 'window-fullscreen'; otherwise Windows' answer, or 'unknown' when there is
+// none. "error" (the helper could not set itself up) and anything else that
+// is not a known value is 'unknown'. Spaces, a carriage return and a byte order
+// mark around the tokens are allowed (JavaScript's \s covers all three).
 export function parseProbeLine(line: string): NotifyState {
-  const m = /^\s*quns=(\d+)\s*$/.exec(line);
-  if (!m) return 'unknown';
-  return QUNS_STATES[Number(m[1])] ?? 'unknown';
+  const tokens = line.trim().split(/\s+/);
+  let quns: NotifyState = 'unknown';
+  let foreground = false;
+  for (const token of tokens) {
+    const m = /^(quns|fg)=(\w+)$/.exec(token);
+    if (!m) return 'unknown';
+    if (m[1] === 'quns') quns = /^\d+$/.test(m[2]) ? QUNS_STATES[Number(m[2])] ?? 'unknown' : 'unknown';
+    else foreground = m[2] === '1';
+  }
+  if (holdsToasts(quns)) return quns;
+  if (foreground) return 'window-fullscreen';
+  return quns;
 }
 
 // A state named in words, for the dev build's AFTERTERM_NOTIFY_STATE override
