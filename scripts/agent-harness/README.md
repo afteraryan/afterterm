@@ -72,6 +72,16 @@ Main-process support lives in `src/main.ts`:
   the main window's close handler reads it: a harness run skips the "terminals still
   running" confirm dialog and quits at once, which is what lets `drive window quit`
   exercise the quit flush without anyone there to click a button.
+- `AFTERTERM_RESTORE_PLACEMENT=1` (pass it with `--env`): the main window opens on its saved
+  home from `prefs.json` instead of the harness centre, but only when that home is on the
+  `AFTERTERM_DISPLAY` display (AFT-15, `docs/features-long-output-and-fix-sweep.md`). `launch.mjs`
+  rewrites `prefs.json` on every launch, so a relaunch test passes the saved `window*` keys
+  through `--prefs`. Under `AFTERTERM_HARNESS=1`, `drive eval "window.afterterm.harness.windowHome()"`
+  reads the window's home and the displays, and `windowHome({ event, displays, windowDisplayId })`
+  plays `display-removed`, `display-added`, `resume` or `unlock-screen` into the same code with a
+  made-up display list. A move back is made only when it lands on the `AFTERTERM_DISPLAY` display
+  (checked against the real displays), so a made-up list cannot move the dev window onto the
+  monitor a person is using; a refused move logs "its place is off the harness display".
 
 ## Launch
 
@@ -230,7 +240,7 @@ node scripts/agent-harness/drive.mjs <command> ...
 | `dom` | `drive dom ".tab-row"`, add `--html` for outerHTML | Match count plus tag, classes and trimmed innerText per match. |
 | `click` | `drive click ".tab-row" 2` | Scrolls the element into view and dispatches a real `mousePressed` and `mouseReleased` at its centre through `Input.dispatchMouseEvent`, so React handlers and dnd-kit see a user-like click. Index defaults to 0. |
 | `rightclick` | `drive rightclick ".group-header" 0` | Same with the right button (opens context menus). |
-| `cell` | `drive cell rightclick 12 40 --tab tab-1` | A real mouse on one 1-based buffer cell of a terminal, with `hover`, `click` or `rightclick`: the way to test a file link as a person would (find the row with `eval "window.__afterterm.findRow('tab-1', 'text')"`). The pointer rests `--wait` ms (default 300) on the cell first, since a link only exists once main has answered. |
+| `cell` | `drive cell rightclick 12 40 --tab tab-1` | A real mouse on one 1-based buffer cell of a terminal, with `hover`, `click` or `rightclick`: the way to test a file link as a person would (find the row with `eval "window.__afterterm.findRow('tab-1', 'text')"`). The pointer rests `--wait` ms (default 300) on the cell first, since a link only exists once main has answered. To read what a mouse drag selected, `eval "window.__afterterm.selection('tab-1')"` answers with `{ has, text, position }` from xterm itself (AFT-44). |
 | `hover` | `drive hover ".pr" 0`, `drive hover ".th" 0 --wait 400` | Scrolls the element into view, then steps the pointer onto its centre in a couple of `mouseMoved` events (so CSS `:hover` and React's `onMouseEnter` both see a real enter, not a teleport) and leaves it there. Prints the centre. `--wait <ms>` pauses after the move, before the command returns: the thread hover card appears 350ms after the pointer enters a row, so `drive hover ".th" 0 --wait 400` then `drive hover-card` in a second call sees it. |
 | `unhover` | `drive unhover` | Moves the pointer to (2, 2) of the viewport, the title bar strip, which has no hover targets. |
 | `drag` | `drive drag ".tab-row" 0 ".tab-row" 2 --hold-ms 600` | Presses at the source element's centre, steps to the target element's centre (`--steps`, default 12, 16ms apart), an optional dwell at the target (`--hold-ms`, default 0), then releases. The panel's own drag (since 2026-11-01) needs the steps (it starts after 7px) and lands by the pointer's height in the list, so a target's centre is not always the slot you want. An index is a bare integer right after its selector, so the two selector/index pairs never need extra flags to disambiguate. Two threads side by side (design-06): `--to-x <fraction>` lands at that fraction of the target's width instead of its centre (`drive drag ".th[data-tid=tab-4]" ".term-card" --to-x 0.75` drops on the right half), and `--shot <png>` captures the page during the hold, before the release, so a lit or refused drop zone is in the picture. |

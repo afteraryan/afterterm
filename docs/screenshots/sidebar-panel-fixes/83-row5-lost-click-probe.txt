@@ -1,0 +1,7 @@
+target .side-panel .scroll .th[23] "recent 6  hell 4" at (204, 418)
+before   : {"dockOpen":true,"selected":"t-1","listScrollTop":755,"menu":false,"screen":"workspace"}
+pressed left at (204, 418); holding 250ms
+pressed  : {"dockOpen":true,"selected":"t-1","listScrollTop":752,"menu":false,"screen":"workspace"}
+held     : {"dockOpen":true,"selected":"t-1","listScrollTop":752,"menu":false,"screen":"workspace"}
+shot (held): docs\screenshots\sidebar-panel-fixes\82-row5-held-press-on-last-row-drawer-still-open.png
+released : {"dockOpen":false,"selected":"t-24","listScrollTop":471,"menu":false,"screen":"workspace"}

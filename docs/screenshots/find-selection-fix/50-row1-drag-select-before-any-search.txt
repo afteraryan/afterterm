@@ -1,0 +1,6 @@
+  [t+47ms] connected
+  [t+53ms] cells found
+  [t+431ms] released
+drag from row 15 col 5 (row 10 ) to row 19 col 20 (row 14 ), 12 steps
++0ms (read at 1ms) selection: {"has":true,"text":"10 red green blue yellow orange violet\r\nrow 11 red green blue yellow orange violet\r\nrow 12 red green blue yellow orange violet\r\nrow 13 red green blue yellow orange violet\r\nrow 14 red green bl","position":{"start":{"x":4,"y":14},"end":{"x":19,"y":18}}} | last row: ["-find-selection\\cwd>"]
++1000ms (read at 1009ms) selection: {"has":true,"text":"10 red green blue yellow orange violet\r\nrow 11 red green blue yellow orange violet\r\nrow 12 red green blue yellow orange violet\r\nrow 13 red green blue yellow orange violet\r\nrow 14 red green bl","position":{"start":{"x":4,"y":14},"end":{"x":19,"y":18}}} | last row: ["-find-selection\\cwd>"]

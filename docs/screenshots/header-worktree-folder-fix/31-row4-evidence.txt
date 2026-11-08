@@ -1,0 +1,47 @@
+== Row 4a: tab-3 chat, claudeCwd = C:\Users\Aryan\AppData\Local\Temp\claude\fa0123314555e1c0\a0efc8aa-7861-41bd-83eb-c902edfef41f\scratchpad\tester-worktree-folder\gone-folder (does not exist, no git above it)
+-- log lines before: 11
+folder exists on disk: False
+clicked [data-action='editor'][0] at (1205, 60) of 1 match(es)
+-- after clicking disabled editor button, log lines: 11
+right-clicked .side-panel .th[2] at (208, 276) of 5 match(es)
+"[{\"t\":\"Wake\",\"cls\":\"menu-item ctx-menu-item\",\"tip\":null,\"dis\":null},{\"t\":\"Mark as unread\",\"cls\":\"menu-item ctx-menu-item\",\"tip\":null,\"dis\":null},{\"t\":\"Move to project\",\"cls\":\"menu-item ctx-menu-item\",\"tip\":null,\"dis\":null},{\"t\":\"Open project page\",\"cls\":\"menu-item ctx-menu-item\",\"tip\":null,\"dis\":null},{\"t\":\"Open in File Explorer\",\"cls\":\"menu-item ctx-menu-item disabled\",\"tip\":\"Folder not found\",\"dis\":\"true\"},{\"t\":\"Open in VS Code\",\"cls\":\"menu-item ctx-menu-item disabled\",\"tip\":\"Folder not found\",\"dis\":\"true\"},{\"t\":\"Rename\",\"cls\":\"menu-item ctx-menu-item\",\"tip\":null,\"dis\":null},{\"t\":\"Close\",\"cls\":\"menu-item ctx-menu-item danger\",\"tip\":null,\"dis\":null}]"
+clicked .ctx-menu-item[4] at (308, 449) of 8 match(es)
+{
+  "screen": "workspace",
+  "entrance": null,
+  "palette": false,
+  "chooser": false,
+  "menu": true,
+  "dialog": false,
+  "toast": false
+}
+-- after clicking disabled Open in File Explorer, log lines: 11
+menu items present: 8
+clicked .ctx-menu-item[5] at (308, 486) of 8 match(es)
+-- after clicking disabled Open in VS Code, log lines: 11
+(nothing opened)
+folder: C:\Users\Aryan\AppData\Local\Temp\claude\fa0123314555e1c0\a0efc8aa-7861-41bd-83eb-c902edfef41f\scratchpad\tester-worktree-folder\nogit\sub
+editor: vscode:c:\users\aryan\appdata\local\programs\microsoft vs code\code.exe C:\Users\Aryan\AppData\Local\Temp\claude\fa0123314555e1c0\a0efc8aa-7861-41bd-83eb-c902edfef41f\scratchpad\tester-worktree-folder\nogit\sub
+file: (none opened)
+reveal: (none)
+
+== Row 4b: tab-4 chat, claudeCwd = <worktree>\src\renderer\deleted-subfolder (missing; its worktree still exists)
+folder exists on disk: False
+-- log lines before: 11
+clicked [data-meta='worktree'][0] at (780, 71) of 1 match(es)
+clicked [data-action='editor'][0] at (1205, 60) of 1 match(es)
+-- after clicking disabled worktree item and editor button, log lines: 11
+"[{\"t\":\"Open in File Explorer\",\"cls\":\"menu-item ctx-menu-item disabled\",\"tip\":\"Folder not found\"},{\"t\":\"Open in VS Code\",\"cls\":\"menu-item ctx-menu-item disabled\",\"tip\":\"Folder not found\"}]"
+clicked .ctx-menu-item[4] at (308, 483) of 8 match(es)
+clicked .ctx-menu-item[5] at (308, 520) of 8 match(es)
+-- after clicking the two disabled menu items, log lines: 11
+
+== Row 4c: tab-5 chat, claudeCwd = <repo>\.claude\worktrees\deleted-wt\src (gone; the walk up reaches the main repo, which exists)
+folder exists on disk: False
+-- log lines before: 11
+clicked [data-action='editor'][0] at (1205, 60) of 1 match(es)
+-- after clicking disabled editor button, log lines: 11
+"[{\"t\":\"Open in File Explorer\",\"cls\":\"menu-item ctx-menu-item disabled\",\"tip\":\"Folder not found\"},{\"t\":\"Open in VS Code\",\"cls\":\"menu-item ctx-menu-item disabled\",\"tip\":\"Folder not found\"}]"
+clicked .ctx-menu-item[4] at (308, 517) of 8 match(es)
+clicked .ctx-menu-item[5] at (308, 554) of 8 match(es)
+-- after clicking the two disabled menu items, log lines: 11

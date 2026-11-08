@@ -40,6 +40,7 @@ import type { SessionFiles } from '../session-files';
 import type { FilesButtonProps } from './components/FilesButton';
 import { filesListView } from './filesView';
 import { panesFor, splitOf, paneDropTarget } from './splitView';
+import { PANEL_DEFAULT_WIDTH, clampPanelWidth, savedUi } from './panelWidth';
 import type { PaneTarget } from './splitView';
 import type { FileLinkContext, FileLinkTarget } from './components/Terminal/fileLinks';
 import type { MenuItem } from './components/Menu';
@@ -84,6 +85,13 @@ export function App() {
   // Whether the panel is hidden (Ctrl+Shift+B, the toggle). Persisted in
   // session.json as ui.panelHidden (Phase 8); the rail is never hidden.
   const [panelHidden, setPanelHidden] = useState(false);
+  // The panel's width in pixels (AFT-30): the person's own, from dragging its right
+  // edge, or the default. Persisted as ui.panelWidth only when it is not the
+  // default. What is drawn is this held to the window (shownPanelWidth), so a width
+  // chosen in a big window is kept, not overwritten, when the window gets small.
+  const [panelWidth, setPanelWidth] = useState(PANEL_DEFAULT_WIDTH);
+  const [windowWidth, setWindowWidth] = useState(() => window.innerWidth);
+  const shownPanelWidth = clampPanelWidth(panelWidth, windowWidth);
   // The transient slide: the panel is shut on the way to Home and slides open
   // again on the way back (design-03 decision 1), without touching the
   // persisted flag above. Never true while panelHidden already is.
@@ -114,6 +122,9 @@ export function App() {
   // Which project folders exist, keyed by path. Refreshed on entering Home or a
   // project page, the only screens that show the "Folder not found" state.
   const [folderExists, setFolderExists] = useState<Record<string, boolean>>({});
+  // Bumped when a git read changes a thread's worktree or working tree top, so the
+  // folder check runs again (see the effect that reads it).
+  const [gitMoves, setGitMoves] = useState(0);
   const [toast, setToast] = useState<AppToast | null>(null);
   // Archive (2026-11-01): the project whose "Archive <name>?" window is open, and
   // the project being archived right now, which the panel keeps in Recent until
@@ -177,6 +188,30 @@ export function App() {
   stateRef.current = state;
   const panelHiddenRef = useRef(panelHidden);
   panelHiddenRef.current = panelHidden;
+  const panelWidthRef = useRef(panelWidth);
+  panelWidthRef.current = panelWidth;
+  // A window resize re-renders the app only when it changes the width the panel is
+  // drawn at (the width is held to half the window, so most resizes change
+  // nothing). windowWidth is kept in step wherever the width itself changes
+  // (changePanelWidth, the restore), so what is drawn is always the chosen width
+  // held to the real window.
+  useEffect(() => {
+    const onResize = () => {
+      const width = window.innerWidth;
+      setWindowWidth(prev => clampPanelWidth(panelWidthRef.current, prev) === clampPanelWidth(panelWidthRef.current, width) ? prev : width);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  // The panel's edge was dragged (settled) or double-clicked back to the default.
+  // After a drag the terminals were held still, so they are fitted once now (the
+  // drag has already put the panel at its final width, so the layout is settled); a
+  // reset animates, and the terminal area's own ResizeObserver fits when it ends.
+  const changePanelWidth = useCallback((width: number, settled: boolean) => {
+    setPanelWidth(width);
+    setWindowWidth(window.innerWidth);
+    if (settled) terminalRef.current?.refit();
+  }, []);
   const screenRef = useRef(screen);
   screenRef.current = screen;
 
@@ -295,15 +330,34 @@ export function App() {
     });
   };
 
+  // The top of each thread's git working tree, filled by every git read
+  // (noteGitInfo) and not saved. File links try paths from it, and a thread's
+  // Open in File Explorer and Open in <editor> open it (threadFolderTarget).
+  const gitTopsRef = useRef(new Map<string, string>());
+
+  // The folder a thread's own Open in File Explorer and Open in <editor> act on
+  // (threadFolderTarget): the top of the thread's git working tree, never above
+  // its project. The top is read from a ref that fills after a render and causes
+  // none, so the launches below call this again at the click.
+  const threadTarget = (tab: Tab) => threadFolderTarget(
+    tab,
+    folderExists,
+    gitTopsRef.current.get(tab.id),
+    tab.groupId ? state.groups.find(g => g.id === tab.groupId)?.cwd : undefined,
+  );
+
   // What the thread menu's "Open in File Explorer" gets for a thread: nothing
   // when the thread has no folder (the item is then left out), otherwise the
   // folder's checked existence and the launch. `folderExists` is only ever
   // false for a folder main has actually checked and found missing; an
   // unchecked one counts as present, so the item never starts out disabled.
   const threadExplorer = (tab: Tab) => {
-    const target = threadFolderTarget(tab, folderExists);
+    const target = threadTarget(tab);
     if (!target) return undefined;
-    return { missing: target.missing, open: () => openFolderInExplorer(target.folder) };
+    return {
+      missing: target.missing,
+      open: () => openFolderInExplorer((threadTarget(tab) ?? target).folder),
+    };
   };
 
   // Launches an editor on a folder, for a project (its root) and a thread (its
@@ -322,14 +376,19 @@ export function App() {
     });
   };
 
-  // "Open in <editor>" for a thread's own folder (the worktree for a worktree
-  // chat, the project root for a chat that runs there, a shell's cwd), the
-  // editor twin of threadExplorer: the header's editor button and the thread
-  // menu entries. Undefined when the thread has no folder or no editor was found.
+  // "Open in <editor>" for the same folder as threadExplorer (the worktree for a
+  // worktree chat, the repo's top for a chat or shell in a subfolder of one, the
+  // thread's own folder outside git, never above the project), the editor twin
+  // of it: the header's editor button and the thread menu entries. Undefined when
+  // the thread has no folder or no editor was found.
   const threadEditor = (tab: Tab) => {
-    const target = threadFolderTarget(tab, folderExists);
+    const target = threadTarget(tab);
     if (!target || editors.length === 0) return undefined;
-    return { editors, missing: target.missing, open: (editorId: string) => openFolderInEditor(target.folder, editorId) };
+    return {
+      editors,
+      missing: target.missing,
+      open: (editorId: string) => openFolderInEditor((threadTarget(tab) ?? target).folder, editorId),
+    };
   };
 
   // ── Edited files (docs/edited-files) ──────────────────────────────────────
@@ -388,7 +447,6 @@ export function App() {
   // not saved: the first read after a launch fills it again.
   const filesByTabRef = useRef(filesByTab);
   filesByTabRef.current = filesByTab;
-  const gitTopsRef = useRef(new Map<string, string>());
   const fileContextFor = useCallback((tabId: string): FileLinkContext | null => {
     const tab = stateRef.current.tabs.find(t => t.id === tabId);
     if (!tab) return null;
@@ -600,6 +658,8 @@ export function App() {
       if (session) {
         state.restoreSession(session);
         setPanelHidden(!!session.ui?.panelHidden);
+        setPanelWidth(session.ui?.panelWidth ?? PANEL_DEFAULT_WIDTH);
+        setWindowWidth(window.innerWidth);
         setScreen(initialScreen(session.groups));
       } else {
         setScreen(initialScreen([]));
@@ -648,11 +708,11 @@ export function App() {
   useEffect(() => {
     if (!initialized) return;
     const timer = setTimeout(() => {
-      const data = serializeSession(state.tabs, state.groups, state.activeTabId, { panelHidden }, undefined, state.splits);
+      const data = serializeSession(state.tabs, state.groups, state.activeTabId, savedUi(panelHidden, panelWidth), undefined, state.splits);
       window.afterterm.session.save(JSON.stringify(data));
     }, 2000);
     return () => clearTimeout(timer);
-  }, [initialized, state.tabs, state.groups, state.activeTabId, state.splits, panelHidden]);
+  }, [initialized, state.tabs, state.groups, state.activeTabId, state.splits, panelHidden, panelWidth]);
 
   // Keyboard shortcuts from main process
   useEffect(() => {
@@ -701,11 +761,20 @@ export function App() {
   }, []);
 
   // One thread's git read: branch and worktree onto the tab (setGitInfo no-ops when
-  // nothing changed), and the worktree's top kept for its file links.
+  // nothing changed), and the worktree's top kept for its file links and its
+  // folder buttons. When the read moves the worktree or the top (a worktree
+  // deleted from outside: git-info walks up from the missing folder and finds the
+  // main checkout), the folder check runs again, so threadFolderTarget sees the
+  // thread's folder as missing instead of opening the repo above it.
   const noteGitInfo = useCallback((tabId: string, info: GitInfo) => {
+    const topBefore = gitTopsRef.current.get(tabId);
+    const worktreeBefore = stateRef.current.tabs.find(t => t.id === tabId)?.worktree;
     if (info.top) gitTopsRef.current.set(tabId, info.top);
     else gitTopsRef.current.delete(tabId);
     stateRef.current.setGitInfo(tabId, { branch: info.branch, worktree: info.worktree });
+    if ((info.top ?? undefined) !== topBefore || (info.worktree ?? undefined) !== worktreeBefore) {
+      setGitMoves(n => n + 1);
+    }
   }, []);
 
   // Read one thread's git info (noteGitInfo). Calling it more often than needed is
@@ -1255,7 +1324,7 @@ export function App() {
       // would come back with it shown (found in the Phase 8 self-test).
       // An update restart also records which threads were awake, to wake them on
       // the other side; on any other quit the list is empty and nothing is written.
-      const data = serializeSession(sleepAllForShutdown(s.tabs, Date.now()), s.groups, s.activeTabId, { panelHidden: panelHiddenRef.current }, wakeAfterUpdateRef.current, s.splits);
+      const data = serializeSession(sleepAllForShutdown(s.tabs, Date.now()), s.groups, s.activeTabId, savedUi(panelHiddenRef.current, panelWidthRef.current), wakeAfterUpdateRef.current, s.splits);
       window.afterterm.session.saveSync(JSON.stringify(data));
     };
     window.addEventListener('beforeunload', flush);
@@ -1339,7 +1408,9 @@ export function App() {
   // deleted while you were in the workspace is caught on the way back, plus one
   // whenever the set of folders itself changes (a thread cd-ing somewhere new, a
   // project added), which is what keeps the workspace's thread menus honest
-  // without polling. Project folders and thread folders go in one call.
+  // without polling, and one whenever a git read moves a thread's worktree or
+  // working tree top (gitMoves), which is how a worktree deleted from outside
+  // gets noticed within a poll. Project folders and thread folders go in one call.
   const folderKey = [
     ...state.groups.map(g => g.cwd),
     ...state.tabs.map(t => threadFolder(t)),
@@ -1352,7 +1423,7 @@ export function App() {
       if (!cancelled) setFolderExists(result);
     });
     return () => { cancelled = true; };
-  }, [screen, screenSeq, folderKey]);
+  }, [screen, screenSeq, folderKey, gitMoves]);
 
   // Editor detection runs in main at startup; the renderer just reads the result
   // once. A prefs.json editorPath that exists but is not an editor is the one
@@ -1435,6 +1506,7 @@ export function App() {
       // Phase 8: the persisted panel flag, read by the harness's `rail` command,
       // and the panel's own row order, the list Ctrl+Shift+Down/Up walks.
       panelHidden: () => panelHiddenRef.current,
+      panelWidth: () => panelWidthRef.current,
       panelOrder: () => panelRef.current?.visibleIds() ?? [],
     };
   }, []);
@@ -1626,6 +1698,8 @@ export function App() {
           groups={state.groups}
           activeTabId={state.activeTabId}
           hidden={panelHidden || panelShut}
+          width={shownPanelWidth}
+          onWidthChange={changePanelWidth}
           now={now}
           shells={shells}
           onActivate={handleActivate}

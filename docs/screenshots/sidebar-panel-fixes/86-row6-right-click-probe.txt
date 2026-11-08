@@ -1,0 +1,13 @@
+target .dock .pj[data-other][2] "other project 3
+1w" at (208, 543)
+before   : {"dockOpen":true,"selected":"t-24","listScrollTop":483,"menu":false,"screen":"workspace"}
+pressed right at (208, 543); holding 200ms
+pressed  : {"dockOpen":true,"selected":"t-24","listScrollTop":483,"menu":false,"screen":"workspace"}
+held     : {"dockOpen":true,"selected":"t-24","listScrollTop":483,"menu":false,"screen":"workspace"}
+shot (held): docs\screenshots\sidebar-panel-fixes\85-row6-right-click-held-on-drawer-row.png
+released : {"dockOpen":true,"selected":"t-24","listScrollTop":483,"menu":false,"screen":"workspace"}
+
+Note (tester): the "menu" key in this probe looks for a .ctx-menu element, which this build does not
+use (the menu rows are .ctx-menu-item), so "menu": false is a probe mistake, not an app result. The
+menu really was open after the release: 87-row6-menu-open-drawer-still-open.png and a DOM listing of
+11 .ctx-menu-item rows (Open, New thread here, ..., Open project page, ..., Delete project).
