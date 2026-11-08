@@ -1,0 +1,174 @@
+Round 2 state log for the thread "Title shell" (tab-3) running a real Claude Code 2.1.319 (Haiku) on the branch at 00dba51, sampled in the page; one line per change.
+The sampler ran at about one sample a second at times (Chromium throttles timers on this window), so a change is accurate to about a second.
+Columns: time (UTC, local is UTC+5:30) | raw window title | notification (the state drawn) | background work flag | Claude record status ("-" = none) | shell prompt marks | kind.
+
+20:12:21.719  cmd.exe | - | no-flag | - | at-prompt | shell
+20:12:29.959  cmd.exe | - | no-flag | - | no-prompt | shell
+20:12:30.008  cmd.exe | - | no-flag | - | at-prompt | shell
+20:12:37.689  cmd.exe - claude  --model haiku | - | no-flag | - | no-prompt | shell
+20:12:38.280  claude | - | no-flag | - | no-prompt | shell
+20:12:40.370  ✳ Claude Code | - | no-flag | - | no-prompt | shell
+20:12:41.800  work | - | no-flag | - | no-prompt | shell
+20:12:44.567  work | - | no-flag | idle | no-prompt | shell
+20:13:01.479  ◐ Claude Code | - | no-flag | idle | no-prompt | shell
+20:13:02.207  ▶ work - working | working | no-flag | idle | no-prompt | chat
+20:13:02.440  ◑ Claude Code | working | no-flag | idle | no-prompt | chat
+20:13:02.643  ◑ Claude Code | working | no-flag | busy | no-prompt | chat
+20:13:03.240  ◑ Background Agent ping test | working | no-flag | busy | no-prompt | chat
+20:13:03.443  ◐ Background Agent ping test | working | no-flag | busy | no-prompt | chat
+20:13:04.400  ◑ Background Agent ping test | working | no-flag | busy | no-prompt | chat
+20:13:05.838  ◐ Background Agent ping test | working | no-flag | busy | no-prompt | chat
+20:13:06.639  ◑ Background Agent ping test | working | no-flag | busy | no-prompt | chat
+20:13:07.643  ◐ Background Agent ping test | working | no-flag | busy | no-prompt | chat
+20:13:08.645  ◑ Background Agent ping test | working | no-flag | busy | no-prompt | chat
+20:13:08.896  ⏳ work - bg (1 running) | background | bg-flag | busy | no-prompt | chat
+20:13:09.558  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:13:10.523  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:13:11.490  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:13:12.442  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:13:13.406  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:13:14.358  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:13:15.321  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:13:16.279  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:13:17.252  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:13:21.163  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:13:22.127  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:13:23.085  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:13:24.040  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:13:25.000  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:13:25.958  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:13:26.921  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:13:27.879  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:13:28.842  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:13:29.800  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:13:30.763  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:13:31.762  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:13:32.687  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:13:33.646  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:13:34.605  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:13:35.600  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:13:36.598  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:13:37.560  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:13:37.614  ▶ work - working | working | bg-flag | busy | no-prompt | chat
+20:13:38.521  ◑ Background Agent ping test | working | bg-flag | busy | no-prompt | chat
+20:13:39.321  ✳ Background Agent ping test | working | bg-flag | busy | no-prompt | chat
+20:13:40.800  ✳ Background Agent ping test | working | bg-flag | waiting | no-prompt | chat
+20:13:41.838  ✳ Background Agent ping test | background | bg-flag | waiting | no-prompt | chat
+20:13:46.200  ⚠ work - needs permission | attention | bg-flag | waiting | no-prompt | chat
+20:14:07.921  ⚠ work - needs permission | working | bg-flag | waiting | no-prompt | chat
+20:14:08.007  ◑ Background Agent ping test | working | bg-flag | waiting | no-prompt | chat
+20:14:08.926  ◑ Background Agent ping test | working | bg-flag | busy | no-prompt | chat
+20:14:08.958  ◐ Background Agent ping test | working | bg-flag | busy | no-prompt | chat
+20:14:09.958  ◑ Background Agent ping test | working | bg-flag | busy | no-prompt | chat
+20:14:10.920  ◐ Background Agent ping test | working | bg-flag | busy | no-prompt | chat
+20:14:11.881  ◑ Background Agent ping test | working | bg-flag | busy | no-prompt | chat
+20:14:12.134  ⏳ work - bg (1 running) | background | bg-flag | busy | no-prompt | chat
+20:14:12.824  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:13.768  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:14.764  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:15.720  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:16.678  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:17.643  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:18.568  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:19.524  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:20.523  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:21.478  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:22.439  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:23.397  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:24.363  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:25.330  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:26.278  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:27.240  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:28.201  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:29.166  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:30.121  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:31.083  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:32.042  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:33.002  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:33.999  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:35.006  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:35.957  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:36.918  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:37.920  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:38.843  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:39.841  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:40.799  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:41.771  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:42.717  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:43.678  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:44.239  ✳ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:44.278  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:45.242  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:14:45.520  ▶ work - working | working | bg-flag | busy | no-prompt | chat
+20:14:46.199  ◐ Background Agent ping test | working | bg-flag | busy | no-prompt | chat
+20:14:47.128  ◑ Background Agent ping test | working | bg-flag | busy | no-prompt | chat
+20:14:48.084  ◐ Background Agent ping test | working | bg-flag | busy | no-prompt | chat
+20:14:48.766  ✅ work - done | - | no-flag | busy | no-prompt | chat
+20:14:48.839  ✳ Background Agent ping test | - | no-flag | busy | no-prompt | chat
+20:14:48.877  ◐ Background Agent ping test | - | no-flag | busy | no-prompt | chat
+20:14:48.964  ✳ Background Agent ping test | - | no-flag | busy | no-prompt | chat
+20:14:49.088  ✳ Background Agent ping test | - | no-flag | idle | no-prompt | chat
+20:15:05.158  ◐ Background Agent ping test | - | no-flag | idle | no-prompt | chat
+20:15:06.125  ◑ Background Agent ping test | - | no-flag | idle | no-prompt | chat
+20:15:06.198  ▶ work - working | working | no-flag | idle | no-prompt | chat
+20:15:07.080  ◐ Background Agent ping test | working | no-flag | idle | no-prompt | chat
+20:15:07.157  ◐ Background Agent ping test | working | no-flag | busy | no-prompt | chat
+20:15:07.919  ✳ Background Agent ping test | working | no-flag | busy | no-prompt | chat
+20:15:09.157  ✳ Background Agent ping test | working | no-flag | waiting | no-prompt | chat
+20:15:10.841  ✳ Background Agent ping test | - | no-flag | waiting | no-prompt | chat
+20:15:14.601  ⚠ work - needs permission | attention | no-flag | waiting | no-prompt | chat
+20:15:23.877  ⚠ work - needs permission | working | no-flag | waiting | no-prompt | chat
+20:15:23.997  ◐ Background Agent ping test | working | no-flag | waiting | no-prompt | chat
+20:15:24.962  ◑ Background Agent ping test | working | no-flag | waiting | no-prompt | chat
+20:15:25.241  ◑ Background Agent ping test | working | no-flag | busy | no-prompt | chat
+20:15:25.918  ◐ Background Agent ping test | working | no-flag | busy | no-prompt | chat
+20:15:26.692  ✅ work - done | - | no-flag | busy | no-prompt | chat
+20:15:26.758  ✳ Background Agent ping test | - | no-flag | busy | no-prompt | chat
+20:15:27.250  ✳ Background Agent ping test | - | no-flag | idle | no-prompt | chat
+20:15:43.397  ◐ Background Agent ping test | - | no-flag | idle | no-prompt | chat
+20:15:44.368  ▶ work - working | working | no-flag | idle | no-prompt | chat
+20:15:45.286  ▶ work - working | working | no-flag | busy | no-prompt | chat
+20:15:45.319  ◐ Background Agent ping test | working | no-flag | busy | no-prompt | chat
+20:15:46.277  ◑ Background Agent ping test | working | no-flag | busy | no-prompt | chat
+20:15:47.240  ◐ Background Agent ping test | working | no-flag | busy | no-prompt | chat
+20:15:48.198  ◑ Background Agent ping test | working | no-flag | busy | no-prompt | chat
+20:15:49.161  ◐ Background Agent ping test | working | no-flag | busy | no-prompt | chat
+20:15:49.398  ⏳ work - bg (1 running) | background | bg-flag | busy | no-prompt | chat
+20:15:50.119  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:15:51.080  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:15:52.038  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:15:52.997  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:15:53.956  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:15:54.923  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:15:55.881  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:15:56.838  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:15:57.802  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:15:58.770  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:15:59.723  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:16:00.684  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:16:01.638  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:16:02.601  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:16:03.598  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:16:04.523  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:16:05.527  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:16:06.446  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:16:07.440  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:16:08.398  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:16:09.324  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:16:10.329  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:16:11.278  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:16:12.241  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:16:13.201  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:16:14.161  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:16:15.118  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:16:16.091  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:16:17.039  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:16:17.997  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:16:18.962  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:16:19.918  ◐ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:16:20.888  ◑ Background Agent ping test | background | bg-flag | busy | no-prompt | chat
+20:16:21.127   | background | bg-flag | busy | no-prompt | chat
+20:16:21.444   | - | no-flag | - | no-prompt | chat
+20:16:21.844  ◐ Background Agent ping test | - | no-flag | - | no-prompt | chat
+20:16:22.797  ◑ Background Agent ping test | - | no-flag | - | no-prompt | chat
+20:16:23.166  cmd.exe | - | no-flag | - | at-prompt | chat

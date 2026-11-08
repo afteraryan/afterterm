@@ -328,8 +328,9 @@ export function isMidTurn(recordStatus: string | undefined, notification: string
 // letting an idle record overrule it would call a restart safe while a background
 // agent runs. The cost is a stale ⏳ warning after its task has ended, the lesser
 // wrong.
-// The ⏳ arrives two ways. `notification` is the badge, which clears the moment the
-// thread is looked at, so the chat on screen would lose it at once. `backgroundTasks`
+// The ⏳ arrives two ways. `notification` is the state the thread shows, which a
+// working, needs-you, done or compacting state outranks while it lasts (and which,
+// until 2026-11-08, cleared the moment the thread was looked at). `backgroundTasks`
 // (Tab.backgroundTasks, spinnerState.ts's backgroundAfterTitle) is the same title
 // kept as a flag that viewing never clears, only the hook's ✅ (▶, ⚠ and ⚙ leave
 // it), the thread's Claude going away (its record status goes from a value to none,

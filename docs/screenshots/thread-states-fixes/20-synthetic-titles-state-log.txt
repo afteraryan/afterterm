@@ -1,0 +1,17 @@
+Part A state log for the cmd thread "Title shell" (tab-3), sampled in the page every 40 ms; one line per change.
+Columns: time (UTC, local is UTC+5:30) | raw window title | notification (the state drawn) | background work flag | Claude record status ("-" = none).
+
+17:27:50.230  plain | - | no-flag | -
+17:28:14.232  ⏳ States test - bg (1 running) | background | bg-flag | -
+17:29:21.222  ✅ States test - done | - | no-flag | -
+17:29:44.229  ⏳ States test - bg (1 running) | background | bg-flag | -
+17:29:56.230  ▶ States test - working  - ping  -n 7 127.0.0.1  | working | bg-flag | -
+17:30:02.229  ⚠ States test - needs permission | attention | bg-flag | -
+17:30:16.221  ⚠ States test - needs permission | working | bg-flag | -
+17:30:19.540  ⚠ States test - needs permission | background | bg-flag | -
+17:30:34.217  ✅ States test - done | - | no-flag | -
+17:30:46.220  ⚙ States test - compacting | compacting | no-flag | -
+17:30:52.232  ⚙ States test - compacting | - | no-flag | -
+17:31:09.222  ⚙ States test - compacting again | compacting | no-flag | -
+17:31:09.529  ⚙ States test - compacting again | - | no-flag | -
+17:31:21.222  plain | - | no-flag | -
