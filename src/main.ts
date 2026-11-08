@@ -1159,9 +1159,12 @@ const NOTIFIER_TOP_LEVEL = 'screen-saver';
 // setAlwaysOnTop sets the flag again and moves the window to the top of the
 // topmost windows, every time it is called; moveTop is the same order again,
 // without activating. Called on every show, and on every display and power change
-// while a toast is up. Cheap: two SetWindowPos calls.
+// while a toast is up. Cheap: two SetWindowPos calls. Only for a visible overlay:
+// moveTop also shows the window (SWP_SHOWWINDOW in Electron 35), and an empty
+// overlay shown that way is never hidden again by the renderer, which only hides
+// on a change to its toast list (the white bar with no toast, AFT-13).
 function raiseNotifier() {
-  if (!notifierWindow || notifierWindow.isDestroyed()) return;
+  if (!notifierWindow || notifierWindow.isDestroyed() || !notifierWindow.isVisible()) return;
   notifierWindow.setAlwaysOnTop(true, NOTIFIER_TOP_LEVEL);
   notifierWindow.moveTop();
 }
@@ -1263,7 +1266,7 @@ function createNotifierWindow() {
   // windows, so a toast that is up is put back on top (raiseNotifier).
   const replace = () => {
     positionNotifier();
-    if (notifierWindow && !notifierWindow.isDestroyed() && notifierWindow.isVisible()) raiseNotifier();
+    raiseNotifier();
   };
   screen.on('display-added', replace);
   screen.on('display-removed', replace);
