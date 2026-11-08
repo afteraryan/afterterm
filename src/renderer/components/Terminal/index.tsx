@@ -59,6 +59,10 @@ export interface TerminalAreaHandle {
   readAllTails(): Record<string, string[]>;
   // Gives the keyboard to the active thread's terminal; nothing if it has none.
   focusActive(): void;
+  // Fits every terminal on screen to its column now (which resizes their PTYs).
+  // For a caller that held the refit back while it moved the pane, the side
+  // panel's edge being dragged (AFT-30).
+  refit(): void;
 }
 
 interface TerminalAreaProps {
@@ -1076,11 +1080,14 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
 
   // Resize the terminals on screen when the pane resizes (the window, the
   // panel sliding). The divider does not resize the pane, only its columns, and
-  // is handled on its own below.
+  // is handled on its own below. While the side panel's edge is held
+  // (body.panel-resizing, SidePanel/usePanelResize.ts) the pane changes width on
+  // every move and nothing refits, the same rule as the divider; the panel
+  // calls refit() on release.
   useEffect(() => {
     if (!rootRef.current) return;
     const observer = new ResizeObserver(() => {
-      if (dividingRef.current) return;
+      if (dividingRef.current || document.body.classList.contains('panel-resizing')) return;
       for (const id of panesRef.current) termsRef.current.get(id)?.scheduleFit();
     });
     observer.observe(rootRef.current);
@@ -1148,7 +1155,8 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       return tails;
     },
     focusActive: () => { termsRef.current.get(activeRef.current)?.term.focus(); },
-  }), []);
+    refit: fitVisible,
+  }), [fitVisible]);
 
   // Read by scripts/agent-harness/drive.mjs, which drives the app for phase testing
   // and has no other way to see what a terminal is showing (the xterm buffer is not

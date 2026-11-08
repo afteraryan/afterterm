@@ -4,7 +4,9 @@ What changed for the person using afterterm, release by release. Each release li
 
 ## Unreleased
 
-Nothing yet.
+### Added
+
+- **You can now drag the sidebar's right edge to make it wider or narrower.** It stops at a narrow minimum and at half of the window, and double-clicking the edge puts it back to its normal width. afterterm remembers the width the next time you open it.
 
 ## 0.16.1 (2026-11-08)
 
