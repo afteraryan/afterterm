@@ -42,10 +42,15 @@ export function wrapCmdPrompt(visible: string): string {
 // (one wrap or several). A PROMPT reaches a cmd thread already marked when afterterm
 // is launched from a cmd thread of another afterterm: the launching shell's PROMPT
 // is inherited by the new app and every shell it starts. Marks are recognised by
-// CMD_MARK_START, whose 133;A followed at once by the cwd report is afterterm's own
-// signature; a PROMPT without it is returned as it came, so a user's own OSC 9;9 or
-// 133 text (the Windows Terminal recipe, for one) is never touched. Whatever the user
-// added around the marks (for example `set PROMPT=%PROMPT%> `) is kept.
+// CMD_MARK_START, the 133;A mark followed at once by the cwd report, exactly as
+// afterterm writes it; a PROMPT without it is returned as it came. The signature
+// cannot tell afterterm's marks from a user's own copy of them: Microsoft's cmd recipe
+// for the Windows Terminal contains the same text when it is spelled with `$E` (cmd
+// reads `$e` the same, and the recipe uses lower case, which does not match). So
+// planSpawn calls this only when afterterm itself was started from an afterterm
+// thread (SpawnPlanInput.inheritedFromAfterterm), where such a PROMPT is afterterm's.
+// Whatever the user added around the marks (for example `set PROMPT=%PROMPT%> `) is
+// kept.
 export function stripCmdPromptMarks(prompt: string): string {
   if (!prompt.includes(CMD_MARK_START)) return prompt;
   let out = prompt;
@@ -214,16 +219,22 @@ export const BASH_PRECMD_FUNCTION = '__afterterm_precmd';
 // PROMPT_COMMAND with afterterm's own entries taken back out: the bootstrap, and the
 // installed hook's function. The hook unexports PROMPT_COMMAND once it has installed,
 // so a launching shell normally passes none of this on; it can when the user exports
-// PROMPT_COMMAND again or the bootstrap has not run yet. Whatever else the value
-// holds is kept, with the same tidy-up of leading and trailing spaces and semicolons
-// the hook's own installer does. A value with none of afterterm's text is returned as
-// it came.
+// PROMPT_COMMAND again or the bootstrap has not run yet. Each entry goes together
+// with one neighbouring `;` and the spaces round it, wherever it sits (start, middle
+// or end), so what is left still parses; no other `;;` is touched (a `case` branch
+// ends in one). An entry joined to its neighbours by anything but `;` is left as it
+// is. A value with none of afterterm's text is returned as it came.
+const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const BASH_HOOK_ENTRY = new RegExp(
+  '\\s*;?\\s*(?:' + escapeRegExp(BASH_BOOTSTRAP) + '|' + escapeRegExp(BASH_PRECMD_FUNCTION) + ')\\s*(?=;|$)',
+  'g',
+);
 export function stripBashHook(promptCommand: string): string {
   if (!promptCommand.includes(BASH_BOOTSTRAP) && !promptCommand.includes(BASH_PRECMD_FUNCTION)) {
     return promptCommand;
   }
-  const rest = promptCommand.split(BASH_BOOTSTRAP).join('').split(BASH_PRECMD_FUNCTION).join('');
-  return rest.replace(/^[ ;]+|[ ;]+$/g, '');
+  // An entry at the start leaves its trailing `;` behind, so the ends are trimmed too.
+  return promptCommand.replace(BASH_HOOK_ENTRY, '').replace(/^[ ;]+|[ ;]+$/g, '');
 }
 
 // ─── WSL: WSLENV ─────────────────────────────────────────────────────────────
@@ -257,13 +268,19 @@ export interface SpawnPlanInput {
   env: Record<string, string>;      // the already-cleaned env main.ts built (AFTERTERM=1 etc. are in it)
   prefs: unknown;                   // the parsed prefs.json object, or undefined
   dirExists: (p: string) => boolean;
+  // True when this afterterm was itself started from a thread of another afterterm
+  // (main.ts: process.env.AFTERTERM === '1', which main never sets on its own
+  // process). Only then is the inherited env cleaned of afterterm's integration
+  // (withoutInheritedIntegration); otherwise a PROMPT that happens to look like
+  // afterterm's marks is the user's own and is left as it is. Default false.
+  inheritedFromAfterterm?: boolean;
 }
 
 export interface SpawnPlan {
   command: string;
   args: string[];
   cwd: string;
-  env: Record<string, string>;      // a copy of input env with the integration keys added, or identical when off
+  env: Record<string, string>;      // a copy of input env, with afterterm's inherited integration taken out when inheritedFromAfterterm, then this shell's integration keys added when it is on
   integration: boolean;             // whether the hook was injected
   cwdFallback: boolean;             // true when the requested cwd was not used
 }
@@ -279,7 +296,8 @@ function findEnvKey(env: Record<string, string>, name: string): string {
 }
 
 // A copy of env with afterterm's own shell integration taken back out of it, so that
-// a shell does not receive the integration of the afterterm that launched this one:
+// a shell does not receive the integration of the afterterm that launched this one
+// (planSpawn calls it only when SpawnPlanInput.inheritedFromAfterterm is true):
 //   PROMPT               the marks are stripped, the user's own prompt kept
 //                        (removed when nothing else was in it)
 //   PROMPT_COMMAND       the bash bootstrap and the installed hook's function are
@@ -311,6 +329,7 @@ export function withoutInheritedIntegration(env: Record<string, string>): Record
 
 export function planSpawn(input: SpawnPlanInput): SpawnPlan {
   const { shell, cwd, home, env, prefs, dirExists } = input;
+  const inheritedFromAfterterm = input.inheritedFromAfterterm === true;
   const known = KNOWN_SHELLS.has(shell.id);
   const enabled = known && integrationEnabled(prefs, shell.id);
 
@@ -339,12 +358,15 @@ export function planSpawn(input: SpawnPlanInput): SpawnPlan {
     cwdFallback = true;
   }
 
-  // Start from what afterterm itself inherited with its own integration taken out,
-  // for every shell, then add what is on for this one. Without this, an afterterm
-  // launched from a thread of another afterterm passes the launching shell's marked
-  // PROMPT (and the like) down to every shell it starts: cmd would wrap the marks a
-  // second time, and the opt-out would not hold because the marks are already there.
-  const outEnv = withoutInheritedIntegration(env);
+  // When this afterterm was started from a thread of another afterterm, start from
+  // what it inherited with the first one's integration taken out, for every shell,
+  // then add what is on for this one. Without this the launching shell's marked
+  // PROMPT (and the like) goes down to every shell it starts: cmd would wrap the marks
+  // a second time, and the opt-out would not hold because the marks are already
+  // there. Not started that way, nothing inherited is afterterm's, so the env is
+  // copied as it is (a user's own Windows Terminal PROMPT, spelled with $E, looks just
+  // like afterterm's marks and must stay).
+  const outEnv = inheritedFromAfterterm ? withoutInheritedIntegration(env) : { ...env };
 
   if (shell.id === 'cmd' && enabled) {
     // OSC 133;A, then OSC 9;9 (the cwd, via cmd's own $P), then the user's own

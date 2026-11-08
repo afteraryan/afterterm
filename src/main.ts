@@ -1884,9 +1884,11 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
   //   WSL                    the same two, plus WSLENV so they cross into the distro,
   //                          where the hook emits OSC 7 `file://<distro>/<path>`
   //
-  // The environment planSpawn starts from has afterterm's own integration taken out
-  // first (a marked PROMPT, a bash hook), because an afterterm launched from a thread
-  // of another afterterm inherits what that one set; see withoutInheritedIntegration.
+  // An afterterm launched from a thread of another afterterm inherits what that one
+  // set (a marked PROMPT, a bash hook). process.env.AFTERTERM is '1' exactly then (this
+  // process never sets it; cleanEnv above sets it on a copy, for the shells), and
+  // inheritedFromAfterterm has planSpawn take that integration out of the env first;
+  // see withoutInheritedIntegration.
   //
   // Opt-out is per shell in prefs.json (`shellIntegration: { pwsh: "off" }`), read
   // at every spawn so a change needs no restart. Failure mode: the shell always
@@ -1901,6 +1903,7 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
     cwd,
     home: process.env.USERPROFILE || 'C:\\',
     env: cleanEnv,
+    inheritedFromAfterterm: process.env.AFTERTERM === '1',
     prefs: readPrefs(getPrefsPath()).prefs,
     dirExists: (candidate) => {
       try {

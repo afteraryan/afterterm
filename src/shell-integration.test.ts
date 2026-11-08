@@ -161,6 +161,29 @@ console.log('\nshell-integration: stripBashHook\n');
     stripBashHook('echo RC; ' + BASH_PRECMD_FUNCTION) === 'echo RC');
   check('anything after the bootstrap is kept, tidied',
     stripBashHook(BASH_BOOTSTRAP + '; history -a') === 'history -a');
+  // The entry in the middle must not leave an empty command (a bash syntax error).
+  check('the bootstrap in the middle leaves no empty command',
+    stripBashHook('history -a; ' + BASH_BOOTSTRAP + '; echo after') === 'history -a; echo after',
+    show(stripBashHook('history -a; ' + BASH_BOOTSTRAP + '; echo after')));
+  check('the installed function in the middle, with no spaces, leaves no empty command',
+    stripBashHook('history -a;' + BASH_PRECMD_FUNCTION + '; echo after') === 'history -a; echo after',
+    show(stripBashHook('history -a;' + BASH_PRECMD_FUNCTION + '; echo after')));
+  check('the installed function at the start leaves no leading semicolon',
+    stripBashHook(BASH_PRECMD_FUNCTION + '; history -a; echo after') === 'history -a; echo after');
+  check('the installed function at the end leaves no trailing semicolon',
+    stripBashHook('history -a; echo after; ' + BASH_PRECMD_FUNCTION) === 'history -a; echo after');
+  check('two entries side by side both go',
+    stripBashHook('a; ' + BASH_BOOTSTRAP + '; ' + BASH_PRECMD_FUNCTION + '; b') === 'a; b',
+    show(stripBashHook('a; ' + BASH_BOOTSTRAP + '; ' + BASH_PRECMD_FUNCTION + '; b')));
+  const caseStmt = 'case $x in a) echo a;; b) echo b;; esac';
+  check('a case statement with ;; in it is left intact beside an entry at the end',
+    stripBashHook(caseStmt + '; ' + BASH_BOOTSTRAP) === caseStmt, show(stripBashHook(caseStmt + '; ' + BASH_BOOTSTRAP)));
+  check('a case statement with ;; in it is left intact beside an entry in the middle',
+    stripBashHook(caseStmt + '; ' + BASH_PRECMD_FUNCTION + '; history -a') === caseStmt + '; history -a',
+    show(stripBashHook(caseStmt + '; ' + BASH_PRECMD_FUNCTION + '; history -a')));
+  check('a case statement with ;; in it is left intact beside an entry at the start',
+    stripBashHook(BASH_BOOTSTRAP + '; ' + caseStmt) === caseStmt);
+  check('a case statement alone is returned as it came', stripBashHook(caseStmt) === caseStmt);
 }
 
 console.log('\nshell-integration: appendWslEnv\n');
@@ -274,6 +297,10 @@ console.log('\nshell-integration: planSpawn\n');
     check('cmd args pass through unchanged when off', off.args.length === 0);
   }
 
+  // These two blocks are about an afterterm that was started from a thread of another
+  // afterterm, the only case where the inherited integration is taken out.
+  const nested = (over: Partial<SpawnPlanInput>) => plan({ inheritedFromAfterterm: true, ...over });
+
   // ── an inherited, marked PROMPT (afterterm launched from a cmd thread of afterterm) ──
   {
     const OFF = { shellIntegration: { cmd: 'off' } };
@@ -286,19 +313,19 @@ console.log('\nshell-integration: planSpawn\n');
       ['a fancy colour prompt', fancy],
     ];
     for (const [label, original] of originals) {
-      const fresh = plan({ shell: cmdShell, env: original ? { ...baseEnv, PROMPT: original } : { ...baseEnv } });
+      const fresh = nested({ shell: cmdShell, env: original ? { ...baseEnv, PROMPT: original } : { ...baseEnv } });
       // What the launching afterterm handed its shell: exactly what a fresh spawn plans.
       const inheritedMarked = fresh.env.PROMPT;
       const visible = original || '$P$G';
 
-      const on = plan({ shell: cmdShell, env: { ...baseEnv, PROMPT: inheritedMarked } });
+      const on = nested({ shell: cmdShell, env: { ...baseEnv, PROMPT: inheritedMarked } });
       check('inherited marked prompt, integration on, is wrapped once: ' + label,
         on.env.PROMPT === wrapCmdPrompt(visible) && on.env.PROMPT === fresh.env.PROMPT, show(on.env.PROMPT));
       check('inherited marked prompt, integration on, carries each mark once: ' + label,
         on.env.PROMPT.split('$E]133;A').length === 2 && on.env.PROMPT.split('$E]133;B').length === 2
         && on.env.PROMPT.split('$E]9;9;').length === 2, show(on.env.PROMPT));
 
-      const off = plan({ shell: cmdShell, env: { ...baseEnv, PROMPT: inheritedMarked }, prefs: OFF });
+      const off = nested({ shell: cmdShell, env: { ...baseEnv, PROMPT: inheritedMarked }, prefs: OFF });
       check('inherited marked prompt, integration off, is the plain original: ' + label,
         off.env.PROMPT === visible, show(off.env.PROMPT));
       check('inherited marked prompt, integration off, has no marks at all: ' + label,
@@ -308,31 +335,31 @@ console.log('\nshell-integration: planSpawn\n');
 
     const twice = wrapCmdPrompt(wrapCmdPrompt('$M$P$G'));
     check('a doubly-marked prompt comes out single with integration on',
-      plan({ shell: cmdShell, env: { ...baseEnv, PROMPT: twice } }).env.PROMPT === wrapCmdPrompt('$M$P$G'));
+      nested({ shell: cmdShell, env: { ...baseEnv, PROMPT: twice } }).env.PROMPT === wrapCmdPrompt('$M$P$G'));
     check('a doubly-marked prompt comes out plain with integration off',
-      plan({ shell: cmdShell, env: { ...baseEnv, PROMPT: twice }, prefs: OFF }).env.PROMPT === '$M$P$G');
+      nested({ shell: cmdShell, env: { ...baseEnv, PROMPT: twice }, prefs: OFF }).env.PROMPT === '$M$P$G');
 
     // Three generations of afterterm, each started from a cmd thread of the one before.
     let env: Record<string, string> = { ...baseEnv, PROMPT: '$M$P$G' };
-    for (let i = 0; i < 3; i++) env = plan({ shell: cmdShell, env }).env;
+    for (let i = 0; i < 3; i++) env = nested({ shell: cmdShell, env }).env;
     check('three generations of afterterm still give one wrap', env.PROMPT === wrapCmdPrompt('$M$P$G'), show(env.PROMPT));
     check('the opt-out recovers the original after three generations',
-      plan({ shell: cmdShell, env, prefs: OFF }).env.PROMPT === '$M$P$G');
+      nested({ shell: cmdShell, env, prefs: OFF }).env.PROMPT === '$M$P$G');
 
     check('text added after the marks in the launching shell is kept, wrapped once',
-      plan({ shell: cmdShell, env: { ...baseEnv, PROMPT: wrapCmdPrompt('$P$G') + '[x] ' } }).env.PROMPT
+      nested({ shell: cmdShell, env: { ...baseEnv, PROMPT: wrapCmdPrompt('$P$G') + '[x] ' } }).env.PROMPT
         === wrapCmdPrompt('$P$G[x] '));
 
     const userMarks = '$E]9;9;$P$E\\$P$G';
     check('a user own cwd report is kept as the visible prompt with integration on',
-      plan({ shell: cmdShell, env: { ...baseEnv, PROMPT: userMarks } }).env.PROMPT === wrapCmdPrompt(userMarks));
+      nested({ shell: cmdShell, env: { ...baseEnv, PROMPT: userMarks } }).env.PROMPT === wrapCmdPrompt(userMarks));
     check('a user own cwd report is left alone with integration off',
-      plan({ shell: cmdShell, env: { ...baseEnv, PROMPT: userMarks }, prefs: OFF }).env.PROMPT === userMarks);
+      nested({ shell: cmdShell, env: { ...baseEnv, PROMPT: userMarks }, prefs: OFF }).env.PROMPT === userMarks);
 
-    const lower = plan({ shell: cmdShell, env: { ...baseEnv, Prompt: wrapCmdPrompt('$M$P$G') }, prefs: OFF });
+    const lower = nested({ shell: cmdShell, env: { ...baseEnv, Prompt: wrapCmdPrompt('$M$P$G') }, prefs: OFF });
     check('a PROMPT kept under another letter case is stripped too, under that key',
       lower.env.Prompt === '$M$P$G' && lower.env.PROMPT === undefined, show(lower.env));
-    const lowerOn = plan({ shell: cmdShell, env: { ...baseEnv, Prompt: wrapCmdPrompt('$M$P$G') } });
+    const lowerOn = nested({ shell: cmdShell, env: { ...baseEnv, Prompt: wrapCmdPrompt('$M$P$G') } });
     check('a PROMPT kept under another letter case is wrapped once, with no second key',
       lowerOn.env.Prompt === wrapCmdPrompt('$M$P$G') && lowerOn.env.PROMPT === undefined, show(lowerOn.env));
   }
@@ -341,33 +368,33 @@ console.log('\nshell-integration: planSpawn\n');
   {
     const marked = wrapCmdPrompt('$M$P$G');
     for (const sh of [pwshShell, powershellShell, gitbashShell, wslShell, unknownShell]) {
-      const out = plan({ shell: sh, env: { ...baseEnv, PROMPT: marked } });
+      const out = nested({ shell: sh, env: { ...baseEnv, PROMPT: marked } });
       check('an inherited marked PROMPT is stripped for ' + sh.id, out.env.PROMPT === '$M$P$G', show(out.env.PROMPT));
     }
-    const markedOnly = plan({ shell: pwshShell, env: { ...baseEnv, PROMPT: CMD_MARK_START + CMD_MARK_END } });
+    const markedOnly = nested({ shell: pwshShell, env: { ...baseEnv, PROMPT: CMD_MARK_START + CMD_MARK_END } });
     check('a PROMPT that held only marks is removed', markedOnly.env.PROMPT === undefined, show(markedOnly.env));
 
     const OFFS = { shellIntegration: { gitbash: 'off', wsl: 'off', pwsh: 'off' } };
     const inheritedBash = { ...baseEnv, PROMPT_COMMAND: BASH_BOOTSTRAP, AFTERTERM_BASH_HOOK: BASH_HOOK };
     for (const sh of [gitbashShell, wslShell, pwshShell]) {
-      const out = plan({ shell: sh, env: inheritedBash, prefs: OFFS });
+      const out = nested({ shell: sh, env: inheritedBash, prefs: OFFS });
       check('with ' + sh.id + ' off, an inherited bash hook is removed from the environment',
         out.env.PROMPT_COMMAND === undefined && out.env.AFTERTERM_BASH_HOOK === undefined, show(Object.keys(out.env)));
     }
-    const rc = plan({
+    const rc = nested({
       shell: gitbashShell, prefs: OFFS,
       env: { ...baseEnv, PROMPT_COMMAND: 'history -a; ' + BASH_BOOTSTRAP, AFTERTERM_BASH_HOOK: BASH_HOOK },
     });
     check('with gitbash off, text next to the inherited bootstrap is kept',
       rc.env.PROMPT_COMMAND === 'history -a' && rc.env.AFTERTERM_BASH_HOOK === undefined, show(rc.env));
-    const onAgain = plan({ shell: gitbashShell, env: inheritedBash });
+    const onAgain = nested({ shell: gitbashShell, env: inheritedBash });
     check('with gitbash on, an inherited bash hook still ends as one hook',
       onAgain.env.PROMPT_COMMAND === BASH_BOOTSTRAP && onAgain.env.AFTERTERM_BASH_HOOK === BASH_HOOK);
-    const wslAgain = plan({ shell: wslShell, env: { ...inheritedBash, WSLENV: 'PROMPT_COMMAND:AFTERTERM_BASH_HOOK' } });
+    const wslAgain = nested({ shell: wslShell, env: { ...inheritedBash, WSLENV: 'PROMPT_COMMAND:AFTERTERM_BASH_HOOK' } });
     check('with wsl on, an inherited WSLENV is not doubled',
       wslAgain.env.WSLENV === 'PROMPT_COMMAND:AFTERTERM_BASH_HOOK', show(wslAgain.env.WSLENV));
 
-    const untouched = plan({
+    const untouched = nested({
       shell: cmdShell, env: { ...baseEnv, PROMPT_COMMAND: 'history -a', OTHER: 'x', AFTERTERM_TAB_ID: 'abc' },
       prefs: { shellIntegration: { cmd: 'off' } },
     });
@@ -383,6 +410,36 @@ console.log('\nshell-integration: planSpawn\n');
     check('withoutInheritedIntegration returns the user own values only',
       cleaned.PROMPT === '$M$P$G' && cleaned.PROMPT_COMMAND === undefined
       && cleaned.AFTERTERM_BASH_HOOK === undefined && cleaned.AFTERTERM === '1', show(cleaned));
+  }
+
+  // ── the Windows Terminal recipe, spelled with $E, is the user's own unless nested ──
+  {
+    const OFF = { shellIntegration: { cmd: 'off' } };
+    // Microsoft's cmd recipe for the Windows Terminal, with $E in place of $e (cmd reads
+    // them the same), so it carries afterterm's signature exactly.
+    const recipe = '$E]133;D$E\\$E]133;A$E\\$E]9;9;$P$E\\$P$G$E]133;B$E\\';
+    check('not nested, with the opt-out, the recipe spelled with $E is left untouched',
+      plan({ shell: cmdShell, env: { ...baseEnv, PROMPT: recipe }, prefs: OFF }).env.PROMPT === recipe);
+    check('not nested, with the opt-out, a recipe spelled with $e is left untouched too',
+      plan({ shell: cmdShell, env: { ...baseEnv, PROMPT: recipe.split('$E').join('$e') }, prefs: OFF }).env.PROMPT
+        === recipe.split('$E').join('$e'));
+    check('nested, with the opt-out, the recipe spelled with $E is stripped (it is afterterm marks there)',
+      nested({ shell: cmdShell, env: { ...baseEnv, PROMPT: recipe }, prefs: OFF }).env.PROMPT === '$E]133;D$E\\$P$G');
+    check('nested, with integration on, a marked prompt is wrapped once',
+      nested({ shell: cmdShell, env: { ...baseEnv, PROMPT: wrapCmdPrompt('$P$G') } }).env.PROMPT === wrapCmdPrompt('$P$G'));
+    check('not nested, with integration on, an inherited recipe is wrapped as before the fix (acceptable)',
+      plan({ shell: cmdShell, env: { ...baseEnv, PROMPT: recipe } }).env.PROMPT === wrapCmdPrompt(recipe));
+    check('not nested, a marked prompt is not stripped either (nothing inherited counts as afterterm)',
+      plan({ shell: cmdShell, env: { ...baseEnv, PROMPT: wrapCmdPrompt('$P$G') }, prefs: OFF }).env.PROMPT === wrapCmdPrompt('$P$G'));
+    const hookEnv = { ...baseEnv, PROMPT_COMMAND: BASH_BOOTSTRAP, AFTERTERM_BASH_HOOK: BASH_HOOK };
+    const offGit = { shellIntegration: { gitbash: 'off' } };
+    check('not nested, an inherited bash hook is passed on as it came',
+      plan({ shell: gitbashShell, env: hookEnv, prefs: offGit }).env.PROMPT_COMMAND === BASH_BOOTSTRAP);
+    check('nested, an inherited bash hook is taken out',
+      nested({ shell: gitbashShell, env: hookEnv, prefs: offGit }).env.PROMPT_COMMAND === undefined);
+    check('inheritedFromAfterterm defaults to off',
+      planSpawn({ shell: cmdShell, cwd: undefined, home: HOME, env: { PROMPT: wrapCmdPrompt('$P$G') },
+        prefs: { shellIntegration: { cmd: 'off' } }, dirExists: neverExists }).env.PROMPT === wrapCmdPrompt('$P$G'));
   }
 
   // ── pwsh / powershell ──

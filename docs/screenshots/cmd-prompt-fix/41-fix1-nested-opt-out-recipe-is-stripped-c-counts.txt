@@ -1,0 +1,24 @@
+Row: nested, cmd opt-out, inherited PROMPT is the Windows Terminal recipe spelled with $E (afterterm marks there, so stripped)
+Launched from a PowerShell with PROMPT=[$E]133;D$E\$E]133;A$E\$E]9;9;$P$E\$P$G$E]133;B$E\], AFTERTERM=[1] (nested = True), cmd opt-out = True.
+
+> raw pty data counted by a listener on the thread (A = OSC 133;A, B = OSC 133;B, D = OSC 133;D, cwd = OSC 9;9), over the first prompt, 3 Enters and one echo command (5 prompts)
+"{\"A\":0,\"B\":0,\"D\":5,\"cwd\":0,\"bytes\":685}"
+
+> drive marks --tab tab-cmd-1
+at prompt: no
+prompt end: (none)
+
+> drive tail 12
+Microsoft Windows [Version 10.0.26200.9711]
+(c) Microsoft Corporation. All rights reserved.
+
+D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt>
+D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt>
+D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt>
+D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt>echo %PROMPT%
+$E]133;D$E\$P$G
+
+D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt>
+
+> harness log
+[harness] pty:create tab-cmd-1 shell=cmd integration=off cwd=D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt cwdFallback=false args=[]

@@ -6,7 +6,7 @@ What changed for the person using afterterm, release by release. Each release li
 
 ### Fixed
 
-- **A Command Prompt thread no longer sends the prompt marks twice, and turning the marks off for Command Prompt now works, when afterterm was started from a Command Prompt thread of another afterterm.** The new afterterm used to inherit the first one's marked prompt and mark it again. Now it takes the marks back out first, keeps your own prompt, and adds the marks once, or not at all when you have turned them off. The same clean-up covers the other shells.
+- **Turning off afterterm's Command Prompt integration now works when you start afterterm from a terminal inside afterterm.** Before, the second afterterm inherited the first one's prompt with afterterm's marks already in it (the invisible marks afterterm adds to a prompt so it can tell where each command starts and which folder the shell is in). It then added the marks again, so each prompt carried them twice, or carried them even with the integration turned off. Now it takes the first set out, keeps your own prompt, and adds the marks once, or not at all when you have turned them off. Git Bash and WSL started that way no longer inherit afterterm's prompt hook either.
 
 ## 0.16.1 (2026-11-08)
 
