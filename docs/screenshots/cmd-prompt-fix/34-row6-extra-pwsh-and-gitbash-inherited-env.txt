@@ -1,0 +1,28 @@
+Row 6 (extra, beyond the five rows asked for): pwsh and Git Bash threads, integration on, the launching shell carried a marked PROMPT and a stale bash hook.
+Launched from PowerShell with:
+  $env:PROMPT = $E]133;A$E\$E]9;9;$P$E\$P$G$E]133;B$E\
+  $env:PROMPT_COMMAND = eval "$AFTERTERM_BASH_HOOK" 2>/dev/null || unset PROMPT_COMMAND   (BASH_BOOTSTRAP from src/shell-integration.ts)
+  $env:AFTERTERM_BASH_HOOK = BASH_HOOK from src/shell-integration.ts (1685 characters)
+Session fixture: three asleep threads in one project (cmd, pwsh, gitbash). The pwsh and Git Bash threads were opened from the sidebar and woken by hand (second run of this row, made to get a complete recording; the first run gave the same values).
+
+> pwsh thread (tab-pwsh-1), drive marks:
+at prompt: yes
+> typed: "ROW 6 pwsh: PROMPT=[$env:PROMPT] PC=[$env:PROMPT_COMMAND] HOOK=[$env:AFTERTERM_BASH_HOOK] AFTERTERM=[$env:AFTERTERM]"
+AFTERTERM_BASH_HOOK] AFTERTERM=[$env:AFTERTERM]"
+ROW 6 pwsh: PROMPT=[$P$G] PC=[] HOOK=[] AFTERTERM=[1]
+PS C:\Users\Aryan\AppData\Local\Temp\tcp>
+Expected after the fix: PROMPT is the original ($P$G, marks stripped), PROMPT_COMMAND and AFTERTERM_BASH_HOOK removed (nothing for pwsh to inherit), AFTERTERM=1 kept.
+
+> Git Bash thread (tab-bash-1), drive marks:
+at prompt: yes
+> typed: echo "ROW 6 bash: PROMPT=[$PROMPT] PC=[$PROMPT_COMMAND] HOOKLEN=[${#AFTERTERM_BASH_HOOK}]"
+$ echo "ROW 6 bash: PROMPT=[$PROMPT] PC=[$PROMPT_COMMAND] HOOKLEN=[${#AFTERTERM_BASH_HOOK}]"
+ROW 6 bash: PROMPT=[$P$G] PC=[__afterterm_precmd] HOOKLEN=[1685]
+
+Aryan@DESKTOP-A33DIIJ MINGW64 /tmp/tcp
+$
+Expected after the fix: PROMPT is the original ($P$G), PROMPT_COMMAND is the installed hook function once (__afterterm_precmd, not doubled), the hook variable is the one planSpawn sets (1685 characters).
+
+> harness log (this launch)
+[harness] pty:create tab-pwsh-1 shell=pwsh integration=on cwd=C:\Users\Aryan\AppData\Local\Temp\tcp cwdFallback=false args=["-NoExit","-EncodedCommand","<encoded>"]
+[harness] pty:create tab-bash-1 shell=gitbash integration=on cwd=C:\Users\Aryan\AppData\Local\Temp\tcp cwdFallback=false args=["--login","-i"]
