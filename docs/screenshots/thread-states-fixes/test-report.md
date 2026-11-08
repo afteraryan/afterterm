@@ -1,6 +1,6 @@
 # Tester's report: the hourglass stays while background work runs, and a cancelled compaction clears (2026-11-08)
 
-AFT-25, AFT-43 and AFT-42, branch `fix-background-and-compacting-states`, tested at commit `29ae7ae` (the branch as it stood on 2026-11-08 at 22:55). The later fix round commits (`a820e9f`, `a02ee23`, `93407c8`, all made on 2026-11-09 after this run ended) were not tested here.
+AFT-25, AFT-43 and AFT-42, branch `fix-background-and-compacting-states`, tested at commit `29ae7ae` (the branch as it stood on 2026-11-08 at 22:55). The later fix round commits (`a820e9f`, `a02ee23`, `93407c8`, all made on 2026-11-09 after this run ended) were not tested here; "Round 2 live rows" at the end tests the branch at `00dba51`, which has them.
 
 ## Every row passed, including the real Claude Code run
 
@@ -56,3 +56,33 @@ All eleven rows were run to the end on 2026-11-08 between 22:56 and 23:08. The r
 | `hooks\afterterm-notify.ps1` | `21A8E8A0A170955FB4E1760E49020DC22FE2261CA1C45DAAAB3173E3E668633B` | same | same | same |
 
 The run's "before" hash of `settings.json` predates the orchestrator's edit of 2026-11-09, made at Aryan's request with the hook entries unchanged; the file did not change during this run.
+
+## Round 2 live rows: the branch at 00dba51 passes every live row (2026-11-09)
+
+The branch after both review rounds (`a820e9f`, `93407c8`, `cc34352`, head `00dba51`), run on 2026-11-09 from 01:41 to 01:47 local time. The rules were the same as before: data dir `tester-thread-states-r2`, a new empty scratch `CLAUDE_CONFIG_DIR`, the window on DISPLAY2 (primary false), and in the one cmd thread `set CLAUDE_CONFIG_DIR=` then `claude --model haiku` in the same scratch folder (trusted in round 1, so no trust question this time). Auto mode was on. The sampler ran at full rate this time, so the times in `60-round-2-real-claude-state-log.txt` are accurate to about 50 ms (UTC; local is UTC+5:30). The whole run is one recording, `60-round-2-real-claude-whole-test.mp4` (275 s). The record reader's lines are in `60-harness-log-record-reader-lines.txt`.
+
+| Row | What was done | What was seen | Captures | Result |
+|---|---|---|---|---|
+| A1 | The background agent prompt (`ping -n 90 127.0.0.1`), sent at 01:43:01 | Working from the hook's `▶` (20:13:02.2 UTC). Claude started the agent and ended its turn: the `⏳` title came at 20:13:08.9, 7.6 s after sending, and the row, pill and chip showed the hourglass with the flag set and the record busy | 61, 62 | Pass |
+| A2 | Opened "Chat one" at 01:43:19, back at 01:43:21 | The hourglass stayed on the chat's row and the pill while away, and the chip read "Background tasks" on return; state background, flag set, record busy | 63, 64 | Pass |
+| C1 | While the agent ran: "Ask me one yes/no question with your question tool and wait.", sent at 01:43:36 | Working from `▶` (20:13:37.6). Claude showed its question at about 20:13:40; the record said waiting at 20:13:40.8, and at 20:13:41.8 the state fell back to the hourglass (the working silence clear), showing it for 4.4 s while the question was on screen (65). The hook's `⚠` came at 20:13:46.2: needs-you on the row, chip "Needs you", the pill and a rail tile, flag kept (66). Answered "Yes" at 20:14:07.9: working (67). Claude's turn ended with the agent still running and its `⏳` brought the hourglass back at 20:14:12.1, 4.2 s after the answer (68) | 65, 66, 67, 68 | Pass |
+| A3 | Waited for the agent | The agent finished after 1m 39s. Its report turn opened with `▶` at 20:14:45.5 (working, 69). The `✅` came at 20:14:48.8: quiet at once, flag cleared; the record went idle at 20:14:49.1 (70). The hourglass showed from 20:13:08.9 to 20:14:45.5 (97 s), apart from the 35 s of the question's turn | 69, 70 | Pass |
+| C2 | No agent running: the same question prompt, sent at 01:45:05 | Working from `▶` (20:15:06.2), the record said waiting at 20:15:09.2, and the state went quiet at 20:15:10.8, 3.8 s before the hook's `⚠` arrived at 20:15:14.6: needs-you (71). Answered "Yes" at 20:15:23.9: working (72). The `✅` at 20:15:26.7 made it quiet at once (73) | 71, 72, 73 | Pass |
+| B | A second agent (`ping -n 60`): the hourglass came at 20:15:49.8 (74). Then `/exit` while it ran | Claude asked "Background work is running" with Exit and stop tasks, Move to background and exit, Stay (75). I chose "Exit and stop tasks" at 01:46:21.1. At 20:16:21.4, 0.3 s later, the state, the flag and the record all cleared together; the cmd prompt was back at 20:16:23.2 (`marks`: at prompt yes). The row shows no hourglass, the header no chip, and the terminal a plain prompt (76) | 74, 75, 76 | Pass |
+
+### What round 2 found
+
+- **A question from Claude shows needs-you even in auto mode.** The hook's `⚠` came for the AskUserQuestion prompt both times. It came 4 to 5 s after the question was on screen. Meanwhile the thread showed what it had before the turn: the hourglass with the agent running, quiet without one. This gap behaves the same as in 0.16.0; the review 2 notes in `spinnerState.ts` describe it.
+- **The answer-back-to-the-hourglass rule for an agent's own prompt was not exercised.** In C1 the question came inside an open turn (after `▶`), so the answer correctly gave working, and the hourglass came back from the turn's own `⏳`. The other case needs a needs-you that arrives with no turn open: a background agent's own permission prompt. Auto mode approved the agent's `ping` without asking, so no such prompt came. Producing one would mean leaving auto mode, which this round ruled out.
+- **The shell prompt path was not isolated.** In row B the record going away cleared the flag 0.3 s after the exit, before the prompt was back (1.8 s later). The prompt rule is the fallback for a Claude whose record afterterm cannot read, and here the record was readable.
+- Row B was run with background work still running, the harder case. Exiting with nothing running is round 1's row 11.
+- No compaction was run in round 2.
+
+### Hashes for round 2
+
+| File | Before the launch | After the stop |
+|---|---|---|
+| `settings.json` | `62E5463075E36910FC970D8721FBE6DD554955E55A4FDB528DB723E73F54E5BE` | same |
+| `hooks\afterterm-notify.ps1` | `21A8E8A0A170955FB4E1760E49020DC22FE2261CA1C45DAAAB3173E3E668633B` | same |
+
+The harness was stopped with `harness:stop` (12 processes). Claude's record for the round 2 session was gone from the sessions folder afterwards, and the scratch folder was still empty.
