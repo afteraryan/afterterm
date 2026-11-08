@@ -4,7 +4,9 @@ What changed for the person using afterterm, release by release. Each release li
 
 ## Unreleased
 
-Nothing yet.
+### Fixed
+
+- **The worktree item and the editor button in a chat's header now open the worktree folder, not a folder inside it.** So do Open in File Explorer and Open in your editor in a thread's right-click menu, and a thread in an ordinary repository opens the repository's top folder, never a folder above its project. A thread outside git still opens its own folder.
 
 ## 0.16.1 (2026-11-08)
 

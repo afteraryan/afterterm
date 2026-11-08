@@ -1,0 +1,45 @@
+== Row 3b: tab-6 shell, cwd = D:\Pitara\Work\Tinkering\afterterm\src\renderer (plain checkout, .git is a folder at ...\afterterm). Expected top: ...\afterterm
+-- log lines before: 11
+clicked [data-action='editor'][0] at (1205, 60) of 1 match(es)
+[harness] editors:open VS Code D:\Pitara\Work\Tinkering\afterterm
+7 match(es) for .ctx-menu-item
+[0] <div class="menu-item ctx-menu-item"> Wake
+[1] <div class="menu-item ctx-menu-item"> Move to project
+[2] <div class="menu-item ctx-menu-item"> Open project page
+[3] <div class="menu-item ctx-menu-item"> Open in File Explorer
+[4] <div class="menu-item ctx-menu-item"> Open in VS Code
+[5] <div class="menu-item ctx-menu-item"> Rename
+[6] <div class="menu-item ctx-menu-item danger"> Close
+clicked .ctx-menu-item[3] at (308, 514) of 7 match(es)
+[harness] projects:openInExplorer D:\Pitara\Work\Tinkering\afterterm
+clicked .ctx-menu-item[4] at (308, 550) of 7 match(es)
+[harness] editors:open VS Code D:\Pitara\Work\Tinkering\afterterm
+
+== Control: tab-7 chat at worktree top (claudeCwd = worktree top). Expected: worktree top
+clicked .side-panel .th[6] at (208, 412) of 7 match(es)
+Control chat at worktree top
+  project=fixture project
+  branch=fix-header-worktree-folder
+  worktree=.claude\worktrees\worktree-folder
+  Asleep · 1h
+clicked [data-meta='worktree'][0] at (780, 71) of 1 match(es)
+[harness] projects:openInExplorer D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+clicked [data-action='editor'][0] at (1205, 60) of 1 match(es)
+[harness] editors:open VS Code D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+-- all open lines in log:
+[harness] projects:openInExplorer D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+[harness] editors:open VS Code D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+[harness] projects:openInExplorer D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+[harness] editors:open VS Code D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+[harness] projects:openInExplorer D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+[harness] projects:openInExplorer D:\Pitara\Work\Tinkering\afterterm
+[harness] projects:openInExplorer D:\Pitara\Work\Tinkering\afterterm
+[harness] editors:open VS Code D:\Pitara\Work\Tinkering\afterterm
+[harness] projects:openInExplorer C:\Users\Aryan\AppData\Local\Temp\claude\fa0123314555e1c0\a0efc8aa-7861-41bd-83eb-c902edfef41f\scratchpad\tester-worktree-folder\nogit\sub
+[harness] editors:open VS Code C:\Users\Aryan\AppData\Local\Temp\claude\fa0123314555e1c0\a0efc8aa-7861-41bd-83eb-c902edfef41f\scratchpad\tester-worktree-folder\nogit\sub
+[harness] editors:open VS Code C:\Users\Aryan\AppData\Local\Temp\claude\fa0123314555e1c0\a0efc8aa-7861-41bd-83eb-c902edfef41f\scratchpad\tester-worktree-folder\nogit\sub
+[harness] editors:open VS Code D:\Pitara\Work\Tinkering\afterterm
+[harness] projects:openInExplorer D:\Pitara\Work\Tinkering\afterterm
+[harness] editors:open VS Code D:\Pitara\Work\Tinkering\afterterm
+[harness] projects:openInExplorer D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
+[harness] editors:open VS Code D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\worktree-folder
