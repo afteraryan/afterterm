@@ -1145,6 +1145,27 @@ function notifierDisplay(): Electron.Display {
   return getTargetDisplay();
 }
 
+// The overlay's always-on-top level. On Windows every level but 'normal' makes
+// the window topmost; Electron then puts the levels from 'floating' (the level
+// `alwaysOnTop: true` gives) to 'status' just below the taskbar, and
+// 'pop-up-menu' and higher at the very top. The toasts must be above everything.
+const NOTIFIER_TOP_LEVEL = 'screen-saver';
+
+// Put the overlay back at the top of every window (AFT-41: three toasts arrived
+// behind other windows and were never seen). A topmost window that is hidden and
+// shown again with showInactive keeps its old place in the z-order, so any other
+// always-on-top window that came up meanwhile stays above it, and a window that
+// has lost its topmost flag (Windows can drop it) is shown as an ordinary one.
+// setAlwaysOnTop sets the flag again and moves the window to the top of the
+// topmost windows, every time it is called; moveTop is the same order again,
+// without activating. Called on every show, and on every display and power change
+// while a toast is up. Cheap: two SetWindowPos calls.
+function raiseNotifier() {
+  if (!notifierWindow || notifierWindow.isDestroyed()) return;
+  notifierWindow.setAlwaysOnTop(true, NOTIFIER_TOP_LEVEL);
+  notifierWindow.moveTop();
+}
+
 // A full repaint of the overlay, the white-bar cure (see createNotifierWindow).
 // Deferred a tick so it lands after the frame paint it is there to overwrite.
 function repaintNotifier() {
@@ -1207,6 +1228,7 @@ function createNotifierWindow() {
   // it is installed any stall here freezes the mouse on the whole PC. With no
   // toast up there is nothing to hover, so there is no hook (launch lag, 2026-10-29).
   notifierWindow.setIgnoreMouseEvents(true);
+  notifierWindow.setAlwaysOnTop(true, NOTIFIER_TOP_LEVEL);
 
   // Chromium copies the loaded document's title onto the native window — that's
   // what drew "index.html" into the DWM caption strip (the "white bar"). Refuse
@@ -1237,8 +1259,12 @@ function createNotifierWindow() {
   // A monitor plugged in, unplugged or rescaled can leave the overlay on a display
   // that no longer exists or no longer holds the main window; re-place it at once
   // rather than on the next toast. Registered here, once, since the overlay is
-  // created once per app run.
-  const replace = () => positionNotifier();
+  // created once per app run. A display change is also a moment Windows reorders
+  // windows, so a toast that is up is put back on top (raiseNotifier).
+  const replace = () => {
+    positionNotifier();
+    if (notifierWindow && !notifierWindow.isDestroyed() && notifierWindow.isVisible()) raiseNotifier();
+  };
   screen.on('display-added', replace);
   screen.on('display-removed', replace);
   screen.on('display-metrics-changed', replace);
@@ -1464,6 +1490,7 @@ function showNotifierWindow() {
   if (!notifierWindow || notifierWindow.isDestroyed()) return;
   notifierWindow.setIgnoreMouseEvents(true, { forward: true });
   notifierWindow.showInactive();
+  raiseNotifier();
 }
 
 // Notifier → self: renderer reports the measured height of its toast stack;
