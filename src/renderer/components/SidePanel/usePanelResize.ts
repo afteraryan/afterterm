@@ -61,7 +61,9 @@ export function usePanelResize({ panelRef, onChange }: Options): PanelResize {
     // window losing focus (Alt+Tab with the button held). The last one is what
     // makes sure body.panel-resizing, which pauses the terminals' refit, cannot
     // stay on if the browser sends none of the others. The width reached so far is
-    // kept, as on a release.
+    // kept, as on a release. The pointer capture is let go here too, so a drag that
+    // ended on a blur leaves none behind.
+    const pointerId = e.pointerId;
     let ended = false;
     const up = () => {
       if (ended) return;
@@ -71,6 +73,9 @@ export function usePanelResize({ panelRef, onChange }: Options): PanelResize {
       handle.removeEventListener('pointercancel', up);
       handle.removeEventListener('lostpointercapture', up);
       window.removeEventListener('blur', up);
+      try {
+        if (handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId);
+      } catch { /* the pointer is already gone */ }
       handle.classList.remove('active');
       document.body.classList.remove('panel-resizing');
       setResizing(false);

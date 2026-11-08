@@ -186,6 +186,8 @@
   flex: none;
   cursor: pointer;
   background: none;
+  /* "New thread" stays on one line at the narrowest panel width (180px). */
+  white-space: nowrap;
   transition: background var(--fast);
 }
 
