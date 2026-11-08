@@ -1,0 +1,243 @@
+=== rows 6 and 7 on a69503f, 2026-11-09T00:42:17.3208959+05:30
+--- row 6a: start (bar closed, no selection expected)
+{
+  "bars": 0,
+  "focus": "xterm-helper-textarea",
+  "count": null,
+  "input": null,
+  "hasSel": true,
+  "selLen": 144,
+  "selStart": "6 red green blue yellow orange",
+  "selPos": {
+    "start": {
+      "x": 4,
+      "y": 10
+    },
+    "end": {
+      "x": 19,
+      "y": 13
+    }
+  },
+  "copyCount": 0,
+  "copiedLen": null,
+  "copiedEqualsSel0": null,
+  "copiedStart": null,
+  "lastRow": "live writer tick 117 ok"
+}
+  [t+46ms] connected
+  [t+52ms] cells found
+  [t+417ms] released
+drag from row 15 col 5 (row 10 ) to row 19 col 20 (row 14 ), 12 steps
++0ms (read at 2ms) selection: {"has":true,"text":"10 red green blue yellow orange violet\r\nrow 11 red green blue yellow orange violet\r\nrow 12 red g ...  | last row: ["live writer tick 118 ok"]
+191
+right-clicked .xterm-screen[0] at (812, 432) of 1 match(es)
+--- row 6a: after right-click (copied should equal the selection, selection cleared)
+{
+  "bars": 0,
+  "focus": "xterm-helper-textarea",
+  "count": null,
+  "input": null,
+  "hasSel": false,
+  "selLen": 0,
+  "selStart": "",
+  "selPos": null,
+  "copyCount": 1,
+  "copiedLen": 191,
+  "copiedEqualsSel0": true,
+  "copiedStart": "10 red green blue yellow orang",
+  "lastRow": "live writer tick 119 ok"
+}
+--- row 6b: bar open, search for blue live
+{
+  "bars": 1,
+  "focus": "find-input",
+  "count": "1/31",
+  "input": "blue",
+  "hasSel": true,
+  "selLen": 4,
+  "selStart": "blue",
+  "selPos": {
+    "start": {
+      "x": 68,
+      "y": 4
+    },
+    "end": {
+      "x": 72,
+      "y": 4
+    }
+  },
+  "copyCount": 1,
+  "copiedLen": 191,
+  "copiedEqualsSel0": true,
+  "copiedStart": "10 red green blue yellow orang",
+  "lastRow": "live writer tick 125 ok"
+}
+  [t+48ms] connected
+  [t+53ms] cells found
+  [t+431ms] released
+drag from row 25 col 5 (row 20 ) to row 29 col 20 (row 24 ), 12 steps
++0ms (read at 2ms) selection: {"has":true,"text":"20 red green blue yellow orange violet\r\nrow 21 red green blue yellow orange violet\r\nrow 22 red g ...  | last row: ["live writer tick 126 ok"]
++1500ms (read at 1511ms) selection: {"has":true,"text":"20 red green blue yellow orange violet\r\nrow 21 red green blue yellow orange violet\r\nrow 22 ...  | last row: ["live writer tick 129 ok"]
+191
+right-clicked .xterm-screen[0] at (812, 432) of 1 match(es)
+--- row 6b: after right-click with the bar open
+{
+  "bars": 1,
+  "focus": "xterm-helper-textarea",
+  "count": "",
+  "input": "blue",
+  "hasSel": false,
+  "selLen": 0,
+  "selStart": "",
+  "selPos": null,
+  "copyCount": 2,
+  "copiedLen": 191,
+  "copiedEqualsSel0": true,
+  "copiedStart": "20 red green blue yellow orang",
+  "lastRow": "live writer tick 131 ok"
+}
+  [t+44ms] connected
+  [t+50ms] cells found
+  [t+421ms] released
+drag from row 11 col 5 (row 6 ) to row 14 col 20 (row 9 ), 12 steps
++0ms (read at 3ms) selection: {"has":true,"text":"6 red green blue yellow orange violet\r\nrow 7 red green blue yellow orange violet\r\nrow 8 red gree ...  | last row: ["live writer tick 132 ok"]
+144
+pressed Ctrl+c
+--- row 6c: after Ctrl+C (copied should equal the selection; writer must still tick)
+{
+  "bars": 1,
+  "focus": "xterm-helper-textarea",
+  "count": "",
+  "input": "blue",
+  "hasSel": false,
+  "selLen": 0,
+  "selStart": "",
+  "selPos": null,
+  "copyCount": 3,
+  "copiedLen": 144,
+  "copiedEqualsSel0": true,
+  "copiedStart": "6 red green blue yellow orange",
+  "lastRow": "live writer tick 134 ok"
+}
+--- row 6c: 1.5 s later (writer still ticking?)
+{
+  "bars": 1,
+  "focus": "xterm-helper-textarea",
+  "count": "",
+  "input": "blue",
+  "hasSel": false,
+  "selLen": 0,
+  "selStart": "",
+  "selPos": null,
+  "copyCount": 3,
+  "copiedLen": 144,
+  "copiedEqualsSel0": true,
+  "copiedStart": "6 red green blue yellow orange",
+  "lastRow": "live writer tick 137 ok"
+}
+--- row 7: bar open, search live again (Enter in the box)
+{
+  "bars": 1,
+  "focus": "find-input",
+  "count": "1/31",
+  "input": "blue",
+  "hasSel": true,
+  "selLen": 4,
+  "selStart": "blue",
+  "selPos": {
+    "start": {
+      "x": 68,
+      "y": 4
+    },
+    "end": {
+      "x": 72,
+      "y": 4
+    }
+  },
+  "copyCount": 3,
+  "copiedLen": 144,
+  "copiedEqualsSel0": true,
+  "copiedStart": "6 red green blue yellow orange",
+  "lastRow": "live writer tick 139 ok"
+}
+"xterm-helper-textarea"
+--- row 7: right after Ctrl+Shift+A
+{
+  "bars": 1,
+  "focus": "xterm-helper-textarea",
+  "count": "",
+  "input": "blue",
+  "hasSel": true,
+  "selLen": 1950,
+  "selStart": "Microsoft Windows [Version 10.",
+  "selPos": {
+    "start": {
+      "x": 0,
+      "y": 0
+    },
+    "end": {
+      "x": 112,
+      "y": 41
+    }
+  },
+  "copyCount": 3,
+  "copiedLen": 144,
+  "copiedEqualsSel0": true,
+  "copiedStart": "6 red green blue yellow orange",
+  "lastRow": "live writer tick 141 ok"
+}
+--- row 7: 1 s after
+{
+  "bars": 1,
+  "focus": "xterm-helper-textarea",
+  "count": "",
+  "input": "blue",
+  "hasSel": true,
+  "selLen": 1950,
+  "selStart": "Microsoft Windows [Version 10.",
+  "selPos": {
+    "start": {
+      "x": 0,
+      "y": 0
+    },
+    "end": {
+      "x": 112,
+      "y": 41
+    }
+  },
+  "copyCount": 3,
+  "copiedLen": 144,
+  "copiedEqualsSel0": true,
+  "copiedStart": "6 red green blue yellow orange",
+  "lastRow": "live writer tick 144 ok"
+}
+--- row 7: 3 s after
+{
+  "bars": 1,
+  "focus": "xterm-helper-textarea",
+  "count": "",
+  "input": "blue",
+  "hasSel": true,
+  "selLen": 1950,
+  "selStart": "Microsoft Windows [Version 10.",
+  "selPos": {
+    "start": {
+      "x": 0,
+      "y": 0
+    },
+    "end": {
+      "x": 112,
+      "y": 41
+    }
+  },
+  "copyCount": 3,
+  "copiedLen": 144,
+  "copiedEqualsSel0": true,
+  "copiedStart": "6 red green blue yellow orange",
+  "lastRow": "live writer tick 148 ok"
+}
+[
+  "live writer tick 148 ok",
+  ""
+]
+=== done 2026-11-09T00:42:36.2898222+05:30
