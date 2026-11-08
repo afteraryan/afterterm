@@ -58,7 +58,7 @@ Plain Node (24+) and PowerShell. No new dependencies: Node's global `fetch` and
 | `screenshot-display.ps1` | Captures a whole physical display to PNG (shows native title bars and the notifier toasts, which CDP cannot). |
 | `record.mjs` | Long-running recorder: CDP screencast of the page content, stitched to mp4 with ffmpeg. Normally started detached by `drive.mjs record start`, not run by hand. See "Recording a test session" below. |
 | `lib.mjs` | Shared: arg parsing, run records, process tree walk, WMI spawn, display and window queries, the CDP client. |
-| `update-feed.mjs` | Automatic updates: writes a test feed in GitHub's release shape (`--out <dir>`, `--version`, `--installer`, `--size-mb`, `--base`, `--bad-digest`, `--notes`) for `--env AFTERTERM_UPDATE_FEED=<feed>`. A dev build checks it but never runs Setup. Hooks for the test: `window.__afterterm.update()`, `wake(id)`, `setNotification(id, 'working')`. See `docs/features-updates.md`, "Testing". |
+| `update-feed.mjs` | Automatic updates: writes a test feed in GitHub's release shape (`--out <dir>`, `--version`, `--installer`, `--size-mb`, `--base`, `--bad-digest`, `--notes`) for `--env AFTERTERM_UPDATE_FEED=<feed>`. A dev build checks it but never runs Setup. Hooks for the test: `window.__afterterm.update()`, `wake(id)`, `setNotification(id, 'working')`. `setNotification(id, 'background')` also sets the thread's background work flag, and `setNotification(id, undefined)` clears it (since 2026-11-09), since the hourglass is drawn from that flag; the flag clears when the thread's shell shows its own prompt again, so give a background state to a thread whose shell is busy, or write the hook's hourglass title from a command that does not return to the prompt. See `docs/features-updates.md`, "Testing". |
 
 Main-process support lives in `src/main.ts`:
 
@@ -664,6 +664,11 @@ particularly often: sleep, wake and the scrollback tail file are all main-proces
   CDP-dispatched keys (verified: `key b --ctrl --shift` toggles the side panel),
   but keys typed into an xterm.js terminal reach the shell only if the terminal
   has focus (click it first).
+- `key` never reaches an application menu item: Electron runs a menu role on the
+  window that has OS focus, and a harness window never has it, so even before
+  AFT-26's fix `key r --ctrl --shift` did not reload. To see which keys the menu
+  answers, read the `[harness] menu key <path> role=<role> key=<key>` lines a
+  harness run logs once at startup (`logMenuKeys` in `src/main.ts`).
 - The app's context menus close on an outside click, not on Escape: after a
   `rightclick`, dismiss with `click "#root"` (or act on a `.ctx-menu-item`).
 - One harness run per port. A second `launch` on a busy port is refused.

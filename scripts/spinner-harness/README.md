@@ -17,6 +17,7 @@ stream the renderer sees, without needing the Electron GUI.
 - Mid-turn, across think/tools/mixed, the PTY was **never silent > ~450ms**.
 - At idle it is silent **indefinitely**.
 - At a permission (`⚠`) / compaction (`⚙`) pause it goes silent for **seconds**, then resumes in a burst.
+- 2026-11-08 (AFT-42): `spinnerState.ts` now also ends `compacting` after 5 s of silence while the record does not say busy for a turn, on the expectation that Claude Code 2.1.319's "Compacting conversation" spinner keeps output flowing for as long as a compaction runs. That is not measured: `fixtures/compact.jsonl` (an older Claude Code) has 3.6 s of silence after its `⚙`, and no long compaction has been timed yet, on screen or hidden. The same day's live test saw Claude Code redraw its window title about once a second while it waited on a background agent, which is output too.
 
 Those three regimes are cleanly separable by an output-silence threshold, which is
 what `spinnerState.ts` uses (silence-clear + resume re-arm).

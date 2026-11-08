@@ -108,9 +108,10 @@ export interface Tab {
   // background shell). Set whether or not the thread is in view, cleared by the
   // hook's ✅ (spinnerState.ts, backgroundAfterTitle; ▶, ⚠ and ⚙ leave it), by the
   // thread's Claude going away (backgroundAfterRecord, as on /exit) or by sleep, never by
-  // viewing: the ⏳ badge in `notification` clears the moment the thread is seen, and
-  // the restart window must still warn (update-check.ts, hasBackgroundTask; plan-02,
-  // Fix 7). Absent means false.
+  // viewing. The restart window reads it (update-check.ts, hasBackgroundTask; plan-02,
+  // Fix 7), and since 2026-11-08 it is also what keeps `notification` at background
+  // while nothing louder is going on (spinnerState.ts, withBackground; AFT-25, AFT-43).
+  // Absent means false.
   backgroundTasks?: boolean;
   // Transient (NOT persisted): this thread came back from a reload of the window with
   // its shell still running in main (AFT-33, reattachedTab in sleepWake.ts). Its
