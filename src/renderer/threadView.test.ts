@@ -97,6 +97,37 @@ console.log('\nthreadView: threadFolderTarget opens the top of the git working t
     gone?.folder === sub && gone.missing === true, show(gone));
 }
 
+console.log('\nthreadView: threadFolderTarget never opens a folder above the project');
+{
+  const mono = 'D:\\mono';
+  const pkg = 'D:\\mono\\packages\\app';
+  const nested = pkg + '\\src\\ui';
+  const above = threadFolderTarget({ cwd: nested }, {}, mono, pkg);
+  check('a top above the project folder gives the project folder (a package in a monorepo)',
+    above?.folder === pkg && above.missing === false, show(above));
+  const home = threadFolderTarget({ claudeCwd: 'C:\\Users\\me\\src\\app\\lib' }, {}, 'C:\\Users\\me', 'C:\\Users\\me\\src\\app');
+  check('a home folder that is itself a repository never becomes the target', home?.folder === 'C:\\Users\\me\\src\\app', show(home));
+  const equal = threadFolderTarget({ cwd: pkg + '\\src' }, {}, pkg, pkg);
+  check('a top equal to the project folder gives that folder', equal?.folder === pkg, show(equal));
+  const wt = pkg + '\\.claude\\worktrees\\fix';
+  const below = threadFolderTarget({ claudeCwd: wt + '\\apps' }, {}, wt, pkg);
+  check('a worktree under the project folder is below it, so the worktree top wins', below?.folder === wt, show(below));
+  const noProject = threadFolderTarget({ cwd: nested }, {}, mono, undefined);
+  check('a thread with no project (General) gets the git top', noProject?.folder === mono, show(noProject));
+  const nullProject = threadFolderTarget({ cwd: nested }, {}, mono, null);
+  check('a null project folder is the same as none', nullProject?.folder === mono, show(nullProject));
+  const outside = threadFolderTarget({ cwd: 'D:\\mono\\other\\src' }, {}, mono, pkg);
+  check('a thread in the same repo but outside the project keeps its own folder, not the project',
+    outside?.folder === 'D:\\mono\\other\\src', show(outside));
+  const elsewhere = threadFolderTarget({ cwd: 'E:\\other\\lib' }, {}, 'E:\\other', pkg);
+  check('a top unrelated to the project folder is used', elsewhere?.folder === 'E:\\other', show(elsewhere));
+  const caseless = threadFolderTarget({ cwd: 'd:\\MONO\\Packages\\App\\src' }, {}, 'D:\\mono', pkg);
+  check('the project comparison ignores letter case', caseless?.folder === pkg, show(caseless));
+  const missing = threadFolderTarget({ cwd: nested }, { [nested]: false }, mono, pkg);
+  check('a missing thread folder stays missing whatever the project',
+    missing?.folder === nested && missing.missing === true, show(missing));
+}
+
 console.log('\nthreadView: insertNewThread\n');
 {
   const ids = (ts: Tab[]) => ts.map(t => t.id).join(',');

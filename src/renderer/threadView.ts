@@ -45,8 +45,9 @@ export function threadKind(tab: Pick<Tab, 'claudeSessionId'>): ThreadKind {
 // git worktree, while the shell that launched it still sits in the main
 // checkout), the shell's own cwd otherwise, undefined when neither was ever
 // captured. It is what the branch and worktree are read from (threadGitCwd in
-// useTabState.ts) and, since Phase 9, what "Open in File Explorer" on a thread
-// opens: the worktree for a worktree chat, not the project root.
+// useTabState.ts) and where "Open in File Explorer" and "Open in <editor>" on a
+// thread start from: threadFolderTarget below turns it into the folder they open
+// (the top of its git working tree, never above the project).
 export function threadFolder(tab: Pick<Tab, 'cwd' | 'claudeCwd'>): string | undefined {
   return tab.claudeCwd ?? tab.cwd;
 }
@@ -99,33 +100,45 @@ export function placeThread<T extends Pick<Tab, 'id' | 'groupId'>>(
 }
 
 // What a thread's own Open in File Explorer and Open in <editor> act on (the
-// thread menu, the header's worktree item and editor button): the top of the git
-// working tree the thread's folder is in, and whether main has checked the
-// thread's folder and found it gone. Only an explicit false in `folderExists`
-// counts as missing, so a folder not checked yet never starts out disabled.
-// Undefined when the thread has no folder at all, and then neither control is
-// offered.
+// thread menu, the header's worktree item and editor button), and whether main
+// has checked the thread's folder and found it gone. Only an explicit false in
+// `folderExists` counts as missing, so a folder not checked yet never starts out
+// disabled. Undefined when the thread has no folder at all, and then neither
+// control is offered.
 //
-// `gitTop` is the working tree's top from git-info.ts (the folder holding the
-// .git entry: a linked worktree's own folder, or a plain checkout's). A chat
-// whose Claude session has moved into a subfolder of its worktree (claudeCwd
-// follows the newest cwd in the transcript) still opens the worktree itself, and
-// so does a shell that has cd-ed into a subfolder of a repo (Aryan, AFT-45: "it
-// should always open in the work tree folder"). The top is used only when the
-// thread's folder is inside it (a top read for an earlier folder, before a cd,
-// is ignored) and when the folder is not known to be missing (a deleted worktree
-// would otherwise resolve to the repo that used to hold it). A thread in no git
-// tree has no top and keeps its own folder.
+// The folder is the top of the git working tree the thread's folder is in, not
+// the thread's own folder (AFT-45, Aryan: "it should always open in the work tree
+// folder"): a chat whose Claude session moved into a subfolder of its worktree
+// (claudeCwd follows the newest cwd in the transcript), or a shell that cd-ed
+// into a subfolder of a repo, opens the working tree itself. `gitTop` is that top
+// from git-info.ts, the folder holding the .git entry (a linked worktree's own
+// folder, or a plain checkout's). Rules, in order:
+//  - the thread's folder is missing (main's check): it stays the target and is
+//    reported missing, so a deleted worktree does not resolve to the repo that
+//    held it;
+//  - no top, or a top the thread's folder is not inside (a top read before a cd):
+//    the thread's own folder;
+//  - a top above the project's folder (`projectFolder`: the project is a package
+//    in a monorepo, or the home folder is itself a repository): never a folder
+//    above the project. The project folder when the thread's folder is inside it,
+//    else the thread's own folder (it is not in the project, so the project
+//    folder would not hold it either);
+//  - otherwise the top, a worktree under the project's .claude/worktrees
+//    included. A thread with no project (General) always gets the top.
 export function threadFolderTarget(
   tab: Pick<Tab, 'cwd' | 'claudeCwd'>,
   folderExists: Record<string, boolean>,
   gitTop?: string | null,
+  projectFolder?: string | null,
 ): { folder: string; missing: boolean } | undefined {
   const folder = threadFolder(tab);
   if (!folder) return undefined;
   const missing = folderExists[folder] === false;
-  if (!missing && gitTop && isInside(folder, gitTop)) return { folder: gitTop, missing: false };
-  return { folder, missing };
+  if (missing || !gitTop || !isInside(folder, gitTop)) return { folder, missing };
+  if (projectFolder && isInside(projectFolder, gitTop) && !isInside(gitTop, projectFolder)) {
+    return { folder: isInside(folder, projectFolder) ? projectFolder : folder, missing: false };
+  }
+  return { folder: gitTop, missing: false };
 }
 
 // The word for a thread's kind, shown in the asleep pane ("Server asleep since
