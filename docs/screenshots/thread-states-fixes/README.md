@@ -36,6 +36,22 @@ $text = @{ bg = 'bg (1 running)'; done = 'done'; compact = 'compacting'; work = 
 
 The first try at row 8 typed `compact` right after row 7's `compact`: the title did not change, so no title event came and the thread stayed quiet. That is how a terminal reports titles, not the change under test; the `plain` step was added for the retry.
 
+## Round 2 (2026-11-09): the shell's prompt ends background work
+
+After review 1 of PR #90 the background work flag also clears when the thread's shell shows its own prompt again (the Claude has gone). That breaks the method above: `./title bg` typed at a PowerShell prompt returns to the prompt at once, so the hourglass now ends as soon as it starts. **Rows 1 to 10 above were run before this rule; to repeat them now, hold the prompt while writing the titles**, for example `./title plain; ./title bg; Start-Sleep 600`, and end the command (Ctrl+C) to stand in for the Claude going away.
+
+Same harness set-up as above (port 9341, its own data dir, scratch `CLAUDE_CONFIG_DIR`, `document.hasFocus` stubbed, the real files' hashes unchanged before, during and after, with the `settings.json` hash Aryan's edit of 2026-11-09 gave it). State sampled in the page every 40 ms. One recording: `62-whole-test-the-shell-prompt-ends-background.mp4`.
+
+| Row | What was done | What was seen | Captures | Result |
+|---|---|---|---|---|
+| 11 (first try) | `./title bg` at the prompt | The hourglass stayed with the shell back at its prompt. The ⏳ title and the prompt's mark came in one batch of output, and the first version of the rule read the flag from the last render, where it was still unset. Fixed by deciding inside the state update (`endBackgroundWork` in `useTabState.ts`) | 60, 61 | Fail, fixed |
+| 11 | The same, after the fix | Sampler: the ⏳ title arrives with the prompt (1.01 s) and the thread stays quiet with no flag; the hourglass never shows on a plain shell | 63 | Pass |
+| 12 | `./title plain; ./title bg; Start-Sleep 600` | Hourglass on the row, the pill and the header while the command holds the prompt; still there after opening "Other thread" and coming back, 6 s later | 64, 65 | Pass |
+| 13 | Ctrl+C ends the command | The prompt is back and the hourglass goes at once (`atPrompt` true, no flag) | 66 | Pass |
+| 14 | `Start-Sleep 600`, then `__afterterm.setNotification('tab-1', 'background')` | `notification: background` and `backgroundTasks: true`; still there 3.5 s later; Ctrl+C then clears both | 67 | Pass |
+
+The review's two busy-record cases (an agent's permission prompt answered with Enter, a `/compact` that finishes while an agent runs) need a record that says busy, which only a real Claude Code gives: unit-tested only (`spinnerState.test.ts`).
+
 ## Not tested here
 
 - A real Claude Code: no background agent, no real compaction and no session record were run. The record's part (busy holds compacting, idle ends it) is covered by unit tests only.

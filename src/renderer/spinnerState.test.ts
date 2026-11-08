@@ -10,7 +10,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import {
   onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, clearsWhenSeen, initTiming,
-  onRecordStatus, backgroundAfterTitle, backgroundAfterRecord, withBackground,
+  onRecordStatus, backgroundAfterTitle, backgroundAfterRecord, backgroundAfterPrompt, withBackground,
   SILENCE_CLEAR_MS, REARM_AFTER_QUIET_MS, COMPACT_SILENCE_CLEAR_MS,
 } from './spinnerState.ts';
 import type { RecordStatus } from '../claude-session-record.ts';
@@ -48,6 +48,32 @@ console.log('\nspinnerState — unit rules\n');
     onTick('attention', initTiming(0), 999999) === 'attention');
   check('tick never clears done', onTick('done', initTiming(0), 999999) === 'done');
   check('tick never clears background', onTick('background', initTiming(0), 999999) === 'background');
+}
+
+// ── onTick: a busy record held by a background agent (review 1 of PR #90) ────
+{
+  // Claude Code 2.1.319 kept its record busy for a background agent's whole run in the
+  // 2026-11-08 live test, so with background work a busy record says nothing about a turn.
+  const t = initTiming(1000);
+  check('record busy, no background work: working held through silence (Fix 11, unchanged)',
+    onTick('working', t, 1000 + SILENCE_CLEAR_MS * 10, 'busy', false) === 'working');
+  check('record busy, background work running: working cleared after the silence window',
+    onTick('working', t, 1000 + SILENCE_CLEAR_MS + 1, 'busy', true) === undefined);
+  check('record busy, background work running: working held inside the window',
+    onTick('working', t, 1000 + SILENCE_CLEAR_MS, 'busy', true) === 'working');
+  check('record busy, background work running: compacting cleared after its window',
+    onTick('compacting', t, 1000 + COMPACT_SILENCE_CLEAR_MS + 1, 'busy', true) === undefined);
+  check('record busy, no background work: compacting held',
+    onTick('compacting', t, 1000 + COMPACT_SILENCE_CLEAR_MS * 10, 'busy', false) === 'compacting');
+  check('the flag defaults to none (callers without it keep Fix 11\'s hold)',
+    onTick('working', t, 1000 + SILENCE_CLEAR_MS * 10, 'busy') === 'working');
+}
+
+// ── backgroundAfterPrompt: the shell's own prompt ends background work ───────
+{
+  check('the prompt coming back clears the flag (the Claude has gone)', backgroundAfterPrompt(true, true) === false);
+  check('a command starting (prompt gone) keeps the flag', backgroundAfterPrompt(true, false) === true);
+  check('the prompt never sets the flag', backgroundAfterPrompt(false, true) === false && backgroundAfterPrompt(false, false) === false);
 }
 
 // ── onTick: a compaction that ended with no hook title (AFT-42) ───────────────
@@ -363,8 +389,13 @@ function thread() {
       notif = withBackground(onViewedTitle(onTitle(notif, n, t, at), viewing), bg);
     },
     output(at: number, len = 50) { notif = withBackground(onOutput(notif, t, at, len), bg); },
-    tick(at: number) { notif = withBackground(onTick(notif, t, at, record), bg); },
+    tick(at: number) { notif = withBackground(onTick(notif, t, at, record, bg), bg); },
     esc() { notif = withBackground(onInterrupt(notif), bg); },
+    enter(at: number) { notif = withBackground(onAnswer(notif, t, at), bg); },
+    prompt(atPrompt: boolean) {
+      bg = backgroundAfterPrompt(bg, atPrompt);
+      notif = withBackground(notif, bg);
+    },
     open() { if (clearsWhenSeen(notif)) notif = withBackground(undefined, bg); },
     record(next: typeof record) {
       bg = backgroundAfterRecord(bg, record, next);
@@ -481,6 +512,56 @@ function thread() {
   check('AFT-42: no record, inside the window: compacting', th.notif === 'compacting');
   th.tick(1200 + COMPACT_SILENCE_CLEAR_MS + 500);
   check('AFT-42: no record, past the window: quiet', th.notif === undefined);
+}
+{
+  // Review 1, scenario A: a background agent asks for permission and Enter answers
+  // it. No Stop hook runs (the main loop is idle), and the record stays busy for the
+  // agent's whole run, as measured on 2026-11-08.
+  const th = thread();
+  th.record('busy');
+  th.title('working', 1000, true);
+  th.title('background', 9000, true);
+  th.title('attention', 20_000, true);
+  check('agent prompt while the record is busy for the agent: needs-you', th.notif === 'attention');
+  th.record('waiting');
+  th.enter(25_000);
+  th.record('busy');
+  check('Enter answers it: working', th.notif === 'working');
+  th.tick(25_000 + SILENCE_CLEAR_MS);
+  check('inside the silence window: still working', th.notif === 'working');
+  th.tick(25_000 + SILENCE_CLEAR_MS + 500);
+  check('record busy for the agent: the spinner gives way to the hourglass after the silence', th.notif === 'background');
+}
+{
+  // Review 1, scenario B: /compact while a background agent runs (record busy for
+  // the agent), and the compaction finishes without Esc: no idle record comes.
+  const th = thread();
+  th.record('busy');
+  th.title('background', 1000, true);
+  th.title('compacting', 30_000, true);
+  th.output(31_000, 400);
+  th.tick(31_000 + COMPACT_SILENCE_CLEAR_MS);
+  check('compaction over agent work, inside the window: compacting', th.notif === 'compacting');
+  th.tick(31_000 + COMPACT_SILENCE_CLEAR_MS + 500);
+  check('record busy for the agent: a finished compaction clears to the hourglass', th.notif === 'background');
+}
+{
+  // Review 1, finding 2a: a Claude whose record afterterm cannot read. /exit brings
+  // the shell's prompt back, which ends the background work and the hourglass.
+  const th = thread();
+  th.title('background', 1000, true);
+  th.prompt(false);
+  check('no prompt yet (Claude still running): background', th.notif === 'background' && th.bg);
+  th.prompt(true);
+  check('the shell prompt comes back after /exit: quiet, flag cleared', th.notif === undefined && !th.bg);
+}
+{
+  // The prompt coming back leaves a louder state alone (needs-you here).
+  const th = thread();
+  th.title('background', 1000, false);
+  th.title('attention', 2000, false);
+  th.prompt(true);
+  check('the prompt coming back clears the flag but leaves needs-you', th.notif === 'attention' && !th.bg);
 }
 
 // ── Replay real captured traces ─────────────────────────────────────────────

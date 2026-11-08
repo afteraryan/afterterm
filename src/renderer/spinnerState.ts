@@ -39,8 +39,14 @@
 // PostCompact only after a compaction that finished), so compacting also ends on Esc
 // or Ctrl+C in the thread (onInterrupt), on the session record leaving busy for idle
 // (onRecordStatus), and after COMPACT_SILENCE_CLEAR_MS of output silence while the
-// record does not say busy (onTick). Claude Code's compaction spinner animates, so the
-// output is not silent while a compaction really runs.
+// record does not say busy for a turn (onTick). Claude Code draws a spinner while a
+// compaction runs, so the output is expected not to go silent that long during one;
+// that is expected, not measured (scripts/spinner-harness/README.md).
+//
+// 2026-11-09 (review 1 of PR #90): a busy record holds working and compacting only
+// when the thread has no background work, since Claude Code keeps its record busy for
+// a background agent's whole run (measured 2026-11-08); and the shell's own prompt
+// coming back ends the background work flag (backgroundAfterPrompt).
 //
 // This is empirically grounded (scripts/spinner-harness): across pure-think, tool-
 // heavy, and mixed turns the PTY was never silent for more than ~450ms while Claude
@@ -67,10 +73,14 @@ export const SILENCE_CLEAR_MS = 2500;
 export const REARM_AFTER_QUIET_MS = 1500;
 
 // Clear `compacting` once output has been silent this long and the record does not
-// say busy (AFT-42). Longer than SILENCE_CLEAR_MS because a compaction is long and a
-// false clear has nothing to bring it back: Claude Code 2.1.319 draws an animated
-// spinner ("Compacting conversation") for as long as a compaction runs, so seconds of
-// silence mean it has ended (cancelled, failed or finished) and the prompt is idle.
+// say busy for a turn (AFT-42). Longer than SILENCE_CLEAR_MS because a compaction is
+// long and a false clear has nothing to bring it back. Claude Code 2.1.319 shows a
+// spinner ("Compacting conversation") while a compaction runs, so seconds of silence
+// are expected to mean it has ended (cancelled, failed or finished). Expected, not
+// measured: the one captured compaction trace (fixtures/compact.jsonl, an older
+// Claude Code) has 3.6 s of silence after its ⚙, and nobody has yet timed the output
+// of a long compaction, on screen or hidden. A false clear shows quiet for the rest of
+// that compaction; nothing gets stuck.
 export const COMPACT_SILENCE_CLEAR_MS = 5000;
 
 // Per-tab timing the decisions read/update. Kept tiny and serializable so the driver
@@ -118,8 +128,22 @@ export function onOutput(current: Notif, timing: TabTiming, at: number, byteLen:
 // of the turn (note-03, row 3). Once the record goes idle the silence rule applies
 // again, measured from the last output, so a turn that ended long ago clears on the
 // next tick.
-export function onTick(current: Notif, timing: TabTiming, at: number, record?: RecordStatus): Notif {
-  if (record === 'busy') return current;
+//
+// `background` is the thread's background work flag (Tab.backgroundTasks). With it
+// set, busy says nothing about a turn: Claude Code 2.1.319 keeps the record busy for
+// a background agent's whole run (measured 2026-11-08, busy from the prompt to the
+// end of the turn that reported the agent's result). So busy holds working and
+// compacting only with no background work; with some, the silence rule applies and
+// withBackground turns the cleared state into background. That covers an agent's
+// permission prompt answered with Enter (working, no Stop hook to end it) and a
+// /compact that finishes while an agent runs (no idle record to end it). The cost: a
+// real new turn over background work that goes quiet for SILENCE_CLEAR_MS shows the
+// hourglass until its own ⏳ or ✅. Note that Claude Code also redraws its window
+// title about once a second while it waits on a background agent (the same live
+// run), and a title is output, so in practice the silence these need may not come
+// until that stops.
+export function onTick(current: Notif, timing: TabTiming, at: number, record?: RecordStatus, background = false): Notif {
+  if (record === 'busy' && !background) return current;
   const quiet = at - timing.lastOutputAt;
   if (current === 'working' && quiet > SILENCE_CLEAR_MS) return undefined;
   if (current === 'compacting' && quiet > COMPACT_SILENCE_CLEAR_MS) return undefined;
@@ -202,9 +226,10 @@ export function clearsWhenSeen(n: Notif): boolean {
 // Claude Code runs no Stop hook on an interrupt, so no ⏳ would come back; and a
 // background agent's own permission prompt raises ⚠ while the agent still runs (seen
 // in the 2026-11-07 live retest). An undecorated title (undefined) changes nothing.
-// The Claude going away clears it too (backgroundAfterRecord), and so does sleep. An
-// idle record does not: a session cron is counted by the hook and leaves the record
-// idle between its runs.
+// The Claude going away clears it too (its record going, backgroundAfterRecord, or the
+// shell's prompt coming back, backgroundAfterPrompt), and so does sleep. An idle record
+// does not: a session cron is counted by the hook and leaves the record idle between
+// its runs.
 export function backgroundAfterTitle(current: boolean, titleNotif: Notif): boolean {
   if (titleNotif === 'background') return true;
   if (titleNotif === 'done') return false;
@@ -222,6 +247,19 @@ export function backgroundAfterRecord(
   next: RecordStatus | undefined,
 ): boolean {
   return previous !== undefined && next === undefined ? false : current;
+}
+
+// The same flag when the thread's shell reports its own prompt (the OSC 133 marks,
+// Tab.atPrompt; review 1 of PR #90). The shell's prompt is back only once the program
+// it ran has ended, and a Claude that is running keeps it away, so a prompt means the
+// thread's Claude has gone (/exit, a double Ctrl+C, a crash) and a plain shell has no
+// background work. This covers a Claude whose record afterterm cannot read (an older
+// Claude Code, or a record not matched to the thread), where backgroundAfterRecord
+// never fires. A prompt going away (a command started) changes nothing. A shell with
+// no marks (integration off, WSL) never reports a prompt, so its flag waits for the
+// other signals, as before.
+export function backgroundAfterPrompt(current: boolean, atPrompt: boolean): boolean {
+  return atPrompt ? false : current;
 }
 
 // What a title's notif becomes when it lands on a thread. On the thread the user

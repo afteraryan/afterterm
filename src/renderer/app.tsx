@@ -28,7 +28,7 @@ import type { Screen } from './components/ScreenNav';
 import { useTabState, threadGitCwd } from './hooks/useTabState';
 import { Tab, TabNotification, nextGroupColor } from './components/TabBar/types';
 import { groupColors } from './projectColour';
-import { onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, onRecordStatus, backgroundAfterTitle, backgroundAfterRecord, clearsWhenSeen, withBackground, initTiming, TabTiming } from './spinnerState';
+import { onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, onRecordStatus, backgroundAfterTitle, backgroundAfterRecord, backgroundAfterPrompt, clearsWhenSeen, withBackground, initTiming, TabTiming } from './spinnerState';
 import { migrateSession, serializeSession } from './sessionMigration';
 import { sleepAllForShutdown, wakePlan } from './sleepWake';
 import { toastMessage, initialScreen, threadName, automaticThreadName, threadKind, needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText, localhostUrl, threadFolder, threadFolderTarget, projectLookChanges } from './threadView';
@@ -1041,9 +1041,10 @@ export function App() {
   // Clock tick: clear a tab's `working` spinner after its output has been silent long
   // enough (fixes the stuck-spinner bug where Stop's ✅ never fires), and its
   // `compacting` after a longer silence (AFT-42: a cancelled compaction sends no hook
-  // title), unless Claude Code's record still says busy (plan-02, Fix 11: a stalled
-  // turn keeps its spinner). A thread with background work running falls back to
-  // background. Also prunes timing entries for closed tabs.
+  // title), unless Claude Code's record still says busy for a turn (plan-02, Fix 11: a
+  // stalled turn keeps its spinner). With background work running a busy record holds
+  // nothing, since it stays busy for a background agent's whole run, and the cleared
+  // state falls back to background. Also prunes timing entries for closed tabs.
   useEffect(() => {
     const id = setInterval(() => {
       const now = Date.now();
@@ -1051,7 +1052,8 @@ export function App() {
       for (const tab of s.tabs) {
         if (tab.notification !== 'working' && tab.notification !== 'compacting') continue;
         const timing = timingRef.current.get(tab.id);
-        if (timing) applyNotif(tab.id, tab.notification, onTick(tab.notification, timing, now, tab.recordStatus), !!tab.backgroundTasks);
+        const background = !!tab.backgroundTasks;
+        if (timing) applyNotif(tab.id, tab.notification, onTick(tab.notification, timing, now, tab.recordStatus, background), background);
       }
       for (const id2 of [...timingRef.current.keys()]) {
         if (!s.tabs.some(t => t.id === id2)) timingRef.current.delete(id2);
@@ -1428,8 +1430,14 @@ export function App() {
       tab: (tabId: string) => stateRef.current.tabs.find(t => t.id === tabId) ?? null,
       // Automatic updates: wake a thread, and give one a state, so a test can fill
       // the restart window (a chat mid-turn) without a real Claude Code session.
+      // 'background' also sets the background work flag, as the hook's ⏳ does: the
+      // state is drawn from that flag since 2026-11-08 (withBackground), so without it
+      // the next output chunk would drop the state again.
       wake: (tabId: string) => wakeThreadRef.current(tabId),
-      setNotification: (tabId: string, n: TabNotification | undefined) => stateRef.current.setTabNotification(tabId, n),
+      setNotification: (tabId: string, n: TabNotification | undefined) => {
+        if (n === 'background') stateRef.current.setBackgroundTasks(tabId, true);
+        stateRef.current.setTabNotification(tabId, n);
+      },
       update: () => updateRef.current,
       // Phase 8: the same for a project (lastActiveAt, collapsed, icon, pinned).
       group: (groupId: string) => stateRef.current.groups.find(g => g.id === groupId) ?? null,
@@ -1468,9 +1476,15 @@ export function App() {
   }, []);
 
   // Whether the thread's shell sits at its prompt, from the same marks: what the
-  // restart window reads for a thread with no live Claude (plan-02, Fix 8).
+  // restart window reads for a thread with no live Claude (plan-02, Fix 8). The prompt
+  // coming back also means the thread's Claude has gone, so its background work flag
+  // clears and a leftover hourglass goes (backgroundAfterPrompt; review 1 of PR #90:
+  // without a record afterterm can read, nothing else would clear it after /exit).
+  // endBackgroundWork decides on the latest state, not this render's: a ⏳ and the
+  // prompt can arrive in the same batch of output.
   const handlePromptState = useCallback((tabId: string, atPrompt: boolean) => {
     stateRef.current.setAtPrompt(tabId, atPrompt);
+    if (!backgroundAfterPrompt(true, atPrompt)) stateRef.current.endBackgroundWork(tabId);
   }, []);
 
   // The Files list of the chat on screen is read when it comes on screen (a

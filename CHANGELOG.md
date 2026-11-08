@@ -6,7 +6,7 @@ What changed for the person using afterterm, release by release. Each release li
 
 ### Fixed
 
-- **A chat's hourglass now stays for as long as its background agent or task is running.** Before, it went away the moment you opened the chat, and a chat you were looking at when its turn ended never showed it at all, so a subagent at work was invisible in the sidebar, on the project and in the header. It now goes when the background work ends.
+- **A chat's hourglass now stays for as long as its background agent or task is running.** Before, it went away the moment you opened the chat, and a chat you were looking at when its turn ended never showed it at all, so a subagent at work was invisible in the sidebar, on the project's row and in the header. It now goes when the background work ends.
 - **The compacting icon now goes away when you cancel a compaction.** Before, it stayed on the rail and the sidebar row until you opened another thread. It now clears as soon as you press Esc, and otherwise within a few seconds of the compaction stopping.
 
 ## 0.16.1 (2026-11-08)
