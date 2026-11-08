@@ -82,7 +82,10 @@ code file opens in Notepad. See `docs/edited-files/phases.md`, "Decisions".
 - `SearchAddon`, one instance per terminal. A floating bar in the top-right of the terminal
   area (like conhost's Find dialog) searches **only the active tab's** scrollback.
 - Incremental highlight as you type, Enter / Shift+Enter to step forward/back, an `n/total`
-  match counter driven by `onDidChangeResults`, Esc to close.
+  match counter driven by `onDidChangeResults`. Esc closes the bar only from the bar's own box.
+  In the terminal Esc belongs to the program (it interrupts Claude Code), so afterterm never
+  takes it there, on purpose: do not add an Esc to the terminal's key handler. The x closes the
+  bar from anywhere.
 - Switching tabs closes the bar (search is single-terminal by design).
 - Implementation: the bar is a React sibling of `.terminal-host`. Terminal containers are
   appended *imperatively* into `.terminal-host` so React never reconciles them — keeping the
@@ -100,18 +103,23 @@ across two lines ended with only the word being searched for selected, within 30
 200 ms after every write to the terminal (`_updateMatches`, on `onWriteParsed`), and each run
 selects the match it finds, starting from wherever the current selection is. That replaced the
 user's selection. A chat that is working writes all the time, and the bar does not close when the
-terminal is clicked (Esc only closes it while its own box has focus), so the search stayed live
-until the bar's x was used. Closing the bar with `clearDecorations` also cannot cancel a re-run
+terminal is clicked (Esc only closes it while its own box has focus, see above), so the search
+stayed live until the bar's x was used. Closing the bar with `clearDecorations` also cannot cancel a re-run
 already waiting (read from the addon's source, not reproduced): that run would search for
 `undefined` and clear the selection.
 
 **What afterterm does now.** A search is ended by replacing its addon, not by clearing it
 (`endSearch` in `Terminal/index.tsx`: dispose the addon, which cancels a waiting re-run, and
 load a fresh one, `attachSearch`). It ends when the bar closes, when the thread changes, on a
-left press in the terminal (capture phase, before xterm starts its selection) and on Ctrl+Shift+A.
-The bar stays open with its text and a blank match count; Enter or an arrow starts a fresh search
-from the selection. The match that was selected stays selected, so Esc after a search still leaves
-the found text ready to copy.
+left or right press in the terminal (capture phase, before xterm starts its selection) and on
+Ctrl+Shift+A. The right press is included because a search left running selected its match again
+after every write, so a second right-click copied the match instead of pasting. The listener is on
+`mousedown`, not `pointerdown`, on purpose: xterm's scrollbar cancels `pointerdown`, so a press on
+the scrollbar does not end the search. The bar stays open with its text and a blank match count;
+Enter or an arrow starts a fresh search from the selection. After a plain click nothing is
+selected, so then Enter searches from the top of the scrollback and Shift+Enter from the bottom.
+The match that was selected stays selected, so Esc after a search still leaves the found text
+ready to copy.
 
 **Rejected: keeping the highlights while the user selects.** The addon has no way to refresh its
 highlights without selecting a match, so keeping them means the selection is lost.

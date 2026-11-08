@@ -417,7 +417,9 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
   // Ends a terminal's search: its highlights and its counter go, and nothing selects
   // a match on its own any more. The match that is selected stays selected, so a
   // closed bar still leaves the found text ready to copy. The bar keeps its text:
-  // Enter or the arrows start a fresh search from wherever the selection is.
+  // Enter or the arrows start a fresh search from wherever the selection is. With
+  // nothing selected (after a plain click) Enter searches from the top of the
+  // scrollback and Shift+Enter from the bottom.
   const endSearch = useCallback((tabId: string) => {
     const info = termsRef.current.get(tabId);
     if (!info) return;
@@ -663,11 +665,15 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       let pressClosedMenu = false;
       container.addEventListener('mousedown', (event) => {
         pressClosedMenu = linkMenuRef.current !== null;
-        // A left press in the terminal takes the selection from the find bar. A
-        // search left running keeps re-selecting its match as output arrives, which
-        // wipes out the text being selected (AFT-44). Capture phase: this runs
-        // before xterm starts the selection. The bar stays open with its text.
-        if (event.button === 0 && findOpenRef.current && tabId === activeRef.current) endSearch(tabId);
+        // A left or right press in the terminal takes the selection from the find
+        // bar. A search left running keeps re-selecting its match as output arrives,
+        // which wipes out the text being selected, and makes a right-click copy the
+        // match again instead of pasting (AFT-44). Capture phase: this runs before
+        // xterm starts the selection. The bar stays open with its text.
+        // This is `mousedown` on purpose, not `pointerdown`: xterm's scrollbar
+        // cancels `pointerdown`, so a press on the scrollbar never gets here and
+        // does not end the search. Do not switch it to `pointerdown`.
+        if ((event.button === 0 || event.button === 2) && findOpenRef.current && tabId === activeRef.current) endSearch(tabId);
       }, { capture: true });
 
       // Right-click: copy the selection (and clear it) if there is one; on a file

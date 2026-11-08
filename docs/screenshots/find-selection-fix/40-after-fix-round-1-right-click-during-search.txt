@@ -1,0 +1,12 @@
+Fix round 1 (review of PR #91, finding 1): right-click while a search is live.
+Setup: cmd thread, a program rewriting one row twice a second, find bar open with "needle" searched.
+navigator.clipboard.readText was stubbed to count calls (a call means the right-click took the paste path),
+writeText to record what was copied.
+
+First right-click on a terminal cell (copy path, the match is selected):
+  copied = "needle", paste reads = 0, selection afterwards = none, bar still open
+Second right-click, 2 seconds and about 4 writes later:
+  copied = "needle" (unchanged), paste reads = 1, selection = none
+
+So the first right-click copies the selected match and the second pastes. Before this change a live search
+selected the match again after every write, so every right-click after the first copied it again and pasted nothing.

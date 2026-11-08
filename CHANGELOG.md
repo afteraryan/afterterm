@@ -6,7 +6,7 @@ What changed for the person using afterterm, release by release. Each release li
 
 ### Fixed
 
-- **You can select text in the terminal again after searching with the find bar.** While the find bar was open, the terminal kept selecting the last match again whenever new output arrived, so text you had selected with the mouse was replaced within a moment. Now clicking in the terminal ends the search: the highlights and the match count go, the bar keeps its text, and your selection stays. Press Enter or an arrow in the bar to search again.
+- **You can select text in the terminal again after searching with the find bar.** After you searched, the terminal kept jumping the selection back to the search result whenever new output arrived, so your own selection was lost within a moment. Now clicking in the terminal ends the search: the highlights and the match count go, the bar keeps its text, and your selection stays. Press Enter or an arrow in the bar to search again.
 
 ## 0.16.1 (2026-11-08)
 
