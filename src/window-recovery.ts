@@ -62,6 +62,16 @@ export function afterChildGone(type: string, reason: string): 'repaint' | 'log' 
   return type === 'GPU' && reason !== 'clean-exit' ? 'repaint' : 'log';
 }
 
+// What main does when a page asks for a thread's shell (pty:create). A shell main
+// already holds is attached to, never spawned again. A page restoring a thread that
+// was running before a reload asks for an attach only: when that shell has ended in
+// the moment since main listed it, nothing is spawned ('gone'), so no shell starts
+// with a resume or a command typed into it, and the thread goes to sleep.
+export function ptyCreateAction(exists: boolean, attachOnly: boolean): 'attach' | 'spawn' | 'gone' {
+  if (exists) return 'attach';
+  return attachOnly ? 'gone' : 'spawn';
+}
+
 // A terminal draws with WebGL. When its WebGL context is lost and not given back
 // (the GPU process died, the driver reset, memory ran out), the WebGL renderer is
 // disposed and a fresh one loaded, which is what a font size change did by hand.

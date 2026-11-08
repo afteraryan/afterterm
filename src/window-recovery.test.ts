@@ -4,7 +4,7 @@
 
 import {
   HANG_GRACE_MS, RELOAD_LIMIT, RELOAD_WINDOW_MS, WEBGL_MAX_LOSSES,
-  allowReload, afterRendererGone, afterChildGone, rendererAfterLoss,
+  allowReload, afterRendererGone, afterChildGone, rendererAfterLoss, ptyCreateAction,
 } from './window-recovery.ts';
 
 let pass = 0, fail = 0;
@@ -58,6 +58,14 @@ console.log('\nwindow-recovery: what another process going away does\n');
   check('the GPU process was killed: the terminals redraw', afterChildGone('GPU', 'killed') === 'repaint');
   check('the GPU process exited cleanly: only logged', afterChildGone('GPU', 'clean-exit') === 'log');
   check('a utility process crashed: only logged', afterChildGone('Utility', 'crashed') === 'log');
+}
+
+console.log('\nwindow-recovery: what main does when a page asks for a shell\n');
+{
+  check('a shell main holds is attached to', ptyCreateAction(true, false) === 'attach');
+  check('and attached to when only an attach is asked for', ptyCreateAction(true, true) === 'attach');
+  check('no shell, a wake or a new thread: a fresh one is spawned', ptyCreateAction(false, false) === 'spawn');
+  check('no shell, only an attach asked for: nothing is spawned', ptyCreateAction(false, true) === 'gone');
 }
 
 console.log('\nwindow-recovery: which renderer a terminal draws with after a WebGL loss\n');

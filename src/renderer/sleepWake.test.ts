@@ -5,8 +5,9 @@
 import { isDeepStrictEqual } from 'util';
 import {
   sleepTab, wakeTab, restoredTab, sleepAllForShutdown, asleepLabel, asleepSinceText, wakePlan,
-  startsClaudeCode, reattachedTab, restoreWithLive, screenAfterReload,
+  startsClaudeCode, reattachedTab, restoreWithLive, screenAfterReload, createOutcome, takenTabIds,
 } from './sleepWake.ts';
+import { maxNumericId } from './history.ts';
 import type { Tab } from './components/TabBar/types.ts';
 import type { SavedTab } from './sessionMigration.ts';
 
@@ -401,6 +402,58 @@ console.log('\nsleepWake: a reload keeps the threads whose shell is still runnin
   const orphan = restoreWithLive(flushed, [{ tabId: 'tab-1' }, { tabId: 'tab-9' }], NOW + 5);
   check('a live shell no saved tab names is an orphan', show(orphan.orphans) === '["tab-9"]', show(orphan.orphans));
   check('and does not make a tab of its own', orphan.tabs.length === 3, show(orphan.tabs.map(t => t.id)));
+}
+
+console.log('\nsleepWake: a re-attached thread attaches only, and keeps what it showed (AFT-33 review 1)\n');
+{
+  const flushed = sleepAllForShutdown([chatTab({ id: 'tab-1', notification: 'attention', backgroundTasks: true })], NOW) as SavedTab[];
+  const back = reattachedTab(flushed[0], { tabId: 'tab-1' });
+  check('a re-attached thread is marked to attach only', back.reattach === true, show(back));
+  check('with nothing remembered it shows no state', !('notification' in back) && !('backgroundTasks' in back), show(back));
+
+  const waiting = reattachedTab(flushed[0], { tabId: 'tab-1', notification: 'attention' });
+  check('a chat that was waiting for Aryan still shows needs-you', waiting.notification === 'attention', show(waiting));
+  for (const n of ['done', 'background', 'compacting', 'working'] as const) {
+    check(`${n} comes back too`, reattachedTab(flushed[0], { tabId: 'tab-1', notification: n }).notification === n);
+  }
+  check('background work still counts for the restart window',
+    reattachedTab(flushed[0], { tabId: 'tab-1', backgroundTasks: true }).backgroundTasks === true);
+  check('backgroundTasks false is left out, as everywhere',
+    !('backgroundTasks' in reattachedTab(flushed[0], { tabId: 'tab-1', backgroundTasks: false })));
+  check('a state name it does not know is dropped',
+    !('notification' in reattachedTab(flushed[0], { tabId: 'tab-1', notification: 'shouting' as 'done' })));
+  const r = restoreWithLive(flushed, [{ tabId: 'tab-1', notification: 'attention', backgroundTasks: true }], NOW);
+  check('restoreWithLive carries them through', r.tabs[0].notification === 'attention' && r.tabs[0].backgroundTasks === true, show(r.tabs[0]));
+  check('a thread restored asleep has no attach mark', !('reattach' in restoreWithLive(flushed, [], NOW).tabs[0]));
+
+  check('sleep clears the attach mark', !('reattach' in sleepTab(back, NOW)));
+  check('wake clears the attach mark', !('reattach' in wakeTab(back, NOW)));
+}
+{
+  // What the terminal does with main's answer to pty:create.
+  check('re-attached and main held the shell: attached, nothing typed',
+    show(createOutcome(true, { attached: true })) === '{"kind":"attached","mayType":false}');
+  check('re-attached and the shell ended meanwhile: gone, nothing typed, the thread sleeps',
+    show(createOutcome(true, { attached: false, gone: true })) === '{"kind":"gone","mayType":false}');
+  check('re-attached and main spawned anyway (never asked to): nothing typed',
+    show(createOutcome(true, { attached: false })) === '{"kind":"spawned","mayType":false}');
+  check('a wake that got a fresh shell: the resume or the command may be typed',
+    show(createOutcome(false, { attached: false })) === '{"kind":"spawned","mayType":true}');
+  check('a wake that found a shell main still held: nothing typed into it',
+    show(createOutcome(false, { attached: true })) === '{"kind":"attached","mayType":false}');
+}
+{
+  // A live shell no saved thread names keeps its id taken.
+  const saved = {
+    tabs: [{ id: 'tab-3' }, { id: 'tab-5' }],
+    groups: [{ history: [{ id: 'tab-7' }] }, {}],
+  };
+  check('saved tabs, history and live shells are all taken',
+    show(takenTabIds(saved, [{ tabId: 'tab-5' }, { tabId: 'tab-9' }])) === '["tab-3","tab-5","tab-7","tab-5","tab-9"]');
+  check('the next new thread is numbered after the orphan, not given its id',
+    maxNumericId('tab-', takenTabIds(saved, [{ tabId: 'tab-9' }])) === 9);
+  check('with no live shells it is the saved tabs and history, as on a launch',
+    maxNumericId('tab-', takenTabIds(saved, [])) === 7);
 }
 
 console.log('\nsleepWake: a reloaded page opens where it was (AFT-33)\n');

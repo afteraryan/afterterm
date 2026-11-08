@@ -112,6 +112,11 @@ export interface Tab {
   // the restart window must still warn (update-check.ts, hasBackgroundTask; plan-02,
   // Fix 7). Absent means false.
   backgroundTasks?: boolean;
+  // Transient (NOT persisted): this thread came back from a reload of the window with
+  // its shell still running in main (AFT-33, reattachedTab in sleepWake.ts). Its
+  // terminal asks main to attach only, so a shell that ended meanwhile is never
+  // spawned again with a resume or a command typed into it. Cleared by sleep and wake.
+  reattach?: boolean;
 }
 
 export interface Group {

@@ -28,7 +28,7 @@ export const SESSION_FORMAT_VERSION = 3;
 
 // A tab as written to disk: the in-memory Tab minus the fields that describe a
 // live process, which are meaningless after a relaunch (each tab is a fresh shell).
-export type SavedTab = Omit<Tab, 'notification' | 'firstPrompt' | 'wokeAt' | 'recordStatus' | 'atPrompt' | 'hasChildren' | 'backgroundTasks'>;
+export type SavedTab = Omit<Tab, 'notification' | 'firstPrompt' | 'wokeAt' | 'recordStatus' | 'atPrompt' | 'hasChildren' | 'backgroundTasks' | 'reattach'>;
 
 // The panel UI state worth saving across a relaunch: whether the panel is hidden
 // and, once the person has dragged its edge, how wide it is (AFT-30, panelWidth.ts;
@@ -90,7 +90,9 @@ const PERSISTED_TAB_KEYS = [
 // doing (plan-02, Fix 5): it describes a live process, so it never outlives one.
 // atPrompt and hasChildren are what a live shell was doing (Fix 8), and
 // backgroundTasks what a live Claude left running (Fix 7), the same.
-const TRANSIENT_TAB_KEYS = ['notification', 'claudeRestorable', 'firstPrompt', 'wokeAt', 'recordStatus', 'atPrompt', 'hasChildren', 'backgroundTasks'] as const;
+// reattach (AFT-33) marks a thread re-attached to a live shell after a reload of the
+// window, which no saved file can describe.
+const TRANSIENT_TAB_KEYS = ['notification', 'claudeRestorable', 'firstPrompt', 'wokeAt', 'recordStatus', 'atPrompt', 'hasChildren', 'backgroundTasks', 'reattach'] as const;
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
