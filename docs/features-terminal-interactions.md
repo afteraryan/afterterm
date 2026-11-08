@@ -167,6 +167,39 @@ samples its own `scrollTop`.
 - The path is resolved via `webUtils.getPathForFile`, exposed in preload as
   `window.afterterm.files.pathForFile` — Electron 32+ removed the old `File.path` property.
 
+## No key reloads the window (AFT-26, 2026-11-08)
+
+Electron gives an app a default menu when it sets none, and the window answers that menu's keys
+even with the menu bar hidden. Its View menu held Reload (Ctrl+R) and Force Reload
+(Ctrl+Shift+R). A reload restarts the page, which restores `session.json`, so every thread came
+back asleep and the app landed on Home (Aryan, 2026-09-30: "doing ctrl+shift+R suddenly takes me
+to home and puts all sessions to sleep"). A menu key acts only when the page did not use the key:
+Ctrl+R in a terminal went to the shell, but Ctrl+Shift+R (which xterm ignores) and Ctrl+R with
+focus outside a terminal reloaded.
+
+`src/app-menu.ts` (`appMenuTemplate`) is Electron's default Windows menu without those two
+items (and without its Help menu, which has no keys), set in `main.ts` before the windows open. Every other key the default menu answered stays
+(copy and paste in text fields, Ctrl+0, Ctrl+Plus and Ctrl+Minus, F11, Ctrl+Shift+I for the
+developer tools, Ctrl+M, Ctrl+W). The keys are not swallowed in `before-input-event` instead,
+because the terminal needs Ctrl+R (reverse history search in PowerShell and bash). F5 was never
+in the menu; in cmd it recalls the last command, as it should. Unit test: `src/app-menu.test.ts`
+(no reload role anywhere in the menu, every other default role kept).
+
+One exception is kept on purpose: the developer tools (Ctrl+Shift+I, in every build) have their
+own Ctrl+R, Ctrl+Shift+R and F5, which reload the page while the developer tools window has
+focus, and the app menu has no say over them.
+
+**How it was tested.** A key sent through CDP (`drive key`) never reaches a menu item: Electron
+runs a menu role on `BaseWindow.getFocusedWindow()` (read from Electron 35's own code), and a
+harness window never has OS focus, so `drive key r --ctrl --shift` did nothing even before the
+fix. So a harness run now logs every menu item that answers a key, once at startup
+(`[harness] menu key <path> role=<role> key=<key>`, `logMenuKeys` in `main.ts`). Before the fix
+the log listed `View > Reload ... CmdOrCtrl+R` and `View > Force Reload ... Shift+CmdOrCtrl+R`;
+after it, neither, and the other thirteen keys unchanged. With two awake cmd threads, Ctrl+Shift+R,
+Ctrl+R and F5 sent with the terminal focused and again with nothing focused left the page
+unreloaded, the workspace on screen and both threads awake. Captures:
+`docs/screenshots/reload-and-recovery/01` to `09`.
+
 ## Shortcut placement note
 
 `Ctrl+Shift+A` (select all), `Ctrl+Shift+F` (find), and `Ctrl+scroll` (zoom) are handled in

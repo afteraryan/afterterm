@@ -18,6 +18,7 @@ What changed for the person using afterterm, release by release. Each release li
 - **The Other projects list at the bottom of the sidebar now closes when you click anywhere outside it, press Esc, or switch to another window.** Before, it stayed open until you clicked its own row again, even when you clicked in the terminal, the header or the rail.
 - **A chat's hourglass now stays for as long as its background agent or task is running.** Before, it went away the moment you opened the chat, and a chat you were looking at when its turn ended never showed it at all, so a subagent at work was invisible in the sidebar, on the project's row and in the header. It now goes when the background work ends.
 - **The compacting icon now goes away when you cancel a compaction.** Before, it stayed on the rail and the sidebar row until you opened another thread. It now clears as soon as you press Esc, and otherwise within a few seconds of the compaction stopping.
+- **Pressing Ctrl+Shift+R no longer sends afterterm to Home and puts every thread to sleep.** That key, and Ctrl+R outside a terminal, reloaded afterterm's window, which sent it to Home and put every thread to sleep. No key reloads the window now. Ctrl+R still reaches the terminal, where it searches your command history in PowerShell and bash.
 
 ## 0.16.1 (2026-11-08)
 
