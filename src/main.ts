@@ -21,6 +21,11 @@ import { detectEditors } from './editor-detect.ts';
 import type { DetectDeps } from './editor-detect.ts';
 import type { EditorInfo } from './editors.ts';
 import { readPrefs, updatePrefs } from './prefs.ts';
+import {
+  SAVE_DELAY_MS, homeFromPrefs, homeToPrefs, sameHome, findHomeDisplay, startupPlacement,
+  isWindowsMove, pruneEvents, moveBack, countsAsDisplayChange, landsOn,
+} from './window-placement.ts';
+import type { DisplayInfo, WindowHome, MoveBack } from './window-placement.ts';
 import { planSpawn } from './shell-integration.ts';
 import { readTranscriptMeta, isSessionId, findTranscript, projectDirName, transcriptPath } from './claude-transcript.ts';
 import {
@@ -1145,6 +1150,30 @@ function notifierDisplay(): Electron.Display {
   return getTargetDisplay();
 }
 
+// The overlay's always-on-top level. On Windows every level but 'normal' makes
+// the window topmost; Electron then puts the levels from 'floating' (the level
+// `alwaysOnTop: true` gives) to 'status' just below the taskbar, and
+// 'pop-up-menu' and higher at the very top. The toasts must be above everything.
+const NOTIFIER_TOP_LEVEL = 'screen-saver';
+
+// Put the overlay back at the top of every window (AFT-41: three toasts arrived
+// behind other windows and were never seen). A topmost window that is hidden and
+// shown again with showInactive keeps its old place in the z-order, so any other
+// always-on-top window that came up meanwhile stays above it, and a window that
+// has lost its topmost flag (Windows can drop it) is shown as an ordinary one.
+// setAlwaysOnTop sets the flag again and moves the window to the top of the
+// topmost windows, every time it is called; moveTop is the same order again,
+// without activating. Called on every show, and on every display and power change
+// while a toast is up. Cheap: two SetWindowPos calls. Only for a visible overlay:
+// moveTop also shows the window (SWP_SHOWWINDOW in Electron 35), and an empty
+// overlay shown that way is never hidden again by the renderer, which only hides
+// on a change to its toast list (the white bar with no toast, AFT-13).
+function raiseNotifier() {
+  if (!notifierWindow || notifierWindow.isDestroyed() || !notifierWindow.isVisible()) return;
+  notifierWindow.setAlwaysOnTop(true, NOTIFIER_TOP_LEVEL);
+  notifierWindow.moveTop();
+}
+
 // A full repaint of the overlay, the white-bar cure (see createNotifierWindow).
 // Deferred a tick so it lands after the frame paint it is there to overwrite.
 function repaintNotifier() {
@@ -1207,6 +1236,7 @@ function createNotifierWindow() {
   // it is installed any stall here freezes the mouse on the whole PC. With no
   // toast up there is nothing to hover, so there is no hook (launch lag, 2026-10-29).
   notifierWindow.setIgnoreMouseEvents(true);
+  notifierWindow.setAlwaysOnTop(true, NOTIFIER_TOP_LEVEL);
 
   // Chromium copies the loaded document's title onto the native window — that's
   // what drew "index.html" into the DWM caption strip (the "white bar"). Refuse
@@ -1237,8 +1267,12 @@ function createNotifierWindow() {
   // A monitor plugged in, unplugged or rescaled can leave the overlay on a display
   // that no longer exists or no longer holds the main window; re-place it at once
   // rather than on the next toast. Registered here, once, since the overlay is
-  // created once per app run.
-  const replace = () => positionNotifier();
+  // created once per app run. A display change is also a moment Windows reorders
+  // windows, so a toast that is up is put back on top (raiseNotifier).
+  const replace = () => {
+    positionNotifier();
+    raiseNotifier();
+  };
   screen.on('display-added', replace);
   screen.on('display-removed', replace);
   screen.on('display-metrics-changed', replace);
@@ -1266,8 +1300,177 @@ function harnessWindowPlacement(): { x: number; y: number; width: number; height
   };
 }
 
+// ─── The main window's home (AFT-15) ─────────────────────────────────────────
+
+// When a display goes away (the laptop lid, a monitor that sleeps or is
+// unplugged) Windows moves the window to another display and never moves it
+// back. So the window's home (where the user put it: normal bounds, display,
+// maximized) is kept in prefs.json, the window opens there, and when its display
+// comes back while the window sits elsewhere, it goes back. The rules are pure, in
+// window-placement.ts; this is the wiring. A move within 5 seconds of a display
+// change (a display added, removed or changed, sleep or wake; not a lock or an
+// unlock) is Windows' and leaves the home alone; any other move is the user's and
+// becomes the new home, so a window moved by hand is never taken back.
+let windowHome: WindowHome | null = null;
+let displayChangeTimes: number[] = [];
+let pendingMove: { first: number; last: number } | null = null;
+let moveSettleTimer: ReturnType<typeof setTimeout> | null = null;
+let ignoreMovesUntil = 0;
+
+function displayInfos(): DisplayInfo[] {
+  return screen.getAllDisplays().map(d => ({ id: d.id, bounds: d.bounds, workArea: d.workArea }));
+}
+
+function noteDisplayChange() {
+  const now = Date.now();
+  displayChangeTimes = pruneEvents([...displayChangeTimes, now], now);
+}
+
+function placementNow(win: BrowserWindow): WindowHome {
+  const bounds = win.getNormalBounds();
+  const display = screen.getDisplayMatching(bounds);
+  return { bounds, displayId: display.id, displayBounds: display.bounds, maximized: win.isMaximized() };
+}
+
+function rememberHome(home: WindowHome) {
+  windowHome = home;
+  updatePrefs(getPrefsPath(), homeToPrefs(home));
+}
+
+// The saved home and where the window opens. Under the harness (AFTERTERM_DISPLAY)
+// the harness placement wins, unless AFTERTERM_RESTORE_PLACEMENT=1 asks for the
+// saved one, and even then only on the harness's own display, so a test run never
+// lands on the monitor a person is using.
+function windowStart(harness: ReturnType<typeof harnessWindowPlacement>) {
+  const saved = homeFromPrefs(readPrefs(getPrefsPath()).prefs);
+  let restored = harness && process.env.AFTERTERM_RESTORE_PLACEMENT !== '1' ? null : startupPlacement(saved, displayInfos());
+  if (restored && harness && restored.displayId !== getTargetDisplay().id) restored = null;
+  return { saved, restored };
+}
+
+// Every move and resize, Windows' or the user's. Whose it was is decided
+// SAVE_DELAY_MS after the last one, so a display change just after it is seen.
+function onMainWindowBoundsChange() {
+  const now = Date.now();
+  if (now < ignoreMovesUntil) return;
+  pendingMove = { first: pendingMove?.first ?? now, last: now };
+  if (moveSettleTimer) clearTimeout(moveSettleTimer);
+  moveSettleTimer = setTimeout(settleMove, SAVE_DELAY_MS);
+}
+
+function settleMove() {
+  moveSettleTimer = null;
+  const move = pendingMove;
+  pendingMove = null;
+  const win = mainWindow;
+  if (!move || !win || win.isDestroyed() || win.isMinimized() || win.isFullScreen()) return;
+  if (isWindowsMove(move.first, move.last, displayChangeTimes)) {
+    console.log('[window] moved during a display change, a sleep or a wake: not kept as its home');
+    return;
+  }
+  const home = placementNow(win);
+  if (windowHome && sameHome(home, windowHome)) return;
+  rememberHome(home);
+}
+
+// Put the window back on its home display if Windows moved it off (moveBack in
+// window-placement.ts decides). `test` is the harness's made-up display list and
+// the display it says the window is on.
+function checkWindowHome(trigger: string, test?: { displays: DisplayInfo[]; windowDisplayId: number }): MoveBack | null {
+  const win = mainWindow;
+  if (!win || win.isDestroyed() || win.isFullScreen()) return null;
+  const displays = test?.displays ?? displayInfos();
+  const windowDisplayId = test?.windowDisplayId ?? screen.getDisplayMatching(win.getBounds()).id;
+  const userMovePending = !!pendingMove && !isWindowsMove(pendingMove.first, pendingMove.last, displayChangeTimes);
+  let decision = moveBack({ home: windowHome, windowDisplayId, displays, userMovePending, minimized: win.isMinimized() });
+  // Under the harness the window moves only onto the harness's own display, the
+  // same rule windowStart keeps at launch: made-up display positions from
+  // harness:window-home must never put the dev window on the monitor a person is
+  // using. Checked against the real displays.
+  if (decision.action === 'move' && process.env.AFTERTERM_HARNESS === '1'
+    && !landsOn(decision.bounds, displayInfos(), getTargetDisplay().id)) {
+    decision = { action: 'stay', reason: 'its place is off the harness display (not moved)' };
+  }
+  if (decision.action === 'move') {
+    // Our own move is not a move to remember (the home is where it is going).
+    ignoreMovesUntil = Date.now() + 1000;
+    pendingMove = null;
+    if (moveSettleTimer) { clearTimeout(moveSettleTimer); moveSettleTimer = null; }
+    if (win.isMaximized()) win.unmaximize();
+    // Twice: crossing to a display with another scale can resize the window on
+    // the way (WM_DPICHANGED); the second call lands on the right size.
+    win.setBounds(decision.bounds);
+    win.setBounds(decision.bounds);
+    if (decision.maximize) win.maximize();
+    console.log(`[window] back on its display ${decision.displayId} after ${trigger}`);
+    positionNotifier();
+  } else if (process.env.AFTERTERM_HARNESS === '1') {
+    console.log(`[harness] window home after ${trigger}: stays, ${decision.reason}`);
+  }
+  return decision;
+}
+
+// Registered once, after the main window exists. The display set changing and
+// the machine sleeping and waking are the moments Windows moves windows
+// (countsAsDisplayChange); a lock or an unlock changes no display, so a move made
+// right after unlocking is the user's. A display coming back, a wake and an
+// unlock are when the window may go home. The external monitor can take a few
+// seconds to come back after a wake, hence two checks; display-added covers it
+// arriving later still. display-metrics-changed is noted but triggers no check:
+// it also fires when the taskbar or a scale setting changes, and a check then
+// could undo a move the user has just made.
+function noteIfDisplayChange(event: string) {
+  if (countsAsDisplayChange(event)) noteDisplayChange();
+}
+function watchWindowHome() {
+  screen.on('display-removed', () => noteIfDisplayChange('display-removed'));
+  screen.on('display-metrics-changed', () => noteIfDisplayChange('display-metrics-changed'));
+  screen.on('display-added', () => {
+    noteIfDisplayChange('display-added');
+    setTimeout(() => checkWindowHome('a display was added'), 1500);
+  });
+  powerMonitor.on('suspend', () => noteIfDisplayChange('suspend'));
+  const afterWake = (event: string) => () => {
+    noteIfDisplayChange(event);
+    for (const ms of [1500, 6000]) setTimeout(() => checkWindowHome(event), ms);
+  };
+  powerMonitor.on('resume', afterWake('resume'));
+  powerMonitor.on('unlock-screen', afterWake('unlock-screen'));
+}
+
+// Agent harness only: play a display or power event into the same code, with a
+// made-up display list (a test cannot sleep the laptop or put a window on the
+// monitor a person is using), and read the state back.
+if (process.env.AFTERTERM_HARNESS === '1') {
+  ipcMain.handle('harness:window-home', (_event, sim: { event?: string; displays?: DisplayInfo[]; windowDisplayId?: number } | undefined) => {
+    let decision: MoveBack | null | undefined;
+    const event = sim?.event ?? 'state';
+    if (event !== 'state') {
+      noteIfDisplayChange(event);
+      if (event === 'display-added' || event === 'resume' || event === 'unlock-screen') {
+        const test = Array.isArray(sim?.displays) && typeof sim?.windowDisplayId === 'number'
+          ? { displays: sim.displays, windowDisplayId: sim.windowDisplayId }
+          : undefined;
+        decision = checkWindowHome(`${event} (harness)`, test);
+      }
+    }
+    const win = mainWindow;
+    return {
+      decision,
+      home: windowHome,
+      pendingMove,
+      displayChanges: displayChangeTimes.length,
+      bounds: win && !win.isDestroyed() ? win.getBounds() : null,
+      windowDisplayId: win && !win.isDestroyed() ? screen.getDisplayMatching(win.getBounds()).id : null,
+      displays: displayInfos(),
+    };
+  });
+}
+
 function createWindow() {
-  const placement = harnessWindowPlacement();
+  const harnessPlacement = harnessWindowPlacement();
+  const { saved, restored } = windowStart(harnessPlacement);
+  const placement = restored?.bounds ?? harnessPlacement;
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 780,
@@ -1294,6 +1497,25 @@ function createWindow() {
   // the primary's scale (1280x780 came out as 1024x625 on a 100% monitor next to
   // a 125% primary); setBounds on the existing window uses the right display.
   if (placement) mainWindow.setBounds(placement);
+  if (restored?.maximized) mainWindow.maximize();
+
+  // The home. A saved home whose display is not connected is kept, so the window
+  // goes there when that display arrives; otherwise where the window opened is
+  // its home (also under the harness, whose placement wins over a saved one).
+  ignoreMovesUntil = Date.now() + 1000;
+  if (saved && !restored && !harnessPlacement && !findHomeDisplay(saved, displayInfos())) {
+    windowHome = saved;
+  } else {
+    const start = placementNow(mainWindow);
+    if (saved && sameHome(saved, start)) windowHome = saved;
+    else rememberHome(start);
+  }
+  mainWindow.on('move', onMainWindowBoundsChange);
+  mainWindow.on('resize', onMainWindowBoundsChange);
+  mainWindow.on('maximize', onMainWindowBoundsChange);
+  mainWindow.on('unmaximize', onMainWindowBoundsChange);
+  // A window minimized while its display was away goes home when it is restored.
+  mainWindow.on('restore', () => setTimeout(() => checkWindowHome('restore'), 500));
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
@@ -1464,6 +1686,7 @@ function showNotifierWindow() {
   if (!notifierWindow || notifierWindow.isDestroyed()) return;
   notifierWindow.setIgnoreMouseEvents(true, { forward: true });
   notifierWindow.showInactive();
+  raiseNotifier();
 }
 
 // Notifier → self: renderer reports the measured height of its toast stack;
@@ -1884,6 +2107,12 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
   //   WSL                    the same two, plus WSLENV so they cross into the distro,
   //                          where the hook emits OSC 7 `file://<distro>/<path>`
   //
+  // An afterterm launched from a thread of another afterterm inherits what that one
+  // set (a marked PROMPT, a bash hook). process.env.AFTERTERM is '1' exactly then (this
+  // process never sets it; cleanEnv above sets it on a copy, for the shells), and
+  // inheritedFromAfterterm has planSpawn take that integration out of the env first;
+  // see withoutInheritedIntegration.
+  //
   // Opt-out is per shell in prefs.json (`shellIntegration: { pwsh: "off" }`), read
   // at every spawn so a change needs no restart. Failure mode: the shell always
   // opens, a hook that does not take just means no cwd capture and no prompt marks.
@@ -1897,6 +2126,7 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
     cwd,
     home: process.env.USERPROFILE || 'C:\\',
     env: cleanEnv,
+    inheritedFromAfterterm: process.env.AFTERTERM === '1',
     prefs: readPrefs(getPrefsPath()).prefs,
     dirExists: (candidate) => {
       try {
@@ -2823,6 +3053,7 @@ app.whenReady().then(async () => {
   });
   createNotifierWindow();
   createWindow();
+  watchWindowHome();
   reconcileNotifierHook();
   // After the launch reconcile, so the poll starts from a complete settings.json.
   startHookRepairPoll();

@@ -296,4 +296,12 @@ contextBridge.exposeInMainWorld('afterterm', {
       ipcRenderer.on('pty:children', (_event, data) => callback(data));
     },
   },
+
+  // Agent harness only (main registers the handler under AFTERTERM_HARNESS=1;
+  // anywhere else the call rejects): play a display or power event into the main
+  // window's home logic with a made-up display list, or read its state (AFT-15).
+  harness: {
+    windowHome: (sim?: { event?: string; displays?: unknown[]; windowDisplayId?: number }): Promise<unknown> =>
+      ipcRenderer.invoke('harness:window-home', sim),
+  },
 });

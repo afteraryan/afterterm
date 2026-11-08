@@ -1,0 +1,25 @@
+Run 2: the cmd opt-out ({"shellIntegration":{"cmd":"off"}} in prefs.json), the launching shell had the marked PROMPT in its environment.
+Launched from a PowerShell with: $env:PROMPT = '$E]133;A$E\$E]9;9;$P$E\$P$G$E]133;B$E\'
+
+> drive marks --tab tab-cmd-1
+at prompt: no
+prompt end: (none)
+
+> drive eval window.__mk   (raw PTY data counted by a second listener on the thread, over 3 Enters and one echo command: 4 prompts)
+"{\"A\":0,\"B\":0,\"cwd\":0,\"chunks\":7}"
+A = OSC 133;A (prompt start), B = OSC 133;B (prompt end), cwd = OSC 9;9 (cwd report). All zero: no marks, the opt-out holds.
+
+> drive tail 12
+Microsoft Windows [Version 10.0.26200.9711]
+(c) Microsoft Corporation. All rights reserved.
+
+D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt>
+D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt>
+D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt>
+D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt>echo %PROMPT%
+$P$G
+
+D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt>
+
+> harness log
+[harness] pty:create tab-cmd-1 shell=cmd integration=off cwd=D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\cmd-prompt cwdFallback=false args=[]

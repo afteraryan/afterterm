@@ -315,6 +315,10 @@ interface AftertermAPI {
   notify: AftertermNotifyAPI;
   notifier: AftertermNotifierAPI;
   pty: AftertermPtyAPI;
+  // Agent harness only: rejects outside a harness run (AFTERTERM_HARNESS=1).
+  harness: {
+    windowHome(sim?: { event?: string; displays?: unknown[]; windowDisplayId?: number }): Promise<unknown>;
+  };
 }
 
 interface Window {

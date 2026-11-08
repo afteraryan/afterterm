@@ -1,0 +1,108 @@
+{
+  "version": 3,
+  "tabs": [
+    {
+      "id": "tab-1",
+      "title": "claude",
+      "groupId": "group-1",
+      "shellId": "cmd",
+      "cwd": "D:\\Pitara\\Work\\Tinkering\\afterterm",
+      "lastActiveAt": 1794157665041,
+      "asleep": true,
+      "sleptAt": 1794154066041,
+      "customName": "Row 1 chat in worktree subfolder",
+      "claudeSessionId": "aaaaaaaa-0000-4000-8000-000000000001",
+      "claudeCwd": "D:\\Pitara\\Work\\Tinkering\\afterterm\\.claude\\worktrees\\worktree-folder\\src\\renderer"
+    },
+    {
+      "id": "tab-2",
+      "title": "shell",
+      "groupId": "group-1",
+      "shellId": "cmd",
+      "cwd": "C:\\Users\\Aryan\\AppData\\Local\\Temp\\claude\\fa0123314555e1c0\\a0efc8aa-7861-41bd-83eb-c902edfef41f\\scratchpad\\tester-worktree-folder\\nogit\\sub",
+      "lastActiveAt": 1794157664041,
+      "asleep": true,
+      "sleptAt": 1794154066041,
+      "customName": "Row 3 shell in folder with no git"
+    },
+    {
+      "id": "tab-3",
+      "title": "claude",
+      "groupId": "group-1",
+      "shellId": "cmd",
+      "cwd": "D:\\Pitara\\Work\\Tinkering\\afterterm",
+      "lastActiveAt": 1794157663041,
+      "asleep": true,
+      "sleptAt": 1794154066041,
+      "customName": "Row 4a chat with folder gone, no git",
+      "claudeSessionId": "aaaaaaaa-0000-4000-8000-000000000003",
+      "claudeCwd": "C:\\Users\\Aryan\\AppData\\Local\\Temp\\claude\\fa0123314555e1c0\\a0efc8aa-7861-41bd-83eb-c902edfef41f\\scratchpad\\tester-worktree-folder\\gone-folder"
+    },
+    {
+      "id": "tab-4",
+      "title": "claude",
+      "groupId": "group-1",
+      "shellId": "cmd",
+      "cwd": "D:\\Pitara\\Work\\Tinkering\\afterterm",
+      "lastActiveAt": 1794157662041,
+      "asleep": true,
+      "sleptAt": 1794154066041,
+      "customName": "Row 4b chat in deleted subfolder of live worktree",
+      "claudeSessionId": "aaaaaaaa-0000-4000-8000-000000000004",
+      "claudeCwd": "D:\\Pitara\\Work\\Tinkering\\afterterm\\.claude\\worktrees\\worktree-folder\\src\\renderer\\deleted-subfolder"
+    },
+    {
+      "id": "tab-5",
+      "title": "claude",
+      "groupId": "group-1",
+      "shellId": "cmd",
+      "cwd": "D:\\Pitara\\Work\\Tinkering\\afterterm",
+      "lastActiveAt": 1794157661041,
+      "asleep": true,
+      "sleptAt": 1794154066041,
+      "customName": "Row 4c chat in deleted worktree",
+      "claudeSessionId": "aaaaaaaa-0000-4000-8000-000000000005",
+      "claudeCwd": "D:\\Pitara\\Work\\Tinkering\\afterterm\\.claude\\worktrees\\deleted-wt\\src"
+    },
+    {
+      "id": "tab-6",
+      "title": "shell",
+      "groupId": "group-1",
+      "shellId": "cmd",
+      "cwd": "D:\\Pitara\\Work\\Tinkering\\afterterm\\src\\renderer",
+      "lastActiveAt": 1794157660041,
+      "asleep": true,
+      "sleptAt": 1794154066041,
+      "customName": "Row 3b shell in plain repo subfolder"
+    },
+    {
+      "id": "tab-7",
+      "title": "claude",
+      "groupId": "group-1",
+      "shellId": "cmd",
+      "cwd": "D:\\Pitara\\Work\\Tinkering\\afterterm",
+      "lastActiveAt": 1794157659041,
+      "asleep": true,
+      "sleptAt": 1794154066041,
+      "customName": "Control chat at worktree top",
+      "claudeSessionId": "aaaaaaaa-0000-4000-8000-000000000007",
+      "claudeCwd": "D:\\Pitara\\Work\\Tinkering\\afterterm\\.claude\\worktrees\\worktree-folder"
+    }
+  ],
+  "groups": [
+    {
+      "id": "group-1",
+      "label": "fixture project",
+      "color": "teal",
+      "collapsed": false,
+      "cwd": "D:\\Pitara\\Work\\Tinkering\\afterterm",
+      "shellId": "cmd",
+      "pinned": true,
+      "archived": false,
+      "lastActiveAt": 1794157666041,
+      "history": []
+    }
+  ],
+  "activeTabId": "tab-1",
+  "ui": {}
+}
