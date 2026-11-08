@@ -72,6 +72,14 @@ Main-process support lives in `src/main.ts`:
   the main window's close handler reads it: a harness run skips the "terminals still
   running" confirm dialog and quits at once, which is what lets `drive window quit`
   exercise the quit flush without anyone there to click a button.
+- `AFTERTERM_RESTORE_PLACEMENT=1` (pass it with `--env`): the main window opens on its saved
+  home from `prefs.json` instead of the harness centre, but only when that home is on the
+  `AFTERTERM_DISPLAY` display (AFT-15, `docs/features-long-output-and-fix-sweep.md`). `launch.mjs`
+  rewrites `prefs.json` on every launch, so a relaunch test passes the saved `window*` keys
+  through `--prefs`. Under `AFTERTERM_HARNESS=1`, `drive eval "window.afterterm.harness.windowHome()"`
+  reads the window's home and the displays, and `windowHome({ event, displays, windowDisplayId })`
+  plays `display-removed`, `display-added`, `resume` or `unlock-screen` into the same code with a
+  made-up display list.
 
 ## Launch
 
