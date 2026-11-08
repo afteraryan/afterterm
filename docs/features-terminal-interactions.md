@@ -90,6 +90,41 @@ code file opens in Notepad. See `docs/edited-files/phases.md`, "Decisions".
 - Highlight colors: all-occurrences uses a dim low-key amber; the current match uses a bright
   bordered amber so the two are clearly distinguishable (an earlier pass had them too close).
 
+### Selecting text while the find bar is open (AFT-44, 2026-11-08)
+
+**The bug.** Once a search had been made, text could not be selected with the mouse (reported
+2026-10-21). Reproduced in the harness: with the bar open and a program writing output, a drag
+across two lines ended with only the word being searched for selected, within 300 ms.
+
+**The cause.** `SearchAddon` (0.16.0) keeps its highlights current by re-running its last search
+200 ms after every write to the terminal (`_updateMatches`, on `onWriteParsed`), and each run
+selects the match it finds, starting from wherever the current selection is. That replaced the
+user's selection. A chat that is working writes all the time, and the bar does not close when the
+terminal is clicked (Esc only closes it while its own box has focus), so the search stayed live
+until the bar's x was used. Closing the bar with `clearDecorations` also cannot cancel a re-run
+already waiting (read from the addon's source, not reproduced): that run would search for
+`undefined` and clear the selection.
+
+**What afterterm does now.** A search is ended by replacing its addon, not by clearing it
+(`endSearch` in `Terminal/index.tsx`: dispose the addon, which cancels a waiting re-run, and
+load a fresh one, `attachSearch`). It ends when the bar closes, when the thread changes, on a
+left press in the terminal (capture phase, before xterm starts its selection) and on Ctrl+Shift+A.
+The bar stays open with its text and a blank match count; Enter or an arrow starts a fresh search
+from the selection. The match that was selected stays selected, so Esc after a search still leaves
+the found text ready to copy.
+
+**Rejected: keeping the highlights while the user selects.** The addon has no way to refresh its
+highlights without selecting a match, so keeping them means the selection is lost.
+
+**Tested** (captures and recordings in `docs/screenshots/find-selection-fix/`, a cmd thread with a
+program rewriting one row twice a second so the screen does not scroll): before the fix the drag
+is replaced by the match (`23`, `24`, `20-before-fix-bug-whole-sequence.mp4`); after it, with the
+bar open the selection is the dragged text 3 seconds and 6 writes later, Ctrl+C copies it, a second
+search from the same bar works and a drag after it holds, a drag after closing the bar with its x
+or with Esc holds, and Ctrl+Shift+A with a search live selects the whole buffer and keeps it
+(`30-after-fix-whole-sequence.mp4`, `31` to `39`). `window.__afterterm.selection(tabId)` reads
+xterm's selection for the harness.
+
 ## The jump button (Phase 9)
 
 - One round button sits at the centre of the terminal card, and a matching one at the centre of
