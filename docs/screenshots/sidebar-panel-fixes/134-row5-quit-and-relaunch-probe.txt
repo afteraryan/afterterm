@@ -1,0 +1,2 @@
+session.json ui right after the graceful quit: {"panelHidden":false,"panelWidth":340}
+"{\"stateKey\":340,\"panelPx\":340,\"innerWidth\":1280,\"screen\":\"workspace\"}"

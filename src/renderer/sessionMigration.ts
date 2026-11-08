@@ -13,6 +13,7 @@ import type { Tab, Group, HistoryEntry } from './components/TabBar/types';
 import { isProjectIconId } from './components/TabBar/types.ts';
 import { computeSegments } from './sidebarWalk.ts';
 import { restoreSplits } from './splitView.ts';
+import { asPanelWidth } from './panelWidth.ts';
 import type { Split } from './splitView.ts';
 
 // Bump when a saved file needs a shape change a plain "fill defaults" pass cannot
@@ -29,6 +30,14 @@ export const SESSION_FORMAT_VERSION = 3;
 // live process, which are meaningless after a relaunch (each tab is a fresh shell).
 export type SavedTab = Omit<Tab, 'notification' | 'firstPrompt' | 'wokeAt' | 'recordStatus' | 'atPrompt' | 'hasChildren' | 'backgroundTasks'>;
 
+// The panel UI state worth saving across a relaunch: whether the panel is hidden
+// and, once the person has dragged its edge, how wide it is (AFT-30, panelWidth.ts;
+// absent means the default width).
+export interface SavedUi {
+  panelHidden?: boolean;
+  panelWidth?: number;
+}
+
 export interface SavedSession {
   version?: number;
   tabs: SavedTab[];
@@ -42,7 +51,7 @@ export interface SavedSession {
   // the same way it ignores every other field added after it. Optional so a
   // hand-built object (a test, a future caller) need not supply it;
   // migrateSession always fills it in as at least {}.
-  ui?: { panelHidden?: boolean };
+  ui?: SavedUi;
   // Automatic updates (design-05): the ids of the threads that were awake when
   // afterterm closed to install an update. Written only by that quit, read and
   // dropped on the next launch, which wakes them when the update went in. A
@@ -141,11 +150,15 @@ function setUnreadFlag(tab: Record<string, unknown>, v: unknown): void {
 // never have to guard against the field itself being absent, only against
 // individual keys inside it being unset. A wrongly typed `panelHidden` (a
 // string, a number) is dropped rather than coerced, the same "never coerce a
-// flag" rule every other field in this file follows.
-function asUi(v: unknown): { panelHidden?: boolean } {
+// flag" rule every other field in this file follows. `panelWidth` the same: a
+// value that is not a believable width is dropped (panelWidth.ts, asPanelWidth)
+// and the panel has its default width.
+function asUi(v: unknown): SavedUi {
   if (!isRecord(v)) return {};
-  const ui: { panelHidden?: boolean } = {};
+  const ui: SavedUi = {};
   if (typeof v.panelHidden === 'boolean') ui.panelHidden = v.panelHidden;
+  const width = asPanelWidth(v.panelWidth);
+  if (width !== undefined) ui.panelWidth = width;
   return ui;
 }
 
@@ -279,7 +292,7 @@ export function serializeSession(
   tabs: Tab[],
   groups: Group[],
   activeTabId: string,
-  ui: { panelHidden?: boolean } = {},
+  ui: SavedUi = {},
   wakeAfterUpdate?: string[],
   splits?: Split[],
 ): SavedSession {

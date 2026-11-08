@@ -1,0 +1,6 @@
+drag from (204, 276) to (204, 380) in 12 steps, hold 500ms
+before   : {"dockOpen":true,"g":"g-r1","focus":true,"ev":[]}
+pressed  : {"dockOpen":true,"g":"g-r1","focus":true,"ev":[]}
+held     : {"dockOpen":true,"g":"g-r1","focus":true,"ev":[]}
+shot: docs\screenshots\sidebar-panel-fixes\90-row7-row-drag-held-drawer-open.png
+released : {"dockOpen":false,"g":"g-r2","focus":true,"ev":[]}

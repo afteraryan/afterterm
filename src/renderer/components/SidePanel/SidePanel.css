@@ -40,6 +40,53 @@
   opacity: 0;
 }
 
+/* The width is the CSS variable --sidebar, set inline by SidePanel/index.tsx to
+   the person's own width (the default is theme.css's 264px). A drag on the right
+   edge (.panel-resizer) writes the variable on every move, so the width must not
+   ease towards it: no transition while it is held. A double-click reset and the
+   slide shut still animate. */
+.side-panel.resizing {
+  transition: none;
+}
+
+/* ── Resize strip (AFT-30) ─────────────────────────────────────────────── */
+/* A 10px strip centred on the panel's right edge, a flex item between the panel
+   and the main pane with margins that take back its own width (so it adds none
+   to the layout). It sits over 5px of the panel's padding and 5px of the main
+   pane's, where nothing is clickable. A thin line shows while the pointer is
+   over it or it is held. Gone while the panel is hidden. */
+.panel-resizer {
+  position: relative;
+  flex: none;
+  width: 10px;
+  margin: 0 -5px;
+  z-index: 6;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.panel-resizer.hidden {
+  display: none;
+}
+
+.panel-resizer::after {
+  content: '';
+  position: absolute;
+  top: var(--radius-surface);
+  bottom: 12px;
+  left: 4px;
+  width: 2px;
+  border-radius: 1px;
+  background: transparent;
+  transition: background var(--fast) var(--ease);
+  pointer-events: none;
+}
+
+.panel-resizer:hover::after,
+.panel-resizer.active::after {
+  background: rgba(255, 255, 255, 0.22);
+}
+
 /* ── Side body ─────────────────────────────────────────────────────────── */
 /* Search, New thread and the scrolling section list. The top padding lines
    the Search box up with the rail's first button (the rail's own 11px). */
@@ -139,6 +186,8 @@
   flex: none;
   cursor: pointer;
   background: none;
+  /* "New thread" stays on one line at the narrowest panel width (180px). */
+  white-space: nowrap;
   transition: background var(--fast);
 }
 

@@ -4,6 +4,10 @@ What changed for the person using afterterm, release by release. Each release li
 
 ## Unreleased
 
+### Added
+
+- **You can now drag the sidebar's right edge to make it wider or narrower.** It stops at a narrow minimum and at half of the window, and double-clicking the edge puts it back to its normal width. afterterm remembers the width the next time you open it.
+
 ### Fixed
 
 - **You can select text in the terminal again after searching with the find bar.** After you searched, the terminal kept jumping the selection back to the search result whenever new output arrived, so your own selection was lost within a moment. Now clicking in the terminal ends the search: the highlights and the match count go, the bar keeps its text, and your selection stays. Press Enter or an arrow in the bar to search again.
@@ -11,6 +15,7 @@ What changed for the person using afterterm, release by release. Each release li
 - **The worktree item and the editor button in a chat's header now open the worktree folder, not a folder inside it.** So do Open in File Explorer and Open in your editor in a thread's right-click menu, and a thread in an ordinary repository opens the repository's top folder, never a folder above its project. A thread outside git still opens its own folder.
 - **Notification toasts now always appear on top of your other windows.** Before, a toast could arrive behind the windows in front of you, for example behind another app's always-on-top window, and stay there unseen. Each toast now puts itself back on top of every window when it appears.
 - **afterterm now opens where you left it, and comes back to its screen after the laptop sleeps.** Before, it always opened in the middle of the main screen, and after you closed the lid with afterterm on a second monitor, Windows moved it (and its toasts) to the main screen and it stayed there. afterterm now remembers which screen and where you put its window, opens there, and moves back when that screen returns after sleep, unless you moved the window yourself in the meantime.
+- **The Other projects list at the bottom of the sidebar now closes when you click anywhere outside it, press Esc, or switch to another window.** Before, it stayed open until you clicked its own row again, even when you clicked in the terminal, the header or the rail.
 - **A chat's hourglass now stays for as long as its background agent or task is running.** Before, it went away the moment you opened the chat, and a chat you were looking at when its turn ended never showed it at all, so a subagent at work was invisible in the sidebar, on the project's row and in the header. It now goes when the background work ends.
 - **The compacting icon now goes away when you cancel a compaction.** Before, it stayed on the rail and the sidebar row until you opened another thread. It now clears as soon as you press Esc, and otherwise within a few seconds of the compaction stopping.
 

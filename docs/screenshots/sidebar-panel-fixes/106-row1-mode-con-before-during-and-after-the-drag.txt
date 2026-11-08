@@ -1,0 +1,8 @@
+ratchpad\tester-sidebar-panel\cwd>mode con
+    Columns:        112
+ratchpad\tester-sidebar-panel\cwd>mode con
+    Columns:        112
+ratchpad\tester-sidebar-panel\cwd>mode con
+    Columns:        97
+
+(three runs, in order: before the drag 112, typed while the edge was held 112, after the release 97)
