@@ -219,6 +219,11 @@ contextBridge.exposeInMainWorld('afterterm', {
     onMainFocus: (callback: (focused: boolean) => void): void => {
       ipcRenderer.on('notifier:main-focus', (_event, focused) => callback(focused));
     },
+    // Whether main has the overlay on screen: off while a full-screen app or a
+    // presentation holds the toasts (AFT-72). Toasts count down only on screen.
+    onOnScreen: (callback: (onScreen: boolean) => void): void => {
+      ipcRenderer.on('notifier:on-screen', (_event, onScreen) => callback(onScreen));
+    },
   },
 
   pty: {
@@ -303,5 +308,9 @@ contextBridge.exposeInMainWorld('afterterm', {
   harness: {
     windowHome: (sim?: { event?: string; displays?: unknown[]; windowDisplayId?: number }): Promise<unknown> =>
       ipcRenderer.invoke('harness:window-home', sim),
+    // The toast hold (AFT-72): whether the overlay is visible, what main holds,
+    // the last answer from Windows (or the override) and the helper's pid.
+    notifier: (): Promise<unknown> =>
+      ipcRenderer.invoke('harness:notifier'),
   },
 });

@@ -183,6 +183,8 @@ interface AftertermNotifierAPI {
   // Whether the main window is focused (asked once), and every change after.
   mainFocused(): Promise<boolean>;
   onMainFocus(callback: (focused: boolean) => void): void;
+  // Whether main has the overlay on screen (off while toasts are held, AFT-72).
+  onOnScreen(callback: (onScreen: boolean) => void): void;
 }
 
 // Inline import so this file stays a global declaration file (a top-level import
@@ -318,6 +320,8 @@ interface AftertermAPI {
   // Agent harness only: rejects outside a harness run (AFTERTERM_HARNESS=1).
   harness: {
     windowHome(sim?: { event?: string; displays?: unknown[]; windowDisplayId?: number }): Promise<unknown>;
+    // The toast hold's state in main (AFT-72).
+    notifier(): Promise<unknown>;
   };
 }
 

@@ -12,6 +12,10 @@
 //     it gets its 5 seconds. Losing focus again before then pauses it again.
 //   - Each time the clock starts again (focus back, pointer off the cards) every
 //     toast gets a fresh 5 seconds; there is no time-left bookkeeping.
+//   - While main keeps the overlay off screen no toast goes either: while a
+//     full-screen app or a presentation is in front (AFT-72, notify-hold.ts in
+//     main), and while main asks Windows about a new toast. A toast's 5 seconds
+//     start when it is on screen, not when it arrived.
 //
 // Expiry only removes the toast from the overlay. The thread keeps its state in
 // the main window, and clicking a toast or its x works as before.
@@ -27,19 +31,23 @@ export interface ToastClock {
   // The id of the toast card under the pointer, or null. Kept by id so a hovered
   // card that is dismissed does not leave the other toasts paused forever.
   hoveredId: string | null;
+  // Whether main has the overlay on screen (main sends notifier:on-screen). Off
+  // while it is hidden: before main shows it for a new toast, and while toasts
+  // are held for a full-screen app or a presentation.
+  onScreen: boolean;
   // One entry per live toast id: when it goes (ms since epoch), or null while
   // the clock is stopped.
   deadlines: Record<string, number | null>;
 }
 
-export function initialToastClock(focused = false): ToastClock {
-  return { focused, hoveredId: null, deadlines: {} };
+export function initialToastClock(focused = false, onScreen = true): ToastClock {
+  return { focused, hoveredId: null, onScreen, deadlines: {} };
 }
 
-// Whether toasts are counting down: the window is focused and the pointer is not
-// on a live card.
+// Whether toasts are counting down: the overlay is on screen, the window is
+// focused and the pointer is not on a live card.
 export function clockRuns(clock: ToastClock): boolean {
-  if (!clock.focused) return false;
+  if (!clock.focused || !clock.onScreen) return false;
   return clock.hoveredId === null || !(clock.hoveredId in clock.deadlines);
 }
 
@@ -82,6 +90,11 @@ export function syncToasts(clock: ToastClock, ids: readonly string[], now: numbe
 export function setMainFocus(clock: ToastClock, focused: boolean, now: number): ToastClock {
   if (clock.focused === focused) return clock;
   return settle(clock, { ...clock, focused }, now);
+}
+
+export function setOnScreen(clock: ToastClock, onScreen: boolean, now: number): ToastClock {
+  if (clock.onScreen === onScreen) return clock;
+  return settle(clock, { ...clock, onScreen }, now);
 }
 
 export function setHoveredToast(clock: ToastClock, id: string | null, now: number): ToastClock {
