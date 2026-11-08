@@ -17,7 +17,7 @@ import type { ReconcileResult } from './claude-hook-install';
 import { runSetupCheck, issueUrl, failureNote, ISSUES_URL } from './setup-check.ts';
 import type { Runner } from './setup-check.ts';
 import { initUpdater } from './updater.ts';
-import { HANG_GRACE_MS, RELOAD_DELAY_MS, RELOAD_LIMIT, RELOAD_WINDOW_MS, afterChildGone, afterRendererGone, allowReload } from './window-recovery.ts';
+import { HANG_GRACE_MS, RELOAD_DELAY_MS, RELOAD_LIMIT, RELOAD_WINDOW_MS, afterChildGone, afterRendererGone, allowReload, ptyCreateAction } from './window-recovery.ts';
 import { detectEditors } from './editor-detect.ts';
 import type { DetectDeps } from './editor-detect.ts';
 import type { EditorInfo } from './editors.ts';
@@ -1414,18 +1414,43 @@ ipcMain.on('recovery:ui', (_event, ui: unknown) => {
   };
 });
 
+// What each thread last showed, as the page sent it with its state (session:remember):
+// its notification (needs-you, done, working, compacting, background) and whether it
+// had background work running. Neither is ever saved to disk, so after a reload this
+// is the only place a chat waiting for Aryan is still known to be waiting.
+const NOTIFICATION_STATES = ['done', 'attention', 'background', 'compacting', 'working'] as const;
+type ThreadShown = { notification?: (typeof NOTIFICATION_STATES)[number]; backgroundTasks?: true };
+let rememberedThreads = new Map<string, ThreadShown>();
+
+function readThreadsShown(raw: unknown): Map<string, ThreadShown> {
+  const out = new Map<string, ThreadShown>();
+  if (!raw || typeof raw !== 'object') return out;
+  for (const [tabId, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!value || typeof value !== 'object') continue;
+    const v = value as Record<string, unknown>;
+    const shown: ThreadShown = {};
+    if ((NOTIFICATION_STATES as readonly unknown[]).includes(v.notification)) shown.notification = v.notification as ThreadShown['notification'];
+    if (v.backgroundTasks === true) shown.backgroundTasks = true;
+    if (shown.notification || shown.backgroundTasks) out.set(tabId, shown);
+  }
+  return out;
+}
+
 // Asked by the page as it restores the session: the shells main still holds (with
-// the port each was last seen on), and what the page last showed. Empty on a
-// launch. The record status and children flags are sent on change only, so they are
-// forgotten here and the next pass sends every live thread's again to the new page.
+// the port each was last seen on and what each last showed), and what the page last
+// showed. Empty on a launch. The record status, the children flags and the record's
+// session ids are sent on change only (an id once), so they are forgotten here and
+// the next pass sends every live thread's again to the new page.
 ipcMain.handle('recovery:state', () => {
   const threads = [...ptys.keys()].map(tabId => ({
     tabId,
     ...(lastPortSent.has(tabId) ? { port: lastPortSent.get(tabId) ?? null } : {}),
+    ...(rememberedThreads.get(tabId) ?? {}),
   }));
   if (threads.length > 0) {
     recordStatusSent.clear();
     shellChildrenSent.clear();
+    recordSessionSent.clear();
     recoveryLog(`main: page loaded with ${threads.length} live shell(s): ${threads.map(t => t.tabId).join(', ')}`);
   }
   return { threads, ui: rememberedUi };
@@ -1434,9 +1459,10 @@ ipcMain.handle('recovery:state', () => {
 // Harness only: make the window's renderer crash, end the GPU process the way Aryan
 // did by hand, or tell the hang handler the page is unresponsive, to test the
 // recovery (drive eval "window.afterterm.recovery.test('crash')"). The last one
-// exists because Chromium's own hang report never came in a harness run: a page kept
-// busy for two minutes with input waiting was never reported unresponsive (the
-// harness window never has focus and other windows can cover it). So a test keeps the
+// exists because Chromium never reports a page unresponsive while a DevTools client
+// is attached to it (WebContentsImpl::ShouldIgnoreUnresponsiveRenderer checks for an
+// attached debugger), and every harness run drives the page over CDP: a page kept
+// busy for two minutes with input waiting was never reported. So a test keeps the
 // page really busy and sends the report itself; what follows is the real path.
 ipcMain.on('recovery:test', (_event, what: unknown) => {
   if (process.env.AFTERTERM_HARNESS !== '1') return;
@@ -2227,15 +2253,23 @@ ipcMain.handle('editors:choose', async () => {
 
 // ─── IPC: create PTY ─────────────────────────────────────────────────────────
 
-ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: string) => {
+ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: string, attachOnly?: boolean) => {
   // AFT-33: the page reloaded (or came back after a crash) while this thread's shell
   // kept running. The page's new terminal attaches to it: nothing is spawned, and the
   // shell's output already goes to this window's page, whichever page it holds now.
-  // `attached` tells the page not to type a resume or a server command into it.
+  // `attached` tells the page not to type a resume or a server command into it, and
+  // the shell's own size lets a terminal that is not on screen match it. A thread the
+  // page restored as re-attached asks for an attach only: if its shell has ended
+  // since, nothing is spawned and the answer is `gone` (ptyCreateAction).
   const existing = ptys.get(tabId);
-  if (existing) {
-    if (process.env.AFTERTERM_HARNESS === '1') console.log(`[harness] pty:attach ${tabId} pid=${existing.pid}`);
-    return { pid: existing.pid, attached: true };
+  const action = ptyCreateAction(!!existing, attachOnly === true);
+  if (action === 'attach' && existing) {
+    if (process.env.AFTERTERM_HARNESS === '1') console.log(`[harness] pty:attach ${tabId} pid=${existing.pid} size=${existing.cols}x${existing.rows}`);
+    return { pid: existing.pid, attached: true, cols: existing.cols, rows: existing.rows };
+  }
+  if (action === 'gone') {
+    recoveryLog(`main: ${tabId}'s shell ended before its terminal could attach; nothing spawned`);
+    return { pid: 0, attached: false, gone: true };
   }
 
   const shell = getShellById(shellId);
@@ -3060,8 +3094,9 @@ ipcMain.handle('git:infoMany', (_event, cwds: unknown) => {
 // reads the file.
 let rememberedSession: string | null = null;
 
-ipcMain.on('session:remember', (_event, data: unknown) => {
+ipcMain.on('session:remember', (_event, data: unknown, threads?: unknown) => {
   if (typeof data === 'string') rememberedSession = data;
+  if (threads !== undefined) rememberedThreads = readThreadsShown(threads);
 });
 
 ipcMain.handle('session:save', (_event, data: string) => {

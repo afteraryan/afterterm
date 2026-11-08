@@ -107,8 +107,10 @@ contextBridge.exposeInMainWorld('afterterm', {
       ipcRenderer.invoke('session:load'),
     // AFT-33: the latest state, kept by main in memory only, so a page that crashes
     // before its next save still comes back with it.
-    remember: (data: string): void =>
-      ipcRenderer.send('session:remember', data),
+    // threads: what each thread shows that is never saved (its notification and
+    // background work), so a re-attached chat still shows needs-you after a reload.
+    remember: (data: string, threads?: Record<string, { notification?: string; backgroundTasks?: boolean }>): void =>
+      ipcRenderer.send('session:remember', data, threads),
   },
 
   // AFT-33: getting the window back without losing threads. state() is asked once as
@@ -246,8 +248,10 @@ contextBridge.exposeInMainWorld('afterterm', {
   pty: {
     // attached: main already held a running shell for this tab (the page was
     // reloaded), and the terminal joined it instead of spawning one (AFT-33).
-    create: (tabId: string, shellId?: string, cwd?: string): Promise<{ pid: number; attached: boolean }> =>
-      ipcRenderer.invoke('pty:create', tabId, shellId, cwd),
+    // attachOnly: a thread restored as re-attached; main spawns nothing when its shell
+    // has ended and answers gone. cols and rows come with an attach.
+    create: (tabId: string, shellId?: string, cwd?: string, attachOnly?: boolean): Promise<{ pid: number; attached: boolean; gone?: boolean; cols?: number; rows?: number }> =>
+      ipcRenderer.invoke('pty:create', tabId, shellId, cwd, attachOnly),
 
     write: (tabId: string, data: string): void =>
       ipcRenderer.send('pty:input', tabId, data),

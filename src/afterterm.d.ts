@@ -77,7 +77,9 @@ interface AftertermSessionAPI {
   saveSync(data: string): void;
   load(): Promise<any>;
   // AFT-33: the latest state, kept by main in memory only (never written to disk).
-  remember(data: string): void;
+  // threads: each thread's notification and background work, never saved, so a
+  // re-attached chat still shows needs-you after a reload.
+  remember(data: string, threads?: Record<string, { notification?: string; backgroundTasks?: boolean }>): void;
 }
 
 // AFT-33: getting the window back without losing threads (src/window-recovery.ts,
@@ -263,7 +265,9 @@ interface PtyChildren {
 interface AftertermPtyAPI {
   // attached: main already held a running shell for this tab and the terminal joined
   // it (the page was reloaded, AFT-33); nothing was spawned.
-  create(tabId: string, shellId?: string, cwd?: string): Promise<{ pid: number; attached: boolean }>;
+  // attachOnly (AFT-33): a thread restored as re-attached. Main spawns nothing when its
+  // shell has ended and answers gone; an attach answers with the shell's own size.
+  create(tabId: string, shellId?: string, cwd?: string, attachOnly?: boolean): Promise<{ pid: number; attached: boolean; gone?: boolean; cols?: number; rows?: number }>;
   write(tabId: string, data: string): void;
   resize(tabId: string, cols: number, rows: number): void;
   destroy(tabId: string): Promise<void>;

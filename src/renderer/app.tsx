@@ -726,16 +726,23 @@ export function App() {
   // a page that crashes or hangs before the two second save below still comes back
   // with its last threads. Throttled, not debounced: a stream of changes (a chat's
   // title) still reaches main every REMEMBER_MS. Memory only, nothing is written.
+  // Each thread's notification and background work go with it: they are never saved,
+  // and a chat waiting for Aryan must still show needs-you after a reload.
   const rememberTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!initialized || rememberTimerRef.current) return;
     rememberTimerRef.current = setTimeout(() => {
       rememberTimerRef.current = null;
       const s = stateRef.current;
-      const data = serializeSession(s.tabs, s.groups, s.activeTabId, { panelHidden: panelHiddenRef.current }, undefined, s.splits);
-      window.afterterm.session.remember(JSON.stringify(data));
+      const data = serializeSession(s.tabs, s.groups, s.activeTabId, savedUi(panelHiddenRef.current, panelWidthRef.current), undefined, s.splits);
+      const shown: Record<string, { notification?: string; backgroundTasks?: boolean }> = {};
+      for (const t of s.tabs) {
+        if (t.asleep || (!t.notification && !t.backgroundTasks)) continue;
+        shown[t.id] = { ...(t.notification ? { notification: t.notification } : {}), ...(t.backgroundTasks ? { backgroundTasks: true } : {}) };
+      }
+      window.afterterm.session.remember(JSON.stringify(data), shown);
     }, REMEMBER_MS);
-  }, [initialized, state.tabs, state.groups, state.activeTabId, state.splits, panelHidden]);
+  }, [initialized, state.tabs, state.groups, state.activeTabId, state.splits, panelHidden, panelWidth]);
 
   // And what the page shows, so a reloaded page opens on the same screen, project
   // page and thread (screenAfterReload).
@@ -1649,7 +1656,7 @@ export function App() {
     );
   };
 
-  const tabInfos = state.tabs.map(t => ({ id: t.id, shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize, claudeSessionId: t.claudeSessionId, claudeCwd: t.claudeCwd, asleep: t.asleep, wokeAt: t.wokeAt, port: t.port, lastCommand: t.lastCommand }));
+  const tabInfos = state.tabs.map(t => ({ id: t.id, shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize, claudeSessionId: t.claudeSessionId, claudeCwd: t.claudeCwd, asleep: t.asleep, wokeAt: t.wokeAt, port: t.port, lastCommand: t.lastCommand, reattach: t.reattach }));
 
   const activeTab = state.tabs.find(t => t.id === state.activeTabId);
   const activeSplit = splitOf(state.splits, state.activeTabId);
@@ -1841,6 +1848,7 @@ export function App() {
               onOutput={handleOutput}
               onFontSizeChange={state.setTabFontSize}
               onExit={handlePtyExit}
+              onShellGone={(tabId) => stateRef.current.sleepTab(tabId)}
               onTail={handleTail}
               onCommand={handleCommand}
               onPromptState={handlePromptState}

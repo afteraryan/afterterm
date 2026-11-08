@@ -6,7 +6,7 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SearchAddon, ISearchOptions } from '@xterm/addon-search';
 import '@xterm/xterm/css/xterm.css';
 import { TabNotification } from '../TabBar/types';
-import { wakePlan } from '../../sleepWake';
+import { wakePlan, createOutcome } from '../../sleepWake';
 import { rendererAfterLoss } from '../../../window-recovery';
 import {
   parseOsc133, initialCommandMarkState, onMark, onEnter, onInput, onCommandSent,
@@ -56,6 +56,9 @@ interface TabInfo {
   // (sleepWake.ts).
   port?: number;
   lastCommand?: string;
+  // AFT-33: restored with its shell still running in main after a reload of the
+  // window. Its terminal asks main to attach only (createOutcome in sleepWake.ts).
+  reattach?: boolean;
 }
 
 // What the app can ask this layer for at quit time: the on-screen tail of one
@@ -114,6 +117,9 @@ interface TerminalAreaProps {
   onOutput: (tabId: string, byteLen: number) => void;
   onFontSizeChange: (tabId: string, fontSize: number) => void;
   onExit: (tabId: string) => void;
+  // AFT-33: a thread restored as re-attached whose shell ended before its terminal
+  // could attach. Nothing was spawned; the app puts the thread to sleep.
+  onShellGone: (tabId: string) => void;
   // The last lines of a terminal, handed over the moment before it is destroyed.
   // The app decides what happens to them: a sleeping thread's tail is written to
   // disk, a closed thread's only if it went to a project's history.
@@ -288,7 +294,7 @@ const THEME = {
 };
 
 export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(function TerminalArea(
-  { tabs: tabInfos, activeTabId, visible, panes, ratio, renderHeader, renderAsleep, onFocusPane, onRatio, dropZone, onTitleChange, onCwdChange, onNotification, onUserInput, onAnswer, onTyped, onOutput, onFontSizeChange, onExit, onTail, onCommand, onPromptState, fileContext, onOpenFileLink, fileLinkMenu },
+  { tabs: tabInfos, activeTabId, visible, panes, ratio, renderHeader, renderAsleep, onFocusPane, onRatio, dropZone, onTitleChange, onCwdChange, onNotification, onUserInput, onAnswer, onTyped, onOutput, onFontSizeChange, onExit, onShellGone, onTail, onCommand, onPromptState, fileContext, onOpenFileLink, fileLinkMenu },
   ref,
 ) {
   // Where every terminal that is not on screen waits (display: none). A
@@ -326,6 +332,8 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
   onFontSizeChangeRef.current = onFontSizeChange;
   const onExitRef = useRef(onExit);
   onExitRef.current = onExit;
+  const onShellGoneRef = useRef(onShellGone);
+  onShellGoneRef.current = onShellGone;
   const onTailRef = useRef(onTail);
   onTailRef.current = onTail;
   const onCommandRef = useRef(onCommand);
@@ -818,22 +826,38 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       // project store (see CLAUDE.md / claude-code source), and claudeCwd is the
       // hook-reported dir, authoritative across all shells.
       const plan = wakePlan(tab);
-      const created = await api.pty.create(tabId, plan.shellId, plan.cwd);
+      const created = await api.pty.create(tabId, plan.shellId, plan.cwd, !!tab.reattach);
       // AFT-33: main already held this thread's shell, still running, because only
       // the page was reloaded. The terminal joined it: nothing may be typed into it,
-      // or a chat's running Claude Code would get `claude --resume` as a prompt.
-      const attached = !!created?.attached;
+      // or a chat's running Claude Code would get `claude --resume` as a prompt. A
+      // thread restored that way asked for an attach only; if its shell ended in the
+      // meantime, main spawned nothing, this terminal is dropped without a trace (no
+      // tail is captured over the saved one) and the thread goes to sleep.
+      const outcome = createOutcome(!!tab.reattach, created ?? { attached: false });
+      if (outcome.kind === 'gone') {
+        api.pty.offData(tabId);
+        termsRef.current.delete(tabId);
+        marksRef.current.delete(tabId);
+        fileLinkProvidersRef.current.delete(tabId);
+        webLinkProvidersRef.current.delete(tabId);
+        term.dispose();
+        container.remove();
+        console.warn(`[recovery] ${tabId}: its shell ended during the reload, so it goes to sleep`);
+        onShellGoneRef.current(tabId);
+        return;
+      }
+      const attached = outcome.kind === 'attached';
 
       // A chat picks its session back up; a shell just gets a fresh prompt. The id is
       // re-validated as a UUID inside resumeTab as well (session.json is
       // hand-editable, and this becomes a typed shell command).
-      if (plan.resumeSessionId && !attached) resumeTab(tabId, plan.resumeSessionId);
+      if (plan.resumeSessionId && outcome.mayType) resumeTab(tabId, plan.resumeSessionId);
 
       // Waking a server means re-running what it was running (design-02, "Asleep":
       // "the last command re-run for a server"). wakePlan has already checked the
       // command is one safe line, so it only has to be typed here, after the same
       // wait resumeTab uses for the shell's first prompt.
-      const runCommand = attached ? null : plan.runCommand;
+      const runCommand = outcome.mayType ? plan.runCommand : null;
       if (runCommand) {
         setTimeout(() => {
           if (!termsRef.current.has(tabId)) return;
@@ -984,6 +1008,13 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       });
 
       api.pty.onExit(tabId, () => onExitRef.current(tabId));
+
+      // A re-attached terminal that is not on screen has never been fitted and is
+      // xterm's default 80x24; it takes the running shell's own size instead, so a
+      // background chat is not redrawn at 80 columns (main answers the attach with it).
+      if (attached && !slot && created?.cols && created?.rows) {
+        term.resize(created.cols, created.rows);
+      }
 
       // Sync initial size to PTY
       api.pty.resize(tabId, term.cols, term.rows);

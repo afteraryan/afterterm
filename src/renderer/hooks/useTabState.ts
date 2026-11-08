@@ -6,7 +6,7 @@ import { insertNewThread, nextActiveTabAfterArchive, nextCustomName, threadFolde
 import { claudeSummaryTitle } from '../chatTitle';
 // Named apart from the hook's own sleepTab/wakeTab callbacks below: these are the
 // pure record transforms, the callbacks are the state actions that apply them.
-import { sleepTab as sleepTabRecord, wakeTab as wakeTabRecord, restoreWithLive } from '../sleepWake';
+import { sleepTab as sleepTabRecord, wakeTab as wakeTabRecord, restoreWithLive, takenTabIds } from '../sleepWake';
 import type { LiveThread } from '../sleepWake';
 import { historyEntryFor, appendHistory, removeHistoryEntry, tabFromHistory, maxNumericId } from '../history';
 import { lastWorkedThread, enteringRecent, moveGroupsToTop } from '../attention';
@@ -659,12 +659,10 @@ export function useTabState() {
     // just live tab ids: a closed thread keeps its id in its project's history and
     // its scrollback tail still sits at threads/<id>.txt, so handing that id to a
     // brand new tab would replay a stranger's output into it and let Resume find the
-    // wrong thread.
+    // wrong thread. The live shells count too (AFT-33): one no saved thread names is
+    // being ended, and a new thread given its id would take its late exit as its own.
     const now = Date.now();
-    tabCounter = maxNumericId('tab-', [
-      ...saved.tabs.map(t => t.id),
-      ...saved.groups.flatMap(g => (g.history ?? []).map(e => e.id)),
-    ]);
+    tabCounter = maxNumericId('tab-', takenTabIds(saved, live));
     groupCounter = maxNumericId('group-', saved.groups.map(g => g.id));
 
     const activeId = saved.activeTabId || saved.tabs[0]?.id || '';
