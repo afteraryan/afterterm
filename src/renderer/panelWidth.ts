@@ -38,6 +38,18 @@ export function clampPanelWidth(width: number, windowWidth: number): number {
   return Math.min(panelMaxWidth(windowWidth), Math.max(PANEL_MIN_WIDTH, Math.round(width)));
 }
 
+// Where a drag of the edge starts from: the width the panel is set to, not the
+// width it is drawn at this instant. The two differ for 320 ms whenever the panel
+// eases to a new width: sliding open from zero, a double-click reset, and a page
+// that reloads (AFT-33), which draws the default width first and then eases to the
+// restored one. A drag measured from a panel still easing open ended near the
+// minimum, whatever the person dragged to. The drawn width is used only when the
+// set one is not a usable width.
+export function dragStartWidth(setWidth: number, drawnWidth: number): number {
+  if (Number.isFinite(setWidth) && setWidth >= PANEL_MIN_WIDTH) return Math.round(setWidth);
+  return Number.isFinite(drawnWidth) ? Math.round(drawnWidth) : PANEL_DEFAULT_WIDTH;
+}
+
 // The width while the edge is dragged: where the panel started plus how far the
 // pointer has moved since it was pressed, held within the limits.
 export function widthAfterDrag(startWidth: number, startX: number, x: number, windowWidth: number): number {

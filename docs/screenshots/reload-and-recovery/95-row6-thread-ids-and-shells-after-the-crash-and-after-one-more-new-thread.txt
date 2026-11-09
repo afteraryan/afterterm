@@ -1,0 +1,26 @@
+ids: "[\"tab-205\",\"tab-204\",\"tab-201\",\"tab-202\",\"tab-203\"]"
+[harness] pty:create tab-201 shell=cmd integration=on cwd=C:\Users\Aryan cw
+[harness] pty:create tab-202 shell=cmd integration=on cwd=C:\Users\Aryan cw
+[harness] pty:attach tab-201 pid=46932 size=190x56
+[harness] pty:attach tab-202 pid=16736 size=190x56
+[harness] pty:attach tab-201 pid=46932 size=190x56
+[harness] pty:attach tab-202 pid=16736 size=190x56
+[harness] pty:attach tab-201 pid=46932 size=190x56
+[harness] pty:attach tab-202 pid=16736 size=190x56
+[harness] pty:attach tab-201 pid=46932 size=190x56
+[harness] pty:attach tab-202 pid=16736 size=190x56
+[harness] pty:attach tab-201 pid=46932 size=170x56
+[harness] pty:attach tab-202 pid=16736 size=190x56
+[harness] pty:attach tab-201 pid=46932 size=200x56
+[harness] pty:attach tab-202 pid=16736 size=190x56
+[harness] pty:attach tab-201 pid=46932 size=200x56
+[harness] pty:attach tab-202 pid=16736 size=200x56
+[harness] pty:create tab-204 shell=cmd integration=on cwd=C:\Users\Aryan\Ap
+[harness] pty:attach tab-204 pid=20328 size=200x56
+[harness] pty:attach tab-201 pid=46932 size=200x56
+[harness] pty:attach tab-202 pid=16736 size=200x56
+[harness] pty:create tab-205 shell=cmd integration=on cwd=C:\Users\Aryan\Ap
+cmd.exe pid 46932 created 02:19:53.503
+cmd.exe pid 16736 created 02:20:13.943
+cmd.exe pid 20328 created 02:27:28.358
+cmd.exe pid 23548 created 02:27:46.371

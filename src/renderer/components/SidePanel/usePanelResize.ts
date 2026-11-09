@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import type { RefObject, PointerEvent as ReactPointerEvent } from 'react';
-import { PANEL_DEFAULT_WIDTH, widthAfterDrag } from '../../panelWidth';
+import { PANEL_DEFAULT_WIDTH, dragStartWidth, widthAfterDrag } from '../../panelWidth';
 
 // Resizing the panel by its right edge (AFT-30). The handle is a thin strip
 // between the panel and the main pane (SidePanel/index.tsx draws it, SidePanel.css
@@ -29,14 +29,19 @@ export interface PanelResize {
 
 interface Options {
   panelRef: RefObject<HTMLElement | null>;
+  // The width the panel is set to (not the width it is drawn at while it eases to
+  // it): where a drag starts from (dragStartWidth).
+  width: number;
   // Called with the new width: `settled` is true when a drag has just ended (the
   // terminals can refit now), false for a reset the panel is still animating to
   // (the terminal area's own ResizeObserver refits when that settles).
   onChange: (width: number, settled: boolean) => void;
 }
 
-export function usePanelResize({ panelRef, onChange }: Options): PanelResize {
+export function usePanelResize({ panelRef, width: setWidth, onChange }: Options): PanelResize {
   const [resizing, setResizing] = useState(false);
+  const setWidthRef = useRef(setWidth);
+  setWidthRef.current = setWidth;
 
   const onPointerDown = useCallback((e: ReactPointerEvent<HTMLElement>) => {
     if (e.button !== 0) return;
@@ -46,7 +51,7 @@ export function usePanelResize({ panelRef, onChange }: Options): PanelResize {
     const handle = e.currentTarget;
     handle.setPointerCapture(e.pointerId);
     const startX = e.clientX;
-    const startWidth = Math.round(panel.getBoundingClientRect().width);
+    const startWidth = dragStartWidth(setWidthRef.current, panel.getBoundingClientRect().width);
     let width = startWidth;
     handle.classList.add('active');
     document.body.classList.add('panel-resizing');

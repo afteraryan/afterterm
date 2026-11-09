@@ -613,6 +613,18 @@ console.log('\nsessionMigration: transient fields stripped, unknown keys kept, i
     JSON.stringify(written) === JSON.stringify(serializeSession(s.tabs as unknown as Tab[], s.groups, s.activeTabId)));
 }
 {
+  // A thread re-attached to a live shell after a reload (AFT-33): never written,
+  // stripped on load.
+  const raw = fixture081() as any;
+  raw.tabs[1].reattach = true;
+  const s = migrateSession(raw, NOW)!;
+  check('reattach is stripped on load', !('reattach' in s.tabs[1]));
+  const live: Tab[] = (s.tabs as unknown as Tab[]).map(t => ({ ...t, reattach: true }));
+  const written = serializeSession(live, s.groups, s.activeTabId);
+  check('reattach is never written, even when set on the in-memory tab',
+    written.tabs.every(t => !('reattach' in t)));
+}
+{
   const once = migrateSession(fixture081(), NOW)!;
   const twice = migrateSession(once, NOW + 5_000_000)!;
   check('migrating a migrated session changes nothing (even with a later now)', isDeepStrictEqual(once, twice));
