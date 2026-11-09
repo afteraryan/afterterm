@@ -1,0 +1,144 @@
+[
+  {
+    "phase": "p0",
+    "what": "start",
+    "at": "16:22:17.345",
+    "windowsToThisScript": "accepts"
+  },
+  {
+    "phase": "p0",
+    "what": "1.5 s after the push",
+    "at": "16:22:19.285",
+    "windowsToThisScript": "accepts",
+    "visible": true,
+    "held": false,
+    "toasts": true,
+    "probes": 1,
+    "lastProbe": {
+      "state": "accepts",
+      "source": "windows quns=5 fg=own, helper started",
+      "ms": 428,
+      "at": 1794221537923
+    },
+    "helperPid": 49712
+  },
+  {
+    "phase": "p0",
+    "what": "capture",
+    "at": "16:22:20.382",
+    "result": "\\\\.\\DISPLAY2 work area (1920,0 1920x1032), crop 1500,712 420x320"
+  },
+  {
+    "phase": "p2",
+    "what": "stand-in brought to the front",
+    "at": "16:22:22.190",
+    "formIsForeground": true,
+    "windowsToThisScript": "accepts"
+  },
+  {
+    "phase": "p2",
+    "what": "1.5 s after the push",
+    "at": "16:22:23.943",
+    "windowsToThisScript": "accepts",
+    "visible": false,
+    "held": true,
+    "toasts": true,
+    "probes": 2,
+    "lastProbe": {
+      "state": "window-fullscreen",
+      "source": "windows quns=5 fg=1",
+      "ms": 34,
+      "at": 1794221542328
+    },
+    "helperPid": 49712
+  },
+  {
+    "phase": "p2",
+    "what": "capture",
+    "at": "16:22:24.980",
+    "result": "\\\\.\\DISPLAY2 work area (1920,0 1920x1032), crop 1500,712 420x320"
+  },
+  {
+    "phase": "p2",
+    "what": "4 s after the push, after one poll",
+    "at": "16:22:27.596",
+    "windowsToThisScript": "accepts",
+    "visible": false,
+    "held": true,
+    "toasts": true,
+    "probes": 3,
+    "lastProbe": {
+      "state": "window-fullscreen",
+      "source": "windows quns=5 fg=1",
+      "ms": 3,
+      "at": 1794221545342
+    },
+    "helperPid": 49712
+  },
+  {
+    "phase": "p3",
+    "what": "stand-in closed",
+    "at": "16:22:27.985",
+    "shownAfterMs": 391,
+    "foregroundRestored": true
+  },
+  {
+    "phase": "p3",
+    "what": "after the stand-in closed",
+    "at": "16:22:28.117",
+    "windowsToThisScript": "accepts",
+    "visible": true,
+    "held": false,
+    "toasts": true,
+    "probes": 4,
+    "lastProbe": {
+      "state": "accepts",
+      "source": "windows quns=5 fg=own",
+      "ms": 2,
+      "at": 1794221547653
+    },
+    "helperPid": 49712
+  },
+  {
+    "phase": "p3",
+    "what": "capture",
+    "at": "16:22:29.481",
+    "result": "\\\\.\\DISPLAY2 work area (1920,0 1920x1032), crop 1500,712 420x320"
+  },
+  {
+    "phase": "p4",
+    "what": "the dev window over the whole display, in front",
+    "at": "16:22:31.079",
+    "devIsForeground": true,
+    "windowsToThisScript": "accepts"
+  },
+  {
+    "phase": "p4",
+    "what": "1.5 s after the push",
+    "at": "16:22:32.871",
+    "windowsToThisScript": "accepts",
+    "visible": true,
+    "held": false,
+    "toasts": true,
+    "probes": 5,
+    "lastProbe": {
+      "state": "accepts",
+      "source": "windows quns=5 fg=own",
+      "ms": 1,
+      "at": 1794221551197
+    },
+    "helperPid": 49712
+  },
+  {
+    "phase": "p4",
+    "what": "capture",
+    "at": "16:22:33.975",
+    "result": "\\\\.\\DISPLAY2 work area (1920,0 1920x1032), crop 1500,712 420x320"
+  },
+  {
+    "phase": "p4",
+    "what": "put back",
+    "at": "16:22:34.306",
+    "foregroundRestored": true
+  }
+]

@@ -7,6 +7,11 @@
 // when asked, a capture of the toast corner.
 //
 //   node hold-test.mjs --port <n> --state-file <file> --out <captures folder> [--rows a,b,...]
+//     [--renumber <first capture number> --tag <name part>] [--log <json name>]
+//     [--prefs-file <the run's prefs.json>]   (row g, the prefs.json opt-out)
+//
+// --renumber names the captures <n>-<tag>-<what they show>, counting up, so a
+// rerun does not overwrite the first run's captures.
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -54,8 +59,10 @@ const push = async (tabId, label) => {
   return id;
 };
 const dismiss = (tabId) => evaluate(main, `window.afterterm.notify.dismissTab('${tabId}'); 'dismissed'`);
-const capture = (name) => {
+let renumber = opts.renumber ? Number(opts.renumber) : null;
+const capture = (first) => {
   if (!out) return;
+  const name = renumber === null ? first : `${renumber++}-${opts.tag ?? 'rerun'}-${first.replace(/^\d+-/, '')}`;
   const r = execFileSync('pwsh', ['-NoProfile', '-File', path.join(here, 'hold-capture.ps1'), '-Display', '2',
     '-Full', path.join(out, 'displays', `${name}.png`), '-Crop', path.join(out, `${name}.png`)], { encoding: 'utf8' });
   note('capture', name, { result: r.trim() });
@@ -74,7 +81,7 @@ const until = async (row, what, pred, ms) => {
   return { took: null, s };
 };
 const clearAll = async () => {
-  for (const tab of ['row-a', 'row-b', 'row-c', 'row-d', 'row-e', 'row-f']) await dismiss(tab);
+  for (const tab of ['row-a', 'row-b', 'row-c', 'row-d', 'row-e', 'row-f', 'row-g']) await dismiss(tab);
   await sleep(400);
 };
 const want = (name) => !rows || rows.includes(name);
@@ -178,6 +185,26 @@ if (want('f')) {
   const later = await snap();
   note('f', 'dismissed while held: 4.8 s later, no more probes', later);
   note('f', 'summary', { holdEnded: !after.held && !after.toasts, pollingStopped: !after.polling, probesStayed: later.probes === after.probes, visible: later.visible });
+}
+
+if (want('g') && opts['prefs-file']) {
+  // Row g: prefs.json's toastsWaitForFullScreen: false shows a toast at once even
+  // while the state says busy; taking the key out holds again.
+  await clearAll();
+  const prefsFile = opts['prefs-file'];
+  const before = fs.readFileSync(prefsFile, 'utf8');
+  fs.writeFileSync(prefsFile, JSON.stringify({ ...JSON.parse(before), toastsWaitForFullScreen: false }, null, 2));
+  setState('busy');
+  const start = Date.now();
+  await push('row-g', 'Hold turned off');
+  const r = await until('g', 'opt-out, busy: overlay visible', s => s.visible, 2000);
+  note('g', 'the answer', { lastProbe: (await hold()).lastProbe });
+  await sleep(300);
+  capture('59-opt-out-busy-toast-shown-at-once');
+  fs.writeFileSync(prefsFile, before);
+  const back = await until('g', 'opt-out taken out, still busy: held again at the next poll', s => !s.visible && s.held, 4000);
+  note('g', 'summary', { pushToVisibleMs: Date.now() - start, sampledTook: r.took, heldAgainAfterMs: back.took });
+  await dismiss('row-g');
 }
 
 if (out) fs.writeFileSync(path.join(out, opts.log ?? '30-toast-hold-override-samples.json'), JSON.stringify(log, null, 2));

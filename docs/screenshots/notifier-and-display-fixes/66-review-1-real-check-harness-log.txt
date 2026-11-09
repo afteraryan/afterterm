@@ -1,0 +1,14 @@
+AFT-72 toast hold, review 1: the real check without the override. The dev build's [harness] notifier lines.
+fg=own: afterterm's own window was in front (at the start, after the stand-in closed, and in phase 4 with it covering the whole display).
+fg=1: the stand-in covering the whole secondary display was in front; Windows' own answer (quns=5) still said accepts.
+The 'shown after the hold' line comes right after main-focus true: the focus re-ask, 391 ms after the stand-in closed.
+
+[harness] notifier:main-focus true
+[harness] notifier: accepts from windows quns=5 fg=own, helper started in 428 ms, shown (visible true)
+[harness] notifier:main-focus false
+[harness] notifier: window-fullscreen from windows quns=5 fg=1 in 34 ms, held (visible false)
+[harness] notifier: window-fullscreen from windows quns=5 fg=1 in 3 ms, still held (visible false)
+[harness] notifier:main-focus true
+[harness] notifier: accepts from windows quns=5 fg=own in 2 ms, shown after the hold (visible true)
+[harness] notifier: accepts from windows quns=5 fg=own in 1 ms, shown (visible true)
+[harness] notifier: accepts from windows quns=5 fg=own in 1 ms, left on screen (visible true)

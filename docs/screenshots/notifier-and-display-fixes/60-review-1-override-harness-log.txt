@@ -1,0 +1,21 @@
+AFT-72 toast hold, review 1: the override rows a to g (g is the prefs.json opt-out) run again after the review's changes. The dev build's [harness] notifier lines.
+
+[harness] notifier:main-focus true
+[harness] notifier: busy from override file in 0 ms, held (visible false)
+[harness] notifier: busy from override file in 0 ms, still held (visible false)
+[harness] notifier: busy from override file in 0 ms, still held (visible false)
+[harness] notifier: accepts from override file in 0 ms, shown after the hold (visible true)
+[harness] notifier: accepts from override file in 0 ms, shown (visible true)
+[harness] notifier: presentation from override file in 0 ms, held (visible false)
+[harness] notifier: fullscreen from override file in 0 ms, still held (visible false)
+[harness] notifier: unknown from override file in 0 ms, shown after the hold (visible true)
+[harness] notifier: accepts from override file in 0 ms, shown (visible true)
+[harness] notifier: unknown from override file in 0 ms, shown (visible true)
+[harness] notifier: busy from override file in 0 ms, held (visible false)
+[harness] notifier: busy from override file in 0 ms, still held (visible false)
+[harness] notifier: busy from override file in 0 ms, still held (visible false)
+[harness] notifier: accepts from override file in 0 ms, shown after the hold (visible true)
+[harness] notifier: accepts from override file in 0 ms, left on screen (visible true)
+[harness] notifier: busy from override file in 0 ms, held (visible false)
+[harness] notifier: unknown from prefs.json toastsWaitForFullScreen false in 0 ms, shown (visible true)
+[harness] notifier: busy from override file in 0 ms, held (visible false)
