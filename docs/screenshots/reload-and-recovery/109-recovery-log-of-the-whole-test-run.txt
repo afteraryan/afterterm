@@ -1,0 +1,38 @@
+2026-11-08T20:50:34.758Z main: page loaded with 2 live shell(s): tab-201, tab-202
+2026-11-08T20:50:56.216Z main: renderer gone, reason=crashed exitCode=2
+2026-11-08T20:50:57.220Z main: reloading the page after the renderer crashed
+2026-11-08T20:50:57.592Z main: page loaded with 2 live shell(s): tab-201, tab-202
+2026-11-08T20:52:16.567Z main: renderer gone, reason=crashed exitCode=2
+2026-11-08T20:52:17.571Z main: reloading the page after the renderer crashed
+2026-11-08T20:52:17.911Z main: page loaded with 2 live shell(s): tab-201, tab-202
+2026-11-08T20:53:14.196Z main: unresponsive; ending it if it still is in 15s
+2026-11-08T20:53:29.204Z main: still unresponsive after 15s, ending its renderer
+2026-11-08T20:53:29.212Z main: renderer gone, reason=crashed exitCode=2
+2026-11-08T20:53:30.217Z main: reloading the page after the renderer crashed
+2026-11-08T20:53:30.540Z main: page loaded with 2 live shell(s): tab-201, tab-202
+2026-11-08T20:54:08.722Z main: page loaded with 2 live shell(s): tab-201, tab-202
+2026-11-08T20:55:00.548Z main: renderer gone, reason=crashed exitCode=2
+2026-11-08T20:55:01.557Z main: reloading the page after the renderer crashed
+2026-11-08T20:55:01.911Z main: page loaded with 2 live shell(s): tab-201, tab-202
+2026-11-08T20:55:27.977Z main: renderer gone, reason=crashed exitCode=2
+2026-11-08T20:55:28.981Z main: reloading the page after the renderer crashed
+2026-11-08T20:55:29.316Z main: page loaded with 2 live shell(s): tab-201, tab-202
+2026-11-08T20:56:42.726Z main: renderer gone, reason=crashed exitCode=2
+2026-11-08T20:56:43.741Z main: reloading the page after the renderer crashed
+2026-11-08T20:56:44.098Z main: page loaded with 2 live shell(s): tab-201, tab-202
+2026-11-08T20:57:29.449Z main: renderer gone, reason=crashed exitCode=2
+2026-11-08T20:57:30.454Z main: reloading the page after the renderer crashed
+2026-11-08T20:57:30.777Z main: page loaded with 3 live shell(s): tab-201, tab-202, tab-204
+2026-11-08T20:58:39.719Z main: renderer gone, reason=crashed exitCode=2
+2026-11-08T20:58:40.726Z main: reloading the page after the renderer crashed
+2026-11-08T20:58:41.048Z main: page loaded with 4 live shell(s): tab-201, tab-202, tab-204, tab-205
+2026-11-08T20:58:42.857Z main: renderer gone, reason=crashed exitCode=2
+2026-11-08T20:58:43.872Z main: reloading the page after the renderer crashed
+2026-11-08T20:58:44.177Z main: page loaded with 4 live shell(s): tab-201, tab-202, tab-204, tab-205
+2026-11-08T20:58:45.984Z main: renderer gone, reason=crashed exitCode=2
+2026-11-08T20:58:46.995Z main: reloading the page after the renderer crashed
+2026-11-08T20:58:47.296Z main: page loaded with 4 live shell(s): tab-201, tab-202, tab-204, tab-205
+2026-11-08T20:58:49.122Z main: renderer gone, reason=crashed exitCode=2
+2026-11-08T20:58:50.125Z main: not reloading after the renderer crashed yet: reloaded 3 times in 60s, trying again in 51s
+2026-11-08T20:59:41.759Z main: reloading the page after the renderer crashed
+2026-11-08T20:59:42.073Z main: page loaded with 4 live shell(s): tab-201, tab-202, tab-204, tab-205
