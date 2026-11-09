@@ -1,0 +1,15 @@
+This is a test of how a terminal draws a long prompt that has many lines in it.
+Line two: the words here do not matter, only how they look once the prompt is sent.
+Line three: a terminal shows the prompt again under a marker after it is submitted.
+Line four: someone saw the top part of such a prompt drawn in a dimmer grey.
+Line five: the lines after that part were drawn in the normal text colour.
+Line six: this test sends a prompt of fifteen lines to see whether that happens again.
+Line seven: nothing in this folder needs to be read or changed for the answer.
+Line eight: please do not run any tools, do not read any files, and do not search.
+Line nine: the answer should be short so the test stays cheap and quick.
+Line ten: after the answer the window will be resized twice on purpose.
+Line eleven: the resizes check whether the answer gets printed a second time.
+Line twelve: so the answer must be easy to recognise when it is repeated.
+Line thirteen: each line of the answer should start with its own number.
+Line fourteen: the list below is what to print, and it is the whole task.
+Print a numbered list from 1 to 20 with the word apple after each number, one item per line, and nothing else.

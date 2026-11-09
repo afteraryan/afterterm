@@ -21,6 +21,7 @@ import { createWebLinkProvider } from './webLinks';
 import { Menu, type MenuItem } from '../Menu';
 import { SPLIT_MIN, SPLIT_MAX, SPLIT_DEFAULT } from '../../splitView';
 import type { PaneTarget } from '../../splitView';
+import { initialResizeGate, onTerminalResize, onHoldChange, spawnSize, isMeasured, ptySizeFrom, settleDelay, type ResizeGate, type PtySize } from '../../resizeGate';
 
 interface TermInfo {
   term: Terminal;
@@ -167,6 +168,11 @@ const SHELL_READY_MS = 700;
 const ATTACH_REPAINT_MS = 60;
 
 const DEFAULT_FONT_SIZE = 14;
+// How long the layout must stay still after a window edge drag ends before the
+// held PTY sizes are sent (AFT-11): longer than the 80 ms fit debounce.
+const EDGE_DRAG_SETTLE_MS = 120;
+// The longest that wait can run after the drag's end, however the layout moves.
+const EDGE_DRAG_SETTLE_MAX_MS = 1000;
 const MIN_FONT_SIZE = 6;
 const MAX_FONT_SIZE = 40;
 
@@ -313,6 +319,31 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
   const dividingRef = useRef(false);
   const onRatioRef = useRef(onRatio);
   onRatioRef.current = onRatio;
+
+  // AFT-11: what each PTY is told about its terminal's size (resizeGate.ts). A
+  // resize makes a full-screen program redraw, and a redraw after narrowing leaves
+  // a copy of the top of its screen behind, so a PTY never gets the size it already
+  // has, and gets nothing during a window edge drag but the final size at its end.
+  const gatesRef = useRef(new Map<string, ResizeGate>());
+  // True from a window edge drag's first step until it has been let go.
+  const edgeDragRef = useRef(false);
+  // The size of the last terminal shown alone in the workspace, by font size: what a
+  // terminal made off screen starts at, so its PTY is not resized when it shows.
+  const sizeHintRef = useRef(new Map<number, PtySize>());
+  const sendResize = useCallback((tabId: string, cols: number, rows: number) => {
+    const gate = gatesRef.current.get(tabId);
+    if (!gate) return;
+    const { gate: next, send } = onTerminalResize(gate, { cols, rows });
+    gatesRef.current.set(tabId, next);
+    if (send) window.afterterm.pty.resize(tabId, send.cols, send.rows);
+  }, []);
+  // Called on every size a terminal gets: the one shown alone, on screen, is the
+  // hint for its font size.
+  const noteSizeHint = useCallback((tabId: string, term: Terminal, container: HTMLElement) => {
+    const onScreen = panesRef.current;
+    if (onScreen.length !== 1 || onScreen[0] !== tabId || container.offsetParent === null) return;
+    sizeHintRef.current.set(term.options.fontSize ?? DEFAULT_FONT_SIZE, { cols: term.cols, rows: term.rows });
+  }, []);
 
   const onTitleChangeRef = useRef(onTitleChange);
   onTitleChangeRef.current = onTitleChange;
@@ -519,6 +550,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
     const info = termsRef.current.get(tabId);
     if (!info) return;
     termsRef.current.delete(tabId);
+    gatesRef.current.delete(tabId);
 
     const api = window.afterterm;
     api.pty.offData(tabId);
@@ -802,6 +834,19 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       if (slot) {
         fitAddon.fit();
       }
+      // One that cannot measure itself (in the park, or in a column while Home or a
+      // project page covers the workspace) starts at the size of the last terminal
+      // shown alone with its font size, not xterm's 80x24, so its PTY is not resized
+      // (and a chat does not redraw) the first time it is shown (AFT-11).
+      const proposed = slot ? fitAddon.proposeDimensions() : undefined;
+      const measured = isMeasured(proposed);
+      const start = spawnSize(
+        proposed,
+        sizeHintRef.current.get(term.options.fontSize ?? DEFAULT_FONT_SIZE),
+        { cols: term.cols, rows: term.rows },
+      );
+      if (start.cols !== term.cols || start.rows !== term.rows) term.resize(start.cols, start.rows);
+      noteSizeHint(tabId, term, container);
 
       const api = window.afterterm;
 
@@ -826,7 +871,10 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       // project store (see CLAUDE.md / claude-code source), and claudeCwd is the
       // hook-reported dir, authoritative across all shells.
       const plan = wakePlan(tab);
-      const created = await api.pty.create(tabId, plan.shellId, plan.cwd, !!tab.reattach);
+      // A new PTY starts at the terminal's size (AFT-11), so it is not resized
+      // straight after, which would make a full-screen program redraw.
+      const spawnedAt = { cols: term.cols, rows: term.rows };
+      const created = await api.pty.create(tabId, plan.shellId, plan.cwd, !!tab.reattach, spawnedAt.cols, spawnedAt.rows);
       // AFT-33: main already held this thread's shell, still running, because only
       // the page was reloaded. The terminal joined it: nothing may be typed into it,
       // or a chat's running Claude Code would get `claude --resume` as a prompt. A
@@ -847,6 +895,10 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         return;
       }
       const attached = outcome.kind === 'attached';
+      // From here on the gate knows the PTY's size (AFT-11), as main reports it: a
+      // re-attached shell's own, or the size a new one was really spawned at (80x24
+      // when the size asked for was out of range), so it never assumes a size.
+      gatesRef.current.set(tabId, initialResizeGate(ptySizeFrom(created, spawnedAt), edgeDragRef.current));
 
       // A chat picks its session back up; a shell just gets a fresh prompt. The id is
       // re-validated as a UUID inside resumeTab as well (session.json is
@@ -917,7 +969,10 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         if (data.length > 0 && !data.startsWith('\x1b')) onTypedRef.current(tabId);
       });
 
-      term.onResize(({ cols, rows }) => api.pty.resize(tabId, cols, rows));
+      term.onResize(({ cols, rows }) => {
+        noteSizeHint(tabId, term, container);
+        sendResize(tabId, cols, rows);
+      });
 
       jumpRef.current.set(tabId, initialJumpState(term.buffer.active.viewportY));
       term.onScroll(() => {
@@ -1009,15 +1064,17 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
 
       api.pty.onExit(tabId, () => onExitRef.current(tabId));
 
-      // A re-attached terminal that is not on screen has never been fitted and is
-      // xterm's default 80x24; it takes the running shell's own size instead, so a
-      // background chat is not redrawn at 80 columns (main answers the attach with it).
-      if (attached && !slot && created?.cols && created?.rows) {
+      // A re-attached terminal that is not on screen (in the park, or in a column
+      // while Home or a project page covers the workspace) has never been fitted; it
+      // takes the running shell's own size instead, so a background chat is not
+      // redrawn at another size (main answers the attach with it).
+      if (attached && !measured && created?.cols && created?.rows) {
         term.resize(created.cols, created.rows);
       }
 
-      // Sync initial size to PTY
-      api.pty.resize(tabId, term.cols, term.rows);
+      // The terminal may have been sized while the PTY was being made; the gate sends
+      // that size only if it differs from the PTY's own (AFT-11).
+      sendResize(tabId, term.cols, term.rows);
       // A re-attached shell has drawn its screen into the old page. A size change
       // makes ConPTY draw the whole screen again (and Claude Code redraw itself), so
       // the new terminal shows what is there instead of staying blank until the next
@@ -1035,7 +1092,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
     } finally {
       creatingRef.current.delete(tabId);
     }
-  }, [openFind, endSearch, attachSearch, resumeTab, reportPrompt, writeCommand]);
+  }, [openFind, endSearch, attachSearch, resumeTab, reportPrompt, writeCommand, sendResize, noteSizeHint]);
 
   // Reconcile the terminals with the tab list. `asleep` is the source of truth:
   // awake with no terminal → build one (a wake, or a brand new thread); asleep with
@@ -1188,8 +1245,12 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
     if (!visible) return;
     const frame = requestAnimationFrame(() => {
       // Every terminal on screen: in a split the focused half may be asleep
-      // while the other half's terminal still needs its size back.
-      fitVisible();
+      // while the other half's terminal still needs its size back. Debounced like
+      // the ResizeObserver's own fits (AFT-11): the panel slides back in as the
+      // workspace shows, and a fit at once caught the terminal at the width without
+      // the panel, so every return from Home resized a chat's PTY twice (wider, then
+      // back) and Claude Code redrew twice, leaving a copy behind.
+      for (const id of panesRef.current) termsRef.current.get(id)?.scheduleFit();
       // Only take the keyboard when nothing else holds it: Ctrl+Shift+T from Home
       // switches to the workspace and opens the new thread chooser in the same
       // breath, and its input must keep focus (Escape and Enter go to it).
@@ -1198,7 +1259,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       if (info && (!active || active === document.body)) info.term.focus();
     });
     return () => cancelAnimationFrame(frame);
-  }, [visible, activeTabId, fitVisible]);
+  }, [visible, activeTabId]);
 
   // Resize the terminals on screen when the pane resizes (the window, the
   // panel sliding). The divider does not resize the pane, only its columns, and
@@ -1209,12 +1270,70 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
   useEffect(() => {
     if (!rootRef.current) return;
     const observer = new ResizeObserver(() => {
+      // A window edge drag that has just ended waits for the layout to settle.
+      edgeDragSettleRef.current?.();
       if (dividingRef.current || document.body.classList.contains('panel-resizing')) return;
       for (const id of panesRef.current) termsRef.current.get(id)?.scheduleFit();
     });
     observer.observe(rootRef.current);
     return () => observer.disconnect();
   }, []);
+
+  // A drag of the window's edge (AFT-11). The terminals keep following the window
+  // as before, but their PTYs hear nothing until the drag ends; then, once the layout
+  // has stopped changing for EDGE_DRAG_SETTLE_MS (the end can reach the page before
+  // the window's last size has, which fitted a stale size and then the real one: two
+  // resizes), what is on screen is fitted once more and each PTY gets the newest size
+  // it was held from, once. Before this a slow drag sent one resize per pause and
+  // Claude Code left one more copy of the top of its screen for each.
+  // `holdResizesRef` lets the harness play a drag (window.__afterterm.holdResizes).
+  const holdResizesRef = useRef<((dragging: boolean) => void) | null>(null);
+  // Set while a drag's end waits for the layout to settle: the ResizeObserver calls
+  // it to push the release back.
+  const edgeDragSettleRef = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    let releaseTimer: ReturnType<typeof setTimeout> | undefined;
+    const release = () => {
+      releaseTimer = undefined;
+      edgeDragSettleRef.current = null;
+      fitVisible();
+      edgeDragRef.current = false;
+      for (const [id, gate] of gatesRef.current) {
+        const { gate: next, send } = onHoldChange(gate, false);
+        gatesRef.current.set(id, next);
+        if (send) window.afterterm.pty.resize(id, send.cols, send.rows);
+      }
+    };
+    const apply = (dragging: boolean) => {
+      if (releaseTimer) { clearTimeout(releaseTimer); releaseTimer = undefined; }
+      edgeDragSettleRef.current = null;
+      if (dragging) {
+        edgeDragRef.current = true;
+        for (const [id, gate] of gatesRef.current) gatesRef.current.set(id, onHoldChange(gate, true).gate);
+        return;
+      }
+      if (!edgeDragRef.current) return;
+      // Restarted on every layout change, but never past a second after the end.
+      const endedAt = performance.now();
+      const arm = () => {
+        releaseTimer = setTimeout(release, settleDelay(performance.now(), endedAt, EDGE_DRAG_SETTLE_MS, EDGE_DRAG_SETTLE_MAX_MS));
+      };
+      arm();
+      edgeDragSettleRef.current = () => {
+        if (!releaseTimer) return;
+        clearTimeout(releaseTimer);
+        arm();
+      };
+    };
+    holdResizesRef.current = apply;
+    const off = window.afterterm.pty.onEdgeDrag(apply);
+    return () => {
+      off();
+      if (releaseTimer) clearTimeout(releaseTimer);
+      holdResizesRef.current = null;
+      edgeDragSettleRef.current = null;
+    };
+  }, [fitVisible]);
 
   // The divider between two halves (design-06): drag between a quarter and
   // three quarters; the columns follow the pointer directly (no render per
@@ -1301,6 +1420,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         openFileLink(tabId: string, row: number, index?: number): Promise<boolean>;
         cellCentre(tabId: string, row: number, col: number): { x: number; y: number } | null;
         findRow(tabId: string, text: string): number;
+        holdResizes?(dragging: boolean): void;
         selection(tabId?: string): { has: boolean; text: string; position: unknown } | null;
       };
     };
@@ -1308,6 +1428,10 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
     // (lastOpenExternal) on the same object, and this effect can run after it has.
     win.__afterterm = {
       ...(win.__afterterm ?? {}),
+      // AFT-11, dev builds only (the harness runs one): plays the start (true) and end
+      // (false) of a window edge drag, as main sends them. A packaged build has no way
+      // to hold every PTY's size from the page.
+      ...(import.meta.env.DEV ? { holdResizes: (dragging: boolean) => holdResizesRef.current?.(dragging) } : {}),
       tail: (tabId, n = 30) => readTail(tabId, n),
       activeTail: (n = 30) => readTail(activeRef.current, n),
       // Lets the harness check the OSC 133 marks landed without reading the buffer.

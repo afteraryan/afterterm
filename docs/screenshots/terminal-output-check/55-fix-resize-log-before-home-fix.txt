@@ -1,0 +1,12 @@
+[resize] 2026-11-08T17:31:53.227Z tab-1 spawned at 112x42
+[resize] 2026-11-08T17:32:09.077Z tab-3 spawned at 112x42
+[resize] 2026-11-08T17:33:04.781Z tab-2 spawned at 112x42
+[resize] 2026-11-08T17:33:08.262Z tab-3 112x42 -> 145x42
+[resize] 2026-11-08T17:33:08.692Z tab-3 145x42 -> 112x42
+[resize] 2026-11-08T17:33:32.924Z tab-2 112x42 -> 145x42
+[resize] 2026-11-08T17:33:33.355Z tab-2 145x42 -> 112x42
+[resize] 2026-11-08T17:33:37.374Z tab-2 112x42 -> 145x42
+[resize] 2026-11-08T17:33:37.801Z tab-2 145x42 -> 112x42
+[resize] 2026-11-08T17:34:03.145Z tab-1 spawned at 112x42
+[resize] 2026-11-08T17:34:03.286Z tab-2 spawned at 112x42
+[resize] 2026-11-08T17:34:03.417Z tab-3 spawned at 112x42
