@@ -16,6 +16,12 @@
 // taskbar, not afterterm's own windows, not an ordinary maximized window with a
 // title bar). Either signal holds the toasts.
 //
+// afterterm in its own full screen (F11) must never hold its own toasts
+// (review 1, 2026-11-09): Chromium marks a full-screen window to the shell, so
+// Windows answers busy for afterterm itself. The helper says when the foreground
+// window is afterterm's (fg=own), and then neither busy nor Direct3D full screen
+// holds; presentation mode, a system setting, still does.
+//
 // Pure and DOM-free: main keeps an OverlayHold and acts on each HoldStep.
 
 // What SHQueryUserNotificationState answered, by name. 'unknown' is every
@@ -29,10 +35,12 @@ export type NotifyState =
   | 'quiet-time'    // QUNS_QUIET_TIME (6): the first hour after a new user signs in
   | 'app'           // QUNS_APP (7): a Store app in front
   | 'window-fullscreen' // Windows said none of the above, but the foreground window covers its whole monitor
+  | 'afterterm-in-front' // Windows said busy or Direct3D full screen, but afterterm's own window is in front
   | 'unknown';
 
 export const NOTIFY_STATES: readonly NotifyState[] = [
-  'not-present', 'busy', 'fullscreen', 'presentation', 'accepts', 'quiet-time', 'app', 'window-fullscreen', 'unknown',
+  'not-present', 'busy', 'fullscreen', 'presentation', 'accepts', 'quiet-time', 'app', 'window-fullscreen',
+  'afterterm-in-front', 'unknown',
 ];
 
 const QUNS_STATES: Record<number, NotifyState> = {
@@ -57,26 +65,30 @@ export function holdsToasts(state: NotifyState): boolean {
   return state === 'busy' || state === 'fullscreen' || state === 'presentation' || state === 'window-fullscreen';
 }
 
-// One line from the helper: "quns=<n> fg=<1|0>", where quns is Windows' answer
-// ("err" when the call failed) and fg is whether the foreground window covers
-// its whole monitor ("err" when that could not be read). Windows' answer wins
-// when it holds (it names the reason); otherwise fg=1 holds as
-// 'window-fullscreen'; otherwise Windows' answer, or 'unknown' when there is
-// none. "error" (the helper could not set itself up) and anything else that
-// is not a known value is 'unknown'. Spaces, a carriage return and a byte order
-// mark around the tokens are allowed (JavaScript's \s covers all three).
+// One line from the helper: "quns=<n> fg=<1|0|own>", where quns is Windows'
+// answer ("err" when the call failed) and fg is whether the foreground window
+// covers its whole monitor, or "own" when it is afterterm's ("err" when that
+// could not be read). With fg=own, Windows' busy and Direct3D full screen are
+// about afterterm itself and do not hold ('afterterm-in-front'); presentation
+// mode still does. Otherwise Windows' answer wins when it holds (it names the
+// reason); otherwise fg=1 holds as 'window-fullscreen'; otherwise Windows'
+// answer, or 'unknown' when there is none. "error" (the helper could not set
+// itself up) and anything else that is not a known value is 'unknown'. Spaces, a
+// carriage return and a byte order mark around the tokens are allowed
+// (JavaScript's \s covers all three).
 export function parseProbeLine(line: string): NotifyState {
   const tokens = line.trim().split(/\s+/);
   let quns: NotifyState = 'unknown';
-  let foreground = false;
+  let foreground: string | null = null;
   for (const token of tokens) {
     const m = /^(quns|fg)=(\w+)$/.exec(token);
     if (!m) return 'unknown';
     if (m[1] === 'quns') quns = /^\d+$/.test(m[2]) ? QUNS_STATES[Number(m[2])] ?? 'unknown' : 'unknown';
-    else foreground = m[2] === '1';
+    else foreground = m[2];
   }
+  if (foreground === 'own' && (quns === 'busy' || quns === 'fullscreen')) return 'afterterm-in-front';
   if (holdsToasts(quns)) return quns;
-  if (foreground) return 'window-fullscreen';
+  if (foreground === '1') return 'window-fullscreen';
   return quns;
 }
 

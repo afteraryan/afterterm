@@ -92,6 +92,19 @@ console.log('\nnotify-hold: the foreground window signal\n');
   check('window-fullscreen is an override word too', stateWord('window-fullscreen') === 'window-fullscreen');
 }
 
+console.log('\nnotify-hold: afterterm\'s own window in front (its own full screen)\n');
+{
+  check('busy with afterterm in front does not hold', parseProbeLine('quns=2 fg=own') === 'afterterm-in-front');
+  check('Direct3D full screen with afterterm in front does not hold', parseProbeLine('quns=3 fg=own') === 'afterterm-in-front');
+  check('afterterm-in-front shows', !holdsToasts('afterterm-in-front'));
+  check('presentation mode still holds with afterterm in front', parseProbeLine('quns=4 fg=own') === 'presentation');
+  check('accepts with afterterm in front is accepts', parseProbeLine('quns=5 fg=own') === 'accepts');
+  check('Windows failed with afterterm in front: unknown, shows', parseProbeLine('quns=err fg=own') === 'unknown');
+  check('fg=own alone is unknown, shows', parseProbeLine('fg=own') === 'unknown');
+  check('the order does not matter with fg=own', parseProbeLine('fg=own quns=2') === 'afterterm-in-front');
+  check('afterterm-in-front is an override word too', stateWord('afterterm-in-front') === 'afterterm-in-front');
+}
+
 console.log('\nnotify-hold: the override words\n');
 {
   check('busy', stateWord('busy') === 'busy');

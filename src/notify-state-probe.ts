@@ -7,16 +7,16 @@
 // "accepts"). afterterm has no native module, so the calls are made by a Windows
 // PowerShell helper that main starts when a toast is about to show and keeps
 // while the overlay has toasts: it reads a line on stdin and answers one line,
-// "quns=<n|err> fg=<1|0|err>", or "error" when it could not set itself up.
+// "quns=<n|err> fg=<1|0|own|err>", or "error" when it could not set itself up.
 // parseProbeLine (notify-hold.ts) turns that into a state; either signal holds.
 //
 // Why a helper that stays, not one PowerShell per question (measured on
 // 2026-11-09 on Aryan's machine): a fresh powershell.exe that makes the call
 // takes about 500 ms and 530 ms of CPU, every time. Asked every 3 seconds for as
 // long as a game runs, that is a sixth of a core for hours. The helper pays the
-// start once (about 470 ms to the first answer) and answers every later question
-// in under 2 ms. It goes 15 seconds after the last question, so it runs only
-// while toasts are up or waiting.
+// start once (about 0.5 to 0.75 s to the first answer) and answers every later
+// question in a few ms. It goes 15 seconds after the last question, so it runs
+// only while toasts are up or waiting.
 //
 // The P/Invokes are built with Reflection.Emit, not Add-Type: Add-Type compiles C#
 // through csc.exe in Windows PowerShell 5.1 (a temp file and about 150 ms more),
@@ -24,8 +24,11 @@
 // is on every Windows, and PATH cannot swap it.
 //
 // Every failure answers 'unknown', which shows the toasts: a helper that cannot
-// start, that times out, that exits, or a machine where PowerShell is blocked.
-// After three failures in a row the probe stops trying for the rest of the run.
+// start, that hangs, that exits, or a machine where PowerShell is blocked. A slow
+// start is not a failure: the toast waits at most 4 seconds and shows, and the
+// helper is let finish starting (up to 10 seconds) for the next question, since
+// a busy CPU during a game is exactly when it starts slowly. After three failures
+// in a row the probe rests for 5 minutes, then tries again (review 1, 2026-11-09).
 
 import { spawn } from 'child_process';
 import type { ChildProcess } from 'child_process';
@@ -33,21 +36,24 @@ import path from 'path';
 import { parseProbeLine } from './notify-hold.ts';
 import type { NotifyState } from './notify-hold.ts';
 
-// The helper's script, for afterterm's own process id (its windows never count
-// as a full-screen app). Single quotes only, and sent as -EncodedCommand, so
-// nothing in it is unpicked by a command line. Its only output is the answers;
-// PowerShell's own noise goes to stderr, which is ignored.
+// The helper's script, for afterterm's own process id. Single quotes only, and
+// sent as -EncodedCommand, so nothing in it is unpicked by a command line. Its
+// only output is the answers; PowerShell's own noise goes to stderr, which is
+// ignored.
 //
 // fg is 1 when the foreground window covers the whole monitor it is on: its
 // visible bounds (DWM's extended frame bounds, or the window rectangle when DWM
 // has none) contain the monitor's rectangle (MonitorFromWindow, GetMonitorInfo),
-// all in physical pixels (per-monitor DPI awareness on the helper's thread). Not
-// counted: no foreground window, afterterm's own windows, the desktop and the
-// taskbars (Progman, WorkerW, Shell_TrayWnd, Shell_SecondaryTrayWnd), and an
-// ordinary maximized window with a title bar, which covers a monitor that has no
-// taskbar (a second monitor without one, or an auto-hidden taskbar) without being
-// full screen. A full-screen app, a browser's full screen and a slide show have
-// no title bar, and a borderless game is not maximized.
+// all in physical pixels (per-monitor DPI awareness on the helper's thread).
+// fg is 'own' when the foreground window is afterterm's (its main window or the
+// overlay), so Windows' busy for afterterm's own full screen (F11) does not hold
+// its toasts. Not counted (fg=0): no foreground window; the desktop, the taskbars
+// and Task View (Progman, WorkerW, Shell_TrayWnd, Shell_SecondaryTrayWnd,
+// XamlExplorerHostIslandWindow); and any maximized window with a title bar or a
+// resizing frame (WS_CAPTION or WS_THICKFRAME), which covers a monitor that has
+// no taskbar (a second monitor without one, or an auto-hidden taskbar) without
+// being full screen. A browser's full screen and a slide show drop both styles,
+// and a borderless game is a WS_POPUP window with neither.
 function helperScript(ownPid: number): string {
   return `
 $ErrorActionPreference = 'Stop'
@@ -74,6 +80,7 @@ try {
   $t = $tb.CreateType()
   try { [void]$t::SetThreadDpiAwarenessContext([IntPtr]::new(-4)) } catch { }
 } catch { $t = $null }
+$shell = @('Progman', 'WorkerW', 'Shell_TrayWnd', 'Shell_SecondaryTrayWnd', 'XamlExplorerHostIslandWindow')
 function Quns {
   try { $q = 0; if ($t::SHQueryUserNotificationState([ref]$q) -eq 0) { return [string]$q } } catch { }
   return 'err'
@@ -84,12 +91,13 @@ function Fg {
     if ($h -eq [IntPtr]::Zero) { return '0' }
     $owner = [uint32]0
     [void]$t::GetWindowThreadProcessId($h, [ref]$owner)
-    if ($owner -eq $own) { return '0' }
+    if ($owner -eq $own) { return 'own' }
     $sb = New-Object System.Text.StringBuilder 256
     [void]$t::GetClassNameW($h, $sb, 256)
-    if (@('Progman', 'WorkerW', 'Shell_TrayWnd', 'Shell_SecondaryTrayWnd') -contains $sb.ToString()) { return '0' }
+    if ($shell -contains $sb.ToString()) { return '0' }
     $style = $t::GetWindowLongW($h, -16)
-    if ($t::IsZoomed($h) -and (($style -band 0x00C00000) -eq 0x00C00000)) { return '0' }
+    $framed = (($style -band 0x00C00000) -eq 0x00C00000) -or (($style -band 0x00040000) -ne 0)
+    if ($framed -and $t::IsZoomed($h)) { return '0' }
     $r = New-Object int[] 4
     if ($t::DwmGetWindowAttribute($h, 9, $r, 16) -ne 0) { if (-not $t::GetWindowRect($h, $r)) { return 'err' } }
     $mi = New-Object int[] 10
@@ -107,14 +115,30 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
 `;
 }
 
-// The first answer includes PowerShell's start (about 0.5 s here, more on a slow
-// or busy machine); a toast waits for it, so it is bounded.
-const START_TIMEOUT_MS = 4000;
-// Later answers take under 2 ms; this only catches a helper that has hung.
-const ANSWER_TIMEOUT_MS = 1500;
-// How long the helper stays after the last question. Longer than the 3 second
-// poll, so it lives exactly while the overlay has toasts.
-const IDLE_EXIT_MS = 15_000;
+export interface ProbeTimings {
+  // How long a toast waits for a starting helper's first answer (PowerShell's
+  // start, about 0.5 to 0.75 s here, more on a busy machine) before it shows.
+  startAnswerMs: number;
+  // A helper that has not answered at all this long after it was started is
+  // stopped, and that counts as a failure.
+  startLimitMs: number;
+  // Later answers take a few ms; this only catches a helper that has hung.
+  answerTimeoutMs: number;
+  // How long the helper stays after the last question. Longer than the 3 second
+  // poll, so it lives exactly while the overlay has toasts.
+  idleExitMs: number;
+  // After MAX_FAILURES in a row, how long the probe rests (every question
+  // answers 'unknown', which shows) before it tries again.
+  restMs: number;
+}
+
+export const PROBE_TIMINGS: ProbeTimings = {
+  startAnswerMs: 4000,
+  startLimitMs: 10_000,
+  answerTimeoutMs: 1500,
+  idleExitMs: 15_000,
+  restMs: 5 * 60_000,
+};
 const MAX_FAILURES = 3;
 
 export interface ProbeAnswer {
@@ -129,33 +153,50 @@ export interface ProbeAnswer {
 }
 
 export interface NotifyStateProbeOptions {
-  // afterterm's own process id: its windows (the main window, the overlay) never
-  // count as a full-screen app. Defaults to this process.
+  // afterterm's own process id: the helper says fg=own for its windows (the main
+  // window, the overlay). Defaults to this process.
   ownPid?: number;
-  // Warnings (a failure, giving up). Defaults to console.warn.
+  // Warnings (a failure, resting). Defaults to console.warn.
   warn?: (message: string) => void;
+  // For the unit tests only: another helper (a Node script answering like the
+  // PowerShell one) and shorter times.
+  helper?: { command: string; args: string[] };
+  timings?: Partial<ProbeTimings>;
 }
 
 export function windowsPowerShellPath(env: NodeJS.ProcessEnv = process.env): string {
   return path.join(env.SystemRoot || env.windir || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
 }
 
+// A question waiting for its line. It is settled once: by its line, by its own
+// time limit, or by the helper going.
+interface Waiter {
+  settled: boolean;
+  answer: (line: string | null) => void;
+}
+
 export class NotifyStateProbe {
   private child: ChildProcess | null = null;
   private answered = false;           // the running helper has answered at least once
   private buffer = '';
-  // Questions waiting for their line, oldest first; the helper answers in order.
-  private waiting: Array<(line: string | null) => void> = [];
+  // Questions in the order they were written; the helper answers in order, so
+  // each line goes to the oldest, settled or not.
+  private waiting: Waiter[] = [];
   private idleTimer: NodeJS.Timeout | null = null;
+  private startTimer: NodeJS.Timeout | null = null;
   private failures = 0;
-  private gaveUp = false;
+  private restUntil = 0;
   private disposed = false;
   private warn: (message: string) => void;
   private ownPid: number;
+  private helper: { command: string; args: string[] } | null;
+  private times: ProbeTimings;
 
   constructor(options: NotifyStateProbeOptions = {}) {
     this.warn = options.warn ?? ((m) => console.warn(m));
     this.ownPid = options.ownPid ?? process.pid;
+    this.helper = options.helper ?? null;
+    this.times = { ...PROBE_TIMINGS, ...options.timings };
   }
 
   // The helper's pid, or null when none is running (for the harness).
@@ -165,7 +206,7 @@ export class NotifyStateProbe {
 
   query(): Promise<ProbeAnswer> {
     const startedAt = Date.now();
-    if (this.gaveUp || this.disposed) {
+    if (this.disposed || startedAt < this.restUntil) {
       return Promise.resolve({ state: 'unknown', line: null, ms: 0, started: false });
     }
     let started = false;
@@ -176,29 +217,34 @@ export class NotifyStateProbe {
     const child = this.child as ChildProcess;
     this.clearIdle();
     return new Promise<ProbeAnswer>((resolve) => {
-      let settled = false;
-      const timeout = this.answered ? ANSWER_TIMEOUT_MS : START_TIMEOUT_MS;
+      const starting = !this.answered;
+      const limit = starting ? this.times.startAnswerMs : this.times.answerTimeoutMs;
+      const waiter: Waiter = {
+        settled: false,
+        answer: (line) => {
+          if (waiter.settled) return;
+          waiter.settled = true;
+          clearTimeout(timer);
+          if (line === null) resolve(this.fail('the helper exited', startedAt, started));
+          else resolve({ state: parseProbeLine(line), line: line.trim(), ms: Date.now() - startedAt, started });
+        },
+      };
       const timer = setTimeout(() => {
-        if (settled) return;
-        settled = true;
-        // A helper that does not answer in time is stuck or far too slow: stop it,
-        // and the next question starts a new one.
-        this.stop();
-        resolve(this.fail(`no answer in ${timeout} ms`, startedAt, started));
-      }, timeout);
-      this.waiting.push((line) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        if (line === null) {
-          resolve(this.fail('the helper exited', startedAt, started));
+        if (waiter.settled) return;
+        waiter.settled = true;
+        if (starting) {
+          // Still starting: the toast shows now, and the helper is let finish
+          // (startLimitMs stops one that never does). Not a failure.
+          this.warn(`[notify-hold] the full-screen check is still starting after ${limit} ms; the toast shows`);
+          resolve({ state: 'unknown', line: null, ms: Date.now() - startedAt, started });
           return;
         }
-        this.answered = true;
-        this.failures = 0;
-        this.armIdle();
-        resolve({ state: parseProbeLine(line), line: line.trim(), ms: Date.now() - startedAt, started });
-      });
+        // A warm helper that does not answer has hung: stop it, and the next
+        // question starts a new one.
+        this.stop();
+        resolve(this.fail(`no answer in ${limit} ms`, startedAt, started));
+      }, limit);
+      this.waiting.push(waiter);
       try {
         child.stdin?.write('q\n');
       } catch {
@@ -216,17 +262,24 @@ export class NotifyStateProbe {
     let child: ChildProcess;
     try {
       const encoded = Buffer.from(helperScript(this.ownPid), 'utf16le').toString('base64');
-      child = spawn(
-        windowsPowerShellPath(),
-        ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', encoded],
-        { windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'] },
-      );
+      const command = this.helper?.command ?? windowsPowerShellPath();
+      const args = this.helper?.args ?? ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', encoded];
+      child = spawn(command, args, { windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'] });
     } catch {
       return false;
     }
     this.child = child;
     this.answered = false;
     this.buffer = '';
+    this.startTimer = setTimeout(() => {
+      this.startTimer = null;
+      if (this.child !== child || this.answered) return;
+      // Never answered: stop it. A question still waiting fails through the stop;
+      // otherwise the failure is noted here.
+      const live = this.waiting.some(w => !w.settled);
+      this.stop();
+      if (!live) this.noteFailure(`it did not start in ${this.times.startLimitMs} ms`);
+    }, this.times.startLimitMs);
     child.stdout?.setEncoding('utf8');
     child.stdout?.on('data', (chunk: string) => {
       if (this.child !== child) return;
@@ -235,7 +288,11 @@ export class NotifyStateProbe {
       while ((i = this.buffer.indexOf('\n')) >= 0) {
         const line = this.buffer.slice(0, i);
         this.buffer = this.buffer.slice(i + 1);
-        this.waiting.shift()?.(line);
+        this.answered = true;
+        this.failures = 0;
+        this.clearStart();
+        this.waiting.shift()?.answer(line);
+        this.armIdle();
       }
     });
     // A write to a helper that has gone raises EPIPE on the stream, not the call.
@@ -244,9 +301,10 @@ export class NotifyStateProbe {
       if (this.child !== child) return;
       this.child = null;
       this.clearIdle();
+      this.clearStart();
       const pending = this.waiting;
       this.waiting = [];
-      for (const answer of pending) answer(null);
+      for (const w of pending) w.answer(null);
     };
     child.on('error', gone);
     child.on('exit', gone);
@@ -257,37 +315,48 @@ export class NotifyStateProbe {
   // killed as well, in case it is the one that hung.
   private stop(): void {
     this.clearIdle();
+    this.clearStart();
     const child = this.child;
     if (!child) return;
     this.child = null;
     const pending = this.waiting;
     this.waiting = [];
-    for (const answer of pending) answer(null);
+    for (const w of pending) w.answer(null);
     try { child.stdin?.end(); } catch { /* already closed */ }
     try { child.kill(); } catch { /* already gone */ }
   }
 
   private fail(reason: string, startedAt: number, started: boolean): ProbeAnswer {
-    this.failures += 1;
-    if (this.failures >= MAX_FAILURES && !this.gaveUp) {
-      this.gaveUp = true;
-      this.stop();
-      this.warn(`[notify-hold] Windows' full-screen check failed ${MAX_FAILURES} times in a row (last: ${reason}); toasts show without it for the rest of this run`);
-    } else {
-      this.warn(`[notify-hold] Windows' full-screen check failed (${reason}); the toast shows`);
-    }
+    this.noteFailure(reason);
     return { state: 'unknown', line: null, ms: Date.now() - startedAt, started };
+  }
+
+  private noteFailure(reason: string): void {
+    if (Date.now() < this.restUntil) return;
+    this.failures += 1;
+    if (this.failures >= MAX_FAILURES) {
+      this.failures = 0;
+      this.restUntil = Date.now() + this.times.restMs;
+      this.warn(`[notify-hold] the full-screen check failed ${MAX_FAILURES} times in a row (last: ${reason}); toasts show without it for ${Math.round(this.times.restMs / 1000)} s`);
+      this.stop();
+    } else {
+      this.warn(`[notify-hold] the full-screen check failed (${reason}); the toast shows`);
+    }
   }
 
   private armIdle(): void {
     this.clearIdle();
     this.idleTimer = setTimeout(() => {
       this.idleTimer = null;
-      if (this.waiting.length === 0) this.stop();
-    }, IDLE_EXIT_MS);
+      if (!this.waiting.some(w => !w.settled)) this.stop();
+    }, this.times.idleExitMs);
   }
 
   private clearIdle(): void {
     if (this.idleTimer) { clearTimeout(this.idleTimer); this.idleTimer = null; }
+  }
+
+  private clearStart(): void {
+    if (this.startTimer) { clearTimeout(this.startTimer); this.startTimer = null; }
   }
 }

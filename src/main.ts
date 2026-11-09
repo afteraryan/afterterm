@@ -1562,6 +1562,13 @@ function createWindow() {
     sendMainFocus(false);
     repaintNotifier();
   });
+  // A foreground change is when a full-screen app comes or goes, so the toast
+  // hold asks again at once rather than at its next 3 second poll: a held toast
+  // shows as soon as afterterm is in front, and one on screen hides sooner when
+  // a full-screen app takes over. Nothing happens with no toasts up, or while a
+  // question is already out (holdStep ignores the poll then).
+  mainWindow.on('focus', () => stepNotifierHold({ type: 'poll' }));
+  mainWindow.on('blur', () => stepNotifierHold({ type: 'poll' }));
 
   mainWindow.on('close', (e) => {
     if (isQuitting || ptys.size === 0) return;
@@ -1665,13 +1672,15 @@ function pushToNotifier(toast: unknown) {
 // does afterterm: before a toast shows, main asks Windows
 // (SHQueryUserNotificationState, and whether the foreground window covers its
 // whole monitor, both through notify-state-probe.ts); while either says a
-// full-screen app, Direct3D full screen or presentation mode the overlay stays hidden with
-// its toasts in it, and main asks again every 3 seconds; when the state ends the
-// overlay shows and is raised as before. While toasts are on screen main keeps
-// asking every 3 seconds, so a full-screen app that comes in front later hides
-// them too. The rules are pure in notify-hold.ts; this is the plumbing. The
-// overlay's page hears notifier:on-screen, and a toast's 5 seconds
-// (toastExpiry.ts) start only once it is on screen.
+// full-screen app, Direct3D full screen or presentation mode the overlay stays
+// hidden with its toasts in it, and main asks again every 3 seconds and on every
+// focus and blur of the main window; when the state ends the overlay is placed,
+// shown and raised as before. While toasts are on screen main keeps asking, so
+// a full-screen app that comes in front later hides them too. afterterm's own
+// full screen never holds its toasts (fg=own). The rules are pure in
+// notify-hold.ts; this is the plumbing. The overlay's page hears
+// notifier:on-screen, and a toast's 5 seconds (toastExpiry.ts) start only once
+// it is on screen. prefs.json's toastsWaitForFullScreen: false turns the hold off.
 //
 // Dev builds only: AFTERTERM_NOTIFY_STATE replaces the question to Windows, so a
 // test can play every state without a real game. Its value is a state's name
@@ -1701,6 +1710,12 @@ function notifyStateOverride(): { state: NotifyState; source: string } | null {
 }
 
 async function askNotifyState(): Promise<{ state: NotifyState; source: string; ms: number }> {
+  // The opt-out: prefs.json's toastsWaitForFullScreen set to false shows every
+  // toast as before (no helper is started). Read on every question, so it
+  // applies at once; a prefs.json that cannot be read leaves the hold on.
+  if (readPrefs(getPrefsPath()).prefs.toastsWaitForFullScreen === false) {
+    return { state: 'unknown', source: 'prefs.json toastsWaitForFullScreen false', ms: 0 };
+  }
   const override = notifyStateOverride();
   if (override) return { ...override, ms: 0 };
   const answer = await notifyStateProbe.query();
@@ -1727,6 +1742,9 @@ function stepNotifierHold(event: HoldEvent): HoldStep {
   }
   if (step.hide) hideNotifierForHold();
   if (step.show) {
+    // Placed again first: the toast may have waited (a hold, a slow answer)
+    // while the main window moved to another monitor.
+    positionNotifier();
     showNotifierWindow();
     repaintNotifier();
   }
