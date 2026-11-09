@@ -423,7 +423,7 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
   const [flash, setFlash] = useState<{ groupId: string; seq: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const resize = usePanelResize({ panelRef, onChange: onWidthChange });
+  const resize = usePanelResize({ panelRef, width, onChange: onWidthChange });
   const lineRef = useRef<HTMLDivElement>(null);
   const ghostRef = useRef<HTMLDivElement>(null);
   // Which thread row the pointer is resting on, the rectangle the card points at,
