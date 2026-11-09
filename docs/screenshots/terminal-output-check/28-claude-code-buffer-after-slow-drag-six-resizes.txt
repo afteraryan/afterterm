@@ -1,0 +1,117 @@
+0: Microsoft Windows [Version 10.0.26200.9711]
+1: (c) Microsoft Corporation. All rights reserved.
+2: 
+3: D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\output-check\docs\screen
+4: shots\terminal-output-check\tiny-repo>set CLAUDE_CONFIG_DIR=
+5: 
+6: D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\output-check\docs\screen
+7: shots\terminal-output-check\tiny-repo>claude --model haiku
+8:  ▐▛███▛█   Claude Code v2.1.319
+9: ▝▜██████▀  Haiku 5.5 · Claude Max
+10:  ▝▝   ▝▝   D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\output-check\
+11: docs\screenshots\terminal-outp…
+12: 
+13: 
+14: > This is a test of how a terminal draws a long prompt that has many lines in
+15:  it.
+16:   Line two: the words here do not matter, only how they look once the prompt
+17: is sent.
+18:   Line three: a terminal shows the prompt again under a marker after it is su
+19: bmitted.
+20:   Line four: someone saw the top part of such a prompt drawn in a dimmer grey
+21: .
+22:   Line five: the lines after that part were drawn in the normal text colour.
+23:   Line six: this test sends a prompt of fifteen lines to see whether that hap
+24: pens again.
+25:   Line five: the lines after that part were drawn in the normal text colour.
+26:   Line six: this test sends a prompt of fifteen lines to see whether that hap
+27: pens again.
+28:   Line seven: nothing in this folder needs to be read or changed for the answ
+29: er.
+30:   Line eight: please do not run any tools, do not read any files, and do not
+31: search.
+32:   Line five: the lines after that part were drawn in the normal text colour.
+33:   Line six: this test sends a prompt of fifteen lines to see whether that hap
+34: pens again.
+35:   Line seven: nothing in this folder needs to be read or changed for the answ
+36: er.
+37:   Line eight: please do not run any tools, do not read any files, and do not
+38: search.
+39:   Line six: this test sends a prompt of fifteen lines to see whether that hap
+40: pens again.
+41:   Line seven: nothing in this folder needs to be read or changed for the answ
+42: er.
+43:   Line eight: please do not run any tools, do not read any files, and do not
+44: search.
+45:   Line six: this test sends a prompt of fifteen lines to see whether that hap
+46: pens again.
+47:   Line seven: nothing in this folder needs to be read or changed for the answ
+48: er.
+49:   Line eight: please do not run any tools, do not read any files, and do not
+50: search.
+51:   Line six: this test sends a prompt of fifteen lines to see whether that hap
+52: pens again.
+53:   Line seven: nothing in this folder needs to be read or changed for the answ
+54: er.
+55:   Line eight: please do not run any tools, do not read any files, and do not
+56: search.
+57:   Line four: someone saw the top part of such a prompt drawn in a dimmer grey
+58: .
+59:   Line five: the lines after that part were drawn in the normal text colour.
+60: 
+61:   Line six: this test sends a prompt of fifteen lines to see whether that hap
+62: pens
+63:   again.
+64:   Line seven: nothing in this folder needs to be read or changed for the answ
+65: er.
+66:   Line eight: please do not run any tools, do not read any files, and do not
+67: 
+68:   search.
+69:   Line nine: the answer should be short so the test stays cheap and quick.
+70:   Line ten: after the answer the window will be resized twice on purpose.
+71:   Line eleven: the resizes check whether the answer gets printed a second tim
+72:   Line six: this test sends a prompt of fifteen lines to see whether that
+73:   happens again.
+74:   Line seven: nothing in this folder needs to be read or changed for the
+75:   answer.
+76:   Line eight: please do not run any tools, do not read any files, and do not
+77:   search.
+78:   Line nine: the answer should be short so the test stays cheap and quick.
+79:   Line ten: after the answer the window will be resized twice on purpose.
+80:   Line eleven: the resizes check whether the answer gets printed a second
+81:   time.
+82:   Line twelve: so the answer must be easy to recognise when it is repeated.
+83:   Line thirteen: each line of the answer should start with its own number.
+84:   Line fourteen: the list below is what to print, and it is the whole task.
+85:   Print a numbered list from 1 to 20 with the word apple after each number,
+86:   one item per line, and nothing else.
+87: 
+88: ● 1. apple
+89:   2. apple
+90:   3. apple
+91:   4. apple
+92:   5. apple
+93:   6. apple
+94:   7. apple
+95:   8. apple
+96:   9. apple
+97:   10. apple
+98:   11. apple
+99:   12. apple
+100:   13. apple
+101:   14. apple
+102:   15. apple
+103:   16. apple
+104:   17. apple
+105:   18. apple
+106:   19. apple
+107:   20. apple
+108: 
+109: ✻ Crunched for 5s · done 10:43 PM
+110: 
+111: ─────────────────────────────────────────────────────────────────────────────
+112: >
+113: ─────────────────────────────────────────────────────────────────────────────
+114:   🌿 check-terminal-output                                              /rc
+115:   📁 tiny-repo  ·  [░░░░░░░░░░] 99k/1.0M
+116:   ⏵⏵ auto mode on (shift+tab to cycle) · ← 2 agents

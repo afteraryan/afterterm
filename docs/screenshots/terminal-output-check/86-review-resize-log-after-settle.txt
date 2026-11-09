@@ -1,0 +1,33 @@
+[resize] 2026-11-09T11:24:06.871Z tab-1 spawned at 112x42
+[harness] 2026-11-09T11:24:11.593Z edge-drag hold starts
+[harness] 2026-11-09T11:24:11.598Z edge-drag step width=1230
+[harness] 2026-11-09T11:24:11.853Z edge-drag step width=1180
+[harness] 2026-11-09T11:24:12.119Z edge-drag step width=1130
+[harness] 2026-11-09T11:24:12.384Z edge-drag step width=1080
+[harness] 2026-11-09T11:24:12.647Z edge-drag step width=1030
+[harness] 2026-11-09T11:24:12.913Z edge-drag step width=1000
+[harness] 2026-11-09T11:24:13.173Z edge-drag emits resized
+[harness] 2026-11-09T11:24:13.174Z edge-drag hold ends (resized)
+[resize] 2026-11-09T11:24:13.298Z tab-1 77x42
+[harness] 2026-11-09T11:24:15.294Z edge-drag hold starts
+[harness] 2026-11-09T11:24:15.299Z edge-drag step width=1050
+[harness] 2026-11-09T11:24:15.562Z edge-drag step width=1100
+[harness] 2026-11-09T11:24:15.825Z edge-drag step width=1150
+[harness] 2026-11-09T11:24:16.088Z edge-drag step width=1200
+[harness] 2026-11-09T11:24:16.351Z edge-drag step width=1250
+[harness] 2026-11-09T11:24:16.620Z edge-drag step width=1280
+[harness] 2026-11-09T11:24:18.124Z edge-drag hold ends (quiet)
+[resize] 2026-11-09T11:24:18.249Z tab-1 112x42
+[harness] 2026-11-09T11:24:19.999Z edge-drag hold starts
+[harness] 2026-11-09T11:24:20.003Z edge-drag step width=1230
+[harness] 2026-11-09T11:24:20.007Z edge-drag step width=1180
+[harness] 2026-11-09T11:24:20.012Z edge-drag step width=1130
+[harness] 2026-11-09T11:24:20.017Z edge-drag step width=1080
+[harness] 2026-11-09T11:24:20.022Z edge-drag step width=1030
+[harness] 2026-11-09T11:24:20.027Z edge-drag step width=1000
+[harness] 2026-11-09T11:24:20.027Z edge-drag emits resized
+[harness] 2026-11-09T11:24:20.027Z edge-drag hold ends (resized)
+[resize] 2026-11-09T11:24:20.155Z tab-1 77x42
+[resize] 2026-11-09T11:24:38.524Z tab-1 110x42
+[resize] 2026-11-09T11:24:40.153Z tab-1 77x42
+[resize] 2026-11-09T11:24:42.730Z tab-3 spawned at 77x42

@@ -254,9 +254,11 @@ contextBridge.exposeInMainWorld('afterterm', {
     // attached: main already held a running shell for this tab (the page was
     // reloaded), and the terminal joined it instead of spawning one (AFT-33).
     // attachOnly: a thread restored as re-attached; main spawns nothing when its shell
-    // has ended and answers gone. cols and rows come with an attach.
-    create: (tabId: string, shellId?: string, cwd?: string, attachOnly?: boolean): Promise<{ pid: number; attached: boolean; gone?: boolean; cols?: number; rows?: number }> =>
-      ipcRenderer.invoke('pty:create', tabId, shellId, cwd, attachOnly),
+    // has ended and answers gone. cols and rows sent: the terminal's size, so a new
+    // PTY starts at it (AFT-11). cols and rows answered: the PTY's real size, the
+    // shell's own for an attach, the size it was spawned at for a new one.
+    create: (tabId: string, shellId?: string, cwd?: string, attachOnly?: boolean, cols?: number, rows?: number): Promise<{ pid: number; attached: boolean; gone?: boolean; cols?: number; rows?: number }> =>
+      ipcRenderer.invoke('pty:create', tabId, shellId, cwd, attachOnly, cols, rows),
 
     write: (tabId: string, data: string): void =>
       ipcRenderer.send('pty:input', tabId, data),
@@ -328,6 +330,15 @@ contextBridge.exposeInMainWorld('afterterm', {
     onChildren: (callback: (data: { tabId: string; hasChildren: boolean | null }) => void): void => {
       ipcRenderer.on('pty:children', (_event, data) => callback(data));
     },
+
+    // A drag of the window's edge starts (true) or ends (false). The PTY resizes are
+    // held through it and the final size sent once (AFT-11, resizeGate.ts). Returns
+    // the unsubscribe.
+    onEdgeDrag: (callback: (dragging: boolean) => void): (() => void) => {
+      const handler = (_event: IpcRendererEvent, dragging: boolean) => callback(dragging);
+      ipcRenderer.on('window:edge-drag', handler);
+      return () => { ipcRenderer.removeListener('window:edge-drag', handler); };
+    },
   },
 
   // Agent harness only (main registers the handler under AFTERTERM_HARNESS=1;
@@ -340,5 +351,9 @@ contextBridge.exposeInMainWorld('afterterm', {
     // the last answer from Windows (or the override) and the helper's pid.
     notifier: (): Promise<unknown> =>
       ipcRenderer.invoke('harness:notifier'),
+    // A drag of the window's edge played through the window's own will-resize and
+    // resized events (AFT-11): one step per width, then resized when `end` is true.
+    edgeDrag: (plan: { widths: number[]; stepMs?: number; end?: boolean }): Promise<unknown> =>
+      ipcRenderer.invoke('harness:edge-drag', plan),
   },
 });

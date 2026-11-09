@@ -1,0 +1,21 @@
+[resize] 2026-11-09T10:59:23.109Z tab-1 spawned at 112x42
+[resize] 2026-11-09T10:59:26.727Z tab-3 spawned at 112x42
+[resize] 2026-11-09T10:59:40.444Z tab-3 145x42
+[resize] 2026-11-09T10:59:42.072Z tab-3 112x42
+[harness] pty:attach tab-1 pid=35184 size=112x42
+[harness] pty:attach tab-3 pid=53204 size=112x42
+[resize] 2026-11-09T10:59:52.100Z tab-1 112x41
+[resize] 2026-11-09T10:59:52.102Z tab-3 112x41
+[resize] 2026-11-09T10:59:52.162Z tab-1 112x42
+[resize] 2026-11-09T10:59:52.162Z tab-3 112x42
+[resize] 2026-11-09T11:00:18.164Z tab-3 77x42
+[resize] 2026-11-09T11:00:21.040Z tab-3 83x42
+[resize] 2026-11-09T11:00:21.306Z tab-3 89x42
+[resize] 2026-11-09T11:00:21.572Z tab-3 95x42
+[resize] 2026-11-09T11:00:21.838Z tab-3 101x42
+[resize] 2026-11-09T11:00:22.103Z tab-3 106x42
+[resize] 2026-11-09T11:00:22.367Z tab-3 112x42
+[resize] 2026-11-09T11:00:34.408Z tab-3 54x42
+[resize] 2026-11-09T11:00:34.409Z tab-1 54x42
+[resize] 2026-11-09T11:00:37.257Z tab-3 37x42
+[resize] 2026-11-09T11:00:37.258Z tab-1 72x42

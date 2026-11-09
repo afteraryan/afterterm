@@ -1,0 +1,48 @@
+{
+  "version": 3,
+  "tabs": [
+    {
+      "id": "tab-1",
+      "title": "cmd",
+      "groupId": "g-check",
+      "shellId": "cmd",
+      "cwd": "D:\\Pitara\\Work\\Tinkering\\afterterm\\.claude\\worktrees\\output-check\\docs\\screenshots\\terminal-output-check",
+      "lastActiveAt": 1794157033501,
+      "asleep": true
+    },
+    {
+      "id": "tab-2",
+      "title": "cmd",
+      "groupId": "g-check",
+      "shellId": "cmd",
+      "cwd": "D:\\Pitara\\Work\\Tinkering\\afterterm\\.claude\\worktrees\\output-check\\docs\\screenshots\\terminal-output-check",
+      "lastActiveAt": 1794156973501,
+      "asleep": true
+    },
+    {
+      "id": "tab-3",
+      "title": "chat",
+      "groupId": "g-check",
+      "shellId": "cmd",
+      "cwd": "D:\\Pitara\\Work\\Tinkering\\afterterm\\.claude\\worktrees\\output-check\\docs\\screenshots\\terminal-output-check\\tiny-repo",
+      "lastActiveAt": 1794156913501,
+      "asleep": true
+    }
+  ],
+  "groups": [
+    {
+      "id": "g-check",
+      "label": "Output check",
+      "color": "blue",
+      "collapsed": false,
+      "cwd": "D:\\Pitara\\Work\\Tinkering\\afterterm\\.claude\\worktrees\\output-check\\docs\\screenshots\\terminal-output-check",
+      "shellId": "cmd",
+      "pinned": true,
+      "archived": false,
+      "lastActiveAt": 1794157033501,
+      "history": []
+    }
+  ],
+  "activeTabId": "tab-1",
+  "ui": {}
+}

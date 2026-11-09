@@ -1751,6 +1751,39 @@ function createWindow() {
   mainWindow.on('focus', () => stepNotifierHold({ type: 'poll' }));
   mainWindow.on('blur', () => stepNotifierHold({ type: 'poll' }));
 
+  // A drag of the window's edge (AFT-11). Every resize a PTY gets makes a full-screen
+  // program like Claude Code redraw, and each redraw after the terminal got narrower
+  // leaves a copy of the top of its screen in the scrollback, so the renderer holds
+  // its PTY resizes from the drag's first step to its end and sends the final size
+  // once (resizeGate.ts). Electron raises 'will-resize' for each step of a drag of
+  // the edge (WM_SIZING) and 'resized' when it is let go (WM_EXITSIZEMOVE); a
+  // maximize or a setBounds raises no 'will-resize' and resizes at once as before.
+  // A drag held still longer than EDGE_DRAG_QUIET_MS also ends the hold, so a missed
+  // 'resized' can never leave the terminals unsized.
+  const EDGE_DRAG_QUIET_MS = 1500;
+  let edgeDragging = false;
+  let edgeDragQuiet: NodeJS.Timeout | null = null;
+  const harnessLog = (line: string) => {
+    if (process.env.AFTERTERM_HARNESS === '1') console.log(`[harness] ${new Date().toISOString()} ${line}`);
+  };
+  const endEdgeDrag = (why: 'resized' | 'quiet') => {
+    if (edgeDragQuiet) { clearTimeout(edgeDragQuiet); edgeDragQuiet = null; }
+    if (!edgeDragging) return;
+    edgeDragging = false;
+    harnessLog(`edge-drag hold ends (${why})`);
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('window:edge-drag', false);
+  };
+  mainWindow.on('will-resize', () => {
+    if (!edgeDragging) {
+      edgeDragging = true;
+      harnessLog('edge-drag hold starts');
+      mainWindow?.webContents.send('window:edge-drag', true);
+    }
+    if (edgeDragQuiet) clearTimeout(edgeDragQuiet);
+    edgeDragQuiet = setTimeout(() => endEdgeDrag('quiet'), EDGE_DRAG_QUIET_MS);
+  });
+  mainWindow.on('resized', () => endEdgeDrag('resized'));
+
   mainWindow.on('close', (e) => {
     if (isQuitting || ptys.size === 0) return;
     // A harness run (scripts/agent-harness, AFTERTERM_HARNESS=1) quits through
@@ -1963,6 +1996,37 @@ function hideNotifierForHold() {
     notifierWindow.setIgnoreMouseEvents(true);
   }
   setNotifierOnScreen(false);
+}
+
+// Agent harness only (AFT-11): a drag of the window's edge played through the window's
+// own events, since a real drag needs the person's mouse. Each width is one step: the
+// window emits 'will-resize' (what Electron raises for WM_SIZING) and is set to that
+// width; with `end`, it then emits 'resized' (WM_EXITSIZEMOVE), and without it the
+// 1.5 s quiet fallback has to end the hold. Widths are clamped to the window's own
+// display, so it stays on the harness display.
+if (process.env.AFTERTERM_HARNESS === '1') {
+  ipcMain.handle('harness:edge-drag', async (_event, plan: { widths?: unknown; stepMs?: unknown; end?: unknown } | undefined) => {
+    const win = mainWindow;
+    if (!win || win.isDestroyed()) return { ok: false, reason: 'no main window' };
+    const widths = Array.isArray(plan?.widths) ? plan.widths.filter((w): w is number => Number.isInteger(w) && w >= 400) : [];
+    const stepMs = typeof plan?.stepMs === 'number' && plan.stepMs >= 0 && plan.stepMs <= 2000 ? plan.stepMs : 200;
+    const area = screen.getDisplayMatching(win.getBounds()).workArea;
+    const steps: string[] = [];
+    for (const w of widths) {
+      const b = win.getBounds();
+      const width = Math.min(w, area.x + area.width - b.x);
+      win.emit('will-resize', { preventDefault: () => {} }, { ...b, width }, { edge: 'right' });
+      win.setBounds({ ...b, width });
+      steps.push(`${new Date().toISOString()} width ${width}`);
+      console.log(`[harness] ${new Date().toISOString()} edge-drag step width=${width}`);
+      if (stepMs) await new Promise(r => setTimeout(r, stepMs));
+    }
+    if (plan?.end === true) {
+      console.log(`[harness] ${new Date().toISOString()} edge-drag emits resized`);
+      win.emit('resized');
+    }
+    return { ok: true, steps, ended: plan?.end === true };
+  });
 }
 
 // Agent harness only: what main knows about the overlay and the hold.
@@ -2431,7 +2495,20 @@ ipcMain.handle('editors:choose', async () => {
 
 // ─── IPC: create PTY ─────────────────────────────────────────────────────────
 
-ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: string, attachOnly?: boolean) => {
+// Test probe for AFT-11: AFTERTERM_RESIZE_PROBE=1 logs every PTY's spawn size and
+// every resize it is sent ([resize] lines in the harness log), which is how a test
+// counts the resizes a program such as Claude Code gets.
+const RESIZE_PROBE = process.env.AFTERTERM_RESIZE_PROBE === '1';
+
+// The size a PTY is spawned at: the terminal's own (AFT-11), so it never has to be
+// resized straight after, which makes a full-screen program redraw. 80x24, xterm's
+// default, when the renderer sends nothing usable.
+function ptySpawnSize(cols: unknown, rows: unknown): { cols: number; rows: number } {
+  const ok = (n: unknown, max: number): n is number => Number.isInteger(n) && (n as number) >= 1 && (n as number) <= max;
+  return ok(cols, 2000) && ok(rows, 1000) ? { cols, rows } : { cols: 80, rows: 24 };
+}
+
+ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: string, attachOnly?: boolean, cols?: number, rows?: number) => {
   // AFT-33: the page reloaded (or came back after a crash) while this thread's shell
   // kept running. The page's new terminal attaches to it: nothing is spawned, and the
   // shell's output already goes to this window's page, whichever page it holds now.
@@ -2451,6 +2528,7 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
   }
 
   const shell = getShellById(shellId);
+  const size = ptySpawnSize(cols, rows);
 
   // Clean PATH: strip stray quotes that corrupt cmd.exe's command resolution.
   // AFTERTERM_TAB_ID + AFTERTERM_SESSION_DIR let the bundled notify hook write this
@@ -2527,14 +2605,15 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
 
   const p = pty.spawn(plan.command, plan.args, {
     name: 'xterm-256color',
-    cols: 80,
-    rows: 24,
+    cols: size.cols,
+    rows: size.rows,
     cwd: plan.cwd,
     env: plan.env,
   });
 
   ptys.set(tabId, p);
   ptyCreatedAt.set(tabId, Date.now());
+  if (RESIZE_PROBE) console.log(`[resize] ${new Date().toISOString()} ${tabId} spawned at ${size.cols}x${size.rows}`);
 
   // Server watching: remember this tab's shell pid, mark the cached process list as
   // out of date, keep the slow poll running, and look once a second from now (a shell
@@ -2581,7 +2660,9 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
     if (ptys.size === 0) stopServerPolling();
   });
 
-  return { pid: p.pid, attached: false };
+  // The size it was really spawned at (AFT-11): the renderer's resize gate starts
+  // from it, so an out-of-range ask that fell back to 80x24 is never taken as sent.
+  return { pid: p.pid, attached: false, cols: size.cols, rows: size.rows };
 });
 
 // ─── IPC: write to PTY ───────────────────────────────────────────────────────
@@ -2597,6 +2678,7 @@ ipcMain.on('pty:input', (_event, tabId: string, data: string) => {
 
 ipcMain.on('pty:resize', (_event, tabId: string, cols: number, rows: number) => {
   const p = ptys.get(tabId);
+  if (RESIZE_PROBE) console.log(`[resize] ${new Date().toISOString()} ${tabId} ${cols}x${rows}`);
   if (p) {
     try { p.resize(cols, rows); } catch { /* already dead */ }
   }

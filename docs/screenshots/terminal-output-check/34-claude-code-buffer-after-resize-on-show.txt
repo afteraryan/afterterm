@@ -1,0 +1,94 @@
+0: Microsoft Windows [Version 10.0.26200.9711]
+1: (c) Microsoft Corporation. All rights reserved.
+2: 
+3: D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\output-check\docs\screenshots\terminal-output-check\tiny-
+4: repo>set CLAUDE_CONFIG_DIR=
+5: 
+6: D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\output-check\docs\screenshots\terminal-output-check\tiny-
+7: repo>claude --model haiku
+8:  ▐▛███▛█   Claude Code v2.1.319
+9: ▝▜██████▀  Haiku 5.5 · Claude Max
+10:  ▝▝   ▝▝   D:\Pitara\Work\Tinkering\afterterm\.claude\worktrees\output-check\docs\screenshots\terminal-outp…
+11: 
+12: 
+13: > This is a test of how a terminal draws a long prompt that has many lines in it.
+14:   Line two: the words here do not matter, only how they look once the prompt is sent.
+15:   Line three: a terminal shows the prompt again under a marker after it is submitted.
+16:   Line four: someone saw the top part of such a prompt drawn in a dimmer grey.
+17:   Line five: the lines after that part were drawn in the normal text colour.
+18:   Line six: this test sends a prompt of fifteen lines to see whether that happens again.
+19:   Line five: the lines after that part were drawn in the normal text colour.
+20:   Line six: this test sends a prompt of fifteen lines to see whether that happens again.
+21:   Line seven: nothing in this folder needs to be read or changed for the answer.
+22:   Line eight: please do not run any tools, do not read any files, and do not search.
+23:   Line five: the lines after that part were drawn in the normal text colour.
+24:   Line six: this test sends a prompt of fifteen lines to see whether that happens again.
+25:   Line seven: nothing in this folder needs to be read or changed for the answer.
+26:   Line eight: please do not run any tools, do not read any files, and do not search.
+27:   Line six: this test sends a prompt of fifteen lines to see whether that happens again.
+28:   Line seven: nothing in this folder needs to be read or changed for the answer.
+29:   Line eight: please do not run any tools, do not read any files, and do not search.
+30:   Line six: this test sends a prompt of fifteen lines to see whether that happens again.
+31:   Line seven: nothing in this folder needs to be read or changed for the answer.
+32:   Line eight: please do not run any tools, do not read any files, and do not search.
+33:   Line six: this test sends a prompt of fifteen lines to see whether that happens again.
+34:   Line seven: nothing in this folder needs to be read or changed for the answer.
+35:   Line eight: please do not run any tools, do not read any files, and do not search.
+36:   Line four: someone saw the top part of such a prompt drawn in a dimmer grey.
+37:   Line five: the lines after that part were drawn in the normal text colour.
+38:   Line six: this test sends a prompt of fifteen lines to see whether that happens
+39:   again.
+40:   Line seven: nothing in this folder needs to be read or changed for the answer.
+41:   Line eight: please do not run any tools, do not read any files, and do not
+42:   search.
+43:   Line nine: the answer should be short so the test stays cheap and quick.
+44:   Line ten: after the answer the window will be resized twice on purpose.
+45:   Line eleven: the resizes check whether the answer gets printed a second tim  Line six: this test sends a pro
+46: mpt of fifteen lines to see whether that
+47:   happens again.
+48:   Line seven: nothing in this folder needs to be read or changed for the
+49:   answer.
+50:   Line six: this test sends a prompt of fifteen lines to see whether that happens again.
+51:   Line seven: nothing in this folder needs to be read or changed for the answer.
+52:   Line eight: please do not run any tools, do not read any files, and do not search.
+53:   Line six: this test sends a prompt of fifteen lines to see whether that happens again.
+54:   Line seven: nothing in this folder needs to be read or changed for the answer.
+55:   Line eight: please do not run any tools, do not read any files, and do not search.
+56:   Line nine: the answer should be short so the test stays cheap and quick.
+57:   Line ten: after the answer the window will be resized twice on purpose.
+58:   Line eleven: the resizes check whether the answer gets printed a second time.
+59:   Line twelve: so the answer must be easy to recognise when it is repeated.
+60:   Line thirteen: each line of the answer should start with its own number.
+61:   Line fourteen: the list below is what to print, and it is the whole task.
+62:   Print a numbered list from 1 to 20 with the word apple after each number, one item per line, and nothing
+63:   else.
+64: 
+65: ● 1. apple
+66:   2. apple
+67:   3. apple
+68:   4. apple
+69:   5. apple
+70:   6. apple
+71:   7. apple
+72:   8. apple
+73:   9. apple
+74:   10. apple
+75:   11. apple
+76:   12. apple
+77:   13. apple
+78:   14. apple
+79:   15. apple
+80:   16. apple
+81:   17. apple
+82:   18. apple
+83:   19. apple
+84:   20. apple
+85: 
+86: ✻ Crunched for 5s · done 10:43 PM
+87: 
+88: ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+89: >
+90: ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+91:   🌿 check-terminal-output                                                                               /rc
+92:   📁 tiny-repo  ·  [░░░░░░░░░░] 99k/1.0M
+93:   ⏵⏵ auto mode on (shift+tab to cycle) · ← 2 agents
