@@ -1,0 +1,33 @@
+AFT-72 toast hold, override rows (2026-11-09): the dev build's [harness] notifier lines from its harness.log.
+The lines before the second 'held' are a first attempt that stopped at its first capture (a bug in the capture script, since fixed) and left a toast held, polled every 3 seconds; the rows in 30-toast-hold-override-samples.json start at the second 'held'.
+
+[harness] notifier:main-focus true
+[harness] notifier:main-focus false
+[harness] notifier: busy from override file in 0 ms, held (visible false)
+[harness] notifier: busy from override file in 0 ms, still held (visible false)
+[harness] notifier: busy from override file in 0 ms, still held (visible false)
+[harness] notifier: busy from override file in 0 ms, still held (visible false)
+[harness] notifier: busy from override file in 0 ms, still held (visible false)
+[harness] notifier: busy from override file in 0 ms, still held (visible false)
+[harness] notifier: busy from override file in 0 ms, still held (visible false)
+[harness] notifier: busy from override file in 0 ms, still held (visible false)
+[harness] notifier: busy from override file in 0 ms, still held (visible false)
+[harness] notifier: busy from override file in 0 ms, still held (visible false)
+[harness] notifier: busy from override file in 0 ms, still held (visible false)
+[harness] notifier: busy from override file in 0 ms, still held (visible false)
+[harness] notifier: busy from override file in 0 ms, held (visible false)
+[harness] notifier: busy from override file in 0 ms, still held (visible false)
+[harness] notifier: busy from override file in 0 ms, still held (visible false)
+[harness] notifier: accepts from override file in 0 ms, shown after the hold (visible true)
+[harness] notifier: accepts from override file in 0 ms, shown (visible true)
+[harness] notifier: presentation from override file in 0 ms, held (visible false)
+[harness] notifier: fullscreen from override file in 0 ms, still held (visible false)
+[harness] notifier: unknown from override file in 0 ms, shown after the hold (visible true)
+[harness] notifier: accepts from override file in 0 ms, shown (visible true)
+[harness] notifier: unknown from override file in 0 ms, shown (visible true)
+[harness] notifier: busy from override file in 0 ms, held (visible false)
+[harness] notifier: busy from override file in 0 ms, still held (visible false)
+[harness] notifier: busy from override file in 0 ms, still held (visible false)
+[harness] notifier: accepts from override file in 0 ms, shown after the hold (visible true)
+[harness] notifier: accepts from override file in 0 ms, shown (visible true)
+[harness] notifier: busy from override file in 0 ms, held (visible false)

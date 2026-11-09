@@ -2,8 +2,8 @@
 //
 // %APPDATA%\afterterm\prefs.json holds the app's small settings: the Claude hook
 // opt-out (acted on by claude-hook-install.ts, which reads it through readPrefs
-// below), the time the app was last opened, the hand-picked editorPath and the
-// update choices.
+// below), the time the app was last opened, the hand-picked editorPath, the
+// update choices and the toast hold's opt-out.
 //
 // One rule everywhere: a prefs.json that is not valid JSON, or that could not be
 // read, is treated as empty when reading and is never overwritten. Someone
@@ -26,6 +26,11 @@ export interface AftertermPrefs {
   // Per-shell opt-out for the OSC 133/9;9 prompt integration (Phase 6). A shell
   // missing here, or set to anything but 'off', keeps integration on.
   shellIntegration?: Partial<Record<'cmd' | 'pwsh' | 'powershell' | 'gitbash' | 'wsl', 'on' | 'off'>>;
+  // The toast hold (AFT-72, notify-hold.ts): false shows every toast at once, as
+  // before, even over a full-screen app or a presentation. Missing, or anything
+  // but false, keeps the hold on. Read on every question, so a hand edit applies
+  // at once.
+  toastsWaitForFullScreen?: boolean;
   // Automatic updates (design-05, src/updater.ts). The About window's switch
   // turns the automatic checks off; Skip and Later hold one version back; the
   // last check time is shown in the About window; pendingUpdate is written just

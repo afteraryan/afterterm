@@ -1,0 +1,22 @@
+AFT-72: what asking Windows costs (measured 2026-11-09 on Aryan's machine, Windows 11 26200)
+
+One PowerShell per question (Windows PowerShell 5.1, -NoProfile -NonInteractive, wall time from the caller):
+  Add-Type P/Invoke (csc.exe compile)    700, 651, 627 ms
+  Reflection.Emit P/Invoke (no compile)   539, 518, 507 ms
+  Reflection.Emit, measured by the process itself: wall 565, 478, 497 ms; CPU 531, 531, 547 ms
+  PowerShell 7 (pwsh) is slower: Add-Type 1584, 1124 ms; Emit 871, 917 ms
+Every answer was quns=5 (accepts notifications).
+
+So one PowerShell every 3 seconds costs about 530 ms of CPU each time, about a sixth of a core
+for as long as the toasts are held (a whole game, for example).
+
+The helper that stays (src/notify-state-probe.ts, Reflection.Emit, one line per question):
+  run directly with Node: 447 ms to the first answer (the start), then 0, 0, 0 ms;
+  gone 15 s after the last question; a new question after that started a new one (390 ms);
+  dispose() ended it; no powershell.exe left behind (checked by pid).
+  in the dev build (45-real-check-harness-log.txt): 638 ms for the question that started it,
+  then 0 to 1 ms; helperPid null after the toasts went (44-real-check-after-the-toasts-went-helper-gone.json).
+
+After adding the foreground window check to the same helper (2026-11-09, eleven P/Invokes instead of one):
+  run directly with Node: 738 ms to the first answer, then 2, 3, 4 ms;
+  in the dev build (51-two-signals-real-check-harness-log.txt): 490 ms to start, then 2 to 39 ms.

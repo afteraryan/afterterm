@@ -1,0 +1,8 @@
+AFT-72 toast hold: rows a, b, c, e and f of hold-test.mjs run again on 2026-11-09 after merging origin/main
+(0291330, the reload key fix), with the override file, on the secondary display. Summary lines only.
+
+{"t":6502,"row":"a","what":"summary","heldAtFirst":true,"cardWaitingInOverlay":true,"shownAfterMs":541,"pushToShownMs":6077}
+{"t":16651,"row":"b","what":"summary","hiddenAfterMs":3062,"shownAfterMs":2509}
+{"t":17095,"row":"c","what":"summary","pushToVisibleMs":23,"sampledTook":13}
+{"t":31937,"row":"e","what":"summary","stillThereAfter8sHeld":true,"deadlineWhileHeld":{"row-e-4":null},"shownAfterMs":1090,"goneMsAfterShown":5017}
+{"t":37161,"row":"f","what":"summary","holdEnded":true,"pollingStopped":true,"probesStayed":true,"visible":false}

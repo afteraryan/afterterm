@@ -1,0 +1,108 @@
+[
+  {
+    "phase": "p0",
+    "what": "start",
+    "at": "02:24:41.130",
+    "windowsToThisScript": "accepts"
+  },
+  {
+    "phase": "p0",
+    "what": "1.5 s after the push",
+    "at": "02:24:43.112",
+    "windowsToThisScript": "accepts",
+    "visible": true,
+    "held": false,
+    "toasts": true,
+    "probes": 1,
+    "lastProbe": {
+      "state": "accepts",
+      "source": "windows quns=5 fg=0, helper started",
+      "ms": 490,
+      "at": 1794171281785
+    },
+    "helperPid": 45180
+  },
+  {
+    "phase": "p0",
+    "what": "capture",
+    "at": "02:24:44.435",
+    "result": "\\\\.\\DISPLAY2 work area (1920,0 1920x1032), crop 1500,712 420x320"
+  },
+  {
+    "phase": "p2",
+    "what": "stand-in brought to the front",
+    "at": "02:24:46.193",
+    "formIsForeground": true,
+    "windowsToThisScript": "accepts"
+  },
+  {
+    "phase": "p2",
+    "what": "1.5 s after the push",
+    "at": "02:24:47.940",
+    "windowsToThisScript": "accepts",
+    "visible": false,
+    "held": true,
+    "toasts": true,
+    "probes": 2,
+    "lastProbe": {
+      "state": "window-fullscreen",
+      "source": "windows quns=5 fg=1",
+      "ms": 39,
+      "at": 1794171286340
+    },
+    "helperPid": 45180
+  },
+  {
+    "phase": "p2",
+    "what": "capture",
+    "at": "02:24:49.182",
+    "result": "\\\\.\\DISPLAY2 work area (1920,0 1920x1032), crop 1500,712 420x320"
+  },
+  {
+    "phase": "p2",
+    "what": "4 s after the push, after one poll",
+    "at": "02:24:51.816",
+    "windowsToThisScript": "accepts",
+    "visible": false,
+    "held": true,
+    "toasts": true,
+    "probes": 3,
+    "lastProbe": {
+      "state": "window-fullscreen",
+      "source": "windows quns=5 fg=1",
+      "ms": 3,
+      "at": 1794171289352
+    },
+    "helperPid": 45180
+  },
+  {
+    "phase": "p3",
+    "what": "stand-in closed",
+    "at": "02:24:52.496",
+    "shownAfterMs": 672,
+    "foregroundRestored": true
+  },
+  {
+    "phase": "p3",
+    "what": "after the stand-in closed",
+    "at": "02:24:52.632",
+    "windowsToThisScript": "accepts",
+    "visible": true,
+    "held": false,
+    "toasts": true,
+    "probes": 4,
+    "lastProbe": {
+      "state": "accepts",
+      "source": "windows quns=5 fg=0",
+      "ms": 2,
+      "at": 1794171292360
+    },
+    "helperPid": 45180
+  },
+  {
+    "phase": "p3",
+    "what": "capture",
+    "at": "02:24:53.989",
+    "result": "\\\\.\\DISPLAY2 work area (1920,0 1920x1032), crop 1500,712 420x320"
+  }
+]
