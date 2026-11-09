@@ -33,6 +33,7 @@ The issues are in workspace "afteraryan builds", team `Afteraryan builds` (key A
 6. **When it ships, move it to Done.** Shipped means its PR is merged after the self-test, or the change is made when there is no PR. Comment with what changed and the PR. Nobody checks it again. A PR waiting for Aryan to merge it is blocked on him (rule 4), with the PR in the comment. Only when something needs his own judgement (how it looks, his own hardware or accounts), move it to Fixed, check it instead, with numbered steps to check it. He is never asked to try half-built work. Work that is dropped goes to Canceled, with the reason.
 7. **A problem found after Done is a new issue,** linked to the old one with `relatedTo`. If Aryan says something in Fixed, check it does not work, move it back to Todo with his words in a comment.
 8. **One session per issue.** In Progress with a recent comment means someone is on it: ask before taking it. A subagent gets the issue id in its prompt; the session that started the work keeps the issue current.
+9. **When only time can tell, move it to Under Testing.** This is for an issue nobody is working on that is being watched in daily use: a bug that would not reproduce after a real attempt, or a fix that cannot be proven at a desk. Comment with what was tried, what Aryan should capture if it happens again, and when to close it if it does not. If it happens again, it goes back to Todo with the new evidence. Aryan added this status on 2026-11-09; its first use was AFT-13.
 
 | Status | What it means |
 |---|---|
@@ -41,6 +42,7 @@ The issues are in workspace "afteraryan builds", team `Afteraryan builds` (key A
 | Todo | Ready to start |
 | In Progress | An agent is working on it now |
 | Fixed, check it | Finished, but waiting for something only Aryan can judge (rare) |
+| Under Testing | Nobody is working on it: it is being watched in daily use to see whether it happens again |
 | Done | Shipped: merged after the self-test |
 | Canceled, Duplicate | Not being done |
 
