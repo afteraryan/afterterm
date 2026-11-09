@@ -1,0 +1,3 @@
+2026-11-08T20:39:41.023Z main: page loaded with 2 live shell(s): tab-101, tab-102
+2026-11-08T20:40:04.403Z main: tab-999's shell ended before its terminal could attach; nothing spawned
+pty.create('tab-999', 'cmd', undefined, true) answered {"pid":0,"attached":false,"gone":true}; no [harness] pty:create line for tab-999; cmd shells under electron unchanged.

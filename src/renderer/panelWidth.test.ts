@@ -4,7 +4,7 @@
 
 import {
   PANEL_DEFAULT_WIDTH, PANEL_MIN_WIDTH, PANEL_MAX_SHARE, PANEL_SAVED_MAX,
-  panelMaxWidth, clampPanelWidth, widthAfterDrag, asPanelWidth, savedUi,
+  panelMaxWidth, clampPanelWidth, widthAfterDrag, asPanelWidth, savedUi, dragStartWidth,
 } from './panelWidth.ts';
 
 let pass = 0, fail = 0;
@@ -36,6 +36,21 @@ console.log('\npanelWidth: clampPanelWidth\n');
   check('a fraction is rounded to a whole pixel', clampPanelWidth(300.6, 1280) === 301, show(clampPanelWidth(300.6, 1280)));
   check('the same saved width is allowed on a bigger window', clampPanelWidth(700, 1920) === 700);
   check('and held to half on a smaller one', clampPanelWidth(700, 1000) === 500, show(clampPanelWidth(700, 1000)));
+}
+
+console.log('\npanelWidth: dragStartWidth, where a drag starts from\n');
+{
+  check('the set width, when the panel is drawn at it', dragStartWidth(421, 421) === 421);
+  check('the set width, while the panel is still easing open from zero', dragStartWidth(421, 37) === 421);
+  check('the set width, while a reloaded page eases from the default to it', dragStartWidth(421, 300) === 421);
+  check('a drag from a panel still easing open ends where the pointer went, not at the minimum',
+    widthAfterDrag(dragStartWidth(421, 37), 497, 547, 1900) === 471, show(widthAfterDrag(dragStartWidth(421, 37), 497, 547, 1900)));
+  check('measured from the drawn width it would have hit the minimum',
+    widthAfterDrag(37, 497, 547, 1900) === PANEL_MIN_WIDTH);
+  check('the drawn width when the set one is not a number', dragStartWidth(NaN, 300.4) === 300);
+  check('the drawn width when the set one is below the minimum', dragStartWidth(0, 264) === 264);
+  check('the default when neither is a number', dragStartWidth(NaN, NaN) === PANEL_DEFAULT_WIDTH);
+  check('a whole number of pixels', dragStartWidth(421.6, 0) === 422);
 }
 
 console.log('\npanelWidth: widthAfterDrag\n');

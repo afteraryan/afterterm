@@ -30,7 +30,7 @@ import { Tab, TabNotification, nextGroupColor } from './components/TabBar/types'
 import { groupColors } from './projectColour';
 import { onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, onRecordStatus, backgroundAfterTitle, backgroundAfterRecord, backgroundAfterPrompt, clearsWhenSeen, withBackground, initTiming, TabTiming } from './spinnerState';
 import { migrateSession, serializeSession } from './sessionMigration';
-import { sleepAllForShutdown, wakePlan } from './sleepWake';
+import { sleepAllForShutdown, wakePlan, screenAfterReload } from './sleepWake';
 import { toastMessage, initialScreen, threadName, automaticThreadName, threadKind, needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText, localhostUrl, threadFolder, threadFolderTarget, projectLookChanges } from './threadView';
 import { ProjectActions } from './projectMenu';
 import { buildThreadMenu } from './threadMenu';
@@ -66,6 +66,9 @@ const GIT_POLL_MS = 30_000;
 // (design-03 decision 1); under reduced motion there is nothing to see and the
 // switch is immediate.
 const PANEL_SLIDE_MS = 320;
+// How soon after a change main gets the page's state in memory (AFT-33): what a page
+// that crashes can lose at most, against the two seconds the file save waits.
+const REMEMBER_MS = 250;
 const reducedMotion = () =>
   typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -654,7 +657,8 @@ export function App() {
       window.afterterm.shells.list(),
       window.afterterm.session.load(),
       window.afterterm.update.takeLaunch(),
-    ]).then(([shellList, saved, landed]) => {
+      window.afterterm.recovery.state(),
+    ]).then(([shellList, saved, landed, recovered]) => {
       setShells(shellList);
       // The file may predate the current format (0.8.1 wrote no version field and
       // none of the project/thread fields); migrate fills defaults or rejects it.
@@ -662,14 +666,30 @@ export function App() {
       // Restored even with no threads at all: projects can exist without one. A
       // fresh profile starts with nothing running (no General thread spawned on
       // first launch, Yogansh 2026-10-29); either way the app opens on Home.
+      // AFT-33: when only the page reloaded (a crash, a hang, a reload), main still
+      // holds the shells that were running. Those threads come back awake and their
+      // new terminals attach to the same shells; a shell no saved thread names is
+      // ended, since nothing could reach it. A launch has no live shells.
+      const restored = session
+        ? state.restoreSession(session, recovered.threads)
+        : { reattached: [], orphans: recovered.threads.map(t => t.tabId) };
+      for (const id of restored.orphans) void window.afterterm.pty.destroy(id);
       if (session) {
-        state.restoreSession(session);
         setPanelHidden(!!session.ui?.panelHidden);
         setPanelWidth(session.ui?.panelWidth ?? PANEL_DEFAULT_WIDTH);
         setWindowWidth(window.innerWidth);
         setScreen(initialScreen(session.groups));
       } else {
         setScreen(initialScreen([]));
+      }
+      // And it opens where it was: the screen, project page and active thread main
+      // remembered for this run of the app. Nothing is remembered on a launch, which
+      // opens Home as always.
+      const back = screenAfterReload(recovered.ui, session?.groups.map(g => g.id) ?? [], session?.tabs.map(t => t.id) ?? []);
+      if (back) {
+        if (back.screen === 'project' && back.projectId) setProjectPageId(back.projectId);
+        setScreen(back.screen);
+        if (back.activeTabId) state.setActiveTabId(back.activeTabId);
       }
       // After an update restart, and only then (Aryan, 2026-10-30): back on the
       // screen and thread that were open, the threads that were awake woken (the
@@ -708,6 +728,39 @@ export function App() {
       if (stateRef.current.tabs.find(t => t.id === id)?.asleep) void wakeThreadRef.current(id);
     }, i * 250));
   }, [initialized]);
+
+  // AFT-33: main keeps the latest state in memory, a moment after every change, so
+  // a page that crashes or hangs before the two second save below still comes back
+  // with its last threads. Throttled, not debounced: a stream of changes (a chat's
+  // title) still reaches main every REMEMBER_MS. Memory only, nothing is written.
+  // Each thread's notification and background work go with it: they are never saved,
+  // and a chat waiting for Aryan must still show needs-you after a reload.
+  const rememberTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!initialized || rememberTimerRef.current) return;
+    rememberTimerRef.current = setTimeout(() => {
+      rememberTimerRef.current = null;
+      const s = stateRef.current;
+      const data = serializeSession(s.tabs, s.groups, s.activeTabId, savedUi(panelHiddenRef.current, panelWidthRef.current), undefined, s.splits);
+      const shown: Record<string, { notification?: string; backgroundTasks?: boolean }> = {};
+      for (const t of s.tabs) {
+        if (t.asleep || (!t.notification && !t.backgroundTasks)) continue;
+        shown[t.id] = { ...(t.notification ? { notification: t.notification } : {}), ...(t.backgroundTasks ? { backgroundTasks: true } : {}) };
+      }
+      window.afterterm.session.remember(JSON.stringify(data), shown);
+    }, REMEMBER_MS);
+  }, [initialized, state.tabs, state.groups, state.activeTabId, state.splits, panelHidden, panelWidth]);
+
+  // And what the page shows, so a reloaded page opens on the same screen, project
+  // page and thread (screenAfterReload).
+  useEffect(() => {
+    if (!initialized) return;
+    window.afterterm.recovery.noteUi({
+      screen,
+      ...(screen === 'project' && projectPageId ? { projectId: projectPageId } : {}),
+      ...(state.activeTabId ? { activeTabId: state.activeTabId } : {}),
+    });
+  }, [initialized, screen, projectPageId, state.activeTabId]);
 
   // Auto-save session (2s debounce after any state change). No threads at all is
   // a state worth saving too (the last one was closed); only an unloaded session
@@ -1634,7 +1687,7 @@ export function App() {
     );
   };
 
-  const tabInfos = state.tabs.map(t => ({ id: t.id, shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize, claudeSessionId: t.claudeSessionId, claudeCwd: t.claudeCwd, asleep: t.asleep, wokeAt: t.wokeAt, port: t.port, lastCommand: t.lastCommand }));
+  const tabInfos = state.tabs.map(t => ({ id: t.id, shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize, claudeSessionId: t.claudeSessionId, claudeCwd: t.claudeCwd, asleep: t.asleep, wokeAt: t.wokeAt, port: t.port, lastCommand: t.lastCommand, reattach: t.reattach }));
 
   const activeTab = state.tabs.find(t => t.id === state.activeTabId);
   const activeSplit = splitOf(state.splits, state.activeTabId);
@@ -1826,6 +1879,7 @@ export function App() {
               onOutput={handleOutput}
               onFontSizeChange={state.setTabFontSize}
               onExit={handlePtyExit}
+              onShellGone={(tabId) => stateRef.current.sleepTab(tabId)}
               onTail={handleTail}
               onCommand={handleCommand}
               onPromptState={handlePromptState}

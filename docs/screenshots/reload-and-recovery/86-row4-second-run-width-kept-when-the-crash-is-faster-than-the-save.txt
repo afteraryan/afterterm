@@ -1,0 +1,7 @@
+disk before the drag: {"panelHidden":false,"panelWidth":421}
+drag finished at 02:25:27.731
+crash sent at 02:25:27.875 (144 ms after the drag command exited)
+disk right after the crash was sent: {"panelHidden":false,"panelWidth":421} (the old width, so the 2 s save had not run)
+width after the reload: 180
+disk 5 s after the crash: {"panelHidden":false,"panelWidth":421}
+disk 8 s after the crash: {"panelHidden":false,"panelWidth":180}

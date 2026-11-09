@@ -1,6 +1,8 @@
 import type { RecordStatus } from '../../../claude-session-record';
+import type { TabNotification } from '../../../notification-states';
 
-export type TabNotification = 'done' | 'attention' | 'background' | 'compacting' | 'working';
+// The five states, listed once in notification-states.ts (TAB_NOTIFICATIONS).
+export type { TabNotification };
 
 export interface Tab {
   id: string;
@@ -113,6 +115,11 @@ export interface Tab {
   // while nothing louder is going on (spinnerState.ts, withBackground; AFT-25, AFT-43).
   // Absent means false.
   backgroundTasks?: boolean;
+  // Transient (NOT persisted): this thread came back from a reload of the window with
+  // its shell still running in main (AFT-33, reattachedTab in sleepWake.ts). Its
+  // terminal asks main to attach only, so a shell that ended meanwhile is never
+  // spawned again with a resume or a command typed into it. Cleared by sleep and wake.
+  reattach?: boolean;
 }
 
 export interface Group {

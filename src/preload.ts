@@ -105,6 +105,30 @@ contextBridge.exposeInMainWorld('afterterm', {
       ipcRenderer.sendSync('session:save-sync', data),
     load: (): Promise<any> =>
       ipcRenderer.invoke('session:load'),
+    // AFT-33: the latest state, kept by main in memory only, so a page that crashes
+    // before its next save still comes back with it.
+    // threads: what each thread shows that is never saved (its notification and
+    // background work), so a re-attached chat still shows needs-you after a reload.
+    remember: (data: string, threads?: Record<string, { notification?: string; backgroundTasks?: boolean }>): void =>
+      ipcRenderer.send('session:remember', data, threads),
+  },
+
+  // AFT-33: getting the window back without losing threads. state() is asked once as
+  // the page restores: the shells main still holds and what the page last showed
+  // (both empty on a launch). noteUi keeps main's copy of the screen current.
+  // onRepaint: main asks the terminals to redraw after the GPU process went away.
+  // test (harness only, main ignores it otherwise): crash the page, end the GPU process, or
+  // report the page unresponsive while a test keeps it busy.
+  recovery: {
+    state: (): Promise<{ threads: { tabId: string; port?: number | null }[]; ui: { screen: 'home' | 'workspace' | 'project'; projectId?: string; activeTabId?: string } | null }> =>
+      ipcRenderer.invoke('recovery:state'),
+    noteUi: (ui: { screen: string; projectId?: string; activeTabId?: string }): void =>
+      ipcRenderer.send('recovery:ui', ui),
+    onRepaint: (callback: () => void): void => {
+      ipcRenderer.on('recovery:repaint', () => callback());
+    },
+    test: (what: 'crash' | 'gpu' | 'unresponsive'): void =>
+      ipcRenderer.send('recovery:test', what),
   },
 
   // Main pushes a tab's captured Claude session id + cwd (from the notify hook's
@@ -227,8 +251,12 @@ contextBridge.exposeInMainWorld('afterterm', {
   },
 
   pty: {
-    create: (tabId: string, shellId?: string, cwd?: string): Promise<{ pid: number }> =>
-      ipcRenderer.invoke('pty:create', tabId, shellId, cwd),
+    // attached: main already held a running shell for this tab (the page was
+    // reloaded), and the terminal joined it instead of spawning one (AFT-33).
+    // attachOnly: a thread restored as re-attached; main spawns nothing when its shell
+    // has ended and answers gone. cols and rows come with an attach.
+    create: (tabId: string, shellId?: string, cwd?: string, attachOnly?: boolean): Promise<{ pid: number; attached: boolean; gone?: boolean; cols?: number; rows?: number }> =>
+      ipcRenderer.invoke('pty:create', tabId, shellId, cwd, attachOnly),
 
     write: (tabId: string, data: string): void =>
       ipcRenderer.send('pty:input', tabId, data),

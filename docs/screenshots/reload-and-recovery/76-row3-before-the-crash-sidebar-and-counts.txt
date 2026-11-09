@@ -1,0 +1,10 @@
+side-panel
+  Pinned [pinned] [collapse]
+    [project] Recovery test  threads=3  need=1
+      - "cmd one" [shell/quiet] [x]
+      - * "cmd two" [shell/needs-you] [x]
+      - "cmd three" [shell/asleep] [asleep] [x]
+total  waiting=1 working=0 compacting=0 running=0 finished=0
+  [pinned] Recovery test  waiting=1 working=0 compacting=0 running=0 finished=0
+rail: Recovery test
+(no toasts)

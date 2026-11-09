@@ -11,9 +11,10 @@
 // every call site (menu action, close-to-sleep, shutdown flush), so it is made
 // once, here, and unit tested without spawning anything.
 
-import type { Tab } from './components/TabBar/types.ts';
+import type { Tab, TabNotification } from './components/TabBar/types.ts';
 import type { SavedTab } from './sessionMigration.ts';
 import { relativeTime } from './homeView.ts';
+import { isTabNotification } from '../notification-states.ts';
 
 // Same pattern Terminal/index.tsx uses before typing a session id into a shell:
 // session.json is hand-editable, so a resume is only attempted when the id is
@@ -35,6 +36,8 @@ export function sleepTab(tab: Tab, now: number): Tab {
   const next: Tab = { ...tab, asleep: true, sleptAt: now };
   delete next.notification;
   delete next.wokeAt;
+  // A thread that sleeps has no shell to attach to any more (AFT-33).
+  delete next.reattach;
   delete next.recordStatus;
   delete next.atPrompt;
   delete next.hasChildren;
@@ -50,6 +53,8 @@ export function sleepTab(tab: Tab, now: number): Tab {
 export function wakeTab(tab: Tab, now: number): Tab {
   const next: Tab = { ...tab, asleep: false, lastActiveAt: now, wokeAt: now };
   delete next.sleptAt;
+  // A wake starts a fresh shell, never an attach (AFT-33).
+  delete next.reattach;
   return next;
 }
 
@@ -68,6 +73,129 @@ export function restoredTab(saved: SavedTab, now: number): Tab {
   delete next.notification;
   delete next.wokeAt;
   return next;
+}
+
+// A thread whose shell main still holds when the window's page loads (AFT-33). That
+// happens only when the page was reloaded or came back after a crash or a hang while
+// the app itself kept running: on a launch main holds no shell at all. `port` is
+// what main's server watcher last sent for it: a number while something in the
+// shell's tree listens, null when nothing does, absent when it has not looked yet.
+// `notification` and `backgroundTasks` are what the page last showed for the thread
+// (sent to main with the state, session:remember): a chat waiting for Aryan, done,
+// working, compacting, or with background work still running.
+export interface LiveThread {
+  tabId: string;
+  port?: number | null;
+  notification?: TabNotification;
+  backgroundTasks?: boolean;
+}
+
+
+// What a tab from session.json becomes when main still holds a live shell for it:
+// awake, and the terminal layer re-attaches a fresh xterm to that shell instead of
+// spawning one (main's pty:create answers `attached`). `reattach` tells the terminal
+// layer to ask main for an attach only: if the shell ended in the moment since main
+// listed it, main spawns nothing and the thread goes to sleep (createOutcome).
+// Nothing is typed into it, so a chat's Claude Code and a server keep running
+// untouched. Its scrollback from before the reload is gone with the old page.
+// sleptAt goes (the saved file stamps every thread asleep at the unload flush,
+// sleepAllForShutdown, and this one never slept), and so does wokeAt. The state the
+// page last showed comes back with it: a chat waiting for Aryan still shows needs-you,
+// and background work still counts for the restart window (no toast is sent again).
+// The port is main's when it has one, since the server may have stopped or started
+// while the page was away.
+export function reattachedTab(saved: SavedTab, live: LiveThread): Tab {
+  const next: Tab = { ...(saved as Tab), asleep: false, reattach: true };
+  delete next.sleptAt;
+  delete next.notification;
+  delete next.wokeAt;
+  if (isTabNotification(live.notification)) next.notification = live.notification;
+  if (live.backgroundTasks === true) next.backgroundTasks = true;
+  if (typeof live.port === 'number') next.port = live.port;
+  else if (live.port === null) delete next.port;
+  return next;
+}
+
+// What the terminal layer does with main's answer to its pty:create (AFT-33).
+// `reattach` is the tab's mark from reattachedTab. A command (a chat's
+// `claude --resume`, a server's last command) is typed only into a shell spawned for
+// a wake or a new thread, never into one main already held, and never on behalf of a
+// re-attached thread: if its shell ended before the attach, main spawned nothing
+// ('gone') and the thread goes to sleep like any restored thread.
+export function createOutcome(
+  reattach: boolean,
+  answer: { attached: boolean; gone?: boolean },
+): { kind: 'attached' | 'spawned' | 'gone'; mayType: boolean } {
+  if (answer.gone) return { kind: 'gone', mayType: false };
+  if (answer.attached) return { kind: 'attached', mayType: false };
+  return { kind: 'spawned', mayType: !reattach };
+}
+
+// Every tab id already taken when a session is restored: the saved tabs, every
+// project's history, and the live shells main holds (AFT-33). A live shell no saved
+// thread names (one created just before a crash) is being ended, and its exit can
+// come late; a new thread given its id would take that exit as its own.
+export function takenTabIds(
+  saved: { tabs: readonly { id: string }[]; groups: readonly { history?: readonly { id: string }[] }[] },
+  live: readonly LiveThread[],
+): string[] {
+  return [
+    ...saved.tabs.map(t => t.id),
+    ...saved.groups.flatMap(g => (g.history ?? []).map(e => e.id)),
+    ...live.map(l => l.tabId),
+  ];
+}
+
+// Every saved tab as it comes back: re-attached when main holds a live shell for it,
+// asleep otherwise (restoredTab). A launch has no live shells, so everything is
+// asleep, as it always was. A live shell no saved tab names is an orphan (a thread
+// created in the moment before a crash, before the state reached main); the caller
+// ends it, since nothing could ever show or reach it.
+export function restoreWithLive(
+  saved: SavedTab[],
+  live: readonly LiveThread[],
+  now: number,
+): { tabs: Tab[]; reattached: string[]; orphans: string[] } {
+  const byId = new Map(live.map(l => [l.tabId, l]));
+  const reattached: string[] = [];
+  const tabs = saved.map(t => {
+    const l = byId.get(t.id);
+    if (!l) return restoredTab(t, now);
+    reattached.push(t.id);
+    return reattachedTab(t, l);
+  });
+  const savedIds = new Set(saved.map(t => t.id));
+  const orphans = live.filter(l => !savedIds.has(l.tabId)).map(l => l.tabId);
+  return { tabs, reattached, orphans };
+}
+
+// The screen, project page and active thread the page last showed, kept by main in
+// memory only (AFT-33), so it exists only when the page reloads inside one run of the
+// app, never on a launch.
+export interface RememberedUi {
+  screen: 'home' | 'workspace' | 'project';
+  projectId?: string;
+  activeTabId?: string;
+}
+
+// Where a reloaded page opens: back on the screen it showed, with the same thread
+// active. A project page whose project is gone opens Home, and an active thread that
+// is gone is left out (the saved activeTabId stands). null when main remembers
+// nothing, which is every launch: the caller opens Home as always (initialScreen).
+export function screenAfterReload(
+  ui: RememberedUi | null | undefined,
+  groupIds: readonly string[],
+  tabIds: readonly string[],
+): { screen: 'home' | 'workspace' | 'project'; projectId?: string; activeTabId?: string } | null {
+  if (!ui) return null;
+  const activeTabId = ui.activeTabId && tabIds.includes(ui.activeTabId) ? ui.activeTabId : undefined;
+  const withActive = activeTabId ? { activeTabId } : {};
+  if (ui.screen === 'project') {
+    if (ui.projectId && groupIds.includes(ui.projectId)) return { screen: 'project', projectId: ui.projectId, ...withActive };
+    return { screen: 'home', ...withActive };
+  }
+  if (ui.screen === 'workspace' || ui.screen === 'home') return { screen: ui.screen, ...withActive };
+  return null;
 }
 
 // Run on the quit flush so the saved file records when the app actually
