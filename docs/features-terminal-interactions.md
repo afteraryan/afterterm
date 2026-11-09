@@ -206,8 +206,9 @@ unreloaded, the workspace on screen and both threads awake. Captures:
 another width. The check (`docs/screenshots/terminal-output-check/findings.md`) found that every
 resize a PTY gets makes Claude Code redraw its screen, and when the terminal got narrower the
 rows pushed above the screen stay in the scrollback, so the redraw prints them again below.
-Plain output resized the same way never doubles, and the same happens with Ink apps in any
-terminal on ConPTY. afterterm cannot stop the redraw, but it was sending avoidable resizes:
+Plain output resized the same way never doubles, and the same is expected to happen with Ink
+apps in any terminal on ConPTY (Windows Terminal was not tried). afterterm cannot stop the
+redraw, but it was sending avoidable resizes:
 coming back from Home resized every chat on screen wider and back (the fit ran before the
 sidebar slid back in), a slow drag of the window's edge sent one resize per pause past the
 80 ms debounce, a thread woken out of view ran at 80x24 and was resized when first shown, and
@@ -217,29 +218,37 @@ the size sync after a spawn could repeat the size the PTY already had.
 `Terminal/index.tsx` (`gatesRef`), and every resize goes through `sendResize`:
 
 - `pty:create` takes the columns and rows, so a PTY starts at its terminal's size
-  (`ptySpawnSize` in `main.ts`, 80x24 when nothing usable is sent). A terminal that cannot
-  measure itself (in the park, or in a column while Home or a project page covers the
-  workspace) starts at the size of the last terminal shown alone with the same font size
-  (`sizeHintRef`, `spawnSize`). A re-attached terminal (AFT-33) takes the running shell's size.
+  (`ptySpawnSize` in `main.ts`, 80x24 when nothing usable is sent), and answers with the size it
+  really spawned at; the gate starts from that answer (`ptySizeFrom`), so it never believes a
+  size the PTY lacks. A terminal that cannot measure itself (in the park, or in a column while
+  Home or a project page covers the workspace) starts at the size of the last terminal shown
+  alone with the same font size (`sizeHintRef`, `spawnSize`); at launch there is none yet. A
+  re-attached terminal (AFT-33) takes the running shell's size. `isMeasured` is the one rule for
+  a measured size (FitAddon answers `undefined` or NaN for a hidden terminal).
 - `onTerminalResize` never sends the size the PTY already has.
 - A drag of the window's edge: main sends `window:edge-drag` true on Electron's first
   `will-resize` and false on `resized` (or after 1.5 s with no step, so a missed end cannot leave
   the terminals unsized). The terminals keep following the window; the gates keep the newest
-  size and, a frame after the end, the panes are fitted once more and each PTY gets that size
-  once (`onHoldChange`). `window.__afterterm.holdResizes(true|false)` plays the same two messages
-  for the harness.
+  size, and once the layout has been still for 120 ms after the end (`EDGE_DRAG_SETTLE_MS`; an
+  end that arrives before the window's last size did sent a stale size, then the real one) the
+  panes are fitted once more and each PTY gets that size once (`onHoldChange`). In dev builds
+  `window.__afterterm.holdResizes(true|false)` plays the same two messages, and under the harness
+  `window.afterterm.harness.edgeDrag({ widths, stepMs, end })` makes the main window emit
+  `will-resize` per step and `resized` at the end, so main's handlers run too.
 - Coming back to the workspace refits through each terminal's 80 ms `scheduleFit` instead of at
   once, so the sidebar's slide is one change.
 - `AFTERTERM_RESIZE_PROBE=1` logs every spawn size and resize as `[resize]` lines.
 
-**How it was tested.** `src/renderer/resizeGate.test.ts` (27 checks). In the harness, counting
+**How it was tested.** `src/renderer/resizeGate.test.ts` (43 checks). In the harness, counting
 `[resize]` lines: a wake on screen and a wake out of view each spawn at the pane's size with no
 resize after, Home and back sends none, the sidebar and the split send one each as before, and a
-6-step drag played through `holdResizes` sends one resize where it sent six (an Ink-like script
-that reprints on every resize printed one copy instead of six). Re-run on current main after the
-AFT-33 merge, where a reload only sends AFT-33's own repaint pair. A real mouse drag of the edge
-was not tested (the harness cannot drag without the person's cursor); main's two event handlers
-are checked by reading. Captures and the full record: `docs/screenshots/terminal-output-check/`.
+6-step drag sends one resize where it sent six (an Ink-like script that reprints on every resize
+printed one copy instead of six). Re-run on current main after the AFT-33 merge, where a reload
+only sends AFT-33's own repaint pair. After review (2026-11-09) the drag was also played through
+main's own events with `harness.edgeDrag`: ended by `resized`, ended by the 1.5 s fallback, and
+ended at once after the last step, one resize each (the last gave two before the 120 ms settle).
+A real mouse drag of the edge was not tested (the harness cannot drag without the person's
+cursor). Captures and the full record: `docs/screenshots/terminal-output-check/`.
 
 ## Shortcut placement note
 

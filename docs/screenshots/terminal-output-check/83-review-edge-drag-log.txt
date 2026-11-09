@@ -1,0 +1,36 @@
+[resize] 2026-11-09T11:22:03.189Z tab-1 spawned at 112x42
+[harness] 2026-11-09T11:22:18.505Z edge-drag hold starts
+[harness] 2026-11-09T11:22:18.509Z edge-drag step width=1230
+[harness] 2026-11-09T11:22:18.775Z edge-drag step width=1180
+[harness] 2026-11-09T11:22:19.039Z edge-drag step width=1130
+[harness] 2026-11-09T11:22:19.306Z edge-drag step width=1080
+[harness] 2026-11-09T11:22:19.568Z edge-drag step width=1030
+[harness] 2026-11-09T11:22:19.834Z edge-drag step width=1000
+[harness] 2026-11-09T11:22:20.093Z edge-drag emits resized
+[harness] 2026-11-09T11:22:20.093Z edge-drag hold ends (resized)
+[resize] 2026-11-09T11:22:20.094Z tab-1 77x42
+[harness] 2026-11-09T11:22:23.037Z edge-drag hold starts
+[harness] 2026-11-09T11:22:23.042Z edge-drag step width=1050
+[harness] 2026-11-09T11:22:23.303Z edge-drag step width=1100
+[harness] 2026-11-09T11:22:23.570Z edge-drag step width=1150
+[harness] 2026-11-09T11:22:23.840Z edge-drag step width=1200
+[harness] 2026-11-09T11:22:24.107Z edge-drag step width=1250
+[harness] 2026-11-09T11:22:24.374Z edge-drag step width=1280
+[harness] 2026-11-09T11:22:25.878Z edge-drag hold ends (quiet)
+[resize] 2026-11-09T11:22:25.879Z tab-1 112x42
+[harness] 2026-11-09T11:22:44.596Z edge-drag hold starts
+[harness] 2026-11-09T11:22:44.601Z edge-drag step width=1230
+[harness] 2026-11-09T11:22:44.606Z edge-drag step width=1180
+[harness] 2026-11-09T11:22:44.611Z edge-drag step width=1130
+[harness] 2026-11-09T11:22:44.616Z edge-drag step width=1080
+[harness] 2026-11-09T11:22:44.627Z edge-drag step width=1030
+[harness] 2026-11-09T11:22:44.631Z edge-drag step width=1000
+[harness] 2026-11-09T11:22:44.631Z edge-drag emits resized
+[harness] 2026-11-09T11:22:44.631Z edge-drag hold ends (resized)
+[resize] 2026-11-09T11:22:44.634Z tab-1 106x42
+[resize] 2026-11-09T11:22:44.725Z tab-1 77x42
+[harness] 2026-11-09T11:22:47.385Z edge-drag hold starts
+[harness] 2026-11-09T11:22:47.390Z edge-drag step width=1280
+[harness] 2026-11-09T11:22:47.390Z edge-drag emits resized
+[harness] 2026-11-09T11:22:47.390Z edge-drag hold ends (resized)
+[resize] 2026-11-09T11:22:47.399Z tab-1 112x42

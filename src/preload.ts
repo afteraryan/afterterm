@@ -254,8 +254,9 @@ contextBridge.exposeInMainWorld('afterterm', {
     // attached: main already held a running shell for this tab (the page was
     // reloaded), and the terminal joined it instead of spawning one (AFT-33).
     // attachOnly: a thread restored as re-attached; main spawns nothing when its shell
-    // has ended and answers gone. cols and rows come with an attach.
-    // cols and rows sent: the terminal's size, so a new PTY starts at it (AFT-11).
+    // has ended and answers gone. cols and rows sent: the terminal's size, so a new
+    // PTY starts at it (AFT-11). cols and rows answered: the PTY's real size, the
+    // shell's own for an attach, the size it was spawned at for a new one.
     create: (tabId: string, shellId?: string, cwd?: string, attachOnly?: boolean, cols?: number, rows?: number): Promise<{ pid: number; attached: boolean; gone?: boolean; cols?: number; rows?: number }> =>
       ipcRenderer.invoke('pty:create', tabId, shellId, cwd, attachOnly, cols, rows),
 
@@ -350,5 +351,9 @@ contextBridge.exposeInMainWorld('afterterm', {
     // the last answer from Windows (or the override) and the helper's pid.
     notifier: (): Promise<unknown> =>
       ipcRenderer.invoke('harness:notifier'),
+    // A drag of the window's edge played through the window's own will-resize and
+    // resized events (AFT-11): one step per width, then resized when `end` is true.
+    edgeDrag: (plan: { widths: number[]; stepMs?: number; end?: boolean }): Promise<unknown> =>
+      ipcRenderer.invoke('harness:edge-drag', plan),
   },
 });

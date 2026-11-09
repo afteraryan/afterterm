@@ -54,14 +54,32 @@ export function onHoldChange(gate: ResizeGate, held: boolean): { gate: ResizeGat
   return { gate: { ...released, sent: { ...pending } }, send: { ...pending } };
 }
 
+// Whether a size is a real one. FitAddon's proposeDimensions answers undefined for a
+// terminal with no cell size yet and { cols: NaN, rows: NaN } for one whose container
+// is hidden (its computed width is "auto"); neither is a size to spawn or resize at.
+export function isMeasured(size: { cols?: number; rows?: number } | null | undefined): size is PtySize {
+  return !!size
+    && typeof size.cols === 'number' && typeof size.rows === 'number'
+    && Number.isFinite(size.cols) && Number.isFinite(size.rows)
+    && size.cols > 0 && size.rows > 0;
+}
+
 // The size to spawn a PTY at. A terminal on screen measures its own size (proposed).
-// One that cannot be measured yet (made while it is off screen: woken from a menu,
-// from the project page, or after an update restart) used to start at xterm's
-// default 80x24 and be resized the first time it was shown, which made a chat
-// redraw once more; it now starts at the size the last terminal shown alone with the
-// same font size had (hint), and only falls back to its current size without one.
+// One that cannot be measured yet (made while it is off screen: woken from a menu or
+// from the project page) used to start at xterm's default 80x24 and be resized the
+// first time it was shown, which made a chat redraw once more; it now starts at the
+// size the last terminal shown alone with the same font size had (hint), and only
+// falls back to its current size without one (at launch there is no hint yet).
 export function spawnSize(proposed: PtySize | undefined, hint: PtySize | undefined, current: PtySize): PtySize {
-  if (proposed && proposed.cols > 0 && proposed.rows > 0) return { ...proposed };
-  if (hint && hint.cols > 0 && hint.rows > 0) return { ...hint };
+  if (isMeasured(proposed)) return { cols: proposed.cols, rows: proposed.rows };
+  if (isMeasured(hint)) return { cols: hint.cols, rows: hint.rows };
   return { ...current };
+}
+
+// The size a PTY really has once main has answered pty:create: the size main reports
+// (a re-attached shell's own, or the size a new one was spawned at, which is 80x24
+// when what was asked for was out of range), or the size asked for when main says
+// nothing. The gate is seeded from this, so it never believes a size the PTY lacks.
+export function ptySizeFrom(answer: { cols?: number; rows?: number } | null | undefined, asked: PtySize): PtySize {
+  return isMeasured(answer) ? { cols: answer.cols, rows: answer.rows } : { ...asked };
 }

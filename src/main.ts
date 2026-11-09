@@ -1763,21 +1763,26 @@ function createWindow() {
   const EDGE_DRAG_QUIET_MS = 1500;
   let edgeDragging = false;
   let edgeDragQuiet: NodeJS.Timeout | null = null;
-  const endEdgeDrag = () => {
+  const harnessLog = (line: string) => {
+    if (process.env.AFTERTERM_HARNESS === '1') console.log(`[harness] ${new Date().toISOString()} ${line}`);
+  };
+  const endEdgeDrag = (why: 'resized' | 'quiet') => {
     if (edgeDragQuiet) { clearTimeout(edgeDragQuiet); edgeDragQuiet = null; }
     if (!edgeDragging) return;
     edgeDragging = false;
+    harnessLog(`edge-drag hold ends (${why})`);
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('window:edge-drag', false);
   };
   mainWindow.on('will-resize', () => {
     if (!edgeDragging) {
       edgeDragging = true;
+      harnessLog('edge-drag hold starts');
       mainWindow?.webContents.send('window:edge-drag', true);
     }
     if (edgeDragQuiet) clearTimeout(edgeDragQuiet);
-    edgeDragQuiet = setTimeout(endEdgeDrag, EDGE_DRAG_QUIET_MS);
+    edgeDragQuiet = setTimeout(() => endEdgeDrag('quiet'), EDGE_DRAG_QUIET_MS);
   });
-  mainWindow.on('resized', endEdgeDrag);
+  mainWindow.on('resized', () => endEdgeDrag('resized'));
 
   mainWindow.on('close', (e) => {
     if (isQuitting || ptys.size === 0) return;
@@ -1991,6 +1996,37 @@ function hideNotifierForHold() {
     notifierWindow.setIgnoreMouseEvents(true);
   }
   setNotifierOnScreen(false);
+}
+
+// Agent harness only (AFT-11): a drag of the window's edge played through the window's
+// own events, since a real drag needs the person's mouse. Each width is one step: the
+// window emits 'will-resize' (what Electron raises for WM_SIZING) and is set to that
+// width; with `end`, it then emits 'resized' (WM_EXITSIZEMOVE), and without it the
+// 1.5 s quiet fallback has to end the hold. Widths are clamped to the window's own
+// display, so it stays on the harness display.
+if (process.env.AFTERTERM_HARNESS === '1') {
+  ipcMain.handle('harness:edge-drag', async (_event, plan: { widths?: unknown; stepMs?: unknown; end?: unknown } | undefined) => {
+    const win = mainWindow;
+    if (!win || win.isDestroyed()) return { ok: false, reason: 'no main window' };
+    const widths = Array.isArray(plan?.widths) ? plan.widths.filter((w): w is number => Number.isInteger(w) && w >= 400) : [];
+    const stepMs = typeof plan?.stepMs === 'number' && plan.stepMs >= 0 && plan.stepMs <= 2000 ? plan.stepMs : 200;
+    const area = screen.getDisplayMatching(win.getBounds()).workArea;
+    const steps: string[] = [];
+    for (const w of widths) {
+      const b = win.getBounds();
+      const width = Math.min(w, area.x + area.width - b.x);
+      win.emit('will-resize', { preventDefault: () => {} }, { ...b, width }, { edge: 'right' });
+      win.setBounds({ ...b, width });
+      steps.push(`${new Date().toISOString()} width ${width}`);
+      console.log(`[harness] ${new Date().toISOString()} edge-drag step width=${width}`);
+      if (stepMs) await new Promise(r => setTimeout(r, stepMs));
+    }
+    if (plan?.end === true) {
+      console.log(`[harness] ${new Date().toISOString()} edge-drag emits resized`);
+      win.emit('resized');
+    }
+    return { ok: true, steps, ended: plan?.end === true };
+  });
 }
 
 // Agent harness only: what main knows about the overlay and the hold.
@@ -2624,7 +2660,9 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
     if (ptys.size === 0) stopServerPolling();
   });
 
-  return { pid: p.pid, attached: false };
+  // The size it was really spawned at (AFT-11): the renderer's resize gate starts
+  // from it, so an out-of-range ask that fell back to 80x24 is never taken as sent.
+  return { pid: p.pid, attached: false, cols: size.cols, rows: size.rows };
 });
 
 // ─── IPC: write to PTY ───────────────────────────────────────────────────────

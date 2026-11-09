@@ -268,8 +268,9 @@ interface AftertermPtyAPI {
   // attached: main already held a running shell for this tab and the terminal joined
   // it (the page was reloaded, AFT-33); nothing was spawned.
   // attachOnly (AFT-33): a thread restored as re-attached. Main spawns nothing when its
-  // shell has ended and answers gone; an attach answers with the shell's own size.
-  // cols and rows sent: the terminal's size, so a new PTY starts at it (AFT-11).
+  // shell has ended and answers gone. cols and rows sent: the terminal's size, so a new
+  // PTY starts at it (AFT-11). cols and rows answered: the PTY's real size, the shell's
+  // own for an attach, the size it was spawned at for a new one.
   create(tabId: string, shellId?: string, cwd?: string, attachOnly?: boolean, cols?: number, rows?: number): Promise<{ pid: number; attached: boolean; gone?: boolean; cols?: number; rows?: number }>;
   write(tabId: string, data: string): void;
   resize(tabId: string, cols: number, rows: number): void;
@@ -350,6 +351,8 @@ interface AftertermAPI {
     windowHome(sim?: { event?: string; displays?: unknown[]; windowDisplayId?: number }): Promise<unknown>;
     // The toast hold's state in main (AFT-72).
     notifier(): Promise<unknown>;
+    // A drag of the window's edge through the window's own events (AFT-11).
+    edgeDrag(plan: { widths: number[]; stepMs?: number; end?: boolean }): Promise<unknown>;
   };
 }
 

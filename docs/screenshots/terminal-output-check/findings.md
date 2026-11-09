@@ -5,7 +5,7 @@ Investigated 2026-11-08 and 2026-11-09 on branch `check-terminal-output`, Window
 Haiku 5.5. Every run was a harness dev build on the secondary display with a scratch
 `CLAUDE_CONFIG_DIR`. The capture numbers below are files in this folder.
 
-## The two answers
+## AFT-11 is Claude Code's redraw, which afterterm triggered more often than needed; AFT-5 is not afterterm's
 
 **AFT-11: Claude Code makes the copies, and afterterm was giving it many more chances than it needed.**
 Each time a terminal changes size, Claude Code redraws its screen. When the terminal got
@@ -25,8 +25,9 @@ the cells of a submitted prompt carry no dim attribute and no grey colour. The s
 cause: when a prompt is taller than the screen, the rows that scrolled above the screen while it
 was typed are never redrawn after Enter (the PTY log has each of them exactly once), so they keep
 the look they had in the input box while the rows below get the echo's look. In Claude Code
-2.1.278, the version in Aryan's screenshot, those two looks differed; in 2.1.319 they are the
-same, so the seam is only visible as a stray input-box border line above the echo.
+2.1.278, the version in Aryan's screenshot, those two looks most likely differed (read from his
+screenshot, not reproduced); in 2.1.319 they are the same, so the seam is only visible as a
+stray input-box border line above the echo.
 
 ## AFT-11 evidence
 
@@ -97,24 +98,32 @@ Claude Code run matches: every resize was followed by a full redraw of the scree
 row (`ESC[H`, then every row), about 3 KB each time.
 
 Windows Terminal could not be tried by hand here. It uses the same ConPTY and Claude Code
-redraws the same way, so a real narrowing there is expected to leave the same copies; only the
-avoidable resizes were afterterm's own.
+redraws the same way, so a real narrowing there is expected to leave the same copies, as it is
+for any Ink app in any terminal on ConPTY; only the avoidable resizes were afterterm's own.
 
 ## The fix on this branch
 
-`src/renderer/resizeGate.ts` (pure, 27 checks in `resizeGate.test.ts`) decides what a thread's
+`src/renderer/resizeGate.ts` (pure, 43 checks in `resizeGate.test.ts`) decides what a thread's
 PTY is told:
 
-1. **A PTY starts at its terminal's size.** `pty:create` takes the columns and rows. A terminal
-   that cannot measure itself (made while out of view, or while Home or a project page covers
-   the workspace) starts at the size of the last terminal shown alone with the same font size.
+1. **A PTY starts at its terminal's size.** `pty:create` takes the columns and rows and answers
+   with the size it really spawned at (80x24 when what was asked for is out of range), and the
+   gate starts from that answer. A terminal that cannot measure itself (made while out of view,
+   or while Home or a project page covers the workspace) starts at the size of the last terminal
+   shown alone with the same font size. At launch there is no such size yet, so a thread woken
+   then still starts at 80x24 and is resized when first shown (a widening, which redraws cleanly).
+   `isMeasured` decides what counts as a measured size, in both places it is asked: FitAddon
+   answers `undefined` or NaN for a hidden terminal.
 2. **A PTY is never sent the size it already has.**
 3. **Coming back from Home refits with the same 80 ms debounce as every other fit,** so the
    sidebar sliding back in no longer causes a resize and a resize back.
 4. **During a drag of the window's edge the terminals still follow the window, but the PTYs are
    told nothing until it ends,** then get the final size once. Main sends the drag's start and
    end from Electron's `will-resize` and `resized` events; a drag held still for 1.5 s also
-   ends the hold, so the terminals can never stay unsized.
+   ends the hold, so the terminals can never stay unsized. The end waits until the layout has
+   stopped changing for 120 ms: a drag let go right after its last step reached the page before
+   the window's last size did, and was sent a stale size and then the real one (found with the
+   harness row below, `83-review-edge-drag-log.txt`).
 
 Since AFT-33 (merged while this was being built) a reloaded page attaches to the running shells.
 The gate starts from the shell's own size there, and AFT-33's deliberate repaint (one row less,
@@ -138,7 +147,21 @@ main (current code): `70-merged-resize-rows-on-current-main.mp4`, `71` to `75`
 | Reload the page (AFT-33 attach) | | only AFT-33's two repaint resizes per thread |
 | Drag of the window's edge, 6 steps 250 ms apart, played with `window.__afterterm.holdResizes` | 6 resizes, the tall script printed 6 more copies | 1 resize, 1 more copy (`60`, `61`, `73`) |
 
-`npm test`: 40 files, exit 0, 3432 checks passed, 0 failed.
+### The drag played through main's own events
+
+After review, a harness-only IPC (`harness:edge-drag`, registered only under
+`AFTERTERM_HARNESS=1`) makes the main window emit `will-resize` at each step and set its width,
+then `resized` when asked, so main's handlers and the fallback run end to end. Recording
+`80-...mp4`, then `84-...mp4` after the settle change; logs `83-review-edge-drag-log.txt` and
+`86-review-resize-log-after-settle.txt`; captures `81`, `82`, `85`.
+
+| Row | Main's log | Resizes to the PTY |
+|---|---|---|
+| 6 steps 250 ms apart, then `resized` | hold starts once, ends once "(resized)" | 1 (77x42), 1 redraw |
+| 6 steps 250 ms apart, no `resized` | hold starts once, ends "(quiet)" 1.5 s after the last step | 1 (112x42), 1 redraw |
+| 6 steps with no pause, `resized` at once | hold starts once, ends once "(resized)" | before the settle change 2 (106x42, then 77x42); after it 1 (77x42) |
+
+`npm test`: 42 files, exit 0, 3614 checks passed, 0 failed.
 
 ## AFT-5 evidence
 
@@ -150,6 +173,10 @@ main (current code): `70-merged-resize-rows-on-current-main.mp4`, `71` to `75`
   after Enter, so rows 1 to 8 (above the screen at that moment) are the input box's own rows. A
   row of the input box's top border is left right above the echo (row 88 in `39-...txt`), which a
   normal echo does not have.
+- In `39` the echo goes from "Row 8" (buffer row 96) straight to "Row 10" (row 97): Row 9, the
+  screen's top row before Enter (`37`), is gone. It is the same seam (Claude Code redraws the
+  screen as if the rows above it held its echo), and it is a loss a person can see: a report that
+  one line of a long prompt is missing from its echo is this.
 - afterterm's only dimming is the asleep pane's saved tail, which is not a live terminal.
 
 So the seam in Aryan's screenshot sits where the top of the screen was when he pressed Enter.
@@ -171,8 +198,8 @@ the screen); afterterm cannot change either.
 
 - A real drag of the window's edge with the mouse: the harness cannot drag a window edge without
   moving Aryan's cursor, and `SetWindowPos` raises no `will-resize`. The drag was played through
-  `window.__afterterm.holdResizes`, which runs the same renderer code main's events run; main's
-  two event handlers and the 1.5 s fallback are checked by reading only.
+  the window's own `will-resize` and `resized` events (the table above), so what is untested is
+  only that Windows and Electron raise them for a real drag as documented.
 - Windows Terminal side by side with afterterm.
 - Claude Code 2.1.278 (Aryan's version for AFT-5).
 

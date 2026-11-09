@@ -2,7 +2,7 @@
 //   node src/renderer/resizeGate.test.ts
 // Exits 0 if all pass, 1 on any failure.
 
-import { initialResizeGate, sameSize, onTerminalResize, onHoldChange, spawnSize } from './resizeGate.ts';
+import { initialResizeGate, sameSize, onTerminalResize, onHoldChange, spawnSize, isMeasured, ptySizeFrom } from './resizeGate.ts';
 import type { ResizeGate, PtySize } from './resizeGate.ts';
 
 let pass = 0, fail = 0;
@@ -103,6 +103,37 @@ console.log('\nresizeGate: spawnSize\n');
   check('no measurement, no hint: the current size', sameSize(spawnSize(undefined, undefined, current), size(80, 24)));
   check('a zero measurement (hidden container) is no measurement', sameSize(spawnSize(size(0, 0), size(145, 42), current), size(145, 42)));
   check('a zero hint is no hint', sameSize(spawnSize(undefined, size(0, 42), current), size(80, 24)));
+  check('NaN from a hidden container is no measurement',
+    sameSize(spawnSize(size(NaN, NaN), size(145, 42), current), size(145, 42)));
+  check('NaN with no hint: the current size', sameSize(spawnSize(size(NaN, NaN), undefined, current), size(80, 24)));
+}
+
+console.log('\nresizeGate: isMeasured (what FitAddon answers for a hidden terminal)\n');
+{
+  check('a real size is measured', isMeasured(size(112, 42)));
+  check('undefined (no cell size yet) is not', !isMeasured(undefined));
+  check('null is not', !isMeasured(null));
+  check('NaN columns and rows (container width "auto") are not', !isMeasured(size(NaN, NaN)));
+  check('NaN rows alone are not', !isMeasured(size(112, NaN)));
+  check('zero columns are not', !isMeasured(size(0, 42)));
+  check('Infinity is not', !isMeasured(size(Infinity, 42)));
+  check('missing fields are not', !isMeasured({}));
+  check('an attach answer without a size is not', !isMeasured({ cols: undefined, rows: undefined }));
+}
+
+console.log('\nresizeGate: ptySizeFrom (the gate starts from what main spawned)\n');
+{
+  check('main\'s answer wins', sameSize(ptySizeFrom(size(120, 40), size(112, 42)), size(120, 40)));
+  check('no size in the answer: the size asked for', sameSize(ptySizeFrom({}, size(112, 42)), size(112, 42)));
+  check('no answer at all: the size asked for', sameSize(ptySizeFrom(undefined, size(112, 42)), size(112, 42)));
+  // Asked for more than main allows (over 2000 columns): main spawns at 80x24 and says
+  // so. Seeded from the answer, the gate sends the terminal's size; seeded from what was
+  // asked, it would drop that size for good as "the size the PTY already has".
+  const asked = size(2500, 50);
+  const g = initialResizeGate(ptySizeFrom(size(80, 24), asked));
+  check('an out-of-range ask seeds the gate with main\'s 80x24', sameSize(g.sent, size(80, 24)), show(g));
+  const r = onTerminalResize(g, asked);
+  check('so the terminal\'s real size is still sent', sameSize(r.send, asked), show(r));
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

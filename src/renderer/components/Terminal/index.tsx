@@ -21,7 +21,7 @@ import { createWebLinkProvider } from './webLinks';
 import { Menu, type MenuItem } from '../Menu';
 import { SPLIT_MIN, SPLIT_MAX, SPLIT_DEFAULT } from '../../splitView';
 import type { PaneTarget } from '../../splitView';
-import { initialResizeGate, onTerminalResize, onHoldChange, spawnSize, type ResizeGate, type PtySize } from '../../resizeGate';
+import { initialResizeGate, onTerminalResize, onHoldChange, spawnSize, isMeasured, ptySizeFrom, type ResizeGate, type PtySize } from '../../resizeGate';
 
 interface TermInfo {
   term: Terminal;
@@ -168,6 +168,9 @@ const SHELL_READY_MS = 700;
 const ATTACH_REPAINT_MS = 60;
 
 const DEFAULT_FONT_SIZE = 14;
+// How long the layout must stay still after a window edge drag ends before the
+// held PTY sizes are sent (AFT-11): longer than the 80 ms fit debounce.
+const EDGE_DRAG_SETTLE_MS = 120;
 const MIN_FONT_SIZE = 6;
 const MAX_FONT_SIZE = 40;
 
@@ -834,7 +837,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       // shown alone with its font size, not xterm's 80x24, so its PTY is not resized
       // (and a chat does not redraw) the first time it is shown (AFT-11).
       const proposed = slot ? fitAddon.proposeDimensions() : undefined;
-      const measured = !!proposed && proposed.cols > 0 && proposed.rows > 0;
+      const measured = isMeasured(proposed);
       const start = spawnSize(
         proposed,
         sizeHintRef.current.get(term.options.fontSize ?? DEFAULT_FONT_SIZE),
@@ -890,12 +893,10 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         return;
       }
       const attached = outcome.kind === 'attached';
-      // From here on the gate knows the PTY's size (AFT-11): a re-attached shell's
-      // own, as main reports it, or the size a new one was spawned at.
-      gatesRef.current.set(tabId, initialResizeGate(
-        attached && created?.cols && created?.rows ? { cols: created.cols, rows: created.rows } : spawnedAt,
-        edgeDragRef.current,
-      ));
+      // From here on the gate knows the PTY's size (AFT-11), as main reports it: a
+      // re-attached shell's own, or the size a new one was really spawned at (80x24
+      // when the size asked for was out of range), so it never assumes a size.
+      gatesRef.current.set(tabId, initialResizeGate(ptySizeFrom(created, spawnedAt), edgeDragRef.current));
 
       // A chat picks its session back up; a shell just gets a fresh prompt. The id is
       // re-validated as a UUID inside resumeTab as well (session.json is
@@ -1267,6 +1268,8 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
   useEffect(() => {
     if (!rootRef.current) return;
     const observer = new ResizeObserver(() => {
+      // A window edge drag that has just ended waits for the layout to settle.
+      edgeDragSettleRef.current?.();
       if (dividingRef.current || document.body.classList.contains('panel-resizing')) return;
       for (const id of panesRef.current) termsRef.current.get(id)?.scheduleFit();
     });
@@ -1275,36 +1278,54 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
   }, []);
 
   // A drag of the window's edge (AFT-11). The terminals keep following the window
-  // as before, but their PTYs hear nothing until the drag ends; then what is on
-  // screen is fitted once more and each PTY gets the newest size it was held from,
-  // once. Before this a slow drag sent one resize per pause and Claude Code left one
-  // more copy of the top of its screen for each. `holdResizesRef` lets the harness
-  // play a drag, since a real one needs the mouse (window.__afterterm.holdResizes).
+  // as before, but their PTYs hear nothing until the drag ends; then, once the layout
+  // has stopped changing for EDGE_DRAG_SETTLE_MS (the end can reach the page before
+  // the window's last size has, which fitted a stale size and then the real one: two
+  // resizes), what is on screen is fitted once more and each PTY gets the newest size
+  // it was held from, once. Before this a slow drag sent one resize per pause and
+  // Claude Code left one more copy of the top of its screen for each.
+  // `holdResizesRef` lets the harness play a drag (window.__afterterm.holdResizes).
   const holdResizesRef = useRef<((dragging: boolean) => void) | null>(null);
+  // Set while a drag's end waits for the layout to settle: the ResizeObserver calls
+  // it to push the release back.
+  const edgeDragSettleRef = useRef<(() => void) | null>(null);
   useEffect(() => {
-    let generation = 0;
+    let releaseTimer: ReturnType<typeof setTimeout> | undefined;
+    const release = () => {
+      releaseTimer = undefined;
+      edgeDragSettleRef.current = null;
+      fitVisible();
+      edgeDragRef.current = false;
+      for (const [id, gate] of gatesRef.current) {
+        const { gate: next, send } = onHoldChange(gate, false);
+        gatesRef.current.set(id, next);
+        if (send) window.afterterm.pty.resize(id, send.cols, send.rows);
+      }
+    };
     const apply = (dragging: boolean) => {
-      const mine = ++generation;
+      if (releaseTimer) { clearTimeout(releaseTimer); releaseTimer = undefined; }
+      edgeDragSettleRef.current = null;
       if (dragging) {
         edgeDragRef.current = true;
         for (const [id, gate] of gatesRef.current) gatesRef.current.set(id, onHoldChange(gate, true).gate);
         return;
       }
-      // A frame first, so the window's last size has reached the layout.
-      requestAnimationFrame(() => {
-        if (mine !== generation) return; // a new drag began meanwhile
-        fitVisible();
-        edgeDragRef.current = false;
-        for (const [id, gate] of gatesRef.current) {
-          const { gate: next, send } = onHoldChange(gate, false);
-          gatesRef.current.set(id, next);
-          if (send) window.afterterm.pty.resize(id, send.cols, send.rows);
-        }
-      });
+      if (!edgeDragRef.current) return;
+      releaseTimer = setTimeout(release, EDGE_DRAG_SETTLE_MS);
+      edgeDragSettleRef.current = () => {
+        if (!releaseTimer) return;
+        clearTimeout(releaseTimer);
+        releaseTimer = setTimeout(release, EDGE_DRAG_SETTLE_MS);
+      };
     };
     holdResizesRef.current = apply;
     const off = window.afterterm.pty.onEdgeDrag(apply);
-    return () => { off(); holdResizesRef.current = null; };
+    return () => {
+      off();
+      if (releaseTimer) clearTimeout(releaseTimer);
+      holdResizesRef.current = null;
+      edgeDragSettleRef.current = null;
+    };
   }, [fitVisible]);
 
   // The divider between two halves (design-06): drag between a quarter and
@@ -1392,7 +1413,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         openFileLink(tabId: string, row: number, index?: number): Promise<boolean>;
         cellCentre(tabId: string, row: number, col: number): { x: number; y: number } | null;
         findRow(tabId: string, text: string): number;
-        holdResizes(dragging: boolean): void;
+        holdResizes?(dragging: boolean): void;
         selection(tabId?: string): { has: boolean; text: string; position: unknown } | null;
       };
     };
@@ -1400,9 +1421,10 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
     // (lastOpenExternal) on the same object, and this effect can run after it has.
     win.__afterterm = {
       ...(win.__afterterm ?? {}),
-      // AFT-11: plays the start (true) and end (false) of a window edge drag, as main
-      // sends them, since the harness cannot drag a real window edge without the mouse.
-      holdResizes: (dragging) => holdResizesRef.current?.(dragging),
+      // AFT-11, dev builds only (the harness runs one): plays the start (true) and end
+      // (false) of a window edge drag, as main sends them. A packaged build has no way
+      // to hold every PTY's size from the page.
+      ...(import.meta.env.DEV ? { holdResizes: (dragging: boolean) => holdResizesRef.current?.(dragging) } : {}),
       tail: (tabId, n = 30) => readTail(tabId, n),
       activeTail: (n = 30) => readTail(activeRef.current, n),
       // Lets the harness check the OSC 133 marks landed without reading the buffer.
