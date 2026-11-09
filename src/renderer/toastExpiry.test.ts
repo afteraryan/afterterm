@@ -4,7 +4,7 @@
 
 import {
   TOAST_LIFETIME_MS, initialToastClock, clockRuns, syncToasts, setMainFocus,
-  setHoveredToast, expiredToasts, nextDeadline,
+  setHoveredToast, setOnScreen, expiredToasts, nextDeadline,
 } from './toastExpiry.ts';
 import type { ToastClock } from './toastExpiry.ts';
 
@@ -132,6 +132,47 @@ console.log('\ntoastExpiry: the last toast goes\n');
   check('no deadlines left', Object.keys(e.deadlines).length === 0, show(e));
   check('no next deadline', nextDeadline(e) === null);
   check('focus is kept', e.focused === true);
+}
+
+console.log('\ntoastExpiry: a toast waits while the overlay is off screen (AFT-72)\n');
+{
+  const c = initialToastClock(true, false);
+  check('starts off screen when asked', c.onScreen === false);
+  check('on screen by default', initialToastClock(true).onScreen === true);
+  check('off screen: the clock is stopped even when focused', clockRuns(c) === false);
+
+  // A toast arrives while main is still asking Windows: it waits, then gets its
+  // 5 seconds from the moment it is shown.
+  const a = syncToasts(c, ['a'], 1000);
+  check('a toast that arrives off screen waits', a.deadlines.a === null, show(a));
+  const shown = setOnScreen(a, true, 1400);
+  check('shown: 5s from the moment it shows', shown.deadlines.a === 1400 + L, show(shown));
+
+  // Held for a full-screen app: the toast on screen is hidden, then shown again.
+  const held = setOnScreen(shown, false, 3000);
+  check('hidden for a hold: paused', held.deadlines.a === null, show(held));
+  check('hidden for a hold: never expires', expiredToasts(held, 3000 + 100 * L).length === 0);
+  check('hidden for a hold: no next deadline', nextDeadline(held) === null);
+  const back = setOnScreen(held, true, 90_000);
+  check('shown again after the hold: a fresh 5s', back.deadlines.a === 90_000 + L, show(back));
+
+  // Not focused while held (the usual case: the full-screen app has focus).
+  const u = syncToasts(initialToastClock(false, false), ['a'], 1000);
+  const onU = setOnScreen(u, true, 2000);
+  check('shown but not focused: still waits for focus', onU.deadlines.a === null, show(onU));
+  const f = setMainFocus(onU, true, 5000);
+  check('then focus starts its 5s', f.deadlines.a === 5000 + L, show(f));
+  const offF = setMainFocus(setOnScreen(u, false, 2000), true, 5000);
+  check('focus while still off screen does not start it', offF.deadlines.a === null, show(offF));
+
+  check('the same on-screen value returns the same object', setOnScreen(shown, true, 5000) === shown);
+
+  // The pointer cannot be on a card of a hidden overlay, but a hover left over
+  // from before the hold must not start the clock when the hold ends.
+  const hov = setHoveredToast(shown, 'a', 2000);
+  const hHeld = setOnScreen(hov, false, 3000);
+  const hBack = setOnScreen(hHeld, true, 4000);
+  check('a hover kept across a hold still pauses', hBack.deadlines.a === null, show(hBack));
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

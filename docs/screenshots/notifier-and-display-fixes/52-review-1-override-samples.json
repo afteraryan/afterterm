@@ -1,0 +1,450 @@
+[
+  {
+    "t": 1942,
+    "row": "a",
+    "what": "busy: 1.5 s after the push",
+    "visible": false,
+    "onScreen": false,
+    "held": true,
+    "toasts": true,
+    "polling": true,
+    "probes": 1,
+    "lastProbe": "busy",
+    "cards": [
+      "row-a-1"
+    ],
+    "overlayOnScreen": false,
+    "focused": false,
+    "deadlines": {
+      "row-a-1": null
+    }
+  },
+  {
+    "t": 3170,
+    "row": "capture",
+    "what": "53-review-1-busy-toast-held-overlay-hidden",
+    "result": "\\\\.\\DISPLAY2 work area (1920,0 1920x1032), crop 1500,712 420x320"
+  },
+  {
+    "t": 7186,
+    "row": "a",
+    "what": "busy: 5.5 s after the push, still held across polls",
+    "visible": false,
+    "onScreen": false,
+    "held": true,
+    "toasts": true,
+    "polling": true,
+    "probes": 3,
+    "lastProbe": "busy",
+    "cards": [
+      "row-a-1"
+    ],
+    "overlayOnScreen": false,
+    "focused": false,
+    "deadlines": {
+      "row-a-1": null
+    }
+  },
+  {
+    "t": 9513,
+    "row": "a",
+    "what": "accepts written: overlay visible",
+    "took": 2326,
+    "visible": true,
+    "onScreen": true,
+    "held": false,
+    "toasts": true,
+    "polling": true,
+    "probes": 4,
+    "lastProbe": "accepts",
+    "cards": [
+      "row-a-1"
+    ],
+    "overlayOnScreen": false,
+    "focused": false,
+    "deadlines": {
+      "row-a-1": null
+    }
+  },
+  {
+    "t": 9514,
+    "row": "a",
+    "what": "summary",
+    "heldAtFirst": true,
+    "cardWaitingInOverlay": true,
+    "shownAfterMs": 2326,
+    "pushToShownMs": 9088
+  },
+  {
+    "t": 11138,
+    "row": "capture",
+    "what": "54-review-1-busy-then-accepts-toast-shown",
+    "result": "\\\\.\\DISPLAY2 work area (1920,0 1920x1032), crop 1500,712 420x320"
+  },
+  {
+    "t": 11593,
+    "row": "b",
+    "what": "accepts: shown",
+    "took": 15,
+    "visible": true,
+    "onScreen": true,
+    "held": false,
+    "toasts": true,
+    "polling": true,
+    "probes": 5,
+    "lastProbe": "accepts",
+    "cards": [
+      "row-b-2"
+    ],
+    "overlayOnScreen": true,
+    "focused": false,
+    "deadlines": {
+      "row-b-2": null
+    }
+  },
+  {
+    "t": 14649,
+    "row": "b",
+    "what": "presentation written: overlay hidden",
+    "took": 3055,
+    "visible": false,
+    "onScreen": false,
+    "held": true,
+    "toasts": true,
+    "polling": true,
+    "probes": 6,
+    "lastProbe": "presentation",
+    "cards": [
+      "row-b-2"
+    ],
+    "overlayOnScreen": false,
+    "focused": false,
+    "deadlines": {
+      "row-b-2": null
+    }
+  },
+  {
+    "t": 15925,
+    "row": "capture",
+    "what": "55-review-1-presentation-toast-on-screen-hidden",
+    "result": "\\\\.\\DISPLAY2 work area (1920,0 1920x1032), crop 1500,712 420x320"
+  },
+  {
+    "t": 19435,
+    "row": "b",
+    "what": "fullscreen: one poll later, still held",
+    "visible": false,
+    "onScreen": false,
+    "held": true,
+    "toasts": true,
+    "polling": true,
+    "probes": 7,
+    "lastProbe": "fullscreen",
+    "cards": [
+      "row-b-2"
+    ],
+    "overlayOnScreen": false,
+    "focused": false,
+    "deadlines": {
+      "row-b-2": null
+    }
+  },
+  {
+    "t": 20635,
+    "row": "b",
+    "what": "unknown written (a failed probe): overlay visible",
+    "took": 1200,
+    "visible": true,
+    "onScreen": true,
+    "held": false,
+    "toasts": true,
+    "polling": true,
+    "probes": 8,
+    "lastProbe": "unknown",
+    "cards": [
+      "row-b-2"
+    ],
+    "overlayOnScreen": true,
+    "focused": false,
+    "deadlines": {
+      "row-b-2": null
+    }
+  },
+  {
+    "t": 22016,
+    "row": "capture",
+    "what": "56-review-1-unknown-after-a-hold-toast-shown-again",
+    "result": "\\\\.\\DISPLAY2 work area (1920,0 1920x1032), crop 1500,712 420x320"
+  },
+  {
+    "t": 22016,
+    "row": "b",
+    "what": "summary",
+    "hiddenAfterMs": 3055,
+    "shownAfterMs": 1200
+  },
+  {
+    "t": 22469,
+    "row": "c",
+    "what": "accepts at the push: overlay visible",
+    "took": 11,
+    "visible": true,
+    "onScreen": true,
+    "held": false,
+    "toasts": true,
+    "polling": true,
+    "probes": 9,
+    "lastProbe": "accepts",
+    "cards": [
+      "row-c-3"
+    ],
+    "overlayOnScreen": true,
+    "focused": false,
+    "deadlines": {
+      "row-c-3": null
+    }
+  },
+  {
+    "t": 22469,
+    "row": "c",
+    "what": "summary",
+    "pushToVisibleMs": 26,
+    "sampledTook": 11
+  },
+  {
+    "t": 23861,
+    "row": "capture",
+    "what": "57-review-1-accepts-toast-shown-at-once",
+    "result": "\\\\.\\DISPLAY2 work area (1920,0 1920x1032), crop 1500,712 420x320"
+  },
+  {
+    "t": 24304,
+    "row": "d",
+    "what": "unknown at the push: overlay visible",
+    "took": 9,
+    "visible": true,
+    "onScreen": true,
+    "held": false,
+    "toasts": true,
+    "polling": true,
+    "probes": 10,
+    "lastProbe": "unknown",
+    "cards": [
+      "row-d-4"
+    ],
+    "overlayOnScreen": true,
+    "focused": false,
+    "deadlines": {
+      "row-d-4": null
+    }
+  },
+  {
+    "t": 24304,
+    "row": "d",
+    "what": "summary",
+    "pushToVisibleMs": 20,
+    "sampledTook": 9
+  },
+  {
+    "t": 25801,
+    "row": "capture",
+    "what": "58-review-1-unknown-toast-shown-at-once",
+    "result": "\\\\.\\DISPLAY2 work area (1920,0 1920x1032), crop 1500,712 420x320"
+  },
+  {
+    "t": 34260,
+    "row": "e",
+    "what": "busy and focused: 8 s after the push",
+    "visible": false,
+    "onScreen": false,
+    "held": true,
+    "toasts": true,
+    "polling": true,
+    "probes": 13,
+    "lastProbe": "busy",
+    "cards": [
+      "row-e-5"
+    ],
+    "overlayOnScreen": false,
+    "focused": true,
+    "deadlines": {
+      "row-e-5": null
+    }
+  },
+  {
+    "t": 35351,
+    "row": "e",
+    "what": "accepts: shown",
+    "took": 1091,
+    "visible": true,
+    "onScreen": true,
+    "held": false,
+    "toasts": true,
+    "polling": true,
+    "probes": 14,
+    "lastProbe": "accepts",
+    "cards": [
+      "row-e-5"
+    ],
+    "overlayOnScreen": true,
+    "focused": true,
+    "deadlines": {
+      "row-e-5": 4944
+    }
+  },
+  {
+    "t": 40375,
+    "row": "e",
+    "what": "the toast went on its own",
+    "took": 5024,
+    "visible": false,
+    "onScreen": false,
+    "held": false,
+    "toasts": false,
+    "polling": false,
+    "probes": 15,
+    "lastProbe": "accepts",
+    "cards": [],
+    "overlayOnScreen": false,
+    "focused": true,
+    "deadlines": {}
+  },
+  {
+    "t": 40375,
+    "row": "e",
+    "what": "summary",
+    "stillThereAfter8sHeld": true,
+    "deadlineWhileHeld": {
+      "row-e-5": null
+    },
+    "shownAfterMs": 1091,
+    "goneMsAfterShown": 5024
+  },
+  {
+    "t": 40786,
+    "row": "f",
+    "what": "busy: held",
+    "took": 2,
+    "visible": false,
+    "onScreen": false,
+    "held": true,
+    "toasts": true,
+    "polling": true,
+    "probes": 16,
+    "lastProbe": "busy",
+    "cards": [
+      "row-f-6"
+    ],
+    "overlayOnScreen": false,
+    "focused": false,
+    "deadlines": {}
+  },
+  {
+    "t": 41593,
+    "row": "f",
+    "what": "dismissed while held: 0.8 s later",
+    "visible": false,
+    "onScreen": false,
+    "held": false,
+    "toasts": false,
+    "polling": false,
+    "probes": 16,
+    "lastProbe": "busy",
+    "cards": [],
+    "overlayOnScreen": false,
+    "focused": false,
+    "deadlines": {}
+  },
+  {
+    "t": 45606,
+    "row": "f",
+    "what": "dismissed while held: 4.8 s later, no more probes",
+    "visible": false,
+    "onScreen": false,
+    "held": false,
+    "toasts": false,
+    "polling": false,
+    "probes": 16,
+    "lastProbe": "busy",
+    "cards": [],
+    "overlayOnScreen": false,
+    "focused": false,
+    "deadlines": {}
+  },
+  {
+    "t": 45606,
+    "row": "f",
+    "what": "summary",
+    "holdEnded": true,
+    "pollingStopped": true,
+    "probesStayed": true,
+    "visible": false
+  },
+  {
+    "t": 46034,
+    "row": "g",
+    "what": "opt-out, busy: overlay visible",
+    "took": 8,
+    "visible": true,
+    "onScreen": true,
+    "held": false,
+    "toasts": true,
+    "polling": true,
+    "probes": 17,
+    "lastProbe": "unknown",
+    "cards": [
+      "row-g-7"
+    ],
+    "overlayOnScreen": true,
+    "focused": false,
+    "deadlines": {
+      "row-g-7": null
+    }
+  },
+  {
+    "t": 46036,
+    "row": "g",
+    "what": "the answer",
+    "lastProbe": {
+      "state": "unknown",
+      "source": "prefs.json toastsWaitForFullScreen false",
+      "ms": 0,
+      "at": 1794221501153
+    }
+  },
+  {
+    "t": 47389,
+    "row": "capture",
+    "what": "59-review-1-opt-out-busy-toast-shown-at-once",
+    "result": "\\\\.\\DISPLAY2 work area (1920,0 1920x1032), crop 1500,712 420x320"
+  },
+  {
+    "t": 49048,
+    "row": "g",
+    "what": "opt-out taken out, still busy: held again at the next poll",
+    "took": 1659,
+    "visible": false,
+    "onScreen": false,
+    "held": true,
+    "toasts": true,
+    "polling": true,
+    "probes": 18,
+    "lastProbe": "busy",
+    "cards": [
+      "row-g-7"
+    ],
+    "overlayOnScreen": false,
+    "focused": false,
+    "deadlines": {
+      "row-g-7": null
+    }
+  },
+  {
+    "t": 49048,
+    "row": "g",
+    "what": "summary",
+    "pushToVisibleMs": 3037,
+    "sampledTook": 8,
+    "heldAgainAfterMs": 1659
+  }
+]

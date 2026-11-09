@@ -4,7 +4,7 @@ import { IconBell, IconCheck, IconHourglass, IconCompact, IconX, IconFolder, Pro
 import { isProjectIconId } from './components/TabBar/types';
 import { applyProjectLook } from './threadView';
 import {
-  initialToastClock, syncToasts, setMainFocus, setHoveredToast, expiredToasts, nextDeadline,
+  initialToastClock, syncToasts, setMainFocus, setHoveredToast, setOnScreen, expiredToasts, nextDeadline,
 } from './toastExpiry';
 import type { ToastClock } from './toastExpiry';
 
@@ -93,8 +93,10 @@ function ToastCard({ toast, onDismiss }: ToastCardProps) {
 export function NotifierApp() {
   const [toasts, setToasts] = useState<NotifierToast[]>([]);
   // When each toast goes on its own (toastExpiry.ts): 5 seconds while the main
-  // window is focused and the pointer is off the cards.
-  const [clock, setClock] = useState<ToastClock>(() => initialToastClock());
+  // window is focused and the pointer is off the cards. The overlay starts hidden,
+  // and main says when it is on screen (after asking Windows whether a full-screen
+  // app is in front, AFT-72), so a toast's 5 seconds start only once it shows.
+  const [clock, setClock] = useState<ToastClock>(() => initialToastClock(false, false));
   const clockRef = useRef(clock);
   clockRef.current = clock;
   const hoveredRef = useRef<string | null>(null);
@@ -134,6 +136,19 @@ export function NotifierApp() {
     const apply = (focused: boolean) => setClock(c => setMainFocus(c, focused, Date.now()));
     window.afterterm.notifier.onMainFocus((focused) => { heard = true; apply(focused); });
     window.afterterm.notifier.mainFocused().then((focused) => { if (!heard) apply(focused); });
+    // On screen or not (main hides the overlay while a full-screen app or a
+    // presentation is in front). A hidden overlay has nothing under the pointer,
+    // and main turned its mouse off with it, so both are forgotten here too.
+    window.afterterm.notifier.onOnScreen((onScreen) => {
+      const now = Date.now();
+      if (!onScreen) {
+        hoveredRef.current = null;
+        ignoringRef.current = true;
+        setClock(c => setOnScreen(setHoveredToast(c, null, now), false, now));
+      } else {
+        setClock(c => setOnScreen(c, true, now));
+      }
+    });
     // For the agent harness, whose window never has real focus: read the clock,
     // and play a focus change as if main had sent it.
     const win = window as unknown as { __afterterm?: Record<string, unknown> };

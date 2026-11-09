@@ -64,6 +64,9 @@ import { attributeCommandChanges, isIgnoredChange, mergeSaved, pruneChanges } fr
 import type { FsChange } from './command-files.ts';
 import { buildNameIndex, findByName } from './file-index.ts';
 import type { IndexFs, NameIndex } from './file-index.ts';
+import { HOLD_POLL_MS, holdStep, initialHold, stateWord } from './notify-hold.ts';
+import type { HoldEvent, HoldStep, NotifyState, OverlayHold } from './notify-hold.ts';
+import { NotifyStateProbe } from './notify-state-probe.ts';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -1115,8 +1118,7 @@ function pushSetupToast() {
   if (!win || win.isDestroyed()) return;
   const send = () => {
     if (win.isDestroyed()) return;
-    showNotifierWindow();
-    win.webContents.send('notify:push', {
+    pushToNotifier({
       id: 'afterterm-setup',
       tabId: '__afterterm_setup__',
       type: 'done',
@@ -1741,6 +1743,13 @@ function createWindow() {
     sendMainFocus(false);
     repaintNotifier();
   });
+  // A foreground change is when a full-screen app comes or goes, so the toast
+  // hold asks again at once rather than at its next 3 second poll: a held toast
+  // shows as soon as afterterm is in front, and one on screen hides sooner when
+  // a full-screen app takes over. Nothing happens with no toasts up, or while a
+  // question is already out (holdStep ignores the poll then).
+  mainWindow.on('focus', () => stepNotifierHold({ type: 'poll' }));
+  mainWindow.on('blur', () => stepNotifierHold({ type: 'poll' }));
 
   mainWindow.on('close', (e) => {
     if (isQuitting || ptys.size === 0) return;
@@ -1821,17 +1830,154 @@ function createWindow() {
 
 // ─── IPC: notification overlay ──────────────────────────────────────────────
 
-// Main window → notifier: push a new toast — show the window first so it's visible above other apps
+// Main window → notifier: push a new toast. The overlay shows it once Windows
+// says nothing full screen is in front (the toast hold below).
 ipcMain.on('notify:push', (_event, toast) => {
+  pushToNotifier(toast);
+});
+
+function pushToNotifier(toast: unknown) {
+  if (!notifierWindow || notifierWindow.isDestroyed()) return;
+  // Re-place before showing: the main window may have moved to another monitor
+  // since the last toast, and a hidden overlay is never re-measured meanwhile.
+  positionNotifier();
+  notifierWindow.webContents.send('notify:push', toast);
+  stepNotifierHold({ type: 'push' });
+}
+
+// ─── The toast hold: toasts wait while a full-screen app is in front ─────────
+//
+// AFT-72 (decided by Aryan on 2026-11-09): since AFT-41 every show raises the
+// overlay above every window, so a toast would land on top of a game, a slide
+// show or a full-screen video. Windows' own notifications stay quiet then, and so
+// does afterterm: before a toast shows, main asks Windows
+// (SHQueryUserNotificationState, and whether the foreground window covers its
+// whole monitor, both through notify-state-probe.ts); while either says a
+// full-screen app, Direct3D full screen or presentation mode the overlay stays
+// hidden with its toasts in it, and main asks again every 3 seconds and on every
+// focus and blur of the main window; when the state ends the overlay is placed,
+// shown and raised as before. While toasts are on screen main keeps asking, so
+// a full-screen app that comes in front later hides them too. afterterm's own
+// full screen never holds its toasts (fg=own). The rules are pure in
+// notify-hold.ts; this is the plumbing. The overlay's page hears
+// notifier:on-screen, and a toast's 5 seconds (toastExpiry.ts) start only once
+// it is on screen. prefs.json's toastsWaitForFullScreen: false turns the hold off.
+//
+// Dev builds only: AFTERTERM_NOTIFY_STATE replaces the question to Windows, so a
+// test can play every state without a real game. Its value is a state's name
+// (busy, fullscreen, presentation, accepts, unknown, ...), or the path of a file
+// holding one, read on every question, so a test can change it mid-run.
+
+let notifierHold: OverlayHold = initialHold();
+let notifierHoldTimer: NodeJS.Timeout | null = null;
+// Whether the overlay's page has been told the overlay is on screen.
+let notifierOnScreen = false;
+// Its foreground check skips this process's windows (the main window, the overlay).
+const notifyStateProbe = new NotifyStateProbe({ ownPid: process.pid });
+let notifyProbeCount = 0;
+let lastNotifyProbe: { state: NotifyState; source: string; ms: number; at: number } | null = null;
+
+function notifyStateOverride(): { state: NotifyState; source: string } | null {
+  if (app.isPackaged) return null;
+  const raw = process.env.AFTERTERM_NOTIFY_STATE;
+  if (!raw) return null;
+  const word = stateWord(raw);
+  if (word) return { state: word, source: 'override' };
+  try {
+    return { state: stateWord(fs.readFileSync(raw, 'utf8')) ?? 'unknown', source: 'override file' };
+  } catch {
+    return { state: 'unknown', source: 'override file (unreadable)' };
+  }
+}
+
+async function askNotifyState(): Promise<{ state: NotifyState; source: string; ms: number }> {
+  // The opt-out: prefs.json's toastsWaitForFullScreen set to false shows every
+  // toast as before (no helper is started). Read on every question, so it
+  // applies at once; a prefs.json that cannot be read leaves the hold on.
+  if (readPrefs(getPrefsPath()).prefs.toastsWaitForFullScreen === false) {
+    return { state: 'unknown', source: 'prefs.json toastsWaitForFullScreen false', ms: 0 };
+  }
+  const override = notifyStateOverride();
+  if (override) return { ...override, ms: 0 };
+  const answer = await notifyStateProbe.query();
+  // The helper's line says which signal fired: quns is Windows' answer, fg the
+  // foreground window covering its monitor.
+  const said = answer.line ? ` ${answer.line}` : '';
+  return { state: answer.state, source: `windows${said}${answer.started ? ', helper started' : ''}`, ms: answer.ms };
+}
+
+function setNotifierOnScreen(onScreen: boolean) {
+  if (notifierOnScreen === onScreen) return;
+  notifierOnScreen = onScreen;
   if (notifierWindow && !notifierWindow.isDestroyed()) {
-    // Re-place before showing: the main window may have moved to another monitor
-    // since the last toast, and a hidden overlay is never re-measured meanwhile.
+    notifierWindow.webContents.send('notifier:on-screen', onScreen);
+  }
+}
+
+function stepNotifierHold(event: HoldEvent): HoldStep {
+  const before = notifierHold;
+  const step = holdStep(before, event);
+  notifierHold = step.next;
+  if (step.stopPoll || step.poll) {
+    if (notifierHoldTimer) { clearTimeout(notifierHoldTimer); notifierHoldTimer = null; }
+  }
+  if (step.hide) hideNotifierForHold();
+  if (step.show) {
+    // Placed again first: the toast may have waited (a hold, a slow answer)
+    // while the main window moved to another monitor.
     positionNotifier();
     showNotifierWindow();
     repaintNotifier();
-    notifierWindow.webContents.send('notify:push', toast);
   }
-});
+  if (step.poll) {
+    notifierHoldTimer = setTimeout(() => {
+      notifierHoldTimer = null;
+      stepNotifierHold({ type: 'poll' });
+    }, HOLD_POLL_MS);
+  }
+  if (step.probe) {
+    // Never rejects in practice; a throw anywhere still answers 'unknown', which shows.
+    void askNotifyState().catch(() => ({ state: 'unknown' as NotifyState, source: 'error', ms: 0 })).then((answer) => {
+      notifyProbeCount += 1;
+      lastNotifyProbe = { ...answer, at: Date.now() };
+      const wasHeld = notifierHold.held;
+      const done = stepNotifierHold({ type: 'answer', state: answer.state });
+      if (process.env.AFTERTERM_HARNESS === '1') {
+        const result = !done.next.toasts ? 'no toasts'
+          : done.next.held ? (wasHeld ? 'still held' : 'held')
+          : done.show ? (wasHeld ? 'shown after the hold' : 'shown')
+          : 'left on screen';
+        console.log(`[harness] notifier: ${answer.state} from ${answer.source} in ${answer.ms} ms, ${result} (visible ${!!notifierWindow?.isVisible()})`);
+      }
+    });
+  }
+  return step;
+}
+
+// A full-screen app or a presentation came in front with the overlay up: hide it
+// with its toasts in it, and turn off the mouse forwarding (the system-wide mouse
+// hook) with it, as notifier:hide does.
+function hideNotifierForHold() {
+  if (notifierWindow && !notifierWindow.isDestroyed() && notifierWindow.isVisible()) {
+    notifierWindow.hide();
+    notifierWindow.setIgnoreMouseEvents(true);
+  }
+  setNotifierOnScreen(false);
+}
+
+// Agent harness only: what main knows about the overlay and the hold.
+if (process.env.AFTERTERM_HARNESS === '1') {
+  ipcMain.handle('harness:notifier', () => ({
+    visible: !!notifierWindow && !notifierWindow.isDestroyed() && notifierWindow.isVisible(),
+    onScreen: notifierOnScreen,
+    hold: notifierHold,
+    polling: notifierHoldTimer !== null,
+    probes: notifyProbeCount,
+    lastProbe: lastNotifyProbe,
+    helperPid: notifyStateProbe.pid,
+    override: process.env.AFTERTERM_NOTIFY_STATE ?? null,
+  }));
+}
 
 // Main window → notifier: dismiss toasts for a tab (user activated it)
 ipcMain.on('notify:dismiss-tab', (_event, tabId: string) => {
@@ -1881,18 +2027,24 @@ ipcMain.on('notifier:set-ignore-mouse', (_event, ignore: boolean) => {
   notifierWindow.setIgnoreMouseEvents(ignore, notifierWindow.isVisible() ? { forward: true } : undefined);
 });
 
-// Notifier → self: hide window when all toasts are dismissed
+// Notifier → self: hide window when all toasts are dismissed. It also ends a
+// hold: with no toasts there is nothing waiting to show.
 ipcMain.on('notifier:hide', () => {
   if (!notifierWindow || notifierWindow.isDestroyed()) return;
   notifierWindow.hide();
   notifierWindow.setIgnoreMouseEvents(true);
+  setNotifierOnScreen(false);
+  stepNotifierHold({ type: 'emptied' });
 });
 
+// Only through the toast hold (stepNotifierHold), which shows the overlay when
+// nothing full screen is in front.
 function showNotifierWindow() {
   if (!notifierWindow || notifierWindow.isDestroyed()) return;
   notifierWindow.setIgnoreMouseEvents(true, { forward: true });
   notifierWindow.showInactive();
   raiseNotifier();
+  setNotifierOnScreen(true);
 }
 
 // Notifier → self: renderer reports the measured height of its toast stack;
@@ -3183,6 +3335,8 @@ app.on('before-quit', async (e) => {
 // will-quit, not before-quit: before-quit can be cancelled (the PTY drain above), and
 // the hook repair poll should keep working until the app really goes.
 app.on('will-quit', stopHookRepairPoll);
+// The toast hold's PowerShell helper, if one is running, goes with the app.
+app.on('will-quit', () => notifyStateProbe.dispose());
 
 // ─── Installer mode: the setup check ─────────────────────────────────────────
 
