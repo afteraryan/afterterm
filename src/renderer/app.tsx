@@ -28,9 +28,9 @@ import type { Screen } from './components/ScreenNav';
 import { useTabState, threadGitCwd } from './hooks/useTabState';
 import { Tab, TabNotification, nextGroupColor } from './components/TabBar/types';
 import { groupColors } from './projectColour';
-import { onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, onRecordStatus, backgroundAfterTitle, backgroundAfterRecord, clearsWhenSeen, initTiming, TabTiming } from './spinnerState';
+import { onTitle, onOutput, onTick, onInterrupt, onAnswer, onViewedTitle, onRecordStatus, backgroundAfterTitle, backgroundAfterRecord, backgroundAfterPrompt, clearsWhenSeen, withBackground, initTiming, TabTiming } from './spinnerState';
 import { migrateSession, serializeSession } from './sessionMigration';
-import { sleepAllForShutdown, wakePlan } from './sleepWake';
+import { sleepAllForShutdown, wakePlan, screenAfterReload } from './sleepWake';
 import { toastMessage, initialScreen, threadName, automaticThreadName, threadKind, needsCloseConfirm, closeConfirmText, needsSleepConfirm, sleepConfirmText, localhostUrl, threadFolder, threadFolderTarget, projectLookChanges } from './threadView';
 import { ProjectActions } from './projectMenu';
 import { buildThreadMenu } from './threadMenu';
@@ -40,6 +40,7 @@ import type { SessionFiles } from '../session-files';
 import type { FilesButtonProps } from './components/FilesButton';
 import { filesListView } from './filesView';
 import { panesFor, splitOf, paneDropTarget } from './splitView';
+import { PANEL_DEFAULT_WIDTH, clampPanelWidth, savedUi } from './panelWidth';
 import type { PaneTarget } from './splitView';
 import type { FileLinkContext, FileLinkTarget } from './components/Terminal/fileLinks';
 import type { MenuItem } from './components/Menu';
@@ -65,6 +66,9 @@ const GIT_POLL_MS = 30_000;
 // (design-03 decision 1); under reduced motion there is nothing to see and the
 // switch is immediate.
 const PANEL_SLIDE_MS = 320;
+// How soon after a change main gets the page's state in memory (AFT-33): what a page
+// that crashes can lose at most, against the two seconds the file save waits.
+const REMEMBER_MS = 250;
 const reducedMotion = () =>
   typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -84,6 +88,13 @@ export function App() {
   // Whether the panel is hidden (Ctrl+Shift+B, the toggle). Persisted in
   // session.json as ui.panelHidden (Phase 8); the rail is never hidden.
   const [panelHidden, setPanelHidden] = useState(false);
+  // The panel's width in pixels (AFT-30): the person's own, from dragging its right
+  // edge, or the default. Persisted as ui.panelWidth only when it is not the
+  // default. What is drawn is this held to the window (shownPanelWidth), so a width
+  // chosen in a big window is kept, not overwritten, when the window gets small.
+  const [panelWidth, setPanelWidth] = useState(PANEL_DEFAULT_WIDTH);
+  const [windowWidth, setWindowWidth] = useState(() => window.innerWidth);
+  const shownPanelWidth = clampPanelWidth(panelWidth, windowWidth);
   // The transient slide: the panel is shut on the way to Home and slides open
   // again on the way back (design-03 decision 1), without touching the
   // persisted flag above. Never true while panelHidden already is.
@@ -114,6 +125,9 @@ export function App() {
   // Which project folders exist, keyed by path. Refreshed on entering Home or a
   // project page, the only screens that show the "Folder not found" state.
   const [folderExists, setFolderExists] = useState<Record<string, boolean>>({});
+  // Bumped when a git read changes a thread's worktree or working tree top, so the
+  // folder check runs again (see the effect that reads it).
+  const [gitMoves, setGitMoves] = useState(0);
   const [toast, setToast] = useState<AppToast | null>(null);
   // Archive (2026-11-01): the project whose "Archive <name>?" window is open, and
   // the project being archived right now, which the panel keeps in Recent until
@@ -177,6 +191,30 @@ export function App() {
   stateRef.current = state;
   const panelHiddenRef = useRef(panelHidden);
   panelHiddenRef.current = panelHidden;
+  const panelWidthRef = useRef(panelWidth);
+  panelWidthRef.current = panelWidth;
+  // A window resize re-renders the app only when it changes the width the panel is
+  // drawn at (the width is held to half the window, so most resizes change
+  // nothing). windowWidth is kept in step wherever the width itself changes
+  // (changePanelWidth, the restore), so what is drawn is always the chosen width
+  // held to the real window.
+  useEffect(() => {
+    const onResize = () => {
+      const width = window.innerWidth;
+      setWindowWidth(prev => clampPanelWidth(panelWidthRef.current, prev) === clampPanelWidth(panelWidthRef.current, width) ? prev : width);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  // The panel's edge was dragged (settled) or double-clicked back to the default.
+  // After a drag the terminals were held still, so they are fitted once now (the
+  // drag has already put the panel at its final width, so the layout is settled); a
+  // reset animates, and the terminal area's own ResizeObserver fits when it ends.
+  const changePanelWidth = useCallback((width: number, settled: boolean) => {
+    setPanelWidth(width);
+    setWindowWidth(window.innerWidth);
+    if (settled) terminalRef.current?.refit();
+  }, []);
   const screenRef = useRef(screen);
   screenRef.current = screen;
 
@@ -295,15 +333,34 @@ export function App() {
     });
   };
 
+  // The top of each thread's git working tree, filled by every git read
+  // (noteGitInfo) and not saved. File links try paths from it, and a thread's
+  // Open in File Explorer and Open in <editor> open it (threadFolderTarget).
+  const gitTopsRef = useRef(new Map<string, string>());
+
+  // The folder a thread's own Open in File Explorer and Open in <editor> act on
+  // (threadFolderTarget): the top of the thread's git working tree, never above
+  // its project. The top is read from a ref that fills after a render and causes
+  // none, so the launches below call this again at the click.
+  const threadTarget = (tab: Tab) => threadFolderTarget(
+    tab,
+    folderExists,
+    gitTopsRef.current.get(tab.id),
+    tab.groupId ? state.groups.find(g => g.id === tab.groupId)?.cwd : undefined,
+  );
+
   // What the thread menu's "Open in File Explorer" gets for a thread: nothing
   // when the thread has no folder (the item is then left out), otherwise the
   // folder's checked existence and the launch. `folderExists` is only ever
   // false for a folder main has actually checked and found missing; an
   // unchecked one counts as present, so the item never starts out disabled.
   const threadExplorer = (tab: Tab) => {
-    const target = threadFolderTarget(tab, folderExists);
+    const target = threadTarget(tab);
     if (!target) return undefined;
-    return { missing: target.missing, open: () => openFolderInExplorer(target.folder) };
+    return {
+      missing: target.missing,
+      open: () => openFolderInExplorer((threadTarget(tab) ?? target).folder),
+    };
   };
 
   // Launches an editor on a folder, for a project (its root) and a thread (its
@@ -322,14 +379,19 @@ export function App() {
     });
   };
 
-  // "Open in <editor>" for a thread's own folder (the worktree for a worktree
-  // chat, the project root for a chat that runs there, a shell's cwd), the
-  // editor twin of threadExplorer: the header's editor button and the thread
-  // menu entries. Undefined when the thread has no folder or no editor was found.
+  // "Open in <editor>" for the same folder as threadExplorer (the worktree for a
+  // worktree chat, the repo's top for a chat or shell in a subfolder of one, the
+  // thread's own folder outside git, never above the project), the editor twin
+  // of it: the header's editor button and the thread menu entries. Undefined when
+  // the thread has no folder or no editor was found.
   const threadEditor = (tab: Tab) => {
-    const target = threadFolderTarget(tab, folderExists);
+    const target = threadTarget(tab);
     if (!target || editors.length === 0) return undefined;
-    return { editors, missing: target.missing, open: (editorId: string) => openFolderInEditor(target.folder, editorId) };
+    return {
+      editors,
+      missing: target.missing,
+      open: (editorId: string) => openFolderInEditor((threadTarget(tab) ?? target).folder, editorId),
+    };
   };
 
   // ── Edited files (docs/edited-files) ──────────────────────────────────────
@@ -388,7 +450,6 @@ export function App() {
   // not saved: the first read after a launch fills it again.
   const filesByTabRef = useRef(filesByTab);
   filesByTabRef.current = filesByTab;
-  const gitTopsRef = useRef(new Map<string, string>());
   const fileContextFor = useCallback((tabId: string): FileLinkContext | null => {
     const tab = stateRef.current.tabs.find(t => t.id === tabId);
     if (!tab) return null;
@@ -579,8 +640,15 @@ export function App() {
     if (!t) { t = initTiming(now); timingRef.current.set(tabId, t); }
     return t;
   };
-  const applyNotif = (tabId: string, cur: TabNotification | undefined, next: TabNotification | undefined) => {
-    if (next !== cur) stateRef.current.setTabNotification(tabId, next);
+  // Every change of notif lands here, with the thread's background work flag
+  // (Tab.backgroundTasks) as it stands after the event being handled: a caller that
+  // changes the flag in the same event passes the new value, since state still holds
+  // the old one until the next render. withBackground (spinnerState.ts) turns a quiet
+  // thread with background work into background, so the hourglass stays for as long
+  // as the work runs, viewed or not (AFT-25, AFT-43).
+  const applyNotif = (tabId: string, cur: TabNotification | undefined, next: TabNotification | undefined, background: boolean) => {
+    const settled = withBackground(next, background);
+    if (settled !== cur) stateRef.current.setTabNotification(tabId, settled);
   };
 
   // Load shells + restore session on mount
@@ -589,7 +657,8 @@ export function App() {
       window.afterterm.shells.list(),
       window.afterterm.session.load(),
       window.afterterm.update.takeLaunch(),
-    ]).then(([shellList, saved, landed]) => {
+      window.afterterm.recovery.state(),
+    ]).then(([shellList, saved, landed, recovered]) => {
       setShells(shellList);
       // The file may predate the current format (0.8.1 wrote no version field and
       // none of the project/thread fields); migrate fills defaults or rejects it.
@@ -597,12 +666,30 @@ export function App() {
       // Restored even with no threads at all: projects can exist without one. A
       // fresh profile starts with nothing running (no General thread spawned on
       // first launch, Yogansh 2026-10-29); either way the app opens on Home.
+      // AFT-33: when only the page reloaded (a crash, a hang, a reload), main still
+      // holds the shells that were running. Those threads come back awake and their
+      // new terminals attach to the same shells; a shell no saved thread names is
+      // ended, since nothing could reach it. A launch has no live shells.
+      const restored = session
+        ? state.restoreSession(session, recovered.threads)
+        : { reattached: [], orphans: recovered.threads.map(t => t.tabId) };
+      for (const id of restored.orphans) void window.afterterm.pty.destroy(id);
       if (session) {
-        state.restoreSession(session);
         setPanelHidden(!!session.ui?.panelHidden);
+        setPanelWidth(session.ui?.panelWidth ?? PANEL_DEFAULT_WIDTH);
+        setWindowWidth(window.innerWidth);
         setScreen(initialScreen(session.groups));
       } else {
         setScreen(initialScreen([]));
+      }
+      // And it opens where it was: the screen, project page and active thread main
+      // remembered for this run of the app. Nothing is remembered on a launch, which
+      // opens Home as always.
+      const back = screenAfterReload(recovered.ui, session?.groups.map(g => g.id) ?? [], session?.tabs.map(t => t.id) ?? []);
+      if (back) {
+        if (back.screen === 'project' && back.projectId) setProjectPageId(back.projectId);
+        setScreen(back.screen);
+        if (back.activeTabId) state.setActiveTabId(back.activeTabId);
       }
       // After an update restart, and only then (Aryan, 2026-10-30): back on the
       // screen and thread that were open, the threads that were awake woken (the
@@ -642,17 +729,50 @@ export function App() {
     }, i * 250));
   }, [initialized]);
 
+  // AFT-33: main keeps the latest state in memory, a moment after every change, so
+  // a page that crashes or hangs before the two second save below still comes back
+  // with its last threads. Throttled, not debounced: a stream of changes (a chat's
+  // title) still reaches main every REMEMBER_MS. Memory only, nothing is written.
+  // Each thread's notification and background work go with it: they are never saved,
+  // and a chat waiting for Aryan must still show needs-you after a reload.
+  const rememberTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!initialized || rememberTimerRef.current) return;
+    rememberTimerRef.current = setTimeout(() => {
+      rememberTimerRef.current = null;
+      const s = stateRef.current;
+      const data = serializeSession(s.tabs, s.groups, s.activeTabId, savedUi(panelHiddenRef.current, panelWidthRef.current), undefined, s.splits);
+      const shown: Record<string, { notification?: string; backgroundTasks?: boolean }> = {};
+      for (const t of s.tabs) {
+        if (t.asleep || (!t.notification && !t.backgroundTasks)) continue;
+        shown[t.id] = { ...(t.notification ? { notification: t.notification } : {}), ...(t.backgroundTasks ? { backgroundTasks: true } : {}) };
+      }
+      window.afterterm.session.remember(JSON.stringify(data), shown);
+    }, REMEMBER_MS);
+  }, [initialized, state.tabs, state.groups, state.activeTabId, state.splits, panelHidden, panelWidth]);
+
+  // And what the page shows, so a reloaded page opens on the same screen, project
+  // page and thread (screenAfterReload).
+  useEffect(() => {
+    if (!initialized) return;
+    window.afterterm.recovery.noteUi({
+      screen,
+      ...(screen === 'project' && projectPageId ? { projectId: projectPageId } : {}),
+      ...(state.activeTabId ? { activeTabId: state.activeTabId } : {}),
+    });
+  }, [initialized, screen, projectPageId, state.activeTabId]);
+
   // Auto-save session (2s debounce after any state change). No threads at all is
   // a state worth saving too (the last one was closed); only an unloaded session
   // is not.
   useEffect(() => {
     if (!initialized) return;
     const timer = setTimeout(() => {
-      const data = serializeSession(state.tabs, state.groups, state.activeTabId, { panelHidden }, undefined, state.splits);
+      const data = serializeSession(state.tabs, state.groups, state.activeTabId, savedUi(panelHidden, panelWidth), undefined, state.splits);
       window.afterterm.session.save(JSON.stringify(data));
     }, 2000);
     return () => clearTimeout(timer);
-  }, [initialized, state.tabs, state.groups, state.activeTabId, state.splits, panelHidden]);
+  }, [initialized, state.tabs, state.groups, state.activeTabId, state.splits, panelHidden, panelWidth]);
 
   // Keyboard shortcuts from main process
   useEffect(() => {
@@ -701,11 +821,20 @@ export function App() {
   }, []);
 
   // One thread's git read: branch and worktree onto the tab (setGitInfo no-ops when
-  // nothing changed), and the worktree's top kept for its file links.
+  // nothing changed), and the worktree's top kept for its file links and its
+  // folder buttons. When the read moves the worktree or the top (a worktree
+  // deleted from outside: git-info walks up from the missing folder and finds the
+  // main checkout), the folder check runs again, so threadFolderTarget sees the
+  // thread's folder as missing instead of opening the repo above it.
   const noteGitInfo = useCallback((tabId: string, info: GitInfo) => {
+    const topBefore = gitTopsRef.current.get(tabId);
+    const worktreeBefore = stateRef.current.tabs.find(t => t.id === tabId)?.worktree;
     if (info.top) gitTopsRef.current.set(tabId, info.top);
     else gitTopsRef.current.delete(tabId);
     stateRef.current.setGitInfo(tabId, { branch: info.branch, worktree: info.worktree });
+    if ((info.top ?? undefined) !== topBefore || (info.worktree ?? undefined) !== worktreeBefore) {
+      setGitMoves(n => n + 1);
+    }
   }, []);
 
   // Read one thread's git info (noteGitInfo). Calling it more often than needed is
@@ -764,10 +893,12 @@ export function App() {
       const hadBackground = !!tab.backgroundTasks;
       const background = backgroundAfterRecord(hadBackground, tab.recordStatus, status ?? undefined);
       if (background !== hadBackground) stateRef.current.setBackgroundTasks(tabId, background);
+      // A busy record starts working from quiet; idle or shell ends a compaction that
+      // was cancelled (AFT-42). A thread left with background work shows background.
       const next = onRecordStatus(tab.notification, status ?? undefined);
       // The tick only clears a tab it has a clock for, so make sure there is one.
       if (next === 'working') getTiming(tabId, Date.now());
-      applyNotif(tabId, tab.notification, next);
+      applyNotif(tabId, tab.notification, next, background);
     });
   }, []);
 
@@ -854,17 +985,19 @@ export function App() {
     refreshGit(tabId, tab?.claudeCwd ?? cwd);
   }, []);
 
-  // Opening a thread clears what it had finished telling you: a 'done' or
-  // 'background' badge, the unread mark, and any overlay toast for it. It does
-  // not clear needs-you (Phase 7, design-03 decision 4): a permission prompt is
-  // still waiting after you look at it, and only answering it (Enter), cancelling
-  // it (Esc or Ctrl+C) or the hook's next title ends it, all in spinnerState.ts.
-  // 'working' and 'compacting' are ongoing-turn state, not unseen badges, so they
-  // keep spinning. The same rule (clearsWhenSeen) clears a title that lands on
-  // the thread while it is being viewed, in handleNotification.
+  // Opening a thread clears what it had finished telling you: a 'done' badge, the
+  // unread mark, and any overlay toast for it. It does not clear needs-you (Phase 7,
+  // design-03 decision 4): a permission prompt is still waiting after you look at
+  // it, and only answering it (Enter), cancelling it (Esc or Ctrl+C) or the hook's
+  // next title ends it, all in spinnerState.ts. 'working' and 'compacting' are
+  // ongoing-turn state, not unseen badges, so they keep spinning, and since
+  // 2026-11-08 so is 'background': it lasts while the background work runs (AFT-43),
+  // and a seen done falls back to it when there is still some (withBackground). The
+  // same rule (clearsWhenSeen) clears a title that lands on the thread while it is
+  // being viewed, in handleNotification.
   const clearThreadBadges = useCallback((tabId: string) => {
     const tab = stateRef.current.tabs.find(t => t.id === tabId);
-    if (clearsWhenSeen(tab?.notification)) stateRef.current.setTabNotification(tabId, undefined);
+    if (clearsWhenSeen(tab?.notification)) stateRef.current.setTabNotification(tabId, withBackground(undefined, !!tab?.backgroundTasks));
     if (tab?.unread) stateRef.current.setUnread(tabId, false);
     window.afterterm.notify.dismissTab(tabId);
   }, []);
@@ -947,23 +1080,26 @@ export function App() {
     // plain title (see spinnerState.ts / docs/bugs.md), so it can't stop the spinner.
     const now = Date.now();
     const timing = getTiming(tabId, now);
-    const cur = stateRef.current.tabs.find(t => t.id === tabId)?.notification;
-    const next = onTitle(cur, type, timing, now);
-    // The user is looking at this thread right now: the same test that suppresses
-    // the toast below. A `done` or `background` that lands on the viewed thread
-    // has already been seen, so it clears at once instead of waiting for the next
-    // activation (Aryan, 2026-09-19 for done; background since 2026-09-25, when a
-    // ⏳ on the viewed thread kept its spinner until a switch away and back). With
-    // the app behind another window it stays until the thread is looked at.
-    const viewing = stateRef.current.activeTabId === tabId && document.hasFocus();
-    applyNotif(tabId, cur, onViewedTitle(next, viewing));
-    // The badge above may clear at once, but the background work it announced is
-    // still running: a ⏳ is kept as its own flag, viewed or not, until the hook's
-    // ✅ (plan-02, Fix 7; the restart window reads it; backgroundAfterTitle says why
-    // ▶, ⚠ and ⚙ leave it).
-    const hadBackground = !!stateRef.current.tabs.find(t => t.id === tabId)?.backgroundTasks;
+    const current = stateRef.current.tabs.find(t => t.id === tabId);
+    const cur = current?.notification;
+    // The background work flag first, since the notif below is settled against it: a
+    // ⏳ sets it, viewed or not, and only the hook's ✅ clears it (plan-02, Fix 7; the
+    // restart window reads it; backgroundAfterTitle says why ▶, ⚠ and ⚙ leave it).
+    const hadBackground = !!current?.backgroundTasks;
     const background = backgroundAfterTitle(hadBackground, type);
     if (background !== hadBackground) stateRef.current.setBackgroundTasks(tabId, background);
+    // The flag goes to onTitle too: a needs-you over background is a background
+    // agent's prompt, which Enter answers back to background (onAnswer).
+    const next = onTitle(cur, type, timing, now, background);
+    // The user is looking at this thread right now: the same test that suppresses
+    // the toast below. A `done` that lands on the viewed thread has already been
+    // seen, so it clears at once instead of waiting for the next activation (Aryan,
+    // 2026-09-19). With the app behind another window it stays until the thread is
+    // looked at. A ⏳ stays either way since 2026-11-08: the background work it
+    // announced is still running (AFT-25, AFT-43), and the turn's spinner still
+    // stops, since the hourglass replaces it.
+    const viewing = stateRef.current.activeTabId === tabId && document.hasFocus();
+    applyNotif(tabId, cur, onViewedTitle(next, viewing), background);
 
     if (!type) return;
     // Working indicator is sidebar-only, no toast while Claude is mid-turn
@@ -988,12 +1124,13 @@ export function App() {
     });
   }, [state.setTabNotification]);
 
-  // Esc or Ctrl+C in a terminal ends the working turn from afterterm's view and
-  // cancels a permission prompt, so both the spinner and needs-you clear. Leaves
-  // other notifs alone.
+  // Esc or Ctrl+C in a terminal ends the working turn from afterterm's view,
+  // cancels a permission prompt and cancels a compaction (AFT-42), so the spinner,
+  // needs-you and compacting clear; a thread with background work running falls
+  // back to background. Leaves other notifs alone.
   const handleUserInput = useCallback((tabId: string) => {
-    const cur = stateRef.current.tabs.find(t => t.id === tabId)?.notification;
-    applyNotif(tabId, cur, onInterrupt(cur));
+    const tab = stateRef.current.tabs.find(t => t.id === tabId);
+    applyNotif(tabId, tab?.notification, onInterrupt(tab?.notification), !!tab?.backgroundTasks);
   }, [state.setTabNotification]);
 
   // Enter in a terminal. At a permission prompt this is the answer, so needs-you
@@ -1002,8 +1139,8 @@ export function App() {
   const handleAnswer = useCallback((tabId: string) => {
     const now = Date.now();
     const timing = getTiming(tabId, now);
-    const cur = stateRef.current.tabs.find(t => t.id === tabId)?.notification;
-    applyNotif(tabId, cur, onAnswer(cur, timing, now));
+    const tab = stateRef.current.tabs.find(t => t.id === tabId);
+    applyNotif(tabId, tab?.notification, onAnswer(tab?.notification, timing, now), !!tab?.backgroundTasks);
   }, [state.setTabNotification]);
 
   // A real keystroke in a thread. An unread chat the user is typing in is no
@@ -1021,22 +1158,24 @@ export function App() {
   const handleOutput = useCallback((tabId: string, byteLen: number) => {
     const now = Date.now();
     const timing = getTiming(tabId, now);
-    const cur = stateRef.current.tabs.find(t => t.id === tabId)?.notification;
-    applyNotif(tabId, cur, onOutput(cur, timing, now, byteLen));
+    const tab = stateRef.current.tabs.find(t => t.id === tabId);
+    applyNotif(tabId, tab?.notification, onOutput(tab?.notification, timing, now, byteLen), !!tab?.backgroundTasks);
   }, [state.setTabNotification]);
 
   // Clock tick: clear a tab's `working` spinner after its output has been silent long
-  // enough (fixes the stuck-spinner bug where Stop's ✅ never fires), unless Claude
-  // Code's record still says busy (plan-02, Fix 11: a stalled turn keeps its spinner).
-  // Also prunes timing entries for closed tabs.
+  // enough (fixes the stuck-spinner bug where Stop's ✅ never fires), and its
+  // `compacting` after a longer silence (AFT-42: a cancelled compaction sends no hook
+  // title), unless Claude Code's record still says busy for a turn (plan-02, Fix 11: a
+  // stalled turn keeps its spinner). A thread with background work running falls back
+  // to background. Also prunes timing entries for closed tabs.
   useEffect(() => {
     const id = setInterval(() => {
       const now = Date.now();
       const s = stateRef.current;
       for (const tab of s.tabs) {
-        if (tab.notification !== 'working') continue;
+        if (tab.notification !== 'working' && tab.notification !== 'compacting') continue;
         const timing = timingRef.current.get(tab.id);
-        if (timing) applyNotif(tab.id, 'working', onTick('working', timing, now, tab.recordStatus));
+        if (timing) applyNotif(tab.id, tab.notification, onTick(tab.notification, timing, now, tab.recordStatus), !!tab.backgroundTasks);
       }
       for (const id2 of [...timingRef.current.keys()]) {
         if (!s.tabs.some(t => t.id === id2)) timingRef.current.delete(id2);
@@ -1255,7 +1394,7 @@ export function App() {
       // would come back with it shown (found in the Phase 8 self-test).
       // An update restart also records which threads were awake, to wake them on
       // the other side; on any other quit the list is empty and nothing is written.
-      const data = serializeSession(sleepAllForShutdown(s.tabs, Date.now()), s.groups, s.activeTabId, { panelHidden: panelHiddenRef.current }, wakeAfterUpdateRef.current, s.splits);
+      const data = serializeSession(sleepAllForShutdown(s.tabs, Date.now()), s.groups, s.activeTabId, savedUi(panelHiddenRef.current, panelWidthRef.current), wakeAfterUpdateRef.current, s.splits);
       window.afterterm.session.saveSync(JSON.stringify(data));
     };
     window.addEventListener('beforeunload', flush);
@@ -1339,7 +1478,9 @@ export function App() {
   // deleted while you were in the workspace is caught on the way back, plus one
   // whenever the set of folders itself changes (a thread cd-ing somewhere new, a
   // project added), which is what keeps the workspace's thread menus honest
-  // without polling. Project folders and thread folders go in one call.
+  // without polling, and one whenever a git read moves a thread's worktree or
+  // working tree top (gitMoves), which is how a worktree deleted from outside
+  // gets noticed within a poll. Project folders and thread folders go in one call.
   const folderKey = [
     ...state.groups.map(g => g.cwd),
     ...state.tabs.map(t => threadFolder(t)),
@@ -1352,7 +1493,7 @@ export function App() {
       if (!cancelled) setFolderExists(result);
     });
     return () => { cancelled = true; };
-  }, [screen, screenSeq, folderKey]);
+  }, [screen, screenSeq, folderKey, gitMoves]);
 
   // Editor detection runs in main at startup; the renderer just reads the result
   // once. A prefs.json editorPath that exists but is not an editor is the one
@@ -1414,7 +1555,15 @@ export function App() {
       // Automatic updates: wake a thread, and give one a state, so a test can fill
       // the restart window (a chat mid-turn) without a real Claude Code session.
       wake: (tabId: string) => wakeThreadRef.current(tabId),
-      setNotification: (tabId: string, n: TabNotification | undefined) => stateRef.current.setTabNotification(tabId, n),
+      // 'background' also sets the background work flag, as the hook's ⏳ does, and
+      // quiet (undefined) clears it: the state is drawn from that flag since
+      // 2026-11-08 (withBackground), so without it the next output chunk would undo
+      // the state set here.
+      setNotification: (tabId: string, n: TabNotification | undefined) => {
+        if (n === 'background') stateRef.current.setBackgroundTasks(tabId, true);
+        else if (n === undefined) stateRef.current.setBackgroundTasks(tabId, false);
+        stateRef.current.setTabNotification(tabId, n);
+      },
       update: () => updateRef.current,
       // Phase 8: the same for a project (lastActiveAt, collapsed, icon, pinned).
       group: (groupId: string) => stateRef.current.groups.find(g => g.id === groupId) ?? null,
@@ -1435,6 +1584,7 @@ export function App() {
       // Phase 8: the persisted panel flag, read by the harness's `rail` command,
       // and the panel's own row order, the list Ctrl+Shift+Down/Up walks.
       panelHidden: () => panelHiddenRef.current,
+      panelWidth: () => panelWidthRef.current,
       panelOrder: () => panelRef.current?.visibleIds() ?? [],
     };
   }, []);
@@ -1453,9 +1603,15 @@ export function App() {
   }, []);
 
   // Whether the thread's shell sits at its prompt, from the same marks: what the
-  // restart window reads for a thread with no live Claude (plan-02, Fix 8).
+  // restart window reads for a thread with no live Claude (plan-02, Fix 8). The prompt
+  // coming back also means the thread's Claude has gone, so its background work flag
+  // clears and a leftover hourglass goes (backgroundAfterPrompt; review 1 of PR #90:
+  // without a record afterterm can read, nothing else would clear it after /exit).
+  // endBackgroundWork decides on the latest state, not this render's: a ⏳ and the
+  // prompt can arrive in the same batch of output.
   const handlePromptState = useCallback((tabId: string, atPrompt: boolean) => {
     stateRef.current.setAtPrompt(tabId, atPrompt);
+    if (!backgroundAfterPrompt(true, atPrompt)) stateRef.current.endBackgroundWork(tabId);
   }, []);
 
   // The Files list of the chat on screen is read when it comes on screen (a
@@ -1531,7 +1687,7 @@ export function App() {
     );
   };
 
-  const tabInfos = state.tabs.map(t => ({ id: t.id, shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize, claudeSessionId: t.claudeSessionId, claudeCwd: t.claudeCwd, asleep: t.asleep, wokeAt: t.wokeAt, port: t.port, lastCommand: t.lastCommand }));
+  const tabInfos = state.tabs.map(t => ({ id: t.id, shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize, claudeSessionId: t.claudeSessionId, claudeCwd: t.claudeCwd, asleep: t.asleep, wokeAt: t.wokeAt, port: t.port, lastCommand: t.lastCommand, reattach: t.reattach }));
 
   const activeTab = state.tabs.find(t => t.id === state.activeTabId);
   const activeSplit = splitOf(state.splits, state.activeTabId);
@@ -1626,6 +1782,8 @@ export function App() {
           groups={state.groups}
           activeTabId={state.activeTabId}
           hidden={panelHidden || panelShut}
+          width={shownPanelWidth}
+          onWidthChange={changePanelWidth}
           now={now}
           shells={shells}
           onActivate={handleActivate}
@@ -1721,6 +1879,7 @@ export function App() {
               onOutput={handleOutput}
               onFontSizeChange={state.setTabFontSize}
               onExit={handlePtyExit}
+              onShellGone={(tabId) => stateRef.current.sleepTab(tabId)}
               onTail={handleTail}
               onCommand={handleCommand}
               onPromptState={handlePromptState}

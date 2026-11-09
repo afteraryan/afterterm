@@ -82,13 +82,56 @@ code file opens in Notepad. See `docs/edited-files/phases.md`, "Decisions".
 - `SearchAddon`, one instance per terminal. A floating bar in the top-right of the terminal
   area (like conhost's Find dialog) searches **only the active tab's** scrollback.
 - Incremental highlight as you type, Enter / Shift+Enter to step forward/back, an `n/total`
-  match counter driven by `onDidChangeResults`, Esc to close.
+  match counter driven by `onDidChangeResults`. Esc closes the bar only from the bar's own box.
+  In the terminal Esc belongs to the program (it interrupts Claude Code), so afterterm never
+  takes it there, on purpose: do not add an Esc to the terminal's key handler. The x closes the
+  bar from anywhere.
 - Switching tabs closes the bar (search is single-terminal by design).
 - Implementation: the bar is a React sibling of `.terminal-host`. Terminal containers are
   appended *imperatively* into `.terminal-host` so React never reconciles them — keeping the
   manually-managed xterm DOM and the React-managed find bar from fighting over the same parent.
 - Highlight colors: all-occurrences uses a dim low-key amber; the current match uses a bright
   bordered amber so the two are clearly distinguishable (an earlier pass had them too close).
+
+### Selecting text while the find bar is open (AFT-44, 2026-11-08)
+
+**The bug.** Once a search had been made, text could not be selected with the mouse (reported
+2026-10-21). Reproduced in the harness: with the bar open and a program writing output, a drag
+across two lines ended with only the word being searched for selected, within 300 ms.
+
+**The cause.** `SearchAddon` (0.16.0) keeps its highlights current by re-running its last search
+200 ms after every write to the terminal (`_updateMatches`, on `onWriteParsed`), and each run
+selects the match it finds, starting from wherever the current selection is. That replaced the
+user's selection. A chat that is working writes all the time, and the bar does not close when the
+terminal is clicked (Esc only closes it while its own box has focus, see above), so the search
+stayed live until the bar's x was used. Closing the bar with `clearDecorations` also cannot cancel a re-run
+already waiting (read from the addon's source, not reproduced): that run would search for
+`undefined` and clear the selection.
+
+**What afterterm does now.** A search is ended by replacing its addon, not by clearing it
+(`endSearch` in `Terminal/index.tsx`: dispose the addon, which cancels a waiting re-run, and
+load a fresh one, `attachSearch`). It ends when the bar closes, when the thread changes, on a
+left or right press in the terminal (capture phase, before xterm starts its selection) and on
+Ctrl+Shift+A. The right press is included because a search left running selected its match again
+after every write, so a second right-click copied the match instead of pasting. The listener is on
+`mousedown`, not `pointerdown`, on purpose: xterm's scrollbar cancels `pointerdown`, so a press on
+the scrollbar does not end the search. The bar stays open with its text and a blank match count;
+Enter or an arrow starts a fresh search from the selection. After a plain click nothing is
+selected, so then Enter searches from the top of the scrollback and Shift+Enter from the bottom.
+The match that was selected stays selected, so Esc after a search still leaves the found text
+ready to copy.
+
+**Rejected: keeping the highlights while the user selects.** The addon has no way to refresh its
+highlights without selecting a match, so keeping them means the selection is lost.
+
+**Tested** (captures and recordings in `docs/screenshots/find-selection-fix/`, a cmd thread with a
+program rewriting one row twice a second so the screen does not scroll): before the fix the drag
+is replaced by the match (`23`, `24`, `20-before-fix-bug-whole-sequence.mp4`); after it, with the
+bar open the selection is the dragged text 3 seconds and 6 writes later, Ctrl+C copies it, a second
+search from the same bar works and a drag after it holds, a drag after closing the bar with its x
+or with Esc holds, and Ctrl+Shift+A with a search live selects the whole buffer and keeps it
+(`30-after-fix-whole-sequence.mp4`, `31` to `39`). `window.__afterterm.selection(tabId)` reads
+xterm's selection for the harness.
 
 ## The jump button (Phase 9)
 
@@ -123,6 +166,39 @@ samples its own `scrollTop`.
   quoted if they contain spaces.
 - The path is resolved via `webUtils.getPathForFile`, exposed in preload as
   `window.afterterm.files.pathForFile` — Electron 32+ removed the old `File.path` property.
+
+## No key reloads the window (AFT-26, 2026-11-08)
+
+Electron gives an app a default menu when it sets none, and the window answers that menu's keys
+even with the menu bar hidden. Its View menu held Reload (Ctrl+R) and Force Reload
+(Ctrl+Shift+R). A reload restarts the page, which restores `session.json`, so every thread came
+back asleep and the app landed on Home (Aryan, 2026-09-30: "doing ctrl+shift+R suddenly takes me
+to home and puts all sessions to sleep"). A menu key acts only when the page did not use the key:
+Ctrl+R in a terminal went to the shell, but Ctrl+Shift+R (which xterm ignores) and Ctrl+R with
+focus outside a terminal reloaded.
+
+`src/app-menu.ts` (`appMenuTemplate`) is Electron's default Windows menu without those two
+items (and without its Help menu, which has no keys), set in `main.ts` before the windows open. Every other key the default menu answered stays
+(copy and paste in text fields, Ctrl+0, Ctrl+Plus and Ctrl+Minus, F11, Ctrl+Shift+I for the
+developer tools, Ctrl+M, Ctrl+W). The keys are not swallowed in `before-input-event` instead,
+because the terminal needs Ctrl+R (reverse history search in PowerShell and bash). F5 was never
+in the menu; in cmd it recalls the last command, as it should. Unit test: `src/app-menu.test.ts`
+(no reload role anywhere in the menu, every other default role kept).
+
+One exception is kept on purpose: the developer tools (Ctrl+Shift+I, in every build) have their
+own Ctrl+R, Ctrl+Shift+R and F5, which reload the page while the developer tools window has
+focus, and the app menu has no say over them.
+
+**How it was tested.** A key sent through CDP (`drive key`) never reaches a menu item: Electron
+runs a menu role on `BaseWindow.getFocusedWindow()` (read from Electron 35's own code), and a
+harness window never has OS focus, so `drive key r --ctrl --shift` did nothing even before the
+fix. So a harness run now logs every menu item that answers a key, once at startup
+(`[harness] menu key <path> role=<role> key=<key>`, `logMenuKeys` in `main.ts`). Before the fix
+the log listed `View > Reload ... CmdOrCtrl+R` and `View > Force Reload ... Shift+CmdOrCtrl+R`;
+after it, neither, and the other thirteen keys unchanged. With two awake cmd threads, Ctrl+Shift+R,
+Ctrl+R and F5 sent with the terminal focused and again with nothing focused left the page
+unreloaded, the workspace on screen and both threads awake. Captures:
+`docs/screenshots/reload-and-recovery/01` to `09`.
 
 ## Shortcut placement note
 

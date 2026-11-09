@@ -1,0 +1,5 @@
+Row 5: a loop in cmd one ran 'mode con | findstr Columns >> cols1.txt' about 37 times a second.
+It was started while cmd one was on screen, cmd two was then put on screen (cmd one hidden), the renderer was crashed (02:26:42) and the page came back.
+540 samples were taken before the crash and 616 more up to the moment the loop was stopped with Ctrl+C. Every value and its count:
+Columns:        200 x 1156
+No sample reads 80 (or anything but 200). Main logged: [harness] pty:attach tab-201 pid=46932 size=200x56

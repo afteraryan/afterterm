@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, screen, shell, nativeImage, powerMonitor } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain, dialog, screen, shell, nativeImage, powerMonitor } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
@@ -17,10 +17,19 @@ import type { ReconcileResult } from './claude-hook-install';
 import { runSetupCheck, issueUrl, failureNote, ISSUES_URL } from './setup-check.ts';
 import type { Runner } from './setup-check.ts';
 import { initUpdater } from './updater.ts';
+import { appMenuTemplate } from './app-menu.ts';
+import { isTabNotification } from './notification-states.ts';
+import type { TabNotification } from './notification-states.ts';
+import { HANG_GRACE_MS, RELOAD_DELAY_MS, RELOAD_LIMIT, RELOAD_WINDOW_MS, afterChildGone, afterRendererGone, allowReload, ptyCreateAction } from './window-recovery.ts';
 import { detectEditors } from './editor-detect.ts';
 import type { DetectDeps } from './editor-detect.ts';
 import type { EditorInfo } from './editors.ts';
 import { readPrefs, updatePrefs } from './prefs.ts';
+import {
+  SAVE_DELAY_MS, homeFromPrefs, homeToPrefs, sameHome, findHomeDisplay, startupPlacement,
+  isWindowsMove, pruneEvents, moveBack, countsAsDisplayChange, landsOn,
+} from './window-placement.ts';
+import type { DisplayInfo, WindowHome, MoveBack } from './window-placement.ts';
 import { planSpawn } from './shell-integration.ts';
 import { readTranscriptMeta, isSessionId, findTranscript, projectDirName, transcriptPath } from './claude-transcript.ts';
 import {
@@ -1145,6 +1154,30 @@ function notifierDisplay(): Electron.Display {
   return getTargetDisplay();
 }
 
+// The overlay's always-on-top level. On Windows every level but 'normal' makes
+// the window topmost; Electron then puts the levels from 'floating' (the level
+// `alwaysOnTop: true` gives) to 'status' just below the taskbar, and
+// 'pop-up-menu' and higher at the very top. The toasts must be above everything.
+const NOTIFIER_TOP_LEVEL = 'screen-saver';
+
+// Put the overlay back at the top of every window (AFT-41: three toasts arrived
+// behind other windows and were never seen). A topmost window that is hidden and
+// shown again with showInactive keeps its old place in the z-order, so any other
+// always-on-top window that came up meanwhile stays above it, and a window that
+// has lost its topmost flag (Windows can drop it) is shown as an ordinary one.
+// setAlwaysOnTop sets the flag again and moves the window to the top of the
+// topmost windows, every time it is called; moveTop is the same order again,
+// without activating. Called on every show, and on every display and power change
+// while a toast is up. Cheap: two SetWindowPos calls. Only for a visible overlay:
+// moveTop also shows the window (SWP_SHOWWINDOW in Electron 35), and an empty
+// overlay shown that way is never hidden again by the renderer, which only hides
+// on a change to its toast list (the white bar with no toast, AFT-13).
+function raiseNotifier() {
+  if (!notifierWindow || notifierWindow.isDestroyed() || !notifierWindow.isVisible()) return;
+  notifierWindow.setAlwaysOnTop(true, NOTIFIER_TOP_LEVEL);
+  notifierWindow.moveTop();
+}
+
 // A full repaint of the overlay, the white-bar cure (see createNotifierWindow).
 // Deferred a tick so it lands after the frame paint it is there to overwrite.
 function repaintNotifier() {
@@ -1207,6 +1240,7 @@ function createNotifierWindow() {
   // it is installed any stall here freezes the mouse on the whole PC. With no
   // toast up there is nothing to hover, so there is no hook (launch lag, 2026-10-29).
   notifierWindow.setIgnoreMouseEvents(true);
+  notifierWindow.setAlwaysOnTop(true, NOTIFIER_TOP_LEVEL);
 
   // Chromium copies the loaded document's title onto the native window — that's
   // what drew "index.html" into the DWM caption strip (the "white bar"). Refuse
@@ -1219,6 +1253,7 @@ function createNotifierWindow() {
 
   notifierWindow.loadURL(notifierUrl);
   notifierWindow.on('closed', () => { notifierWindow = null; });
+  guardRenderer(notifierWindow, 'notifier');
 
   // The white bar. The overlay is a transparent layered window, and DWM briefly
   // turns its non-client (caption) rendering on around a show and around a
@@ -1237,8 +1272,12 @@ function createNotifierWindow() {
   // A monitor plugged in, unplugged or rescaled can leave the overlay on a display
   // that no longer exists or no longer holds the main window; re-place it at once
   // rather than on the next toast. Registered here, once, since the overlay is
-  // created once per app run.
-  const replace = () => positionNotifier();
+  // created once per app run. A display change is also a moment Windows reorders
+  // windows, so a toast that is up is put back on top (raiseNotifier).
+  const replace = () => {
+    positionNotifier();
+    raiseNotifier();
+  };
   screen.on('display-added', replace);
   screen.on('display-removed', replace);
   screen.on('display-metrics-changed', replace);
@@ -1266,8 +1305,377 @@ function harnessWindowPlacement(): { x: number; y: number; width: number; height
   };
 }
 
+// ─── Window recovery (AFT-33) ───────────────────────────────────────────────
+
+// The window comes back by itself when its page crashes, hangs or loses its
+// graphics, without closing the app: every shell lives here in main, so the page
+// can be loaded again and re-attach to them (restoreWithLive in sleepWake.ts,
+// pty:create's attach below). The rules are pure in window-recovery.ts.
+
+// Every recovery event, one line each, in <userData>\recovery.log as well as the
+// console, so what happened to a window nobody was watching can be read afterwards
+// (a packaged build has no other log). Capped: past RECOVERY_LOG_MAX_BYTES the file
+// keeps its newer half.
+const RECOVERY_LOG_MAX_BYTES = 256 * 1024;
+
+function recoveryLog(line: string): void {
+  console.log(`[recovery] ${line}`);
+  try {
+    const file = path.join(app.getPath('userData'), 'recovery.log');
+    try {
+      if (fs.statSync(file).size > RECOVERY_LOG_MAX_BYTES) {
+        fs.writeFileSync(file, fs.readFileSync(file, 'utf-8').slice(-RECOVERY_LOG_MAX_BYTES / 2), 'utf-8');
+      }
+    } catch { /* no file yet */ }
+    fs.appendFileSync(file, `${new Date().toISOString()} ${line}\n`, 'utf-8');
+  } catch { /* the log is a help, never a reason to fail */ }
+}
+
+// When each window's page was last reloaded by recovery, so a page that crashes as
+// soon as it loads is not reloaded in a tight loop (allowReload), and the reload
+// waiting for its turn when one was refused.
+const recoveryReloads = new Map<string, number[]>();
+const recoveryRetries = new Map<string, NodeJS.Timeout>();
+
+function reloadForRecovery(win: BrowserWindow, label: string, why: string): void {
+  if (recoveryRetries.has(label)) return;
+  setTimeout(() => {
+    if (win.isDestroyed() || isQuitting) return;
+    const decision = allowReload(recoveryReloads.get(label) ?? [], Date.now());
+    recoveryReloads.set(label, decision.times);
+    if (!decision.allowed) {
+      const wait = decision.retryInMs ?? RELOAD_WINDOW_MS;
+      recoveryLog(`${label}: not reloading after ${why} yet: reloaded ${RELOAD_LIMIT} times in ${RELOAD_WINDOW_MS / 1000}s, trying again in ${Math.ceil(wait / 1000)}s`);
+      recoveryRetries.set(label, setTimeout(() => {
+        recoveryRetries.delete(label);
+        reloadForRecovery(win, label, why);
+      }, wait));
+      return;
+    }
+    recoveryLog(`${label}: reloading the page after ${why}`);
+    win.webContents.reload();
+  }, RELOAD_DELAY_MS);
+}
+
+// A window's page: reloaded when its renderer process goes away, and when it has
+// been unresponsive for HANG_GRACE_MS (its renderer is ended first, which reports
+// as gone and reloads through the same path; Electron's own advice for a hung page).
+function guardRenderer(win: BrowserWindow, label: string): void {
+  const contents = win.webContents;
+  let hangTimer: NodeJS.Timeout | null = null;
+  const clearHang = () => {
+    if (hangTimer) { clearTimeout(hangTimer); hangTimer = null; }
+  };
+  contents.on('render-process-gone', (_e, details) => {
+    clearHang();
+    recoveryLog(`${label}: renderer gone, reason=${details.reason} exitCode=${details.exitCode}`);
+    if (afterRendererGone(details.reason, isQuitting) === 'reload') reloadForRecovery(win, label, `the renderer ${details.reason}`);
+  });
+  contents.on('unresponsive', () => {
+    recoveryLog(`${label}: unresponsive; ending it if it still is in ${HANG_GRACE_MS / 1000}s`);
+    if (hangTimer) return;
+    hangTimer = setTimeout(() => {
+      hangTimer = null;
+      if (win.isDestroyed() || isQuitting) return;
+      recoveryLog(`${label}: still unresponsive after ${HANG_GRACE_MS / 1000}s, ending its renderer`);
+      contents.forcefullyCrashRenderer();
+    }, HANG_GRACE_MS);
+  });
+  contents.on('responsive', () => {
+    if (!hangTimer) return;
+    clearHang();
+    recoveryLog(`${label}: responsive again`);
+  });
+  win.on('closed', clearHang);
+}
+
+// The GPU process going away is what took the terminals' text in AFT-33. Chromium
+// starts a new one by itself; the main window's terminals are told to redraw (a
+// fresh WebGL renderer each), which keeps their scrollback, unlike a reload. Any
+// other process going away is only logged.
+app.on('child-process-gone', (_e, details) => {
+  recoveryLog(`process gone: type=${details.type} reason=${details.reason} exitCode=${details.exitCode}${details.name ? ` name=${details.name}` : ''}`);
+  if (afterChildGone(details.type, details.reason) === 'repaint' && mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('recovery:repaint');
+  }
+});
+
+// What the page last showed (screen, project page, active thread), kept in memory
+// only: it exists for a page that reloads inside one run of the app, never on a
+// launch (screenAfterReload in sleepWake.ts).
+type RememberedUi = { screen: 'home' | 'workspace' | 'project'; projectId?: string; activeTabId?: string };
+let rememberedUi: RememberedUi | null = null;
+
+ipcMain.on('recovery:ui', (_event, ui: unknown) => {
+  if (!ui || typeof ui !== 'object') return;
+  const u = ui as Record<string, unknown>;
+  if (u.screen !== 'home' && u.screen !== 'workspace' && u.screen !== 'project') return;
+  rememberedUi = {
+    screen: u.screen,
+    ...(typeof u.projectId === 'string' ? { projectId: u.projectId } : {}),
+    ...(typeof u.activeTabId === 'string' ? { activeTabId: u.activeTabId } : {}),
+  };
+});
+
+// What each thread last showed, as the page sent it with its state (session:remember):
+// its notification (needs-you, done, working, compacting, background) and whether it
+// had background work running. Neither is ever saved to disk, so after a reload this
+// is the only place a chat waiting for Aryan is still known to be waiting.
+type ThreadShown = { notification?: TabNotification; backgroundTasks?: true };
+let rememberedThreads = new Map<string, ThreadShown>();
+
+function readThreadsShown(raw: unknown): Map<string, ThreadShown> {
+  const out = new Map<string, ThreadShown>();
+  if (!raw || typeof raw !== 'object') return out;
+  for (const [tabId, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!value || typeof value !== 'object') continue;
+    const v = value as Record<string, unknown>;
+    const shown: ThreadShown = {};
+    if (isTabNotification(v.notification)) shown.notification = v.notification;
+    if (v.backgroundTasks === true) shown.backgroundTasks = true;
+    if (shown.notification || shown.backgroundTasks) out.set(tabId, shown);
+  }
+  return out;
+}
+
+// Asked by the page as it restores the session: the shells main still holds (with
+// the port each was last seen on and what each last showed), and what the page last
+// showed. Empty on a launch. The record status, the children flags and the record's
+// session ids are sent on change only (an id once), so they are forgotten here and
+// the next pass sends every live thread's again to the new page.
+ipcMain.handle('recovery:state', () => {
+  const threads = [...ptys.keys()].map(tabId => ({
+    tabId,
+    ...(lastPortSent.has(tabId) ? { port: lastPortSent.get(tabId) ?? null } : {}),
+    ...(rememberedThreads.get(tabId) ?? {}),
+  }));
+  if (threads.length > 0) {
+    recordStatusSent.clear();
+    shellChildrenSent.clear();
+    recordSessionSent.clear();
+    recoveryLog(`main: page loaded with ${threads.length} live shell(s): ${threads.map(t => t.tabId).join(', ')}`);
+  }
+  return { threads, ui: rememberedUi };
+});
+
+// Harness only: make the window's renderer crash, end the GPU process the way Aryan
+// did by hand, or tell the hang handler the page is unresponsive, to test the
+// recovery (drive eval "window.afterterm.recovery.test('crash')"). The last one
+// exists because Chromium never reports a page unresponsive while a DevTools client
+// is attached to it (WebContentsImpl::ShouldIgnoreUnresponsiveRenderer checks for an
+// attached debugger), and every harness run drives the page over CDP: a page kept
+// busy for two minutes with input waiting was never reported. So a test keeps the
+// page really busy and sends the report itself; what follows is the real path.
+ipcMain.on('recovery:test', (_event, what: unknown) => {
+  if (process.env.AFTERTERM_HARNESS !== '1') return;
+  if (what === 'unresponsive') {
+    console.log('[harness] recovery:test unresponsive');
+    setTimeout(() => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.emit('unresponsive'); }, 2000);
+  } else if (what === 'crash') {
+    console.log('[harness] recovery:test crash');
+    setTimeout(() => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.forcefullyCrashRenderer(); }, 100);
+  } else if (what === 'gpu') {
+    const gpu = app.getAppMetrics().find(m => m.type === 'GPU');
+    console.log(`[harness] recovery:test gpu pid=${gpu?.pid ?? 'none'}`);
+    if (gpu) { try { process.kill(gpu.pid); } catch (err) { console.log(`[harness] recovery:test gpu failed: ${String(err)}`); } }
+  }
+});
+
+// Harness only: every application menu item that answers a key, logged once at
+// startup as `[harness] menu key <path> role=<role> key=<accelerator>`, so a test
+// can see which keys the menu acts on. A menu item's key acts only while its
+// window has OS focus, which a harness window never takes, so a key sent through
+// CDP cannot show it (AFT-26).
+function logMenuKeys() {
+  if (process.env.AFTERTERM_HARNESS !== '1') return;
+  const menu = Menu.getApplicationMenu();
+  if (!menu) {
+    console.log('[harness] menu none');
+    return;
+  }
+  const walk = (items: Electron.MenuItem[], trail: string) => {
+    for (const item of items) {
+      const name = `${trail}${item.label || item.role || item.type}`;
+      const roleKey = (item as unknown as { getDefaultRoleAccelerator?: () => string | undefined }).getDefaultRoleAccelerator?.();
+      const key = item.accelerator || roleKey;
+      if (key) console.log(`[harness] menu key ${name} role=${item.role ?? '-'} key=${key}`);
+      if (item.submenu) walk(item.submenu.items, `${name} > `);
+    }
+  };
+  walk(menu.items, '');
+}
+
+// ─── The main window's home (AFT-15) ─────────────────────────────────────────
+
+// When a display goes away (the laptop lid, a monitor that sleeps or is
+// unplugged) Windows moves the window to another display and never moves it
+// back. So the window's home (where the user put it: normal bounds, display,
+// maximized) is kept in prefs.json, the window opens there, and when its display
+// comes back while the window sits elsewhere, it goes back. The rules are pure, in
+// window-placement.ts; this is the wiring. A move within 5 seconds of a display
+// change (a display added, removed or changed, sleep or wake; not a lock or an
+// unlock) is Windows' and leaves the home alone; any other move is the user's and
+// becomes the new home, so a window moved by hand is never taken back.
+let windowHome: WindowHome | null = null;
+let displayChangeTimes: number[] = [];
+let pendingMove: { first: number; last: number } | null = null;
+let moveSettleTimer: ReturnType<typeof setTimeout> | null = null;
+let ignoreMovesUntil = 0;
+
+function displayInfos(): DisplayInfo[] {
+  return screen.getAllDisplays().map(d => ({ id: d.id, bounds: d.bounds, workArea: d.workArea }));
+}
+
+function noteDisplayChange() {
+  const now = Date.now();
+  displayChangeTimes = pruneEvents([...displayChangeTimes, now], now);
+}
+
+function placementNow(win: BrowserWindow): WindowHome {
+  const bounds = win.getNormalBounds();
+  const display = screen.getDisplayMatching(bounds);
+  return { bounds, displayId: display.id, displayBounds: display.bounds, maximized: win.isMaximized() };
+}
+
+function rememberHome(home: WindowHome) {
+  windowHome = home;
+  updatePrefs(getPrefsPath(), homeToPrefs(home));
+}
+
+// The saved home and where the window opens. Under the harness (AFTERTERM_DISPLAY)
+// the harness placement wins, unless AFTERTERM_RESTORE_PLACEMENT=1 asks for the
+// saved one, and even then only on the harness's own display, so a test run never
+// lands on the monitor a person is using.
+function windowStart(harness: ReturnType<typeof harnessWindowPlacement>) {
+  const saved = homeFromPrefs(readPrefs(getPrefsPath()).prefs);
+  let restored = harness && process.env.AFTERTERM_RESTORE_PLACEMENT !== '1' ? null : startupPlacement(saved, displayInfos());
+  if (restored && harness && restored.displayId !== getTargetDisplay().id) restored = null;
+  return { saved, restored };
+}
+
+// Every move and resize, Windows' or the user's. Whose it was is decided
+// SAVE_DELAY_MS after the last one, so a display change just after it is seen.
+function onMainWindowBoundsChange() {
+  const now = Date.now();
+  if (now < ignoreMovesUntil) return;
+  pendingMove = { first: pendingMove?.first ?? now, last: now };
+  if (moveSettleTimer) clearTimeout(moveSettleTimer);
+  moveSettleTimer = setTimeout(settleMove, SAVE_DELAY_MS);
+}
+
+function settleMove() {
+  moveSettleTimer = null;
+  const move = pendingMove;
+  pendingMove = null;
+  const win = mainWindow;
+  if (!move || !win || win.isDestroyed() || win.isMinimized() || win.isFullScreen()) return;
+  if (isWindowsMove(move.first, move.last, displayChangeTimes)) {
+    console.log('[window] moved during a display change, a sleep or a wake: not kept as its home');
+    return;
+  }
+  const home = placementNow(win);
+  if (windowHome && sameHome(home, windowHome)) return;
+  rememberHome(home);
+}
+
+// Put the window back on its home display if Windows moved it off (moveBack in
+// window-placement.ts decides). `test` is the harness's made-up display list and
+// the display it says the window is on.
+function checkWindowHome(trigger: string, test?: { displays: DisplayInfo[]; windowDisplayId: number }): MoveBack | null {
+  const win = mainWindow;
+  if (!win || win.isDestroyed() || win.isFullScreen()) return null;
+  const displays = test?.displays ?? displayInfos();
+  const windowDisplayId = test?.windowDisplayId ?? screen.getDisplayMatching(win.getBounds()).id;
+  const userMovePending = !!pendingMove && !isWindowsMove(pendingMove.first, pendingMove.last, displayChangeTimes);
+  let decision = moveBack({ home: windowHome, windowDisplayId, displays, userMovePending, minimized: win.isMinimized() });
+  // Under the harness the window moves only onto the harness's own display, the
+  // same rule windowStart keeps at launch: made-up display positions from
+  // harness:window-home must never put the dev window on the monitor a person is
+  // using. Checked against the real displays.
+  if (decision.action === 'move' && process.env.AFTERTERM_HARNESS === '1'
+    && !landsOn(decision.bounds, displayInfos(), getTargetDisplay().id)) {
+    decision = { action: 'stay', reason: 'its place is off the harness display (not moved)' };
+  }
+  if (decision.action === 'move') {
+    // Our own move is not a move to remember (the home is where it is going).
+    ignoreMovesUntil = Date.now() + 1000;
+    pendingMove = null;
+    if (moveSettleTimer) { clearTimeout(moveSettleTimer); moveSettleTimer = null; }
+    if (win.isMaximized()) win.unmaximize();
+    // Twice: crossing to a display with another scale can resize the window on
+    // the way (WM_DPICHANGED); the second call lands on the right size.
+    win.setBounds(decision.bounds);
+    win.setBounds(decision.bounds);
+    if (decision.maximize) win.maximize();
+    console.log(`[window] back on its display ${decision.displayId} after ${trigger}`);
+    positionNotifier();
+  } else if (process.env.AFTERTERM_HARNESS === '1') {
+    console.log(`[harness] window home after ${trigger}: stays, ${decision.reason}`);
+  }
+  return decision;
+}
+
+// Registered once, after the main window exists. The display set changing and
+// the machine sleeping and waking are the moments Windows moves windows
+// (countsAsDisplayChange); a lock or an unlock changes no display, so a move made
+// right after unlocking is the user's. A display coming back, a wake and an
+// unlock are when the window may go home. The external monitor can take a few
+// seconds to come back after a wake, hence two checks; display-added covers it
+// arriving later still. display-metrics-changed is noted but triggers no check:
+// it also fires when the taskbar or a scale setting changes, and a check then
+// could undo a move the user has just made.
+function noteIfDisplayChange(event: string) {
+  if (countsAsDisplayChange(event)) noteDisplayChange();
+}
+function watchWindowHome() {
+  screen.on('display-removed', () => noteIfDisplayChange('display-removed'));
+  screen.on('display-metrics-changed', () => noteIfDisplayChange('display-metrics-changed'));
+  screen.on('display-added', () => {
+    noteIfDisplayChange('display-added');
+    setTimeout(() => checkWindowHome('a display was added'), 1500);
+  });
+  powerMonitor.on('suspend', () => noteIfDisplayChange('suspend'));
+  const afterWake = (event: string) => () => {
+    noteIfDisplayChange(event);
+    for (const ms of [1500, 6000]) setTimeout(() => checkWindowHome(event), ms);
+  };
+  powerMonitor.on('resume', afterWake('resume'));
+  powerMonitor.on('unlock-screen', afterWake('unlock-screen'));
+}
+
+// Agent harness only: play a display or power event into the same code, with a
+// made-up display list (a test cannot sleep the laptop or put a window on the
+// monitor a person is using), and read the state back.
+if (process.env.AFTERTERM_HARNESS === '1') {
+  ipcMain.handle('harness:window-home', (_event, sim: { event?: string; displays?: DisplayInfo[]; windowDisplayId?: number } | undefined) => {
+    let decision: MoveBack | null | undefined;
+    const event = sim?.event ?? 'state';
+    if (event !== 'state') {
+      noteIfDisplayChange(event);
+      if (event === 'display-added' || event === 'resume' || event === 'unlock-screen') {
+        const test = Array.isArray(sim?.displays) && typeof sim?.windowDisplayId === 'number'
+          ? { displays: sim.displays, windowDisplayId: sim.windowDisplayId }
+          : undefined;
+        decision = checkWindowHome(`${event} (harness)`, test);
+      }
+    }
+    const win = mainWindow;
+    return {
+      decision,
+      home: windowHome,
+      pendingMove,
+      displayChanges: displayChangeTimes.length,
+      bounds: win && !win.isDestroyed() ? win.getBounds() : null,
+      windowDisplayId: win && !win.isDestroyed() ? screen.getDisplayMatching(win.getBounds()).id : null,
+      displays: displayInfos(),
+    };
+  });
+}
+
 function createWindow() {
-  const placement = harnessWindowPlacement();
+  const harnessPlacement = harnessWindowPlacement();
+  const { saved, restored } = windowStart(harnessPlacement);
+  const placement = restored?.bounds ?? harnessPlacement;
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 780,
@@ -1294,12 +1702,32 @@ function createWindow() {
   // the primary's scale (1280x780 came out as 1024x625 on a 100% monitor next to
   // a 125% primary); setBounds on the existing window uses the right display.
   if (placement) mainWindow.setBounds(placement);
+  if (restored?.maximized) mainWindow.maximize();
+
+  // The home. A saved home whose display is not connected is kept, so the window
+  // goes there when that display arrives; otherwise where the window opened is
+  // its home (also under the harness, whose placement wins over a saved one).
+  ignoreMovesUntil = Date.now() + 1000;
+  if (saved && !restored && !harnessPlacement && !findHomeDisplay(saved, displayInfos())) {
+    windowHome = saved;
+  } else {
+    const start = placementNow(mainWindow);
+    if (saved && sameHome(saved, start)) windowHome = saved;
+    else rememberHome(start);
+  }
+  mainWindow.on('move', onMainWindowBoundsChange);
+  mainWindow.on('resize', onMainWindowBoundsChange);
+  mainWindow.on('maximize', onMainWindowBoundsChange);
+  mainWindow.on('unmaximize', onMainWindowBoundsChange);
+  // A window minimized while its display was away goes home when it is restored.
+  mainWindow.on('restore', () => setTimeout(() => checkWindowHome('restore'), 500));
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
     mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
   }
+  guardRenderer(mainWindow, 'main');
 
   // Coming back to afterterm with a toast up is when DWM revisits the overlay's
   // frame and can leave the white bar (see createNotifierWindow); repaint it.
@@ -1492,6 +1920,7 @@ function showNotifierWindow() {
   if (!notifierWindow || notifierWindow.isDestroyed()) return;
   notifierWindow.setIgnoreMouseEvents(true, { forward: true });
   notifierWindow.showInactive();
+  raiseNotifier();
 }
 
 // Notifier → self: renderer reports the measured height of its toast stack;
@@ -1891,7 +2320,25 @@ function ptySpawnSize(cols: unknown, rows: unknown): { cols: number; rows: numbe
   return ok(cols, 2000) && ok(rows, 1000) ? { cols, rows } : { cols: 80, rows: 24 };
 }
 
-ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: string, cols?: number, rows?: number) => {
+ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: string, attachOnly?: boolean, cols?: number, rows?: number) => {
+  // AFT-33: the page reloaded (or came back after a crash) while this thread's shell
+  // kept running. The page's new terminal attaches to it: nothing is spawned, and the
+  // shell's output already goes to this window's page, whichever page it holds now.
+  // `attached` tells the page not to type a resume or a server command into it, and
+  // the shell's own size lets a terminal that is not on screen match it. A thread the
+  // page restored as re-attached asks for an attach only: if its shell has ended
+  // since, nothing is spawned and the answer is `gone` (ptyCreateAction).
+  const existing = ptys.get(tabId);
+  const action = ptyCreateAction(!!existing, attachOnly === true);
+  if (action === 'attach' && existing) {
+    if (process.env.AFTERTERM_HARNESS === '1') console.log(`[harness] pty:attach ${tabId} pid=${existing.pid} size=${existing.cols}x${existing.rows}`);
+    return { pid: existing.pid, attached: true, cols: existing.cols, rows: existing.rows };
+  }
+  if (action === 'gone') {
+    recoveryLog(`main: ${tabId}'s shell ended before its terminal could attach; nothing spawned`);
+    return { pid: 0, attached: false, gone: true };
+  }
+
   const shell = getShellById(shellId);
   const size = ptySpawnSize(cols, rows);
 
@@ -1926,6 +2373,12 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
   //   WSL                    the same two, plus WSLENV so they cross into the distro,
   //                          where the hook emits OSC 7 `file://<distro>/<path>`
   //
+  // An afterterm launched from a thread of another afterterm inherits what that one
+  // set (a marked PROMPT, a bash hook). process.env.AFTERTERM is '1' exactly then (this
+  // process never sets it; cleanEnv above sets it on a copy, for the shells), and
+  // inheritedFromAfterterm has planSpawn take that integration out of the env first;
+  // see withoutInheritedIntegration.
+  //
   // Opt-out is per shell in prefs.json (`shellIntegration: { pwsh: "off" }`), read
   // at every spawn so a change needs no restart. Failure mode: the shell always
   // opens, a hook that does not take just means no cwd capture and no prompt marks.
@@ -1939,6 +2392,7 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
     cwd,
     home: process.env.USERPROFILE || 'C:\\',
     env: cleanEnv,
+    inheritedFromAfterterm: process.env.AFTERTERM === '1',
     prefs: readPrefs(getPrefsPath()).prefs,
     dirExists: (candidate) => {
       try {
@@ -2018,7 +2472,7 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
     if (ptys.size === 0) stopServerPolling();
   });
 
-  return { pid: p.pid };
+  return { pid: p.pid, attached: false };
 });
 
 // ─── IPC: write to PTY ───────────────────────────────────────────────────────
@@ -2701,7 +3155,22 @@ ipcMain.handle('git:infoMany', (_event, cwds: unknown) => {
   );
 });
 
+// The page's latest state, in memory (AFT-33). The file is written two seconds after
+// a change; a page that crashes or hangs never writes its last changes, and a page
+// reloaded after that must still find the threads it had (a thread created a second
+// before, whose shell main still holds). So the page also sends its state here a
+// moment after every change (session:remember), and every save lands here too. A
+// page loading inside one run of the app reads this copy; a launch has none and
+// reads the file.
+let rememberedSession: string | null = null;
+
+ipcMain.on('session:remember', (_event, data: unknown, threads?: unknown) => {
+  if (typeof data === 'string') rememberedSession = data;
+  if (threads !== undefined) rememberedThreads = readThreadsShown(threads);
+});
+
 ipcMain.handle('session:save', (_event, data: string) => {
+  if (typeof data === 'string') rememberedSession = data;
   try {
     fs.writeFileSync(getSessionPath(), data, 'utf-8');
   } catch {}
@@ -2710,6 +3179,7 @@ ipcMain.handle('session:save', (_event, data: string) => {
 // Synchronous save — used on window 'beforeunload' so the last state (e.g. a fresh
 // cwd) is flushed before the renderer tears down. sendSync blocks until written.
 ipcMain.on('session:save-sync', (event, data: string) => {
+  if (typeof data === 'string') rememberedSession = data;
   try {
     fs.writeFileSync(getSessionPath(), data, 'utf-8');
   } catch {}
@@ -2717,6 +3187,11 @@ ipcMain.on('session:save-sync', (event, data: string) => {
 });
 
 ipcMain.handle('session:load', () => {
+  if (rememberedSession !== null) {
+    try {
+      return JSON.parse(rememberedSession);
+    } catch { /* fall back to the file */ }
+  }
   try {
     return JSON.parse(fs.readFileSync(getSessionPath(), 'utf-8'));
   } catch {
@@ -2856,6 +3331,10 @@ app.whenReady().then(async () => {
   }
   // Before any window loads: the preload reads app:last-opened-at synchronously.
   initLastOpenedAt();
+  // Electron's default menu without Reload and Force Reload (AFT-26): Ctrl+R and
+  // Ctrl+Shift+R reloaded the window, and a reload put every thread to sleep.
+  // Set before the windows, so no window ever has the default menu's keys.
+  Menu.setApplicationMenu(Menu.buildFromTemplate(appMenuTemplate()));
   // Automatic updates (src/updater.ts): its IPC is there before the renderer
   // asks; the registry read and the first check run later, off the launch path.
   initUpdater({
@@ -2867,6 +3346,8 @@ app.whenReady().then(async () => {
   });
   createNotifierWindow();
   createWindow();
+  logMenuKeys();
+  watchWindowHome();
   reconcileNotifierHook();
   // After the launch reconcile, so the poll starts from a complete settings.json.
   startHookRepairPoll();

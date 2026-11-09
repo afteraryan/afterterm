@@ -4,9 +4,11 @@ import type { SavedSession } from '../sessionMigration';
 import type { RecordStatus } from '../../claude-session-record';
 import { insertNewThread, nextActiveTabAfterArchive, nextCustomName, threadFolder, threadName } from '../threadView';
 import { claudeSummaryTitle } from '../chatTitle';
+import { withBackground } from '../spinnerState';
 // Named apart from the hook's own sleepTab/wakeTab callbacks below: these are the
 // pure record transforms, the callbacks are the state actions that apply them.
-import { sleepTab as sleepTabRecord, wakeTab as wakeTabRecord, restoredTab } from '../sleepWake';
+import { sleepTab as sleepTabRecord, wakeTab as wakeTabRecord, restoreWithLive, takenTabIds } from '../sleepWake';
+import type { LiveThread } from '../sleepWake';
 import { historyEntryFor, appendHistory, removeHistoryEntry, tabFromHistory, maxNumericId } from '../history';
 import { lastWorkedThread, enteringRecent, moveGroupsToTop } from '../attention';
 import { placeProject as placeProjectRecord } from '../panelView';
@@ -373,6 +375,24 @@ export function useTabState() {
   const setBackgroundTasks = useCallback((tabId: string, running: boolean) => {
     setLiveField(tabId, 'backgroundTasks', running ? true : undefined);
   }, [setLiveField]);
+  // A thread's background work has ended for a reason no title brings: its shell's
+  // own prompt came back, so its Claude has gone (review 1 of PR #90). The flag goes,
+  // and a background state with it (withBackground). Decided inside the update, on the
+  // latest state, because the shell's prompt and a ⏳ written just before it arrive in
+  // one batch of output: read from the last render, the flag would still look unset.
+  const endBackgroundWork = useCallback((tabId: string) => {
+    setTabs(prev => {
+      let changed = false;
+      const next = prev.map(t => {
+        if (t.id !== tabId || !t.backgroundTasks) return t;
+        changed = true;
+        const updated = { ...t, notification: withBackground(t.notification, false) };
+        delete updated.backgroundTasks;
+        return updated;
+      });
+      return changed ? next : prev;
+    });
+  }, []);
 
   const setTabNotification = useCallback((tabId: string, notification: TabNotification | undefined) => {
     setTabs(prev => prev.map(t => t.id === tabId ? { ...t, notification } : t));
@@ -649,31 +669,34 @@ export function useTabState() {
   }, [activateTab]);
 
   // `saved` has already been through migrateSession, so every field is present and
-  // well typed; nothing here needs to guess at defaults.
-  const restoreSession = useCallback((saved: SavedSession) => {
+  // well typed; nothing here needs to guess at defaults. `live` is the shells main
+  // still holds (AFT-33): empty on a launch, the threads that kept running when the
+  // page was reloaded. Returns which threads were re-attached and the live shells no
+  // saved thread names (the caller ends those).
+  const restoreSession = useCallback((saved: SavedSession, live: readonly LiveThread[] = []): { reattached: string[]; orphans: string[] } => {
     // Reset counters to avoid ID collisions. History ids count as taken ids, not
     // just live tab ids: a closed thread keeps its id in its project's history and
     // its scrollback tail still sits at threads/<id>.txt, so handing that id to a
     // brand new tab would replay a stranger's output into it and let Resume find the
-    // wrong thread.
+    // wrong thread. The live shells count too (AFT-33): one no saved thread names is
+    // being ended, and a new thread given its id would take its late exit as its own.
     const now = Date.now();
-    tabCounter = maxNumericId('tab-', [
-      ...saved.tabs.map(t => t.id),
-      ...saved.groups.flatMap(g => (g.history ?? []).map(e => e.id)),
-    ]);
+    tabCounter = maxNumericId('tab-', takenTabIds(saved, live));
     groupCounter = maxNumericId('group-', saved.groups.map(g => g.id));
 
     const activeId = saved.activeTabId || saved.tabs[0]?.id || '';
     // Every restored thread starts asleep (sleepWake.ts, restoredTab): nothing is
     // spawned until the user wakes something, which is what keeps a relaunch from
-    // cold-starting N shells (and N `claude --resume` processes) at once.
+    // cold-starting N shells (and N `claude --resume` processes) at once. The one
+    // exception is a thread whose shell is still running in main because only the
+    // page reloaded (AFT-33): it comes back awake, re-attached (restoreWithLive).
     // A saved claudeTitle names the thread from the first paint. A file written
     // before that field existed may still carry Claude's own summary as the raw
     // title (Claude's own glyph in front of it), so that is the fallback, read
     // before the restored shell replaces the title with something like "cmd.exe".
-    setTabs(saved.tabs.map(t => {
-      const claudeTitle = t.claudeTitle || claudeSummaryTitle(t.title);
-      const tab = restoredTab(t, now);
+    const restored = restoreWithLive(saved.tabs, live, now);
+    setTabs(restored.tabs.map(tab => {
+      const claudeTitle = tab.claudeTitle || claudeSummaryTitle(tab.title);
       return claudeTitle ? { ...tab, claudeTitle } : tab;
     }));
     setGroups(saved.groups);
@@ -681,6 +704,7 @@ export function useTabState() {
     splitCounter = maxSplitNumber(saved.splits ?? []);
     setActiveTabId(activeId);
     resetOrderBaseRef.current = true;
+    return { reattached: restored.reattached, orphans: restored.orphans };
   }, []);
 
   return {
@@ -689,7 +713,7 @@ export function useTabState() {
     addTab, closeTab, renameTab, setThreadName, updateTabCwd, setClaudeSession, setTabNotification, setTabFontSize,
     sleepTab, wakeTab, resumeFromHistory,
     setClaudeMeta, setGitInfo, setPort, setLastCommand, setUnread, setClaudeRecordStatus,
-    setAtPrompt, setHasChildren, setBackgroundTasks,
+    setAtPrompt, setHasChildren, setBackgroundTasks, endBackgroundWork,
     createConfiguredGroup, addToGroup, removeFromGroup,
     renameGroup, setGroupColor, updateGroup, toggleGroupCollapse, setGroupCollapsedMany, deleteGroup,
     togglePin, setGroupArchived, touchActivity, openProject, bringProjectIn,

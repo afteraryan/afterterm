@@ -6,7 +6,8 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SearchAddon, ISearchOptions } from '@xterm/addon-search';
 import '@xterm/xterm/css/xterm.css';
 import { TabNotification } from '../TabBar/types';
-import { wakePlan } from '../../sleepWake';
+import { wakePlan, createOutcome } from '../../sleepWake';
+import { rendererAfterLoss } from '../../../window-recovery';
 import {
   parseOsc133, initialCommandMarkState, onMark, onEnter, onInput, onCommandSent,
   type CommandMarkState,
@@ -28,6 +29,12 @@ interface TermInfo {
   search: SearchAddon;
   container: HTMLDivElement;
   scheduleFit: () => void;
+  // Redraws every row with a fresh glyph atlas (AFT-33): what a font size change
+  // did by hand when a terminal lost its text.
+  repaint: () => void;
+  // Which renderer draws it now, and how many times its WebGL context was lost and
+  // not given back (rendererAfterLoss in window-recovery.ts).
+  renderer: () => { kind: 'webgl' | 'dom'; losses: number };
 }
 
 interface TabInfo {
@@ -50,6 +57,9 @@ interface TabInfo {
   // (sleepWake.ts).
   port?: number;
   lastCommand?: string;
+  // AFT-33: restored with its shell still running in main after a reload of the
+  // window. Its terminal asks main to attach only (createOutcome in sleepWake.ts).
+  reattach?: boolean;
 }
 
 // What the app can ask this layer for at quit time: the on-screen tail of one
@@ -60,6 +70,10 @@ export interface TerminalAreaHandle {
   readAllTails(): Record<string, string[]>;
   // Gives the keyboard to the active thread's terminal; nothing if it has none.
   focusActive(): void;
+  // Fits every terminal on screen to its column now (which resizes their PTYs).
+  // For a caller that held the refit back while it moved the pane, the side
+  // panel's edge being dragged (AFT-30).
+  refit(): void;
 }
 
 interface TerminalAreaProps {
@@ -104,6 +118,9 @@ interface TerminalAreaProps {
   onOutput: (tabId: string, byteLen: number) => void;
   onFontSizeChange: (tabId: string, fontSize: number) => void;
   onExit: (tabId: string) => void;
+  // AFT-33: a thread restored as re-attached whose shell ended before its terminal
+  // could attach. Nothing was spawned; the app puts the thread to sleep.
+  onShellGone: (tabId: string) => void;
   // The last lines of a terminal, handed over the moment before it is destroyed.
   // The app decides what happens to them: a sleeping thread's tail is written to
   // disk, a closed thread's only if it went to a project's history.
@@ -146,6 +163,9 @@ const NOTIF_PREFIXES: [string, TabNotification][] = [
 // the prompt is there is lost. Both things a wake can type share it: a chat's
 // `claude --resume`, and a server's last command re-run.
 const SHELL_READY_MS = 700;
+// The pause between the two size changes that make a re-attached shell draw its
+// screen again (AFT-33).
+const ATTACH_REPAINT_MS = 60;
 
 const DEFAULT_FONT_SIZE = 14;
 const MIN_FONT_SIZE = 6;
@@ -275,7 +295,7 @@ const THEME = {
 };
 
 export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(function TerminalArea(
-  { tabs: tabInfos, activeTabId, visible, panes, ratio, renderHeader, renderAsleep, onFocusPane, onRatio, dropZone, onTitleChange, onCwdChange, onNotification, onUserInput, onAnswer, onTyped, onOutput, onFontSizeChange, onExit, onTail, onCommand, onPromptState, fileContext, onOpenFileLink, fileLinkMenu },
+  { tabs: tabInfos, activeTabId, visible, panes, ratio, renderHeader, renderAsleep, onFocusPane, onRatio, dropZone, onTitleChange, onCwdChange, onNotification, onUserInput, onAnswer, onTyped, onOutput, onFontSizeChange, onExit, onShellGone, onTail, onCommand, onPromptState, fileContext, onOpenFileLink, fileLinkMenu },
   ref,
 ) {
   // Where every terminal that is not on screen waits (display: none). A
@@ -338,6 +358,8 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
   onFontSizeChangeRef.current = onFontSizeChange;
   const onExitRef = useRef(onExit);
   onExitRef.current = onExit;
+  const onShellGoneRef = useRef(onShellGone);
+  onShellGoneRef.current = onShellGone;
   const onTailRef = useRef(onTail);
   onTailRef.current = onTail;
   const onCommandRef = useRef(onCommand);
@@ -424,13 +446,42 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
     requestAnimationFrame(() => findInputRef.current?.select());
   }, []);
 
+  // One search addon per terminal, built here so a search can be ended by replacing
+  // the addon. The addon re-runs its last search 200ms after any output to keep its
+  // highlights current, and every run selects the match it finds, which replaces
+  // whatever the user had selected (AFT-44). clearDecorations does not stop that
+  // and cannot cancel a re-run already waiting; disposing the addon does both.
+  const attachSearch = useCallback((term: Terminal, tabId: string) => {
+    const search = new SearchAddon();
+    term.loadAddon(search);
+    search.onDidChangeResults(({ resultIndex, resultCount }) => {
+      if (tabId === activeRef.current) {
+        setMatchInfo({ current: resultCount > 0 ? resultIndex + 1 : 0, total: resultCount });
+      }
+    });
+    return search;
+  }, []);
+
+  // Ends a terminal's search: its highlights and its counter go, and nothing selects
+  // a match on its own any more. The match that is selected stays selected, so a
+  // closed bar still leaves the found text ready to copy. The bar keeps its text:
+  // Enter or the arrows start a fresh search from wherever the selection is. With
+  // nothing selected (after a plain click) Enter searches from the top of the
+  // scrollback and Shift+Enter from the bottom.
+  const endSearch = useCallback((tabId: string) => {
+    const info = termsRef.current.get(tabId);
+    if (!info) return;
+    info.search.dispose();
+    info.search = attachSearch(info.term, tabId);
+    if (tabId === activeRef.current) setMatchInfo(null);
+  }, [attachSearch]);
+
   const closeFind = useCallback(() => {
     setFindOpen(false);
     setMatchInfo(null);
-    const info = termsRef.current.get(activeRef.current);
-    info?.search.clearDecorations();
-    info?.term.focus();
-  }, []);
+    endSearch(activeRef.current);
+    termsRef.current.get(activeRef.current)?.term.focus();
+  }, [endSearch]);
 
   const runFind = useCallback((text: string, dir: 'next' | 'prev', incremental = false) => {
     const info = termsRef.current.get(activeRef.current);
@@ -606,23 +657,48 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       term.registerLinkProvider(fileLinks);
       fileLinkProvidersRef.current.set(tabId, fileLinks);
 
-      const search = new SearchAddon();
-      term.loadAddon(search);
-      search.onDidChangeResults(({ resultIndex, resultCount }) => {
-        if (tabId === activeRef.current) {
-          setMatchInfo({ current: resultCount > 0 ? resultIndex + 1 : 0, total: resultCount });
-        }
-      });
+      const search = attachSearch(term, tabId);
 
       term.open(container);
 
-      try {
-        const webgl = new WebglAddon();
-        webgl.onContextLoss(() => webgl.dispose());
-        term.loadAddon(webgl);
-      } catch {
-        // WebGL not available, canvas fallback is fine
-      }
+      // WebGL draws the terminal. Its context can be lost: the GPU process dies, the
+      // driver resets, memory runs out (AFT-33, where every terminal lost its text and
+      // only a font size change, one terminal at a time, brought it back). The addon
+      // waits 3 seconds for the context to come back. When it does, the glyphs are
+      // redrawn from a fresh atlas (repaint, below). When it does not, the addon fires
+      // onContextLoss: it is disposed and a fresh one loaded, until WEBGL_MAX_LOSSES,
+      // after which xterm's DOM renderer draws it (slower, but needs no GPU).
+      let webgl: WebglAddon | undefined;
+      let webglLosses = 0;
+      const repaint = () => {
+        try { webgl?.clearTextureAtlas(); } catch { /* disposed under us */ }
+        term.refresh(0, term.rows - 1);
+      };
+      const loadWebgl = () => {
+        try {
+          const addon = new WebglAddon();
+          addon.onContextLoss(() => {
+            webglLosses++;
+            addon.dispose();
+            if (webgl === addon) webgl = undefined;
+            const next = rendererAfterLoss(webglLosses);
+            console.warn(`[recovery] ${tabId}: WebGL context lost (${webglLosses}), drawing with ${next}`);
+            if (next === 'webgl') loadWebgl();
+            term.refresh(0, term.rows - 1);
+          });
+          term.loadAddon(addon);
+          webgl = addon;
+        } catch {
+          // WebGL not available: xterm's DOM renderer draws it.
+          webgl = undefined;
+        }
+      };
+      loadWebgl();
+      // The event is the canvas's own and does not bubble; capture sees it on the way
+      // down, before the addon re-creates its state, so the repaint waits a frame.
+      container.addEventListener('webglcontextrestored', () => {
+        requestAnimationFrame(repaint);
+      }, { capture: true });
 
       // Ctrl+V paste, Ctrl+C copy (when selection exists), Ctrl+Shift+A select all,
       // Ctrl+Shift+F find. The find/select-all combos live here (not main.ts's
@@ -650,6 +726,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
 
         if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'a') {
           event.preventDefault();
+          if (findOpenRef.current && tabId === activeRef.current) endSearch(tabId);
           term.selectAll();
           return false;
         }
@@ -666,8 +743,17 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       // A press that closes the link menu only closes it: without this, a right-click
       // to dismiss the menu would go on to paste into the terminal.
       let pressClosedMenu = false;
-      container.addEventListener('mousedown', () => {
+      container.addEventListener('mousedown', (event) => {
         pressClosedMenu = linkMenuRef.current !== null;
+        // A left or right press in the terminal takes the selection from the find
+        // bar. A search left running keeps re-selecting its match as output arrives,
+        // which wipes out the text being selected, and makes a right-click copy the
+        // match again instead of pasting (AFT-44). Capture phase: this runs before
+        // xterm starts the selection. The bar stays open with its text.
+        // This is `mousedown` on purpose, not `pointerdown`: xterm's scrollbar
+        // cancels `pointerdown`, so a press on the scrollbar never gets here and
+        // does not end the search. Do not switch it to `pointerdown`.
+        if ((event.button === 0 || event.button === 2) && findOpenRef.current && tabId === activeRef.current) endSearch(tabId);
       }, { capture: true });
 
       // Right-click: copy the selection (and clear it) if there is one; on a file
@@ -733,7 +819,10 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         if (paths.length) term.paste(paths.join(' '));
       });
 
-      termsRef.current.set(tabId, { term, fitAddon, search, container, scheduleFit });
+      termsRef.current.set(tabId, {
+        term, fitAddon, search, container, scheduleFit, repaint,
+        renderer: () => ({ kind: webgl ? 'webgl' : 'dom', losses: webglLosses }),
+      });
       marksRef.current.set(tabId, initialCommandMarkState());
 
       // Only fit visible tabs, fitAddon on a hidden container returns 0 dimensions
@@ -744,8 +833,10 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       // project page covers the workspace) starts at the size of the last terminal
       // shown alone with its font size, not xterm's 80x24, so its PTY is not resized
       // (and a chat does not redraw) the first time it is shown (AFT-11).
+      const proposed = slot ? fitAddon.proposeDimensions() : undefined;
+      const measured = !!proposed && proposed.cols > 0 && proposed.rows > 0;
       const start = spawnSize(
-        slot ? fitAddon.proposeDimensions() : undefined,
+        proposed,
         sizeHintRef.current.get(term.options.fontSize ?? DEFAULT_FONT_SIZE),
         { cols: term.cols, rows: term.rows },
       );
@@ -775,20 +866,47 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       // project store (see CLAUDE.md / claude-code source), and claudeCwd is the
       // hook-reported dir, authoritative across all shells.
       const plan = wakePlan(tab);
-      // The PTY starts at the terminal's size; its gate knows that size from here on.
-      gatesRef.current.set(tabId, initialResizeGate({ cols: term.cols, rows: term.rows }, edgeDragRef.current));
-      await api.pty.create(tabId, plan.shellId, plan.cwd, term.cols, term.rows);
+      // A new PTY starts at the terminal's size (AFT-11), so it is not resized
+      // straight after, which would make a full-screen program redraw.
+      const spawnedAt = { cols: term.cols, rows: term.rows };
+      const created = await api.pty.create(tabId, plan.shellId, plan.cwd, !!tab.reattach, spawnedAt.cols, spawnedAt.rows);
+      // AFT-33: main already held this thread's shell, still running, because only
+      // the page was reloaded. The terminal joined it: nothing may be typed into it,
+      // or a chat's running Claude Code would get `claude --resume` as a prompt. A
+      // thread restored that way asked for an attach only; if its shell ended in the
+      // meantime, main spawned nothing, this terminal is dropped without a trace (no
+      // tail is captured over the saved one) and the thread goes to sleep.
+      const outcome = createOutcome(!!tab.reattach, created ?? { attached: false });
+      if (outcome.kind === 'gone') {
+        api.pty.offData(tabId);
+        termsRef.current.delete(tabId);
+        marksRef.current.delete(tabId);
+        fileLinkProvidersRef.current.delete(tabId);
+        webLinkProvidersRef.current.delete(tabId);
+        term.dispose();
+        container.remove();
+        console.warn(`[recovery] ${tabId}: its shell ended during the reload, so it goes to sleep`);
+        onShellGoneRef.current(tabId);
+        return;
+      }
+      const attached = outcome.kind === 'attached';
+      // From here on the gate knows the PTY's size (AFT-11): a re-attached shell's
+      // own, as main reports it, or the size a new one was spawned at.
+      gatesRef.current.set(tabId, initialResizeGate(
+        attached && created?.cols && created?.rows ? { cols: created.cols, rows: created.rows } : spawnedAt,
+        edgeDragRef.current,
+      ));
 
       // A chat picks its session back up; a shell just gets a fresh prompt. The id is
       // re-validated as a UUID inside resumeTab as well (session.json is
       // hand-editable, and this becomes a typed shell command).
-      if (plan.resumeSessionId) resumeTab(tabId, plan.resumeSessionId);
+      if (plan.resumeSessionId && outcome.mayType) resumeTab(tabId, plan.resumeSessionId);
 
       // Waking a server means re-running what it was running (design-02, "Asleep":
       // "the last command re-run for a server"). wakePlan has already checked the
       // command is one safe line, so it only has to be typed here, after the same
       // wait resumeTab uses for the shell's first prompt.
-      const runCommand = plan.runCommand;
+      const runCommand = outcome.mayType ? plan.runCommand : null;
       if (runCommand) {
         setTimeout(() => {
           if (!termsRef.current.has(tabId)) return;
@@ -943,9 +1061,27 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
 
       api.pty.onExit(tabId, () => onExitRef.current(tabId));
 
+      // A re-attached terminal that is not on screen (in the park, or in a column
+      // while Home or a project page covers the workspace) has never been fitted; it
+      // takes the running shell's own size instead, so a background chat is not
+      // redrawn at another size (main answers the attach with it).
+      if (attached && !measured && created?.cols && created?.rows) {
+        term.resize(created.cols, created.rows);
+      }
+
       // The terminal may have been sized while the PTY was being made; the gate sends
-      // that size only if it differs from the one the PTY was spawned at.
+      // that size only if it differs from the PTY's own (AFT-11).
       sendResize(tabId, term.cols, term.rows);
+      // A re-attached shell has drawn its screen into the old page. A size change
+      // makes ConPTY draw the whole screen again (and Claude Code redraw itself), so
+      // the new terminal shows what is there instead of staying blank until the next
+      // output: one row less, then the real size.
+      if (attached) {
+        api.pty.resize(tabId, term.cols, Math.max(1, term.rows - 1));
+        setTimeout(() => {
+          if (termsRef.current.get(tabId)?.term === term) api.pty.resize(tabId, term.cols, term.rows);
+        }, ATTACH_REPAINT_MS);
+      }
 
       if (tabId === activeRef.current) {
         term.focus();
@@ -953,7 +1089,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
     } finally {
       creatingRef.current.delete(tabId);
     }
-  }, [openFind, resumeTab, reportPrompt, writeCommand, sendResize, noteSizeHint]);
+  }, [openFind, endSearch, attachSearch, resumeTab, reportPrompt, writeCommand, sendResize, noteSizeHint]);
 
   // Reconcile the terminals with the tab list. `asleep` is the source of truth:
   // awake with no terminal → build one (a wake, or a brand new thread); asleep with
@@ -1019,7 +1155,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
   // bar (search is scoped to a single terminal).
   useEffect(() => {
     if (findOpenRef.current) {
-      for (const info of termsRef.current.values()) info.search.clearDecorations();
+      for (const id of [...termsRef.current.keys()]) endSearch(id);
       setFindOpen(false);
       setMatchInfo(null);
     }
@@ -1124,11 +1260,14 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
 
   // Resize the terminals on screen when the pane resizes (the window, the
   // panel sliding). The divider does not resize the pane, only its columns, and
-  // is handled on its own below.
+  // is handled on its own below. While the side panel's edge is held
+  // (body.panel-resizing, SidePanel/usePanelResize.ts) the pane changes width on
+  // every move and nothing refits, the same rule as the divider; the panel
+  // calls refit() on release.
   useEffect(() => {
     if (!rootRef.current) return;
     const observer = new ResizeObserver(() => {
-      if (dividingRef.current) return;
+      if (dividingRef.current || document.body.classList.contains('panel-resizing')) return;
       for (const id of panesRef.current) termsRef.current.get(id)?.scheduleFit();
     });
     observer.observe(rootRef.current);
@@ -1229,7 +1368,8 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       return tails;
     },
     focusActive: () => { termsRef.current.get(activeRef.current)?.term.focus(); },
-  }), []);
+    refit: fitVisible,
+  }), [fitVisible]);
 
   // Read by scripts/agent-harness/drive.mjs, which drives the app for phase testing
   // and has no other way to see what a terminal is showing (the xterm buffer is not
@@ -1248,10 +1388,12 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         viewport(tabId?: string): { viewportY: number; baseY: number } | null;
         fileLinks(tabId: string, row: number): Promise<{ text: string; range: unknown }[]>;
         webLinks(tabId: string, row: number): Promise<{ text: string; range: unknown }[]>;
+        renderer(tabId: string): { kind: 'webgl' | 'dom'; losses: number } | null;
         openFileLink(tabId: string, row: number, index?: number): Promise<boolean>;
         cellCentre(tabId: string, row: number, col: number): { x: number; y: number } | null;
         findRow(tabId: string, text: string): number;
         holdResizes(dragging: boolean): void;
+        selection(tabId?: string): { has: boolean; text: string; position: unknown } | null;
       };
     };
     // Extended, never replaced: app.tsx hangs its own harness value
@@ -1288,6 +1430,9 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         if (!provider) { resolve([]); return; }
         provider.provideLinks(row, links => resolve((links ?? []).map(l => ({ text: l.text, range: l.range }))));
       }),
+      // AFT-33: which renderer draws a terminal ('webgl' or 'dom') and how many WebGL
+      // context losses it has had, for the recovery test.
+      renderer: (tabId) => termsRef.current.get(tabId)?.renderer() ?? null,
       openFileLink: (tabId, row, index = 0) => new Promise(resolve => {
         const provider = fileLinkProvidersRef.current.get(tabId);
         if (!provider) { resolve(false); return; }
@@ -1309,6 +1454,12 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         const r = screen.getBoundingClientRect();
         return { x: r.left + (col - 0.5) * (r.width / info.term.cols), y: r.top + (y + 0.5) * (r.height / info.term.rows) };
       },
+      // AFT-44: what one terminal has selected right now (xterm's own answer).
+      selection: (tabId = activeRef.current) => {
+        const info = termsRef.current.get(tabId);
+        if (!info) return null;
+        return { has: info.term.hasSelection(), text: info.term.getSelection(), position: info.term.getSelectionPosition() ?? null };
+      },
       // The last 1-based buffer row whose text contains `text`, or 0.
       findRow: (tabId, text) => {
         const info = termsRef.current.get(tabId);
@@ -1320,6 +1471,16 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         return 0;
       },
     };
+  }, []);
+
+  // Main asks for this after the GPU process went away (AFT-33): every terminal
+  // redraws from a fresh glyph atlas. A terminal whose WebGL context was lost redraws
+  // through its own onContextLoss as well; this covers one whose context came back
+  // with an empty atlas, which drew the colours of Claude Code's diffs but no text.
+  useEffect(() => {
+    window.afterterm.recovery.onRepaint(() => {
+      for (const info of termsRef.current.values()) info.repaint();
+    });
   }, []);
 
   // Cleanup all terminals on unmount
@@ -1360,7 +1521,7 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         }}
       />
       <span className="find-count">
-        {findText ? (matchInfo ? `${matchInfo.current}/${matchInfo.total}` : '…') : ''}
+        {findText && matchInfo ? `${matchInfo.current}/${matchInfo.total}` : ''}
       </span>
       <button className="find-btn" title="Previous (Shift+Enter)" onClick={() => runFind(findText, 'prev')}>↑</button>
       <button className="find-btn" title="Next (Enter)" onClick={() => runFind(findText, 'next')}>↓</button>

@@ -28,9 +28,10 @@ export interface HeaderProps {
   // on line 2 (Phase 9, Aryan: the project item should open the project folder).
   // Undefined when the thread has no project or the project has no folder.
   projectExplorer?: { missing: boolean; open: () => void };
-  // The editor button beside the dots: opens the thread's own folder (the
-  // worktree for a worktree chat, the project root for a chat that runs there,
-  // a shell's cwd) in the primary editor, drawn with that editor's logo.
+  // The editor button beside the dots: opens the top of the thread's git working
+  // tree (the worktree for a worktree chat, the repo's top for a chat or shell in
+  // a subfolder of one, never above the project; the thread's own folder outside
+  // git, threadFolderTarget) in the primary editor, drawn with that editor's logo.
   // Undefined when the thread has no folder or no editor was detected, and then
   // there is no button. The dots menu never gets these entries.
   editor?: ThreadMenuActions['openInEditor'];
@@ -71,11 +72,13 @@ export function Header({ tab, group, groups, actions, projectExplorer, editor, n
   const kind = threadKind(tab);
   const state = threadState(tab);
   const model = kind === 'chat' ? modelLabel(tab.model) : null;
-  // The worktree item opens the thread's own folder in Explorer (Phase 9, the
-  // manual-testing ask: "clicking that worktree item should open the worktree
-  // folder"). It is a button only when the caller offers the action; the
-  // missing-folder case keeps the button but disables it with the same tip the
-  // menus use, so a dead path is explained rather than silently ignored.
+  // The worktree item opens the same folder as the editor button in Explorer
+  // (Phase 9, the manual-testing ask: "clicking that worktree item should open
+  // the worktree folder"; since AFT-45 the worktree even when the chat's session
+  // is in a subfolder of it). It is a button only when the caller offers the
+  // action; the missing-folder case keeps the button but disables it with the
+  // same tip the menus use, so a dead path is explained rather than silently
+  // ignored.
   const explorer = actions?.openInExplorer;
   const primaryEditor = editor?.editors[0];
   // The chip's words (chipText, design-06): the spinner alone while working,

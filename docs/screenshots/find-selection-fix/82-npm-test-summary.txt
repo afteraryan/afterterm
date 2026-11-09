@@ -1,0 +1,1 @@
+npm test on a69503f (Windows, Node v24.15.0): every test file passed, 2975 passed in total, 0 failed, no FAIL lines.

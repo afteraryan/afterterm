@@ -411,6 +411,60 @@ console.log('\nsessionMigration: ui.panelHidden (Phase 8)\n');
   check('ui.panelHidden survives serialize -> migrate', isDeepStrictEqual(reloaded.ui, { panelHidden: true }));
 }
 
+console.log('\nsessionMigration: ui.panelWidth (AFT-30)\n');
+{
+  // A file from before the panel could be resized has no width: the key stays absent.
+  const s = migrateSession(fixture081(), NOW)!;
+  check('a file with no ui loads with no panelWidth', s.ui?.panelWidth === undefined);
+
+  const raw = fixture081() as any;
+  raw.ui = { panelHidden: true };
+  const s2 = migrateSession(raw, NOW)!;
+  check('a ui with only panelHidden gets no panelWidth', isDeepStrictEqual(s2.ui, { panelHidden: true }));
+}
+{
+  // A good width is kept, alone or beside panelHidden.
+  const raw = fixture081() as any;
+  raw.ui = { panelWidth: 320 };
+  const s = migrateSession(raw, NOW)!;
+  check('ui.panelWidth is kept', isDeepStrictEqual(s.ui, { panelWidth: 320 }));
+
+  const raw2 = fixture081() as any;
+  raw2.ui = { panelHidden: false, panelWidth: 420 };
+  const s2 = migrateSession(raw2, NOW)!;
+  check('panelWidth and panelHidden are both kept', isDeepStrictEqual(s2.ui, { panelHidden: false, panelWidth: 420 }));
+
+  const raw3 = fixture081() as any;
+  raw3.ui = { panelWidth: 300.4 };
+  check('a fractional panelWidth is rounded', migrateSession(raw3, NOW)!.ui?.panelWidth === 300);
+}
+{
+  // A width that is not believable is dropped, never coerced or clamped.
+  for (const [label, value] of [['a string', '300'], ['null', null], ['NaN', NaN], ['a negative number', -300], ['zero', 0], ['below the minimum', 100], ['absurdly wide', 99999], ['an object', { w: 300 }]] as const) {
+    const raw = fixture081() as any;
+    raw.ui = { panelHidden: true, panelWidth: value };
+    const s = migrateSession(raw, NOW)!;
+    check(`${label} as panelWidth is dropped and panelHidden is untouched`, isDeepStrictEqual(s.ui, { panelHidden: true }), JSON.stringify(s.ui));
+  }
+}
+{
+  // A round trip keeps the width, and a default-width panel writes none.
+  const raw = fixture081() as any;
+  raw.ui = { panelHidden: false, panelWidth: 360 };
+  const migrated = migrateSession(raw, NOW)!;
+  const written = JSON.parse(JSON.stringify(serializeSession(
+    migrated.tabs as unknown as Tab[], migrated.groups, migrated.activeTabId, migrated.ui,
+  )));
+  check('ui.panelWidth is written to disk', isDeepStrictEqual(written.ui, { panelHidden: false, panelWidth: 360 }));
+  const reloaded = migrateSession(written, NOW + 1)!;
+  check('ui.panelWidth survives serialize -> migrate', reloaded.ui?.panelWidth === 360);
+
+  const defaulted = JSON.parse(JSON.stringify(serializeSession(
+    migrated.tabs as unknown as Tab[], migrated.groups, migrated.activeTabId, { panelHidden: false },
+  )));
+  check('a panel at its default width writes no panelWidth', isDeepStrictEqual(defaulted.ui, { panelHidden: false }));
+}
+
 console.log('\nsessionMigration: existing values are preserved\n');
 {
   const s = migrateSession(fixture081(), NOW)!;
@@ -557,6 +611,18 @@ console.log('\nsessionMigration: transient fields stripped, unknown keys kept, i
     written.tabs.every(t => !('backgroundTasks' in t)));
   check('and nothing else about the tab changes for it',
     JSON.stringify(written) === JSON.stringify(serializeSession(s.tabs as unknown as Tab[], s.groups, s.activeTabId)));
+}
+{
+  // A thread re-attached to a live shell after a reload (AFT-33): never written,
+  // stripped on load.
+  const raw = fixture081() as any;
+  raw.tabs[1].reattach = true;
+  const s = migrateSession(raw, NOW)!;
+  check('reattach is stripped on load', !('reattach' in s.tabs[1]));
+  const live: Tab[] = (s.tabs as unknown as Tab[]).map(t => ({ ...t, reattach: true }));
+  const written = serializeSession(live, s.groups, s.activeTabId);
+  check('reattach is never written, even when set on the in-memory tab',
+    written.tabs.every(t => !('reattach' in t)));
 }
 {
   const once = migrateSession(fixture081(), NOW)!;

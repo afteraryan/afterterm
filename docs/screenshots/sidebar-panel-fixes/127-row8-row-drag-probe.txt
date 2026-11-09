@@ -1,0 +1,6 @@
+drag from (372, 242) to (372, 414) in 12 steps, hold 500ms
+before   : {"g":"g-r1","panelPx":600,"stateKey":600,"bodyResizing":false}
+pressed  : {"g":"g-r1","panelPx":600,"stateKey":600,"bodyResizing":false}
+held     : {"g":"g-r1","panelPx":600,"stateKey":600,"bodyResizing":false}
+shot: docs\screenshots\sidebar-panel-fixes\126-row8-row-drag-held.png
+released : {"g":"g-r2","panelPx":600,"stateKey":600,"bodyResizing":false}

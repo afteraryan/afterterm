@@ -76,6 +76,25 @@ interface AftertermSessionAPI {
   save(data: string): Promise<void>;
   saveSync(data: string): void;
   load(): Promise<any>;
+  // AFT-33: the latest state, kept by main in memory only (never written to disk).
+  // threads: each thread's notification and background work, never saved, so a
+  // re-attached chat still shows needs-you after a reload.
+  remember(data: string, threads?: Record<string, { notification?: string; backgroundTasks?: boolean }>): void;
+}
+
+// AFT-33: getting the window back without losing threads (src/window-recovery.ts,
+// restoreWithLive and screenAfterReload in src/renderer/sleepWake.ts).
+interface AftertermRecoveryAPI {
+  // The shells main still holds (empty on a launch) and what the page last showed.
+  state(): Promise<{
+    threads: import('./renderer/sleepWake.ts').LiveThread[];
+    ui: import('./renderer/sleepWake.ts').RememberedUi | null;
+  }>;
+  noteUi(ui: import('./renderer/sleepWake.ts').RememberedUi): void;
+  // Main asks the terminals to redraw (the GPU process went away).
+  onRepaint(callback: () => void): void;
+  // Harness only: crash the page, end the GPU process, or report the page unresponsive. Ignored otherwise.
+  test(what: 'crash' | 'gpu' | 'unresponsive'): void;
 }
 
 interface ClaudeSessionUpdate {
@@ -244,8 +263,12 @@ interface PtyChildren {
 }
 
 interface AftertermPtyAPI {
-  // cols and rows: the terminal's size, so the PTY starts at it (AFT-11).
-  create(tabId: string, shellId?: string, cwd?: string, cols?: number, rows?: number): Promise<{ pid: number }>;
+  // attached: main already held a running shell for this tab and the terminal joined
+  // it (the page was reloaded, AFT-33); nothing was spawned.
+  // attachOnly (AFT-33): a thread restored as re-attached. Main spawns nothing when its
+  // shell has ended and answers gone; an attach answers with the shell's own size.
+  // cols and rows sent: the terminal's size, so a new PTY starts at it (AFT-11).
+  create(tabId: string, shellId?: string, cwd?: string, attachOnly?: boolean, cols?: number, rows?: number): Promise<{ pid: number; attached: boolean; gone?: boolean; cols?: number; rows?: number }>;
   write(tabId: string, data: string): void;
   resize(tabId: string, cols: number, rows: number): void;
   destroy(tabId: string): Promise<void>;
@@ -310,6 +333,7 @@ interface AftertermAPI {
   files: AftertermFilesAPI;
   sessionFiles: AftertermSessionFilesAPI;
   session: AftertermSessionAPI;
+  recovery: AftertermRecoveryAPI;
   claudeSession: AftertermClaudeSessionAPI;
   claudeRecord: AftertermClaudeRecordAPI;
   threads: AftertermThreadsAPI;
@@ -319,6 +343,10 @@ interface AftertermAPI {
   notify: AftertermNotifyAPI;
   notifier: AftertermNotifierAPI;
   pty: AftertermPtyAPI;
+  // Agent harness only: rejects outside a harness run (AFTERTERM_HARNESS=1).
+  harness: {
+    windowHome(sim?: { event?: string; displays?: unknown[]; windowDisplayId?: number }): Promise<unknown>;
+  };
 }
 
 interface Window {

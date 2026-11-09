@@ -1,0 +1,9 @@
+Baseline for row 3, taken in the page that was reloaded by the crash: a needs-you title written
+by cmd one (ping -n 8 127.0.0.1 >nul & title <warning sign> delayed alert) while cmd two was the
+thread on screen raised this toast on the overlay ("drive toasts", read about 3 seconds after the
+title arrived). So a toast does appear for a thread not being viewed, which means the empty
+"drive toasts" after the crash in capture 77 is a real absence, not a broken overlay.
+
+- "cmd one"  Recovery test· Needs permission  [project=grp-rec color=#2dd4bf icon=-]
+
+The toast went away by itself about 10 seconds later (the 5 second timer), "drive toasts" then read (no toasts).
