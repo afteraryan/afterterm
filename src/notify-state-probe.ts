@@ -304,7 +304,15 @@ export class NotifyStateProbe {
       this.clearStart();
       const pending = this.waiting;
       this.waiting = [];
+      // A question still waiting fails through its answer below. A helper that
+      // goes before it ever answered, after every question had already shown its
+      // toast (the 4 second wait), is a failure too (review 2): otherwise one
+      // that is always killed while starting, by an antivirus scan for example,
+      // is started again on every poll and the 5 minute rest never comes.
+      const live = pending.some(w => !w.settled);
+      const neverAnswered = !this.answered;
       for (const w of pending) w.answer(null);
+      if (neverAnswered && !live) this.noteFailure('it exited while starting');
     };
     child.on('error', gone);
     child.on('exit', gone);

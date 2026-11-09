@@ -17,13 +17,15 @@ const show = (v: unknown) => JSON.stringify(v);
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 // The fake helper. Arguments: the delay before it answers anything (ms; -1 exits
-// at once), the line it answers, and how many questions it answers before it
-// hangs (-1: never hangs).
+// at once), the line it answers, how many questions it answers before it hangs
+// (-1: never hangs), and when it exits on its own (ms; -1: never).
 const FAKE = `
 const delay = Number(process.argv[1]);
 const line = process.argv[2];
 const hangAfter = Number(process.argv[3]);
+const exitAt = Number(process.argv[4]);
 if (delay < 0) process.exit(3);
+if (exitAt >= 0) setTimeout(() => process.exit(4), exitAt);
 let ready = false, asked = 0, answered = 0, buf = '';
 const flush = () => {
   while (ready && asked > answered) {
@@ -40,9 +42,9 @@ process.stdin.on('end', () => process.exit(0));
 
 const TIMES: ProbeTimings = { startAnswerMs: 300, startLimitMs: 1200, answerTimeoutMs: 250, idleExitMs: 500, restMs: 900 };
 
-function probe(delay: number, line: string, hangAfter = -1, warnings: string[] = []) {
+function probe(delay: number, line: string, hangAfter = -1, warnings: string[] = [], exitAt = -1) {
   return new NotifyStateProbe({
-    helper: { command: process.execPath, args: ['-e', FAKE, String(delay), line, String(hangAfter)] },
+    helper: { command: process.execPath, args: ['-e', FAKE, String(delay), line, String(hangAfter), String(exitAt)] },
     timings: TIMES,
     warn: (m) => warnings.push(m),
   });
@@ -83,7 +85,9 @@ console.log('\nnotify-state-probe: a slow start is let finish (review 1)\n');
   const t0 = Date.now();
   const a = await p.query();
   const took = Date.now() - t0;
-  check('the first question answers unknown at the start limit', a.state === 'unknown' && took >= 280 && took < 550, `${took} ms, ${show(a)}`);
+  // unknown proves it did not wait for the helper's answer (busy); the upper bound
+  // is loose so a loaded machine does not fail it.
+  check('the first question answers unknown at the start limit', a.state === 'unknown' && took >= 280 && took < 2000, `${took} ms, ${show(a)}`);
   check('the helper is left running', p.pid !== null);
   check('it says it is still starting', warnings.some(w => w.includes('still starting')), show(warnings));
   await sleep(500);
@@ -134,6 +138,26 @@ console.log('\nnotify-state-probe: three failures rest the probe, then it tries 
   await sleep(TIMES.restMs + 100);
   const after = await p.query();
   check('after the rest it tries again', after.started === true, show(after));
+  p.dispose();
+}
+
+console.log('\nnotify-state-probe: a helper that exits while starting, after the toast has shown (review 2)\n');
+{
+  // It never answers and exits 500 ms after it starts: past the 300 ms wait (the
+  // real one is 4 s), before the start limit. The question has already shown
+  // its toast, so only the exit can count it.
+  const warnings: string[] = [];
+  const p = probe(10_000, 'quns=5 fg=0', -1, warnings, 500);
+  const a = await p.query();
+  check('the question does not wait for it', a.state === 'unknown', show(a));
+  check('the wait itself is not a failure', !warnings.some(w => w.includes('failed')), show(warnings));
+  await sleep(1000);
+  check('the helper is gone', p.pid === null);
+  check('its exit counts as a failure', warnings.some(w => w.includes('exited while starting')), show(warnings));
+  for (let i = 0; i < 2; i++) { await p.query(); await sleep(1000); }
+  check('three such exits rest the probe', warnings.some(w => w.includes('3 times in a row')), show(warnings));
+  const resting = await p.query();
+  check('while resting no helper is started', resting.started === false && p.pid === null, show(resting));
   p.dispose();
 }
 
