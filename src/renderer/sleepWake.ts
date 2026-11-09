@@ -14,6 +14,7 @@
 import type { Tab, TabNotification } from './components/TabBar/types.ts';
 import type { SavedTab } from './sessionMigration.ts';
 import { relativeTime } from './homeView.ts';
+import { isTabNotification } from '../notification-states.ts';
 
 // Same pattern Terminal/index.tsx uses before typing a session id into a shell:
 // session.json is hand-editable, so a resume is only attempted when the id is
@@ -89,11 +90,6 @@ export interface LiveThread {
   backgroundTasks?: boolean;
 }
 
-const NOTIFICATIONS: readonly string[] = ['done', 'attention', 'background', 'compacting', 'working'];
-
-function isNotification(v: unknown): v is TabNotification {
-  return typeof v === 'string' && NOTIFICATIONS.includes(v);
-}
 
 // What a tab from session.json becomes when main still holds a live shell for it:
 // awake, and the terminal layer re-attaches a fresh xterm to that shell instead of
@@ -113,7 +109,7 @@ export function reattachedTab(saved: SavedTab, live: LiveThread): Tab {
   delete next.sleptAt;
   delete next.notification;
   delete next.wokeAt;
-  if (isNotification(live.notification)) next.notification = live.notification;
+  if (isTabNotification(live.notification)) next.notification = live.notification;
   if (live.backgroundTasks === true) next.backgroundTasks = true;
   if (typeof live.port === 'number') next.port = live.port;
   else if (live.port === null) delete next.port;

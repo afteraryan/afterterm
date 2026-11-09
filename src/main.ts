@@ -18,6 +18,8 @@ import { runSetupCheck, issueUrl, failureNote, ISSUES_URL } from './setup-check.
 import type { Runner } from './setup-check.ts';
 import { initUpdater } from './updater.ts';
 import { appMenuTemplate } from './app-menu.ts';
+import { isTabNotification } from './notification-states.ts';
+import type { TabNotification } from './notification-states.ts';
 import { HANG_GRACE_MS, RELOAD_DELAY_MS, RELOAD_LIMIT, RELOAD_WINDOW_MS, afterChildGone, afterRendererGone, allowReload, ptyCreateAction } from './window-recovery.ts';
 import { detectEditors } from './editor-detect.ts';
 import type { DetectDeps } from './editor-detect.ts';
@@ -1419,8 +1421,7 @@ ipcMain.on('recovery:ui', (_event, ui: unknown) => {
 // its notification (needs-you, done, working, compacting, background) and whether it
 // had background work running. Neither is ever saved to disk, so after a reload this
 // is the only place a chat waiting for Aryan is still known to be waiting.
-const NOTIFICATION_STATES = ['done', 'attention', 'background', 'compacting', 'working'] as const;
-type ThreadShown = { notification?: (typeof NOTIFICATION_STATES)[number]; backgroundTasks?: true };
+type ThreadShown = { notification?: TabNotification; backgroundTasks?: true };
 let rememberedThreads = new Map<string, ThreadShown>();
 
 function readThreadsShown(raw: unknown): Map<string, ThreadShown> {
@@ -1430,7 +1431,7 @@ function readThreadsShown(raw: unknown): Map<string, ThreadShown> {
     if (!value || typeof value !== 'object') continue;
     const v = value as Record<string, unknown>;
     const shown: ThreadShown = {};
-    if ((NOTIFICATION_STATES as readonly unknown[]).includes(v.notification)) shown.notification = v.notification as ThreadShown['notification'];
+    if (isTabNotification(v.notification)) shown.notification = v.notification;
     if (v.backgroundTasks === true) shown.backgroundTasks = true;
     if (shown.notification || shown.backgroundTasks) out.set(tabId, shown);
   }

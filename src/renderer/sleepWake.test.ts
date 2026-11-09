@@ -8,6 +8,7 @@ import {
   startsClaudeCode, reattachedTab, restoreWithLive, screenAfterReload, createOutcome, takenTabIds,
 } from './sleepWake.ts';
 import { maxNumericId } from './history.ts';
+import { TAB_NOTIFICATIONS } from '../notification-states.ts';
 import type { Tab } from './components/TabBar/types.ts';
 import type { SavedTab } from './sessionMigration.ts';
 
@@ -413,8 +414,9 @@ console.log('\nsleepWake: a re-attached thread attaches only, and keeps what it 
 
   const waiting = reattachedTab(flushed[0], { tabId: 'tab-1', notification: 'attention' });
   check('a chat that was waiting for Aryan still shows needs-you', waiting.notification === 'attention', show(waiting));
-  for (const n of ['done', 'background', 'compacting', 'working'] as const) {
-    check(`${n} comes back too`, reattachedTab(flushed[0], { tabId: 'tab-1', notification: n }).notification === n);
+  check('the states come from the one shared list (five of them)', TAB_NOTIFICATIONS.length === 5, show(TAB_NOTIFICATIONS));
+  for (const n of TAB_NOTIFICATIONS) {
+    check(`${n} comes back`, reattachedTab(flushed[0], { tabId: 'tab-1', notification: n }).notification === n);
   }
   check('background work still counts for the restart window',
     reattachedTab(flushed[0], { tabId: 'tab-1', backgroundTasks: true }).backgroundTasks === true);

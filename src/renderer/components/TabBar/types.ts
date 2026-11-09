@@ -1,6 +1,8 @@
 import type { RecordStatus } from '../../../claude-session-record';
+import type { TabNotification } from '../../../notification-states';
 
-export type TabNotification = 'done' | 'attention' | 'background' | 'compacting' | 'working';
+// The five states, listed once in notification-states.ts (TAB_NOTIFICATIONS).
+export type { TabNotification };
 
 export interface Tab {
   id: string;
