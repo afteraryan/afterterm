@@ -244,7 +244,8 @@ interface PtyChildren {
 }
 
 interface AftertermPtyAPI {
-  create(tabId: string, shellId?: string, cwd?: string): Promise<{ pid: number }>;
+  // cols and rows: the terminal's size, so the PTY starts at it (AFT-11).
+  create(tabId: string, shellId?: string, cwd?: string, cols?: number, rows?: number): Promise<{ pid: number }>;
   write(tabId: string, data: string): void;
   resize(tabId: string, cols: number, rows: number): void;
   destroy(tabId: string): Promise<void>;
@@ -263,6 +264,9 @@ interface AftertermPtyAPI {
   // Whether a tab's shell has a process below it, pushed when it changes (including
   // to null when it can no longer be told). Registered once, for every tab.
   onChildren(callback: (data: PtyChildren) => void): void;
+  // A drag of the window's edge starts (true) or ends (false): PTY resizes are held
+  // through it and the final size sent once (AFT-11). Returns the unsubscribe.
+  onEdgeDrag(callback: (dragging: boolean) => void): () => void;
 }
 
 interface AftertermDialogAPI {

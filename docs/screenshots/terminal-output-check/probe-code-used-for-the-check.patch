@@ -1,0 +1,114 @@
+diff --git a/src/main.ts b/src/main.ts
+index 5e4e331..51f60cb 100644
+--- a/src/main.ts
++++ b/src/main.ts
+@@ -1286,6 +1286,9 @@ function createWindow() {
+       preload: path.join(__dirname, 'preload.js'),
+       contextIsolation: true,
+       nodeIntegration: false,
++      // TEMPORARY (Stream 8): an occluded harness window would otherwise hold its
++      // timers and frames, hiding the real timing of resizes.
++      backgroundThrottling: process.env.AFTERTERM_RESIZE_PROBE !== '1',
+     },
+   });
+ 
+@@ -1929,6 +1932,10 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
+ 
+   ptys.set(tabId, p);
+   ptyCreatedAt.set(tabId, Date.now());
++  if (process.env.AFTERTERM_RESIZE_PROBE === '1') {
++    probeSize.set(tabId, { cols: 80, rows: 24 });
++    console.log(`[resize] ${new Date().toISOString()} ${tabId} spawned at 80x24`);
++  }
+ 
+   // Server watching: remember this tab's shell pid, mark the cached process list as
+   // out of date, keep the slow poll running, and look once a second from now (a shell
+@@ -1944,6 +1951,14 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
+   let flushTimer: NodeJS.Timeout | null = null;
+ 
+   p.onData((data) => {
++    // TEMPORARY (Stream 8): every chunk ConPTY hands over, as JSON lines, so a test
++    // can read the exact escape sequences a program's output arrived with.
++    if (process.env.AFTERTERM_RESIZE_PROBE === '1' && process.env.AFTERTERM_PTY_DUMP_DIR) {
++      try {
++        fs.appendFileSync(path.join(process.env.AFTERTERM_PTY_DUMP_DIR, `${tabId}.jsonl`),
++          JSON.stringify({ t: new Date().toISOString(), d: data }) + '\n');
++      } catch { /* probe only */ }
++    }
+     buffer += data;
+     if (!flushTimer) {
+       flushTimer = setTimeout(() => {
+@@ -1989,8 +2004,23 @@ ipcMain.on('pty:input', (_event, tabId: string, data: string) => {
+ 
+ // ─── IPC: resize PTY ─────────────────────────────────────────────────────────
+ 
++// TEMPORARY (Stream 8, AFT-11): AFTERTERM_RESIZE_PROBE=1 logs every resize sent to
++// a PTY with the size it had before, to count redundant resizes. Not for merging.
++const probeSize = new Map<string, { cols: number; rows: number }>();
+ ipcMain.on('pty:resize', (_event, tabId: string, cols: number, rows: number) => {
+   const p = ptys.get(tabId);
++  if (process.env.AFTERTERM_RESIZE_PROBE === '1') {
++    const prev = probeSize.get(tabId) ?? { cols: 80, rows: 24 };
++    const same = prev.cols === cols && prev.rows === rows;
++    console.log(`[resize] ${new Date().toISOString()} ${tabId} ${prev.cols}x${prev.rows} -> ${cols}x${rows}${same ? ' SAME' : ''}${p ? '' : ' (no pty)'}`);
++    probeSize.set(tabId, { cols, rows });
++    if (process.env.AFTERTERM_PTY_DUMP_DIR) {
++      try {
++        fs.appendFileSync(path.join(process.env.AFTERTERM_PTY_DUMP_DIR, `${tabId}.jsonl`),
++          JSON.stringify({ t: new Date().toISOString(), resize: `${cols}x${rows}` }) + '\n');
++      } catch { /* probe only */ }
++    }
++  }
+   if (p) {
+     try { p.resize(cols, rows); } catch { /* already dead */ }
+   }
+diff --git a/src/renderer/components/Terminal/index.tsx b/src/renderer/components/Terminal/index.tsx
+index 99cda77..9142ada 100644
+--- a/src/renderer/components/Terminal/index.tsx
++++ b/src/renderer/components/Terminal/index.tsx
+@@ -1170,12 +1170,45 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
+         openFileLink(tabId: string, row: number, index?: number): Promise<boolean>;
+         cellCentre(tabId: string, row: number, col: number): { x: number; y: number } | null;
+         findRow(tabId: string, text: string): number;
++        cellRuns(tabId: string, from: number, to: number): string[] | null;
+       };
+     };
+     // Extended, never replaced: app.tsx hangs its own harness value
+     // (lastOpenExternal) on the same object, and this effect can run after it has.
+     win.__afterterm = {
+       ...(win.__afterterm ?? {}),
++      // TEMPORARY (Stream 8, AFT-5): each buffer row from..to (0-based, absolute) as
++      // runs of cells sharing one set of attributes, so a test can see whether the
++      // program set dim or a grey colour. Not for merging.
++      cellRuns: (tabId, from, to) => {
++        const info = termsRef.current.get(tabId);
++        if (!info) return null;
++        const buffer = info.term.buffer.active;
++        const out: string[] = [];
++        for (let y = from; y <= Math.min(to, buffer.length - 1); y++) {
++          const line = buffer.getLine(y);
++          if (!line) continue;
++          const runs: string[] = [];
++          let sig = '';
++          let text = '';
++          for (let x = 0; x < line.length; x++) {
++            const cell = line.getCell(x);
++            if (!cell) break;
++            const fg = cell.isFgDefault() ? 'def' : cell.isFgRGB() ? '#' + cell.getFgColor().toString(16).padStart(6, '0') : 'p' + cell.getFgColor();
++            const bg = cell.isBgDefault() ? 'def' : cell.isBgRGB() ? '#' + cell.getBgColor().toString(16).padStart(6, '0') : 'p' + cell.getBgColor();
++            const s = `${cell.isDim() ? 'DIM ' : ''}${cell.isBold() ? 'bold ' : ''}${cell.isInverse() ? 'inv ' : ''}fg=${fg} bg=${bg}`;
++            if (s !== sig) {
++              if (text) runs.push(`[${sig}] ${JSON.stringify(text)}`);
++              sig = s;
++              text = '';
++            }
++            text += cell.getChars() || ' ';
++          }
++          if (text.trim()) runs.push(`[${sig}] ${JSON.stringify(text.trimEnd())}`);
++          out.push(`${y}${line.isWrapped ? 'w' : ''}: ${runs.join(' ')}`);
++        }
++        return out;
++      },
+       tail: (tabId, n = 30) => readTail(tabId, n),
+       activeTail: (n = 30) => readTail(activeRef.current, n),
+       // Lets the harness check the OSC 133 marks landed without reading the buffer.

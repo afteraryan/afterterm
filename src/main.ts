@@ -1314,6 +1314,34 @@ function createWindow() {
     repaintNotifier();
   });
 
+  // A drag of the window's edge (AFT-11). Every resize a PTY gets makes a full-screen
+  // program like Claude Code redraw, and each redraw after the terminal got narrower
+  // leaves a copy of the top of its screen in the scrollback, so the renderer holds
+  // its PTY resizes from the drag's first step to its end and sends the final size
+  // once (resizeGate.ts). Electron raises 'will-resize' for each step of a drag of
+  // the edge (WM_SIZING) and 'resized' when it is let go (WM_EXITSIZEMOVE); a
+  // maximize or a setBounds raises no 'will-resize' and resizes at once as before.
+  // A drag held still longer than EDGE_DRAG_QUIET_MS also ends the hold, so a missed
+  // 'resized' can never leave the terminals unsized.
+  const EDGE_DRAG_QUIET_MS = 1500;
+  let edgeDragging = false;
+  let edgeDragQuiet: NodeJS.Timeout | null = null;
+  const endEdgeDrag = () => {
+    if (edgeDragQuiet) { clearTimeout(edgeDragQuiet); edgeDragQuiet = null; }
+    if (!edgeDragging) return;
+    edgeDragging = false;
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('window:edge-drag', false);
+  };
+  mainWindow.on('will-resize', () => {
+    if (!edgeDragging) {
+      edgeDragging = true;
+      mainWindow?.webContents.send('window:edge-drag', true);
+    }
+    if (edgeDragQuiet) clearTimeout(edgeDragQuiet);
+    edgeDragQuiet = setTimeout(endEdgeDrag, EDGE_DRAG_QUIET_MS);
+  });
+  mainWindow.on('resized', endEdgeDrag);
+
   mainWindow.on('close', (e) => {
     if (isQuitting || ptys.size === 0) return;
     // A harness run (scripts/agent-harness, AFTERTERM_HARNESS=1) quits through
@@ -1850,8 +1878,22 @@ ipcMain.handle('editors:choose', async () => {
 
 // ─── IPC: create PTY ─────────────────────────────────────────────────────────
 
-ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: string) => {
+// Test probe for AFT-11: AFTERTERM_RESIZE_PROBE=1 logs every PTY's spawn size and
+// every resize it is sent ([resize] lines in the harness log), which is how a test
+// counts the resizes a program such as Claude Code gets.
+const RESIZE_PROBE = process.env.AFTERTERM_RESIZE_PROBE === '1';
+
+// The size a PTY is spawned at: the terminal's own (AFT-11), so it never has to be
+// resized straight after, which makes a full-screen program redraw. 80x24, xterm's
+// default, when the renderer sends nothing usable.
+function ptySpawnSize(cols: unknown, rows: unknown): { cols: number; rows: number } {
+  const ok = (n: unknown, max: number): n is number => Number.isInteger(n) && (n as number) >= 1 && (n as number) <= max;
+  return ok(cols, 2000) && ok(rows, 1000) ? { cols, rows } : { cols: 80, rows: 24 };
+}
+
+ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: string, cols?: number, rows?: number) => {
   const shell = getShellById(shellId);
+  const size = ptySpawnSize(cols, rows);
 
   // Clean PATH: strip stray quotes that corrupt cmd.exe's command resolution.
   // AFTERTERM_TAB_ID + AFTERTERM_SESSION_DIR let the bundled notify hook write this
@@ -1921,14 +1963,15 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
 
   const p = pty.spawn(plan.command, plan.args, {
     name: 'xterm-256color',
-    cols: 80,
-    rows: 24,
+    cols: size.cols,
+    rows: size.rows,
     cwd: plan.cwd,
     env: plan.env,
   });
 
   ptys.set(tabId, p);
   ptyCreatedAt.set(tabId, Date.now());
+  if (RESIZE_PROBE) console.log(`[resize] ${new Date().toISOString()} ${tabId} spawned at ${size.cols}x${size.rows}`);
 
   // Server watching: remember this tab's shell pid, mark the cached process list as
   // out of date, keep the slow poll running, and look once a second from now (a shell
@@ -1991,6 +2034,7 @@ ipcMain.on('pty:input', (_event, tabId: string, data: string) => {
 
 ipcMain.on('pty:resize', (_event, tabId: string, cols: number, rows: number) => {
   const p = ptys.get(tabId);
+  if (RESIZE_PROBE) console.log(`[resize] ${new Date().toISOString()} ${tabId} ${cols}x${rows}`);
   if (p) {
     try { p.resize(cols, rows); } catch { /* already dead */ }
   }

@@ -222,8 +222,9 @@ contextBridge.exposeInMainWorld('afterterm', {
   },
 
   pty: {
-    create: (tabId: string, shellId?: string, cwd?: string): Promise<{ pid: number }> =>
-      ipcRenderer.invoke('pty:create', tabId, shellId, cwd),
+    // cols and rows: the terminal's size, so the PTY starts at it (AFT-11).
+    create: (tabId: string, shellId?: string, cwd?: string, cols?: number, rows?: number): Promise<{ pid: number }> =>
+      ipcRenderer.invoke('pty:create', tabId, shellId, cwd, cols, rows),
 
     write: (tabId: string, data: string): void =>
       ipcRenderer.send('pty:input', tabId, data),
@@ -294,6 +295,15 @@ contextBridge.exposeInMainWorld('afterterm', {
     // marks. One listener for every tab, registered once.
     onChildren: (callback: (data: { tabId: string; hasChildren: boolean | null }) => void): void => {
       ipcRenderer.on('pty:children', (_event, data) => callback(data));
+    },
+
+    // A drag of the window's edge starts (true) or ends (false). The PTY resizes are
+    // held through it and the final size sent once (AFT-11, resizeGate.ts). Returns
+    // the unsubscribe.
+    onEdgeDrag: (callback: (dragging: boolean) => void): (() => void) => {
+      const handler = (_event: IpcRendererEvent, dragging: boolean) => callback(dragging);
+      ipcRenderer.on('window:edge-drag', handler);
+      return () => { ipcRenderer.removeListener('window:edge-drag', handler); };
     },
   },
 });
