@@ -41,6 +41,7 @@ stranger." Mnemonic: **break it → X, add to it → Y, fix it → Z.**
 | `v0.15.0` | Any colour for a project, a smaller project window, rename a thread or a project |
 | `v0.16.0` | The restart window tells the truth, hooks repair themselves, a chat with no hook-saved id resumes |
 | `v0.16.1` | A long link over several lines opens whole from any of them |
+| `v0.17.0` | Drag the sidebar's edge to resize it, the window comes back by itself after a crash, afterterm opens where you left it, toasts wait for full-screen apps |
 
 (`v0.1.0`–`v0.4.1` were backfilled onto the existing history; releases from `v0.5.0` on were cut with `npm run release`.)
 
