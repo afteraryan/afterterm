@@ -76,6 +76,16 @@ export function spawnSize(proposed: PtySize | undefined, hint: PtySize | undefin
   return { ...current };
 }
 
+// How long to wait before a window edge drag's held sizes are sent, when the drag
+// ended at `endedAt` and the layout last changed now. The wait restarts on every
+// layout change (settleMs), so a drag let go right after its last step is sent the
+// final size, not a stale one, but it never runs past endedAt + maxMs: a layout that
+// keeps changing (an animation, a window being moved by something else) cannot keep
+// the PTYs unsized. Times in ms, any clock.
+export function settleDelay(now: number, endedAt: number, settleMs: number, maxMs: number): number {
+  return Math.max(0, Math.min(settleMs, endedAt + maxMs - now));
+}
+
 // The size a PTY really has once main has answered pty:create: the size main reports
 // (a re-attached shell's own, or the size a new one was spawned at, which is 80x24
 // when what was asked for was out of range), or the size asked for when main says

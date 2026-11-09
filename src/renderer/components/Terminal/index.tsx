@@ -21,7 +21,7 @@ import { createWebLinkProvider } from './webLinks';
 import { Menu, type MenuItem } from '../Menu';
 import { SPLIT_MIN, SPLIT_MAX, SPLIT_DEFAULT } from '../../splitView';
 import type { PaneTarget } from '../../splitView';
-import { initialResizeGate, onTerminalResize, onHoldChange, spawnSize, isMeasured, ptySizeFrom, type ResizeGate, type PtySize } from '../../resizeGate';
+import { initialResizeGate, onTerminalResize, onHoldChange, spawnSize, isMeasured, ptySizeFrom, settleDelay, type ResizeGate, type PtySize } from '../../resizeGate';
 
 interface TermInfo {
   term: Terminal;
@@ -171,6 +171,8 @@ const DEFAULT_FONT_SIZE = 14;
 // How long the layout must stay still after a window edge drag ends before the
 // held PTY sizes are sent (AFT-11): longer than the 80 ms fit debounce.
 const EDGE_DRAG_SETTLE_MS = 120;
+// The longest that wait can run after the drag's end, however the layout moves.
+const EDGE_DRAG_SETTLE_MAX_MS = 1000;
 const MIN_FONT_SIZE = 6;
 const MAX_FONT_SIZE = 40;
 
@@ -1311,11 +1313,16 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
         return;
       }
       if (!edgeDragRef.current) return;
-      releaseTimer = setTimeout(release, EDGE_DRAG_SETTLE_MS);
+      // Restarted on every layout change, but never past a second after the end.
+      const endedAt = performance.now();
+      const arm = () => {
+        releaseTimer = setTimeout(release, settleDelay(performance.now(), endedAt, EDGE_DRAG_SETTLE_MS, EDGE_DRAG_SETTLE_MAX_MS));
+      };
+      arm();
       edgeDragSettleRef.current = () => {
         if (!releaseTimer) return;
         clearTimeout(releaseTimer);
-        releaseTimer = setTimeout(release, EDGE_DRAG_SETTLE_MS);
+        arm();
       };
     };
     holdResizesRef.current = apply;

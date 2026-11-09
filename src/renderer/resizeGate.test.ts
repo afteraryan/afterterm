@@ -2,7 +2,7 @@
 //   node src/renderer/resizeGate.test.ts
 // Exits 0 if all pass, 1 on any failure.
 
-import { initialResizeGate, sameSize, onTerminalResize, onHoldChange, spawnSize, isMeasured, ptySizeFrom } from './resizeGate.ts';
+import { initialResizeGate, sameSize, onTerminalResize, onHoldChange, spawnSize, isMeasured, ptySizeFrom, settleDelay } from './resizeGate.ts';
 import type { ResizeGate, PtySize } from './resizeGate.ts';
 
 let pass = 0, fail = 0;
@@ -119,6 +119,23 @@ console.log('\nresizeGate: isMeasured (what FitAddon answers for a hidden termin
   check('Infinity is not', !isMeasured(size(Infinity, 42)));
   check('missing fields are not', !isMeasured({}));
   check('an attach answer without a size is not', !isMeasured({ cols: undefined, rows: undefined }));
+}
+
+console.log('\nresizeGate: settleDelay (the wait after a drag ends has an upper limit)\n');
+{
+  check('right at the end: the settle wait', settleDelay(1000, 1000, 120, 1000) === 120);
+  check('a layout change later still waits the full settle', settleDelay(1500, 1000, 120, 1000) === 120);
+  check('near the limit: only what is left', settleDelay(1950, 1000, 120, 1000) === 50);
+  check('at the limit: release now', settleDelay(2000, 1000, 120, 1000) === 0);
+  check('past the limit: release now, never negative', settleDelay(2500, 1000, 120, 1000) === 0);
+  // A layout that changes every 50 ms for ever: the release still comes by 1 s.
+  let now = 1000, released = -1;
+  for (let t = 1000; t <= 3000; t += 50) {
+    const due = now + settleDelay(now, 1000, 120, 1000);
+    if (due <= t) { released = due; break; }
+    now = t;
+  }
+  check('changes every 50 ms: released by 1 s after the end', released > 0 && released <= 2000, String(released));
 }
 
 console.log('\nresizeGate: ptySizeFrom (the gate starts from what main spawned)\n');

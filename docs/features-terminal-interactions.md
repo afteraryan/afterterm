@@ -229,7 +229,8 @@ the size sync after a spawn could repeat the size the PTY already had.
 - A drag of the window's edge: main sends `window:edge-drag` true on Electron's first
   `will-resize` and false on `resized` (or after 1.5 s with no step, so a missed end cannot leave
   the terminals unsized). The terminals keep following the window; the gates keep the newest
-  size, and once the layout has been still for 120 ms after the end (`EDGE_DRAG_SETTLE_MS`; an
+  size, and once the layout has been still for 120 ms after the end, or 1 s after the end at the
+  latest whatever the layout does (`EDGE_DRAG_SETTLE_MS`, `EDGE_DRAG_SETTLE_MAX_MS`, `settleDelay`; an
   end that arrives before the window's last size did sent a stale size, then the real one) the
   panes are fitted once more and each PTY gets that size once (`onHoldChange`). In dev builds
   `window.__afterterm.holdResizes(true|false)` plays the same two messages, and under the harness
