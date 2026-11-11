@@ -19,7 +19,7 @@ import './TitleBar.css';
 import { titleBarButtonShows, percent, megabytes, errorText } from '../../../update-check';
 import type { UpdateState } from '../../../update-check';
 import { IconChevD, IconChevR, IconDownload, IconRestart } from '../Icons';
-import { UpdateNotes, hasNotes } from '../UpdateNotes';
+import { ReleaseNotesList, notesOf } from '../UpdateNotes';
 
 export interface TitleBarProps {
   update: UpdateState;
@@ -121,19 +121,26 @@ export function TitleBar({ update, onOpenAbout, onRestart }: TitleBarProps) {
       );
     } else {
       const retry = update.error === 'checksum' || update.error === 'network';
+      const n = notesOf(r);
       notice = (
         <div className="up-notice">
           <div className="nh">
             <span className="nicon"><IconDownload size={18} /></span>
-            <div><div className="ntt">afterterm {r.version} is available</div><div className="nsub">You have {update.current}.</div></div>
+            <div>
+              <div className="ntt">afterterm {r.version} is available</div>
+              <div className="nsub">
+                You have {update.current}.
+                {n.between > 0 && ` ${n.between} ${n.between === 1 ? 'version' : 'versions'} came out in between.`}
+              </div>
+            </div>
           </div>
           {err && <div className="up-err">{err}</div>}
-          {hasNotes(r.notes) && (
+          {n.any && (
             <>
               <button className="up-wn" data-whats-new="" onClick={() => setFolded(f => !f)}>
-                What's new {folded ? <IconChevD size={14} /> : <IconChevR size={14} />}
+                {n.multi ? `What's new since ${update.current}` : "What's new"} {folded ? <IconChevD size={14} /> : <IconChevR size={14} />}
               </button>
-              {folded && <UpdateNotes markdown={r.notes} fold />}
+              {folded && <ReleaseNotesList releases={n.releases} more={n.more} fold />}
             </>
           )}
           <div className="nb">

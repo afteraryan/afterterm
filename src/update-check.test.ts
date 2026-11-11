@@ -9,6 +9,7 @@ import {
   restartRows, restartStatus, asPendingUpdate, updateLanded, parseInline,
   parseNotes, samePath, installFolder, installerVersion, staleDownloads, isMidTurn,
   hasBackgroundTask, shellBusy, releaseToDownload,
+  releaseDate, releaseDateText, notesSince, newestInList, asReleaseNotes,
 } from './update-check.ts';
 import type { UpdateState, AwakeThread, ReleaseInfo } from './update-check.ts';
 import { isDeepStrictEqual } from 'node:util';
@@ -361,6 +362,64 @@ console.log('\nupdate-check: releaseToDownload (Update downloads the newest rele
     releaseToDownload(shown, { kind: 'none', reason: 'no-digest' }) === shown);
   check('nothing newer than this copy any more (the release was pulled): nothing to download',
     releaseToDownload(shown, { kind: 'none', reason: 'not-newer' }) === null);
+}
+
+console.log('\nupdate-check: every release since this version (AFT-56)\n');
+{
+  const gh = (tag: string, over: Record<string, unknown> = {}) =>
+    ({ tag_name: tag, body: `notes ${tag}`, published_at: '2026-11-06T09:06:39Z', draft: false, prerelease: false, ...over });
+  const offered = { version: '0.15.0', date: '2026-11-06', notes: 'notes 0.15.0' };
+
+  check('published_at to its day', releaseDate('2026-11-06T09:06:39Z') === '2026-11-06');
+  check('no published_at: no date', releaseDate(undefined) === null && releaseDate('soon') === null);
+  check('a day as text', releaseDateText('2026-11-06') === '6 Nov 2026');
+  check('no date: no text', releaseDateText(null) === '' && releaseDateText('2026-13-01') === '');
+  check('parseRelease carries the date', (() => {
+    const v = parseRelease(release({ published_at: '2026-10-31T12:00:00Z' }), '0.10.0');
+    return v.kind === 'update' && v.release.date === '2026-10-31';
+  })());
+
+  const list = [gh('v0.15.0'), gh('v0.14.0'), gh('v0.13.0'), gh('v0.12.1'), gh('v0.12.0')];
+  const n = notesSince(list, '0.12.1', offered);
+  check('the releases after the running version, newest first',
+    eq(n.releases.map(r => r.version), ['0.15.0', '0.14.0', '0.13.0']), show(n.releases.map(r => r.version)));
+  check('the offered release is first, with its own notes', n.releases[0] === offered);
+  check('each carries its notes and day', eq(n.releases[1], { version: '0.14.0', date: '2026-11-06', notes: 'notes v0.14.0' }));
+  check('nothing left out', n.more === 0);
+
+  check('one version behind: the offered release alone',
+    eq(notesSince(list, '0.14.0', offered).releases.map(r => r.version), ['0.15.0']));
+  check('the list not read (null): the offered release alone', eq(notesSince(null, '0.12.1', offered), { releases: [offered], more: 0 }));
+  check('an error body (rate limit): the offered release alone',
+    eq(notesSince({ message: 'API rate limit exceeded' }, '0.12.1', offered).releases, [offered]));
+  check('a release newer than the one offered is left out (published after the check)',
+    !notesSince([gh('v0.16.0'), ...list], '0.12.1', offered).releases.some(r => r.version === '0.16.0'));
+  check('drafts, prereleases and tags that are not versions are left out',
+    eq(notesSince([gh('v0.14.0', { draft: true }), gh('v0.13.0', { prerelease: true }), gh('nightly'), gh('v0.13.1')], '0.12.1', offered)
+      .releases.map(r => r.version), ['0.15.0', '0.13.1']));
+  check('the order is by version, not by the list order',
+    eq(notesSince([gh('v0.13.0'), gh('v0.14.1'), gh('v0.14.0')], '0.12.1', offered).releases.map(r => r.version), ['0.15.0', '0.14.1', '0.14.0', '0.13.0']));
+  check('a version listed twice is listed once',
+    notesSince([gh('v0.14.0'), gh('0.14.0')], '0.12.1', offered).releases.length === 2);
+  check('a release with no body keeps empty notes', notesSince([gh('v0.14.0', { body: null })], '0.12.1', offered).releases[1].notes === '');
+  const many = Array.from({ length: 14 }, (_, i) => gh(`v0.14.${i}`));
+  const capped = notesSince(many, '0.13.0', offered, 10);
+  check('at most ten releases, newest kept', capped.releases.length === 10 && capped.releases[1].version === '0.14.13');
+  check('the older ones are counted', capped.more === 5, String(capped.more));
+
+  check('the newest in a list (a test feed holding a list)', (newestInList([gh('v0.13.0'), gh('v0.15.0'), gh('v0.14.0')]) as { tag_name: string }).tag_name === 'v0.15.0');
+  check('the newest skips drafts and prereleases', (newestInList([gh('v0.16.0', { draft: true }), gh('v0.15.1', { prerelease: true }), gh('v0.15.0')]) as { tag_name: string }).tag_name === 'v0.15.0');
+  check('no releases in the list: null', newestInList([]) === null && newestInList({}) === null);
+
+  check('notes read back from prefs.json', eq(asReleaseNotes([offered, { version: '0.14.0', date: null, notes: 'x' }]), [offered, { version: '0.14.0', date: null, notes: 'x' }]));
+  check('malformed notes are dropped', eq(asReleaseNotes([{ version: 'latest', notes: 'x' }, { version: '0.14.0' }, 'x', { version: '0.13.0', date: 'soon', notes: 'y' }]),
+    [{ version: '0.13.0', date: null, notes: 'y' }]));
+  check('not a list: none', eq(asReleaseNotes('x'), []));
+  check('a pending update keeps its releases and the count left out',
+    eq(asPendingUpdate({ from: '0.12.1', to: '0.15.0', since: [offered], more: 3 }), { from: '0.12.1', to: '0.15.0', since: [offered], more: 3 }));
+  check('a pending update from before AFT-56 has no releases',
+    eq(asPendingUpdate({ from: '0.12.1', to: '0.15.0', notes: 'n' }), { from: '0.12.1', to: '0.15.0', notes: 'n' }));
+  check('a bad count is dropped', asPendingUpdate({ from: '0.12.1', to: '0.15.0', more: -1 })?.more === undefined);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

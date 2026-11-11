@@ -301,8 +301,12 @@ interface AftertermDialogAPI {
 
 // Automatic updates (src/updater.ts, src/update-check.ts).
 interface AftertermUpdateLaunch {
+  from: string;
   to: string;
   notes: string;
+  // Every release's notes from `from` to `to`, newest first (AFT-56).
+  since: import('./update-check.ts').ReleaseNote[];
+  more: number;
   activeThreadId?: string;
   screen?: 'home' | 'workspace' | 'project';
   projectId?: string;

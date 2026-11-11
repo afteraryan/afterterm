@@ -51,6 +51,7 @@ export function isNewer(candidate: string, current: string): boolean {
 export interface ReleaseInfo {
   version: string;
   notes: string;          // the release body, Markdown
+  date: string | null;    // "2026-11-06", from published_at (releaseDate)
   assetName: string;
   size: number;           // bytes, as GitHub reports it
   url: string;            // browser_download_url
@@ -105,6 +106,7 @@ export function parseRelease(json: unknown, currentVersion: string, assetBase = 
     release: {
       version,
       notes: typeof json.body === 'string' ? json.body : '',
+      date: releaseDate(json.published_at),
       assetName: want,
       size,
       url: asset.browser_download_url,
@@ -212,8 +214,10 @@ export interface UpdateState {
   canCheck: boolean | null;
   auto: boolean;
   lastChecked: number | null;
-  // The version found, while one is: its notes and size for the notice.
-  release: { version: string; notes: string; size: number } | null;
+  // The version found, while one is: its notes and size for the notice, and the
+  // notes of every release since this copy's version (notesSince), newest first,
+  // that version's own included; `more` counts the older ones left out.
+  release: { version: string; notes: string; size: number; since: ReleaseNote[]; more: number } | null;
   received: number;
   // Held back from the title bar by Later or Skip (only while 'available').
   hidden: boolean;
@@ -459,6 +463,10 @@ export interface PendingUpdate {
   from: string;
   to: string;
   notes?: string;
+  // Every release's notes from `from` to `to` (notesSince), for What's new after
+  // the restart; absent in a record written before AFT-56.
+  since?: ReleaseNote[];
+  more?: number;
   activeThreadId?: string;
   screen?: 'home' | 'workspace' | 'project';
   projectId?: string;
@@ -468,6 +476,9 @@ export function asPendingUpdate(v: unknown): PendingUpdate | null {
   if (!isRecord(v) || typeof v.from !== 'string' || typeof v.to !== 'string') return null;
   const p: PendingUpdate = { from: v.from, to: v.to };
   if (typeof v.notes === 'string') p.notes = v.notes;
+  const since = asReleaseNotes(v.since);
+  if (since.length) p.since = since;
+  if (typeof v.more === 'number' && Number.isInteger(v.more) && v.more > 0) p.more = v.more;
   if (typeof v.activeThreadId === 'string' && v.activeThreadId) p.activeThreadId = v.activeThreadId;
   if (v.screen === 'home' || v.screen === 'workspace' || v.screen === 'project') p.screen = v.screen;
   if (typeof v.projectId === 'string' && v.projectId) p.projectId = v.projectId;
@@ -553,6 +564,92 @@ export function parseNotes(md: string): NoteBlock[] {
   endList();
   endPara();
   return blocks;
+}
+
+// ─── Every release since this version (AFT-56) ────────────────────────────────
+
+// What's new lists every release between the running version and the one on
+// offer, newest first, each under its version (Aryan, 2026-11-11, option 1 of
+// the mockup): someone on 0.12.1 offered 0.15.0 also reads 0.14.0's and 0.13.0's
+// notes. GitHub's releases list gives the ones in between; the newest comes from
+// the release on offer, so it is there even when the list could not be read.
+export const RELEASE_LIST_URL = 'https://api.github.com/repos/afteraryan/afterterm/releases?per_page=50';
+// At most this many releases are listed; the older rest are counted (`more`)
+// and the list links to GitHub for them.
+export const MAX_NOTE_RELEASES = 10;
+
+export interface ReleaseNote {
+  version: string;
+  date: string | null;  // "2026-11-06"
+  notes: string;        // the release body, Markdown
+}
+
+export interface NotesSince {
+  releases: ReleaseNote[];
+  more: number;
+}
+
+// GitHub's published_at ("2026-11-06T09:06:39Z") to its day, "2026-11-06".
+export function releaseDate(v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  const m = /^(\d{4}-\d{2}-\d{2})T/.exec(v.trim());
+  return m ? m[1] : null;
+}
+
+// "2026-11-06" to "6 Nov 2026", the date beside a version in What's new.
+export function releaseDateText(date: string | null): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date ?? '');
+  if (!m) return '';
+  const month = MONTHS[Number(m[2]) - 1];
+  return month ? `${Number(m[3])} ${month.slice(0, 3)} ${m[1]}` : '';
+}
+
+// `list` is GitHub's releases list (or anything else, read as nothing). Kept:
+// published releases newer than `current` and older than the one on offer, once
+// each, newest first, after `offered` itself; drafts, prereleases and tags that
+// are not versions are left out.
+export function notesSince(list: unknown, current: string, offered: ReleaseNote, max = MAX_NOTE_RELEASES): NotesSince {
+  const byVersion = new Map<string, ReleaseNote>();
+  if (Array.isArray(list)) {
+    for (const item of list) {
+      if (!isRecord(item) || item.draft === true || item.prerelease === true) continue;
+      const parsed = parseVersion(item.tag_name);
+      if (!parsed) continue;
+      const version = parsed.join('.');
+      if (!isNewer(version, current) || compareVersions(version, offered.version) >= 0 || byVersion.has(version)) continue;
+      byVersion.set(version, { version, date: releaseDate(item.published_at), notes: typeof item.body === 'string' ? item.body : '' });
+    }
+  }
+  const all = [offered, ...[...byVersion.values()].sort((a, b) => compareVersions(b.version, a.version))];
+  const keep = Math.max(1, max);
+  return { releases: all.slice(0, keep), more: Math.max(0, all.length - keep) };
+}
+
+// The test feed (AFTERTERM_UPDATE_FEED) may hold GitHub's releases list instead of
+// one release, to test What's new across versions. What releases/latest would
+// answer from such a list: the newest published release with a version tag, or
+// null when there is none.
+export function newestInList(list: unknown): Record<string, unknown> | null {
+  if (!Array.isArray(list)) return null;
+  let best: Record<string, unknown> | null = null;
+  for (const item of list) {
+    if (!isRecord(item) || item.draft === true || item.prerelease === true || !parseVersion(item.tag_name)) continue;
+    if (!best || compareVersions(item.tag_name as string, best.tag_name as string) > 0) best = item;
+  }
+  return best;
+}
+
+// Release notes read back from prefs.json (PendingUpdate.since): only well-formed
+// entries, at most MAX_NOTE_RELEASES of them.
+export function asReleaseNotes(v: unknown): ReleaseNote[] {
+  if (!Array.isArray(v)) return [];
+  const out: ReleaseNote[] = [];
+  for (const item of v) {
+    if (!isRecord(item) || typeof item.version !== 'string' || !parseVersion(item.version) || typeof item.notes !== 'string') continue;
+    out.push({ version: item.version, date: typeof item.date === 'string' && releaseDateText(item.date) ? item.date : null, notes: item.notes });
+    if (out.length >= MAX_NOTE_RELEASES) break;
+  }
+  return out;
 }
 
 // ─── Which copy is installed ──────────────────────────────────────────────────
