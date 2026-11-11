@@ -12,7 +12,7 @@ import { REPO_URL, errorText, lastCheckedText, percent } from '../../../update-c
 import type { UpdateState } from '../../../update-check';
 import { AppLogo, IconChevD } from '../Icons';
 import { UpdateDialog } from '../UpdateDialog';
-import { UpdateNotes, hasNotes } from '../UpdateNotes';
+import { ReleaseNotesList, notesOf } from '../UpdateNotes';
 import './AboutWindow.css';
 
 export interface AboutWindowProps {
@@ -28,7 +28,8 @@ export function AboutWindow({ update, onClose, onRestart }: AboutWindowProps) {
 
   const r = update.release;
   const has = !!r && (update.phase === 'available' || update.phase === 'downloading' || update.phase === 'ready');
-  const notes = has && r && hasNotes(r.notes);
+  const n = r ? notesOf(r) : null;
+  const notes = has && !!n && n.any;
   useEffect(() => { if (!has) setNotesOpen(false); }, [has]);
 
   const wn = notes ? (
@@ -80,7 +81,7 @@ export function AboutWindow({ update, onClose, onRestart }: AboutWindowProps) {
             </div>
             {notes && r && (
               <div className={`up-reveal${notesOpen ? ' open' : ''}`} data-about-reveal="">
-                <div><UpdateNotes markdown={r.notes} fold /></div>
+                <div>{n && <ReleaseNotesList releases={n.releases} more={n.more} fold />}</div>
               </div>
             )}
           </div>

@@ -4,7 +4,8 @@
 // dialog) and the mockup's .dlg card, and it closes the way the mockup does:
 // the card fades and sinks out over 170ms, then the caller unmounts it.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { UpdateNotes } from '../UpdateNotes';
+import { ReleaseNotesList, withNotes } from '../UpdateNotes';
+import type { ReleaseNote } from '../../../update-check';
 import './UpdateDialog.css';
 
 const CLOSE_MS = 170;
@@ -54,14 +55,24 @@ export function UpdateDialog({ onClose, closeOnScrim = true, className, label, c
 }
 
 // "What's new in afterterm 0.11.0": the notes in a window over the app, opened
-// from the "Updated to" pill after an update restart.
-export function WhatsNewDialog({ version, notes, onClose }: { version: string; notes: string; onClose: () => void }) {
+// from the "Updated to" pill after an update restart. An update that skipped
+// versions is "What's new since 0.12.1", every release since then listed (AFT-56).
+export interface WhatsNewProps {
+  version: string;
+  from: string;
+  releases: ReleaseNote[];
+  more: number;
+  onClose: () => void;
+}
+
+export function WhatsNewDialog({ version, from, releases, more, onClose }: WhatsNewProps) {
+  const title = withNotes(releases).length + more > 1 ? `What's new since ${from}` : `What's new in afterterm ${version}`;
   return (
-    <UpdateDialog onClose={onClose} label={`What's new in afterterm ${version}`} className="up-whatsnew">
+    <UpdateDialog onClose={onClose} label={title} className="up-whatsnew">
       {close => (
         <>
-          <h2>What's new in afterterm {version}</h2>
-          <div className="up-dlg-notes"><UpdateNotes markdown={notes} /></div>
+          <h2>{title}</h2>
+          <div className="up-dlg-notes"><ReleaseNotesList releases={releases} more={more} /></div>
           <div className="up-dbtns"><button className="b p s" autoFocus onClick={close}>Close</button></div>
         </>
       )}

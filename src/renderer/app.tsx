@@ -21,7 +21,8 @@ import { AboutWindow } from './components/AboutWindow';
 import { RestartToUpdate } from './components/RestartToUpdate';
 import { UpdatedPill } from './components/UpdatedPill';
 import { WhatsNewDialog } from './components/UpdateDialog';
-import { hasNotes } from './components/UpdateNotes';
+import { notesOf } from './components/UpdateNotes';
+import type { ReleaseNote } from '../update-check';
 import { initialUpdateState, restartRows, isMidTurn, hasBackgroundTask, shellBusy } from '../update-check';
 import type { UpdateState, AwakeThread } from '../update-check';
 import type { Screen } from './components/ScreenNav';
@@ -170,8 +171,10 @@ export function App() {
   // restart; `updatedPill` the "Updated to" note that restart leaves.
   const [update, setUpdate] = useState<UpdateState>(() => initialUpdateState(window.afterterm.appVersion));
   const [updateWindow, setUpdateWindow] = useState<'about' | 'restart' | null>(null);
-  const [whatsNew, setWhatsNew] = useState<{ version: string; notes: string } | null>(null);
-  const [updatedPill, setUpdatedPill] = useState<{ version: string; notes: string } | null>(null);
+  // since: every release from `from` to `version` (AFT-56).
+  type WhatsNewInfo = { version: string; from: string; notes: string; since: ReleaseNote[]; more: number };
+  const [whatsNew, setWhatsNew] = useState<WhatsNewInfo | null>(null);
+  const [updatedPill, setUpdatedPill] = useState<WhatsNewInfo | null>(null);
   // The threads awake when Restart now was pressed: the quit flush writes them to
   // session.json (wakeAfterUpdate), and only that quit does.
   const wakeAfterUpdateRef = useRef<string[]>([]);
@@ -701,7 +704,7 @@ export function App() {
         if (project) { setProjectPageId(landed.projectId!); setScreen('project'); }
         else if (landed.screen === 'home') setScreen('home');
         else setScreen('workspace');
-        setUpdatedPill({ version: landed.to, notes: landed.notes });
+        setUpdatedPill({ version: landed.to, from: landed.from, notes: landed.notes, since: landed.since, more: landed.more });
       }
       setInitialized(true);
     });
@@ -2053,14 +2056,20 @@ export function App() {
       )}
 
       {whatsNew && (
-        <WhatsNewDialog version={whatsNew.version} notes={whatsNew.notes} onClose={() => setWhatsNew(null)} />
+        <WhatsNewDialog
+          version={whatsNew.version}
+          from={whatsNew.from}
+          releases={notesOf(whatsNew).releases}
+          more={whatsNew.more}
+          onClose={() => setWhatsNew(null)}
+        />
       )}
 
       {/* Over the app's own toast: it only shows on the launch after an update. */}
       {updatedPill && !toast && (
         <UpdatedPill
           version={updatedPill.version}
-          onWhatsNew={hasNotes(updatedPill.notes) ? () => setWhatsNew(updatedPill) : undefined}
+          onWhatsNew={notesOf(updatedPill).any ? () => setWhatsNew(updatedPill) : undefined}
           onDone={() => setUpdatedPill(null)}
         />
       )}

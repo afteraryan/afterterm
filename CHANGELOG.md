@@ -4,7 +4,14 @@ What changed for the person using afterterm, release by release. Each release li
 
 ## Unreleased
 
-Nothing yet.
+### What's new now shows every version you skipped
+
+If you were a few versions behind, What's new used to show only the newest version's notes.
+
+- **Every version since yours is listed**, newest first, each with its date. The newest is open; click any other version to read it.
+- **The update notice says how many versions came out** since yours, for example "You have 0.12.1. 2 versions came out in between."
+- **After the update**, What's new is titled "What's new since 0.12.1" and lists the same versions.
+- **If you skipped more than ten versions**, the last line links to the older ones on GitHub.
 
 ## 0.17.0 (2026-11-09)
 

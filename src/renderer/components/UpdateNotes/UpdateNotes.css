@@ -35,6 +35,56 @@
   padding: 12px 14px 2px;
 }
 
+/* Every release since the running version (ReleaseNotesList, AFT-56): a heading
+   per version, the newest open, the older ones folded. The mockup Aryan picked:
+   https://claude.ai/artifact/ACgzDCsRxC6BqLWzJ1PqHH, option 1. */
+.up-notes.up-vers.fold {
+  max-height: 300px;
+  padding-top: 2px;
+}
+.up-ver + .up-ver { border-top: 1px solid rgba(255, 255, 255, .07); }
+.up-vh {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 0;
+  text-align: left;
+  font-size: 13px;
+  color: var(--text3);
+  cursor: pointer;
+}
+.up-vh .chev {
+  display: inline-flex;
+  color: var(--text3);
+  transition: transform var(--fast) var(--ease);
+}
+.up-vh[aria-expanded="true"] .chev { transform: rotate(90deg); }
+.up-vh .vn {
+  color: var(--text);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.up-vh:hover .vn {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.up-vh .tag {
+  margin-left: auto;
+  font-size: 11px;
+  background: var(--hover);
+  border-radius: 999px;
+  padding: 0 7px;
+  line-height: 18px;
+}
+.up-vb { padding: 2px 0 2px 21px; }
+.up-notes .up-more {
+  display: inline-block;
+  margin: 6px 0 12px;
+  color: var(--text2);
+}
+.up-notes .up-more:hover { color: var(--text); }
+
 .up-bar {
   height: 6px;
   border-radius: 6px;

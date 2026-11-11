@@ -19,11 +19,11 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import {
-  CHECK_INTERVAL_MS, FIRST_CHECK_DELAY_MS, LATER_MS, RELEASES_URL,
+  CHECK_INTERVAL_MS, FIRST_CHECK_DELAY_MS, LATER_MS, RELEASES_URL, RELEASE_LIST_URL,
   asPendingUpdate, autoChecksOn, downloadSource, initialUpdateState, installFolder, isSuppressed,
-  parseRelease, releaseToDownload, samePath, staleDownloads, updateLanded,
+  newestInList, notesSince, parseRelease, releaseToDownload, samePath, staleDownloads, updateLanded,
 } from './update-check.ts';
-import type { PendingUpdate, ReleaseInfo, ReleaseVerdict, UpdateError, UpdateState } from './update-check.ts';
+import type { NotesSince, PendingUpdate, ReleaseInfo, ReleaseNote, ReleaseVerdict, UpdateError, UpdateState } from './update-check.ts';
 import { readPrefs, updatePrefs } from './prefs.ts';
 
 export interface UpdaterOptions {
@@ -40,8 +40,13 @@ export interface UpdaterOptions {
 
 // What the renderer gets once, on the launch after an update restart.
 export interface UpdateLaunch {
+  from: string;
   to: string;
   notes: string;
+  // Every release's notes from `from` to `to`, newest first (AFT-56), and how many
+  // older ones were left out.
+  since: ReleaseNote[];
+  more: number;
   activeThreadId?: string;
   screen?: 'home' | 'workspace' | 'project';
   projectId?: string;
@@ -80,7 +85,9 @@ export function initUpdater(opts: UpdaterOptions): void {
   let launch: UpdateLaunch | null = null;
   if (pending) {
     if (updateLanded(pending, current)) {
-      launch = { to: pending.to, notes: pending.notes ?? '', activeThreadId: pending.activeThreadId, screen: pending.screen, projectId: pending.projectId };
+      const notes = pending.notes ?? '';
+      const since = pending.since ?? (notes ? [{ version: pending.to, date: null, notes }] : []);
+      launch = { from: pending.from, to: pending.to, notes, since, more: pending.more ?? 0, activeThreadId: pending.activeThreadId, screen: pending.screen, projectId: pending.projectId };
     }
     savePrefs({ pendingUpdate: undefined });
   }
@@ -117,13 +124,42 @@ export function initUpdater(opts: UpdaterOptions): void {
   // ── The release ────────────────────────────────────────────────────────────
   const headers = { 'User-Agent': `afterterm/${current}`, Accept: 'application/vnd.github+json' };
 
+  const readFeed = async (): Promise<unknown> => JSON.parse((await fs.promises.readFile(feed, 'utf-8')).replace(/^﻿/, ''));
+
+  // A feed may hold one release (releases/latest's shape) or a releases list, from
+  // which the newest is the one on offer (newestInList).
   const fetchRelease = async (): Promise<unknown> => {
-    if (feed) return JSON.parse((await fs.promises.readFile(feed, 'utf-8')).replace(/^﻿/, ''));
+    if (feed) { const json = await readFeed(); return Array.isArray(json) ? newestInList(json) : json; }
     const res = await net.fetch(RELEASES_URL, { headers });
     // 403 and 429 are GitHub's rate limit; like a network error, that is
     // "no update this time".
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
+  };
+
+  // GitHub's releases list, for the notes of the releases between this copy and the
+  // one on offer (AFT-56). A feed holding one release has no list: null.
+  const fetchList = async (): Promise<unknown> => {
+    if (feed) { const json = await readFeed(); return Array.isArray(json) ? json : null; }
+    const res = await net.fetch(RELEASE_LIST_URL, { headers });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  };
+
+  // The notes since this copy's version, read once per release on offer. When the
+  // list cannot be read (offline, rate limited) the release's own notes stand
+  // alone, and the next check tries again.
+  let sinceCache: { version: string; value: NotesSince } | null = null;
+  const notesFor = async (r: ReleaseInfo): Promise<NotesSince> => {
+    if (sinceCache && sinceCache.version === r.version) return sinceCache.value;
+    const offered = { version: r.version, date: r.date, notes: r.notes };
+    try {
+      const value = notesSince(await fetchList(), current, offered);
+      sinceCache = { version: r.version, value };
+      return value;
+    } catch {
+      return { releases: [offered], more: 0 };
+    }
   };
 
   const hashFile = async (file: string): Promise<string> => {
@@ -143,7 +179,7 @@ export function initUpdater(opts: UpdaterOptions): void {
     return false;
   };
 
-  const shown = (r: ReleaseInfo) => ({ version: r.version, notes: r.notes, size: r.size });
+  const shown = (r: ReleaseInfo, n: NotesSince) => ({ version: r.version, notes: r.notes, size: r.size, since: n.releases, more: n.more });
 
   const check = async (manual: boolean): Promise<void> => {
     if (state.phase === 'checking' || state.phase === 'downloading') return;
@@ -161,10 +197,11 @@ export function initUpdater(opts: UpdaterOptions): void {
         const same = release && release.version === r.version && release.sha256 === r.sha256;
         release = r;
         if (!same) installer = null;
+        const n = await notesFor(r);
         const ready = installer !== null || await verifiedOnDisk(r);
         if (ready) installer = finalPath(r);
         set({
-          phase: ready ? 'ready' : 'available', release: shown(r), received: 0, lastChecked: now,
+          phase: ready ? 'ready' : 'available', release: shown(r, n), received: 0, lastChecked: now,
           hidden: isSuppressed(r.version, prefs(), now), upToDate: false, error: null,
         });
       } else {
@@ -207,7 +244,7 @@ export function initUpdater(opts: UpdaterOptions): void {
     if (latest.version !== release.version || latest.sha256 !== release.sha256) {
       release = latest;
       installer = null;
-      set({ release: shown(latest), lastChecked: Date.now() });
+      set({ release: shown(latest, await notesFor(latest)), lastChecked: Date.now() });
     }
     const r = release;
     // A newer release whose installer is already here (checked earlier and
@@ -300,7 +337,10 @@ export function initUpdater(opts: UpdaterOptions): void {
       set({ phase: 'available', received: 0 });
       return fail('checksum');
     }
-    const pendingUpdate = asPendingUpdate({ from: current, to: release.version, notes: release.notes, ...info });
+    const pendingUpdate = asPendingUpdate({
+      from: current, to: release.version, notes: release.notes,
+      since: state.release?.since, more: state.release?.more, ...info,
+    });
     savePrefs({ pendingUpdate });
     try {
       // Started from the updates folder, never from the install folder: a
