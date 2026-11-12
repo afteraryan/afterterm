@@ -15,7 +15,7 @@
 import React, { useState } from 'react';
 import type { Tab, Group } from '../TabBar/types';
 import { groupColors } from '../../projectColour';
-import { IconHome, IconTerm, IconPanel, IconSearch, IconPlus, IconFolder, IconCompact, ProjectIcon } from '../Icons';
+import { IconHome, IconTerm, IconPanel, IconSearch, IconPlus, IconFolder, IconCompact, IconGauge, ProjectIcon } from '../Icons';
 import { railProjects, projectAttention } from '../../attention';
 import { buildProjectMenu, ProjectActions } from '../../projectMenu';
 import { Menu, MenuItem } from '../Menu';
@@ -40,6 +40,7 @@ export interface RailProps {
   onSearch: () => void;
   onNewThread: (anchor: { x: number; y: number }) => void; // bottom-left of the button + 6px, same as the sidebar's openChooserUnder
   onOpenProject: (groupId: string) => void; // a tile click
+  onUsage: () => void; // the gauge at the bottom opens the usage card (AFT-85)
 }
 
 export function Rail({
@@ -56,6 +57,7 @@ export function Rail({
   onSearch,
   onNewThread,
   onOpenProject,
+  onUsage,
 }: RailProps) {
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
 
@@ -190,6 +192,17 @@ export function Rail({
       </div>
 
       <span className="grow" />
+
+      <button
+        className="ic rail-usage"
+        data-tip="Usage (Ctrl+Shift+U)"
+        data-tip-side="right"
+        data-usage=""
+        aria-label="Usage"
+        onClick={onUsage}
+      >
+        <IconGauge size={18} />
+      </button>
 
       {menu && <Menu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
     </div>

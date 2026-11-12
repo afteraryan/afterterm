@@ -4,6 +4,14 @@ What changed for the person using afterterm, release by release. Each release li
 
 ## Unreleased
 
+### See your Claude usage without leaving afterterm
+
+- **A gauge at the bottom of the rail opens a small Usage card** (or press Ctrl+Shift+U). Nothing is shown or read until you open it.
+- **Limits tab:** your current session, this week, and this week's Fable usage, each with a bar, how much is used and when it resets. The bar turns yellow from 75% and red from 90%.
+- **Breakdown tab:** what is using your limits, with tips (a tip at 50% or more is yellow), then your skills, subagents and MCP servers. It arrives a few seconds after the limits.
+- **It reads the numbers from Claude Code itself.** afterterm starts a hidden Claude Code, runs `/usage`, reads the screen and closes it. It uses no model, never touches your login, and changes none of your settings. The first time, Claude Code asks to trust afterterm's own usage folder and afterterm answers yes for that folder only.
+- **Numbers are kept for a minute.** The refresh icon reads them again, and the card shows its loading skeleton while it does, so old numbers are never mistaken for fresh ones.
+
 ### What's new now shows every version you skipped
 
 If you were a few versions behind, What's new used to show only the newest version's notes.

@@ -81,6 +81,21 @@
   color: var(--text);
 }
 
+/* The usage button (AFT-85) sits on its own at the bottom, so it has a button's surface at rest,
+   not only on hover: a bare icon read as decoration (Aryan, 2026-11-13). */
+.rail-bar .rail-usage {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #2a2a2a;
+  color: var(--text2);
+  margin-bottom: 2px;
+}
+.rail-bar .rail-usage:hover {
+  background: var(--hover2);
+  color: var(--text);
+}
+
 /* ── The Home/Workspace pill ───────────────────────────────────────────── */
 
 .navseg {

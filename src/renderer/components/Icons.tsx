@@ -300,6 +300,16 @@ export function IconWorktree(props: IconProps) {
   );
 }
 
+// The usage button: a gauge, an arc with its needle (AFT-85, docs/mockups/usage-card.html).
+export function IconGauge(props: IconProps) {
+  return (
+    <svg {...svgProps(props)}>
+      <path d="M3.8 17.2a8.5 8.5 0 1 1 16.4 0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M12 17l3.6-4.6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function IconX(props: IconProps) {
   return (
     <svg {...svgProps(props)}>

@@ -44,6 +44,7 @@ import {
 } from './claude-session-record.ts';
 import type { HeldRecord, ListAsk, RecordRead, RecordStatus, SessionRecord } from './claude-session-record.ts';
 import { gitInfo } from './git-info.ts';
+import { createUsageReader, type UsageReader } from './usage-reader.ts';
 import { isThreadId, parseTail, serializeTail, tailFilePath, trimTail } from './thread-tail.ts';
 import {
   applyMsysParents,
@@ -1847,6 +1848,10 @@ function createWindow() {
       // where shells and Claude Code both use it.
       mainWindow.webContents.send('shortcut', 'search');
       event.preventDefault();
+    } else if (ctrl && shift && key === 'u') {
+      // The usage card (AFT-85). Not a shell or Claude Code binding.
+      mainWindow.webContents.send('shortcut', 'usage');
+      event.preventDefault();
     } else if (ctrl && shift && key === 'arrowdown') {
       // Phase 8: the next thread row the panel is showing, in panel order and
       // across projects (design-03 decisions 6 and 7). Ctrl+Tab keeps its
@@ -3404,6 +3409,23 @@ async function destroyAllPtys() {
   lastActivitySent.clear();
   ptyCreatedAt.clear();
 }
+
+// ─── Claude usage (AFT-85) ──────────────────────────────────────────────────
+// The usage card asks; a hidden Claude Code is started only then (usage-reader.ts). The
+// renderer gets the whole state on every change as `usage:update`.
+let usageReader: UsageReader | null = null;
+function getUsageReader(): UsageReader {
+  if (!usageReader) {
+    usageReader = createUsageReader({
+      cwd: path.join(app.getPath('userData'), 'usage-reader'),
+      onChange: (s) => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('usage:update', s); },
+    });
+  }
+  return usageReader;
+}
+ipcMain.handle('usage:read', (_event, force: unknown) => getUsageReader().read(force === true));
+ipcMain.handle('usage:state', () => getUsageReader().state());
+app.on('will-quit', () => usageReader?.stop());
 
 app.on('before-quit', async (e) => {
   isQuitting = true; // any quit path suppresses the close-confirm dialog
