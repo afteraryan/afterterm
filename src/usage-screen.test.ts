@@ -5,7 +5,7 @@
 // The fixtures are rows of the screen of a real Claude Code 2.1.322 (Max plan), captured on
 // 2026-11-12 through a pseudo-terminal, so the parser is tested against what Claude Code draws.
 
-import { USAGE_CACHE_MS, formatReset, parseUsageScreen, readerStep, usageIsFresh } from './usage-screen.ts';
+import { formatReset, parseUsageScreen, readerStep } from './usage-screen.ts';
 
 let pass = 0, fail = 0;
 function check(name: string, cond: boolean, detail = '') {
@@ -133,15 +133,6 @@ console.log('\nusage-screen: odd screens\n');
   check('a percent over 100 is capped', over.limits[0]?.percent === 100, show(over.limits));
   const dup = parseUsageScreen([...TOP, ...TOP]);
   check('a row drawn twice is read once', dup.limits.length === 3, String(dup.limits.length));
-}
-
-console.log('\nusage-screen: the one-minute cache\n');
-{
-  check('nothing read yet is not fresh', usageIsFresh(null, 1000) === false);
-  check('a second old is fresh', usageIsFresh(1000, 2000) === true);
-  check('just under a minute is fresh', usageIsFresh(0, USAGE_CACHE_MS - 1) === true);
-  check('a minute old is not fresh', usageIsFresh(0, USAGE_CACHE_MS) === false);
-  check('a clock that went backwards is not fresh', usageIsFresh(5000, 1000) === false);
 }
 
 console.log('\nusage-screen: what the hidden Claude Code is told to type\n');

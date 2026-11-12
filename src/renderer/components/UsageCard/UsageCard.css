@@ -25,6 +25,12 @@
   animation: u-card-in .26s var(--ease) both;
 }
 
+/* The card takes focus when it opens so Escape works. theme.css draws a ring on any [tabindex]
+   element that is focus-visible, which after Ctrl+Shift+U (keyboard mode) showed a box around the
+   whole card; this rule is more specific than that one. */
+.u-card[tabindex]:focus-visible,
+.u-card[tabindex]:focus { outline: none; }
+
 .u-head { display: flex; align-items: center; gap: 4px; padding: 14px 14px 4px 20px; }
 .u-head h2 { margin: 0; flex: 1; font-size: 15px; font-weight: 600; }
 

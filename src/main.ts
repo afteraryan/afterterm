@@ -3423,7 +3423,7 @@ function getUsageReader(): UsageReader {
   }
   return usageReader;
 }
-ipcMain.handle('usage:read', (_event, force: unknown) => getUsageReader().read(force === true));
+ipcMain.handle('usage:read', () => getUsageReader().read());
 ipcMain.handle('usage:state', () => getUsageReader().state());
 app.on('will-quit', () => usageReader?.stop());
 

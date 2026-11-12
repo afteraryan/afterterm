@@ -16,7 +16,7 @@ Claude Code has no documented way to ask for plan usage. Options looked at on 20
 ## How it works
 
 - `src/usage-screen.ts` (pure, unit-tested): turns the rows of the `/usage` screen into limits, tips and groups, tidies the text (time zone dropped, folder paths shortened), and decides what to type next from the screen (`readerStep`).
-- `src/usage-reader.ts` (main): starts Claude Code in a pseudo-terminal in `<userData>\usage-reader`, renders it with `@xterm/headless`, answers the trust question once, types `/usage`, publishes the limits as soon as the screen has settled for two ticks, publishes the breakdown when "Scanning local sessions" is gone, and always kills the process tree. One run at a time, a minute of cache, 45 seconds at most.
+- `src/usage-reader.ts` (main): starts Claude Code in a pseudo-terminal in `<userData>\usage-reader`, renders it with `@xterm/headless`, answers the trust question once, types `/usage`, publishes the limits as soon as the screen has settled for two ticks, publishes the breakdown when "Scanning local sessions" is gone, and always kills the process tree. One run at a time, a fresh read on every open and every refresh (no cache), 45 seconds at most.
 - `usage:read`, `usage:state` and `usage:update` carry the state to the renderer; Ctrl+Shift+U arrives as the `usage` shortcut.
 - `src/renderer/usageView.ts` (pure, unit-tested): bar colours (blue, yellow from 75%, red from 90%), the 50% "big number" line, which phase each tab is in.
 - `components/UsageCard`: the card. Its elements stay in place between updates so the height, the tab highlight and the bars can animate.
@@ -25,6 +25,7 @@ Claude Code has no documented way to ask for plan usage. Options looked at on 20
 
 - On demand only. No meters on screen, no row in the sidebar, nothing on Home or in the title bar.
 - A small centred card, rows like Claude's own usage page, header only "Usage", two tabs, refresh and close. No explanatory text anywhere.
+- Every open reads again. A one-minute cache existed for a day and was removed on 2026-11-13, when Aryan opened the card again and was shown the earlier numbers.
 - A skeleton on every read, a refresh included (main clears the old numbers when a read starts). Aryan first accepted "keep the numbers and only spin the icon" on a refresh, then asked for the skeleton on 2026-11-13.
 - The gauge is a bare icon like the rest of the rail. A button surface at rest was tried on 2026-11-13 and Aryan preferred it without.
 - While a read runs, a limit that has not arrived keeps its skeleton row (`pendingLimitRows`), so the card never shrinks and grows back when Fable's row comes a moment after the others.

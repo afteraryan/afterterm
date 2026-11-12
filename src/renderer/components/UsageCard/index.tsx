@@ -132,11 +132,11 @@ export function UsageCard({ onClose }: { onClose: () => void }) {
   const thumbRef = useRef<HTMLSpanElement>(null);
   const closingRef = useRef(false);
 
-  // Read on open and listen. The first call starts the hidden Claude Code (or answers from the
-  // one-minute cache); main then pushes every change.
+  // Read on open and listen. Every open starts a new read of the hidden Claude Code (or joins one
+  // that is still running); main then pushes every change.
   useEffect(() => {
     const off = window.afterterm.usage.onUpdate(setS);
-    void window.afterterm.usage.read(false).then(setS);
+    void window.afterterm.usage.read().then(setS);
     return off;
   }, []);
 
@@ -192,7 +192,7 @@ export function UsageCard({ onClose }: { onClose: () => void }) {
   }, [tab]);
 
   const reading = isReading(s);
-  const refresh = () => { if (!reading) void window.afterterm.usage.read(true).then(setS); };
+  const refresh = () => { if (!reading) void window.afterterm.usage.read().then(setS); };
 
   return (
     <div className={'modal-overlay u-scrim' + (closing ? ' out' : '')} data-usage-card="" onMouseDown={requestClose}>

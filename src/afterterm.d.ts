@@ -166,8 +166,8 @@ interface AftertermGitAPI {
 
 type UsageState = import('./usage-screen').UsageState;
 interface AftertermUsageAPI {
-  // Start a read, join the one running, or answer from the one-minute cache. force skips the cache.
-  read(force: boolean): Promise<UsageState>;
+  // Start a read (every call reads again, so opening the card never shows old numbers), or join the one running.
+  read(): Promise<UsageState>;
   state(): Promise<UsageState>;
   onUpdate(callback: (state: UsageState) => void): () => void;
 }

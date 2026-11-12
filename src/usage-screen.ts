@@ -11,9 +11,6 @@
 // says "Scanning local sessions…" until it is ready. Both are parsed from whatever is on screen,
 // so the caller can show the limits first.
 
-/** How long a reading is kept before opening the card reads again. */
-export const USAGE_CACHE_MS = 60_000;
-
 export type UsageLimit = {
   /** Stable key: 'session', 'week', or 'week-<model>' (for example 'week-fable'). */
   id: string;
@@ -167,9 +164,4 @@ export function readerStep(stage: ReaderStage, screen: string): { send: string |
     return /\/usage\s{2,}\S/.test(screen) ? { send: '\r', stage: 'running' } : { send: null, stage };
   }
   return { send: null, stage };
-}
-
-/** True while a reading taken at `updated` is still good enough to show without reading again. */
-export function usageIsFresh(updated: number | null, now: number): boolean {
-  return updated !== null && now - updated >= 0 && now - updated < USAGE_CACHE_MS;
 }

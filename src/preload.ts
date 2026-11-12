@@ -181,7 +181,7 @@ contextBridge.exposeInMainWorld('afterterm', {
 
   // Claude plan usage (src/usage-reader.ts): read on request, the state main pushes after.
   usage: {
-    read: (force: boolean): Promise<any> => ipcRenderer.invoke('usage:read', force),
+    read: (): Promise<any> => ipcRenderer.invoke('usage:read'),
     state: (): Promise<any> => ipcRenderer.invoke('usage:state'),
     onUpdate: (callback: (state: any) => void): (() => void) => {
       const listener = (_event: IpcRendererEvent, s: any) => callback(s);

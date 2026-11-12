@@ -8,8 +8,9 @@
 //
 // Rules this module keeps:
 //  - On demand only. Nothing starts until read() is called (the usage card opening).
-//  - One run at a time. A call while one is running joins it. A reading under a minute old is
-//    reused unless the caller forces a new one (the refresh icon).
+//  - One run at a time. A call while one is running joins it. Otherwise every call reads again,
+//    so opening the card or pressing refresh never shows numbers from an earlier read (Aryan,
+//    2026-11-13); the old numbers are cleared the moment a read starts.
 //  - The hidden Claude Code runs in its own folder (<userData>\usage-reader), never in a
 //    project, and without the AFTERTERM marker, so afterterm's notification hook ignores it.
 //    The first run answers Claude Code's one-time "do you trust this folder" question for that
@@ -25,7 +26,7 @@ import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { USAGE_CACHE_MS, parseUsageScreen, readerStep, usageIsFresh, type ParsedUsage, type ReaderStage, type UsageError, type UsageState } from './usage-screen.ts';
+import { parseUsageScreen, readerStep, type ParsedUsage, type ReaderStage, type UsageError, type UsageState } from './usage-screen.ts';
 
 export type { UsageError, UsageState, UsageStatus } from './usage-screen.ts';
 
@@ -162,7 +163,7 @@ function startRun(
 
 export type UsageReader = {
   /** Start a read, join the one running, or answer from the cache. Returns the state right now. */
-  read(force: boolean): UsageState;
+  read(): UsageState;
   state(): UsageState;
   /** Close any hidden Claude Code (the app is quitting). */
   stop(): void;
@@ -185,9 +186,8 @@ export function createUsageReader(opts: {
 
   return {
     state: () => state,
-    read(force) {
+    read() {
       if (run) return state;
-      if (!force && state.status === 'ready' && usageIsFresh(state.updated, now())) return state;
       const claude = find();
       if (!claude) { set({ status: 'error', error: 'not-installed' }); return state; }
       // Every read starts from nothing, a refresh included: the card shows its skeleton until the new
@@ -208,5 +208,3 @@ export function createUsageReader(opts: {
     stop() { run?.cancel(); run = null; },
   };
 }
-
-export { USAGE_CACHE_MS };
