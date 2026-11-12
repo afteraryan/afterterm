@@ -164,6 +164,14 @@ interface AftertermGitAPI {
   infoMany(cwds: string[]): Promise<GitInfo[]>;
 }
 
+type UsageState = import('./usage-screen').UsageState;
+interface AftertermUsageAPI {
+  // Start a read (every call reads again, so opening the card never shows old numbers), or join the one running.
+  read(): Promise<UsageState>;
+  state(): Promise<UsageState>;
+  onUpdate(callback: (state: UsageState) => void): () => void;
+}
+
 // The last lines of a thread's scrollback, kept on disk so sleep and quit do not lose
 // the screen. Main trims to 200 lines / 64 KB and never throws (see src/thread-tail.ts).
 interface AftertermThreadsAPI {
@@ -345,6 +353,7 @@ interface AftertermAPI {
   claudeRecord: AftertermClaudeRecordAPI;
   threads: AftertermThreadsAPI;
   git: AftertermGitAPI;
+  usage: AftertermUsageAPI;
   update: AftertermUpdateAPI;
   shortcuts: AftertermShortcutsAPI;
   notify: AftertermNotifyAPI;

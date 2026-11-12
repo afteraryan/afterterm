@@ -17,6 +17,7 @@ import { Toast } from './components/Toast';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { RenameDialog } from './components/RenameDialog';
 import { ArchiveDialog } from './components/ArchiveDialog';
+import { UsageCard } from './components/UsageCard';
 import { AboutWindow } from './components/AboutWindow';
 import { RestartToUpdate } from './components/RestartToUpdate';
 import { UpdatedPill } from './components/UpdatedPill';
@@ -134,6 +135,15 @@ export function App() {
   // the project being archived right now, which the panel keeps in Recent until
   // its threads have gone to sleep and its row has folded away.
   const [archiveAsk, setArchiveAsk] = useState<string | null>(null);
+  // The usage card (AFT-85). The shortcut handler below is registered once, so it reads the
+  // open state through a ref; closing goes through the card itself so it can fade out.
+  const [usageOpen, setUsageOpen] = useState(false);
+  const usageOpenRef = useRef(false);
+  usageOpenRef.current = usageOpen;
+  const toggleUsage = () => {
+    if (usageOpenRef.current) window.dispatchEvent(new Event('usage:close'));
+    else setUsageOpen(true);
+  };
   const [archiving, setArchiving] = useState<string | null>(null);
   const archivingRef = useRef(false);
   const [chooser, setChooser] = useState<{ x: number; y: number } | null>(null);
@@ -787,6 +797,9 @@ export function App() {
           break;
         case 'search':
           setPaletteOpen(open => !open);
+          break;
+        case 'usage':
+          toggleUsage();
           break;
         case 'close-tab':
           if (s.tabs.length > 0) closeThread(s.activeTabId);
@@ -1733,6 +1746,7 @@ export function App() {
         onSearch={() => setPaletteOpen(open => !open)}
         onNewThread={setChooser}
         onOpenProject={openProjectFromRail}
+        onUsage={toggleUsage}
       />
 
       <div className="app-main">
@@ -2015,6 +2029,8 @@ export function App() {
           />
         );
       })()}
+
+      {usageOpen && <UsageCard onClose={() => setUsageOpen(false)} />}
 
       {archiveAsk && (() => {
         const group = state.groups.find(g => g.id === archiveAsk);

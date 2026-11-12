@@ -1,0 +1,110 @@
+/* The usage card (AFT-85). Looks and motion copied from docs/mockups/usage-card.html, agreed with
+   Aryan on 2026-11-13. The scrim is the shared .modal-overlay (GroupModal.css). Numbers are blue and
+   a big one (50% or more) is yellow; nothing else carries colour except the bars. */
+
+.u-scrim { animation: u-fade-in .18s var(--ease) both; }
+.u-scrim.out { animation: u-fade-out .16s ease-in both; pointer-events: none; }
+.u-scrim.out .u-card { animation: u-card-out .16s ease-in both; }
+@keyframes u-fade-in { from { opacity: 0; } }
+@keyframes u-fade-out { to { opacity: 0; } }
+@keyframes u-card-in { from { opacity: 0; transform: translateY(8px) scale(.985); } }
+@keyframes u-card-out { to { opacity: 0; transform: translateY(4px) scale(.99); } }
+
+.u-card {
+  --u-blue: #6ea8fe;
+  --u-track: #343434;
+  width: min(560px, 100%);
+  background: var(--bg);
+  border: 1px solid #363636;
+  border-radius: var(--radius-surface);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .55);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.4;
+  outline: none;
+  animation: u-card-in .26s var(--ease) both;
+}
+
+/* The card takes focus when it opens so Escape works. theme.css draws a ring on any [tabindex]
+   element that is focus-visible, which after Ctrl+Shift+U (keyboard mode) showed a box around the
+   whole card; this rule is more specific than that one. */
+.u-card[tabindex]:focus-visible,
+.u-card[tabindex]:focus { outline: none; }
+
+.u-head { display: flex; align-items: center; gap: 4px; padding: 14px 14px 4px 20px; }
+.u-head h2 { margin: 0; flex: 1; font-size: 15px; font-weight: 600; }
+
+.u-seg { position: relative; display: flex; background: #2a2a2a; border-radius: 9px; padding: 2px; margin-right: 6px; }
+.u-th {
+  position: absolute; top: 2px; bottom: 2px; left: 0; border-radius: 7px; background: #3a3a3a;
+  transition: transform .28s var(--ease), width .28s var(--ease);
+}
+.u-seg button {
+  position: relative; font: inherit; font-size: 12.5px; color: var(--text3); background: none; border: 0;
+  border-radius: 7px; padding: 4px 11px; cursor: pointer; transition: color .2s;
+}
+.u-seg button.on { color: var(--text); }
+
+.u-ib {
+  width: 28px; height: 28px; border-radius: 8px; border: 0; background: none; color: var(--text3);
+  cursor: pointer; display: grid; place-items: center; transition: background .15s, color .15s;
+}
+.u-ib:hover { background: var(--hover); color: var(--text); }
+/* Not called .spin: theme.css already has a global .spin (the small loading circle), which also rotated the button. */
+.u-ib.u-reading svg { animation: u-rot .8s linear infinite; }
+@keyframes u-rot { to { transform: rotate(360deg); } }
+
+/* One body whose height animates; two panes that slide and fade over each other. */
+.u-body { position: relative; overflow: hidden; transition: height .32s var(--ease); }
+.u-body.still { transition: none; }
+.u-pane {
+  position: absolute; left: 0; right: 0; top: 0; padding: 8px 20px 20px;
+  max-height: 470px; overflow-y: auto; /* a pane scrolls by itself, so a hidden taller pane adds no scrollbar */
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity .22s ease, transform .3s var(--ease), visibility 0s linear .3s;
+}
+.u-pane.limits { transform: translateX(-16px); }
+.u-pane.breakdown { transform: translateX(16px); }
+.u-pane.on {
+  opacity: 1; visibility: visible; pointer-events: auto; transform: none;
+  transition: opacity .26s ease .06s, transform .3s var(--ease), visibility 0s;
+}
+
+/* Values appear with a small rise instead of jumping in. */
+.u-rv { animation: u-rise .38s var(--ease) both; }
+@keyframes u-rise { from { opacity: 0; transform: translateY(5px); } }
+
+.u-sk {
+  display: inline-block; vertical-align: middle; height: 11px; border-radius: 5px;
+  background: linear-gradient(90deg, #2c2c2c 25%, #3a3a3a 50%, #2c2c2c 75%); background-size: 200% 100%;
+  animation: u-shimmer 1.3s linear infinite;
+}
+@keyframes u-shimmer { to { background-position: -200% 0; } }
+
+/* Limits */
+.u-row { display: grid; grid-template-columns: 150px minmax(0, 1fr) 70px; column-gap: 18px; align-items: center; padding: 11px 0; }
+.u-row + .u-row { border-top: 1px solid #2c2c2c; }
+.u-name { display: block; color: var(--text); }
+.u-sub { display: block; margin-top: 2px; min-height: 15px; color: var(--text3); font-size: 12px; }
+.u-pct { text-align: right; color: var(--text2); font-variant-numeric: tabular-nums; min-height: 17px; }
+.u-trk { position: relative; height: 6px; border-radius: 3px; background: var(--u-track); overflow: hidden; }
+.u-fill { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 3px; background: var(--u-blue); transition: width .8s var(--ease), background-color .3s; }
+.u-fill.warn { background: var(--need); }
+.u-fill.crit { background: #f87171; }
+.u-fail { margin: 14px 0 6px; color: var(--text2); }
+
+/* Breakdown */
+.u-bd { padding-top: 4px; }
+.u-hd { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 8px; min-height: 18px; }
+.u-tp { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 12px; padding: 4px 0; min-height: 26px; color: #e8e8e8; }
+.u-n { text-align: right; font-variant-numeric: tabular-nums; color: var(--u-blue); font-weight: 500; }
+.u-n.hi { color: var(--need); font-weight: 600; }
+.u-lists { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin-top: 16px; }
+.u-tt { font-size: 13px; font-weight: 600; color: #fff; margin-bottom: 6px; min-height: 18px; }
+.u-li { display: flex; justify-content: space-between; gap: 10px; padding: 2px 0; min-height: 21px; color: #e8e8e8; }
+.u-li > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.u-li .u-n { flex: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .u-pane, .u-body, .u-th, .u-fill { transition: none !important; }
+}

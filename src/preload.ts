@@ -179,6 +179,17 @@ contextBridge.exposeInMainWorld('afterterm', {
     infoMany: (cwds: string[]) => ipcRenderer.invoke('git:infoMany', cwds),
   },
 
+  // Claude plan usage (src/usage-reader.ts): read on request, the state main pushes after.
+  usage: {
+    read: (): Promise<any> => ipcRenderer.invoke('usage:read'),
+    state: (): Promise<any> => ipcRenderer.invoke('usage:state'),
+    onUpdate: (callback: (state: any) => void): (() => void) => {
+      const listener = (_event: IpcRendererEvent, s: any) => callback(s);
+      ipcRenderer.on('usage:update', listener);
+      return () => { ipcRenderer.removeListener('usage:update', listener); };
+    },
+  },
+
   // Automatic updates (src/updater.ts): the state main pushes, and the actions
   // the title bar button, the notice, the restart window and the About window take.
   update: {

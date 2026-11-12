@@ -317,7 +317,7 @@ svg {
 
 .tip {
   position: fixed;
-  z-index: 110;
+  z-index: 2100; /* above the modals (2000), so a tooltip inside a card shows */
   background: #0d0d0d;
   color: var(--text);
   font-size: 12px;
