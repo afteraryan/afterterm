@@ -26,7 +26,8 @@ Claude Code has no documented way to ask for plan usage. Options looked at on 20
 - On demand only. No meters on screen, no row in the sidebar, nothing on Home or in the title bar.
 - A small centred card, rows like Claude's own usage page, header only "Usage", two tabs, refresh and close. No explanatory text anywhere.
 - A skeleton on every read, a refresh included (main clears the old numbers when a read starts). Aryan first accepted "keep the numbers and only spin the icon" on a refresh, then asked for the skeleton on 2026-11-13.
-- The gauge has a button surface at rest (`#2a2a2a`, 36 px), not only on hover.
+- The gauge is a bare icon like the rest of the rail. A button surface at rest was tried on 2026-11-13 and Aryan preferred it without.
+- While a read runs, a limit that has not arrived keeps its skeleton row (`pendingLimitRows`), so the card never shrinks and grows back when Fable's row comes a moment after the others.
 - Numbers blue, a number of 50% or more yellow. Five other Breakdown layouts and coloured blocks were tried and rejected.
 - The Fable row is shown by default. A setting to hide it is not built yet.
 

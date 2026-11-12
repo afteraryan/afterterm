@@ -2,7 +2,7 @@
 //   node src/renderer/usageView.test.ts
 // Exits 0 if all pass, 1 on any failure.
 
-import { BIG_NUMBER, breakdownPhase, failText, isBigNumber, isReading, limitTone, limitsPhase } from './usageView.ts';
+import { BIG_NUMBER, EXPECTED_LIMITS, breakdownPhase, failText, isBigNumber, isReading, limitTone, limitsPhase, pendingLimitRows } from './usageView.ts';
 import type { UsageState } from '../usage-screen.ts';
 
 let pass = 0, fail = 0;
@@ -36,6 +36,19 @@ console.log('\nusageView: the limits phase\n');
   check('a finished read is ready', limitsPhase(state({ status: 'ready', usage: withUsage(true) })) === 'ready');
   check('an error with no numbers has failed', limitsPhase(state({ status: 'error', error: 'timeout' })) === 'failed');
   check('an error that keeps the last numbers stays ready', limitsPhase(state({ status: 'error', error: 'timeout', usage: withUsage(true) })) === 'ready');
+}
+
+console.log('\nusageView: skeleton rows kept while limits arrive\n');
+{
+  const two = { limits: [limits[0], { ...limits[0], id: 'week' }], breakdown: null, scanning: true };
+  const three = { limits: [limits[0], { ...limits[0], id: 'week' }, { ...limits[0], id: 'week-fable' }], breakdown: null, scanning: true };
+  check('three limits are expected', EXPECTED_LIMITS === 3);
+  check('no state yet keeps three skeleton rows', pendingLimitRows(null) === 3);
+  check('loading with nothing keeps three', pendingLimitRows(state({ status: 'loading' })) === 3);
+  check('two arrived, Fable still to come: one skeleton row stays', pendingLimitRows(state({ status: 'loading', usage: two })) === 1);
+  check('all three arrived: none left', pendingLimitRows(state({ status: 'loading', usage: three })) === 0);
+  check('a finished read with two limits holds nothing back', pendingLimitRows(state({ status: 'ready', usage: { ...two, scanning: false } })) === 0);
+  check('a failed read holds nothing back', pendingLimitRows(state({ status: 'error', error: 'timeout' })) === 0);
 }
 
 console.log('\nusageView: the breakdown phase\n');

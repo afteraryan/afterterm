@@ -24,6 +24,21 @@ export function limitsPhase(s: UsageState | null): 'skeleton' | 'ready' | 'faile
   return 'skeleton';
 }
 
+/** The limits a Max plan shows: session, week, week for Fable. */
+export const EXPECTED_LIMITS = 3;
+
+/**
+ * How many skeleton rows to keep under the limits that have arrived. Claude Code draws the limits
+ * one after another, so while a read is running the missing rows stay as skeletons; the card then
+ * never shrinks and grows back (Aryan, 2026-11-13). Once the read has finished nothing is held
+ * back, so a plan without a Fable line settles at two rows.
+ */
+export function pendingLimitRows(s: UsageState | null): number {
+  if (s && (s.status === 'ready' || s.status === 'error')) return 0;
+  const have = s && s.usage ? s.usage.limits.length : 0;
+  return Math.max(0, EXPECTED_LIMITS - have);
+}
+
 /**
  * The Breakdown tab: 'ready' with its rows, 'skeleton' while it is still being read (it comes a few
  * seconds after the limits), 'none' when a read finished without one (a plan that has none).

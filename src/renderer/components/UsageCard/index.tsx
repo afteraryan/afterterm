@@ -11,7 +11,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { UsageState } from '../../../usage-screen';
 import { IconRestart, IconX } from '../Icons';
-import { breakdownPhase, failText, isBigNumber, isReading, limitTone, limitsPhase } from '../../usageView';
+import { breakdownPhase, failText, isBigNumber, isReading, limitTone, limitsPhase, pendingLimitRows } from '../../usageView';
 import './UsageCard.css';
 
 type TabId = 'limits' | 'breakdown';
@@ -43,19 +43,15 @@ function Bar({ percent, index }: { percent: number; index: number }) {
 function LimitsPane({ s }: { s: UsageState | null }) {
   const phase = limitsPhase(s);
   if (phase === 'failed') return <p className="u-fail">{failText(s?.error ?? null)}</p>;
-  if (phase === 'skeleton') {
-    return (
-      <>
-        {[0, 1, 2].map(i => (
-          <div className="u-row" key={i}>
-            <div><Sk w={110} /><span className="u-sub"><Sk w={96} h={9} /></span></div>
-            <div className="u-trk" />
-            <div className="u-pct"><Sk w={46} /></div>
-          </div>
-        ))}
-      </>
-    );
-  }
+  // Rows still to come stay as skeletons, so the card keeps its height while the limits arrive.
+  const pending = Array.from({ length: pendingLimitRows(s) }, (_x, i) => (
+    <div className="u-row" key={`sk-${i}`}>
+      <div><Sk w={110} /><span className="u-sub"><Sk w={96} h={9} /></span></div>
+      <div className="u-trk" />
+      <div className="u-pct"><Sk w={46} /></div>
+    </div>
+  ));
+  if (phase === 'skeleton') return <>{pending}</>;
   return (
     <>
       {s!.usage!.limits.map((l, i) => (
@@ -68,6 +64,7 @@ function LimitsPane({ s }: { s: UsageState | null }) {
           <div className="u-pct u-rv" style={{ animationDelay: `${i * 80 + 60}ms` }}>{l.percent}% used</div>
         </div>
       ))}
+      {pending}
     </>
   );
 }
