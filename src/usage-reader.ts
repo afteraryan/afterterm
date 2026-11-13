@@ -193,16 +193,22 @@ export function createUsageReader(opts: {
       // Every read starts from nothing, a refresh included: the card shows its skeleton until the new
       // numbers arrive (Aryan, 2026-11-13), so old numbers are never shown as if they were fresh.
       set({ status: 'loading', error: null, usage: null });
-      run = startRun(
+      // A start that fails reports itself from inside startRun, before it has returned. Keeping the
+      // handle after that would leave `run` set for a run that is already over, and every later read
+      // would join it and do nothing (AFT-88). So the handle is kept only if the run is still going.
+      let over = false;
+      const handle = startRun(
         claude,
         opts.cwd,
         (u) => set({ usage: u }),
         (err) => {
+          over = true;
           run = null;
           if (err && !(state.usage && state.usage.limits.length > 0)) set({ status: 'error', error: err });
           else set({ status: 'ready', error: null, updated: now() });
         },
       );
+      if (!over) run = handle;
       return state;
     },
     stop() { run?.cancel(); run = null; },

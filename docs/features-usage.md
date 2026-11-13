@@ -38,6 +38,8 @@ Claude Code has no documented way to ask for plan usage. Options looked at on 20
 - Claude Code draws its selection pointer as `❯` or `>` depending on the terminal; the first run inside the app stuck on the trust question because only `❯` was recognised (fixed, tested).
 - `@xterm/headless` 6.0.0 names a `module` file that is not in the package, so `vite.main.config.ts` aliases it to `lib-headless/xterm-headless.mjs`.
 - A global `.spin` class already exists in `theme.css` (the small loading circle). The refresh icon's class is `u-reading` because `.spin` also rotated the whole button.
+- A start that fails (the spawn throws) reports itself from inside `startRun`, before it returns. `read()` keeps the returned handle only while the run is still going; until AFT-88 it kept it anyway, so one failed start left the reader believing a run was in progress, and every later open did nothing until a restart. `src/usage-reader.test.ts` covers it with a Claude path that cannot start.
+- If afterterm's main process is killed hard (no quit handler), the hidden Claude Code goes with it: tested on 2026-11-13 with a forced kill of the main process alone mid-read, and the hidden one was gone at once with nothing left behind.
 - Tooltips are lifted above modals (`.tip` z-index 2100) so a tooltip inside the card shows.
 - Not tested live: Ctrl+Shift+U (the harness cannot send key chords to the main process) and a plan with no Fable line or no breakdown (covered by parser tests only).
 
