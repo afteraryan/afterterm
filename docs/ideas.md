@@ -193,3 +193,24 @@ The two cases differ only in where the new build comes from:
 **Order.** Build the shared in-app part first with the local folder as the source, designed so the GitHub feed is a second source added later, not a rewrite. Write it up as a design doc with phases before building, the way the other rounds were done.
 
 **What it still cannot do.** Keep a process alive across the swap: a Claude turn mid-run is interrupted and has to be sent again, a shell loses what it was running. That needs `docs/design-01-persistent-pty-host.md`.
+
+---
+
+## Loops: track the pieces of work started in every project
+
+Not built, no mockup yet. Decisions so far are on Linear issue AFT-82 (2026-11-12).
+
+Aryan starts many pieces of work across his projects and loses track of them. MINIMI tracks "open loops"; afterterm should do the same for work.
+
+**Decided:**
+- A loop is a piece of work: a feature or a bug he started working on. It can span several chats.
+- It covers every project in afterterm, not only afterterm itself.
+- The view answers: in which project he started what (morning or afternoon), and whether it has finished.
+- Three counts: loops in total, sub-loops inside a bigger loop, loops closed.
+- A sub-loop is a smaller piece inside a big piece of work.
+
+**Not decided yet:**
+- How a sub-loop is linked to its bigger loop: subagents, a chat started from another chat, or by hand.
+- How a loop is known to be closed: marked by hand, its PR merged, its Linear issue Done, or its chats closed.
+
+**How MINIMI does it** (from its decompiled main process, in the minimi-windows repo): a SQLite table `agent_action_items` with a `status` (`open`, then `resolved`, `dismissed` or `archived`), a title, the app and thread it came from, a quote, `detected_at`, `resolved_at` with `resolution_evidence`, and an urgent flag. An agent finds loops in messages, closes them with evidence, and archives ones untouched for `deadLoopDays`. It has no parent link, so sub-loops are new here.
