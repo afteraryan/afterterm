@@ -2,6 +2,12 @@
 
 What changed for the person using afterterm, release by release. Each release lists what was added and changed by area, then what was fixed. Every fixed bug, with the PR it landed in, is also in `docs/bugs-fixed.md`. Code-level detail lives in the commit history, `docs/phases-01-projects-and-threads.md` and `CLAUDE.md`.
 
+## Unreleased
+
+### Fixed
+
+- **The Usage card now tries again after "Claude Code was not found".** Before, if Claude Code could not be started once, for example because it had been moved, the card kept saying so until you restarted afterterm, even after you had put Claude Code back. Opening the card or pressing refresh now tries again.
+
 ## 0.18.0 (2026-11-13)
 
 ### Added
