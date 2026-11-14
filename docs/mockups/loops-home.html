@@ -75,14 +75,15 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 .pins.strip .cd { width: 220px; flex: none; }
 .plist { display: grid; gap: 2px 12px; }
 .plist.c2 { grid-template-columns: 1fr 1fr; }
-.plist .pr { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 10px; font-weight: 500; font-size: 14px; min-width: 0; }
+.plist .pr { display: flex; align-items: center; gap: 13px; padding: 14px; border-radius: 12px; font-weight: 500; font-size: 15.5px; min-width: 0; }
 .plist .pr:hover { background: var(--hover); }
 .plist .pr .n { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .plist .pr .t { color: var(--text3); font-size: 13px; font-weight: 400; }
 .plist.chips { display: flex; gap: 6px; }
 .plist.chips .pr { flex: none; background: var(--raise); border-radius: 999px; height: 32px; padding: 0 12px; }
 .plist.chips .pr .t { display: none; }
-.more { color: var(--text3); padding: 8px 12px; font-size: 13.5px; }
+.more { color: var(--text3); padding: 10px 14px; font-size: 14px; border: 0; background: none; border-radius: 10px; cursor: pointer; text-align: left; }
+.more:hover { background: var(--hover); color: var(--text); }
 
 .count { background: var(--raise); border-radius: 16px; padding: 14px 16px; display: grid; gap: 10px; }
 .count .big { display: flex; align-items: baseline; gap: 8px; }
@@ -395,6 +396,18 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 
   var PINS = [['job-hunt', '', '53m'], ['Revy App', '', '3w'], ['afterterm', '1', 'now'], ['minimi-windows', '', '2d'], ['moctale', '1', '16h'], ['Lanterns', '1', '2d']];
   var PLIST = [['manus video', '16h'], ['Tinkering', '16h'], ['NextLeap PM', '21h'], ['Figma Claude Plugin', '21h'], ['General', '3d'], ['Lanterns', '2d'], ['moctale', '16h'], ['Revy App', '3w']];
+  /* 42 more, so Show more opens a list of 50 */
+  (function () {
+    var names = ['aftertales', 'afterthought', 'canvas-agent', 'transcript-fetcher-clone', 'minimi-docs', 'pitara-site', 'resume-2026', 'chrome-activity', 'whisper-notes', 'spotify-taskbar', 'portfolio', 'recipe-box', 'habit-grid', 'trip-planner', 'budget-sheet', 'reading-list', 'cli-dotfiles', 'obsidian-sync', 'blog-engine', 'photo-sorter', 'invoice-gen', 'podcast-clips', 'mood-journal', 'gym-log', 'meal-prep', 'garden-sensor', 'wifi-monitor', 'home-assistant', 'gift-ideas', 'language-cards', 'chess-trainer', 'typing-test', 'pixel-art', 'shader-lab', 'pdf-merge', 'flashcards', 'markdown-slides', 'email-digest', 'tax-2026', 'wedding-site', 'music-tagger', 'old-experiments'];
+    var colours = ['#5b8def', '#f05a5a', '#3fc46f', '#e8b931', '#a78bfa', '#e46ab4', '#4fb3a4', '#8e8e8e'];
+    var glyphs = ['folder', 'robot', 'pencil', 'film', 'bell', 'pin'];
+    var ages = ['3d', '4d', '5d', '6d', '1w', '1w', '2w', '2w', '3w', '1mo', '2mo', '3mo'];
+    names.forEach(function (n, i) {
+      if (!PROJ[n]) PROJ[n] = { c: colours[i % colours.length], g: glyphs[(i * 5) % glyphs.length] };
+      PLIST.push([n, ages[Math.min(ages.length - 1, Math.floor(i / 4))]]);
+    });
+  })();
+  var showAllProjects = false;
   function dateBlock() { return '<div><h1 class="date">Saturday, 14 November</h1><div class="tot"><span class="sig">' + I.bell + '3</span></div><div class="lasthere">Last here 1d ago</div></div>'; }
   function pinnedBlock(cls, noLabel) {
     return '<div>' + (noLabel ? '' : '<div class="lbl">Pinned</div>') + '<div class="pins ' + cls + '">' + PINS.map(function (p) {
@@ -402,9 +415,9 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     }).join('') + '</div></div>';
   }
   function projectsBlock(cls, count) {
-    return '<div><div class="lbl">Projects<span class="grow"></span><span style="color:var(--text3)">' + I.plus + '</span></div><div class="plist ' + cls + '">' + PLIST.slice(0, count || 6).map(function (p) {
-      return '<div class="pr">' + glyph(p[0], 15) + '<span class="n">' + esc(p[0]) + '</span><span class="t">' + p[1] + '</span></div>';
-    }).join('') + '</div><div class="more">Show more</div></div>';
+    return '<div><div class="lbl">Projects<span class="grow"></span><span style="color:var(--text3)">' + I.plus + '</span></div><div class="plist ' + cls + '">' + PLIST.slice(0, showAllProjects ? PLIST.length : (count || 6)).map(function (p) {
+      return '<div class="pr">' + glyph(p[0], 16) + '<span class="n">' + esc(p[0]) + '</span><span class="t">' + p[1] + '</span></div>';
+    }).join('') + '</div><button type="button" class="more" data-act="more">' + (showAllProjects ? 'Show less' : 'Show more') + '</button></div>';
   }
   function loopsLabel(extra) { return '<div class="lbl" style="margin-bottom:0">Loops' + (extra || '') + '</div>'; }
 
@@ -594,6 +607,7 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
       setTimeout(render, 340);
       return;
     }
+    if (a === 'more') { showAllProjects = !showAllProjects; render(); return; }
     if (a === 'older') { weekOffset = Math.min(weekOffset + 4, 40); render(); return; }
     if (a === 'newer') { weekOffset = Math.max(weekOffset - 4, 0); render(); return; }
     if (a === 'project') {
