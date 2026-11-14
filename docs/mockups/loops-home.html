@@ -652,6 +652,37 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
   }
   function refilter() { animateList = true; render(); }
 
+  /* opening and closing a loop: its details and sub-loops fold open and shut */
+  function partsAfter(id) {
+    var row = stage.querySelector('.row[data-i="' + id + '"]'), out = [];
+    for (var el = row && row.nextElementSibling; el && (el.classList.contains('det') || el.classList.contains('subs')); el = el.nextElementSibling) out.push(el);
+    return out;
+  }
+  function toggleLoop(id) {
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var ease = 'cubic-bezier(.2,.8,.2,1)';
+    if (!opened[id]) {
+      opened[id] = true; render();
+      if (reduce) return;
+      partsAfter(id).forEach(function (el, n) {
+        var h = el.offsetHeight, cs = getComputedStyle(el);
+        el.style.overflow = 'hidden';
+        el.animate([{ height: '0px', opacity: 0, marginTop: '0px', marginBottom: '0px', paddingTop: '0px', paddingBottom: '0px' },
+                    { height: h + 'px', opacity: 1, marginTop: cs.marginTop, marginBottom: cs.marginBottom, paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom }],
+          { duration: 240, delay: n * 30, easing: ease, fill: 'backwards' }).onfinish = function () { el.style.overflow = ''; };
+      });
+      return;
+    }
+    var parts = partsAfter(id);
+    if (reduce || !parts.length) { opened[id] = false; render(); return; }
+    var left = parts.length;
+    parts.forEach(function (el) {
+      el.style.overflow = 'hidden';
+      el.animate([{ height: el.offsetHeight + 'px', opacity: 1 }, { height: '0px', opacity: 0, marginTop: '0px', marginBottom: '0px', paddingTop: '0px', paddingBottom: '0px' }],
+        { duration: 200, easing: ease, fill: 'forwards' }).onfinish = function () { if (--left === 0) { opened[id] = false; render(); } };
+    });
+  }
+
   stage.addEventListener('pointerdown', function (e) {
     var h = e.target.closest('[data-handle]'); if (!h) return;
     e.preventDefault(); h.classList.add('drag'); h.setPointerCapture(e.pointerId);
@@ -791,7 +822,7 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
       showMenu(items, (r.left - sr.left) / sc, (r.bottom - sr.top) / sc + 4, 0);
       return;
     }
-    if (b.dataset.i !== undefined) { opened[b.dataset.i] = !opened[b.dataset.i]; render(); }
+    if (b.dataset.i !== undefined) toggleLoop(b.dataset.i);
   });
 
   var copyBtn = document.getElementById('copyBtn');
