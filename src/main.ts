@@ -25,6 +25,7 @@ import { detectEditors } from './editor-detect.ts';
 import type { DetectDeps } from './editor-detect.ts';
 import type { EditorInfo } from './editors.ts';
 import { readPrefs, updatePrefs } from './prefs.ts';
+import { toursSeenFrom, withTourSeen, TOUR_IDS, type TourId } from './tours.ts';
 import {
   SAVE_DELAY_MS, homeFromPrefs, homeToPrefs, sameHome, findHomeDisplay, startupPlacement,
   isWindowsMove, pruneEvents, moveBack, countsAsDisplayChange, landsOn,
@@ -45,6 +46,11 @@ import {
 import type { HeldRecord, ListAsk, RecordRead, RecordStatus, SessionRecord } from './claude-session-record.ts';
 import { gitInfo } from './git-info.ts';
 import { createUsageReader, type UsageReader } from './usage-reader.ts';
+import { LoopsStore, type LoopAction } from './loops-store.ts';
+import { ActivityStore } from './activity-store.ts';
+import { loopsPipeName as loopsPipeNameFor, newToken, startLoopsPipe, writeLaunchers } from './loops-pipe.ts';
+import type { LoopsContext } from './loops-cli.ts';
+import { reconcileLoopsSkill } from './loops-skill.ts';
 import { isThreadId, parseTail, serializeTail, tailFilePath, trimTail } from './thread-tail.ts';
 import {
   applyMsysParents,
@@ -156,8 +162,10 @@ if (!isPrimaryCopy) app.exit(0);
 // thread over 30 ms during the first 15 seconds, then the worst one. The main
 // thread also answers Windows' system-wide mouse hook (the toast overlay's
 // click-through), so a stall here freezes the mouse everywhere, which is what
-// Yogansh saw at launch (2026-10-29).
+// Yogansh saw at launch (2026-10-29). AFTERTERM_LAG_PROBE_MS stretches the window,
+// to watch later work such as the streak calendar's backfill (AFT-97).
 if (process.env.AFTERTERM_LAG_PROBE === '1') {
+  const probeMs = Number(process.env.AFTERTERM_LAG_PROBE_MS) || 15000;
   const start = Date.now();
   let last = start;
   let worst = 0;
@@ -167,9 +175,9 @@ if (process.env.AFTERTERM_LAG_PROBE === '1') {
     if (stall > 30) console.log(`[lag] main thread stalled ${stall} ms at +${now - start} ms`);
     worst = Math.max(worst, stall);
     last = now;
-    if (now - start > 15000) {
+    if (now - start > probeMs) {
       clearInterval(probe);
-      console.log(`[lag] worst stall in the first 15 s: ${worst} ms`);
+      console.log(`[lag] worst stall in the first ${Math.round(probeMs / 1000)} s: ${worst} ms`);
     }
   }, 10);
 }
@@ -1001,6 +1009,10 @@ function reconcileNotifierHook(): ReconcileResult | null {
     });
     console.log(`[claude-hook] ${result.status} — ${result.detail}`);
     if (result.showToast) pushSetupToast();
+    // The afterterm-loops skill goes beside the hook, under the same guard and opt-out.
+    const prefs = readPrefs(path.join(app.getPath('userData'), 'prefs.json')).prefs;
+    const skill = reconcileLoopsSkill({ claudeDir: getClaudeDir(), optedOut: prefs.claudeNotifications === 'disabled' });
+    if (skill.status !== 'unchanged') console.log(`[loops] skill ${skill.status}: ${skill.file}${skill.detail ? ' ' + skill.detail : ''}`);
     return result;
   } catch (err) {
     console.error('[claude-hook] reconcile failed:', err);
@@ -1852,6 +1864,11 @@ function createWindow() {
       // The usage card (AFT-85). Not a shell or Claude Code binding.
       mainWindow.webContents.send('shortcut', 'usage');
       event.preventDefault();
+    } else if (ctrl && shift && key === 'l') {
+      // The loops card in the workspace (design-07). Not a shell or Claude Code
+      // binding.
+      mainWindow.webContents.send('shortcut', 'loops');
+      event.preventDefault();
     } else if (ctrl && shift && key === 'arrowdown') {
       // Phase 8: the next thread row the panel is showing, in panel order and
       // across projects (design-03 decisions 6 and 7). Ctrl+Tab keeps its
@@ -2046,6 +2063,19 @@ if (process.env.AFTERTERM_HARNESS === '1') {
     helperPid: notifyStateProbe.pid,
     override: process.env.AFTERTERM_NOTIFY_STATE ?? null,
   }));
+  // The main window's content to an exact size, kept on its display (loops: compare
+  // the dev build with a mock drawn at the same size).
+  ipcMain.handle('harness:set-size', (_event, size: { width?: unknown; height?: unknown } | undefined) => {
+    const w = Number(size?.width), h = Number(size?.height);
+    if (!mainWindow || mainWindow.isDestroyed() || !(w > 200) || !(h > 200)) return null;
+    if (mainWindow.isMaximized()) mainWindow.unmaximize();
+    const b = mainWindow.getBounds();
+    const area = screen.getDisplayMatching(b).workArea;
+    mainWindow.setContentSize(Math.round(w), Math.round(h));
+    const nb = mainWindow.getBounds();
+    mainWindow.setPosition(area.x + Math.max(0, Math.floor((area.width - nb.width) / 2)), area.y + Math.max(0, Math.floor((area.height - nb.height) / 2)));
+    return mainWindow.getContentBounds();
+  });
 }
 
 // Main window → notifier: dismiss toasts for a tab (user activated it)
@@ -2544,9 +2574,15 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
     AFTERTERM: '1',
     AFTERTERM_TAB_ID: tabId,
     AFTERTERM_SESSION_DIR: getClaudeSessionDir(),
+    ...loopsEnv(),
   } as Record<string, string>;
   if (cleanEnv.Path) cleanEnv.Path = cleanEnv.Path.replace(/"/g, '');
   if (cleanEnv.PATH) cleanEnv.PATH = cleanEnv.PATH.replace(/"/g, '');
+  // The `afterterm loops` launchers, first on PATH in afterterm's own terminals only.
+  if (loopsBinDir) {
+    const key = cleanEnv.Path !== undefined ? 'Path' : 'PATH';
+    cleanEnv[key] = loopsBinDir + ';' + (cleanEnv[key] ?? '');
+  }
 
   // CWD reporting and prompt marks, for every shell. The renderer only ever sees
   // OSC 9;9 (a Windows path) and OSC 133;A/B (prompt start and prompt end), so it
@@ -2787,6 +2823,8 @@ function pushClaudeSession(tabId: string, sessionId: string, cwd: string): void 
   // the transcript on the same beat: that is what keeps the model current after a
   // /model switch, and gives a nameless chat its first-prompt fallback.
   const meta = readClaudeMeta(sessionId, cwd);
+  // A turn started or ended: the streak calendar's count may have grown.
+  activityStore?.nudge();
   // Edited files, Phase 2: from the chat's first turn on, watch the folder it
   // works in, so files its commands change can be attributed to it.
   watchChatFolder(tabId, meta.cwd || cwd);
@@ -3427,6 +3465,100 @@ ipcMain.handle('usage:read', () => getUsageReader().read());
 ipcMain.handle('usage:state', () => getUsageReader().state());
 app.on('will-quit', () => usageReader?.stop());
 
+// ─── Loops (design-07, AFT-82) ──────────────────────────────────────────────
+// Main owns <userData>\loops.json and is its only writer (loops-store.ts). The UI
+// changes loops through `loops:act` as Aryan; the `afterterm loops` command changes
+// them as an agent. Every change goes to the renderer whole, as `loops:changed`.
+let loopsStore: LoopsStore | null = null;
+function getLoopsStore(): LoopsStore {
+  if (!loopsStore) {
+    loopsStore = new LoopsStore(app.getPath('userData'));
+    if (loopsStore.loadNote) console.warn(`[loops] ${loopsStore.loadNote}`);
+    loopsStore.onChange((loops) => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('loops:changed', loops);
+    });
+  }
+  return loopsStore;
+}
+ipcMain.handle('loops:list', () => getLoopsStore().list());
+ipcMain.handle('loops:act', (_e, action: LoopAction) => {
+  try {
+    return { ok: true, result: getLoopsStore().apply(action, { kind: 'user' }) };
+  } catch (err) {
+    return { ok: false, code: (err as { code?: string }).code ?? 'error', error: (err as Error).message };
+  }
+});
+app.on('will-quit', () => loopsStore?.flush());
+
+// ─── The one-time tours (AFT-103, tours.ts) ─────────────────────────────────────
+// prefs.json's toursSeen: a tour shows on the first launch of a version that has it
+// and is written as seen after Done or Skip. The renderer decides when to show it.
+ipcMain.handle('tours:seen', () => toursSeenFrom(readPrefs(getPrefsPath()).prefs));
+ipcMain.handle('tours:mark-seen', (_e, id: unknown) => {
+  if (typeof id !== 'string' || !(TOUR_IDS as readonly string[]).includes(id)) return false;
+  const prefsPath = getPrefsPath();
+  return updatePrefs(prefsPath, { toursSeen: withTourSeen(readPrefs(prefsPath).prefs.toursSeen, id as TourId) });
+});
+
+// ─── Activity counts for the streak calendar (design-07, AFT-97) ────────────────
+// Main keeps <userData>\activity.json: the messages sent to Claude per local day,
+// read from the transcripts (activity-store.ts). The first launch without that file
+// backfills from every transcript on disk; after that a poll and a nudge per turn
+// read only what was appended. The renderer gets every change as `activity:changed`.
+let activityStore: ActivityStore | null = null;
+function getActivityStore(): ActivityStore {
+  if (!activityStore) {
+    activityStore = new ActivityStore({
+      dataDir: app.getPath('userData'),
+      projectsDir: getClaudeProjectsDir,
+      log: (m) => console.log(`[activity] ${m}`),
+    });
+    if (activityStore.loadNote) console.warn(`[activity] ${activityStore.loadNote}`);
+    activityStore.onChange((s) => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('activity:changed', s);
+    });
+  }
+  return activityStore;
+}
+ipcMain.handle('activity:get', () => getActivityStore().get());
+app.on('will-quit', () => { activityStore?.stop(); activityStore?.flush(); });
+// The `afterterm loops` command and the chat-start hook reach the store over a
+// named pipe (loops-pipe.ts). Its name and a token made at every launch go only into
+// afterterm's own terminals (pty:create below), with <userData>\bin first on their
+// PATH, where the two launchers for the command are written at startup.
+const loopsToken = newToken();
+let loopsPipeName = '';
+let loopsBinDir = '';
+let loopsContext: LoopsContext = { projects: [], threads: [] };
+ipcMain.on('loops:context', (_e, ctx: LoopsContext) => {
+  if (ctx && Array.isArray(ctx.projects) && Array.isArray(ctx.threads)) loopsContext = ctx;
+});
+app.whenReady().then(() => {
+  const userData = app.getPath('userData');
+  loopsBinDir = path.join(userData, 'bin');
+  const isDev = !!MAIN_WINDOW_VITE_DEV_SERVER_URL;
+  const script = path.join(isDev ? app.getAppPath() : process.resourcesPath, 'assets', 'cli', 'afterterm-cli.js');
+  writeLaunchers(loopsBinDir, process.execPath, script, (l) => console.warn(l));
+  startLoopsPipe({
+    pipeName: loopsPipe(),
+    token: loopsToken,
+    backend: getLoopsStore(),
+    context: () => loopsContext,
+    log: (l) => console.log(l),
+  });
+});
+function loopsPipe(): string {
+  if (!loopsPipeName) loopsPipeName = loopsPipeNameFor(app.getPath('userData'));
+  return loopsPipeName;
+}
+// The env a terminal gets for the loops command, used by pty:create.
+function loopsEnv(): Record<string, string> {
+  return {
+    AFTERTERM_LOOPS_PIPE: loopsPipe(),
+    AFTERTERM_LOOPS_TOKEN: loopsToken,
+  };
+}
+
 app.on('before-quit', async (e) => {
   isQuitting = true; // any quit path suppresses the close-confirm dialog
   if (ptysDrained || ptys.size === 0) return;
@@ -3570,6 +3702,9 @@ app.whenReady().then(async () => {
   // (asynchronous, so it never holds the main thread; see detectDeps).
   loadEditorCache();
   setTimeout(() => { void runEditorDetection('startup'); }, 1200);
+  // The streak calendar's counts: the first scan (the backfill on a new profile) a
+  // few seconds after launch, never during window creation.
+  getActivityStore().start();
 });
 
 app.on('window-all-closed', () => {

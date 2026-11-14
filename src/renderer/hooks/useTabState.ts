@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useLayoutEffect } from 'react';
-import { Tab, Group, GroupColor, nextGroupColor, TabNotification, ProjectIconId } from '../components/TabBar/types';
+import { Tab, Group, GroupColor, nextGroupColor, TabNotification, ProjectIconId, HistoryEntry } from '../components/TabBar/types';
 import type { SavedSession } from '../sessionMigration';
 import type { RecordStatus } from '../../claude-session-record';
 import { insertNewThread, nextActiveTabAfterArchive, nextCustomName, threadFolder, threadName } from '../threadView';
@@ -195,6 +195,20 @@ export function useTabState() {
     // setActiveTabId, not activateTab: the tab is not in `tabs` yet this render, so
     // activateTab's own stamping would find nothing. tabFromHistory already set
     // lastActiveAt on the tab, and the group's stamp is in the setGroups above.
+    setActiveTabId(tab.id);
+    return tab.id;
+  }, []);
+
+  // A loop's chat that is in no thread and no history any more (loops, Open chat):
+  // a new chat thread, in the loop's project (or General), that resumes the session
+  // when it mounts, exactly as a resumed history entry does. Returns its id.
+  const openResumedChat = useCallback((entry: HistoryEntry, groupId: string | null): string => {
+    const now = Date.now();
+    const group = groupId ? groupsRef.current.find(g => g.id === groupId) : undefined;
+    const tab = tabFromHistory({ ...entry, id: makeTabId() }, group ?? { id: undefined as unknown as string, shellId: undefined, cwd: undefined }, now);
+    if (!group) delete tab.groupId;
+    setTabs(prev => insertNewThread(prev, tab));
+    if (group) setGroups(prev => projectInUse(prev, group.id, now));
     setActiveTabId(tab.id);
     return tab.id;
   }, []);
@@ -711,7 +725,7 @@ export function useTabState() {
     tabs, groups, activeTabId, splits,
     setActiveTabId, activateTab, makeSplit, ungroup, setSplitRatio,
     addTab, closeTab, renameTab, setThreadName, updateTabCwd, setClaudeSession, setTabNotification, setTabFontSize,
-    sleepTab, wakeTab, resumeFromHistory,
+    sleepTab, wakeTab, resumeFromHistory, openResumedChat,
     setClaudeMeta, setGitInfo, setPort, setLastCommand, setUnread, setClaudeRecordStatus,
     setAtPrompt, setHasChildren, setBackgroundTasks, endBackgroundWork,
     createConfiguredGroup, addToGroup, removeFromGroup,

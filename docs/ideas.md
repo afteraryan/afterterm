@@ -198,7 +198,7 @@ The two cases differ only in where the new build comes from:
 
 ## Loops: track the pieces of work started in every project
 
-Not built, no mockup yet. Decisions so far are on Linear issue AFT-82 (2026-11-12).
+Superseded: designed and agreed on 2026-11-14, see `docs/design-07-loops.md`. The notes below are the first record from 2026-11-12 and are out of date (PR tracking and the 3-day rot were dropped).
 
 Aryan starts many pieces of work across his projects and loses track of them. MINIMI tracks "open loops"; afterterm should do the same for work.
 

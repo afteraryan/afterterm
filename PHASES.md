@@ -4,6 +4,71 @@ What is still open in afterterm, and, once a round of work starts, the phases it
 
 **Last round: automatic updates** (2026-10-30 to 2026-10-31, PR #58), released as afterterm 0.11.0 on 2026-10-31; no round of work is in progress. The last finished round, projects and threads (Phases 0 to 9 and the fixes after them), was released as afterterm 0.9.0 on 2026-09-30; its full record, with every decision and its date, is [`docs/phases-01-projects-and-threads.md`](docs/phases-01-projects-and-threads.md).
 
+**Round in progress: loops** (2026-11-14, Linear AFT-82): all seven phases built and merged into the `loops` branch; waiting for Aryan to review the PR into main. The section below lists its phases.
+
+## Loops
+
+The pieces of work started in every project, tracked as loops: started, updated and closed by agents through `afterterm loops`, and by Aryan in the UI; a Progress column on Home with the streak calendar of messages sent to Claude, and a floating card in the workspace. The spec is `docs/design-07-loops.md` (with its "Frontend spec: exact values") and the two mocks, `docs/mockups/loops-home.html` and `docs/mockups/loops-always-visible.html`. Each phase is a Linear sub-issue of AFT-82 and its own PR into the `loops` branch; the round goes to main as one PR, "AFT-82: Loops".
+
+Order changed from the suggested one: the loop rows, opening a loop, the menu and Open chat (suggested as phase 6) come before Home and the card, because both are built from them. The design branch's last two commits (design-07 and its frontend spec) were made after PR #101 merged, so `loops` starts from main with `worktree-loops-idea` merged in.
+
+| Phase | Issue | What it contains | Status |
+|---|---|---|---|
+| 1. Store and rules | AFT-95 | `src/loops.ts` (the rules: rotting after 5 calendar days, sub-loop activity, ideas and closed never rot, order, counts, the card's 5, the remembered chat, the parent-close rule, one level of nesting, delete for 30 days); `src/loops-store.ts` (`<userData>\loops.json`, main the only writer, atomic saves, a broken file moved aside); `loops:list`, `loops:act`, `loops:changed` | Done (PR #109) |
+| 2. Agents | AFT-96 | `afterterm loops` over a named pipe with a per-launch token, on PATH only in afterterm's terminals; the skill; the chat-start hook | Done (PR #110) |
+| 3. Activity counts | AFT-97 | Messages sent to Claude per local day from transcript structure, saved in userData, backfilled on the first launch in chunks; shades, streak, longest streak | Done (PR #111) |
+| 4. Loop rows and actions | AFT-98 | Rows, opening in place (the joined box), the fold, the right-click menu and its Update submenus, Open chat in every case, archive, delete and restore; first shown as the list in Home's Progress column | Done |
+| 5. Home's Progress column | AFT-99 | The Progress layout: projects at 90%, the 472px column, calendar and count cards, the filter, the list, the close and slide | Done |
+| 6. The workspace card | AFT-100 | The floating card, its header button and Ctrl+Shift+L, the flight, the 5 rows, rotting, the remaining bar, All | Done |
+| 7. Release readiness | AFT-101 | CHANGELOG, `docs/features-loops.md`, CLAUDE.md; fresh install, update from 0.18.1, manual install over it, startup time with a large transcript folder; every spec value measured in DevTools | Done |
+| 8. The loops tour | AFT-103 | A one-time guided tour on Home after the update (mock `docs/mockups/loops-tour.html`): eight cards, example loops and an example calendar for someone with none, the loops button with no thread open, plain status circles, Take the loops tour in the About window | Done |
+
+Decided while building (recorded here as they come):
+
+- Closing a loop does not move it: closing records the close time but not activity, so a closed loop keeps its place until more recent loops pass it (design-07, "Order"). A note given with a close does count as activity. Reopening counts as activity.
+- Counts (remaining, open, rotting, closed) are of top-level loops; sub-loops show only as their parent's "1/5".
+- Reopening a sub-loop of a closed parent reopens the parent, so an open sub-loop never hides under a closed parent.
+- Archiving or deleting a loop takes its sub-loops with it; restoring brings back the ones that went with it.
+- A ping inside a day of the last one is accepted and changes nothing, so an eager agent cannot reshuffle the list.
+- The command's names (design-07 left them open): `afterterm loops list | show | new | update | ping | close | reopen | archive | unarchive | delete | restore | help`, with `--json`; `new` and `update` take `--label`, `--desc`, `--note`, `--title`, `--project`, `--parent`; `close` takes `--note` and `--with-sub-loops`. Ids are short numbers (`#12` also works). `list` shows the thread's own project unless `--all` or `--project`. Exit codes: 0 done, 1 not reachable or unknown command, 2 refused input, 3 a parent with open sub-loops, 4 no such loop, 5 a wrong token.
+- The command runs on afterterm's own executable in Node mode (`ELECTRON_RUN_AS_NODE=1`, as VS Code's `code` does), through two launchers afterterm writes to `<userData>\bin` at every launch (`afterterm.cmd` for cmd and PowerShell, `afterterm` for Git Bash); that folder goes first on PATH in afterterm's terminals only. No Node install is needed. WSL is not covered (its PATH and paths would need translating; WSL is not on the dev machine).
+- All the command's rules and output live in main (`src/loops-cli.ts`); the client script (`assets/cli/afterterm-cli.js`) only carries the request. One pipe per data folder, so a harness run or the test build never reaches the real app.
+- Where the chat-start text sits (left open in design-07): in the chat's context through SessionStart's `additionalContext`, at most 8 loops on one line each, the resumed chat's loop and status note first, and one line telling the agent to reuse a loop rather than start a duplicate. An older afterterm, or no answer within 2 seconds, gives the title only.
+- The skill is written to `<Claude folder>\skills\afterterm-loops\SKILL.md` beside the hook, under the hook's own guard (never from a test launch without its own Claude folder) and opt-out; a file there without afterterm's marker line is never touched. Its description limits it to chats inside afterterm.
+- Agents' messages say "Ask the user", not "Ask Aryan", since other people use afterterm.
+- Open chat, in order: the loop's thread when it is open (shown, and woken when asleep; a thread now on another Claude session does not count, the session wins), else the project's history entry for that session (resumed from there), else a new chat thread in the loop's project that resumes the session in the folder it was in. A loop with no session (started by hand) says "No chat".
+- A deleted worktree (design-07's open case): the chat cannot be resumed where it was, so it opens in the project's folder with the note "Folder gone, opened in the project folder"; Claude Code says so itself if it cannot find the session there.
+- The folder a loop remembers: for a chat, the folder of Claude Code's session (what resuming needs); for any other shell, the folder the command ran in, since a shell reports its own folder only at its next prompt.
+- Delete shows "Deleted" with Undo for 6 seconds; `afterterm loops restore <id>` brings one back within 30 days.
+- A submenu that has to open to the left keeps its own submenus on the left, so a chain never lands on top of its root menu.
+- Home's list keeps titles on one line (the spec: "Rows as in the Progress list, except titles wrap" on the card).
+- Home's Projects list shows six rows (three per column) before Show more, as the mock does; the search filters every project as you type and hides Show more.
+- Whether Progress is open is remembered per viewer in local storage; its filter lives in the app, so the workspace card's buttons can open Home filtered.
+- Deleted loops (kept 30 days) are listed under the Archived filter, below the archived ones, under "Deleted", where the right-click menu has Restore.
+- The calendar's earlier arrow goes back while there are older days with messages, then dims.
+- The calendar's clip (needed for the slide) has 2px of room round the grid, so a current-streak square's outline at the card's edge is never cut (Aryan, 2026-11-14, on the first build).
+
+Home's projects text (AFT-105, 2026-11-14): Aryan found the projects side's text too small at 90% of the old Home. The text is back at the old Home's sizes (the date 26px, names 14px, times, labels and the search box 13px, the last-here line and the counter pills 12.5px); the boxes, padding and gaps stay at 90%, so the projects side keeps its height and Progress stays 472px.
+
+Decided while building the loops tour (AFT-103, 2026-11-14):
+
+- What it remembers: prefs.json's `toursSeen: ["loops"]`, written after Done or Skip only. Quitting in the middle of the tour does not count: it shows again on the next launch. Unknown ids in the list are kept, so going back a version and forward again never replays a tour.
+- When it shows: once per launch, 600 ms after the session is restored, on Home. A launch that lands on the workspace (the first launch after an update restart does) is taken to Home for it.
+- Replay: "Take the loops tour" in the About window, beside "afterterm on GitHub" (the mock's notes said What's new; the About window's What's new only exists while an update is offered, so the link sits under it instead).
+- Progress closed: the tour opens it for real and leaves it open (it is where Done lands). The filter is reset to everything, so the examples or the person's own loops all show.
+- Someone with loops of their own sees their own: the rotting step rings their first rotting loop (the whole list when none rots), the sub-loops step opens their first loop with sub-loops (the list when none has any). A loop deleted but kept for 30 days does not count as their own. The same for the calendar: any day with a message makes it theirs.
+- The example idea "Weekly summary email" does not rot, as in the app's rules (ideas never rot); the mock turned it amber too. So the rotting step shows 1 rotting, not 2.
+- Everything under the tour is blocked while it shows (the title bar stays usable), so nothing can act on an example loop; the examples never reach main, loops.json or activity.json.
+- Arrow keys move, Esc is Skip. The focus stays on the card's Next button (so Enter never reaches a Wake button under the tour), with the focus outline drawn only while the tour is driven by keys.
+- The card's blue is #2d66f2, the mock's #2f6bff about 5% darker, and its picture panel #1c51db (Aryan, 2026-11-14: "the blue looks too bright on screen... very slightly").
+- Harness launches mark the tour seen unless `--prefs` says otherwise (`"toursSeen": []`), so a run that is not about the tour is not covered by it.
+- The card's "N rotting" button is hidden while nothing rots.
+- Whether the card is open is kept per viewer across threads and launches; the loops button is in every thread header (both halves of a split), and the card flies into the focused half's.
+- Rotting and All on the card open Home's Progress (opening it if it was closed), filtered to rotting or to everything.
+- The calendar's counts are saved in slices that yield, written without blocking: the first startup test found the old save (a 1.5 MB JSON.stringify and write every 2 s) stalling main for 31 to 70 ms during a large backfill.
+- Agents and the skill (AFT-104, three tests with real Claude chats, 2026-11-14): the chat-start note is one line, "You're running inside afterterm. Before you do anything else, read the afterterm-loops skill.", then the open loops; everything else is in the skill (Aryan). The skill's description says to read it before any change to files, a feature, a bug fix or any other edit. Claude starts a loop before editing, updates its note before ending the turn, and closes a loop only when the user says it is done, or it is merged or shipped, with a final note (design-07 had agents close freely; closing after every change left nothing open). In the third test Claude read the skill first in every chat, started a bug and a feature loop, left both open and closed both when told they were done.
+- A loop remembers a chat only when Claude ran the command (Claude Code's session id is on it); a command typed by hand links no chat, and a later Claude chat in the same terminal is remembered as itself. Closing does not change the remembered chat, so Open chat on a finished loop goes back to the chat that did the work.
+
 ## Automatic updates
 
 An installed afterterm finds a newer release on GitHub, tells the user ("afterterm 0.11.0 is available", with What's new, Update, Later and Skip this version), downloads the installer in the background with progress, checks it against the sha256 GitHub publishes, and on "Restart to update" closes, installs quietly, reopens and wakes every thread that was awake. Never forced; a setting turns the checks off.

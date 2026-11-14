@@ -172,6 +172,36 @@ interface AftertermUsageAPI {
   onUpdate(callback: (state: UsageState) => void): () => void;
 }
 
+type Loop = import('./loops').Loop;
+type LoopAction = import('./loops-store').LoopAction;
+type LoopActResult =
+  | { ok: true; result: import('./loops-store').ActionResult }
+  | { ok: false; code: string; error: string };
+interface AftertermLoopsAPI {
+  list(): Promise<Loop[]>;
+  // A change made in the UI (Aryan's: it never replaces a loop's remembered chat).
+  act(action: LoopAction): Promise<LoopActResult>;
+  onChange(callback: (loops: Loop[]) => void): () => void;
+  // Each thread's project and chat, for `afterterm loops` (loopsView.ts, loopsContextFrom).
+  setContext(ctx: import('./loops-cli').LoopsContext): void;
+}
+
+// The one-time tours (src/tours.ts), kept in prefs.json's toursSeen.
+interface AftertermToursAPI {
+  /** The tours already shown (Done or Skip). */
+  seen(): Promise<string[]>;
+  /** Writes a tour as seen; false when prefs.json could not be written. */
+  markSeen(id: string): Promise<boolean>;
+}
+
+// The streak calendar's counts (src/activity-store.ts).
+type ActivitySnapshot = import('./activity-store').ActivitySnapshot;
+interface AftertermActivityAPI {
+  /** Messages sent to Claude per local day (YYYY-MM-DD), and whether the backfill is still running. */
+  get(): Promise<ActivitySnapshot>;
+  onChange(callback: (snapshot: ActivitySnapshot) => void): () => void;
+}
+
 // The last lines of a thread's scrollback, kept on disk so sleep and quit do not lose
 // the screen. Main trims to 200 lines / 64 KB and never throws (see src/thread-tail.ts).
 interface AftertermThreadsAPI {
@@ -354,6 +384,9 @@ interface AftertermAPI {
   threads: AftertermThreadsAPI;
   git: AftertermGitAPI;
   usage: AftertermUsageAPI;
+  loops: AftertermLoopsAPI;
+  tours: AftertermToursAPI;
+  activity: AftertermActivityAPI;
   update: AftertermUpdateAPI;
   shortcuts: AftertermShortcutsAPI;
   notify: AftertermNotifyAPI;
@@ -361,6 +394,7 @@ interface AftertermAPI {
   pty: AftertermPtyAPI;
   // Agent harness only: rejects outside a harness run (AFTERTERM_HARNESS=1).
   harness: {
+    setSize(size: { width: number; height: number }): Promise<unknown>;
     windowHome(sim?: { event?: string; displays?: unknown[]; windowDisplayId?: number }): Promise<unknown>;
     // The toast hold's state in main (AFT-72).
     notifier(): Promise<unknown>;

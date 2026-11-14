@@ -12,6 +12,8 @@ import { FOLDER_MISSING_TIP } from '../../projectMenu';
 import { threadKind, threadName, threadState, modelLabel, chipText } from '../../threadView';
 import { asleepLabel } from '../../sleepWake';
 import { FilesButton, FilesButtonProps } from '../FilesButton';
+import { LoopsIcon } from '../Loops/LoopIcons';
+import '../Loops/LoopsCard.css';
 import './Header.css';
 
 // Matches the menu's own min-width (Menu.css), so the panel opens flush with
@@ -42,6 +44,9 @@ export interface HeaderProps {
   // The Files button (docs/edited-files): a chat's changed files and pasted
   // images. Undefined for a shell; the button itself hides at zero files.
   files?: FilesButtonProps;
+  // The loops card's button (design-07): the loops icon and the remaining count,
+  // highlighted while the card is open. Ctrl+Shift+L does the same.
+  loops?: { count: number; open: boolean; onToggle: () => void };
   // What the header says with no thread selected; "Pick a thread" by default,
   // "No threads open" when there are none at all.
   emptyText?: string;
@@ -50,7 +55,7 @@ export interface HeaderProps {
   compact?: boolean;
 }
 
-export function Header({ tab, group, groups, actions, projectExplorer, editor, now, files, emptyText, compact }: HeaderProps) {
+export function Header({ tab, group, groups, actions, projectExplorer, editor, now, files, emptyText, compact, loops }: HeaderProps) {
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -61,10 +66,26 @@ export function Header({ tab, group, groups, actions, projectExplorer, editor, n
   }, []);
   const closeMenu = useCallback(() => setMenuPos(null), []);
 
+  // The loops card's button, on every header: with a thread or without one (the
+  // loops tour points at it with no thread open, AFT-103).
+  const loopsButton = loops ? (
+    <button
+      type="button"
+      className={`lc-hbtn${loops.open ? ' on' : ''}`}
+      data-loops-button=""
+      data-tip="Loops  Ctrl+Shift+L"
+      onClick={loops.onToggle}
+    >
+      <LoopsIcon size={16} />
+      <span className="lc-cnt">{loops.count}</span>
+    </button>
+  ) : null;
+
   if (!tab) {
     return (
       <div className="header">
         <span className="header-empty">{emptyText ?? 'Pick a thread'}</span>
+        {loopsButton && <div className="header-actions">{loopsButton}</div>}
       </div>
     );
   }
@@ -151,6 +172,7 @@ export function Header({ tab, group, groups, actions, projectExplorer, editor, n
             {chip.text}
           </span>
         )}
+        {loopsButton}
         {editor && primaryEditor && (editor.missing ? (
           <span
             className="ic disabled"

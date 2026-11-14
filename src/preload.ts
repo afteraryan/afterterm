@@ -190,6 +190,37 @@ contextBridge.exposeInMainWorld('afterterm', {
     },
   },
 
+  // Loops (src/loops-store.ts): main owns them; the UI reads the list, sends
+  // changes as Aryan, and hears every change whole.
+  loops: {
+    list: (): Promise<any[]> => ipcRenderer.invoke('loops:list'),
+    act: (action: any): Promise<any> => ipcRenderer.invoke('loops:act', action),
+    setContext: (ctx: any): void => ipcRenderer.send('loops:context', ctx),
+    onChange: (callback: (loops: any[]) => void): (() => void) => {
+      const listener = (_event: IpcRendererEvent, l: any[]) => callback(l);
+      ipcRenderer.on('loops:changed', listener);
+      return () => { ipcRenderer.removeListener('loops:changed', listener); };
+    },
+  },
+
+  // The one-time tours (src/tours.ts): which ones were already shown (prefs.json's
+  // toursSeen), and writing one as seen after Done or Skip.
+  tours: {
+    seen: (): Promise<string[]> => ipcRenderer.invoke('tours:seen'),
+    markSeen: (id: string): Promise<boolean> => ipcRenderer.invoke('tours:mark-seen', id),
+  },
+
+  // The streak calendar's counts (src/activity-store.ts): messages sent to Claude per
+  // local day, and whether the first read of the transcripts is still running.
+  activity: {
+    get: (): Promise<any> => ipcRenderer.invoke('activity:get'),
+    onChange: (callback: (snapshot: any) => void): (() => void) => {
+      const listener = (_event: IpcRendererEvent, s: any) => callback(s);
+      ipcRenderer.on('activity:changed', listener);
+      return () => { ipcRenderer.removeListener('activity:changed', listener); };
+    },
+  },
+
   // Automatic updates (src/updater.ts): the state main pushes, and the actions
   // the title bar button, the notice, the restart window and the About window take.
   update: {
@@ -366,5 +397,8 @@ contextBridge.exposeInMainWorld('afterterm', {
     // resized events (AFT-11): one step per width, then resized when `end` is true.
     edgeDrag: (plan: { widths: number[]; stepMs?: number; end?: boolean }): Promise<unknown> =>
       ipcRenderer.invoke('harness:edge-drag', plan),
+    // The window's content to an exact size (loops: the dev build beside a mock).
+    setSize: (size: { width: number; height: number }): Promise<unknown> =>
+      ipcRenderer.invoke('harness:set-size', size),
   },
 });

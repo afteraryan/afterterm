@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { SidePanel } from './components/SidePanel';
 import type { SidePanelHandle } from './components/SidePanel';
 import { Rail } from './components/Rail';
@@ -47,6 +47,14 @@ import type { PaneTarget } from './splitView';
 import type { FileLinkContext, FileLinkTarget } from './components/Terminal/fileLinks';
 import type { MenuItem } from './components/Menu';
 import { EditorLogo, IconExplorer } from './components/Icons';
+import { loopsContextFrom, NO_FILTER, openChatPlan, type LoopFilter } from './loopsView';
+import { useActivityDays, useLoops } from './hooks/useLoops';
+import { LoopsCard } from './components/Loops/LoopsCard';
+import { LoopsTour } from './components/LoopsTour';
+import { exampleDays, exampleGroups, exampleLoops, loopWithSubs, rottingLoop, todayKey, tourScene, usesExampleDays, usesExampleLoops } from './loopsTour';
+import { shouldShowTour } from '../tours';
+import { loopCounts } from '../loops';
+import type { Loop } from '../loops';
 
 let toastCounter = 0;
 
@@ -787,6 +795,16 @@ export function App() {
     return () => clearTimeout(timer);
   }, [initialized, state.tabs, state.groups, state.activeTabId, state.splits, panelHidden, panelWidth]);
 
+  // Loops: main answers `afterterm loops` and needs each thread's project and chat
+  // (loopsView.ts). Sent only when it changes.
+  const loopsContextSent = useRef('');
+  useEffect(() => {
+    const text = JSON.stringify(loopsContextFrom(state.tabs, state.groups));
+    if (text === loopsContextSent.current) return;
+    loopsContextSent.current = text;
+    window.afterterm.loops.setContext(JSON.parse(text));
+  }, [state.tabs, state.groups]);
+
   // Keyboard shortcuts from main process
   useEffect(() => {
     window.afterterm.shortcuts.onShortcut((action) => {
@@ -800,6 +818,9 @@ export function App() {
           break;
         case 'usage':
           toggleUsage();
+          break;
+        case 'loops':
+          toggleLoopsCardRef.current();
           break;
         case 'close-tab':
           if (s.tabs.length > 0) closeThread(s.activeTabId);
@@ -1369,6 +1390,111 @@ export function App() {
     goScreen('workspace');
   }, [refreshClaudeMeta, refreshGit, goScreen]);
 
+  // Loops, Open chat (design-07): the loop's remembered chat, wherever it is now
+  // (loopsView.ts, openChatPlan). An open thread is shown (and woken when asleep), a
+  // closed one comes back from its project's history, and a chat in neither is
+  // resumed in a new thread of the loop's project. A worktree that was deleted since
+  // cannot hold the chat any more: it opens in the project's folder instead, and
+  // Claude Code says so itself if it cannot find the session there.
+  const openLoopChat = useCallback(async (loop: Loop) => {
+    const s = stateRef.current;
+    const plan = openChatPlan(loop, s.tabs, s.groups);
+    if (plan.kind === 'none') { showToast({ message: 'No chat' }); return; }
+    if (plan.kind === 'tab') {
+      openThreadInWorkspace(plan.tabId);
+      if (plan.wake) await wakeThreadRef.current(plan.tabId);
+      return;
+    }
+    if (plan.kind === 'history') { resumeThread(plan.groupId, plan.entryId); return; }
+    let entry = plan.entry;
+    if (entry.cwd) {
+      const st = await window.afterterm.files.stat([entry.cwd]).catch(() => ({} as Record<string, 'file' | 'dir' | null>));
+      if (st[entry.cwd] !== 'dir') {
+        const folder = s.groups.find(g => g.id === plan.groupId)?.cwd;
+        entry = { ...entry, cwd: folder };
+        if (!folder) delete entry.cwd;
+        showToast({ message: 'Folder gone, opened in the project folder' });
+      }
+    }
+    const tabId = s.openResumedChat(entry, plan.groupId);
+    if (entry.sessionId && entry.cwd) refreshClaudeMeta(tabId, entry.sessionId, entry.cwd);
+    refreshGit(tabId, entry.cwd);
+    goScreen('workspace');
+  }, [openThreadInWorkspace, resumeThread, refreshClaudeMeta, refreshGit, goScreen, showToast]);
+  const loopToast = useCallback((message: string, actionLabel?: string, onAction?: () => void) => {
+    showToast({ message, actionLabel, onAction });
+  }, [showToast]);
+  const loops = useLoops();
+  const activityDays = useActivityDays();
+  // Home's Progress column: open or closed (remembered per viewer in local storage,
+  // a convenience only) and its filter, here so the workspace card's rotting and All
+  // buttons can open it filtered.
+  const [progressOpen, setProgressOpenState] = useState<boolean>(() => {
+    try { return localStorage.getItem('afterterm.progressOpen') !== 'false'; } catch { return true; }
+  });
+  const setProgressOpen = useCallback((open: boolean) => {
+    setProgressOpenState(open);
+    try { localStorage.setItem('afterterm.progressOpen', String(open)); } catch { /* not kept */ }
+  }, []);
+  const [progressFilter, setProgressFilter] = useState<LoopFilter>(NO_FILTER);
+  // The workspace's loops card: open or closed, kept across threads and launches
+  // (per viewer). Only its button and Ctrl+Shift+L change it.
+  const [loopsCardOpen, setLoopsCardOpen] = useState<boolean>(() => {
+    try { return localStorage.getItem('afterterm.loopsCardOpen') === 'true'; } catch { return false; }
+  });
+  const toggleLoopsCard = useCallback(() => {
+    setLoopsCardOpen(o => {
+      try { localStorage.setItem('afterterm.loopsCardOpen', String(!o)); } catch { /* not kept */ }
+      return !o;
+    });
+  }, []);
+  const toggleLoopsCardRef = useRef(toggleLoopsCard);
+  toggleLoopsCardRef.current = toggleLoopsCard;
+  // The card's rotting and All buttons: Home's Progress, open, filtered or not.
+  const showProgress = useCallback((filter: LoopFilter) => {
+    setProgressFilter(filter);
+    setProgressOpen(true);
+    goScreen('home');
+  }, [setProgressOpen, goScreen]);
+
+  // The loops tour (AFT-103, loopsTour.ts, components/LoopsTour): the step showing,
+  // or null. Shown once on Home on the first launch of a version that has it, then
+  // never again after Done or Skip (prefs.json's toursSeen, tours.ts); the About
+  // window's "Take the loops tour" replays it. During the tour someone with no loops
+  // or no calendar days sees examples, which exist only here in the renderer.
+  const [tourStep, setTourStep] = useState<number | null>(null);
+  const scene = tourStep === null ? null : tourScene(tourStep);
+  const tourExLoops = !!scene?.examples && usesExampleLoops(loops);
+  const tourExDays = !!scene?.exampleDays && usesExampleDays(activityDays);
+  const shownLoops = useMemo(() => (tourExLoops ? exampleLoops(now, tourStep ?? 0) : loops), [tourExLoops, now, tourStep, loops]);
+  const shownDays = useMemo(() => (tourExDays ? exampleDays(todayKey(now)) : activityDays), [tourExDays, now, activityDays]);
+  const shownGroups = useMemo(() => (tourExLoops ? [...state.groups, ...exampleGroups()] : state.groups), [tourExLoops, state.groups]);
+  const cardShown = scene ? scene.cardOpen : loopsCardOpen;
+  const startTour = useCallback(() => {
+    setProgressFilter(NO_FILTER);
+    setProgressOpen(true);
+    goScreen('home');
+    setTourStep(0);
+  }, [setProgressOpen, goScreen]);
+  const endTour = useCallback(() => {
+    setTourStep(null);
+    void window.afterterm.tours?.markSeen('loops');
+  }, []);
+  // Each step's view: the tour moves between Home and the workspace itself.
+  useEffect(() => {
+    if (!scene) return;
+    if (screenRef.current !== scene.view) goScreen(scene.view);
+  }, [tourStep]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Once per launch, after the session is restored: show it if it was never seen.
+  const tourChecked = useRef(false);
+  useEffect(() => {
+    if (!initialized || tourChecked.current) return;
+    tourChecked.current = true;
+    window.afterterm.tours?.seen()
+      .then(seen => { if (shouldShowTour(seen, 'loops')) window.setTimeout(startTour, 600); })
+      .catch(() => { /* prefs unreadable: no tour this launch */ });
+  }, [initialized, startTour]);
+
   // The last lines of a terminal that is about to be destroyed. A sleeping thread's
   // tail is what its pane shows and what it replays on waking, so it is both kept in
   // state and written to disk. A closed thread's is only worth keeping when the
@@ -1688,6 +1814,7 @@ export function App() {
         } : undefined}
         editor={threadEditor(tab)}
         files={filesButtonFor(tab)}
+        loops={{ count: loopCounts(shownLoops, now).remaining, open: cardShown, onToggle: toggleLoopsCard }}
         actions={{
           moveToGroup: (id) => id ? state.addToGroup(tab.id, id) : state.removeFromGroup(tab.id),
           close: () => closeThread(tab.id),
@@ -1759,6 +1886,17 @@ export function App() {
           folderExists={folderExists}
           actions={projectActions}
           onNewProject={() => setProjectModal({ mode: 'create' })}
+          loops={shownLoops}
+          days={shownDays}
+          progressOpen={progressOpen}
+          setProgressOpen={setProgressOpen}
+          filter={progressFilter}
+          setFilter={setProgressFilter}
+          onOpenLoopChat={openLoopChat}
+          onToast={loopToast}
+          loopGroups={shownGroups}
+          example={scene ? { loops: tourExLoops, days: tourExDays } : undefined}
+          forceOpen={scene?.openSubs ? loopWithSubs(shownLoops) : null}
         />
       )}
 
@@ -1850,6 +1988,7 @@ export function App() {
               group={undefined}
               groups={state.groups}
               now={now}
+              loops={{ count: loopCounts(shownLoops, now).remaining, open: cardShown, onToggle: toggleLoopsCard }}
             />
           )}
           {initialized && state.tabs.length === 0 && (
@@ -1857,6 +1996,19 @@ export function App() {
               <button className="b p" data-new-thread="" onClick={() => openChooserFromShortcut()}>New thread</button>
               <span className="k">Ctrl Shift T</span>
             </div>
+          )}
+          {screen === 'workspace' && (
+            <LoopsCard
+              open={cardShown}
+              loops={shownLoops}
+              groups={shownGroups}
+              example={tourExLoops}
+              now={now}
+              onRotting={() => showProgress({ ...NO_FILTER, status: 'rotting' })}
+              onAll={() => showProgress(NO_FILTER)}
+              onOpenChat={openLoopChat}
+              onToast={loopToast}
+            />
           )}
           {initialized && (
             <TerminalArea
@@ -2060,6 +2212,18 @@ export function App() {
           update={update}
           onClose={() => setUpdateWindow(null)}
           onRestart={() => setUpdateWindow('restart')}
+          onTakeTour={() => { setUpdateWindow(null); startTour(); }}
+        />
+      )}
+
+      {tourStep !== null && (
+        <LoopsTour
+          step={tourStep}
+          setStep={setTourStep}
+          remaining={loopCounts(shownLoops, now).remaining}
+          subsLoopId={loopWithSubs(shownLoops)}
+          rotLoopId={rottingLoop(shownLoops, now)}
+          onEnd={endTour}
         />
       )}
 
