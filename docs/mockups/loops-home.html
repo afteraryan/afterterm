@@ -227,6 +227,7 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 .hm .cell { width: var(--c, 10px); height: var(--c, 10px); border-radius: 4px; }
 .hm .mo { width: var(--c, 10px); }
 .hm .cell.out { visibility: hidden; }
+.hmclip { position: relative; overflow: hidden; }
 .hm .cell.future { background: none; box-shadow: inset 0 0 0 1px #3a3a3a; }
 .loopscol .hm .mo { font-size: 11px; }
 .loopscol .hm .dl { font-size: 11.5px; }
@@ -433,7 +434,7 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     }
     return '<div class="act"><div class="act-h"><b>' + s.cur + ' day streak</b><span class="grow"></span><span class="long">Longest <b>' + s.best + ' days</b></span>' +
       '<button type="button" class="nav' + (weekOffset >= 8 ? ' off' : '') + '" data-act="older" aria-label="Earlier">' + I.left + '</button><button type="button" class="nav' + (weekOffset ? '' : ' off') + '" data-act="newer" aria-label="Later">' + I.chev + '</button></div>' +
-      '<div class="hm" style="' + tmpl + '">' + months + cells + '</div>' +
+      '<div class="hmclip"><div class="hm" style="' + tmpl + '">' + months + cells + '</div></div>' +
       (compact ? '' : '<div class="legend"><span>Less</span><span class="cell"></span><span class="cell l1"></span><span class="cell l2"></span><span class="cell l3"></span><span class="cell l4"></span><span>More</span><span class="grow"></span><span class="curkey"></span><span>Current streak</span></div>') + '</div>';
   }
 
@@ -669,6 +670,21 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
   }
   function refilter() { animateList = true; render(); }
 
+  /* the calendar slides a month: the old months leave one way while the new ones arrive from the other */
+  function slideMonths(next) {
+    if (next === weekOffset) return;
+    var older = next > weekOffset;
+    var clip = stage.querySelector('.hmclip'), old = clip && clip.firstElementChild ? clip.firstElementChild.cloneNode(true) : null;
+    weekOffset = next; render();
+    var clip2 = stage.querySelector('.hmclip');
+    if (!old || !clip2 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var fresh = clip2.firstElementChild, dir = older ? 1 : -1, ease = 'cubic-bezier(.16, 1, .3, 1)';
+    old.style.position = 'absolute'; old.style.left = '0'; old.style.top = '0'; old.style.pointerEvents = 'none';
+    clip2.appendChild(old);
+    old.animate([{ transform: 'translateX(0)', opacity: 1, filter: 'blur(0px)' }, { transform: 'translateX(' + (dir * 34) + '%)', opacity: 0, filter: 'blur(2px)' }], { duration: 420, easing: ease, fill: 'forwards' }).onfinish = function () { old.remove(); };
+    fresh.animate([{ transform: 'translateX(' + (-dir * 34) + '%)', opacity: 0, filter: 'blur(2px)' }, { transform: 'translateX(0)', opacity: 1, filter: 'blur(0px)' }], { duration: 520, easing: ease });
+  }
+
   /* opening and closing a loop: its details and sub-loops fold open and shut */
   function partsAfter(id) {
     var row = stage.querySelector('.row[data-i="' + id + '"]'), out = [];
@@ -831,8 +847,8 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
       lay2.style.gridTemplateColumns = progressCols(true); lay2.style.columnGap = '40px';
       return;
     }
-    if (a === 'older') { weekOffset = Math.min(weekOffset + 1, 8); render(); return; }
-    if (a === 'newer') { weekOffset = Math.max(weekOffset - 1, 0); render(); return; }
+    if (a === 'older') { slideMonths(Math.min(weekOffset + 1, 8)); return; }
+    if (a === 'newer') { slideMonths(Math.max(weekOffset - 1, 0)); return; }
     if (a === 'project') {
       var r = b.getBoundingClientRect(), sr = stage.getBoundingClientRect(), sc = scale();
       var items = [{ id: 'pf', value: null, label: 'All', check: !filter.project }, 'sep'].concat(Object.keys(PROJ).map(function (p) { return { id: 'pf', value: p, label: p, check: filter.project === p }; }));
