@@ -32,6 +32,10 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 .seg button[aria-pressed="true"] { background: var(--btn); color: var(--btn-text); }
 
 .stage-box { position: relative; width: 100%; overflow: hidden; border-radius: 12px; border: 1px solid var(--line); }
+.stage-box:fullscreen { background: #000; border: 0; border-radius: 0; overflow: hidden; }
+.taskbar { display: none; }
+.stage-box:fullscreen .taskbar { display: flex; position: absolute; left: 0; right: 0; bottom: 0; height: 48px; background: #1c1c1c; border-top: 1px solid #2b2b2b; align-items: center; justify-content: center; gap: 8px; }
+.taskbar span { width: 36px; height: 36px; border-radius: 6px; background: #2b2b2b; }
 .stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1028px; transform-origin: 0 0; background: var(--side); display: grid; grid-template-rows: 32px 1fr; overflow: hidden; }
 .titlebar { display: flex; align-items: center; gap: 8px; padding-left: 14px; font-size: 12px; color: var(--text2); }
 .titlebar .ver { background: var(--hover); color: var(--text3); border-radius: 5px; padding: 1px 6px; font-size: 11px; }
@@ -213,7 +217,8 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 
 <script>
 (function () {
-  var SW = 1920, SH = 1028;
+  /* a maximized window on a 1920x1080 screen: 1080 less the 48px taskbar */
+  var SW = 1920, SH = 1032, TASKBAR = 48;
   var OPTIONS = [
     { key: 'zoom', name: 'Size', values: [['actual', 'Actual size'], ['fit', 'Fit to page']] },
     { key: 'layout', name: 'Layout', values: [['progress', 'Progress'], ['columns', 'Two columns'], ['three', 'Three columns'], ['band', 'Top band'], ['board', 'Board'], ['strips', 'Strips'], ['panels', 'Panels']] }
@@ -296,10 +301,28 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     controls.appendChild(d);
   });
   controls.addEventListener('click', function (e) { var b = e.target.closest('button[data-k]'); if (!b) return; cfg[b.dataset.k] = b.dataset.v; render(); });
+  (function () {
+    var d = document.createElement('div'); d.className = 'ctl';
+    d.innerHTML = '<span class="ctl-name">Screen</span><div class="seg"><button type="button" id="fsBtn">Full screen</button></div>';
+    controls.appendChild(d);
+    document.getElementById('fsBtn').addEventListener('click', function () {
+      var box = document.getElementById('stageBox');
+      try { var p = box.requestFullscreen ? box.requestFullscreen() : null; if (p && p.catch) p.catch(function () {}); } catch (err) {}
+    });
+  })();
 
   var stage = document.getElementById('stage'), box = document.getElementById('stageBox');
   function scale() { return parseFloat(stage.dataset.scale) || 1; }
+  document.addEventListener('fullscreenchange', function () { fit(); });
   function fit() {
+    var full = document.fullscreenElement === box;
+    var bar = box.querySelector('.taskbar');
+    if (!bar) { bar = document.createElement('div'); bar.className = 'taskbar'; bar.innerHTML = '<span></span><span></span><span></span><span></span><span></span>'; box.appendChild(bar); }
+    if (full) {
+      var fs = Math.min(1, window.innerWidth / SW, (window.innerHeight - TASKBAR) / SH);
+      stage.style.transform = 'scale(' + fs + ')'; stage.dataset.scale = fs; box.style.height = ''; box.style.overflowX = 'hidden';
+      return;
+    }
     var s = cfg.zoom === 'actual' ? 1 : box.clientWidth / SW;
     stage.style.transform = 'scale(' + s + ')'; box.style.height = (SH * s) + 'px'; stage.dataset.scale = s;
     box.style.overflowX = cfg.zoom === 'actual' ? 'auto' : 'hidden';
