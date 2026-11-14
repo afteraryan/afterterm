@@ -1,13 +1,14 @@
 <title>Loops panel options</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
-/* Layout: a control bar on top, then afterterm's workspace drawn at 1280x780 and scaled to fit, with the loops view on it. Single dark look, like the app. */
+/* Layout: a small control bar, then afterterm's workspace drawn at 1280x780 and scaled to fit, with the floating loops card on it. Single dark look, like the app. Solid colours only: no tinted washes. */
 :root {
   color-scheme: dark;
   --bg: #212121; --pane: #191919; --side: #171717; --hover: #2f2f2f; --hover2: #383838; --line: #2a2a2a;
   --text: #ececec; --text2: #b4b4b4; --text3: #8e8e8e; --text4: #5c5c5c;
   --btn: #ececec; --btn-text: #0d0d0d;
   --green: #4ade80; --green-ink: #06170b;
+  --rot: #e8a23a; --ink: #141414;
   --card: #262626;
   --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'Cascadia Code', 'Cascadia Mono', Consolas, monospace;
@@ -22,7 +23,6 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 
 .wrap { padding-block: 16px 32px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 14px; max-width: 1400px; margin: 0 auto; }
 
-/* controls */
 .controls { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: flex-start; }
 .ctl { display: grid; gap: 6px; min-width: 0; }
 .ctl-name { font-size: 11px; color: var(--text3); letter-spacing: .04em; text-transform: uppercase; }
@@ -31,7 +31,6 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 .seg button:hover { color: var(--text); background: var(--hover); }
 .seg button[aria-pressed="true"] { background: var(--btn); color: var(--btn-text); }
 
-/* stage */
 .stage-box { position: relative; width: 100%; overflow: hidden; border-radius: 12px; border: 1px solid var(--line); }
 .stage { position: absolute; left: 0; top: 0; width: 1280px; height: 780px; transform-origin: 0 0; background: var(--bg); display: grid; grid-template-rows: 32px 1fr; overflow: hidden; }
 
@@ -43,9 +42,7 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 
 .body { display: grid; grid-template-columns: 76px 264px 1fr; min-height: 0; }
 .rail { background: var(--side); display: flex; flex-direction: column; align-items: center; gap: 6px; padding-top: 10px; }
-.rail-btn { width: 40px; height: 36px; border-radius: 10px; display: grid; place-items: center; color: var(--text3); background: none; border: 0; position: relative; }
-.rail-btn.loops { cursor: pointer; color: var(--text2); }
-.rail-btn.loops:hover, .rail-btn.loops.on { background: var(--hover); color: var(--text); }
+.rail-btn { width: 40px; height: 36px; border-radius: 10px; display: grid; place-items: center; color: var(--text3); }
 .rail-sep { width: 32px; height: 1px; background: var(--line); margin: 4px 0; }
 .tile { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; font-size: 13px; font-weight: 500; color: #111; }
 
@@ -57,84 +54,84 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 .thr { padding: 6px 10px 6px 28px; font-size: 13px; color: var(--text2); border-radius: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .thr.act { background: var(--hover); color: var(--text); }
 
-.main { position: relative; display: grid; grid-template-columns: 1fr auto; min-width: 0; min-height: 0; }
-.col { display: grid; grid-template-rows: 56px 1fr; min-width: 0; min-height: 0; }
+.main { position: relative; display: grid; grid-template-rows: 56px 1fr; min-width: 0; min-height: 0; }
 .header { display: flex; align-items: center; gap: 12px; padding: 0 16px; min-width: 0; }
 .h-ic { width: 28px; height: 28px; border-radius: 8px; background: var(--hover); display: grid; place-items: center; color: var(--text2); flex: none; }
 .h-txt { min-width: 0; flex: 1; }
-.h-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color .3s; }
+.h-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .h-meta { font-size: 12px; color: var(--text3); white-space: nowrap; }
 .h-meta b { font-weight: 400; color: var(--text2); }
-.h-btn { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; color: var(--text3); background: none; border: 0; flex: none; position: relative; }
-.h-btn.loops { cursor: pointer; color: var(--text2); width: auto; padding: 0 9px; gap: 6px; display: flex; align-items: center; font-size: 12px; }
-.h-btn.loops:hover, .h-btn.loops.on { background: var(--hover); color: var(--text); }
-.tb-loops { height: 24px; border-radius: 6px; border: 0; background: none; color: var(--text2); display: flex; align-items: center; gap: 6px; padding: 0 8px; font-size: 12px; cursor: pointer; }
-.tb-loops:hover, .tb-loops.on { background: var(--hover); color: var(--text); }
+.h-btn { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; color: var(--text3); background: none; border: 0; flex: none; }
+.h-loops { height: 30px; border-radius: 8px; border: 0; background: none; color: var(--text2); display: flex; align-items: center; gap: 6px; padding: 0 9px; font-size: 12px; cursor: pointer; }
+.h-loops:hover, .h-loops.on { background: var(--hover); color: var(--text); }
+.cnt { font-variant-numeric: tabular-nums; }
 
 .term { margin: 0 12px 12px; background: var(--pane); border-radius: 16px; padding: 18px 20px; font-family: var(--mono); font-size: 13px; line-height: 1.6; color: var(--text2); overflow: hidden; white-space: pre; }
 .term .dim { color: var(--text4); }
 .term .hi { color: var(--text); }
 
-/* loops view, shared */
-.lp { background: var(--card); border: 1px solid #333; display: flex; flex-direction: column; min-height: 0; }
-.lp-head { display: flex; align-items: center; gap: 4px; padding: 10px 10px 8px 14px; }
+/* the floating card */
+.lp { position: absolute; top: 64px; right: 24px; width: 320px; background: var(--card); border: 1px solid #333; border-radius: 14px; box-shadow: 0 12px 32px #000; z-index: 5; display: flex; flex-direction: column; max-height: 690px; }
+.lp-head { display: flex; align-items: center; gap: 6px; padding: 10px 10px 8px 14px; }
 .lp-title { font-size: 13px; font-weight: 500; flex: 1; }
 .lp-hbtn { height: 26px; min-width: 26px; padding: 0 7px; border-radius: 7px; border: 0; background: none; color: var(--text3); font-size: 12px; cursor: pointer; display: grid; place-items: center; }
 .lp-hbtn:hover { background: var(--hover2); color: var(--text); }
-.rot-line { display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border-radius: 7px; border: 0; background: var(--hover2); color: var(--text); font-size: 12px; cursor: pointer; }
-.rot-line:hover { background: #444; }
-.rot-ic { display: grid; place-items: center; color: var(--text3); }
-.rot-foot { margin: 6px 8px 8px; height: 32px; border-radius: 9px; border: 0; background: var(--hover2); color: var(--text); font-size: 12px; display: flex; align-items: center; gap: 8px; padding: 0 12px; cursor: pointer; }
-.rot-foot:hover { background: #444; }
-.rot-foot .view { color: var(--text3); }
-.rot-foot .grow { flex: 1; }
-.rot-badge { position: absolute; top: -8px; left: -8px; min-width: 22px; height: 22px; border-radius: 11px; background: var(--btn); color: var(--btn-text); font-size: 12px; font-weight: 500; display: grid; place-items: center; padding: 0 6px; border: 2px solid var(--bg); cursor: pointer; z-index: 2; }
 
-.lp-list { overflow: hidden; padding: 0 6px 6px; display: flex; flex-direction: column; gap: 1px; }
-.lp-list.scroll { overflow-y: auto; scrollbar-width: thin; scrollbar-color: #444 transparent; }
-.row { display: flex; align-items: center; gap: 10px; padding: 0 8px; border-radius: 9px; cursor: default; min-width: 0; border: 0; background: none; text-align: left; width: 100%; color: var(--text); }
+/* rotting, three looks */
+.rot { display: flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border-radius: 7px; border: 0; font-size: 12px; cursor: pointer; font-weight: 500; }
+.rot.solid { background: var(--rot); color: var(--ink); }
+.rot.solid:hover { background: #f3b04c; }
+.rot.icon { background: none; color: var(--text); font-weight: 400; }
+.rot.icon svg { color: var(--rot); }
+.rot.icon:hover { background: var(--hover2); }
+.rot.badge { background: none; color: var(--text); font-weight: 400; padding: 0 6px 0 4px; }
+.rot.badge:hover { background: var(--hover2); }
+.rot-n { min-width: 18px; height: 18px; border-radius: 9px; background: var(--rot); color: var(--ink); font-weight: 500; display: grid; place-items: center; padding: 0 5px; font-size: 11px; }
+
+.lp-list { overflow-y: auto; padding: 0 6px; display: flex; flex-direction: column; gap: 1px; scrollbar-width: thin; scrollbar-color: #444 transparent; }
+.row { display: flex; align-items: center; gap: 10px; padding: 0 8px; height: 36px; border-radius: 9px; cursor: pointer; min-width: 0; border: 0; background: none; text-align: left; width: 100%; color: var(--text); flex: none; }
 .row:hover { background: var(--hover2); }
-.row .t { flex: 1; min-width: 0; }
-.row .t1 { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
-.row .t2 { font-size: 12px; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
-.row.closed.dim .t1 { color: var(--text3); }
-.row.sub { padding-left: 30px; }
-.row.sub .t1 { font-size: 12.5px; color: var(--text2); }
-.pdot { width: 8px; height: 8px; border-radius: 2px; flex: none; }
-.ptile { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; font-size: 11px; font-weight: 500; color: #111; flex: none; }
+.row.open-row { background: var(--hover2); }
+.row .t1 { flex: 1; min-width: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row.closed .t1 { color: var(--text3); }
+.row.sub { height: 30px; }
+.row.sub .t1 { font-size: 12.5px; }
 .pname { font-size: 12px; white-space: nowrap; flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; }
 .st { width: 16px; height: 16px; flex: none; display: grid; place-items: center; }
 .st-open { width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid var(--text3); }
 .st-closed { width: 15px; height: 15px; border-radius: 50%; background: var(--green); display: grid; place-items: center; color: var(--green-ink); }
-.kind { color: var(--text3); flex: none; display: grid; place-items: center; }
-.frac { font-size: 11px; color: var(--text3); font-variant-numeric: tabular-nums; flex: none; }
+.frac { font-size: 11px; color: var(--text3); font-variant-numeric: tabular-nums; flex: none; padding: 2px 5px; border-radius: 5px; }
+.frac:hover { background: #444; color: var(--text); }
 
-/* floating */
-.float { position: absolute; top: 64px; right: 24px; border-radius: 14px; z-index: 5; box-shadow: 0 12px 32px #000; }
-/* sidebar */
-.rside { border-radius: 0; border: 0; border-left: 1px solid var(--line); background: var(--side); height: 100%; overflow: hidden; }
-.rside .lp-head { padding-top: 16px; }
-/* edge strip */
-.strip { width: 40px; border-left: 1px solid var(--line); background: var(--side); display: flex; flex-direction: column; align-items: center; padding-top: 14px; gap: 10px; }
-.strip button { width: 30px; border: 0; background: none; border-radius: 8px; color: var(--text2); display: grid; justify-items: center; gap: 4px; padding: 7px 0; cursor: pointer; font-size: 12px; }
-.strip button:hover, .strip button.on { background: var(--hover); color: var(--text); }
-.cnt { font-size: 12px; font-variant-numeric: tabular-nums; }
+/* a loop opened in place */
+.det { margin: 2px 0 6px 34px; display: grid; gap: 8px; padding-right: 8px; }
+.det-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text3); flex-wrap: wrap; }
+.det-meta .k { display: inline-flex; align-items: center; gap: 5px; color: var(--text2); }
+.det-note { font-size: 12.5px; color: var(--text2); line-height: 1.45; }
+.subs { display: flex; flex-direction: column; gap: 1px; margin-left: -8px; }
+.subs .det { margin-left: 26px; }
 
-.flash { animation: flash 900ms var(--ease); }
-@keyframes flash { 0% { color: var(--green); } 100% { color: var(--text); } }
-.menu { position: absolute; z-index: 30; min-width: 180px; background: #2f2f2f; border: 1px solid #3d3d3d; border-radius: 10px; padding: 4px; box-shadow: 0 10px 28px #000; display: flex; flex-direction: column; }
-.menu button { border: 0; background: none; text-align: left; padding: 6px 10px; border-radius: 7px; font-size: 13px; color: var(--text); cursor: pointer; }
-.menu button:hover { background: #3d3d3d; }
+.lp-foot { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; margin-top: 6px; border-top: 1px solid #333; }
+.remain { flex: 1; font-size: 12px; color: var(--text2); }
+.remain b { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
+.clean { height: 26px; padding: 0 10px; border-radius: 7px; border: 0; background: var(--btn); color: var(--btn-text); font-size: 12px; font-weight: 500; cursor: pointer; }
+.clean:hover { background: #fff; }
+
+/* menus */
+.menu { position: absolute; z-index: 30; min-width: 176px; background: #2f2f2f; border: 1px solid #3d3d3d; border-radius: 10px; padding: 4px; box-shadow: 0 10px 28px #000; display: flex; flex-direction: column; }
+.menu button { border: 0; background: none; text-align: left; padding: 6px 10px; border-radius: 7px; font-size: 13px; color: var(--text); cursor: pointer; display: flex; align-items: center; gap: 8px; }
+.menu button .lbl { flex: 1; }
+.menu button .chev { color: var(--text3); }
+.menu button .chk { color: var(--text); width: 12px; }
+.menu button:hover, .menu button.hl { background: #3d3d3d; }
 .menu .sep { height: 1px; background: #3d3d3d; margin: 4px 6px; }
 .menu .danger { color: #f87171; }
-.toast { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--btn); color: var(--btn-text); font-size: 13px; padding: 7px 14px; border-radius: 999px; z-index: 20; }
 
-/* config */
+.toast { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--btn); color: var(--btn-text); font-size: 13px; padding: 7px 14px; border-radius: 999px; z-index: 40; }
+
 .cfg { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
 .cfg pre { margin: 0; flex: 1; min-width: 0; background: var(--pane); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-family: var(--mono); font-size: 12px; color: var(--text2); overflow-x: auto; white-space: pre; }
 .copy { border: 0; border-radius: 10px; background: var(--btn); color: var(--btn-text); padding: 0 18px; font-size: 13px; font-weight: 500; cursor: pointer; min-height: 40px; }
-
-@media (prefers-reduced-motion: reduce) { .flash { animation: none; } }
 </style>
 
 <div class="wrap">
@@ -146,64 +143,56 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 <script>
 (function () {
   var OPTIONS = [
-    { key: 'placement', name: 'Placement', values: [['floating', 'Floating card'], ['sidebar', 'Right sidebar']] },
-    { key: 'shrinkTo', name: 'Shrinks to', values: [['header', 'Thread header'], ['rail', 'Rail'], ['titlebar', 'Title bar'], ['strip', 'Right edge strip']] },
-    { key: 'list', name: 'List', values: [['five', '5 only'], ['scroll', '5, then scroll']] },
-    { key: 'row', name: 'Row', values: [['oneLine', 'One line'], ['twoLine', 'Two lines'], ['tile', 'Project tile']] },
-    { key: 'subLoops', name: 'Sub-loops', values: [['hidden', 'Hidden'], ['count', 'Count 1/5'], ['ring', 'Ring'], ['nested', 'Nested']] },
-    { key: 'closed', name: 'Closed', values: [['tick', 'Tick'], ['tickDim', 'Tick, dim title']] },
-    { key: 'kind', name: 'Kind', values: [['hidden', 'Hidden'], ['icon', 'Icon']] },
-    { key: 'rotting', name: 'Rotting count', values: [['head', 'In the heading'], ['foot', 'At the foot'], ['badge', 'Corner badge']] },
-    { key: 'width', name: 'Width', values: [['280', '280'], ['320', '320'], ['360', '360']] },
+    { key: 'rotting', name: 'Rotting', values: [['solid', 'Solid'], ['icon', 'Icon'], ['badge', 'Number']] },
     { key: 'shrunk', name: 'State', values: [['no', 'Open'], ['yes', 'Shrunk']] }
   ];
-  var cfg = { placement: 'floating', shrinkTo: 'header', list: 'five', row: 'oneLine', subLoops: 'count', closed: 'tick', kind: 'hidden', rotting: 'head', width: '320', shrunk: 'no' };
-  try { var saved = JSON.parse(localStorage.getItem('loops-mock-cfg') || 'null'); if (saved) for (var k in saved) if (k in cfg) cfg[k] = saved[k]; } catch (e) {}
+  var cfg = { placement: 'floating', shrinkTo: 'header', list: 'five', row: 'oneLine', subLoops: 'count', closed: 'tickDim', kind: 'onOpen', rotting: 'solid', width: '320', shrunk: 'no' };
 
-  var P = {
-    'afterterm': '#5b8def', 'minimi-windows': '#e07a5f', 'afterthought': '#9b7ede', 'canvas-agent': '#4fb3a4',
-    'General': '#8e8e8e', 'transcript-fetcher-clone': '#d4a24c', 'aftertales': '#e46a9a'
-  };
+  var P = { 'afterterm': '#5b8def', 'minimi-windows': '#e07a5f', 'afterthought': '#9b7ede', 'canvas-agent': '#4fb3a4', 'General': '#8e8e8e', 'transcript-fetcher-clone': '#d4a24c', 'aftertales': '#e46a9a' };
   var LOOPS = [
-    { t: 'Loops always-visible view', p: 'afterterm', s: 'open', k: 'feature', chat: 'Loops design', subs: [
-      { t: 'Design doc', s: 'closed', k: 'feature' }, { t: 'Mock of the loops view', s: 'open', k: 'feature' }, { t: 'afterterm loops CLI', s: 'open', k: 'feature' }, { t: 'Chat-start hook', s: 'open', k: 'idea' }, { t: 'Loops screen', s: 'open', k: 'feature' } ] },
-    { t: 'Header shows the old model', p: 'afterterm', s: 'closed', k: 'bug', chat: 'Fix model label' },
-    { t: 'Snapshot calendar on Windows', p: 'minimi-windows', s: 'open', k: 'feature', chat: 'package-7 snapshot calendar', subs: [
-      { t: 'Calendar permissions', s: 'closed', k: 'feature' }, { t: 'Week view', s: 'open', k: 'feature' } ] },
-    { t: 'GitHub poll page', p: 'afterthought', s: 'open', k: 'feature', chat: 'Take a poll from GitHub' },
-    { t: 'Rail tile order', p: 'afterterm', s: 'open', k: 'bug', chat: 'Rail order', subs: [
-      { t: 'Group pinned tiles', s: 'closed', k: 'bug' }, { t: 'Order picker', s: 'open', k: 'idea' }, { t: 'Badge meanings', s: 'closed', k: 'bug' } ] },
-    { t: 'Memory between canvas sessions', p: 'canvas-agent', s: 'open', k: 'idea', chat: 'hi' },
-    { t: 'Daily Chrome activity summary', p: 'General', s: 'open', k: 'idea', chat: 'Create daily Chrome activity' },
-    { t: 'Usage in the title bar', p: 'afterterm', s: 'closed', k: 'feature', chat: 'Usage bar' },
-    { t: 'WhatsApp package', p: 'minimi-windows', s: 'closed', k: 'feature', chat: 'package-5 whatsapp' },
-    { t: 'Transcript fetcher clone', p: 'transcript-fetcher-clone', s: 'open', k: 'feature', chat: 'transcript-fetcher-clone' },
-    { t: 'Story page redesign', p: 'aftertales', s: 'open', k: 'feature', chat: 'Story page' },
-    { t: 'Founder build installer', p: 'minimi-windows', s: 'open', k: 'bug', chat: 'package-10 founder build' }
+    { t: 'Loops always-visible view', p: 'afterterm', s: 'open', k: 'Feature', when: '2m', chat: 'Loops design', note: 'Floating card picked. Rotting colour next.', subs: [
+      { t: 'Design doc', s: 'closed', k: 'Feature', when: '1h', note: 'Decisions on AFT-82.' },
+      { t: 'Mock of the loops view', s: 'open', k: 'Feature', when: '2m', note: 'Third pass, click to open in place.' },
+      { t: 'afterterm loops CLI', s: 'open', k: 'Idea', when: '3h', note: 'list, new, update, close, ping.' },
+      { t: 'Chat-start hook', s: 'open', k: 'Idea', when: '3h', note: 'Open loops for the folder, at session start.' },
+      { t: 'Loops screen', s: 'open', k: 'Idea', when: '1h', note: 'After the floating card.' } ] },
+    { t: 'Header shows the old model', p: 'afterterm', s: 'closed', k: 'Bug', when: '40m', chat: 'Fix model label', note: 'Merged in PR #98.' },
+    { t: 'Snapshot calendar on Windows', p: 'minimi-windows', s: 'open', k: 'Feature', when: '5h', chat: 'package-7 snapshot calendar', note: 'Week view left.', subs: [
+      { t: 'Calendar permissions', s: 'closed', k: 'Feature', when: '1d', note: 'Works on Windows 11.' },
+      { t: 'Week view', s: 'open', k: 'Feature', when: '5h', note: 'Layout done, events missing.' } ] },
+    { t: 'GitHub poll page', p: 'afterthought', s: 'open', k: 'Feature', when: '1d', chat: 'Take a poll from GitHub', note: 'Poll form built, results page next.' },
+    { t: 'Rail tile order', p: 'afterterm', s: 'open', k: 'Bug', when: '2d', chat: 'Rail order', note: 'Waiting on the order picker design.', subs: [
+      { t: 'Group pinned tiles', s: 'closed', k: 'Bug', when: '3d', note: 'Done.' },
+      { t: 'Order picker', s: 'open', k: 'Idea', when: '2d', note: 'Three options to mock.' },
+      { t: 'Badge meanings', s: 'closed', k: 'Bug', when: '2d', note: 'Tooltips added.' } ] },
+    { t: 'Memory between canvas sessions', p: 'canvas-agent', s: 'open', k: 'Idea', when: '2d', chat: 'hi', note: 'Store a summary per board.' },
+    { t: 'Daily Chrome activity summary', p: 'General', s: 'open', k: 'Idea', when: '2d', chat: 'Create daily Chrome activity', note: 'Read history, summarise each evening.' },
+    { t: 'Usage in the title bar', p: 'afterterm', s: 'closed', k: 'Feature', when: '2d', chat: 'Usage bar', note: 'Shipped in 0.16.0.' },
+    { t: 'Transcript fetcher clone', p: 'transcript-fetcher-clone', s: 'open', k: 'Feature', when: '2d', chat: 'transcript-fetcher-clone', note: 'Fetch works, export left.' }
   ];
   var ROTTING = 4;
-  var OPEN_COUNT = LOOPS.filter(function (l) { return l.s === 'open'; }).length;
+  var REMAINING = LOOPS.filter(function (l) { return l.s === 'open'; }).length + ROTTING;
+  var opened = {};
 
   var I = {
     loops: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="5.5" cy="8" r="3.5"/><circle cx="10.5" cy="8" r="3.5"/></svg>',
-    rot: '<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="7" cy="7" r="5.5"/><path d="M7 4v3.2l2 1.3"/></svg>',
+    rot: '<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="5.5"/><path d="M7 4v3.2l2 1.3"/></svg>',
     shrink: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l8-8M5 3h6v6"/></svg>',
     tick: '<svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5.2l2 2L8 3"/></svg>',
-    feature: '<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M7 1.5l1.7 3.6 3.8.5-2.8 2.6.7 3.8L7 10.2 3.6 12l.7-3.8L1.5 5.6l3.8-.5z"/></svg>',
-    bug: '<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><rect x="4" y="4" width="6" height="8" rx="3"/><path d="M2 6h2M10 6h2M2 10h2M10 10h2M5 3l1 1M9 3L8 4"/></svg>',
-    idea: '<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M5 10.5h4M5.5 12.5h3M7 1.5a4 4 0 0 0-2.3 7.3c.3.2.3.5.3.7v1h4v-1c0-.2 0-.5.3-.7A4 4 0 0 0 7 1.5z"/></svg>',
+    Feature: '<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M7 1.5l1.7 3.6 3.8.5-2.8 2.6.7 3.8L7 10.2 3.6 12l.7-3.8L1.5 5.6l3.8-.5z"/></svg>',
+    Bug: '<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><rect x="4" y="4" width="6" height="8" rx="3"/><path d="M2 6h2M10 6h2M2 10h2M10 10h2M5 3l1 1M9 3L8 4"/></svg>',
+    Idea: '<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M5 10.5h4M5.5 12.5h3M7 1.5a4 4 0 0 0-2.3 7.3c.3.2.3.5.3.7v1h4v-1c0-.2 0-.5.3-.7A4 4 0 0 0 7 1.5z"/></svg>',
     chat: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M2 3h10v6.5H6L3 12V9.5H2z"/></svg>',
     dots: '<svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><circle cx="3" cy="7" r="1.2"/><circle cx="7" cy="7" r="1.2"/><circle cx="11" cy="7" r="1.2"/></svg>',
     code: '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4L2 8l4 4M10 4l4 4-4 4"/></svg>',
     panel: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="3" width="12" height="10" rx="2"/><path d="M6 3v10"/></svg>',
     search: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>',
     plus: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>',
-    home: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M2.5 7L8 2.5 13.5 7v6.5h-11z"/></svg>'
+    home: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M2.5 7L8 2.5 13.5 7v6.5h-11z"/></svg>',
+    chev: '<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 2l3 3-3 3"/></svg>'
   };
-
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
-  /* controls */
   var controls = document.getElementById('controls');
   OPTIONS.forEach(function (o) {
     var d = document.createElement('div'); d.className = 'ctl';
@@ -213,12 +202,10 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
   });
   controls.addEventListener('click', function (e) {
     var b = e.target.closest('button[data-k]'); if (!b) return;
-    var k = b.dataset.k, v = b.dataset.v;
-    if (k === 'shrunk') { setShrunk(v === 'yes'); return; }
-    cfg[k] = v; render();
+    if (b.dataset.k === 'shrunk') { setShrunk(b.dataset.v === 'yes'); return; }
+    cfg[b.dataset.k] = b.dataset.v; render();
   });
 
-  /* stage scaling */
   var stage = document.getElementById('stage'), box = document.getElementById('stageBox');
   function fit() { var s = box.clientWidth / 1280; stage.style.transform = 'scale(' + s + ')'; box.style.height = (780 * s) + 'px'; stage.dataset.scale = s; }
   window.addEventListener('resize', fit);
@@ -226,176 +213,84 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
   var activeChat = 'Loops design', activeProject = 'afterterm';
 
   function statusIcon(s) { return s === 'closed' ? '<span class="st"><span class="st-closed">' + I.tick + '</span></span>' : '<span class="st"><span class="st-open"></span></span>'; }
-  function kindIcon(k) { return cfg.kind === 'icon' ? '<span class="kind" title="' + k + '">' + I[k] + '</span>' : ''; }
-  function frac(l) {
-    if ((cfg.subLoops !== 'count' && cfg.subLoops !== 'ring') || !l.subs) return '';
-    var done = l.subs.filter(function (s) { return s.s === 'closed'; }).length;
-    var tip = ' title="' + done + ' of ' + l.subs.length + ' closed"';
-    if (cfg.subLoops === 'ring') { var c = 2 * Math.PI * 5.5, f = done / l.subs.length; return '<span class="frac"' + tip + '><svg width="15" height="15" viewBox="0 0 15 15"><circle cx="7.5" cy="7.5" r="5.5" fill="none" stroke="#4a4a4a" stroke-width="2"/><circle cx="7.5" cy="7.5" r="5.5" fill="none" stroke="#ececec" stroke-width="2" stroke-dasharray="' + (c * f) + ' ' + c + '" transform="rotate(-90 7.5 7.5)"/></svg></span>'; }
-    return '<span class="frac"' + tip + '>' + done + '/' + l.subs.length + '</span>';
+  function details(l) {
+    return '<div class="det"><div class="det-meta"><span class="k">' + I[l.k] + l.k + '</span><span>' + l.when + '</span></div><div class="det-note">' + esc(l.note) + '</div></div>';
   }
-
-  function rowHtml(l, i, sub, parent) {
-    var col = P[sub ? parent.p : l.p], proj = sub ? parent.p : l.p;
-    var cls = 'row' + (l.s === 'closed' ? ' closed' : '') + (cfg.closed === 'tickDim' ? ' dim' : '') + (sub ? ' sub' : '');
-    var data = ' data-i="' + i + '"' + (sub ? ' data-sub="1"' : '');
-    if (sub) {
-      return '<button type="button" class="' + cls + '"' + data + ' style="height:30px">' + statusIcon(l.s) + kindIcon(l.k) +
-        '<span class="t"><span class="t1">' + esc(l.t) + '</span></span></button>';
+  function loopHtml(l, i) {
+    var id = String(i), isOpen = !!opened[id];
+    var frac = '';
+    if (l.subs) { var done = l.subs.filter(function (s) { return s.s === 'closed'; }).length; frac = '<span class="frac" data-expand="' + id + '">' + done + '/' + l.subs.length + '</span>'; }
+    var h = '<button type="button" class="row' + (l.s === 'closed' ? ' closed' : '') + (isOpen ? ' open-row' : '') + '" data-i="' + id + '">' + statusIcon(l.s) +
+      '<span class="t1">' + esc(l.t) + '</span>' + frac + '<span class="pname" style="color:' + P[l.p] + '">' + esc(l.p) + '</span></button>';
+    if (isOpen) {
+      h += details(l);
+      if (l.subs) {
+        h += '<div class="subs" style="margin-left:26px">' + l.subs.map(function (s, j) {
+          var sid = id + '.' + j, so = !!opened[sid];
+          return '<button type="button" class="row sub' + (s.s === 'closed' ? ' closed' : '') + (so ? ' open-row' : '') + '" data-i="' + sid + '">' + statusIcon(s.s) + '<span class="t1">' + esc(s.t) + '</span></button>' + (so ? details(s) : '');
+        }).join('') + '</div>';
+      }
     }
-    if (cfg.row === 'oneLine') {
-      return '<button type="button" class="' + cls + '"' + data + ' style="height:36px">' + statusIcon(l.s) + kindIcon(l.k) +
-        '<span class="t"><span class="t1">' + esc(l.t) + '</span></span>' + frac(l) +
-        '<span class="pname" style="color:' + col + '">' + esc(proj) + '</span></button>';
-    }
-    if (cfg.row === 'twoLine') {
-      return '<button type="button" class="' + cls + '"' + data + ' style="height:48px">' + statusIcon(l.s) + kindIcon(l.k) +
-        '<span class="t"><span class="t1">' + esc(l.t) + '</span><span class="t2"><i class="pdot" style="background:' + col + '"></i>' + esc(proj) + '</span></span>' + frac(l) + '</button>';
-    }
-    return '<button type="button" class="' + cls + '"' + data + ' style="height:48px"><span class="ptile" style="background:' + col + '">' + esc(proj[0].toUpperCase()) + '</span>' +
-      '<span class="t"><span class="t1">' + esc(l.t) + '</span><span class="t2">' + kindIcon(l.k) + esc(proj) + '</span></span>' + frac(l) + statusIcon(l.s) + '</button>';
+    return h;
   }
-
-  function listItems() {
-    var out = [];
-    LOOPS.forEach(function (l, i) {
-      out.push({ html: rowHtml(l, i, false), sub: false });
-      if (cfg.subLoops === 'nested' && l.subs) l.subs.forEach(function (s, j) { out.push({ html: rowHtml(s, i + '.' + j, true, l), sub: true }); });
-    });
-    return out;
+  function rotButton() {
+    if (cfg.rotting === 'badge') return '<button type="button" class="rot badge" data-act="rotting"><span class="rot-n">' + ROTTING + '</span>rotting</button>';
+    return '<button type="button" class="rot ' + cfg.rotting + '" data-act="rotting">' + I.rot + ROTTING + ' rotting</button>';
   }
-  function rowH() { return cfg.row === 'oneLine' ? 37 : 49; }
-
-  function loopsView(kind) {
-    var items = listItems();
-    var shown = cfg.list === 'five' ? items.filter(function (x) { return !x.sub; }).slice(0, 5) : items;
-    if (cfg.list === 'five' && cfg.subLoops === 'nested') {
-      shown = []; var tops = 0;
-      for (var n = 0; n < items.length; n++) { if (!items[n].sub) { if (tops === 5) break; tops++; } shown.push(items[n]); }
-    }
-    var listStyle = '';
-    if (cfg.list === 'scroll' && kind === 'float') listStyle = ' style="max-height:' + (rowH() * 5 + 6) + 'px"';
-    var rot = cfg.rotting;
-    var head = '<div class="lp-head"><span class="lp-title">Loops</span>' +
-      (rot === 'head' ? '<button type="button" class="rot-line" data-act="rotting"><span class="rot-ic">' + I.rot + '</span>' + ROTTING + ' rotting</button>' : '') +
-      '<button type="button" class="lp-hbtn" data-act="all">All</button>' +
-      '<button type="button" class="lp-hbtn" data-act="shrink" aria-label="Shrink">' + I.shrink + '</button></div>';
-    var foot = rot === 'foot' ? '<button type="button" class="rot-foot" data-act="rotting"><span class="rot-ic">' + I.rot + '</span><span class="grow">' + ROTTING + ' rotting</span><span class="view">View</span></button>' : '';
-    var badge = rot === 'badge' && kind === 'float' ? '<button type="button" class="rot-badge" data-act="rotting" aria-label="' + ROTTING + ' rotting">' + ROTTING + '</button>' : '';
-    var sideBadge = rot === 'badge' && kind === 'side' ? '' : '';
-    var listCls = 'lp-list' + (cfg.list === 'scroll' ? ' scroll' : '');
-    var sideList = kind === 'side' && cfg.list === 'scroll' ? ' style="flex:1"' : '';
-    return badge + head + '<div class="' + listCls + '"' + (kind === 'float' ? listStyle : sideList) + '>' + shown.map(function (x) { return x.html; }).join('') + '</div>' + foot + sideBadge;
-  }
-
-  function shrunkButton(where) {
-    var on = cfg.shrunk === 'yes' ? '' : ' on';
-    var rotMark = '';
-    if (where === 'header') return '<button type="button" class="h-btn loops' + on + '" data-act="toggle" data-target="1">' + I.loops + '<span class="cnt">' + OPEN_COUNT + '</span>' + rotMark + '</button>';
-    if (where === 'rail') return '<button type="button" class="rail-btn loops' + on + '" data-act="toggle" data-target="1" aria-label="Loops">' + I.loops + rotMark + '</button>';
-    if (where === 'titlebar') return '<button type="button" class="tb-loops' + on + '" data-act="toggle" data-target="1">' + I.loops + '<span class="cnt">' + OPEN_COUNT + '</span></button>';
-    return '<div class="strip"><button type="button" class="' + on.trim() + '" data-act="toggle" data-target="1" aria-label="Loops" style="position:relative">' + I.loops + '<span class="cnt">' + OPEN_COUNT + '</span>' + rotMark + '</button></div>';
+  function card() {
+    return '<div class="lp" id="lp"><div class="lp-head"><span class="lp-title">Loops</span>' + rotButton() +
+      '<button type="button" class="lp-hbtn" data-act="all">All</button><button type="button" class="lp-hbtn" data-act="shrink" aria-label="Shrink">' + I.shrink + '</button></div>' +
+      '<div class="lp-list">' + LOOPS.slice(0, 5).map(loopHtml).join('') + '</div>' +
+      '<div class="lp-foot"><span class="remain"><b>' + REMAINING + '</b> remaining</span><button type="button" class="clean" data-act="clean">Clean up</button></div></div>';
   }
 
   var TERM = '<span class="dim">&gt;</span> <span class="hi">make the always-visible loops view mock</span>\n\n' +
     '<span class="hi">●</span> Reading docs/ideas.md\n<span class="hi">●</span> Reading src/renderer/theme.css\n\n' +
-    'The loops view needs five options to compare:\n  placement, where it shrinks to, the list length,\n  the row, and where the rotting count goes.\n\n' +
     '<span class="hi">●</span> Write(docs/mockups/loops-always-visible.html)\n  <span class="dim">⎿  Wrote 412 lines</span>\n\n' +
     '<span class="hi">●</span> Bash(afterterm loops ping 14)\n  <span class="dim">⎿  Loops always-visible view: pinged</span>\n\n' +
     '<span class="dim">───────────────────────────────────────────────</span>\n<span class="dim">&gt;</span> ';
 
   function render() {
-    var s = cfg.shrunk === 'yes', where = cfg.shrinkTo;
-    var projects = [['afterterm', ['Loops design', 'Fix model label', 'Rail order']], ['minimi-windows', ['package-7 snapshot calendar', 'package-10 founder build']], ['afterthought', ['Take a poll from GitHub']], ['canvas-agent', ['hi']]];
+    var s = cfg.shrunk === 'yes';
+    var projects = [['afterterm', ['Loops design', 'Fix model label', 'Rail order', 'Usage bar']], ['minimi-windows', ['package-7 snapshot calendar']], ['afterthought', ['Take a poll from GitHub']], ['canvas-agent', ['hi']]];
     var panel = '<div class="srch">Search</div><div class="sec">Pinned</div>' + projects.map(function (p) {
       return '<div class="proj"><i style="background:' + P[p[0]] + '"></i>' + p[0] + '</div>' + p[1].map(function (t) { return '<div class="thr' + (t === activeChat ? ' act' : '') + '">' + esc(t) + '</div>'; }).join('');
     }).join('');
-    var rail = '<span class="rail-btn">' + I.panel + '</span><span class="rail-btn">' + I.search + '</span><span class="rail-btn">' + I.plus + '</span>' +
-      (where === 'rail' ? shrunkButton('rail') : '') + '<span class="rail-sep"></span><span class="rail-btn">' + I.home + '</span><span class="rail-sep"></span>' +
+    var rail = '<span class="rail-btn">' + I.panel + '</span><span class="rail-btn">' + I.search + '</span><span class="rail-btn">' + I.plus + '</span><span class="rail-sep"></span><span class="rail-btn">' + I.home + '</span><span class="rail-sep"></span>' +
       ['afterterm', 'minimi-windows', 'afterthought'].map(function (p) { return '<span class="tile" style="background:' + P[p] + '">' + p[0].toUpperCase() + '</span>'; }).join('');
-
-    var header = '<div class="header"><span class="h-ic">' + I.chat + '</span><div class="h-txt"><div class="h-name" id="hName">' + esc(activeChat) + '</div>' +
+    var header = '<div class="header"><span class="h-ic">' + I.chat + '</span><div class="h-txt"><div class="h-name">' + esc(activeChat) + '</div>' +
       '<div class="h-meta"><b>' + esc(activeProject) + '</b> · Opus 5.5 · loops-idea</div></div>' +
-      (where === 'header' ? shrunkButton('header') : '') + '<span class="h-btn">' + I.code + '</span><span class="h-btn">' + I.dots + '</span></div>';
-
-    var side = cfg.placement === 'sidebar' && !s ? '<div class="lp rside" id="lp" style="width:' + cfg.width + 'px">' + loopsView('side') + '</div>' : '';
-    var strip = where === 'strip' ? shrunkButton('strip') : '';
-    var floating = cfg.placement === 'floating' && !s ? '<div class="lp float" id="lp" style="width:' + cfg.width + 'px">' + loopsView('float') + '</div>' : '';
-
+      '<button type="button" class="h-loops' + (s ? '' : ' on') + '" data-act="toggle" data-target="1">' + I.loops + '<span class="cnt">' + REMAINING + '</span></button>' +
+      '<span class="h-btn">' + I.code + '</span><span class="h-btn">' + I.dots + '</span></div>';
     stage.innerHTML =
-      '<div class="titlebar"><span class="name">afterterm</span><span>0.16.0</span><span class="grow"></span>' + (where === 'titlebar' ? shrunkButton('titlebar') : '') +
-      '<span class="caps"><span>—</span><span>☐</span><span>✕</span></span></div>' +
+      '<div class="titlebar"><span class="name">afterterm</span><span>0.16.0</span><span class="grow"></span><span class="caps"><span>—</span><span>☐</span><span>✕</span></span></div>' +
       '<div class="body"><div class="rail">' + rail + '</div><div class="panel">' + panel + '</div>' +
-      '<div class="main"><div class="col">' + header + '<div class="term">' + TERM + '</div></div>' +
-      '<div style="display:flex">' + side + strip + '</div>' + floating + '</div></div>';
-
+      '<div class="main">' + header + '<div class="term">' + TERM + '</div>' + (s ? '' : card()) + '</div></div>';
     controls.querySelectorAll('button[data-k]').forEach(function (b) { b.setAttribute('aria-pressed', String(cfg[b.dataset.k] === b.dataset.v)); });
     var out = {}; for (var k in cfg) if (k !== 'shrunk') out[k] = cfg[k];
     document.getElementById('cfgOut').textContent = JSON.stringify(out, null, 2);
-    try { localStorage.setItem('loops-mock-cfg', JSON.stringify(cfg)); } catch (e) {}
     fit();
   }
 
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var busy = false;
+  function flight(el, from, to, sc, reverse) {
+    var a = el.getBoundingClientRect();
+    var dx = (to.left + to.width / 2 - (a.left + a.width / 2)) / sc, dy = (to.top + to.height / 2 - (a.top + a.height / 2)) / sc;
+    var small = 'translate(' + dx + 'px,' + dy + 'px) scale(' + Math.max(to.width / a.width, .04) + ',' + Math.max(to.height / a.height, .04) + ')';
+    var frames = [{ transform: 'none', opacity: 1 }, { transform: small, opacity: .2 }];
+    return el.animate(reverse ? frames.reverse() : frames, { duration: 300, easing: reverse ? 'cubic-bezier(.2,.8,.2,1)' : 'cubic-bezier(.4,0,.2,1)', fill: reverse ? 'none' : 'forwards' });
+  }
   function setShrunk(want) {
     if (busy || (cfg.shrunk === 'yes') === want) return;
-    var lp = document.getElementById('lp'), target = stage.querySelector('[data-target]');
-    var sc = parseFloat(stage.dataset.scale) || 1;
-    if (reduce || !lp || !target || !lp.animate) {
-      if (want) { cfg.shrunk = 'yes'; render(); return; }
-      cfg.shrunk = 'no'; render(); return;
-    }
-    if (want) {
-      busy = true;
-      var a = lp.getBoundingClientRect(), b = target.getBoundingClientRect();
-      var dx = (b.left + b.width / 2 - (a.left + a.width / 2)) / sc, dy = (b.top + b.height / 2 - (a.top + a.height / 2)) / sc;
-      var sx = Math.max(b.width / a.width, .04), sy = Math.max(b.height / a.height, .04);
-      lp.animate([{ transform: 'none', opacity: 1, borderRadius: getComputedStyle(lp).borderRadius }, { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(' + sx + ',' + sy + ')', opacity: .2, borderRadius: '40px' }],
-        { duration: 300, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' }).onfinish = function () { busy = false; cfg.shrunk = 'yes'; render(); };
-    } else {
-      busy = true;
-      var b2 = target.getBoundingClientRect();
-      cfg.shrunk = 'no'; render();
-      var lp2 = document.getElementById('lp'); if (!lp2) { busy = false; return; }
-      var a2 = lp2.getBoundingClientRect();
-      var dx2 = (b2.left + b2.width / 2 - (a2.left + a2.width / 2)) / sc, dy2 = (b2.top + b2.height / 2 - (a2.top + a2.height / 2)) / sc;
-      var sx2 = Math.max(b2.width / a2.width, .04), sy2 = Math.max(b2.height / a2.height, .04);
-      lp2.animate([{ transform: 'translate(' + dx2 + 'px,' + dy2 + 'px) scale(' + sx2 + ',' + sy2 + ')', opacity: .2, borderRadius: '40px' }, { transform: 'none', opacity: 1 }],
-        { duration: 320, easing: 'cubic-bezier(.2,.8,.2,1)' }).onfinish = function () { busy = false; };
-    }
+    closeMenu();
+    var sc = parseFloat(stage.dataset.scale) || 1, target = stage.querySelector('[data-target]');
+    if (reduce || !target || !Element.prototype.animate) { cfg.shrunk = want ? 'yes' : 'no'; render(); return; }
+    var tr = target.getBoundingClientRect();
+    busy = true;
+    if (want) { flight(document.getElementById('lp'), null, tr, sc, false).onfinish = function () { busy = false; cfg.shrunk = 'yes'; render(); }; }
+    else { cfg.shrunk = 'no'; render(); flight(document.getElementById('lp'), null, tr, sc, true).onfinish = function () { busy = false; }; }
   }
-
-  var menuFor = null;
-  var MENU_WORDS = { reopen: 'Reopened', close: 'Closed', rename: 'Rename', move: 'Move to project', archive: 'Archived', 'delete': 'Deleted' };
-  function closeMenu() { var m = stage.querySelector('.menu'); if (m) m.remove(); }
-  function menuAction(a) {
-    var l = menuFor; if (!l) return;
-    if (a === 'open') {
-      activeChat = l.chat; activeProject = l.p; render();
-      var h = document.getElementById('hName'); if (h) { h.classList.remove('flash'); void h.offsetWidth; h.classList.add('flash'); }
-      return;
-    }
-    toast(MENU_WORDS[a]);
-  }
-  stage.addEventListener('contextmenu', function (e) {
-    var row = e.target.closest('.row'); if (!row) return;
-    e.preventDefault(); closeMenu();
-    var idx = String(row.dataset.i).split('.'), l = LOOPS[+idx[0]]; if (!l) return;
-    var sub = idx.length > 1 ? l.subs[+idx[1]] : null, st = (sub || l).s;
-    menuFor = l;
-    var items = [['open', 'Open chat'], 'sep', [st === 'closed' ? 'reopen' : 'close', st === 'closed' ? 'Reopen' : 'Close'], ['rename', 'Rename']];
-    if (!sub) items.push(['move', 'Move to project']);
-    items.push(['archive', 'Archive'], 'sep', ['delete', 'Delete']);
-    var menu = document.createElement('div'); menu.className = 'menu';
-    menu.innerHTML = items.map(function (it) { return it === 'sep' ? '<span class="sep"></span>' : '<button type="button" data-menu="' + it[0] + '"' + (it[0] === 'delete' ? ' class="danger"' : '') + '>' + it[1] + '</button>'; }).join('');
-    var sc = parseFloat(stage.dataset.scale) || 1, r = stage.getBoundingClientRect();
-    var x = Math.min((e.clientX - r.left) / sc, 1280 - 196), y = Math.min((e.clientY - r.top) / sc, 780 - 250);
-    menu.style.left = x + 'px'; menu.style.top = y + 'px';
-    stage.appendChild(menu);
-  });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeMenu(); });
-  document.addEventListener('click', function (e) { if (!stage.contains(e.target)) closeMenu(); });
 
   function toast(text) {
     var old = stage.querySelector('.toast'); if (old) old.remove();
@@ -403,29 +298,88 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     setTimeout(function () { t.remove(); }, 1400);
   }
 
+  /* right-click menu, submenus open beside their parent */
+  var menuFor = null;
+  function closeMenu(from) { stage.querySelectorAll('.menu').forEach(function (m) { if (!from || +m.dataset.level >= from) m.remove(); }); }
+  function menuItems(target) {
+    var l = target.loop, st = target.item.s, sub = target.sub;
+    var projects = Object.keys(P).map(function (p) { return { id: 'move', label: p, check: p === l.p }; });
+    var update = [
+      { label: 'Status', kids: [{ id: 'status', label: 'Open', check: st === 'open' }, { id: 'status', label: 'Closed', check: st === 'closed' }] },
+      { label: 'Kind', kids: ['Feature', 'Bug', 'Idea'].map(function (k) { return { id: 'kind', label: k, check: target.item.k === k }; }) },
+      { id: 'rename', label: 'Rename' }
+    ];
+    if (!sub) update.push({ label: 'Move to project', kids: projects });
+    update.push({ id: 'archive', label: 'Archive' }, 'sep', { id: 'delete', label: 'Delete', danger: true });
+    return [{ id: 'open', label: 'Open chat' }, { id: 'close', label: st === 'closed' ? 'Reopen' : 'Close' }, 'sep', { label: 'Update', kids: update }];
+  }
+  function showMenu(items, x, y, level) {
+    closeMenu(level);
+    var menu = document.createElement('div'); menu.className = 'menu'; menu.dataset.level = level;
+    items.forEach(function (it, n) {
+      if (it === 'sep') { var s = document.createElement('span'); s.className = 'sep'; menu.appendChild(s); return; }
+      var b = document.createElement('button'); b.type = 'button';
+      if (it.danger) b.className = 'danger';
+      b.innerHTML = (it.check !== undefined ? '<span class="chk">' + (it.check ? '✓' : '') + '</span>' : '') + '<span class="lbl">' + esc(it.label) + '</span>' + (it.kids ? '<span class="chev">' + I.chev + '</span>' : '');
+      function openKids() {
+        menu.querySelectorAll('button').forEach(function (x) { x.classList.remove('hl'); });
+        if (!it.kids) { closeMenu(level + 1); return; }
+        b.classList.add('hl');
+        var sc = parseFloat(stage.dataset.scale) || 1, r = stage.getBoundingClientRect(), br = b.getBoundingClientRect(), mr = menu.getBoundingClientRect();
+        var nx = (mr.right - r.left) / sc + 2, ny = (br.top - r.top) / sc - 5;
+        if (nx + 180 > 1280) nx = (mr.left - r.left) / sc - 182;
+        showMenu(it.kids, nx, Math.min(ny, 780 - (it.kids.length * 32 + 12)), level + 1);
+      }
+      b.addEventListener('mouseenter', openKids);
+      b.addEventListener('click', function (e) { e.stopPropagation(); if (it.kids) { openKids(); return; } act(it); });
+      menu.appendChild(b);
+    });
+    menu.style.left = x + 'px'; menu.style.top = y + 'px';
+    stage.appendChild(menu);
+  }
+  function act(it) {
+    var target = menuFor; closeMenu(); if (!target) return;
+    var l = target.loop, item = target.item;
+    if (it.id === 'open') { activeChat = l.chat; activeProject = l.p; render(); return; }
+    if (it.id === 'close') { item.s = item.s === 'closed' ? 'open' : 'closed'; render(); return; }
+    if (it.id === 'status') { item.s = it.label === 'Closed' ? 'closed' : 'open'; render(); return; }
+    if (it.id === 'kind') { item.k = it.label; render(); return; }
+    if (it.id === 'move') { l.p = it.label; render(); return; }
+    toast(({ rename: 'Rename', archive: 'Archived', 'delete': 'Deleted' })[it.id] || it.label);
+  }
+  function findTarget(id) {
+    var parts = String(id).split('.'), l = LOOPS[+parts[0]];
+    if (!l) return null;
+    var sub = parts.length > 1 ? l.subs[+parts[1]] : null;
+    return { loop: l, item: sub || l, sub: !!sub };
+  }
+  stage.addEventListener('contextmenu', function (e) {
+    var row = e.target.closest('.row'); if (!row) return;
+    e.preventDefault();
+    menuFor = findTarget(row.dataset.i); if (!menuFor) return;
+    var sc = parseFloat(stage.dataset.scale) || 1, r = stage.getBoundingClientRect();
+    showMenu(menuItems(menuFor), Math.min((e.clientX - r.left) / sc, 1280 - 360), Math.min((e.clientY - r.top) / sc, 780 - 140), 0);
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeMenu(); });
+  document.addEventListener('click', function (e) { if (!e.target.closest('.menu')) closeMenu(); });
+
   stage.addEventListener('click', function (e) {
-    var m = e.target.closest('[data-menu]');
-    if (m) { menuAction(m.dataset.menu); closeMenu(); return; }
-    closeMenu();
-    var b = e.target.closest('[data-act]'); if (!b) return;
-    var act = b.dataset.act;
-    if (act === 'shrink') return setShrunk(true);
-    if (act === 'toggle') return setShrunk(cfg.shrunk !== 'yes');
-    if (act === 'all') return toast('Loops screen');
-    if (act === 'rotting') return toast('Loops screen · Rotting');
-    if (b.classList.contains('row')) {
-      var idx = String(b.dataset.i).split('.')[0], l = LOOPS[+idx];
-      if (!l) return;
-      activeChat = l.chat; activeProject = l.p; render();
-      var h = document.getElementById('hName'); if (h) { h.classList.remove('flash'); void h.offsetWidth; h.classList.add('flash'); }
-    }
+    if (e.target.closest('.menu')) return;
+    var b = e.target.closest('[data-act], .row'); if (!b) return;
+    var a = b.dataset.act;
+    if (a === 'shrink') return setShrunk(true);
+    if (a === 'toggle') return setShrunk(cfg.shrunk !== 'yes');
+    if (a === 'all') return toast('Loops screen');
+    if (a === 'rotting') return toast('Loops screen · Rotting');
+    if (a === 'clean') return toast('Loops screen');
+    if (b.classList.contains('row')) { var id = b.dataset.i; opened[id] = !opened[id]; render(); }
   });
 
   var copyBtn = document.getElementById('copyBtn');
   copyBtn.addEventListener('click', function () {
     var txt = document.getElementById('cfgOut').textContent;
     function done() { copyBtn.textContent = 'Copied'; setTimeout(function () { copyBtn.textContent = 'Copy config'; }, 1200); }
-    function fallback() { var r = document.createRange(); r.selectNodeContents(document.getElementById('cfgOut')); var sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+    function fallback() { var rg = document.createRange(); rg.selectNodeContents(document.getElementById('cfgOut')); var sel = getSelection(); sel.removeAllRanges(); sel.addRange(rg); }
     try { navigator.clipboard.writeText(txt).then(done, fallback); } catch (e) { fallback(); }
   });
 
