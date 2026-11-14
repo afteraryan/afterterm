@@ -27,6 +27,7 @@ if (opts.help) {
   console.log(`usage: node scripts/agent-harness/launch.mjs [options]
   --session <file>    session.json to seed the throwaway profile from (copied, never edited)
   --prefs <file>      JSON merged into the throwaway prefs.json (lastOpenedAt, editorPath, ...)
+  --loops <file>      a loops.json copied into the data dir (loops-seed.mjs writes one)
   --data-dir <dir>    user-data dir to use (default: a fresh folder under %TEMP%\\afterterm-agent-harness)
   --display <which>   primary | secondary | <index into screen.getAllDisplays()> (default: secondary)
   --port <n>          remote debugging port (default: ${DEFAULT_PORT})
@@ -118,6 +119,13 @@ if (sessionSource) {
     }
   }
   fs.writeFileSync(path.join(dataDir, 'session.json'), JSON.stringify(session, null, 2));
+}
+
+// --loops <file>: a loops.json to start with (scripts/agent-harness/loops-seed.mjs).
+if (opts.loops) {
+  const src = path.resolve(String(opts.loops));
+  if (!fs.existsSync(src)) fail(`--loops file not found: ${src}`);
+  fs.copyFileSync(src, path.join(dataDir, 'loops.json'));
 }
 
 // The hook self-install fires a one-time "Claude Code notifications enabled" toast

@@ -146,7 +146,10 @@ export function callerChat(ctx: LoopsContext, env: CallerEnv): LoopChat | null {
   if (env.thread) chat.threadId = env.thread;
   const session = env.session || t?.sessionId;
   if (session) chat.sessionId = session;
-  const cwd = t?.cwd || env.cwd;
+  // A chat's folder is the one Claude Code's session is in (what `claude --resume`
+  // needs). Any other shell's is where the command ran: the thread's own folder is
+  // only reported at its next prompt, so it can lag behind a `cd` on the same line.
+  const cwd = (t?.sessionId ? t.cwd : undefined) || env.cwd;
   if (cwd) chat.cwd = cwd;
   return chat.threadId || chat.sessionId || chat.cwd ? chat : null;
 }

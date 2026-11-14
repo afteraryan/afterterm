@@ -15,9 +15,9 @@ Order changed from the suggested one: the loop rows, opening a loop, the menu an
 | Phase | Issue | What it contains | Status |
 |---|---|---|---|
 | 1. Store and rules | AFT-95 | `src/loops.ts` (the rules: rotting after 5 calendar days, sub-loop activity, ideas and closed never rot, order, counts, the card's 5, the remembered chat, the parent-close rule, one level of nesting, delete for 30 days); `src/loops-store.ts` (`<userData>\loops.json`, main the only writer, atomic saves, a broken file moved aside); `loops:list`, `loops:act`, `loops:changed` | Done (PR #109) |
-| 2. Agents | AFT-96 | `afterterm loops` over a named pipe with a per-launch token, on PATH only in afterterm's terminals; the skill; the chat-start hook | In progress |
-| 3. Activity counts | AFT-97 | Messages sent to Claude per local day from transcript structure, saved in userData, backfilled on the first launch in chunks; shades, streak, longest streak | In progress (an Opus subagent, worktree `loops-activity`) |
-| 4. Loop rows and actions | AFT-98 | Rows, opening in place (the joined box), the fold, the right-click menu and its Update submenus, Open chat in every case, archive, delete and restore | Todo |
+| 2. Agents | AFT-96 | `afterterm loops` over a named pipe with a per-launch token, on PATH only in afterterm's terminals; the skill; the chat-start hook | Done (PR #110) |
+| 3. Activity counts | AFT-97 | Messages sent to Claude per local day from transcript structure, saved in userData, backfilled on the first launch in chunks; shades, streak, longest streak | Done (PR #111) |
+| 4. Loop rows and actions | AFT-98 | Rows, opening in place (the joined box), the fold, the right-click menu and its Update submenus, Open chat in every case, archive, delete and restore; first shown as the list in Home's Progress column | Done |
 | 5. Home's Progress column | AFT-99 | The Progress layout: projects at 90%, the 472px column, calendar and count cards, the filter, the list, the close and slide | Todo |
 | 6. The workspace card | AFT-100 | The floating card, its header button and Ctrl+Shift+L, the flight, the 5 rows, rotting, the remaining bar, All | Todo |
 | 7. Release readiness | AFT-101 | CHANGELOG, `docs/features-loops.md`, CLAUDE.md; fresh install, update from 0.18.1, manual install over it, startup time with a large transcript folder; every spec value measured in DevTools | Todo |
@@ -34,7 +34,15 @@ Decided while building (recorded here as they come):
 - All the command's rules and output live in main (`src/loops-cli.ts`); the client script (`assets/cli/afterterm-cli.js`) only carries the request. One pipe per data folder, so a harness run or the test build never reaches the real app.
 - Where the chat-start text sits (left open in design-07): in the chat's context through SessionStart's `additionalContext`, at most 8 loops on one line each, the resumed chat's loop and status note first, and one line telling the agent to reuse a loop rather than start a duplicate. An older afterterm, or no answer within 2 seconds, gives the title only.
 - The skill is written to `<Claude folder>\skills\afterterm-loops\SKILL.md` beside the hook, under the hook's own guard (never from a test launch without its own Claude folder) and opt-out; a file there without afterterm's marker line is never touched. Its description limits it to chats inside afterterm.
-- Agents' messages say "Ask the user", not "Ask Aryan", since other people use afterterm.## Automatic updates
+- Agents' messages say "Ask the user", not "Ask Aryan", since other people use afterterm.
+- Open chat, in order: the loop's thread when it is open (shown, and woken when asleep; a thread now on another Claude session does not count, the session wins), else the project's history entry for that session (resumed from there), else a new chat thread in the loop's project that resumes the session in the folder it was in. A loop with no session (started by hand) says "No chat".
+- A deleted worktree (design-07's open case): the chat cannot be resumed where it was, so it opens in the project's folder with the note "Folder gone, opened in the project folder"; Claude Code says so itself if it cannot find the session there.
+- The folder a loop remembers: for a chat, the folder of Claude Code's session (what resuming needs); for any other shell, the folder the command ran in, since a shell reports its own folder only at its next prompt.
+- Delete shows "Deleted" with Undo for 6 seconds; `afterterm loops restore <id>` brings one back within 30 days.
+- A submenu that has to open to the left keeps its own submenus on the left, so a chain never lands on top of its root menu.
+- Home's list keeps titles on one line (the spec: "Rows as in the Progress list, except titles wrap" on the card).
+
+## Automatic updates
 
 An installed afterterm finds a newer release on GitHub, tells the user ("afterterm 0.11.0 is available", with What's new, Update, Later and Skip this version), downloads the installer in the background with progress, checks it against the sha256 GitHub publishes, and on "Restart to update" closes, installs quietly, reopens and wakes every thread that was awake. Never forced; a setting turns the checks off.
 

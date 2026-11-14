@@ -3,8 +3,8 @@
 
 import type { Group, HistoryEntry, Tab } from './components/TabBar/types';
 import type { LoopsContext } from '../loops-cli';
-import { loopStatus, orderedTopLoops, type Loop, type LoopLabel, type LoopStatus } from '../loops';
-import { groupColors } from './projectColour';
+import { loopStatus, orderedTopLoops, type Loop, type LoopLabel, type LoopStatus } from '../loops.ts';
+import { groupColors } from './projectColour.ts';
 
 // What main needs to know for `afterterm loops`: each project's name and folder,
 // each thread's project, Claude session and folder. Sent whenever it changes.

@@ -1,0 +1,176 @@
+/* Loops: the rows, the opened loop's joined box, the sub-loops and the menu
+   (design-07, "Frontend spec: exact values"). Shared by Home's Progress list
+   (.lp-list.lp-list) and the workspace card (.lp-card). Solid colours only. */
+
+.lp-list {
+  --lp-joined: #333333;
+  --lp-green: #4ade80;
+  --lp-green-ink: #06170b;
+  --lp-rot: #e8a23a;
+  --lp-rot-ink: #141414;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+/* ── A row ──────────────────────────────────────────────────────────────── */
+.lp-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  min-height: 31px;
+  border-radius: 8px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  text-align: left;
+  width: 100%;
+  min-width: 0;
+  flex: none;
+  cursor: pointer;
+  font: inherit;
+}
+.lp-row:hover { background: var(--hover); }
+.lp-card .lp-row:hover { background: var(--hover2); }
+.lp-row:focus-visible { outline: 2px solid #8ab4ff; outline-offset: -2px; }
+
+.lp-t1 {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* The card: titles wrap and are never cut off. */
+.lp-card .lp-t1 {
+  white-space: normal;
+  overflow: visible;
+  line-height: 1.35;
+  padding-block: 6px;
+  overflow-wrap: anywhere;
+}
+.lp-row.closed .lp-t1 { color: var(--text3); }
+
+.lp-row.sub { min-height: 26px; }
+.lp-row.sub .lp-t1 { font-size: 12px; }
+.lp-row.deleted { opacity: .55; }
+
+.lp-kind { display: grid; place-items: center; color: var(--text3); flex: none; }
+.lp-row.closed .lp-kind { color: var(--text4); }
+
+.lp-frac {
+  font-size: 11px;
+  color: var(--text3);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+.lp-frac:hover { background: #444444; color: var(--text); }
+
+.lp-pname {
+  font-size: 11.5px;
+  white-space: nowrap;
+  flex: none;
+  max-width: 36%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lp-when {
+  font-size: 11.5px;
+  color: var(--text3);
+  flex: none;
+  width: 26px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Status circles ─────────────────────────────────────────────────────── */
+.lp-st { width: 13px; height: 13px; flex: none; display: grid; place-items: center; }
+.lp-st-open { width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid var(--text3); box-sizing: border-box; }
+.lp-st-closed, .lp-st-rot { width: 12px; height: 12px; border-radius: 50%; display: grid; place-items: center; }
+.lp-st-closed { background: var(--lp-green); color: var(--lp-green-ink); }
+.lp-st-rot { background: var(--lp-rot); color: var(--lp-rot-ink); }
+
+/* ── An opened loop: the row and its box are one #333 shape ─────────────── */
+.lp-row.open-row,
+.lp-row.open-row:hover,
+.lp-card .lp-row.open-row:hover {
+  background: var(--lp-joined);
+  border-radius: 8px 8px 0 0;
+}
+.lp-det {
+  background: var(--lp-joined);
+  border-radius: 0 0 8px 8px;
+  margin: -1px 0 0;
+  padding: 2px 8px 7px;
+  line-height: 1.45;
+}
+.lp-dtx { display: grid; gap: 6px; min-width: 0; }
+.lp-desc { font-size: 12px; color: var(--text); overflow-wrap: anywhere; }
+.lp-stn {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text3);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.lp-stn svg { flex: none; margin-top: 2px; }
+
+.lp-subs { display: flex; flex-direction: column; gap: 1px; margin-left: 21px; }
+.lp-subs + .lp-row,
+.lp-det + .lp-row { margin-top: 0; }
+
+.lp-empty { color: var(--text3); font-size: 12.5px; padding: 24px 10px; text-align: center; }
+
+/* The filter changed: rows fade up 6px into place, 300 ms, 28 ms apart. */
+.lp-enter { animation: lp-enter 300ms var(--ease) both; }
+@keyframes lp-enter { from { opacity: 0; transform: translateY(6px); } }
+
+/* ── The right-click menu ───────────────────────────────────────────────── */
+.lp-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 176px;
+  background: #2f2f2f;
+  border: 1px solid #3d3d3d;
+  border-radius: 10px;
+  padding: 4px;
+  box-shadow: 0 10px 28px #000;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--sans);
+}
+.lp-menu button {
+  border: 0;
+  background: none;
+  text-align: left;
+  padding: 6px 10px;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.lp-menu button .lbl2 { flex: 1; }
+.lp-menu button .mi { display: grid; color: var(--text2); }
+.lp-menu button .chev { color: var(--text3); display: grid; }
+.lp-menu button .chk { width: 12px; }
+.lp-menu button:hover,
+.lp-menu button.hl { background: #3d3d3d; }
+.lp-menu-sep { height: 1px; background: #3d3d3d; margin: 4px 6px; }
+.lp-menu .danger { color: #f87171; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-enter { animation: none; }
+}
