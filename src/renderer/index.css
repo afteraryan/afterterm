@@ -115,6 +115,8 @@ html, body, #root {
      bar strip and the sidebar meet it, matching the terminal card below. */
   border-radius: var(--radius-surface) 0 0 0;
   overflow: hidden;
+  /* The loops card floats over it (LoopsCard.css). */
+  position: relative;
 }
 
 /* ─── Terminal instances container ──────────────────────────────────────────── */

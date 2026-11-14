@@ -49,6 +49,8 @@ import type { MenuItem } from './components/Menu';
 import { EditorLogo, IconExplorer } from './components/Icons';
 import { loopsContextFrom, NO_FILTER, openChatPlan, type LoopFilter } from './loopsView';
 import { useActivityDays, useLoops } from './hooks/useLoops';
+import { LoopsCard } from './components/Loops/LoopsCard';
+import { loopCounts } from '../loops';
 import type { Loop } from '../loops';
 
 let toastCounter = 0;
@@ -814,6 +816,9 @@ export function App() {
         case 'usage':
           toggleUsage();
           break;
+        case 'loops':
+          toggleLoopsCardRef.current();
+          break;
         case 'close-tab':
           if (s.tabs.length > 0) closeThread(s.activeTabId);
           break;
@@ -1429,6 +1434,25 @@ export function App() {
     try { localStorage.setItem('afterterm.progressOpen', String(open)); } catch { /* not kept */ }
   }, []);
   const [progressFilter, setProgressFilter] = useState<LoopFilter>(NO_FILTER);
+  // The workspace's loops card: open or closed, kept across threads and launches
+  // (per viewer). Only its button and Ctrl+Shift+L change it.
+  const [loopsCardOpen, setLoopsCardOpen] = useState<boolean>(() => {
+    try { return localStorage.getItem('afterterm.loopsCardOpen') === 'true'; } catch { return false; }
+  });
+  const toggleLoopsCard = useCallback(() => {
+    setLoopsCardOpen(o => {
+      try { localStorage.setItem('afterterm.loopsCardOpen', String(!o)); } catch { /* not kept */ }
+      return !o;
+    });
+  }, []);
+  const toggleLoopsCardRef = useRef(toggleLoopsCard);
+  toggleLoopsCardRef.current = toggleLoopsCard;
+  // The card's rotting and All buttons: Home's Progress, open, filtered or not.
+  const showProgress = useCallback((filter: LoopFilter) => {
+    setProgressFilter(filter);
+    setProgressOpen(true);
+    goScreen('home');
+  }, [setProgressOpen, goScreen]);
 
   // The last lines of a terminal that is about to be destroyed. A sleeping thread's
   // tail is what its pane shows and what it replays on waking, so it is both kept in
@@ -1749,6 +1773,7 @@ export function App() {
         } : undefined}
         editor={threadEditor(tab)}
         files={filesButtonFor(tab)}
+        loops={{ count: loopCounts(loops, now).remaining, open: loopsCardOpen, onToggle: toggleLoopsCard }}
         actions={{
           moveToGroup: (id) => id ? state.addToGroup(tab.id, id) : state.removeFromGroup(tab.id),
           close: () => closeThread(tab.id),
@@ -1926,6 +1951,18 @@ export function App() {
               <button className="b p" data-new-thread="" onClick={() => openChooserFromShortcut()}>New thread</button>
               <span className="k">Ctrl Shift T</span>
             </div>
+          )}
+          {screen === 'workspace' && (
+            <LoopsCard
+              open={loopsCardOpen}
+              loops={loops}
+              groups={state.groups}
+              now={now}
+              onRotting={() => showProgress({ ...NO_FILTER, status: 'rotting' })}
+              onAll={() => showProgress(NO_FILTER)}
+              onOpenChat={openLoopChat}
+              onToast={loopToast}
+            />
           )}
           {initialized && (
             <TerminalArea

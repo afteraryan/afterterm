@@ -289,7 +289,7 @@ export async function listTargets(port) {
 // The main window is the page target whose URL is not the notifier overlay
 // (`?notifier=1`). DevTools' own pages and service workers are skipped.
 export function pickMainPage(targets) {
-  const pages = targets.filter(t => t.type === 'page' && !/notifier=1/.test(t.url) && !/^devtools:/.test(t.url));
+  const pages = targets.filter(t => t.type === 'page' && !/notifier=1/.test(t.url) && !/^(devtools|edge|chrome):/.test(t.url));
   return pages[0] ?? null;
 }
 

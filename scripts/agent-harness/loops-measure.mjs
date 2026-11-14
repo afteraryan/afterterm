@@ -30,7 +30,7 @@ const page = (kind) => `(async () => {
     const sub = q('.prog-list .lp-row.sub'); if (sub && !sub.classList.contains('open-row')) { sub.click(); await sleep(450); }
     if (!q('.pg-finline.open')) { q('[data-act=toggle-filters]').click(); await sleep(450); }
   } else {
-    if (!q('.lc-card')) return JSON.stringify({ error: 'the loops card is not open' });
+    if (!q('[data-loops-card]')) return JSON.stringify({ error: 'the loops card is not open' });
     const parent = [...document.querySelectorAll('.lc-card .lp-row:not(.sub)')].find(r => r.querySelector('.lp-frac'));
     if (parent && !parent.classList.contains('open-row')) { parent.click(); await sleep(450); }
   }
@@ -114,8 +114,8 @@ const page = (kind) => `(async () => {
     ['the page itself does not scroll', '.screen-home', 'noScroll', true],
   ]` : `[
     ['card width', '.lc-card', 'w', 320],
-    ['card from the top of the main pane', '.lc-card', 'topFrom:.app-main', 64],
-    ['card from the right edge', '.lc-card', 'rightFrom:.app-main', 24],
+    ['card from the top of the main pane', '.lc-card', 'topFrom:.terminal-area', 64],
+    ['card from the right edge', '.lc-card', 'rightFrom:.terminal-area', 24],
     ['card radius', '.lc-card', 'border-radius', '14px'],
     ['card border', '.lc-card', 'border-top', '1px solid rgb(51, 51, 51)'],
     ['card shadow', '.lc-card', 'box-shadow', 'rgb(0, 0, 0) 0px 12px 32px 0px'],
