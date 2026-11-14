@@ -92,7 +92,7 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 
 .lp-list { overflow: hidden; padding: 0 6px 6px; display: flex; flex-direction: column; gap: 1px; }
 .lp-list.scroll { overflow-y: auto; scrollbar-width: thin; scrollbar-color: #444 transparent; }
-.row { display: flex; align-items: center; gap: 10px; padding: 0 8px; border-radius: 9px; cursor: pointer; min-width: 0; border: 0; background: none; text-align: left; width: 100%; color: var(--text); }
+.row { display: flex; align-items: center; gap: 10px; padding: 0 8px; border-radius: 9px; cursor: default; min-width: 0; border: 0; background: none; text-align: left; width: 100%; color: var(--text); }
 .row:hover { background: var(--hover2); }
 .row .t { flex: 1; min-width: 0; }
 .row .t1 { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
@@ -122,6 +122,11 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 
 .flash { animation: flash 900ms var(--ease); }
 @keyframes flash { 0% { color: var(--green); } 100% { color: var(--text); } }
+.menu { position: absolute; z-index: 30; min-width: 180px; background: #2f2f2f; border: 1px solid #3d3d3d; border-radius: 10px; padding: 4px; box-shadow: 0 10px 28px #000; display: flex; flex-direction: column; }
+.menu button { border: 0; background: none; text-align: left; padding: 6px 10px; border-radius: 7px; font-size: 13px; color: var(--text); cursor: pointer; }
+.menu button:hover { background: #3d3d3d; }
+.menu .sep { height: 1px; background: #3d3d3d; margin: 4px 6px; }
+.menu .danger { color: #f87171; }
 .toast { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--btn); color: var(--btn-text); font-size: 13px; padding: 7px 14px; border-radius: 999px; z-index: 20; }
 
 /* config */
@@ -145,7 +150,7 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     { key: 'shrinkTo', name: 'Shrinks to', values: [['header', 'Thread header'], ['rail', 'Rail'], ['titlebar', 'Title bar'], ['strip', 'Right edge strip']] },
     { key: 'list', name: 'List', values: [['five', '5 only'], ['scroll', '5, then scroll']] },
     { key: 'row', name: 'Row', values: [['oneLine', 'One line'], ['twoLine', 'Two lines'], ['tile', 'Project tile']] },
-    { key: 'subLoops', name: 'Sub-loops', values: [['hidden', 'Hidden'], ['count', '2/5 count'], ['nested', 'Nested']] },
+    { key: 'subLoops', name: 'Sub-loops', values: [['hidden', 'Hidden'], ['count', 'Count 1/5'], ['ring', 'Ring'], ['nested', 'Nested']] },
     { key: 'closed', name: 'Closed', values: [['tick', 'Tick'], ['tickDim', 'Tick, dim title']] },
     { key: 'kind', name: 'Kind', values: [['hidden', 'Hidden'], ['icon', 'Icon']] },
     { key: 'rotting', name: 'Rotting count', values: [['head', 'In the heading'], ['foot', 'At the foot'], ['badge', 'Corner badge']] },
@@ -223,9 +228,11 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
   function statusIcon(s) { return s === 'closed' ? '<span class="st"><span class="st-closed">' + I.tick + '</span></span>' : '<span class="st"><span class="st-open"></span></span>'; }
   function kindIcon(k) { return cfg.kind === 'icon' ? '<span class="kind" title="' + k + '">' + I[k] + '</span>' : ''; }
   function frac(l) {
-    if (cfg.subLoops !== 'count' || !l.subs) return '';
+    if ((cfg.subLoops !== 'count' && cfg.subLoops !== 'ring') || !l.subs) return '';
     var done = l.subs.filter(function (s) { return s.s === 'closed'; }).length;
-    return '<span class="frac">' + done + '/' + l.subs.length + '</span>';
+    var tip = ' title="' + done + ' of ' + l.subs.length + ' closed"';
+    if (cfg.subLoops === 'ring') { var c = 2 * Math.PI * 5.5, f = done / l.subs.length; return '<span class="frac"' + tip + '><svg width="15" height="15" viewBox="0 0 15 15"><circle cx="7.5" cy="7.5" r="5.5" fill="none" stroke="#4a4a4a" stroke-width="2"/><circle cx="7.5" cy="7.5" r="5.5" fill="none" stroke="#ececec" stroke-width="2" stroke-dasharray="' + (c * f) + ' ' + c + '" transform="rotate(-90 7.5 7.5)"/></svg></span>'; }
+    return '<span class="frac"' + tip + '>' + done + '/' + l.subs.length + '</span>';
   }
 
   function rowHtml(l, i, sub, parent) {
@@ -359,6 +366,37 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     }
   }
 
+  var menuFor = null;
+  var MENU_WORDS = { reopen: 'Reopened', close: 'Closed', rename: 'Rename', move: 'Move to project', archive: 'Archived', 'delete': 'Deleted' };
+  function closeMenu() { var m = stage.querySelector('.menu'); if (m) m.remove(); }
+  function menuAction(a) {
+    var l = menuFor; if (!l) return;
+    if (a === 'open') {
+      activeChat = l.chat; activeProject = l.p; render();
+      var h = document.getElementById('hName'); if (h) { h.classList.remove('flash'); void h.offsetWidth; h.classList.add('flash'); }
+      return;
+    }
+    toast(MENU_WORDS[a]);
+  }
+  stage.addEventListener('contextmenu', function (e) {
+    var row = e.target.closest('.row'); if (!row) return;
+    e.preventDefault(); closeMenu();
+    var idx = String(row.dataset.i).split('.'), l = LOOPS[+idx[0]]; if (!l) return;
+    var sub = idx.length > 1 ? l.subs[+idx[1]] : null, st = (sub || l).s;
+    menuFor = l;
+    var items = [['open', 'Open chat'], 'sep', [st === 'closed' ? 'reopen' : 'close', st === 'closed' ? 'Reopen' : 'Close'], ['rename', 'Rename']];
+    if (!sub) items.push(['move', 'Move to project']);
+    items.push(['archive', 'Archive'], 'sep', ['delete', 'Delete']);
+    var menu = document.createElement('div'); menu.className = 'menu';
+    menu.innerHTML = items.map(function (it) { return it === 'sep' ? '<span class="sep"></span>' : '<button type="button" data-menu="' + it[0] + '"' + (it[0] === 'delete' ? ' class="danger"' : '') + '>' + it[1] + '</button>'; }).join('');
+    var sc = parseFloat(stage.dataset.scale) || 1, r = stage.getBoundingClientRect();
+    var x = Math.min((e.clientX - r.left) / sc, 1280 - 196), y = Math.min((e.clientY - r.top) / sc, 780 - 250);
+    menu.style.left = x + 'px'; menu.style.top = y + 'px';
+    stage.appendChild(menu);
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeMenu(); });
+  document.addEventListener('click', function (e) { if (!stage.contains(e.target)) closeMenu(); });
+
   function toast(text) {
     var old = stage.querySelector('.toast'); if (old) old.remove();
     var t = document.createElement('div'); t.className = 'toast'; t.textContent = text; stage.appendChild(t);
@@ -366,7 +404,10 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
   }
 
   stage.addEventListener('click', function (e) {
-    var b = e.target.closest('[data-act], .row'); if (!b) return;
+    var m = e.target.closest('[data-menu]');
+    if (m) { menuAction(m.dataset.menu); closeMenu(); return; }
+    closeMenu();
+    var b = e.target.closest('[data-act]'); if (!b) return;
     var act = b.dataset.act;
     if (act === 'shrink') return setShrunk(true);
     if (act === 'toggle') return setShrunk(cfg.shrunk !== 'yes');
