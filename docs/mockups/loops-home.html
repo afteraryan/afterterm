@@ -199,7 +199,7 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     { key: 'layout', name: 'Layout', values: [['progress', 'Progress'], ['columns', 'Two columns'], ['three', 'Three columns'], ['band', 'Top band'], ['board', 'Board'], ['strips', 'Strips'], ['panels', 'Panels']] }
   ];
   /* final choices, kept in the config as agreed */
-  var cfg = { layout: 'progress', pinned: 'slim', projects: 'two', activity: 'any', position: 'right', featureIcon: 'box', labelIcons: 'icons', loopsWidth: 437 };
+  var cfg = { layout: 'progress', pinned: 'slim', projects: 'two', activity: 'any', position: 'right', featureIcon: 'box', labelIcons: 'icons', loopsWidth: 820 };
   try { var sv = JSON.parse(localStorage.getItem('loops-home5-cfg') || 'null'); if (sv) { if (sv.layout) cfg.layout = sv.layout; if (sv.loopsWidth) cfg.loopsWidth = sv.loopsWidth; } } catch (e) {}
 
   var PROJ = {
@@ -404,14 +404,14 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
   /* the six layouts */
   function layColumns() {
     var w = cfg.loopsWidth;
-    return '<div class="lay" style="grid-template-columns:minmax(420px, 680px) 28px ' + w + 'px;justify-content:center;padding:0 28px">' +
+    return '<div class="lay" style="grid-template-columns:minmax(0, 1fr) 28px ' + w + 'px;padding:0 40px">' +
       '<div class="scroll" style="padding:32px 6px 40px 0"><div class="stack">' + dateBlock() + pinnedBlock('c2') + projectsBlock('c2') + '</div></div>' +
       '<div class="handle" data-handle="1" title="Drag to resize"></div>' +
       '<div class="loopscol" style="padding-top:32px;gap:12px">' + loopsLabel() + countCard() + filterBar() + '<div class="list scroll" id="loopList">' + loopRows() + '</div><div style="padding:4px 0 20px">' + activityHtml(w) + '</div></div></div>';
   }
   function layProgress() {
     var w = cfg.loopsWidth;
-    return '<div class="lay" style="grid-template-columns:minmax(420px, 680px) 28px ' + w + 'px;justify-content:center;padding:0 28px">' +
+    return '<div class="lay" style="grid-template-columns:minmax(0, 1fr) 28px ' + w + 'px;padding:0 40px">' +
       '<div class="scroll" style="padding:32px 6px 40px 0"><div class="stack">' + dateBlock() + pinnedBlock('c2') + projectsBlock('c2') + '</div></div>' +
       '<div class="handle" data-handle="1" title="Drag to resize"></div>' +
       '<div class="loopscol" style="padding-top:32px;gap:12px">' + '<div class="lbl" style="margin-bottom:0">Progress</div>' + activityHtml(w) + countCard() + filterBar() +
@@ -494,8 +494,8 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     e.preventDefault(); h.classList.add('drag'); h.setPointerCapture(e.pointerId);
     var x0 = e.clientX, w0 = cfg.loopsWidth, lay = stage.querySelector('.lay');
     function move(ev) {
-      cfg.loopsWidth = Math.max(340, Math.min(760, Math.round(w0 - (ev.clientX - x0) / scale())));
-      lay.style.gridTemplateColumns = 'minmax(420px, 680px) 28px ' + cfg.loopsWidth + 'px';
+      cfg.loopsWidth = Math.max(340, Math.min(1200, Math.round(w0 - (ev.clientX - x0) / scale())));
+      lay.style.gridTemplateColumns = 'minmax(0, 1fr) 28px ' + cfg.loopsWidth + 'px';
       document.getElementById('cfgOut').textContent = JSON.stringify(cfg, null, 2);
     }
     function up() { h.removeEventListener('pointermove', move); h.removeEventListener('pointerup', up); render(); }
