@@ -71,7 +71,9 @@ function LimitsPane({ s }: { s: UsageState | null }) {
 
 function BreakdownPane({ s }: { s: UsageState | null }) {
   const phase = breakdownPhase(s);
-  if (phase === 'none') return null;
+  // AFT-93: a read that ended with no breakdown used to draw nothing, so the pane had no height and
+  // the card collapsed to its tab bar. One line keeps the card its size and says why it is empty.
+  if (phase === 'none') return <p className="u-fail">No breakdown here</p>;
   if (phase === 'skeleton') {
     return (
       <div className="u-bd">

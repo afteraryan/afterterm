@@ -2,6 +2,12 @@
 
 What changed for the person using afterterm, release by release. Each release lists what was added and changed by area, then what was fixed. Every fixed bug, with the PR it landed in, is also in `docs/bugs-fixed.md`. Code-level detail lives in the commit history, `docs/phases-01-projects-and-threads.md` and `CLAUDE.md`.
 
+## Unreleased
+
+### Fixed
+
+- **The usage card no longer shrinks to a thin bar when there is no breakdown.** The Breakdown tab now says "No breakdown here" and keeps the card's size.
+
 ## 0.20.1 (2026-11-15)
 
 ### Changed
