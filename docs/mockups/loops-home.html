@@ -406,7 +406,8 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     var startMonth = new Date(endMonth.getFullYear(), endMonth.getMonth() - 3, 1);
     var gridStart = new Date(startMonth); gridStart.setDate(startMonth.getDate() - startMonth.getDay());
     var gridEnd = new Date(endMonth); gridEnd.setDate(endMonth.getDate() + (6 - endMonth.getDay()));
-    var weeks = Math.round((gridEnd - gridStart) / DAY / 7) + 1;
+    /* always 19 columns, so the squares and the card never change size; four months never need more */
+    var weeks = 19;
     var gap = 4, size = Math.max(8, Math.min(24, Math.floor((width - 34 - 30 - (weeks - 1) * gap) / weeks)));
     var names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     var tmpl = 'grid-template-columns:30px repeat(' + weeks + ', ' + size + 'px);--c:' + size + 'px;gap:' + gap + 'px';
