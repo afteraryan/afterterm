@@ -184,6 +184,14 @@ interface AftertermLoopsAPI {
   onChange(callback: (loops: Loop[]) => void): () => void;
 }
 
+// The streak calendar's counts (src/activity-store.ts).
+type ActivitySnapshot = import('./activity-store').ActivitySnapshot;
+interface AftertermActivityAPI {
+  /** Messages sent to Claude per local day (YYYY-MM-DD), and whether the backfill is still running. */
+  get(): Promise<ActivitySnapshot>;
+  onChange(callback: (snapshot: ActivitySnapshot) => void): () => void;
+}
+
 // The last lines of a thread's scrollback, kept on disk so sleep and quit do not lose
 // the screen. Main trims to 200 lines / 64 KB and never throws (see src/thread-tail.ts).
 interface AftertermThreadsAPI {
@@ -367,6 +375,7 @@ interface AftertermAPI {
   git: AftertermGitAPI;
   usage: AftertermUsageAPI;
   loops: AftertermLoopsAPI;
+  activity: AftertermActivityAPI;
   update: AftertermUpdateAPI;
   shortcuts: AftertermShortcutsAPI;
   notify: AftertermNotifyAPI;
