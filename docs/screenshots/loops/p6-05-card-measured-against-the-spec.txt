@@ -1,0 +1,37 @@
+PASS  card width: spec 320, measured 320
+PASS  card from the top of the main pane: spec 64, measured 64
+PASS  card from the right edge: spec 24, measured 24
+PASS  card radius: spec "14px", measured "14px"
+PASS  card border: spec "1px solid rgb(51, 51, 51)", measured "1px solid rgb(51, 51, 51)"
+PASS  card shadow: spec "rgb(0, 0, 0) 0px 12px 32px 0px", measured "rgb(0, 0, 0) 0px 12px 32px 0px"
+PASS  card colour: spec "rgb(38, 38, 38)", measured "rgb(38, 38, 38)"
+PASS  heading padding: spec "10px 10px 8px 14px", measured "10px 10px 8px 14px"
+PASS  Loops: spec "13px", measured "13px"
+PASS  Loops weight: spec "500", measured "500"
+PASS  rotting button height: spec 24, measured 24
+PASS  rotting button padding: spec "0px 9px", measured "0px 9px"
+PASS  rotting button radius: spec "7px", measured "7px"
+PASS  rotting button text: spec "12px", measured "12px"
+PASS  rotting button colour: spec "rgb(232, 162, 58)", measured "rgb(232, 162, 58)"
+PASS  rotting button ink: spec "rgb(20, 20, 20)", measured "rgb(20, 20, 20)"
+PASS  row title wraps: spec "normal", measured "normal"
+PASS  row title line height: spec "16.875px", measured "16.875px"
+PASS  row title padding: spec "6px", measured "6px"
+PASS  row height (one line): spec 31, measured 45.8
+PASS  row hover colour token: spec true, measured "#383838"
+PASS  foot border: spec "1px solid rgb(51, 51, 51)", measured "1px solid rgb(51, 51, 51)"
+PASS  foot padding: spec "10px 10px 10px 14px", measured "10px 10px 10px 14px"
+PASS  remaining text: spec "12px", measured "12px"
+PASS  bar: spec 5, measured 5
+PASS  All button height: spec 22, measured 22
+PASS  All button padding: spec "0px 9px", measured "0px 9px"
+PASS  All button radius: spec "6px", measured "6px"
+PASS  All button text: spec "11.5px", measured "11.5px"
+PASS  All button weight: spec "500", measured "500"
+PASS  header button height: spec 30, measured 30
+PASS  header button count: spec "12px", measured "12px"
+PASS  opened row colour: spec "rgb(51, 51, 51)", measured "rgb(51, 51, 51)"
+PASS  box padding: spec "2px 8px 7px", measured "2px 8px 7px"
+PASS  box full width: spec true, measured "306 vs 306"
+
+35 match, 0 differ

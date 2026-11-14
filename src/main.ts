@@ -1863,6 +1863,11 @@ function createWindow() {
       // The usage card (AFT-85). Not a shell or Claude Code binding.
       mainWindow.webContents.send('shortcut', 'usage');
       event.preventDefault();
+    } else if (ctrl && shift && key === 'l') {
+      // The loops card in the workspace (design-07). Not a shell or Claude Code
+      // binding.
+      mainWindow.webContents.send('shortcut', 'loops');
+      event.preventDefault();
     } else if (ctrl && shift && key === 'arrowdown') {
       // Phase 8: the next thread row the panel is showing, in panel order and
       // across projects (design-03 decisions 6 and 7). Ctrl+Tab keeps its

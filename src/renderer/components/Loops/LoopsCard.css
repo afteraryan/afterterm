@@ -1,0 +1,92 @@
+/* The loops card in the workspace and its header button (design-07, "The
+   workspace card"). Solid colours only. */
+
+.lc-card {
+  position: absolute;
+  top: 64px;
+  right: 24px;
+  width: 320px;
+  max-height: calc(100% - 88px);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  background: #262626;
+  border: 1px solid #333333;
+  border-radius: 14px;
+  box-shadow: 0 12px 32px #000;
+  font-family: var(--sans);
+  color: var(--text);
+}
+
+.lc-head { display: flex; align-items: center; gap: 6px; padding: 10px 10px 8px 14px; flex: none; }
+.lc-title { font-size: 13px; font-weight: 500; flex: 1; }
+.lc-rot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 7px;
+  border: 0;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  background: #e8a23a;
+  color: #141414;
+}
+.lc-rot:hover { background: #f3b04c; }
+
+.lc-list {
+  overflow-y: auto;
+  min-height: 0;
+  padding: 0 6px;
+  scrollbar-width: thin;
+  scrollbar-color: #444444 transparent;
+}
+
+.lc-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px 10px 14px;
+  margin-top: 6px;
+  border-top: 1px solid #333333;
+  flex: none;
+}
+.lc-barbox { flex: 1; display: grid; gap: 6px; font-size: 12px; color: var(--text2); }
+.lc-barbox b { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
+.lc-track { height: 5px; border-radius: 3px; background: #474747; overflow: hidden; display: block; }
+.lc-track i { display: block; height: 100%; background: #4ade80; transition: width 300ms var(--ease); }
+.lc-all {
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 6px;
+  border: 0;
+  background: var(--btn);
+  color: var(--btn-text);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.lc-all:hover { background: #ffffff; }
+
+/* The header's loops button: the loops icon and the remaining count. */
+.lc-hbtn {
+  height: 30px;
+  border-radius: 8px;
+  border: 0;
+  background: none;
+  color: var(--text2);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  flex: none;
+}
+.lc-hbtn:hover, .lc-hbtn.on { background: var(--hover); color: var(--text); }
+.lc-cnt { font-size: 12px; font-variant-numeric: tabular-nums; }
