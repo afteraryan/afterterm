@@ -18,7 +18,7 @@ Order changed from the suggested one: the loop rows, opening a loop, the menu an
 | 2. Agents | AFT-96 | `afterterm loops` over a named pipe with a per-launch token, on PATH only in afterterm's terminals; the skill; the chat-start hook | Done (PR #110) |
 | 3. Activity counts | AFT-97 | Messages sent to Claude per local day from transcript structure, saved in userData, backfilled on the first launch in chunks; shades, streak, longest streak | Done (PR #111) |
 | 4. Loop rows and actions | AFT-98 | Rows, opening in place (the joined box), the fold, the right-click menu and its Update submenus, Open chat in every case, archive, delete and restore; first shown as the list in Home's Progress column | Done |
-| 5. Home's Progress column | AFT-99 | The Progress layout: projects at 90%, the 472px column, calendar and count cards, the filter, the list, the close and slide | Todo |
+| 5. Home's Progress column | AFT-99 | The Progress layout: projects at 90%, the 472px column, calendar and count cards, the filter, the list, the close and slide | Done |
 | 6. The workspace card | AFT-100 | The floating card, its header button and Ctrl+Shift+L, the flight, the 5 rows, rotting, the remaining bar, All | Todo |
 | 7. Release readiness | AFT-101 | CHANGELOG, `docs/features-loops.md`, CLAUDE.md; fresh install, update from 0.18.1, manual install over it, startup time with a large transcript folder; every spec value measured in DevTools | Todo |
 
@@ -41,6 +41,11 @@ Decided while building (recorded here as they come):
 - Delete shows "Deleted" with Undo for 6 seconds; `afterterm loops restore <id>` brings one back within 30 days.
 - A submenu that has to open to the left keeps its own submenus on the left, so a chain never lands on top of its root menu.
 - Home's list keeps titles on one line (the spec: "Rows as in the Progress list, except titles wrap" on the card).
+- Home's Projects list shows six rows (three per column) before Show more, as the mock does; the search filters every project as you type and hides Show more.
+- Whether Progress is open is remembered per viewer in local storage; its filter lives in the app, so the workspace card's buttons can open Home filtered.
+- Deleted loops (kept 30 days) are listed under the Archived filter, below the archived ones, under "Deleted", where the right-click menu has Restore.
+- The calendar's earlier arrow goes back while there are older days with messages, then dims.
+- The calendar's clip (needed for the slide) has 2px of room round the grid, so a current-streak square's outline at the card's edge is never cut (Aryan, 2026-11-14, on the first build).
 
 ## Automatic updates
 

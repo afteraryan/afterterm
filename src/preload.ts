@@ -390,5 +390,8 @@ contextBridge.exposeInMainWorld('afterterm', {
     // resized events (AFT-11): one step per width, then resized when `end` is true.
     edgeDrag: (plan: { widths: number[]; stepMs?: number; end?: boolean }): Promise<unknown> =>
       ipcRenderer.invoke('harness:edge-drag', plan),
+    // The window's content to an exact size (loops: the dev build beside a mock).
+    setSize: (size: { width: number; height: number }): Promise<unknown> =>
+      ipcRenderer.invoke('harness:set-size', size),
   },
 });

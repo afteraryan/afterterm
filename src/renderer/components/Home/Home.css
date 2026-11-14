@@ -272,7 +272,8 @@
 }
 
 /* ── The Progress layout (design-07): projects left, Progress right ─────── */
-/* The page never scrolls; each side scrolls on its own. */
+/* The page never scrolls; each side scrolls on its own. 40px page padding, a
+   40px gap, Progress a fixed 472px that closes to nothing with a slide. */
 .home-lay {
   height: 100%;
   min-height: 0;
@@ -281,24 +282,103 @@
   column-gap: 40px;
   padding: 0 40px;
   position: relative;
+  transition: grid-template-columns 340ms cubic-bezier(.2, .8, .2, 1), column-gap 340ms cubic-bezier(.2, .8, .2, 1);
 }
+.home-lay.closed { grid-template-columns: minmax(0, 1fr) 0px; column-gap: 0px; }
 .home-scroll {
   min-height: 0;
   overflow-y: auto;
-}
-.prog-col {
-  min-height: 0;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  padding-top: 32px;
-  overflow: hidden;
-}
-.prog-list {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding-bottom: 24px;
+  padding: 32px 6px 40px 0;
   scrollbar-width: thin;
   scrollbar-color: #444444 transparent;
+}
+.prog-wrap { min-width: 0; min-height: 0; overflow: hidden; display: flex; justify-content: flex-start; }
+
+/* The projects section at 90% of today's Home (design-07's values). */
+.home-lay .home {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  gap: 25.2px;
+}
+.home-lay .home-date { font-size: 23.4px; }
+.home-lay .home .tot { margin-top: 10.8px; gap: 5.4px; }
+.home-lay .home-lasthere { font-size: 11.25px; margin-top: 7.2px; }
+.home-lay .sig { font-size: 11.3px; height: 22px; padding: 0 8.1px 0 6.3px; gap: 4.5px; box-sizing: border-box; }
+.home-lay .home .lbl { font-size: 12px; margin: 0 11px 11px; }
+.home-lay .home .lblrow { margin-right: 0; gap: 7.2px; justify-content: flex-start; }
+.home-lay .home .lblrow .grow { flex: 1; }
+.home-lay .ib { width: 23.4px; height: 23.4px; border-radius: 7.2px; }
+
+.home-lay .home .cards { gap: 11px; }
+.home-lay .home .cd {
+  min-height: 83px;
+  padding: 14px;
+  border-radius: 14px;
+  gap: 12.6px;
+}
+.home-lay .home .cd .hd { gap: 9px; }
+.home-lay .home .cd .n { font-size: 12.6px; }
+.home-lay .home .cd .f { font-size: 11.7px; gap: 10.8px; }
+
+.home-lay .home .list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 11px;
+}
+.home-lay .home .pr { margin: 0; padding: 9px 11px; gap: 10.8px; border-radius: 9px; }
+.home-lay .home .pr .n { font-size: 12.6px; }
+.home-lay .home .pr .t { font-size: 11.7px; }
+.home-lay .home .more { font-size: 12.6px; padding: 9px 11px; border-radius: 9px; }
+.home-lay .home .nothing.small { padding: 12px 11px; text-align: left; font-size: 12.6px; }
+
+/* The Projects heading's search box: always faintly visible, no placeholder, a
+   fixed width; a long query shows its end behind a leading ellipsis. */
+.psearch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6.3px;
+  height: 23px;
+  width: 171px;
+  flex: none;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: #262626;
+  color: var(--text3);
+  cursor: text;
+  transition: background var(--fast);
+  font-weight: 400;
+}
+.psearch:hover, .psearch:focus-within { background: #2a2a2a; }
+.psearch:focus-within { color: var(--text2); }
+.psearch svg { flex: none; }
+.psearch .dots {
+  position: absolute;
+  left: 26px;
+  top: 0;
+  bottom: 0;
+  display: none;
+  align-items: center;
+  padding-right: 1px;
+  background: inherit;
+  color: var(--text2);
+  font-size: 11.7px;
+  pointer-events: none;
+}
+.psearch.over .dots { display: flex; }
+.psearch input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  outline: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 11.7px;
+  padding: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-lay { transition: none; }
 }

@@ -1,0 +1,264 @@
+/* Home's Progress column (design-07, "Frontend spec: exact values"): a fixed
+   472px column; the heading, the calendar card and the count card at the mock's
+   80% (final pixel values here, no zoom); the filter row and the list at full
+   size. Solid colours only. */
+
+.prog-col {
+  --pg-rot: #e8a23a;
+  --pg-rot-ink: #141414;
+  --pg-green: #4ade80;
+  --pg-track: #474747;
+  min-height: 0;
+  min-width: 0;
+  width: 472px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 32px;
+  overflow: hidden;
+}
+.prog-col .grow { flex: 1; }
+
+.pg-top { display: flex; flex-direction: column; gap: 9.6px; flex: none; }
+
+.pg-lbl {
+  display: flex;
+  align-items: center;
+  gap: 6.4px;
+  margin: 0 9.6px;
+  font-size: 10px;
+  color: var(--text3);
+}
+
+.pg-ibtn {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  color: var(--text3);
+  border: 0;
+  background: none;
+  cursor: pointer;
+  flex: none;
+  padding: 0;
+}
+.pg-ibtn:hover { background: var(--hover); color: var(--text); }
+.pg-ibtn.on { background: var(--btn); color: var(--btn-text); }
+.pg-ibtn.pg-close { width: 17.6px; height: 17.6px; border-radius: 4.8px; }
+
+/* ── The streak calendar ───────────────────────────────────────────────── */
+.pg-act {
+  background: var(--raise);
+  border-radius: 10px;
+  padding: 9px 10px 8px;
+  display: grid;
+  gap: 6px;
+}
+.pg-act-h { display: flex; align-items: center; gap: 8px; }
+.pg-act-h > b { font-size: 13.6px; font-weight: 500; letter-spacing: -.01em; }
+.pg-long { font-size: 9.2px; color: var(--text3); }
+.pg-long b { font-size: 9.2px; font-weight: 500; color: var(--text); }
+.pg-nav {
+  border: 0;
+  background: none;
+  color: var(--text3);
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+.pg-nav:hover { background: var(--hover2); color: var(--text); }
+.pg-nav.off { opacity: .3; pointer-events: none; }
+
+/* The clip is there for the four-week slide. It reaches 2px past the grid on every
+   side (padding, taken back by the negative margin), so a current-streak square's
+   outline (1px, 1px out) is never cut at the card's edge. */
+.pg-hmclip { position: relative; overflow: hidden; padding: 2px; margin: -2px; }
+.pg-hm {
+  display: grid;
+  grid-template-columns: 24px repeat(22, 16px);
+  gap: 3.2px;
+  align-items: center;
+  justify-content: start;
+}
+.pg-dl { font-size: 9.2px; color: var(--text3); line-height: 1; }
+.pg-mo { font-size: 8.8px; color: var(--text3); white-space: nowrap; width: 16px; overflow: visible; line-height: 1.2; }
+.pg-cell { width: 16px; height: 16px; border-radius: 3.2px; background: #363636; }
+.pg-cell.l1 { background: #1f6b47; }
+.pg-cell.l2 { background: #2c9a62; }
+.pg-cell.l3 { background: #4ade80; }
+.pg-cell.l4 { background: #b9f6d0; }
+.pg-cell.cur { outline: 1px solid #6e6e6e; outline-offset: 1px; }
+.pg-cell.future { background: none; box-shadow: inset 0 0 0 1px #3a3a3a; }
+
+.pg-legend { display: flex; align-items: center; gap: 3.2px; font-size: 8.8px; color: var(--text3); }
+.pg-legend .pg-cell { width: 7.2px; height: 7.2px; border-radius: 2.4px; }
+.pg-curkey { width: 7.2px; height: 7.2px; border-radius: 2.4px; outline: 1px solid #6e6e6e; outline-offset: 1px; margin-right: 3.2px; }
+
+/* ── The count card ────────────────────────────────────────────────────── */
+.pg-count {
+  background: var(--raise);
+  border-radius: 10px;
+  padding: 9px 10px;
+  display: grid;
+  gap: 6px;
+}
+.pg-big { display: flex; align-items: baseline; gap: 6.4px; }
+.pg-big b { font-size: 19.2px; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; }
+.pg-big span { color: var(--text2); font-size: 10.4px; }
+.pg-split { display: flex; gap: 3.2px; flex-wrap: wrap; margin-left: -5.6px; }
+.pg-split button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4.8px;
+  height: 18.4px;
+  padding: 0 5.6px;
+  border-radius: 4.8px;
+  border: 0;
+  background: none;
+  color: var(--text2);
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+  transition: background var(--fast), color var(--fast);
+}
+.pg-split button:hover { background: var(--hover2); color: var(--text); }
+.pg-split button.on { background: var(--btn); color: var(--btn-text); }
+.pg-split button.on b { color: var(--btn-text); }
+.pg-split b { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
+.pg-rot-n {
+  min-width: 13.6px;
+  height: 13.6px;
+  border-radius: 6.8px;
+  padding: 0 4px;
+  background: var(--pg-rot);
+  color: var(--pg-rot-ink);
+  font-weight: 600;
+  font-size: 8.8px;
+  display: grid;
+  place-items: center;
+  font-variant-numeric: tabular-nums;
+}
+.pg-track { height: 4px; border-radius: 2.4px; background: var(--pg-track); overflow: hidden; display: block; }
+.pg-track i { display: block; height: 100%; background: var(--pg-green); transition: width 300ms var(--ease); }
+
+/* ── The filter row: an icon; the segments slide open in the same row ──── */
+.pg-fbar { display: flex; align-items: center; gap: 6px; min-height: 28px; flex-wrap: nowrap; min-width: 0; flex: none; }
+.pg-finline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-width 320ms var(--ease), opacity 200ms;
+}
+.pg-finline.open { max-width: 640px; opacity: 1; }
+.pg-fseg { position: relative; display: inline-flex; background: var(--pane); border-radius: 8px; padding: 2px; gap: 1px; flex: none; }
+.pg-thumb {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  border-radius: 6px;
+  background: var(--hover2);
+  transition: transform 240ms var(--ease), width 240ms var(--ease);
+  pointer-events: none;
+}
+.pg-fseg button {
+  position: relative;
+  border: 0;
+  background: none;
+  border-radius: 6px;
+  height: 19px;
+  padding: 0 7px;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--text3);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: color var(--fast);
+  white-space: nowrap;
+}
+.pg-fseg button:hover, .pg-fseg button.on { color: var(--text); }
+.pg-fdrop {
+  border: 0;
+  background: var(--pane);
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--text3);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  white-space: nowrap;
+}
+.pg-fdrop:hover, .pg-fdrop.on { color: var(--text); }
+.pg-fchip {
+  border: 0;
+  background: var(--btn);
+  color: var(--btn-text);
+  height: 20px;
+  padding: 0 6px 0 9px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  animation: pg-pop 220ms var(--ease);
+  flex: none;
+}
+@keyframes pg-pop { from { transform: scale(.6); opacity: 0; } }
+
+/* ── The list ──────────────────────────────────────────────────────────── */
+.prog-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin-right: -8px;
+  padding: 0 8px 24px 0;
+  scrollbar-width: thin;
+  scrollbar-color: #444444 transparent;
+}
+.pg-sublbl { font-size: 11.5px; color: var(--text3); margin: 14px 8px 6px; }
+
+/* ── Progress closed: the button that opens it again ───────────────────── */
+.pg-reopen {
+  position: absolute;
+  top: 28px;
+  right: 32px;
+  height: 30px;
+  border-radius: 8px;
+  border: 0;
+  background: var(--raise);
+  color: var(--text2);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 11px;
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  z-index: 3;
+  animation: pg-pop 220ms var(--ease);
+}
+.pg-reopen:hover { background: var(--hover2); color: var(--text); }
+.pg-reopen b { color: var(--text); font-weight: 500; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-fchip, .pg-reopen { animation: none; }
+  .pg-finline, .pg-thumb, .pg-track i { transition: none; }
+}

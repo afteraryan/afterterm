@@ -2057,6 +2057,19 @@ if (process.env.AFTERTERM_HARNESS === '1') {
     helperPid: notifyStateProbe.pid,
     override: process.env.AFTERTERM_NOTIFY_STATE ?? null,
   }));
+  // The main window's content to an exact size, kept on its display (loops: compare
+  // the dev build with a mock drawn at the same size).
+  ipcMain.handle('harness:set-size', (_event, size: { width?: unknown; height?: unknown } | undefined) => {
+    const w = Number(size?.width), h = Number(size?.height);
+    if (!mainWindow || mainWindow.isDestroyed() || !(w > 200) || !(h > 200)) return null;
+    if (mainWindow.isMaximized()) mainWindow.unmaximize();
+    const b = mainWindow.getBounds();
+    const area = screen.getDisplayMatching(b).workArea;
+    mainWindow.setContentSize(Math.round(w), Math.round(h));
+    const nb = mainWindow.getBounds();
+    mainWindow.setPosition(area.x + Math.max(0, Math.floor((area.width - nb.width) / 2)), area.y + Math.max(0, Math.floor((area.height - nb.height) / 2)));
+    return mainWindow.getContentBounds();
+  });
 }
 
 // Main window → notifier: dismiss toasts for a tab (user activated it)
