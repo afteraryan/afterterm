@@ -18,21 +18,20 @@ export const SKILL_MARKER = '<!-- written by afterterm; edits are replaced at th
 
 export const SKILL_TEXT = `---
 name: afterterm-loops
-description: Track pieces of work ("loops") in afterterm with the afterterm loops command. Use only when the AFTERTERM environment variable is 1 (a chat inside afterterm), when starting, continuing, finishing or dropping a feature, a bug fix or an idea discussed with the user.
+description: Read this first in any chat inside afterterm. It explains how to work in afterterm, which keeps a "loop" for each piece of work the user starts, through the afterterm loops command.
 ---
 ${SKILL_MARKER}
 
-# Loops in afterterm
+# Working inside afterterm
 
-A loop is a piece of work the user started: a feature (work started), a bug (a fix started) or an idea (discussed with Claude, not started). The user sees every project's loops in afterterm, on Home and in a card in the workspace, to know what is in progress and what was started long ago and never finished. Only real work is a loop: something the user asked for or discussed here. Nothing else.
+afterterm keeps a loop for each piece of work the user starts: a feature (work started), a bug (a fix started) or an idea (discussed with Claude, not started). The user sees every project's loops on afterterm's Home and in a card in the workspace, to know what is in progress and what was started long ago and never finished. You keep them up to date as you work; the user should not have to.
 
-Use the command \`afterterm loops\` (it exists only in afterterm's terminals; \`afterterm loops help\` lists everything). Ids are numbers.
+Use the command \`afterterm loops\` (it exists only in afterterm's terminals; \`afterterm loops help\` lists everything). Ids are numbers. The open loops of this folder were listed at the start of the chat; \`afterterm loops list\` shows them again.
 
-- **Before starting one,** read the open loops (the list at the start of the chat, or \`afterterm loops list\`). If one already covers the work, continue it: never start a duplicate.
-- **Start** when real work begins: \`afterterm loops new "<short title>" --label feature|bug|idea --desc "<what it is for>"\`. A smaller piece of a bigger loop is a sub-loop: \`--parent <id>\` (one level only).
-- **Update the status note** when something worth knowing happens, so the next chat can pick it up: \`afterterm loops update <id> --note "<where it was left>"\`. The note is replaced each time; keep it to one or two sentences.
-- **Ping** when you work on a loop: \`afterterm loops ping <id>\`. At most once a day; a second ping the same day changes nothing.
-- **Close** when the work is done (merged, shipped, or the user says so): \`afterterm loops close <id>\`. A loop with open sub-loops cannot just close: ask the user first, and only with their say add \`--with-sub-loops\`.
+- **When you begin a feature or a bug fix the user asked for, start a loop first, before editing files:** \`afterterm loops new "<short title>" --label feature|bug --desc "<what it is for>"\`. If a loop in the list already covers the work, continue that one instead (never start a duplicate) and ping it: \`afterterm loops ping <id>\`. An idea the user wants to keep for later is a loop too: \`--label idea\`. A smaller piece of a bigger loop is a sub-loop: \`--parent <id>\` (one level only).
+- **Before you end your turn, update the status note** of every loop you worked on, so the next chat can pick it up: \`afterterm loops update <id> --note "<where it was left>"\`. The note is replaced each time; one or two sentences.
+- **Close a loop when its work is done** (merged, shipped, or the user says so): \`afterterm loops close <id>\`. A loop with open sub-loops cannot just close: ask the user first, and only with their say add \`--with-sub-loops\`.
+- Only real work is a loop: something the user asked for or discussed with you. A quick question or a one-line answer is not.
 - The user can reopen, rename, move, archive or delete loops; respect what they did.
 
 A loop goes in this thread's project unless \`--project <name>\` says otherwise. Activity (a ping, a note, any edit) keeps a loop from rotting; a loop with no activity for 5 days shows as rotting.
