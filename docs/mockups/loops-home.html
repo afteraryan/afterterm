@@ -196,10 +196,10 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 (function () {
   var SW = 1920, SH = 1028;
   var OPTIONS = [
-    { key: 'layout', name: 'Layout', values: [['columns', 'Two columns'], ['three', 'Three columns'], ['band', 'Top band'], ['board', 'Board'], ['strips', 'Strips'], ['panels', 'Panels']] }
+    { key: 'layout', name: 'Layout', values: [['progress', 'Progress'], ['columns', 'Two columns'], ['three', 'Three columns'], ['band', 'Top band'], ['board', 'Board'], ['strips', 'Strips'], ['panels', 'Panels']] }
   ];
   /* final choices, kept in the config as agreed */
-  var cfg = { layout: 'columns', pinned: 'slim', projects: 'two', activity: 'any', position: 'right', featureIcon: 'box', labelIcons: 'icons', loopsWidth: 437 };
+  var cfg = { layout: 'progress', pinned: 'slim', projects: 'two', activity: 'any', position: 'right', featureIcon: 'box', labelIcons: 'icons', loopsWidth: 437 };
   try { var sv = JSON.parse(localStorage.getItem('loops-home5-cfg') || 'null'); if (sv) { if (sv.layout) cfg.layout = sv.layout; if (sv.loopsWidth) cfg.loopsWidth = sv.loopsWidth; } } catch (e) {}
 
   var PROJ = {
@@ -409,6 +409,14 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
       '<div class="handle" data-handle="1" title="Drag to resize"></div>' +
       '<div class="loopscol" style="padding-top:32px;gap:12px">' + loopsLabel() + countCard() + filterBar() + '<div class="list scroll" id="loopList">' + loopRows() + '</div><div style="padding:4px 0 20px">' + activityHtml(w) + '</div></div></div>';
   }
+  function layProgress() {
+    var w = cfg.loopsWidth;
+    return '<div class="lay" style="grid-template-columns:minmax(420px, 680px) 28px ' + w + 'px;justify-content:center;padding:0 28px">' +
+      '<div class="scroll" style="padding:32px 6px 40px 0"><div class="stack">' + dateBlock() + pinnedBlock('c2') + projectsBlock('c2') + '</div></div>' +
+      '<div class="handle" data-handle="1" title="Drag to resize"></div>' +
+      '<div class="loopscol" style="padding-top:32px;gap:12px">' + '<div class="lbl" style="margin-bottom:0">Progress</div>' + activityHtml(w) + countCard() + filterBar() +
+      '<div class="list scroll" id="loopList" style="padding-bottom:24px">' + loopRows() + '</div></div></div>';
+  }
   function layThree() {
     return '<div class="lay" style="grid-template-columns:320px minmax(0, 860px) 420px;gap:36px;justify-content:center;padding:0 32px">' +
       '<div class="scroll" style="padding:32px 4px 40px 0"><div class="stack">' + dateBlock() + pinnedBlock('') + projectsBlock('', 8) + '</div></div>' +
@@ -466,7 +474,7 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 
   function render() {
     var keep = {}; stage.querySelectorAll('.scroll').forEach(function (el, n) { keep[n] = el.scrollTop; });
-    var L = { columns: layColumns, three: layThree, band: layBand, board: layBoard, strips: layStrips, panels: layPanels }[cfg.layout] || layColumns;
+    var L = { progress: layProgress, columns: layColumns, three: layThree, band: layBand, board: layBoard, strips: layStrips, panels: layPanels }[cfg.layout] || layColumns;
     var rail = '<span class="rail-btn">' + I.panel + '</span><div class="rail-pill"><span class="rail-btn on">' + I.home + '</span><span class="rail-btn">' + I.term + '</span></div><span class="rail-sep"></span>' +
       [['afterterm', ['1', '2']], ['moctale', ['1']], ['Lanterns', ['1']]].map(function (t) { return '<span class="rtile">' + glyph(t[0], 16) + '<span class="rbadge">' + t[1].map(function (n) { return '<span>' + n + '</span>'; }).join('') + '</span></span>'; }).join('');
     stage.innerHTML = '<div class="titlebar"><span>afterterm</span><span class="ver">v0.18.1</span><span class="grow"></span><span class="caps"><span>—</span><span>☐</span><span>✕</span></span></div>' +
