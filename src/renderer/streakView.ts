@@ -87,22 +87,30 @@ export interface CalendarDay {
 }
 
 /**
- * The weeks the card shows: `weeks` columns, each Sunday to Saturday, oldest first.
- * The last column is the current week, moved `offsetWeeks` back in time (the arrows
- * move four weeks at a time; 0 is the newest view, never negative).
+ * The weeks the card shows: `weeks` columns of 7 days in a row, oldest first. The
+ * newest view ends on today, so its bottom-right square is today and its last column
+ * is the seven days up to today, never empty future days (AFT-107, Aryan 2026-11-15).
+ * The rows follow the days, so the weekday names down the side move with them
+ * (`rowWeekdays`). `offsetWeeks` moves the view back in time (the arrows move four
+ * weeks at a time; 0 is the newest view, never negative).
  */
 export function calendarWeeks(today: string, weeks = 22, offsetWeeks = 0): CalendarDay[][] {
   const offset = Math.max(0, Math.floor(offsetWeeks));
-  const lastSunday = addDays(today, -weekday(today) - 7 * offset);
-  const firstSunday = addDays(lastSunday, -7 * (weeks - 1));
+  const last = addDays(today, -7 * offset);
+  const first = addDays(last, -(7 * weeks - 1));
   const out: CalendarDay[][] = [];
   for (let w = 0; w < weeks; w++) {
     const col: CalendarDay[] = [];
     for (let i = 0; i < 7; i++) {
-      const day = addDays(firstSunday, w * 7 + i);
+      const day = addDays(first, w * 7 + i);
       col.push({ day, future: day > today });
     }
     out.push(col);
   }
   return out;
+}
+
+/** The weekday (0 Sunday to 6 Saturday) of each row of `calendarWeeks`, top to bottom. */
+export function rowWeekdays(weeksShown: CalendarDay[][]): number[] {
+  return weeksShown[0].map((d) => weekday(d.day));
 }

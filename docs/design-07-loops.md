@@ -66,7 +66,7 @@ Mock: `loops-home.html`, the Progress layout. The page itself never scrolls; eac
 
 ## The streak calendar
 
-- 17 weeks (about four months; 22 until AFT-107 on 2026-11-15, when most of them were empty), the last column always the current week. Every day of the week labelled. The card never changes size while the weeks slide. The arrows move four weeks, with a pure slide (no fade, no blur) on a smooth ease-out.
+- 17 weeks (about four months; 22 until AFT-107 on 2026-11-15, when most of them were empty), the grid ending on today: the bottom-right square is today and the last column is the seven days up to it, never empty future days, so the weekday names down the side follow the days (AFT-107, 2026-11-15; until then the last column was the current week, Sunday to Saturday). Every day of the week labelled. The card never changes size while the weeks slide. The arrows move four weeks, with a pure slide (no fade, no blur) on a smooth ease-out.
 - "N day streak" and "Longest N days". The current streak is outlined subtly. A legend from less to more.
 - **A day counts the messages Aryan sent to Claude that day**, across all projects: user turns in the transcripts, excluding tool results, subagent (sidechain) lines, meta lines, interrupts and local-command wrappers, deduplicated by uuid, in local time. Counted from structure fields only; the text is never used or stored.
 - **Shades:** none is empty; 1 to 4 darkest; 5 to 14 dark; 15 to 39 bright; 40 or more brightest. Lenient at the start so a new user sees green quickly; the top is earned.
@@ -106,7 +106,7 @@ Label icons (14 by 14 viewBox, stroke 1.4, round caps and joins, no fill), paths
 
 ### Home, the projects section (today's Home at 90%)
 
-Take today's Home values (Home.css) and multiply every size by 0.9: date 23.4px; Pinned cards min height 83px, padding 14px, radius 14px, name 12.6px weight 500, pill 22px high with 11.3px text, time 11.7px, gap 11px, two columns; Projects rows: name 12.6px weight 500, padding 9px 11px, icon 14px, time 11.7px, two columns; section labels 12px. The search box: 171 by 23px, radius 6px, icon 12px, text 11.7px, no placeholder, fixed width (does not grow on focus), a long query shows its end with a leading ellipsis. Show more toggles the full list. The section scrolls on its own; the page never scrolls.
+Take today's Home values (Home.css) and multiply every box size by 0.9; the text keeps the old Home's sizes (AFT-105, 2026-11-14: the 90% text was too small): date 26px; Pinned cards min height 83px, padding 14px, radius 14px, name 14px weight 500, pill 22px high with 12.5px text, time 13px, gap 11px, two columns; Projects rows: name 14px weight 500, padding 9px 11px, icon 14px, time 13px, two columns; section labels 13px. The search box: 171 by 23px, radius 6px, icon 12px, text 13px, no placeholder, fixed width (does not grow on focus), a long query shows its end with a leading ellipsis. Show more toggles the full list. The section scrolls on its own; the page never scrolls.
 
 ### Home, the Progress column
 

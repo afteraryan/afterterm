@@ -6,7 +6,7 @@ What changed for the person using afterterm, release by release. Each release li
 
 ### Changed
 
-- **Home's calendar shows the last 17 weeks, about four months, with bigger squares.** It showed 22 weeks before, and most of them were empty for anyone whose Claude Code history is recent.
+- **Home's calendar shows the last 17 weeks, about four months, with bigger squares.** It showed 22 weeks before, and most of them were empty for anyone whose Claude Code history is recent. The calendar now ends on today, so its last column is always the past seven days instead of empty days still to come.
 
 ## 0.19.0 (2026-11-14)
 
