@@ -48,6 +48,8 @@ Decided while building (recorded here as they come):
 - The calendar's earlier arrow goes back while there are older days with messages, then dims.
 - The calendar's clip (needed for the slide) has 2px of room round the grid, so a current-streak square's outline at the card's edge is never cut (Aryan, 2026-11-14, on the first build).
 
+Home's projects text (AFT-105, 2026-11-14): Aryan found the projects side's text too small at 90% of the old Home. The text is back at the old Home's sizes (the date 26px, names 14px, times, labels and the search box 13px, the last-here line and the counter pills 12.5px); the boxes, padding and gaps stay at 90%, so the projects side keeps its height and Progress stays 472px.
+
 Decided while building the loops tour (AFT-103, 2026-11-14):
 
 - What it remembers: prefs.json's `toursSeen: ["loops"]`, written after Done or Skip only. Quitting in the middle of the tour does not count: it shows again on the next launch. Unknown ids in the list are kept, so going back a version and forward again never replays a tour.
