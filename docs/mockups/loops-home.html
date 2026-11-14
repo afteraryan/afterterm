@@ -67,18 +67,18 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 
 .pins { display: grid; gap: 8px; }
 .pins.c2 { grid-template-columns: 1fr 1fr; }
-.pins .cd { background: var(--raise); border-radius: 12px; height: 44px; padding: 0 12px; display: flex; align-items: center; gap: 9px; font-weight: 500; font-size: 13.5px; min-width: 0; }
+.pins .cd { background: var(--raise); border-radius: 12px; height: 50px; padding: 0 16px; display: flex; align-items: center; gap: 10px; font-weight: 500; font-size: 14px; min-width: 0; }
 .pins .cd .n { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pins .cd .ago { color: var(--text3); font-size: 12.5px; font-weight: 400; }
+.pins .cd .ago { color: var(--text3); font-size: 13px; font-weight: 400; }
 .pins .cd .sig { background: var(--hover2); height: 20px; padding: 0 7px; font-size: 12px; font-weight: 400; }
 .pins.strip { display: flex; gap: 8px; }
 .pins.strip .cd { width: 220px; flex: none; }
 .plist { display: grid; gap: 2px 12px; }
 .plist.c2 { grid-template-columns: 1fr 1fr; }
-.plist .pr { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; font-weight: 500; font-size: 13.5px; min-width: 0; }
+.plist .pr { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 10px; font-weight: 500; font-size: 14px; min-width: 0; }
 .plist .pr:hover { background: var(--hover); }
 .plist .pr .n { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.plist .pr .t { color: var(--text3); font-size: 12.5px; font-weight: 400; }
+.plist .pr .t { color: var(--text3); font-size: 13px; font-weight: 400; }
 .plist.chips { display: flex; gap: 6px; }
 .plist.chips .pr { flex: none; background: var(--raise); border-radius: 999px; height: 32px; padding: 0 12px; }
 .plist.chips .pr .t { display: none; }
@@ -196,11 +196,12 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 (function () {
   var SW = 1920, SH = 1028;
   var OPTIONS = [
+    { key: 'zoom', name: 'Size', values: [['actual', 'Actual size'], ['fit', 'Fit to page']] },
     { key: 'layout', name: 'Layout', values: [['progress', 'Progress'], ['columns', 'Two columns'], ['three', 'Three columns'], ['band', 'Top band'], ['board', 'Board'], ['strips', 'Strips'], ['panels', 'Panels']] }
   ];
   /* final choices, kept in the config as agreed */
-  var cfg = { layout: 'progress', pinned: 'slim', projects: 'two', activity: 'any', position: 'right', featureIcon: 'box', labelIcons: 'icons', loopsWidth: 820 };
-  try { var sv = JSON.parse(localStorage.getItem('loops-home5-cfg') || 'null'); if (sv) { if (sv.layout) cfg.layout = sv.layout; if (sv.loopsWidth) cfg.loopsWidth = sv.loopsWidth; } } catch (e) {}
+  var cfg = { layout: 'progress', pinned: 'slim', projects: 'two', activity: 'any', position: 'right', featureIcon: 'box', labelIcons: 'icons', loopsWidth: 590, zoom: 'actual' };
+  try { var sv = JSON.parse(localStorage.getItem('loops-home5-cfg') || 'null'); if (sv) { if (sv.layout) cfg.layout = sv.layout; if (sv.zoom) cfg.zoom = sv.zoom; } } catch (e) {}
 
   var PROJ = {
     'job-hunt': { c: '#f05a5a', g: 'bell' }, 'Revy App': { c: '#e8b931', g: 'folder' }, 'afterterm': { c: '#5b8def', g: 'robot' }, 'minimi-windows': { c: '#e46ab4', g: 'robot' },
@@ -279,7 +280,13 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 
   var stage = document.getElementById('stage'), box = document.getElementById('stageBox');
   function scale() { return parseFloat(stage.dataset.scale) || 1; }
-  function fit() { var s = box.clientWidth / SW; stage.style.transform = 'scale(' + s + ')'; box.style.height = (SH * s) + 'px'; stage.dataset.scale = s; }
+  function fit() {
+    var s = cfg.zoom === 'actual' ? 1 : box.clientWidth / SW;
+    stage.style.transform = 'scale(' + s + ')'; box.style.height = (SH * s) + 'px'; stage.dataset.scale = s;
+    box.style.overflowX = cfg.zoom === 'actual' ? 'auto' : 'hidden';
+    var inner = box.querySelector('.stage-sizer'); if (!inner) { inner = document.createElement('div'); inner.className = 'stage-sizer'; box.appendChild(inner); }
+    inner.style.cssText = 'width:' + (SW * s) + 'px;height:1px;pointer-events:none';
+  }
   window.addEventListener('resize', fit);
 
   /* activity: a year of days ending Saturday 14 November 2026 */
@@ -411,9 +418,8 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
   }
   function layProgress() {
     var w = cfg.loopsWidth;
-    return '<div class="lay" style="grid-template-columns:minmax(0, 1fr) 28px ' + w + 'px;padding:0 40px">' +
+    return '<div class="lay" style="grid-template-columns:minmax(0, 1fr) ' + w + 'px;column-gap:40px;padding:0 40px">' +
       '<div class="scroll" style="padding:32px 6px 40px 0"><div class="stack">' + dateBlock() + pinnedBlock('c2') + projectsBlock('c2') + '</div></div>' +
-      '<div class="handle" data-handle="1" title="Drag to resize"></div>' +
       '<div class="loopscol" style="padding-top:32px;gap:12px">' + '<div class="lbl" style="margin-bottom:0">Progress</div>' + activityHtml(w) + countCard() + filterBar() +
       '<div class="list scroll" id="loopList" style="padding-bottom:24px">' + loopRows() + '</div></div></div>';
   }
