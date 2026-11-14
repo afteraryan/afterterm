@@ -1,5 +1,5 @@
 // The icons loops use (design-07, "Icons"), drawn from the mocks' own paths:
-// the label icons (box, bug, bulb), the three status circles, the clocks, the
+// the label icons (box, bug, bulb), the three plain status circles, the clock, the
 // loops icon (two overlapping circles), the filter and the Progress close icon.
 import React from 'react';
 import type { LoopLabel, LoopStatus } from '../../../loops';
@@ -18,22 +18,11 @@ export function LabelIcon({ label, size = 12 }: { label: LoopLabel; size?: numbe
   );
 }
 
+// A loop's status is a plain circle (Aryan, 2026-11-14): an open ring, a solid
+// green circle when closed, a solid amber circle when rotting. Nothing inside.
 export function StatusIcon({ status }: { status: LoopStatus }) {
-  if (status === 'closed') {
-    return (
-      <span className="lp-st"><span className="lp-st-closed">
-        <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M2 5.2l2 2L8 3" /></svg>
-      </span></span>
-    );
-  }
-  if (status === 'rotting') {
-    return (
-      <span className="lp-st"><span className="lp-st-rot">
-        <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round"><path d="M5 2.4v2.8l1.7 1" /></svg>
-      </span></span>
-    );
-  }
-  return <span className="lp-st"><span className="lp-st-open" /></span>;
+  const cls = status === 'closed' ? 'lp-st-closed' : status === 'rotting' ? 'lp-st-rot' : 'lp-st-open';
+  return <span className="lp-st"><span className={cls} /></span>;
 }
 
 export function ClockIcon({ size = 11, strokeWidth = 1.5 }: { size?: number; strokeWidth?: number }) {

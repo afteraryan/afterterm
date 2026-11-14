@@ -90,3 +90,18 @@
 }
 .lc-hbtn:hover, .lc-hbtn.on { background: var(--hover); color: var(--text); }
 .lc-cnt { font-size: 12px; font-variant-numeric: tabular-nums; }
+
+/* The loops tour's example loops (AFT-103): the tag beside the heading, the rows
+   and the foot slightly faded. */
+.lc-example {
+  margin-left: 8px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--btn-text);
+  background: var(--btn);
+  border-radius: 999px;
+  padding: 1px 7px;
+  vertical-align: 1px;
+}
+.lc-card.ex .lc-list,
+.lc-card.ex .lc-foot { opacity: .85; }

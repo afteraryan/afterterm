@@ -26,7 +26,8 @@ const { opts } = parseArgs(process.argv.slice(2));
 if (opts.help) {
   console.log(`usage: node scripts/agent-harness/launch.mjs [options]
   --session <file>    session.json to seed the throwaway profile from (copied, never edited)
-  --prefs <file>      JSON merged into the throwaway prefs.json (lastOpenedAt, editorPath, ...)
+  --prefs <file>      JSON merged into the throwaway prefs.json (lastOpenedAt, editorPath, ...;
+                      "toursSeen": [] shows the loops tour, which is otherwise marked seen)
   --loops <file>      a loops.json copied into the data dir (loops-seed.mjs writes one)
   --data-dir <dir>    user-data dir to use (default: a fresh folder under %TEMP%\\afterterm-agent-harness)
   --display <which>   primary | secondary | <index into screen.getAllDisplays()> (default: secondary)
@@ -135,7 +136,9 @@ if (opts.loops) {
 // --prefs <file> merges extra keys on top (a lastOpenedAt two days back makes Home show its
 // "Last here" line; a fresh profile has no previous launch and shows nothing).
 const extraPrefs = opts.prefs ? JSON.parse(fs.readFileSync(String(opts.prefs), 'utf8')) : {};
-writeJson(path.join(dataDir, 'prefs.json'), { claudeHookToastShown: true, ...extraPrefs });
+// The loops tour (AFT-103) is marked seen too, so a run that is not about it is not
+// covered by it; to see it, pass --prefs with "toursSeen": [].
+writeJson(path.join(dataDir, 'prefs.json'), { claudeHookToastShown: true, toursSeen: ['loops'], ...extraPrefs });
 
 const forgeCli = path.join(REPO_ROOT, 'node_modules', '@electron-forge', 'cli', 'dist', 'electron-forge.js');
 if (!fs.existsSync(forgeCli)) fail(`electron-forge CLI not found at ${forgeCli}; run npm install`);

@@ -25,6 +25,7 @@ import { detectEditors } from './editor-detect.ts';
 import type { DetectDeps } from './editor-detect.ts';
 import type { EditorInfo } from './editors.ts';
 import { readPrefs, updatePrefs } from './prefs.ts';
+import { toursSeenFrom, withTourSeen, TOUR_IDS, type TourId } from './tours.ts';
 import {
   SAVE_DELAY_MS, homeFromPrefs, homeToPrefs, sameHome, findHomeDisplay, startupPlacement,
   isWindowsMove, pruneEvents, moveBack, countsAsDisplayChange, landsOn,
@@ -3488,6 +3489,16 @@ ipcMain.handle('loops:act', (_e, action: LoopAction) => {
   }
 });
 app.on('will-quit', () => loopsStore?.flush());
+
+// ─── The one-time tours (AFT-103, tours.ts) ─────────────────────────────────────
+// prefs.json's toursSeen: a tour shows on the first launch of a version that has it
+// and is written as seen after Done or Skip. The renderer decides when to show it.
+ipcMain.handle('tours:seen', () => toursSeenFrom(readPrefs(getPrefsPath()).prefs));
+ipcMain.handle('tours:mark-seen', (_e, id: unknown) => {
+  if (typeof id !== 'string' || !(TOUR_IDS as readonly string[]).includes(id)) return false;
+  const prefsPath = getPrefsPath();
+  return updatePrefs(prefsPath, { toursSeen: withTourSeen(readPrefs(prefsPath).prefs.toursSeen, id as TourId) });
+});
 
 // ─── Activity counts for the streak calendar (design-07, AFT-97) ────────────────
 // Main keeps <userData>\activity.json: the messages sent to Claude per local day,

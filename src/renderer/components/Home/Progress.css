@@ -262,3 +262,19 @@
   .pg-fchip, .pg-reopen { animation: none; }
   .pg-finline, .pg-thumb, .pg-track i { transition: none; }
 }
+
+/* The loops tour (AFT-103): examples for someone with no loops or no calendar days
+   yet, readable but slightly faded, with an "Example" tag beside the heading. */
+.pg-example {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--btn-text);
+  background: var(--btn);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.prog-col.ex-loops .prog-list,
+.prog-col.ex-loops .pg-count,
+.prog-col.ex-days .pg-act { opacity: .85; }
+.pg-cell.reveal { animation: pg-reveal 300ms cubic-bezier(.2, .8, .2, 1) backwards; }
+@keyframes pg-reveal { from { background: #363636; } }

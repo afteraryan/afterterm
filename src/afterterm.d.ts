@@ -186,6 +186,14 @@ interface AftertermLoopsAPI {
   setContext(ctx: import('./loops-cli').LoopsContext): void;
 }
 
+// The one-time tours (src/tours.ts), kept in prefs.json's toursSeen.
+interface AftertermToursAPI {
+  /** The tours already shown (Done or Skip). */
+  seen(): Promise<string[]>;
+  /** Writes a tour as seen; false when prefs.json could not be written. */
+  markSeen(id: string): Promise<boolean>;
+}
+
 // The streak calendar's counts (src/activity-store.ts).
 type ActivitySnapshot = import('./activity-store').ActivitySnapshot;
 interface AftertermActivityAPI {
@@ -377,6 +385,7 @@ interface AftertermAPI {
   git: AftertermGitAPI;
   usage: AftertermUsageAPI;
   loops: AftertermLoopsAPI;
+  tours: AftertermToursAPI;
   activity: AftertermActivityAPI;
   update: AftertermUpdateAPI;
   shortcuts: AftertermShortcutsAPI;
