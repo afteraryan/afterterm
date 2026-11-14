@@ -110,6 +110,8 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 .subs .det { margin-left: 29px; }
 .fullbox .det { margin-left: 0; margin-right: 0; }
 .fullbox .subs .det { margin-left: 0; }
+.joined .row.open-row, .joined .row.open-row:hover { background: #333; border-radius: 8px 8px 0 0; }
+.joined .row.open-row + .det { margin-top: 0; background: #333; border-radius: 0 0 8px 8px; padding-top: 2px; }
 
 .lp-foot { display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 14px; margin-top: 6px; border-top: 1px solid #333; }
 .barbox { flex: 1; display: grid; gap: 6px; font-size: 12px; color: var(--text2); }
@@ -195,12 +197,14 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 
   /* controls: open or shrunk, and full screen */
   var controls = document.getElementById('controls');
-  var fullBox = true;
+  var fullBox = true, joined = true;
   controls.innerHTML = '<div class="ctl"><span class="ctl-name">Card</span><div class="seg"><button type="button" data-k="no">Open</button><button type="button" data-k="yes">Shrunk</button></div></div>' +
     '<div class="ctl"><span class="ctl-name">Opened loop</span><div class="seg"><button type="button" data-box="full">Full width</button><button type="button" data-box="indent">Indented</button></div></div>' +
+    '<div class="ctl"><span class="ctl-name">Row and box</span><div class="seg"><button type="button" data-join="yes">Joined</button><button type="button" data-join="no">Apart</button></div></div>' +
     '<div class="ctl"><span class="ctl-name">Screen</span><div class="seg"><button type="button" id="fsBtn">Full screen</button></div></div>';
   controls.addEventListener('click', function (e) {
     var bx = e.target.closest('button[data-box]'); if (bx) { fullBox = bx.dataset.box === 'full'; render(); return; }
+    var bj = e.target.closest('button[data-join]'); if (bj) { joined = bj.dataset.join === 'yes'; render(); return; }
     var b = e.target.closest('button[data-k]'); if (b) { setShrunk(b.dataset.k === 'yes'); return; }
     if (e.target.closest('#fsBtn')) { try { var p = box.requestFullscreen(); if (p && p.catch) p.catch(function () {}); } catch (err) {} }
   });
@@ -263,6 +267,8 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     controls.querySelectorAll('button[data-k]').forEach(function (b) { b.setAttribute('aria-pressed', String((b.dataset.k === 'yes') === shrunk)); });
     controls.querySelectorAll('button[data-box]').forEach(function (b) { b.setAttribute('aria-pressed', String((b.dataset.box === 'full') === fullBox)); });
     stage.classList.toggle('fullbox', fullBox);
+    stage.classList.toggle('joined', joined);
+    controls.querySelectorAll('button[data-join]').forEach(function (b) { b.setAttribute('aria-pressed', String((b.dataset.join === 'yes') === joined)); });
   }
 
   /* the card flies into the header button and back */
