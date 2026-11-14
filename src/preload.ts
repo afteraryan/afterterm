@@ -195,6 +195,7 @@ contextBridge.exposeInMainWorld('afterterm', {
   loops: {
     list: (): Promise<any[]> => ipcRenderer.invoke('loops:list'),
     act: (action: any): Promise<any> => ipcRenderer.invoke('loops:act', action),
+    setContext: (ctx: any): void => ipcRenderer.send('loops:context', ctx),
     onChange: (callback: (loops: any[]) => void): (() => void) => {
       const listener = (_event: IpcRendererEvent, l: any[]) => callback(l);
       ipcRenderer.on('loops:changed', listener);

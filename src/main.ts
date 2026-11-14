@@ -47,6 +47,9 @@ import { gitInfo } from './git-info.ts';
 import { createUsageReader, type UsageReader } from './usage-reader.ts';
 import { LoopsStore, type LoopAction } from './loops-store.ts';
 import { ActivityStore } from './activity-store.ts';
+import { loopsPipeName as loopsPipeNameFor, newToken, startLoopsPipe, writeLaunchers } from './loops-pipe.ts';
+import type { LoopsContext } from './loops-cli.ts';
+import { reconcileLoopsSkill } from './loops-skill.ts';
 import { isThreadId, parseTail, serializeTail, tailFilePath, trimTail } from './thread-tail.ts';
 import {
   applyMsysParents,
@@ -1005,6 +1008,10 @@ function reconcileNotifierHook(): ReconcileResult | null {
     });
     console.log(`[claude-hook] ${result.status} — ${result.detail}`);
     if (result.showToast) pushSetupToast();
+    // The afterterm-loops skill goes beside the hook, under the same guard and opt-out.
+    const prefs = readPrefs(path.join(app.getPath('userData'), 'prefs.json')).prefs;
+    const skill = reconcileLoopsSkill({ claudeDir: getClaudeDir(), optedOut: prefs.claudeNotifications === 'disabled' });
+    if (skill.status !== 'unchanged') console.log(`[loops] skill ${skill.status}: ${skill.file}${skill.detail ? ' ' + skill.detail : ''}`);
     return result;
   } catch (err) {
     console.error('[claude-hook] reconcile failed:', err);
@@ -2548,9 +2555,15 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
     AFTERTERM: '1',
     AFTERTERM_TAB_ID: tabId,
     AFTERTERM_SESSION_DIR: getClaudeSessionDir(),
+    ...loopsEnv(),
   } as Record<string, string>;
   if (cleanEnv.Path) cleanEnv.Path = cleanEnv.Path.replace(/"/g, '');
   if (cleanEnv.PATH) cleanEnv.PATH = cleanEnv.PATH.replace(/"/g, '');
+  // The `afterterm loops` launchers, first on PATH in afterterm's own terminals only.
+  if (loopsBinDir) {
+    const key = cleanEnv.Path !== undefined ? 'Path' : 'PATH';
+    cleanEnv[key] = loopsBinDir + ';' + (cleanEnv[key] ?? '');
+  }
 
   // CWD reporting and prompt marks, for every shell. The renderer only ever sees
   // OSC 9;9 (a Windows path) and OSC 133;A/B (prompt start and prompt end), so it
@@ -3480,6 +3493,42 @@ function getActivityStore(): ActivityStore {
 }
 ipcMain.handle('activity:get', () => getActivityStore().get());
 app.on('will-quit', () => { activityStore?.stop(); activityStore?.flush(); });
+// The `afterterm loops` command and the chat-start hook reach the store over a
+// named pipe (loops-pipe.ts). Its name and a token made at every launch go only into
+// afterterm's own terminals (pty:create below), with <userData>\bin first on their
+// PATH, where the two launchers for the command are written at startup.
+const loopsToken = newToken();
+let loopsPipeName = '';
+let loopsBinDir = '';
+let loopsContext: LoopsContext = { projects: [], threads: [] };
+ipcMain.on('loops:context', (_e, ctx: LoopsContext) => {
+  if (ctx && Array.isArray(ctx.projects) && Array.isArray(ctx.threads)) loopsContext = ctx;
+});
+app.whenReady().then(() => {
+  const userData = app.getPath('userData');
+  loopsBinDir = path.join(userData, 'bin');
+  const isDev = !!MAIN_WINDOW_VITE_DEV_SERVER_URL;
+  const script = path.join(isDev ? app.getAppPath() : process.resourcesPath, 'assets', 'cli', 'afterterm-cli.js');
+  writeLaunchers(loopsBinDir, process.execPath, script, (l) => console.warn(l));
+  startLoopsPipe({
+    pipeName: loopsPipe(),
+    token: loopsToken,
+    backend: getLoopsStore(),
+    context: () => loopsContext,
+    log: (l) => console.log(l),
+  });
+});
+function loopsPipe(): string {
+  if (!loopsPipeName) loopsPipeName = loopsPipeNameFor(app.getPath('userData'));
+  return loopsPipeName;
+}
+// The env a terminal gets for the loops command, used by pty:create.
+function loopsEnv(): Record<string, string> {
+  return {
+    AFTERTERM_LOOPS_PIPE: loopsPipe(),
+    AFTERTERM_LOOPS_TOKEN: loopsToken,
+  };
+}
 
 app.on('before-quit', async (e) => {
   isQuitting = true; // any quit path suppresses the close-confirm dialog
