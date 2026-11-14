@@ -2,6 +2,16 @@
 
 What changed for the person using afterterm, release by release. Each release lists what was added and changed by area, then what was fixed. Every fixed bug, with the PR it landed in, is also in `docs/bugs-fixed.md`. Code-level detail lives in the commit history, `docs/phases-01-projects-and-threads.md` and `CLAUDE.md`.
 
+## Unreleased
+
+### Changed
+
+- **Claude closes a loop itself when its work is done,** instead of waiting for you to say so. It leaves a loop open while something is still pending, and asks you when it is unsure. What Claude reads about afterterm is now one guide that first explains afterterm itself, then loops.
+
+### Fixed
+
+- **The loops tour no longer shows at every launch when afterterm's settings file cannot be read.** In that case it does not show at all.
+
 ## 0.20.0 (2026-11-15)
 
 ### Changed

@@ -1,7 +1,7 @@
 // Unit tests for tours.ts (when a one-time tour shows, what is remembered). Run on Node 24+:
 //   node src/tours.test.ts
 
-import { shouldShowTour, toursSeenFrom, withTourSeen } from './tours.ts';
+import { seenAnswer, shouldShowTour, toursSeenFrom, withTourSeen } from './tours.ts';
 
 let pass = 0, fail = 0;
 function check(name: string, cond: boolean, detail = '') {
@@ -23,6 +23,12 @@ console.log('shouldShowTour');
 check('shows when not seen', shouldShowTour([], 'loops'));
 check('never after it was seen (Done or Skip)', !shouldShowTour(['loops'], 'loops'));
 check('a later tour seen does not hide this one', shouldShowTour(['later-tour'], 'loops'));
+
+console.log('a prefs.json that cannot be read (AFT-111)');
+check('a readable file gives its list', eq(seenAnswer({ prefs: { toursSeen: ['loops'] }, usable: true }), ['loops']));
+check('a missing file is readable and empty: the tour shows', shouldShowTour(seenAnswer({ prefs: {}, usable: true }), 'loops'));
+check('an unreadable file answers unknown', seenAnswer({ prefs: {}, usable: false }) === null);
+check('unknown never shows the tour, so it cannot show at every launch', !shouldShowTour(seenAnswer({ prefs: {}, usable: false }), 'loops'));
 
 console.log('withTourSeen');
 check('adds the tour', eq(withTourSeen(undefined, 'loops'), ['loops']));

@@ -25,7 +25,7 @@ import { detectEditors } from './editor-detect.ts';
 import type { DetectDeps } from './editor-detect.ts';
 import type { EditorInfo } from './editors.ts';
 import { readPrefs, updatePrefs } from './prefs.ts';
-import { toursSeenFrom, withTourSeen, TOUR_IDS, type TourId } from './tours.ts';
+import { seenAnswer, withTourSeen, TOUR_IDS, type TourId } from './tours.ts';
 import {
   SAVE_DELAY_MS, homeFromPrefs, homeToPrefs, sameHome, findHomeDisplay, startupPlacement,
   isWindowsMove, pruneEvents, moveBack, countsAsDisplayChange, landsOn,
@@ -50,7 +50,7 @@ import { LoopsStore, type LoopAction } from './loops-store.ts';
 import { ActivityStore } from './activity-store.ts';
 import { loopsPipeName as loopsPipeNameFor, newToken, startLoopsPipe, writeLaunchers } from './loops-pipe.ts';
 import type { LoopsContext } from './loops-cli.ts';
-import { reconcileLoopsSkill } from './loops-skill.ts';
+import { reconcileAftertermSkill } from './loops-skill.ts';
 import { isThreadId, parseTail, serializeTail, tailFilePath, trimTail } from './thread-tail.ts';
 import {
   applyMsysParents,
@@ -1009,10 +1009,11 @@ function reconcileNotifierHook(): ReconcileResult | null {
     });
     console.log(`[claude-hook] ${result.status} — ${result.detail}`);
     if (result.showToast) pushSetupToast();
-    // The afterterm-loops skill goes beside the hook, under the same guard and opt-out.
+    // The afterterm skill goes beside the hook, under the same guard and opt-out (and
+    // the old afterterm-loops skill goes, when afterterm wrote it).
     const prefs = readPrefs(path.join(app.getPath('userData'), 'prefs.json')).prefs;
-    const skill = reconcileLoopsSkill({ claudeDir: getClaudeDir(), optedOut: prefs.claudeNotifications === 'disabled' });
-    if (skill.status !== 'unchanged') console.log(`[loops] skill ${skill.status}: ${skill.file}${skill.detail ? ' ' + skill.detail : ''}`);
+    const skill = reconcileAftertermSkill({ claudeDir: getClaudeDir(), optedOut: prefs.claudeNotifications === 'disabled' });
+    if (skill.status !== 'unchanged' || skill.oldSkill === 'removed') console.log(`[skill] ${skill.status}: ${skill.file}${skill.detail ? ' ' + skill.detail : ''}; old afterterm-loops skill ${skill.oldSkill}`);
     return result;
   } catch (err) {
     console.error('[claude-hook] reconcile failed:', err);
@@ -3493,7 +3494,7 @@ app.on('will-quit', () => loopsStore?.flush());
 // ─── The one-time tours (AFT-103, tours.ts) ─────────────────────────────────────
 // prefs.json's toursSeen: a tour shows on the first launch of a version that has it
 // and is written as seen after Done or Skip. The renderer decides when to show it.
-ipcMain.handle('tours:seen', () => toursSeenFrom(readPrefs(getPrefsPath()).prefs));
+ipcMain.handle('tours:seen', () => seenAnswer(readPrefs(getPrefsPath())));
 ipcMain.handle('tours:mark-seen', (_e, id: unknown) => {
   if (typeof id !== 'string' || !(TOUR_IDS as readonly string[]).includes(id)) return false;
   const prefsPath = getPrefsPath();

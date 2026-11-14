@@ -398,7 +398,7 @@ export function chatStartBrief(all: readonly Loop[], ctx: LoopsContext, env: Cal
     : undefined;
   // One line of orientation, then the loops. Everything about how to use them is
   // in the skill (Aryan, 2026-11-14: "all necessary things should come from the skill").
-  const lines: string[] = ['You’re running inside afterterm. Before you do anything else, read the afterterm-loops skill.'];
+  const lines: string[] = ['You’re running inside afterterm. Before you do anything else, read the afterterm skill.'];
   const where = projectName(ctx, project);
   if (mine) {
     lines.push(`This chat was working on loop #${mine.id}: ${oneLine(mine.title, 80)} (${loopStatus(mine, all, now)}).`);

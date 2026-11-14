@@ -23,8 +23,17 @@ export function toursSeenFrom(prefs: { toursSeen?: unknown } | null | undefined)
   return out;
 }
 
-export function shouldShowTour(seen: readonly string[], id: TourId): boolean {
-  return !seen.includes(id);
+// What main answers when the app asks which tours were seen: the list, or null when
+// prefs.json could not be read (AFT-111). A file that does not parse is never
+// overwritten, so Done or Skip could not be saved and the tour would show at every
+// launch; null means "unknown", and the tour does not show.
+export function seenAnswer(read: { prefs: { toursSeen?: unknown }; usable: boolean }): TourId[] | null {
+  return read.usable ? toursSeenFrom(read.prefs) : null;
+}
+
+// null (prefs.json unreadable) never shows a tour.
+export function shouldShowTour(seen: readonly string[] | null, id: TourId): boolean {
+  return seen !== null && !seen.includes(id);
 }
 
 // The list to write after Done or Skip. Keeps unknown entries already in the file
