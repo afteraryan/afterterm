@@ -73,6 +73,76 @@ Mock: `loops-home.html`, the Progress layout. The page itself never scrolls; eac
 - **Filling it:** afterterm keeps its own count per day. On the first launch of the version that has loops (a fresh install or an update from an older version), it reads every transcript still on disk and fills the past, then keeps counting as messages arrive. It must keep its own counts because Claude Code deletes old transcripts (Aryan's go back only to 2026-09-26). The same holds for every user, not only Aryan. No AI is involved and nothing leaves the machine.
 - His data for reference (2026-11-14): 38 active days, 1,771 messages, median 34 per active day, busiest 187.
 
+## Frontend spec: exact values
+
+Every value below is the final, on-screen size at 100% zoom on Aryan's 1920 by 1080 screen. The mocks reach some of them through CSS `zoom` (0.9 for the projects section, 0.8 for the two Progress cards); build to the final values, not by copying the zoom.
+
+### Colours (solid only)
+
+| Token | Value | Used for |
+|---|---|---|
+| bg | #212121 | Home and workspace surface |
+| side | #171717 | Rail, panel, title bar |
+| pane | #191919 | Terminal card, filter segment track, filter dropdown |
+| card | #262626 | The floating card |
+| raise | #2f2f2f | Pinned cards, count card, calendar card |
+| hover | #2f2f2f, hover2 #383838 | Row hover; the card's row hover is #383838 |
+| joined | #333333 | An opened loop's row and its box |
+| line | #333333 | The card's border and foot rule |
+| text #ececec, text2 #b4b4b4, text3 #8e8e8e, text4 #5c5c5c | | |
+| btn #ececec on btn-text #0d0d0d | | All button, selected filter chip, active filter segment's text stays text |
+| green #4ade80, green-ink #06170b | | Closed tick, the remaining bar's fill |
+| rot #e8a23a, rot hover #f3b04c, ink #141414 | | Rotting button, rotting count circle, rotting status circle |
+| track #474747 | | The remaining bar's empty part |
+| menu #2f2f2f, menu border and hover #3d3d3d, danger #f87171 | | Right-click menus |
+| heat: none #363636, 1 #1f6b47, 2 #2c9a62, 3 #4ade80, 4 #b9f6d0 | | Calendar squares |
+| search box #262626, hover and focus #2a2a2a | | Projects search |
+
+Project colours come from the project. Label icons are grey (text3; text4 on a closed loop).
+
+### Icons
+
+Label icons (14 by 14 viewBox, stroke 1.4, round caps and joins, no fill), paths in the mocks' `I.Feature`, `I.Bug`, `I.Idea`: Feature is the box (isometric cube), Bug the bug, Idea the bulb. Status: open is a 1.5px ring in text3; closed a filled green circle with a dark tick; rotting a filled amber circle with a dark clock. The loops icon is two overlapping circles. The rotting button and the status note use a small clock.
+
+### Home, the projects section (today's Home at 90%)
+
+Take today's Home values (Home.css) and multiply every size by 0.9: date 23.4px; Pinned cards min height 83px, padding 14px, radius 14px, name 12.6px weight 500, pill 22px high with 11.3px text, time 11.7px, gap 11px, two columns; Projects rows: name 12.6px weight 500, padding 9px 11px, icon 14px, time 11.7px, two columns; section labels 12px. The search box: 171 by 23px, radius 6px, icon 12px, text 11.7px, no placeholder, fixed width (does not grow on focus), a long query shows its end with a leading ellipsis. Show more toggles the full list. The section scrolls on its own; the page never scrolls.
+
+### Home, the Progress column
+
+- Width fixed at 472px; 40px gap to the projects section; 40px page padding on both sides. No resize handle.
+- Heading "Progress" (10px text3 in the mock at 0.8; use 10px) with the close button at its right. Closing animates the column to zero width (grid columns, 340ms, cubic-bezier(.2,.8,.2,1)); a "Progress N" button (30px high, raise background, 12.5px) appears at the top right and opens it again the same way.
+- The calendar card and the count card are 472px wide. Calendar card: padding 9px 10px 8px, radius 10px, gap 6px; heading "N day streak" 13.6px weight 500; "Longest N days" 9.2px; squares 16px with 3.2px gaps, radius 3.2px; month labels 8.8px; day labels Sun to Sat 9.2px; legend 8.8px; arrows 16px.
+- Count card: padding 9px 10px, radius 10px, gap 6px; the remaining number 19.2px weight 500 with "remaining" 10.4px; open, rotting, closed buttons 18.4px high, text 10px, the rotting number in an amber circle 13.6px; the bar 4px.
+- Filter row (full size): a 22px icon button; the segments 19px high with 11.5px text, the project dropdown 22px high; chips 20px high with 11.5px text.
+- The list (full size): rows 31px, title 12.5px, padding 0 8px, radius 8px, gap 8px; status circle 11 to 12px; label icon 12px; "1/5" 11px; project name and time 11.5px; sub-loop rows 26px with 12px titles, indented 21px.
+- An opened loop: the row and the box share #333333 with no gap (row radius 8px 8px 0 0, box 0 0 8px 8px), the box spans the list's full width, padding 2px 8px 7px, description 12px text, status note 11.5px text3 with an 11px clock, line height 1.45, 6px between them, nothing truncated.
+
+### The workspace card
+
+320px wide, 64px from the top of the main pane and 24px from its right edge, radius 14px, 1px #333333 border, shadow 0 12px 32px #000. Heading padding 10px 10px 8px 14px, "Loops" 13px weight 500, the rotting button 24px high, padding 0 9px, radius 7px, 12px weight 500. Rows as in the Progress list, except titles wrap (line height 1.35, 6px top and bottom padding) and are never cut off. Foot: border-top 1px #333333, padding 10px 10px 10px 14px, "N remaining" 12px, the bar 5px, the All button 22px high, padding 0 9px, radius 6px, 11.5px weight 500. The header button: 30px high, loops icon and the remaining number 12px, highlighted while the card is open.
+
+### Menus
+
+Right-click menu: min width 176px, padding 4px, radius 10px, items 13px with padding 6px 10px and radius 7px, a check column for choices, label icons beside Feature, Bug and Idea, a chevron for submenus. A submenu opens beside its parent (to the left when there is no room on the right), never replaces it. Delete in danger red.
+
+### Motion (all off under reduced motion)
+
+| What | How |
+|---|---|
+| A loop opens | Its box and sub-loops grow from zero height and fade in, 240ms, cubic-bezier(.2,.8,.2,1), the sub-loops 30ms after the box |
+| A loop closes | They fold to zero height and fade, 200ms, same curve, then the row settles |
+| The card opens or closes | It flies to and from the header button (scale and move), 300ms; closing cubic-bezier(.4,0,.2,1), opening cubic-bezier(.2,.8,.2,1) |
+| Progress closes or opens | The column's width animates, 340ms, cubic-bezier(.2,.8,.2,1) |
+| The filter opens | The segments slide open in the row (width and opacity), 320ms; the highlight slides between choices, 240ms |
+| The filter changes | Rows fade up 6px into place, 300ms, 28ms apart, at most 300ms of delay; filter chips pop in, 220ms |
+| The calendar moves | The old weeks slide out one side while the new slide in from the other, full width, 520ms, cubic-bezier(.16,1,.3,1); no fade, no blur |
+
+### In the mocks, ignore
+
+- `loops-home.html`: the layouts other than Progress (Two columns, Three columns, Top band, Board, Strips, Panels) and their code, the resize handle code, the config box, the stage scaling and full-screen code, the fake data, and toasts that stand in for navigation.
+- `loops-always-visible.html`: the "Opened loop" and "Row and box" switches (decided: full width, joined), the "Shrunk" switch (only a preview of the closed state), the full-screen code, the fake data and toasts.
+
 ## Visual rules
 
 - Solid colours only. No tinted washes: no coloured background with text or a dot of the same hue, whatever its alpha.
