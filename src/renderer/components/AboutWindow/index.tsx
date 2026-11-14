@@ -19,9 +19,11 @@ export interface AboutWindowProps {
   update: UpdateState;
   onClose: () => void;
   onRestart: () => void;
+  // Plays the loops tour again (AFT-103).
+  onTakeTour?: () => void;
 }
 
-export function AboutWindow({ update, onClose, onRestart }: AboutWindowProps) {
+export function AboutWindow({ update, onClose, onRestart, onTakeTour }: AboutWindowProps) {
   const [notesOpen, setNotesOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 60_000); return () => clearInterval(t); }, []);
@@ -91,6 +93,7 @@ export function AboutWindow({ update, onClose, onRestart }: AboutWindowProps) {
           </button>
           <div className="links">
             <a href={REPO_URL} onClick={e => { e.preventDefault(); window.afterterm.shell.openExternal(REPO_URL); }}>afterterm on GitHub</a>
+            {onTakeTour && <button type="button" className="tour-link" data-take-tour="" onClick={onTakeTour}>Take the loops tour</button>}
           </div>
           <div className="up-dbtns"><button className="b p s" onClick={close}>Close</button></div>
         </>

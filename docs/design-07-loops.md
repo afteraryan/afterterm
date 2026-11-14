@@ -28,7 +28,7 @@ A loop is a piece of work Aryan started in any project: a feature, a bug, or an 
 
 **Archive** is a place, not a status: an archived loop leaves every list and sits under an Archived filter. **Delete** is recoverable for 30 days. Agents can archive and delete too. There is no merging of loops.
 
-**Order.** Most recent activity first. A closed loop keeps its place, with a green tick and a dimmed title, until more recent loops pass it.
+**Order.** Most recent activity first. A closed loop keeps its place, with a solid green circle and a dimmed title, until more recent loops pass it.
 
 ## How agents and Aryan change loops
 
@@ -48,7 +48,7 @@ Mock: `loops-always-visible.html`.
 - Opened and closed only by the loops button in the thread header (loops icon and the remaining count) or **Ctrl+Shift+L**. No shrink button. Clicking outside it or pressing Esc never closes it. It stays open across threads until closed. It flies into the header button and back.
 - Heading: "Loops" and a solid amber "N rotting" button (amber fill, dark text and clock icon) that opens Home's Progress filtered to rotting.
 - The 5 most recent loops, open or closed, never rotting.
-- A row: status circle (open ring, green tick when closed), the label icon (grey), the title (wraps, never cut off), the sub-loop count "1/5" (closed of total; clicking it opens the loop), the project name in the project's colour, the time since last activity.
+- A row: status circle (open ring, solid green circle when closed, solid amber circle when rotting), the label icon (grey), the title (wraps, never cut off), the sub-loop count "1/5" (closed of total; clicking it opens the loop), the project name in the project's colour, the time since last activity.
 - A click on a row opens it in place: the row and a box under it become one grey shape with no gap, the full width of the list, holding the description and, under it, the status note in grey with a small clock and no time. Then its sub-loops, which open the same way. Opening and closing fold with an animation.
 - Right-click: Open chat, Close or Reopen, then Update, which opens beside it: Status, Label (with icons), Rename, Move to project (not for a sub-loop), Archive, Delete.
 - Foot: "N remaining" (open plus rotting, never closed) over a thin bar that fills green with the closed share, no closed number, and a small white "All" button that opens Home's Progress.
@@ -91,7 +91,7 @@ Every value below is the final, on-screen size at 100% zoom on Aryan's 1920 by 1
 | line | #333333 | The card's border and foot rule |
 | text #ececec, text2 #b4b4b4, text3 #8e8e8e, text4 #5c5c5c | | |
 | btn #ececec on btn-text #0d0d0d | | All button, selected filter chip, active filter segment's text stays text |
-| green #4ade80, green-ink #06170b | | Closed tick, the remaining bar's fill |
+| green #4ade80, green-ink #06170b | | Closed circle, the remaining bar's fill |
 | rot #e8a23a, rot hover #f3b04c, ink #141414 | | Rotting button, rotting count circle, rotting status circle |
 | track #474747 | | The remaining bar's empty part |
 | menu #2f2f2f, menu border and hover #3d3d3d, danger #f87171 | | Right-click menus |
@@ -102,7 +102,7 @@ Project colours come from the project. Label icons are grey (text3; text4 on a c
 
 ### Icons
 
-Label icons (14 by 14 viewBox, stroke 1.4, round caps and joins, no fill), paths in the mocks' `I.Feature`, `I.Bug`, `I.Idea`: Feature is the box (isometric cube), Bug the bug, Idea the bulb. Status: open is a 1.5px ring in text3; closed a filled green circle with a dark tick; rotting a filled amber circle with a dark clock. The loops icon is two overlapping circles. The rotting button and the status note use a small clock.
+Label icons (14 by 14 viewBox, stroke 1.4, round caps and joins, no fill), paths in the mocks' `I.Feature`, `I.Bug`, `I.Idea`: Feature is the box (isometric cube), Bug the bug, Idea the bulb. Status circles are plain, with nothing inside (Aryan, 2026-11-14, AFT-103): open is a 1.5px ring in text3; closed a solid green circle; rotting a solid amber circle. The loops icon is two overlapping circles. The rotting button and the status note use a small clock.
 
 ### Home, the projects section (today's Home at 90%)
 

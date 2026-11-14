@@ -20,6 +20,8 @@ export interface LoopsCardProps {
   onAll: () => void;
   onOpenChat: (loop: Loop) => void;
   onToast: (message: string, actionLabel?: string, onAction?: () => void) => void;
+  // The loops tour shows example loops here with an "Example" tag (AFT-103).
+  example?: boolean;
 }
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -38,7 +40,7 @@ function flightFrames(card: DOMRect, to: DOMRect): Keyframe[] {
   return [{ transform: 'none', opacity: 1 }, { transform: small, opacity: 0.2 }];
 }
 
-export function LoopsCard({ open, loops, groups, now, onRotting, onAll, onOpenChat, onToast }: LoopsCardProps) {
+export function LoopsCard({ open, loops, groups, now, onRotting, onAll, onOpenChat, onToast, example }: LoopsCardProps) {
   const [shown, setShown] = useState(open);
   const ref = useRef<HTMLDivElement>(null);
   const flying = useRef<Animation | null>(null);
@@ -72,9 +74,9 @@ export function LoopsCard({ open, loops, groups, now, onRotting, onAll, onOpenCh
   const counts = loopCounts(loops, now);
   const rows = recentForCard(loops, now);
   return (
-    <div className="lc-card" ref={ref} data-loops-card="">
+    <div className={`lc-card${example ? ' ex' : ''}`} ref={ref} data-loops-card="">
       <div className="lc-head">
-        <span className="lc-title">Loops</span>
+        <span className="lc-title">Loops{example && <span className="lc-example">Example</span>}</span>
         {counts.rotting > 0 && (
           <button type="button" className="lc-rot" data-act="rotting" onClick={onRotting}>
             <ClockIcon size={13} strokeWidth={1.6} />{counts.rotting} rotting

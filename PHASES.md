@@ -21,6 +21,7 @@ Order changed from the suggested one: the loop rows, opening a loop, the menu an
 | 5. Home's Progress column | AFT-99 | The Progress layout: projects at 90%, the 472px column, calendar and count cards, the filter, the list, the close and slide | Done |
 | 6. The workspace card | AFT-100 | The floating card, its header button and Ctrl+Shift+L, the flight, the 5 rows, rotting, the remaining bar, All | Done |
 | 7. Release readiness | AFT-101 | CHANGELOG, `docs/features-loops.md`, CLAUDE.md; fresh install, update from 0.18.1, manual install over it, startup time with a large transcript folder; every spec value measured in DevTools | Done |
+| 8. The loops tour | AFT-103 | A one-time guided tour on Home after the update (mock `docs/mockups/loops-tour.html`): eight cards, example loops and an example calendar for someone with none, the loops button with no thread open, plain status circles, Take the loops tour in the About window | Done |
 
 Decided while building (recorded here as they come):
 
@@ -46,6 +47,19 @@ Decided while building (recorded here as they come):
 - Deleted loops (kept 30 days) are listed under the Archived filter, below the archived ones, under "Deleted", where the right-click menu has Restore.
 - The calendar's earlier arrow goes back while there are older days with messages, then dims.
 - The calendar's clip (needed for the slide) has 2px of room round the grid, so a current-streak square's outline at the card's edge is never cut (Aryan, 2026-11-14, on the first build).
+
+Decided while building the loops tour (AFT-103, 2026-11-14):
+
+- What it remembers: prefs.json's `toursSeen: ["loops"]`, written after Done or Skip only. Quitting in the middle of the tour does not count: it shows again on the next launch. Unknown ids in the list are kept, so going back a version and forward again never replays a tour.
+- When it shows: once per launch, 600 ms after the session is restored, on Home. A launch that lands on the workspace (the first launch after an update restart does) is taken to Home for it.
+- Replay: "Take the loops tour" in the About window, beside "afterterm on GitHub" (the mock's notes said What's new; the About window's What's new only exists while an update is offered, so the link sits under it instead).
+- Progress closed: the tour opens it for real and leaves it open (it is where Done lands). The filter is reset to everything, so the examples or the person's own loops all show.
+- Someone with loops of their own sees their own: the rotting step rings their first rotting loop (the whole list when none rots), the sub-loops step opens their first loop with sub-loops (the list when none has any). A loop deleted but kept for 30 days does not count as their own. The same for the calendar: any day with a message makes it theirs.
+- The example idea "Weekly summary email" does not rot, as in the app's rules (ideas never rot); the mock turned it amber too. So the rotting step shows 1 rotting, not 2.
+- Everything under the tour is blocked while it shows (the title bar stays usable), so nothing can act on an example loop; the examples never reach main, loops.json or activity.json.
+- Arrow keys move, Esc is Skip. The focus stays on the card's Next button (so Enter never reaches a Wake button under the tour), with the focus outline drawn only while the tour is driven by keys.
+- The card's blue is #2d66f2, the mock's #2f6bff about 5% darker, and its picture panel #1c51db (Aryan, 2026-11-14: "the blue looks too bright on screen... very slightly").
+- Harness launches mark the tour seen unless `--prefs` says otherwise (`"toursSeen": []`), so a run that is not about the tour is not covered by it.
 - The card's "N rotting" button is hidden while nothing rots.
 - Whether the card is open is kept per viewer across threads and launches; the loops button is in every thread header (both halves of a split), and the card flies into the focused half's.
 - Rotting and All on the card open Home's Progress (opening it if it was closed), filtered to rotting or to everything.

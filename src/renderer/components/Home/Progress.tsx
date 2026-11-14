@@ -23,6 +23,10 @@ export interface ProgressProps {
   onClose: () => void;
   onOpenChat: (loop: Loop) => void;
   onToast: (message: string, actionLabel?: string, onAction?: () => void) => void;
+  // The loops tour (AFT-103): which parts are examples (an "Example" tag beside the
+  // heading, those parts at 85%), and the loop it opens in place.
+  example?: { loops: boolean; days: boolean };
+  forceOpen?: string | null;
 }
 
 const WEEKS = 22;
@@ -43,7 +47,7 @@ function monthShort(day: string): string {
 
 // ---------- the streak calendar ----------
 
-function CalendarGrid({ days, today, offset, streakStart }: { days: Record<string, number>; today: string; offset: number; streakStart: string | null }) {
+function CalendarGrid({ days, today, offset, streakStart, reveal }: { days: Record<string, number>; today: string; offset: number; streakStart: string | null; reveal?: boolean }) {
   const weeks = calendarWeeks(today, WEEKS, offset);
   const first = weeks[0][0].day;
   const months = weeks.map((col, w) => {
@@ -59,12 +63,13 @@ function CalendarGrid({ days, today, offset, streakStart }: { days: Record<strin
       {DAY_NAMES.map((name, row) => (
         <React.Fragment key={name}>
           <span className="pg-dl">{name}</span>
-          {weeks.map((col) => {
+          {weeks.map((col, w) => {
             const c = col[row];
             if (c.future) return <span key={c.day} className="pg-cell future" />;
             const n = days[c.day] ?? 0;
             const cur = streakStart !== null && c.day >= streakStart && c.day <= today && n > 0;
-            return <span key={c.day} className={`pg-cell l${shade(n)}${cur ? ' cur' : ''}`} data-day={c.day} data-n={n} title={`${c.day}: ${n}`} />;
+            // The tour's example days fill in week by week, 35 ms apart.
+            return <span key={c.day} className={`pg-cell l${shade(n)}${cur ? ' cur' : ''}${reveal && n > 0 ? ' reveal' : ''}`} style={reveal && n > 0 ? { animationDelay: `${w * 35}ms` } : undefined} data-day={c.day} data-n={n} title={`${c.day}: ${n}`} />;
           })}
         </React.Fragment>
       ))}
@@ -72,7 +77,7 @@ function CalendarGrid({ days, today, offset, streakStart }: { days: Record<strin
   );
 }
 
-function Calendar({ days, now }: { days: Record<string, number>; now: number }) {
+function Calendar({ days, now, reveal }: { days: Record<string, number>; now: number; reveal?: boolean }) {
   const today = todayString(now);
   const s = streaks(days, today);
   const [offset, setOffset] = useState(0);
@@ -119,7 +124,7 @@ function Calendar({ days, now }: { days: Record<string, number>; now: number }) 
         <button type="button" className={`pg-nav${offset ? '' : ' off'}`} data-act="newer" aria-label="Later" onClick={() => move(Math.max(0, offset - STEP_WEEKS))}><ChevronRight /></button>
       </div>
       <div className="pg-hmclip" ref={clip}>
-        <CalendarGrid days={days} today={today} offset={offset} streakStart={s.currentStart} />
+        <CalendarGrid days={days} today={today} offset={offset} streakStart={s.currentStart} reveal={reveal} />
       </div>
       <div className="pg-legend">
         <span>Less</span>
@@ -223,7 +228,7 @@ function FilterRow({ loops, groups, filter, setFilter }: { loops: Loop[]; groups
 
 // ---------- the column ----------
 
-export function Progress({ loops, groups, now, days, filter, setFilter, onClose, onOpenChat, onToast }: ProgressProps) {
+export function Progress({ loops, groups, now, days, filter, setFilter, onClose, onOpenChat, onToast, example, forceOpen }: ProgressProps) {
   const rows = visibleLoops(loops, filter, now);
   // Deleted loops are kept 30 days; the Archived filter lists them after the
   // archived ones, where Restore brings one back.
@@ -240,15 +245,15 @@ export function Progress({ loops, groups, now, days, filter, setFilter, onClose,
   }, [filterText]);
   const empty = filter.status === 'archived' ? 'Nothing archived' : filterIsSet(filter) ? 'No loops' : 'No loops yet';
   return (
-    <div className="prog-col" data-progress="">
+    <div className={`prog-col${example?.loops ? ' ex-loops' : ''}${example?.days ? ' ex-days' : ''}`} data-progress="">
       <div className="pg-top">
-        <div className="pg-lbl">Progress<span className="grow" /><button type="button" className="pg-ibtn pg-close" data-act="progress-close" data-tip="Close" onClick={onClose}><PanelCloseIcon size={12} /></button></div>
-        <Calendar days={days} now={now} />
+        <div className="pg-lbl">Progress{(example?.loops || example?.days) && <span className="pg-example" data-example-tag="">Example</span>}<span className="grow" /><button type="button" className="pg-ibtn pg-close" data-act="progress-close" data-tip="Close" onClick={onClose}><PanelCloseIcon size={12} /></button></div>
+        <Calendar days={days} now={now} reveal={example?.days} />
         <CountCard loops={loops} now={now} filter={filter} setFilter={setFilter} />
       </div>
       <FilterRow loops={loops} groups={groups} filter={filter} setFilter={setFilter} />
       <div className="prog-list" data-loop-scroll="">
-        <LoopList loops={loops} rows={rows} groups={groups} now={now} variant="list" enterKey={enterKey} emptyText={deleted.length ? null : empty} onOpenChat={onOpenChat} onToast={onToast} />
+        <LoopList loops={loops} rows={rows} groups={groups} now={now} variant="list" enterKey={enterKey} emptyText={deleted.length ? null : empty} onOpenChat={onOpenChat} onToast={onToast} forceOpen={forceOpen} />
         {deleted.length > 0 && (
           <>
             <div className="pg-sublbl">Deleted</div>

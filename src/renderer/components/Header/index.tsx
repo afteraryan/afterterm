@@ -66,10 +66,26 @@ export function Header({ tab, group, groups, actions, projectExplorer, editor, n
   }, []);
   const closeMenu = useCallback(() => setMenuPos(null), []);
 
+  // The loops card's button, on every header: with a thread or without one (the
+  // loops tour points at it with no thread open, AFT-103).
+  const loopsButton = loops ? (
+    <button
+      type="button"
+      className={`lc-hbtn${loops.open ? ' on' : ''}`}
+      data-loops-button=""
+      data-tip="Loops  Ctrl+Shift+L"
+      onClick={loops.onToggle}
+    >
+      <LoopsIcon size={16} />
+      <span className="lc-cnt">{loops.count}</span>
+    </button>
+  ) : null;
+
   if (!tab) {
     return (
       <div className="header">
         <span className="header-empty">{emptyText ?? 'Pick a thread'}</span>
+        {loopsButton && <div className="header-actions">{loopsButton}</div>}
       </div>
     );
   }
@@ -156,18 +172,7 @@ export function Header({ tab, group, groups, actions, projectExplorer, editor, n
             {chip.text}
           </span>
         )}
-        {loops && (
-          <button
-            type="button"
-            className={`lc-hbtn${loops.open ? ' on' : ''}`}
-            data-loops-button=""
-            data-tip="Loops  Ctrl+Shift+L"
-            onClick={loops.onToggle}
-          >
-            <LoopsIcon size={16} />
-            <span className="lc-cnt">{loops.count}</span>
-          </button>
-        )}
+        {loopsButton}
         {editor && primaryEditor && (editor.missing ? (
           <span
             className="ic disabled"

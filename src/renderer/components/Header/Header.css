@@ -135,6 +135,8 @@
   color: var(--text3);
   font-size: 14px;
 }
+/* With no thread open the loops button still sits at the right (AFT-103). */
+.header-empty + .header-actions { margin-left: auto; }
 
 /* The working chip is the spinner alone (design-06): a round chip as tall as
    the ones with words. */

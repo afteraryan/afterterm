@@ -35,6 +35,12 @@ export interface HomeProps {
   setFilter: (f: LoopFilter) => void;
   onOpenLoopChat: (loop: Loop) => void;
   onToast: (message: string, actionLabel?: string, onAction?: () => void) => void;
+  // The loops tour (AFT-103), passed to Progress: the projects the loops name
+  // (with the example projects while examples show), which parts are examples,
+  // and the loop it opens in place.
+  loopGroups?: Group[];
+  example?: { loops: boolean; days: boolean };
+  forceOpen?: string | null;
 }
 
 // Two columns of projects: six rows until Show more.
@@ -86,7 +92,7 @@ function ProjectSearch({ value, onChange }: { value: string; onChange: (v: strin
 
 export function Home({
   groups, tabs, now, editors, folderExists, actions, onNewProject,
-  loops, days, progressOpen, setProgressOpen, filter, setFilter, onOpenLoopChat, onToast,
+  loops, days, progressOpen, setProgressOpen, filter, setFilter, onOpenLoopChat, onToast, loopGroups, example, forceOpen,
 }: HomeProps) {
   const [showAll, setShowAll] = useState(false);
   const [query, setQuery] = useState('');
@@ -305,7 +311,7 @@ export function Home({
         <div className="prog-wrap">
           <Progress
             loops={loops}
-            groups={groups}
+            groups={loopGroups ?? groups}
             now={now}
             days={days}
             filter={filter}
@@ -313,6 +319,8 @@ export function Home({
             onClose={() => setProgressOpen(false)}
             onOpenChat={onOpenLoopChat}
             onToast={onToast}
+            example={example}
+            forceOpen={forceOpen}
           />
         </div>
       </div>

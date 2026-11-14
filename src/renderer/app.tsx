@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { SidePanel } from './components/SidePanel';
 import type { SidePanelHandle } from './components/SidePanel';
 import { Rail } from './components/Rail';
@@ -50,6 +50,9 @@ import { EditorLogo, IconExplorer } from './components/Icons';
 import { loopsContextFrom, NO_FILTER, openChatPlan, type LoopFilter } from './loopsView';
 import { useActivityDays, useLoops } from './hooks/useLoops';
 import { LoopsCard } from './components/Loops/LoopsCard';
+import { LoopsTour } from './components/LoopsTour';
+import { exampleDays, exampleGroups, exampleLoops, loopWithSubs, rottingLoop, todayKey, tourScene, usesExampleDays, usesExampleLoops } from './loopsTour';
+import { shouldShowTour } from '../tours';
 import { loopCounts } from '../loops';
 import type { Loop } from '../loops';
 
@@ -1454,6 +1457,44 @@ export function App() {
     goScreen('home');
   }, [setProgressOpen, goScreen]);
 
+  // The loops tour (AFT-103, loopsTour.ts, components/LoopsTour): the step showing,
+  // or null. Shown once on Home on the first launch of a version that has it, then
+  // never again after Done or Skip (prefs.json's toursSeen, tours.ts); the About
+  // window's "Take the loops tour" replays it. During the tour someone with no loops
+  // or no calendar days sees examples, which exist only here in the renderer.
+  const [tourStep, setTourStep] = useState<number | null>(null);
+  const scene = tourStep === null ? null : tourScene(tourStep);
+  const tourExLoops = !!scene?.examples && usesExampleLoops(loops);
+  const tourExDays = !!scene?.exampleDays && usesExampleDays(activityDays);
+  const shownLoops = useMemo(() => (tourExLoops ? exampleLoops(now, tourStep ?? 0) : loops), [tourExLoops, now, tourStep, loops]);
+  const shownDays = useMemo(() => (tourExDays ? exampleDays(todayKey(now)) : activityDays), [tourExDays, now, activityDays]);
+  const shownGroups = useMemo(() => (tourExLoops ? [...state.groups, ...exampleGroups()] : state.groups), [tourExLoops, state.groups]);
+  const cardShown = scene ? scene.cardOpen : loopsCardOpen;
+  const startTour = useCallback(() => {
+    setProgressFilter(NO_FILTER);
+    setProgressOpen(true);
+    goScreen('home');
+    setTourStep(0);
+  }, [setProgressOpen, goScreen]);
+  const endTour = useCallback(() => {
+    setTourStep(null);
+    void window.afterterm.tours?.markSeen('loops');
+  }, []);
+  // Each step's view: the tour moves between Home and the workspace itself.
+  useEffect(() => {
+    if (!scene) return;
+    if (screenRef.current !== scene.view) goScreen(scene.view);
+  }, [tourStep]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Once per launch, after the session is restored: show it if it was never seen.
+  const tourChecked = useRef(false);
+  useEffect(() => {
+    if (!initialized || tourChecked.current) return;
+    tourChecked.current = true;
+    window.afterterm.tours?.seen()
+      .then(seen => { if (shouldShowTour(seen, 'loops')) window.setTimeout(startTour, 600); })
+      .catch(() => { /* prefs unreadable: no tour this launch */ });
+  }, [initialized, startTour]);
+
   // The last lines of a terminal that is about to be destroyed. A sleeping thread's
   // tail is what its pane shows and what it replays on waking, so it is both kept in
   // state and written to disk. A closed thread's is only worth keeping when the
@@ -1773,7 +1814,7 @@ export function App() {
         } : undefined}
         editor={threadEditor(tab)}
         files={filesButtonFor(tab)}
-        loops={{ count: loopCounts(loops, now).remaining, open: loopsCardOpen, onToggle: toggleLoopsCard }}
+        loops={{ count: loopCounts(shownLoops, now).remaining, open: cardShown, onToggle: toggleLoopsCard }}
         actions={{
           moveToGroup: (id) => id ? state.addToGroup(tab.id, id) : state.removeFromGroup(tab.id),
           close: () => closeThread(tab.id),
@@ -1845,14 +1886,17 @@ export function App() {
           folderExists={folderExists}
           actions={projectActions}
           onNewProject={() => setProjectModal({ mode: 'create' })}
-          loops={loops}
-          days={activityDays}
+          loops={shownLoops}
+          days={shownDays}
           progressOpen={progressOpen}
           setProgressOpen={setProgressOpen}
           filter={progressFilter}
           setFilter={setProgressFilter}
           onOpenLoopChat={openLoopChat}
           onToast={loopToast}
+          loopGroups={shownGroups}
+          example={scene ? { loops: tourExLoops, days: tourExDays } : undefined}
+          forceOpen={scene?.openSubs ? loopWithSubs(shownLoops) : null}
         />
       )}
 
@@ -1944,6 +1988,7 @@ export function App() {
               group={undefined}
               groups={state.groups}
               now={now}
+              loops={{ count: loopCounts(shownLoops, now).remaining, open: cardShown, onToggle: toggleLoopsCard }}
             />
           )}
           {initialized && state.tabs.length === 0 && (
@@ -1954,9 +1999,10 @@ export function App() {
           )}
           {screen === 'workspace' && (
             <LoopsCard
-              open={loopsCardOpen}
-              loops={loops}
-              groups={state.groups}
+              open={cardShown}
+              loops={shownLoops}
+              groups={shownGroups}
+              example={tourExLoops}
               now={now}
               onRotting={() => showProgress({ ...NO_FILTER, status: 'rotting' })}
               onAll={() => showProgress(NO_FILTER)}
@@ -2166,6 +2212,18 @@ export function App() {
           update={update}
           onClose={() => setUpdateWindow(null)}
           onRestart={() => setUpdateWindow('restart')}
+          onTakeTour={() => { setUpdateWindow(null); startTour(); }}
+        />
+      )}
+
+      {tourStep !== null && (
+        <LoopsTour
+          step={tourStep}
+          setStep={setTourStep}
+          remaining={loopCounts(shownLoops, now).remaining}
+          subsLoopId={loopWithSubs(shownLoops)}
+          rotLoopId={rottingLoop(shownLoops, now)}
+          onEnd={endTour}
         />
       )}
 

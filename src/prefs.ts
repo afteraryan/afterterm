@@ -48,6 +48,9 @@ export interface AftertermPrefs {
   windowDisplayId?: number;
   windowDisplayBounds?: { x: number; y: number; width: number; height: number };
   windowMaximized?: boolean;
+  // The one-time tours already shown (tours.ts, AFT-103): ["loops"] after the loops
+  // tour's Done or Skip. Unknown ids are kept, so a newer version's tour stays seen.
+  toursSeen?: string[];
   [key: string]: unknown;
 }
 

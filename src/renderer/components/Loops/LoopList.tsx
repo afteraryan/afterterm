@@ -32,6 +32,9 @@ export interface LoopListProps {
   emptyText?: string | null; // null: nothing at all when there are no rows
   onOpenChat: (loop: Loop) => void;
   onToast?: (message: string, actionLabel?: string, onAction?: () => void) => void;
+  // The loops tour (AFT-103): a loop it opens in place, with the same fold as a
+  // click; when it changes or goes, that loop folds shut again.
+  forceOpen?: string | null;
 }
 
 const EASE = 'cubic-bezier(.2,.8,.2,1)';
@@ -41,7 +44,7 @@ export function act(action: LoopAction) {
   return window.afterterm.loops.act(action);
 }
 
-export function LoopList({ loops, rows, groups, now, variant, enterKey, emptyText, onOpenChat, onToast }: LoopListProps) {
+export function LoopList({ loops, rows, groups, now, variant, enterKey, emptyText, onOpenChat, onToast, forceOpen }: LoopListProps) {
   const [opened, setOpened] = useState<Set<string>>(() => new Set());
   const [menu, setMenu] = useState<{ x: number; y: number; items: LoopMenuItem[] } | null>(null);
   const [rename, setRename] = useState<Loop | null>(null);
@@ -112,6 +115,16 @@ export function LoopList({ loops, rows, groups, now, variant, enterKey, emptyTex
       a.onfinish = () => { if (--left === 0) finish(); };
     });
   }, [opened]);
+
+  // The tour opens one loop and later folds it shut, as a click would.
+  const forced = useRef<string | null>(null);
+  useEffect(() => {
+    const prev = forced.current;
+    const next = forceOpen ?? null;
+    forced.current = next;
+    if (prev && prev !== next && opened.has(prev)) toggle(prev);
+    if (next && !opened.has(next)) toggle(next);
+  }, [forceOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Rows fade up when the filter changes.
   const lastEnter = useRef(enterKey);

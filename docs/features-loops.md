@@ -34,6 +34,20 @@ Loops are the pieces of work started in every project (design-07, `docs/design-0
 
 **Open chat.** The loop's thread when it is open (woken when asleep), else that session's entry in the project's history (resumed), else a new chat thread in the loop's project that resumes the session where it was. A worktree that is gone opens in the project's folder with "Folder gone, opened in the project folder". A loop with no session says "No chat".
 
+## The loops tour (AFT-103)
+
+A one-time guided tour on Home, built from the mock `docs/mockups/loops-tour.html` (its STEPS, ART, CSS, `place()`, `apply()` and `finish()`). Eight cards, solid blue (#2d66f2), 420px wide, 18px radius, a NEW tag and a progress ring in the corner, Back, Skip and Next; the calendar's card green; the last split on a hard diagonal, 75% blue and 25% green, with a 👍 that pops in with a burst of dots. Each card but the keys step has a picture: afterterm's own UI enlarged and tilted on a deeper panel, with a cursor where there is an action. A 3px ring sits 6px outside the part of the screen the card is about, and the card sits beside it with a pointer, never over it.
+
+| Part | Files |
+|---|---|
+| When it shows and what it remembers (prefs.json `toursSeen`) | `src/tours.ts`, tested in `src/tours.test.ts`; IPC `tours:seen`, `tours:mark-seen` in `src/main.ts` |
+| The steps, what each does to the app, the examples, the placement | `src/renderer/loopsTour.ts`, tested in `src/renderer/loopsTour.test.ts` |
+| The card, the ring, the movement, the pictures | `src/renderer/components/LoopsTour/` |
+| The app's side (the view per step, examples in place of empty data, the loops card held open, the opened loop) | `src/renderer/app.tsx` (`tourStep`, `startTour`, `endTour`); `forceOpen` on `LoopList`; `example` on `Progress` and `LoopsCard` |
+| Harness | `tour-measure.mjs` (one step against the mock's values), `tour-mock-drive.mjs` (the mock in headless Edge), `drive screenshot --clip --scale` |
+
+The examples (five loops, three sub-loops, three example projects, 16 weeks of days with a six-day streak) exist only in the renderer, at 85% with an "Example" tag beside the Progress heading and in the loops card. Someone with a loop or a calendar day of their own sees their own instead. Every decision is in `PHASES.md` under Loops.
+
 ## Decided while building
 
 Every decision is in `PHASES.md` under Loops with its reason. The ones that change what Aryan sees:
@@ -69,6 +83,14 @@ In the dev build through the harness (every run with its own data folder, a scra
 - **Animations** recorded beside the mocks' own, the mocks driven in headless Edge at the same size: Home `p5-13` (mock) and `p5-14` (app), the card `p6-08` (mock) and `p6-09` (app). The app uses the mocks' durations and curves.
 - **Fixed during the build on Aryan's report**: the current-streak outline on the last square was cut at the calendar card's edge.
 - **The counts** (Phase 3): 320 of 320 messages on the small fixture, every day equal; appended messages counted within 33 s; no change after a restart; 2,000 files and 621 MB backfilled in 1.3 s with no main-thread stall over 30 ms; a quit after 684 of 10,000 files carried on to 35,100 of 35,100 on the next launch.
+
+### The loops tour
+
+Unit tests: `tours.test.ts` 17 checks, `loopsTour.test.ts` 71 (every step's scene, the examples and their counts, the example calendar's streak, the placement never covering the ring and staying in the window for every kind of target, the keys step placed from the loops card). In the dev build through the harness at 1920 by 1032, two launches (captures and recordings in `docs/screenshots/loops/tour/`):
+
+- **A new user** (the mocks' projects and threads, no loops, an empty Claude folder): the tour showed on Home on launch. Every step measured with `tour-measure.mjs`: steps 1 and 8 15 of 15, steps 2 to 5 and 7 23 of 23, step 6 27 of 27 (the ring 6px outside its target on all four sides, the card clear of the ring and the target and inside the window, the colours, no sub-line, the ring filling a step at a time, the keys card placed exactly 24px left of the loops card). After Done the examples were gone, Home showed "No loops yet", no loops.json was written, and prefs.json said `toursSeen: ["loops"]`; a reload showed no tour. Back gave step 2 again (23 of 23). Skip on step 3: no tour after a reload. Step 6 with every thread closed: the loops button in the empty header, 27 of 27. Take the loops tour replayed from step 1. Under reduced motion nothing moves and Done ends at once. (`01` to `11`, `20` to `23`, `26`)
+- **Someone with loops and calendar days** (`loops-seed.mjs`, 22 loops, and 320 fixture messages over 31 days): relaunched on the same folder, no tour (seen after Done). Replayed from the About window: their own loops and calendar, no examples, no Example tag; the rotting step rang their first rotting loop, the sub-loops step opened their first loop with sub-loops; every step passed as above; afterwards no loop was left open and loops.json was unchanged. (`12` to `19`, `25`, `27`)
+- **Beside the mock**: the mock driven in headless Edge with the same timing (`24`) against the app (`22`): the same steps, places and movement. One difference on purpose: the example idea does not rot, as in the app's rules.
 
 ### Install and update
 
