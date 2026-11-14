@@ -50,6 +50,8 @@ Decided while building (recorded here as they come):
 - Whether the card is open is kept per viewer across threads and launches; the loops button is in every thread header (both halves of a split), and the card flies into the focused half's.
 - Rotting and All on the card open Home's Progress (opening it if it was closed), filtered to rotting or to everything.
 - The calendar's counts are saved in slices that yield, written without blocking: the first startup test found the old save (a 1.5 MB JSON.stringify and write every 2 s) stalling main for 31 to 70 ms during a large backfill.
+- Agents and the skill (AFT-104, three tests with real Claude chats, 2026-11-14): the chat-start note is one line, "You're running inside afterterm. Before you do anything else, read the afterterm-loops skill.", then the open loops; everything else is in the skill (Aryan). The skill's description says to read it before any change to files, a feature, a bug fix or any other edit. Claude starts a loop before editing, updates its note before ending the turn, and closes a loop only when the user says it is done, or it is merged or shipped, with a final note (design-07 had agents close freely; closing after every change left nothing open). In the third test Claude read the skill first in every chat, started a bug and a feature loop, left both open and closed both when told they were done.
+- A loop remembers a chat only when Claude ran the command (Claude Code's session id is on it); a command typed by hand links no chat, and a later Claude chat in the same terminal is remembered as itself. Closing does not change the remembered chat, so Open chat on a finished loop goes back to the chat that did the work.
 
 ## Automatic updates
 

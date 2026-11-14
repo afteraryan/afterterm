@@ -52,8 +52,11 @@ console.log('\nloops-cli: projects\n');
   check('by name, any case', JSON.stringify(resolveProject(ctx, 'MINIMI')) === '{"id":"g-mm"}');
   check('general', JSON.stringify(resolveProject(ctx, 'general')) === '{"id":null}');
   check('an unknown name lists the projects', 'error' in resolveProject(ctx, 'nope'));
-  const chat = callerChat(ctx, { thread: 't1', cwd: 'D:\\x' });
-  check('the remembered chat takes the thread\'s session and folder', chat?.sessionId === 'sess-1' && chat.cwd === 'D:\\Work\\afterterm' && chat.threadId === 't1');
+  check('a command typed by hand remembers no chat, even in a thread where Claude ran', callerChat(ctx, { thread: 't1', cwd: 'D:\\x' }) === null);
+  const chat = callerChat(ctx, { thread: 't1', session: 'sess-1', cwd: 'D:\\x' });
+  check('a command Claude ran remembers its chat, in the folder of its session', chat?.sessionId === 'sess-1' && chat.cwd === 'D:\\Work\\afterterm' && chat.threadId === 't1');
+  const other = callerChat(ctx, { thread: 't1', session: 'sess-new', cwd: 'D:\\y' });
+  check('a second Claude chat in the same terminal is remembered as itself, not the first', other?.sessionId === 'sess-new' && other.cwd === 'D:\\y');
 }
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'loops-cli-'));
@@ -113,7 +116,7 @@ console.log('\nloops-cli: the chat-start brief\n');
   const b = chatStartBrief(store.list(), ctx, { thread: 't1', session: 'sess-x', cwd: 'D:\\Work\\afterterm' }, T0);
   check('lists the folder\'s open loops', b.includes('Open loops in afterterm') && b.includes('#1 Loops on Home'), b);
   check('not other projects\' loops', !b.includes('Other project'));
-  check('says not to duplicate', b.includes('Before starting a loop'));
+  check('starts by pointing the chat at the skill', b.startsWith('You\u2019re running inside afterterm. Before you do anything else, read the afterterm-loops skill.'));
   const resumed = chatStartBrief(store.list(), ctx, { thread: 't1', session: 'sess-1', cwd: 'D:\\Work\\afterterm' }, T0);
   check('a resumed chat gets its loop and status note', resumed.includes('This chat was working on loop #') && resumed.includes('Its status note'), resumed);
   const none = chatStartBrief(store.list(), ctx, { cwd: 'C:\\elsewhere' }, T0);

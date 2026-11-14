@@ -141,17 +141,22 @@ export function projectName(ctx: LoopsContext, id: string | null): string {
 
 // The chat a change made through the command is remembered as.
 export function callerChat(ctx: LoopsContext, env: CallerEnv): LoopChat | null {
+  // A loop remembers a chat only when a Claude chat ran the command: Claude Code
+  // puts its session id (CLAUDE_CODE_SESSION_ID) on every command it runs. A command
+  // typed by hand, even in a terminal where Claude ran before, remembers no chat;
+  // the terminal's last Claude session may have nothing to do with this loop
+  // (AFT-104). The chat, not the terminal, is what is remembered: the thread id is
+  // only a shortcut to it, and Open chat checks it still holds this session.
+  if (!env.session) return null;
   const t = env.thread ? ctx.threads.find((x) => x.id === env.thread) : undefined;
-  const chat: LoopChat = {};
+  const chat: LoopChat = { sessionId: env.session };
   if (env.thread) chat.threadId = env.thread;
-  const session = env.session || t?.sessionId;
-  if (session) chat.sessionId = session;
-  // A chat's folder is the one Claude Code's session is in (what `claude --resume`
-  // needs). Any other shell's is where the command ran: the thread's own folder is
-  // only reported at its next prompt, so it can lag behind a `cd` on the same line.
-  const cwd = (t?.sessionId ? t.cwd : undefined) || env.cwd;
+  // The chat's folder is the one its Claude Code session is in (what `claude
+  // --resume` needs): the thread's, when the thread is on this session; else where
+  // the command ran.
+  const cwd = (t && t.sessionId === env.session ? t.cwd : undefined) || env.cwd;
   if (cwd) chat.cwd = cwd;
-  return chat.threadId || chat.sessionId || chat.cwd ? chat : null;
+  return chat;
 }
 
 // ---------- output ----------
@@ -391,7 +396,9 @@ export function chatStartBrief(all: readonly Loop[], ctx: LoopsContext, env: Cal
         .filter((l) => !l.deletedAt && !l.archivedAt && l.chat?.sessionId === env.session)
         .sort((a, b) => b.activityAt - a.activityAt)[0]
     : undefined;
-  const lines: string[] = [];
+  // One line of orientation, then the loops. Everything about how to use them is
+  // in the skill (Aryan, 2026-11-14: "all necessary things should come from the skill").
+  const lines: string[] = ['You’re running inside afterterm. Before you do anything else, read the afterterm-loops skill.'];
   const where = projectName(ctx, project);
   if (mine) {
     lines.push(`This chat was working on loop #${mine.id}: ${oneLine(mine.title, 80)} (${loopStatus(mine, all, now)}).`);
@@ -408,7 +415,6 @@ export function chatStartBrief(all: readonly Loop[], ctx: LoopsContext, env: Cal
   } else {
     lines.push(`No open loops in ${where}.`);
   }
-  lines.push('Before starting a loop, check this list for one that already covers the work; update or ping it instead. See the afterterm-loops skill.');
   return lines.join('\n');
 }
 
