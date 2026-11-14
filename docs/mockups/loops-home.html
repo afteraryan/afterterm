@@ -1,15 +1,17 @@
 <title>Loops on Home</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
-/* Layout: a control bar, then afterterm's Home as it is today, drawn at 1280x860 and scaled to fit, with a resizable loops column beside Pinned and Projects. Single dark look, like the app. Solid colours only: no tinted washes. */
+/* Layout: a control bar, then afterterm's Home as it is today, drawn at 1280x860 and scaled to fit. Pinned and Projects in one column; a resizable loops column beside it with its own scrollbar, the activity grid at its foot. Single dark look, like the app. Solid colours only: no tinted washes. */
 :root {
   color-scheme: dark;
   --bg: #212121; --pane: #191919; --side: #171717; --hover: #2f2f2f; --hover2: #383838; --raise: #2f2f2f; --line: #2a2a2a;
   --text: #ececec; --text2: #b4b4b4; --text3: #8e8e8e; --text4: #5c5c5c;
   --btn: #ececec; --btn-text: #0d0d0d;
   --green: #4ade80; --green-ink: #06170b;
-  --rot: #e8a23a; --ink: #141414; --need: #fbbf24;
+  --rot: #e8a23a; --ink: #141414;
   --chip: #3a3a3a; --boxbg: #2a2a2a;
+  --h0: #363636; --h1: #1f6b47; --h2: #2c9a62; --h3: #4ade80; --h4: #b9f6d0;
+  --ease: cubic-bezier(.2,.8,.2,1);
   --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'Cascadia Code', 'Cascadia Mono', Consolas, monospace;
 }
@@ -46,10 +48,11 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 .rbadge { position: absolute; right: -14px; top: 2px; display: grid; gap: 2px; }
 .rbadge span { width: 16px; height: 16px; border-radius: 50%; background: #d4a24c; color: #1a1206; font-size: 10px; font-weight: 600; display: grid; place-items: center; }
 
-.screen { position: relative; background: var(--bg); border-radius: 16px 0 0 0; overflow-y: auto; min-height: 0; scrollbar-width: thin; scrollbar-color: #444 transparent; }
-.home { margin: 0 auto; padding: 32px 28px 60px; display: grid; align-items: start; }
-.home.single { max-width: 680px; }
-.colm { display: flex; flex-direction: column; gap: 32px; min-width: 0; }
+.screen { position: relative; background: var(--bg); border-radius: 16px 0 0 0; overflow: hidden; min-height: 0; }
+.home { height: 100%; margin: 0 auto; padding: 0 28px; display: grid; align-items: stretch; }
+.home.single { max-width: 680px; overflow-y: auto; }
+.scrollcol { overflow-y: auto; min-height: 0; padding: 32px 4px 60px 0; scrollbar-width: thin; scrollbar-color: #444 transparent; }
+.colm { display: flex; flex-direction: column; gap: 30px; min-width: 0; }
 .date { margin: 0; font-size: 26px; font-weight: 500; letter-spacing: -.01em; }
 .tot { display: flex; gap: 6px; margin-top: 12px; }
 .sig { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px; border-radius: 999px; background: var(--hover); font-size: 12.5px; color: var(--text2); }
@@ -58,80 +61,99 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 .lbl .grow { flex: 1; }
 .lbl .ibtn { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; color: var(--text3); border: 0; background: none; cursor: pointer; }
 .lbl .ibtn:hover { background: var(--hover); color: var(--text); }
-.cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.cd { background: var(--raise); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 14px; min-height: 92px; }
-.cd .hd { display: flex; align-items: center; gap: 10px; font-weight: 500; font-size: 14px; min-width: 0; }
-.cd .hd .n { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cd .hd .pin { color: var(--text2); }
-.cd .f { display: flex; align-items: center; color: var(--text3); font-size: 13px; margin-top: auto; }
-.cd .f .ago { margin-left: auto; }
 .gl { display: grid; place-items: center; flex: none; }
+
+/* pinned variants */
+.pins.cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pins.cards .cd { background: var(--raise); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 14px; min-height: 92px; }
+.cd .hd { display: flex; align-items: center; gap: 10px; font-weight: 500; font-size: 14px; min-width: 0; }
+.cd .n { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cd .pin { color: var(--text2); display: grid; }
+.cd .f { display: flex; align-items: center; color: var(--text3); font-size: 13px; margin-top: auto; }
+.cd .f .ago, .cd .ago { margin-left: auto; color: var(--text3); font-size: 12.5px; font-weight: 400; }
 .cd .sig { background: var(--hover2); height: 22px; }
+.pins.slim, .pins.three { display: grid; gap: 8px; }
+.pins.slim { grid-template-columns: 1fr 1fr; }
+.pins.three { grid-template-columns: 1fr 1fr 1fr; }
+.pins.slim .cd, .pins.three .cd { background: var(--raise); border-radius: 12px; height: 44px; padding: 0 12px; display: flex; align-items: center; gap: 9px; font-weight: 500; font-size: 13.5px; min-width: 0; }
+.pins.three .cd .ago { display: none; }
+.pins.slim .cd .sig, .pins.three .cd .sig { height: 20px; padding: 0 7px; font-size: 12px; font-weight: 400; }
+.pins.rows { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 12px; }
+.pins.rows .cd { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; font-weight: 500; font-size: 13.5px; min-width: 0; }
+.pins.rows .cd .sig { height: 20px; padding: 0 7px; font-size: 12px; font-weight: 400; }
+.pins.chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 4px; }
+.pins.chips .cd { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; border-radius: 999px; background: var(--raise); font-size: 13px; font-weight: 500; }
+.pins.chips .cd .ago { display: none; }
+.pins.chips .cd .sig { height: 20px; padding: 0 7px; font-size: 12px; font-weight: 400; margin-left: 2px; }
 
 /* projects list variants */
 .plist.today { display: flex; flex-direction: column; }
 .plist.today .pr { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 10px; font-weight: 500; }
-.plist.today .pr .n { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.plist.today .pr .t { color: var(--text3); font-size: 13px; font-weight: 400; margin-right: 80px; }
-.plist.two, .plist.three { display: grid; gap: 4px 12px; }
+.plist.today .pr .t { margin-right: 60px; }
+.plist.two, .plist.three { display: grid; gap: 2px 12px; }
 .plist.two { grid-template-columns: 1fr 1fr; }
 .plist.three { grid-template-columns: 1fr 1fr 1fr; }
 .plist.two .pr, .plist.three .pr { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; font-weight: 500; font-size: 13.5px; min-width: 0; }
-.plist.two .pr .n, .plist.three .pr .n { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.plist.two .pr .t, .plist.three .pr .t { color: var(--text3); font-size: 12.5px; font-weight: 400; }
+.pr .n { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pr .t { color: var(--text3); font-size: 12.5px; font-weight: 400; }
 .plist.three .pr .t { display: none; }
 .plist.chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 4px; }
 .plist.chips .pr { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border-radius: 999px; background: var(--raise); font-size: 13px; font-weight: 500; }
 .plist.chips .pr .t { display: none; }
 .plist.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .plist.tiles .pr { display: grid; justify-items: center; gap: 8px; padding: 14px 6px 10px; border-radius: 12px; background: var(--raise); font-size: 12.5px; font-weight: 500; text-align: center; min-width: 0; }
-.plist.tiles .pr .n { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.plist.tiles .pr .n { max-width: 100%; }
 .plist.tiles .pr .t { display: none; }
-.pr:hover { background: var(--hover); }
-.plist.chips .pr:hover, .plist.tiles .pr:hover { background: var(--hover2); }
 .more { color: var(--text3); padding: 8px 12px; font-size: 13.5px; }
 
-/* the handle between the columns */
-.handle { position: relative; cursor: col-resize; align-self: stretch; }
-.handle::after { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; margin-left: -1px; border-radius: 1px; background: transparent; transition: background .15s; }
+/* the handle and collapse */
+.handle { position: relative; cursor: col-resize; }
+.handle::after { content: ""; position: absolute; top: 24px; bottom: 24px; left: 50%; width: 2px; margin-left: -1px; border-radius: 1px; background: transparent; transition: background .15s; }
 .handle:hover::after, .handle.drag::after { background: #5a5a5a; }
-.reopen { position: absolute; top: 20px; right: 24px; height: 30px; border-radius: 8px; border: 0; background: var(--raise); color: var(--text2); display: inline-flex; align-items: center; gap: 7px; padding: 0 11px; font-size: 12.5px; cursor: pointer; }
+.reopen { position: absolute; top: 20px; right: 24px; height: 30px; border-radius: 8px; border: 0; background: var(--raise); color: var(--text2); display: inline-flex; align-items: center; gap: 7px; padding: 0 11px; font-size: 12.5px; cursor: pointer; z-index: 3; }
 .reopen:hover { background: var(--hover2); color: var(--text); }
 .reopen b { color: var(--text); font-weight: 500; }
 
-/* count card */
-.count { background: var(--raise); border-radius: 16px; padding: 16px 18px; display: grid; gap: 12px; }
+/* loops column: count and filters stay, the list scrolls, the activity grid sits at the foot */
+.loopscol { display: flex; flex-direction: column; min-height: 0; min-width: 0; padding-top: 32px; }
+.loopscol .top { flex: none; display: grid; gap: 12px; padding-bottom: 8px; }
+.loopscol .list { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #444 transparent; margin-right: -8px; padding-right: 8px; }
+.loopscol .foot { flex: none; padding: 12px 0 20px; }
+
+.count { background: var(--raise); border-radius: 16px; padding: 14px 16px; display: grid; gap: 10px; }
 .count .big { display: flex; align-items: baseline; gap: 8px; }
-.count .big b { font-size: 30px; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; }
+.count .big b { font-size: 28px; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; }
 .count .big span { color: var(--text2); }
 .track { height: 6px; border-radius: 3px; background: #474747; overflow: hidden; display: block; }
-.track i { display: block; height: 100%; background: var(--green); }
+.track i { display: block; height: 100%; background: var(--green); transition: width .4s var(--ease); }
 .split { display: flex; gap: 4px; flex-wrap: wrap; margin-left: -8px; }
-.split button { display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 9px; border-radius: 8px; border: 0; background: none; color: var(--text2); font-size: 13px; cursor: pointer; }
+.split button { display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 9px; border-radius: 8px; border: 0; background: none; color: var(--text2); font-size: 13px; cursor: pointer; transition: background .15s, color .15s; }
 .split button:hover { background: var(--hover2); color: var(--text); }
 .split button.on { background: var(--btn); color: var(--btn-text); }
 .split button.on b { color: var(--btn-text); }
 .split b { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
 .rot-n { min-width: 20px; height: 20px; border-radius: 10px; background: var(--rot); color: var(--ink); font-weight: 600; display: grid; place-items: center; padding: 0 6px; font-size: 12px; font-variant-numeric: tabular-nums; }
 
-/* filters, four looks */
-.filters { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 28px; }
-.fgrow { flex: 1; }
-.ftab { border: 0; background: none; padding: 3px 6px; font-size: 12.5px; color: var(--text3); cursor: pointer; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px; }
-.ftab:hover { color: var(--text); }
-.ftab.on { color: var(--text); font-weight: 500; }
-.fdot { width: 3px; height: 3px; border-radius: 50%; background: var(--text4); margin: 0 4px; }
-.ficon { border: 0; background: none; width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; color: var(--text3); cursor: pointer; }
-.ficon:hover { color: var(--text); background: var(--hover); }
-.ficon.on { background: var(--btn); color: var(--btn-text); }
-.fdrop { border: 0; background: var(--hover); height: 26px; padding: 0 9px; border-radius: 7px; font-size: 12.5px; color: var(--text2); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
-.fdrop:hover { background: var(--hover2); color: var(--text); }
-.fdrop b { color: var(--text); font-weight: 500; }
-.fchip { border: 0; background: var(--btn); color: var(--btn-text); height: 24px; padding: 0 6px 0 9px; border-radius: 999px; font-size: 12px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
-.fseg { display: inline-flex; background: var(--pane); border-radius: 8px; padding: 2px; gap: 1px; }
-.fseg button { border: 0; background: none; border-radius: 6px; height: 22px; padding: 0 8px; font-size: 12px; color: var(--text3); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+/* filters: one button, the small segments fold open under it */
+.fbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 26px; }
+.fbtn { border: 0; background: var(--hover); height: 26px; padding: 0 10px; border-radius: 7px; font-size: 12.5px; color: var(--text2); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background .15s, color .15s; }
+.fbtn:hover { background: var(--hover2); color: var(--text); }
+.fbtn.on { background: var(--btn); color: var(--btn-text); }
+.fbtn .chev { display: grid; transition: transform .2s var(--ease); }
+.fbtn.on .chev { transform: rotate(180deg); }
+.fchip { border: 0; background: var(--btn); color: var(--btn-text); height: 24px; padding: 0 6px 0 9px; border-radius: 999px; font-size: 12px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; animation: pop .22s var(--ease); }
+@keyframes pop { from { transform: scale(.6); opacity: 0; } }
+.fpanel { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .26s var(--ease), opacity .2s; opacity: 0; }
+.fpanel.open { grid-template-rows: 1fr; opacity: 1; }
+.fpanel > div { overflow: hidden; }
+.fpanel .inner { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-top: 8px; }
+.fseg { position: relative; display: inline-flex; background: var(--pane); border-radius: 8px; padding: 2px; gap: 1px; }
+.fseg .thumb { position: absolute; top: 2px; bottom: 2px; left: 0; border-radius: 6px; background: var(--hover2); transition: transform .24s var(--ease), width .24s var(--ease); pointer-events: none; }
+.fseg button { position: relative; border: 0; background: none; border-radius: 6px; height: 22px; padding: 0 8px; font-size: 12px; color: var(--text3); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: color .15s; }
 .fseg button:hover { color: var(--text); }
-.fseg button.on { background: var(--hover2); color: var(--text); }
+.fseg button.on { color: var(--text); }
+.fdrop { border: 0; background: var(--pane); height: 26px; padding: 0 9px; border-radius: 8px; font-size: 12px; color: var(--text3); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.fdrop:hover, .fdrop.on { color: var(--text); }
 
 /* rows */
 .rows { display: flex; flex-direction: column; gap: 1px; }
@@ -141,7 +163,7 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 .row.closed .t1 { color: var(--text3); }
 .row.sub { min-height: 32px; }
 .row.sub .t1 { font-size: 13px; }
-.pname { font-size: 12.5px; white-space: nowrap; flex: none; max-width: 32%; overflow: hidden; text-overflow: ellipsis; display: inline-flex; align-items: center; gap: 6px; color: var(--text2); }
+.pname { font-size: 12.5px; white-space: nowrap; flex: none; max-width: 34%; overflow: hidden; text-overflow: ellipsis; }
 .when { font-size: 12.5px; color: var(--text3); flex: none; width: 30px; text-align: right; font-variant-numeric: tabular-nums; }
 .st { width: 16px; height: 16px; flex: none; display: grid; place-items: center; }
 .st-open { width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid var(--text3); }
@@ -155,6 +177,32 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 .subs { display: flex; flex-direction: column; gap: 1px; margin-left: 26px; }
 .subs .det { margin-left: 36px; }
 .empty { color: var(--text3); font-size: 13px; padding: 24px 10px; text-align: center; }
+.enter { animation: enter .3s var(--ease) both; }
+@keyframes enter { from { opacity: 0; transform: translateY(6px); } }
+
+/* the activity grid */
+.act { background: var(--raise); border-radius: 16px; padding: 14px 16px 12px; display: grid; gap: 10px; }
+.act-h { display: flex; align-items: baseline; gap: 10px; }
+.act-h b { font-size: 20px; font-weight: 500; letter-spacing: -.01em; }
+.act-h .grow { flex: 1; }
+.act-h .long { font-size: 12px; color: var(--text3); }
+.act-h .long b { font-size: 12px; color: var(--text); }
+.months { display: grid; align-items: center; font-size: 11.5px; color: var(--text3); }
+.months button { border: 0; background: none; color: var(--text3); width: 20px; height: 20px; border-radius: 5px; display: grid; place-items: center; cursor: pointer; padding: 0; }
+.months button:hover:not(:disabled) { background: var(--hover2); color: var(--text); }
+.months button:disabled { opacity: .3; cursor: default; }
+.grid { display: grid; gap: 3px; align-items: center; justify-content: space-between; }
+.months { justify-content: space-between; column-gap: 3px; }
+.months span { white-space: nowrap; overflow: visible; width: 12px; }
+.grid .dl { font-size: 10.5px; color: var(--text3); }
+.cell { width: 12px; height: 12px; border-radius: 3px; background: var(--h0); }
+.cell.l1 { background: var(--h1); } .cell.l2 { background: var(--h2); } .cell.l3 { background: var(--h3); } .cell.l4 { background: var(--h4); }
+.cell.cur { box-shadow: 0 0 0 1.5px var(--bg), 0 0 0 2.5px var(--text); }
+.cell.future { background: none; }
+.legend { display: flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--text3); }
+.legend .cell { width: 11px; }
+.legend .grow { flex: 1; }
+.legend .curkey { width: 11px; height: 11px; border-radius: 3px; border: 1.5px solid var(--text); margin-right: 3px; }
 
 .menu { position: absolute; z-index: 30; min-width: 176px; background: #2f2f2f; border: 1px solid #3d3d3d; border-radius: 10px; padding: 4px; box-shadow: 0 10px 28px #000; display: flex; flex-direction: column; }
 .menu button { border: 0; background: none; text-align: left; padding: 6px 10px; border-radius: 7px; font-size: 13px; color: var(--text); cursor: pointer; display: flex; align-items: center; gap: 8px; }
@@ -163,13 +211,13 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 .menu button .chk { width: 12px; }
 .menu button:hover, .menu button.hl { background: #3d3d3d; }
 .menu .sep { height: 1px; background: #3d3d3d; margin: 4px 6px; }
-.menu .head { font-size: 11.5px; color: var(--text3); padding: 6px 10px 2px; }
 .menu .danger { color: #f87171; }
 .toast { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--btn); color: var(--btn-text); font-size: 13px; padding: 7px 14px; border-radius: 999px; z-index: 40; }
 
 .cfg { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
 .cfg pre { margin: 0; flex: 1; min-width: 0; background: var(--pane); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-family: var(--mono); font-size: 12px; color: var(--text2); overflow-x: auto; white-space: pre; }
 .copy { border: 0; border-radius: 10px; background: var(--btn); color: var(--btn-text); padding: 0 18px; font-size: 13px; font-weight: 500; cursor: pointer; min-height: 40px; }
+@media (prefers-reduced-motion: reduce) { .enter, .fchip { animation: none; } .fpanel, .fseg .thumb, .track i { transition: none; } }
 </style>
 
 <div class="wrap">
@@ -191,16 +239,16 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     sparkle: '<path d="M7 2v3M7 9v3M2 7h3M9 7h3"/><path d="M4.2 4.2l1.3 1.3M8.5 8.5l1.3 1.3M4.2 9.8l1.3-1.3M8.5 5.5l1.3-1.3"/>'
   };
   var OPTIONS = [
-    { key: 'position', name: 'Loops column', values: [['right', 'Right'], ['left', 'Left']] },
+    { key: 'pinned', name: 'Pinned', values: [['cards', 'As today'], ['slim', 'Slim cards'], ['three', 'Three across'], ['rows', 'Rows'], ['chips', 'Chips']] },
     { key: 'projects', name: 'Projects list', values: [['today', 'As today'], ['two', 'Two columns'], ['three', 'Three columns'], ['chips', 'Chips'], ['tiles', 'Tiles']] },
-    { key: 'filters', name: 'Filters', values: [['tabs', 'Words'], ['dropdowns', 'Dropdowns'], ['one', 'One button'], ['small', 'Small segments']] },
+    { key: 'activity', name: 'A day counts', values: [['any', 'Any loop activity'], ['closed', 'Loops closed']] },
+    { key: 'position', name: 'Loops column', values: [['right', 'Right'], ['left', 'Left']] },
     { key: 'featureIcon', name: 'Feature icon', values: Object.keys(FEAT).map(function (k) { return [k, '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">' + FEAT[k] + '</svg>']; }) },
     { key: 'labelIcons', name: 'Label', values: [['icons', 'Icon and word'], ['words', 'Word only']] }
   ];
-  var cfg = { position: 'right', projects: 'two', filters: 'tabs', featureIcon: 'squarePlus', labelIcons: 'icons', loopsWidth: 440, loopsCollapsed: false };
-  try { var sv = JSON.parse(localStorage.getItem('loops-home3-cfg') || 'null'); if (sv) for (var k in sv) if (k in cfg) cfg[k] = sv[k]; } catch (e) {}
+  var cfg = { pinned: 'slim', projects: 'two', activity: 'any', position: 'right', featureIcon: 'squarePlus', labelIcons: 'icons', loopsWidth: 440, loopsCollapsed: false };
+  try { var sv = JSON.parse(localStorage.getItem('loops-home4-cfg') || 'null'); if (sv) for (var k in sv) if (k in cfg) cfg[k] = sv[k]; } catch (e) {}
 
-  /* Aryan's real projects and their glyphs, as Home draws them today */
   var PROJ = {
     'job-hunt': { c: '#f05a5a', g: 'bell' }, 'Revy App': { c: '#e8b931', g: 'folder' }, 'afterterm': { c: '#5b8def', g: 'robot' }, 'minimi-windows': { c: '#e46ab4', g: 'robot' },
     'moctale': { c: '#3fc46f', g: 'folder' }, 'Lanterns': { c: '#3fc46f', g: 'pin' }, 'manus video': { c: '#5b8def', g: 'film' }, 'Tinkering': { c: '#f05a5a', g: 'folder' },
@@ -215,9 +263,10 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     pencil: '<path d="M10 1.8l2.2 2.2-7.3 7.3-2.9.7.7-2.9z"/>'
   };
   function glyph(p, size) { var d = PROJ[p] || PROJ.General; return '<span class="gl" style="color:' + d.c + '"><svg width="' + (size || 14) + '" height="' + (size || 14) + '" viewBox="0 0 14 14" fill="currentColor">' + GLYPH[d.g] + '</svg></span>'; }
+  function pcol(p) { return (PROJ[p] || PROJ.General).c; }
 
   var LOOPS = [
-    { t: 'Loops on Home', p: 'afterterm', s: 'open', k: 'Feature', when: '2m', note: 'Third pass: resize handle, filters, labels.', subs: [
+    { t: 'Loops on Home', p: 'afterterm', s: 'open', k: 'Feature', when: '2m', note: 'Fourth pass: activity grid, filter button.', subs: [
       { t: 'Design doc', s: 'closed', k: 'Feature', when: '1h', note: 'Decisions on AFT-82.' },
       { t: 'Loops card', s: 'closed', k: 'Feature', when: '30m', note: 'Setup picked.' },
       { t: 'Home layout', s: 'open', k: 'Feature', when: '2m', note: 'Loops beside Pinned and Projects.' },
@@ -240,7 +289,9 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     { t: 'Portfolio page refresh', p: 'job-hunt', s: 'rotting', k: 'Feature', when: '12d', note: 'Started, then paused for applications.' }
   ];
   var filter = { status: 'all', label: null, project: null };
+  var filterOpen = false, animateList = false;
   var opened = { '0': true };
+  var weekOffset = 0;
 
   var I = {
     tick: '<svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5.2l2 2L8 3"/></svg>',
@@ -248,6 +299,7 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     Bug: '<rect x="4" y="4" width="6" height="8" rx="3"/><path d="M2 6h2M10 6h2M2 10h2M10 10h2M5 3l1 1M9 3L8 4"/>',
     Idea: '<path d="M5 10.5h4M5.5 12.5h3M7 1.5a4 4 0 0 0-2.3 7.3c.3.2.3.5.3.7v1h4v-1c0-.2 0-.5.3-.7A4 4 0 0 0 7 1.5z"/>',
     chev: '<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 2l3 3-3 3"/></svg>',
+    left: '<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 2l-3 3 3 3"/></svg>',
     down: '<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5l3 3 3-3"/></svg>',
     x: '<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5"/></svg>',
     filter: '<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 3.5h10M4 7h6M6 10.5h2"/></svg>',
@@ -280,6 +332,60 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
   function fit() { var s = box.clientWidth / 1280; stage.style.transform = 'scale(' + s + ')'; box.style.height = (860 * s) + 'px'; stage.dataset.scale = s; }
   window.addEventListener('resize', fit);
 
+  /* activity: a year of days, ending today (Saturday 14 November 2026) */
+  function rng(seed) { return function () { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; }; }
+  var TODAY = new Date(2026, 10, 14);
+  var DAYS = 7 * 53;
+  function activityData(kind) {
+    var r = rng(kind === 'any' ? 7 : 19), out = [];
+    for (var n = 0; n < DAYS; n++) {
+      var v = r(), lvl;
+      if (kind === 'any') lvl = v < .18 ? 0 : v < .45 ? 1 : v < .72 ? 2 : v < .9 ? 3 : 4;
+      else lvl = v < .45 ? 0 : v < .72 ? 1 : v < .88 ? 2 : v < .96 ? 3 : 4;
+      out.push(lvl);
+    }
+    /* a 4 day streak today, broken the day before */
+    for (var d = 0; d < 4; d++) out[DAYS - 1 - d] = Math.max(out[DAYS - 1 - d], 1 + (d % 3));
+    out[DAYS - 5] = 0;
+    /* a 47 day run in the summer */
+    var start = DAYS - 150; for (var q = 0; q < 47; q++) out[start + q] = Math.max(out[start + q], 1 + (q % 4)); out[start - 1] = 0; out[start + 47] = 0;
+    return out;
+  }
+  function streaks(a) {
+    var cur = 0, n = a.length - 1; while (n >= 0 && a[n] > 0) { cur++; n--; }
+    var best = 0, run = 0; a.forEach(function (v) { run = v > 0 ? run + 1 : 0; if (run > best) best = run; });
+    return { cur: cur, best: best };
+  }
+  function activityHtml() {
+    var data = activityData(cfg.activity), s = streaks(data);
+    var weeks = Math.max(12, Math.min(40, Math.floor((cfg.loopsWidth - 32 - 26) / 15))), lastWeekEnd = DAYS - 1 - weekOffset * 7;
+    var firstDay = lastWeekEnd - weeks * 7 + 1;
+    var monthsRow = [], cols = [];
+    for (var w = 0; w < weeks; w++) {
+      var col = [];
+      for (var d = 0; d < 7; d++) {
+        var idx = firstDay + w * 7 + d, date = new Date(TODAY); date.setDate(TODAY.getDate() - (DAYS - 1 - idx));
+        col.push({ lvl: data[idx], cur: idx > DAYS - 1 - s.cur, date: date });
+      }
+      cols.push(col);
+      var first = col[0].date, prev = w ? cols[w - 1][0].date : null;
+      monthsRow.push(!prev || first.getMonth() !== prev.getMonth() ? first.toLocaleString('en-GB', { month: 'short' }) : '');
+    }
+    var tmpl = '26px repeat(' + weeks + ', 12px)';
+    var months = '<div class="months" style="grid-template-columns:' + tmpl + '"><button type="button" data-act="older" aria-label="Earlier">' + I.left + '</button>' +
+      monthsRow.map(function (m) { return '<span>' + m + '</span>'; }).join('') + '</div>';
+    var names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    var gridCells = '';
+    for (var row = 0; row < 7; row++) {
+      gridCells += '<span class="dl">' + (row % 2 ? names[row] : '') + '</span>';
+      for (var c = 0; c < weeks; c++) { var cell = cols[c][row]; gridCells += '<span class="cell l' + cell.lvl + (cell.cur && weekOffset === 0 ? ' cur' : '') + '"></span>'; }
+    }
+    return '<div class="act"><div class="act-h"><b>' + s.cur + ' day streak</b><span class="grow"></span><span class="long">Longest <b>' + s.best + ' days</b></span>' +
+      '<button type="button" class="ibtn-n" data-act="newer" aria-label="Later" style="border:0;background:none;color:var(--text3);cursor:pointer;display:grid;' + (weekOffset ? '' : 'opacity:.3') + '">' + I.chev + '</button></div>' +
+      months + '<div class="grid" style="grid-template-columns:' + tmpl + '">' + gridCells + '</div>' +
+      '<div class="legend"><span>Less</span><span class="cell"></span><span class="cell l1"></span><span class="cell l2"></span><span class="cell l3"></span><span class="cell l4"></span><span>More</span><span class="grow"></span><span class="curkey"></span><span>Current streak</span></div></div>';
+  }
+
   function counts() {
     var c = { open: 0, rotting: 0, closed: 0 };
     LOOPS.forEach(function (l) { c[l.s === 'closed' ? 'closed' : l.s === 'rotting' ? 'rotting' : 'open']++; });
@@ -306,10 +412,11 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     var done = l.subs.filter(function (s) { return s.s === 'closed'; }).length;
     return '<span class="frac">' + done + '/' + l.subs.length + '</span>';
   }
-  function loopBlock(l, i) {
+  function loopBlock(l, i, n) {
     var id = String(i), isOpen = !!opened[id];
-    var h = '<button type="button" class="row' + (l.s === 'closed' ? ' closed' : '') + (isOpen ? ' open-row' : '') + '" data-i="' + id + '">' + statusIcon(l.s) +
-      '<span class="t1">' + esc(l.t) + '</span>' + fracOf(l) + '<span class="pname">' + glyph(l.p, 12) + esc(l.p) + '</span><span class="when">' + l.when + '</span></button>';
+    var anim = animateList ? ' enter" style="animation-delay:' + Math.min(n * 28, 300) + 'ms' : '';
+    var h = '<button type="button" class="row' + (l.s === 'closed' ? ' closed' : '') + (isOpen ? ' open-row' : '') + anim + '" data-i="' + id + '">' + statusIcon(l.s) +
+      '<span class="t1">' + esc(l.t) + '</span>' + fracOf(l) + '<span class="pname" style="color:' + pcol(l.p) + '">' + esc(l.p) + '</span><span class="when">' + l.when + '</span></button>';
     if (!isOpen) return h;
     h += details(l);
     if (l.subs) h += '<div class="subs">' + l.subs.map(function (s, j) {
@@ -323,29 +430,18 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
   var LABELS = ['Feature', 'Bug', 'Idea'];
   function statusWord(s) { for (var n = 0; n < STATUSES.length; n++) if (STATUSES[n][0] === s) return STATUSES[n][1]; return s; }
   function filtersHtml() {
-    var f = cfg.filters, h = '';
-    if (f === 'tabs') {
-      h = STATUSES.map(function (s) { return '<button type="button" class="ftab' + (filter.status === s[0] ? ' on' : '') + '" data-fs="' + s[0] + '">' + s[1] + '</button>'; }).join('') + '<span class="fdot"></span>' +
-        LABELS.map(function (k) { return '<button type="button" class="ficon' + (filter.label === k ? ' on' : '') + '" data-fl="' + k + '" title="' + k + '">' + labelIcon(k) + '</button>'; }).join('') +
-        '<span class="fgrow"></span><button type="button" class="ftab' + (filter.project ? ' on' : '') + '" data-act="project">' + (filter.project ? glyph(filter.project, 12) + esc(filter.project) : 'Project') + I.down + '</button>';
+    var chips = '';
+    if (!filterOpen) {
+      if (filter.status !== 'all') chips += '<button type="button" class="fchip" data-clear="status">' + statusWord(filter.status) + I.x + '</button>';
+      if (filter.label) chips += '<button type="button" class="fchip" data-clear="label">' + filter.label + I.x + '</button>';
+      if (filter.project) chips += '<button type="button" class="fchip" data-clear="project">' + esc(filter.project) + I.x + '</button>';
     }
-    if (f === 'dropdowns') {
-      h = '<button type="button" class="fdrop" data-act="status">Status <b>' + statusWord(filter.status) + '</b>' + I.down + '</button>' +
-        '<button type="button" class="fdrop" data-act="label">Label <b>' + (filter.label || 'All') + '</b>' + I.down + '</button>' +
-        '<button type="button" class="fdrop" data-act="project">Project <b>' + (filter.project ? esc(filter.project) : 'All') + '</b>' + I.down + '</button>';
-    }
-    if (f === 'one') {
-      h = '<button type="button" class="fdrop" data-act="all-filters">' + I.filter + 'Filter</button>';
-      if (filter.status !== 'all') h += '<button type="button" class="fchip" data-clear="status">' + statusWord(filter.status) + I.x + '</button>';
-      if (filter.label) h += '<button type="button" class="fchip" data-clear="label">' + filter.label + I.x + '</button>';
-      if (filter.project) h += '<button type="button" class="fchip" data-clear="project">' + esc(filter.project) + I.x + '</button>';
-    }
-    if (f === 'small') {
-      h = '<div class="fseg">' + STATUSES.map(function (s) { return '<button type="button" class="' + (filter.status === s[0] ? 'on' : '') + '" data-fs="' + s[0] + '">' + s[1] + '</button>'; }).join('') + '</div>' +
-        '<div class="fseg">' + LABELS.map(function (k) { return '<button type="button" class="' + (filter.label === k ? 'on' : '') + '" data-fl="' + k + '" title="' + k + '">' + labelIcon(k, 12) + '</button>'; }).join('') + '</div>' +
-        '<span class="fgrow"></span><button type="button" class="fdrop" data-act="project">' + (filter.project ? esc(filter.project) : 'Project') + I.down + '</button>';
-    }
-    return '<div class="filters">' + h + '</div>';
+    var bar = '<div class="fbar"><button type="button" class="fbtn' + (filterOpen ? ' on' : '') + '" data-act="toggle-filters">' + I.filter + 'Filter<span class="chev">' + I.down + '</span></button>' + chips + '</div>';
+    var panel = '<div class="fpanel' + (filterOpen ? ' open' : '') + '" id="fpanel"><div><div class="inner">' +
+      '<div class="fseg" data-seg="status"><span class="thumb"></span>' + STATUSES.map(function (s) { return '<button type="button" class="' + (filter.status === s[0] ? 'on' : '') + '" data-fs="' + s[0] + '">' + s[1] + '</button>'; }).join('') + '</div>' +
+      '<div class="fseg" data-seg="label"><span class="thumb"></span>' + LABELS.map(function (k) { return '<button type="button" class="' + (filter.label === k ? 'on' : '') + '" data-fl="' + k + '" title="' + k + '">' + labelIcon(k, 12) + '</button>'; }).join('') + '</div>' +
+      '<button type="button" class="fdrop' + (filter.project ? ' on' : '') + '" data-act="project">' + (filter.project ? esc(filter.project) : 'Project') + I.down + '</button></div></div></div>';
+    return bar + panel;
   }
 
   function loopsColumn() {
@@ -354,15 +450,19 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     var count = '<div class="count"><div class="big"><b>' + c.remaining + '</b><span>remaining</span></div><span class="track"><i style="width:' + (c.closed / total * 100) + '%"></i></span>' +
       '<div class="split"><button type="button" data-f="open"' + on('open') + '><b>' + c.open + '</b>open</button><button type="button" data-f="rotting"' + on('rotting') + '><span class="rot-n">' + c.rotting + '</span>rotting</button><button type="button" data-f="closed"' + on('closed') + '><b>' + c.closed + '</b>closed</button></div></div>';
     var list = visible();
-    var rows = list.length ? '<div class="rows">' + list.map(function (x) { return loopBlock(x.l, x.i); }).join('') + '</div>' : '<div class="empty">' + (filter.status === 'archived' ? 'Nothing archived' : 'No loops') + '</div>';
-    return '<div class="colm" style="gap:14px"><div><div class="lbl">Loops<span class="grow"></span><button type="button" class="ibtn" data-act="collapse" title="Hide loops">' + I.collapse + '</button></div>' + count + '</div>' + filtersHtml() + '<div>' + rows + '</div></div>';
+    var rows = list.length ? '<div class="rows">' + list.map(function (x, n) { return loopBlock(x.l, x.i, n); }).join('') + '</div>' : '<div class="empty enter">' + (filter.status === 'archived' ? 'Nothing archived' : 'No loops') + '</div>';
+    return '<div class="loopscol"><div class="top"><div class="lbl" style="margin-bottom:0">Loops<span class="grow"></span><button type="button" class="ibtn" data-act="collapse" title="Hide loops">' + I.collapse + '</button></div>' + count + '<div>' + filtersHtml() + '</div></div>' +
+      '<div class="list" id="loopList">' + rows + '</div><div class="foot">' + activityHtml() + '</div></div>';
   }
 
-  function sideColumn(narrow) {
+  function sideColumn() {
     var head = '<div><h1 class="date">Saturday, 14 November</h1><div class="tot"><span class="sig">' + I.bell + '3</span></div><div class="lasthere">Last here 1d ago</div></div>';
     var pins = [['job-hunt', '', '53m'], ['Revy App', '', '3w'], ['afterterm', '1', 'now'], ['minimi-windows', '', '2d'], ['moctale', '1', '16h'], ['Lanterns', '1', '2d']];
-    var pinned = '<div><div class="lbl">Pinned</div><div class="cards">' + pins.map(function (p) {
-      return '<div class="cd"><div class="hd">' + glyph(p[0], 15) + '<span class="n">' + esc(p[0]) + '</span><span class="pin">' + I.pin + '</span></div><div class="f">' + (p[1] ? '<span class="sig">' + I.bell + p[1] + '</span>' : '') + '<span class="ago">' + p[2] + '</span></div></div>';
+    var pinned = '<div><div class="lbl">Pinned</div><div class="pins ' + cfg.pinned + '">' + pins.map(function (p) {
+      var bellPill = p[1] ? '<span class="sig">' + I.bell + p[1] + '</span>' : '';
+      if (cfg.pinned === 'cards') return '<div class="cd"><div class="hd">' + glyph(p[0], 15) + '<span class="n">' + esc(p[0]) + '</span><span class="pin">' + I.pin + '</span></div><div class="f">' + bellPill + '<span class="ago">' + p[2] + '</span></div></div>';
+      if (cfg.pinned === 'chips') return '<div class="cd">' + glyph(p[0], 14) + esc(p[0]) + bellPill + '</div>';
+      return '<div class="cd">' + glyph(p[0], 14) + '<span class="n">' + esc(p[0]) + '</span>' + bellPill + '<span class="ago">' + p[2] + '</span></div>';
     }).join('') + '</div></div>';
     var plist = [['manus video', '16h'], ['Tinkering', '16h'], ['NextLeap PM', '21h'], ['Figma Claude Plugin', '21h'], ['General', '3d'], ['Lanterns', '2d']];
     var projects = '<div><div class="lbl">Projects<span class="grow"></span><span style="color:var(--text3)">' + I.plus + '</span></div><div class="plist ' + cfg.projects + '">' + plist.slice(0, cfg.projects === 'today' ? 4 : 6).map(function (p) {
@@ -371,39 +471,55 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     return '<div class="colm">' + head + pinned + projects + '</div>';
   }
 
+  var thumbs = {};
+  function placeThumbs() {
+    stage.querySelectorAll('.fseg').forEach(function (seg) {
+      var key = seg.dataset.seg, th = seg.querySelector('.thumb'), on = seg.querySelector('button.on');
+      if (!on) { th.style.opacity = '0'; thumbs[key] = null; return; }
+      var x = on.offsetLeft, w = on.offsetWidth, prev = thumbs[key];
+      th.style.opacity = '1';
+      if (prev) { th.style.transition = 'none'; th.style.transform = 'translateX(' + prev.x + 'px)'; th.style.width = prev.w + 'px'; void th.offsetWidth; th.style.transition = ''; }
+      th.style.transform = 'translateX(' + x + 'px)'; th.style.width = w + 'px';
+      thumbs[key] = { x: x, w: w };
+    });
+  }
+
   function render() {
-    var inner;
-    var reopen = '';
+    var inner, reopen = '';
+    var keepSide = stage.querySelector('.scrollcol'), sTop = keepSide ? keepSide.scrollTop : 0;
+    var keepList = stage.querySelector('#loopList'), lTop = keepList ? keepList.scrollTop : 0;
     if (cfg.loopsCollapsed) {
-      inner = '<div class="home single">' + sideColumn() + '</div>';
+      inner = '<div class="home single"><div class="scrollcol">' + sideColumn() + '</div></div>';
       reopen = '<button type="button" class="reopen" data-act="expand">' + I.loops + 'Loops <b>' + counts().remaining + '</b></button>';
     } else {
       var w = cfg.loopsWidth;
       var cols = cfg.position === 'right' ? 'minmax(420px, 1fr) 28px ' + w + 'px' : w + 'px 28px minmax(420px, 1fr)';
-      var parts = cfg.position === 'right' ? [sideColumn(), '<div class="handle" data-handle="1" title="Drag to resize"></div>', loopsColumn()] : [loopsColumn(), '<div class="handle" data-handle="1" title="Drag to resize"></div>', sideColumn()];
+      var side = '<div class="scrollcol">' + sideColumn() + '</div>', handle = '<div class="handle" data-handle="1" title="Drag to resize"></div>';
+      var parts = cfg.position === 'right' ? [side, handle, loopsColumn()] : [loopsColumn(), handle, side];
       inner = '<div class="home" style="grid-template-columns:' + cols + ';max-width:1180px">' + parts.join('') + '</div>';
     }
     var rail = '<span class="rail-btn">' + I.panel + '</span><div class="rail-pill"><span class="rail-btn on">' + I.home + '</span><span class="rail-btn">' + I.term + '</span></div><span class="rail-sep"></span>' +
       [['afterterm', ['1', '2']], ['moctale', ['1']], ['Lanterns', ['1']]].map(function (t) { return '<span class="rtile">' + glyph(t[0], 16) + '<span class="rbadge">' + t[1].map(function (n) { return '<span>' + n + '</span>'; }).join('') + '</span></span>'; }).join('');
-    var keep = stage.querySelector('.screen'), top = keep ? keep.scrollTop : 0;
     stage.innerHTML = '<div class="titlebar"><span>afterterm</span><span class="ver">v0.18.1</span><span class="grow"></span><span class="caps"><span>—</span><span>☐</span><span>✕</span></span></div>' +
       '<div class="body"><div class="rail">' + rail + '</div><div class="screen">' + reopen + inner + '</div></div>';
-    var sc = stage.querySelector('.screen'); if (sc) sc.scrollTop = top;
+    var sc = stage.querySelector('.scrollcol'); if (sc) sc.scrollTop = sTop;
+    var ll = stage.querySelector('#loopList'); if (ll && !animateList) ll.scrollTop = lTop;
+    placeThumbs();
+    animateList = false;
     controls.querySelectorAll('button[data-k]').forEach(function (b) { b.setAttribute('aria-pressed', String(String(cfg[b.dataset.k]) === b.dataset.v)); });
     document.getElementById('cfgOut').textContent = JSON.stringify(cfg, null, 2);
-    try { localStorage.setItem('loops-home3-cfg', JSON.stringify(cfg)); } catch (e) {}
+    try { localStorage.setItem('loops-home4-cfg', JSON.stringify(cfg)); } catch (e) {}
     fit();
   }
+  function refilter() { animateList = true; render(); }
 
-  /* the hidden handle */
   stage.addEventListener('pointerdown', function (e) {
     var h = e.target.closest('[data-handle]'); if (!h) return;
     e.preventDefault(); h.classList.add('drag'); h.setPointerCapture(e.pointerId);
     var x0 = e.clientX, w0 = cfg.loopsWidth, sign = cfg.position === 'right' ? -1 : 1;
     function move(ev) {
-      cfg.loopsWidth = Math.max(340, Math.min(700, Math.round(w0 + sign * (ev.clientX - x0) / scale())));
-      var home = stage.querySelector('.home');
-      home.style.gridTemplateColumns = cfg.position === 'right' ? 'minmax(420px, 1fr) 28px ' + cfg.loopsWidth + 'px' : cfg.loopsWidth + 'px 28px minmax(420px, 1fr)';
+      cfg.loopsWidth = Math.max(380, Math.min(700, Math.round(w0 + sign * (ev.clientX - x0) / scale())));
+      stage.querySelector('.home').style.gridTemplateColumns = cfg.position === 'right' ? 'minmax(420px, 1fr) 28px ' + cfg.loopsWidth + 'px' : cfg.loopsWidth + 'px 28px minmax(420px, 1fr)';
     }
     function up() { h.removeEventListener('pointermove', move); h.removeEventListener('pointerup', up); render(); }
     h.addEventListener('pointermove', move); h.addEventListener('pointerup', up);
@@ -416,7 +532,6 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     setTimeout(function () { t.remove(); }, 1400);
   }
 
-  /* menus */
   var menuFor = null;
   function closeMenu(from) { stage.querySelectorAll('.menu').forEach(function (m) { if (!from || +m.dataset.level >= from) m.remove(); }); }
   function loopMenu(target) {
@@ -435,7 +550,6 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     var menu = document.createElement('div'); menu.className = 'menu'; menu.dataset.level = level;
     items.forEach(function (it) {
       if (it === 'sep') { var s = document.createElement('span'); s.className = 'sep'; menu.appendChild(s); return; }
-      if (it.head) { var hd = document.createElement('span'); hd.className = 'head'; hd.textContent = it.head; menu.appendChild(hd); return; }
       var b = document.createElement('button'); b.type = 'button'; if (it.danger) b.className = 'danger';
       b.innerHTML = (it.check !== undefined ? '<span class="chk">' + (it.check ? '✓' : '') + '</span>' : '') + '<span class="lbl2">' + esc(it.label) + '</span>' + (it.kids ? '<span class="chev">' + I.chev + '</span>' : '');
       function openKids() {
@@ -451,15 +565,12 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
       b.addEventListener('click', function (e) { e.stopPropagation(); if (it.kids) { openKids(); return; } act(it); });
       menu.appendChild(b);
     });
-    var sc2 = scale();
-    menu.style.left = Math.min(x, 1280 - 200) + 'px'; menu.style.top = y + 'px';
+    menu.style.left = Math.min(x, 1280 - 200) + 'px'; menu.style.top = Math.min(y, 860 - 40 - items.length * 30) + 'px';
     stage.appendChild(menu);
   }
   function act(it) {
     closeMenu();
-    if (it.id === 'fs') { filter.status = it.value; render(); return; }
-    if (it.id === 'fl') { filter.label = it.value; render(); return; }
-    if (it.id === 'pf') { filter.project = it.value; render(); return; }
+    if (it.id === 'pf') { filter.project = it.value; refilter(); return; }
     var target = menuFor; if (!target) return;
     var l = target.loop, item = target.item;
     if (it.id === 'open') return toast('Opens the chat');
@@ -469,15 +580,11 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     if (it.id === 'move') { l.p = it.label; render(); return; }
     toast(({ rename: 'Rename', archive: 'Archived', 'delete': 'Deleted' })[it.id] || it.label);
   }
-  function statusItems() { return STATUSES.map(function (s) { return { id: 'fs', value: s[0], label: s[1], check: filter.status === s[0] }; }); }
-  function labelItems() { return [{ id: 'fl', value: null, label: 'All', check: !filter.label }].concat(LABELS.map(function (k) { return { id: 'fl', value: k, label: k, check: filter.label === k }; })); }
-  function projectItems() { return [{ id: 'pf', value: null, label: 'All', check: !filter.project }, 'sep'].concat(Object.keys(PROJ).map(function (p) { return { id: 'pf', value: p, label: p, check: filter.project === p }; })); }
   function findTarget(id) {
     var parts = String(id).split('.'), l = LOOPS[+parts[0]]; if (!l) return null;
     var sub = parts.length > 1 ? l.subs[+parts[1]] : null;
     return { loop: l, item: sub || l, sub: !!sub };
   }
-  function below(el) { var r = el.getBoundingClientRect(), sr = stage.getBoundingClientRect(), sc = scale(); return { x: (r.left - sr.left) / sc, y: (r.bottom - sr.top) / sc + 4 }; }
   stage.addEventListener('contextmenu', function (e) {
     var row = e.target.closest('[data-i]'); if (!row) return;
     e.preventDefault();
@@ -492,19 +599,25 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     if (e.target.closest('.menu')) return;
     var b = e.target.closest('[data-act], [data-i], [data-f], [data-fs], [data-fl], [data-clear]'); if (!b) return;
     var a = b.dataset.act;
-    if (b.dataset.f) { filter.status = filter.status === b.dataset.f ? 'all' : b.dataset.f; render(); return; }
-    if (b.dataset.fs) { filter.status = b.dataset.fs; render(); return; }
-    if (b.dataset.fl) { filter.label = filter.label === b.dataset.fl ? null : b.dataset.fl; render(); return; }
-    if (b.dataset.clear) { if (b.dataset.clear === 'status') filter.status = 'all'; else filter[b.dataset.clear] = null; render(); return; }
+    if (b.dataset.f) { filter.status = filter.status === b.dataset.f ? 'all' : b.dataset.f; refilter(); return; }
+    if (b.dataset.fs) { filter.status = b.dataset.fs; refilter(); return; }
+    if (b.dataset.fl) { filter.label = filter.label === b.dataset.fl ? null : b.dataset.fl; refilter(); return; }
+    if (b.dataset.clear) { if (b.dataset.clear === 'status') filter.status = 'all'; else filter[b.dataset.clear] = null; refilter(); return; }
+    if (a === 'toggle-filters') {
+      filterOpen = !filterOpen;
+      var panel = stage.querySelector('#fpanel'); if (panel) panel.classList.toggle('open', filterOpen);
+      b.classList.toggle('on', filterOpen);
+      setTimeout(render, 270);
+      return;
+    }
     if (a === 'collapse') { cfg.loopsCollapsed = true; render(); return; }
     if (a === 'expand') { cfg.loopsCollapsed = false; render(); return; }
-    var p;
-    if (a === 'status') { p = below(b); showMenu(statusItems(), p.x, p.y, 0); return; }
-    if (a === 'label') { p = below(b); showMenu(labelItems(), p.x, p.y, 0); return; }
-    if (a === 'project') { p = below(b); showMenu(projectItems(), p.x, p.y, 0); return; }
-    if (a === 'all-filters') {
-      p = below(b);
-      showMenu([{ label: 'Status', kids: statusItems() }, { label: 'Label', kids: labelItems() }, { label: 'Project', kids: projectItems() }], p.x, p.y, 0);
+    if (a === 'older') { weekOffset = Math.min(weekOffset + 4, 36); render(); return; }
+    if (a === 'newer') { weekOffset = Math.max(weekOffset - 4, 0); render(); return; }
+    if (a === 'project') {
+      var r = b.getBoundingClientRect(), sr = stage.getBoundingClientRect(), sc = scale();
+      var items = [{ id: 'pf', value: null, label: 'All', check: !filter.project }, 'sep'].concat(Object.keys(PROJ).map(function (p) { return { id: 'pf', value: p, label: p, check: filter.project === p }; }));
+      showMenu(items, (r.left - sr.left) / sc, (r.bottom - sr.top) / sc + 4, 0);
       return;
     }
     if (b.dataset.i !== undefined) { opened[b.dataset.i] = !opened[b.dataset.i]; render(); }
