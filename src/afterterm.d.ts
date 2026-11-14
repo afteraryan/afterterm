@@ -182,6 +182,8 @@ interface AftertermLoopsAPI {
   // A change made in the UI (Aryan's: it never replaces a loop's remembered chat).
   act(action: LoopAction): Promise<LoopActResult>;
   onChange(callback: (loops: Loop[]) => void): () => void;
+  // Each thread's project and chat, for `afterterm loops` (loopsView.ts, loopsContextFrom).
+  setContext(ctx: import('./loops-cli').LoopsContext): void;
 }
 
 // The last lines of a thread's scrollback, kept on disk so sleep and quit do not lose

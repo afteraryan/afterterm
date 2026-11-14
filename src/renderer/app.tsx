@@ -47,6 +47,7 @@ import type { PaneTarget } from './splitView';
 import type { FileLinkContext, FileLinkTarget } from './components/Terminal/fileLinks';
 import type { MenuItem } from './components/Menu';
 import { EditorLogo, IconExplorer } from './components/Icons';
+import { loopsContextFrom } from './loopsView';
 
 let toastCounter = 0;
 
@@ -786,6 +787,16 @@ export function App() {
     }, 2000);
     return () => clearTimeout(timer);
   }, [initialized, state.tabs, state.groups, state.activeTabId, state.splits, panelHidden, panelWidth]);
+
+  // Loops: main answers `afterterm loops` and needs each thread's project and chat
+  // (loopsView.ts). Sent only when it changes.
+  const loopsContextSent = useRef('');
+  useEffect(() => {
+    const text = JSON.stringify(loopsContextFrom(state.tabs, state.groups));
+    if (text === loopsContextSent.current) return;
+    loopsContextSent.current = text;
+    window.afterterm.loops.setContext(JSON.parse(text));
+  }, [state.tabs, state.groups]);
 
   // Keyboard shortcuts from main process
   useEffect(() => {

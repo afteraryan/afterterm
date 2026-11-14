@@ -115,17 +115,56 @@ $ESC = [char]27
 $BEL = [char]7
 
 function Emit-Title {
-    param([string]$Title, [bool]$RingBell = $false)
+    param([string]$Title, [bool]$RingBell = $false, [string]$Context = '')
     $seq = "$ESC]0;$Title$BEL"
     if ($RingBell) { $seq += $BEL }
     # CC schema: terminalSequence is a TOP-LEVEL field. It is written to the
     # PTY verbatim; afterterm reads the OSC-0 title back out of the stream.
-    @{ terminalSequence = $seq } | ConvertTo-Json -Compress
+    $out = @{ terminalSequence = $seq }
+    # SessionStart only: text added to the chat's context (the loops brief).
+    if ($Context) {
+        $out.hookSpecificOutput = @{ hookEventName = 'SessionStart'; additionalContext = $Context }
+    }
+    $out | ConvertTo-Json -Compress -Depth 4
+}
+
+# --- Loops: the chat-start brief (design-07) -------------------------------------
+# afterterm's terminals carry the loops pipe's name and a per-launch token. On
+# SessionStart the hook asks afterterm for the open loops of this chat's folder
+# and, for a resumed chat, the loop it was on; Claude Code adds the answer to the
+# chat's context. Anything going wrong (an older afterterm with no pipe, afterterm
+# busy) gives no text, never an error: the title is still set.
+function Get-LoopsBrief {
+    if (-not $env:AFTERTERM_LOOPS_PIPE -or -not $env:AFTERTERM_LOOPS_TOKEN) { return '' }
+    $client = $null
+    try {
+        $name = $env:AFTERTERM_LOOPS_PIPE -replace '^\\\\\.\\pipe\\', ''
+        $client = New-Object System.IO.Pipes.NamedPipeClientStream('.', $name, [System.IO.Pipes.PipeDirection]::InOut)
+        $client.Connect(800)
+        $utf8 = New-Object System.Text.UTF8Encoding($false)
+        $writer = New-Object System.IO.StreamWriter($client, $utf8)
+        $writer.AutoFlush = $true
+        $req = @{
+            token = $env:AFTERTERM_LOOPS_TOKEN
+            kind  = 'brief'
+            env   = @{ thread = [string]$env:AFTERTERM_TAB_ID; session = $SessionId; cwd = $cwd }
+        } | ConvertTo-Json -Compress -Depth 4
+        $writer.WriteLine($req)
+        $reader = New-Object System.IO.StreamReader($client, $utf8)
+        $task = $reader.ReadLineAsync()
+        if (-not $task.Wait(2000)) { return '' }
+        $reply = $task.Result | ConvertFrom-Json -ErrorAction Stop
+        if ($reply.code -eq 0 -and $reply.out) { return ([string]$reply.out).TrimEnd() }
+    } catch {
+    } finally {
+        if ($client) { try { $client.Dispose() } catch {} }
+    }
+    return ''
 }
 
 switch ($event) {
     'SessionStart' {
-        Emit-Title -Title $project
+        Emit-Title -Title $project -Context (Get-LoopsBrief)
     }
 
     'UserPromptSubmit' {
