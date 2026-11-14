@@ -224,10 +224,12 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 .loopscol .act-h b { font-size: 17px; }
 .loopscol .act-h .long, .loopscol .act-h .long b { font-size: 11.5px; }
 .hm { gap: 2.5px; }
-.hm .cell { width: 10px; height: 10px; border-radius: 2.5px; }
-.hm .mo { width: 10px; }
+.hm .cell { width: var(--c, 10px); height: var(--c, 10px); border-radius: 4px; }
+.hm .mo { width: var(--c, 10px); }
+.hm .cell.out { visibility: hidden; }
+.hm .cell.future { background: none; box-shadow: inset 0 0 0 1px #3a3a3a; }
 .loopscol .hm .mo { font-size: 11px; }
-.loopscol .hm .dl { font-size: 10px; }
+.loopscol .hm .dl { font-size: 11.5px; }
 .loopscol .legend { font-size: 11px; }
 .loopscol .legend .cell, .loopscol .legend .curkey { width: 9px; height: 9px; }
 .loopscol .ibtn { width: 22px; height: 22px; border-radius: 6px; }
@@ -398,24 +400,38 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
   }
   function activityHtml(width, compact) {
     var s = streaks();
-    var weeks = Math.max(8, Math.min(53, Math.floor((width - 26 - 26) / 12.5)));
-    var last = DAYS - 1 - weekOffset * 7, first = last - weeks * 7 + 1;
-    if (first < 0) { first = 0; }
+    /* four whole months: this month and the three before it (weekOffset counts months back) */
+    var DAY = 86400000;
+    var endMonth = new Date(TODAY.getFullYear(), TODAY.getMonth() - weekOffset + 1, 0);
+    var startMonth = new Date(endMonth.getFullYear(), endMonth.getMonth() - 3, 1);
+    var gridStart = new Date(startMonth); gridStart.setDate(startMonth.getDate() - startMonth.getDay());
+    var gridEnd = new Date(endMonth); gridEnd.setDate(endMonth.getDate() + (6 - endMonth.getDay()));
+    var weeks = Math.round((gridEnd - gridStart) / DAY / 7) + 1;
+    var gap = 4, size = Math.max(8, Math.min(24, Math.floor((width - 34 - 30 - (weeks - 1) * gap) / weeks)));
     var names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    var tmpl = 'grid-template-columns:26px repeat(' + weeks + ', 10px)';
+    var tmpl = 'grid-template-columns:30px repeat(' + weeks + ', ' + size + 'px);--c:' + size + 'px;gap:' + gap + 'px';
+    function dateAt(w, d) { var x = new Date(gridStart); x.setDate(gridStart.getDate() + w * 7 + d); return x; }
     var months = '<span></span>';
     for (var w = 0; w < weeks; w++) {
-      var d0 = new Date(TODAY); d0.setDate(TODAY.getDate() - (DAYS - 1 - (first + w * 7)));
-      var dp = new Date(d0); dp.setDate(d0.getDate() - 7);
-      months += '<span class="mo">' + (w === 0 || d0.getMonth() !== dp.getMonth() ? d0.toLocaleString('en-GB', { month: 'short' }) : '') + '</span>';
+      var label = '';
+      for (var d = 0; d < 7; d++) { var dt = dateAt(w, d); if (dt.getDate() === 1 && dt >= startMonth && dt <= endMonth) label = dt.toLocaleString('en-GB', { month: 'short' }); }
+      if (w === 0) label = startMonth.toLocaleString('en-GB', { month: 'short' });
+      months += '<span class="mo">' + label + '</span>';
     }
     var cells = '';
     for (var row = 0; row < 7; row++) {
-      cells += '<span class="dl">' + (row % 2 ? names[row] : '') + '</span>';
-      for (var c = 0; c < weeks; c++) { var idx = first + c * 7 + row; cells += '<span class="cell l' + DATA[idx] + (weekOffset === 0 && idx > DAYS - 1 - s.cur ? ' cur' : '') + '"></span>'; }
+      cells += '<span class="dl">' + names[row] + '</span>';
+      for (var c = 0; c < weeks; c++) {
+        var dt2 = dateAt(c, row);
+        if (dt2 < startMonth || dt2 > endMonth) { cells += '<span class="cell out"></span>'; continue; }
+        var back = Math.round((TODAY - dt2) / DAY);
+        if (back < 0) { cells += '<span class="cell future"></span>'; continue; }
+        var idx = DAYS - 1 - back, lvl = idx >= 0 ? DATA[idx] : 0;
+        cells += '<span class="cell l' + lvl + (back < s.cur ? ' cur' : '') + '" title="' + dt2.toDateString() + '"></span>';
+      }
     }
     return '<div class="act"><div class="act-h"><b>' + s.cur + ' day streak</b><span class="grow"></span><span class="long">Longest <b>' + s.best + ' days</b></span>' +
-      '<button type="button" class="nav" data-act="older" aria-label="Earlier">' + I.left + '</button><button type="button" class="nav' + (weekOffset ? '' : ' off') + '" data-act="newer" aria-label="Later">' + I.chev + '</button></div>' +
+      '<button type="button" class="nav' + (weekOffset >= 8 ? ' off' : '') + '" data-act="older" aria-label="Earlier">' + I.left + '</button><button type="button" class="nav' + (weekOffset ? '' : ' off') + '" data-act="newer" aria-label="Later">' + I.chev + '</button></div>' +
       '<div class="hm" style="' + tmpl + '">' + months + cells + '</div>' +
       (compact ? '' : '<div class="legend"><span>Less</span><span class="cell"></span><span class="cell l1"></span><span class="cell l2"></span><span class="cell l3"></span><span class="cell l4"></span><span>More</span><span class="grow"></span><span class="curkey"></span><span>Current streak</span></div>') + '</div>';
   }
@@ -814,8 +830,8 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
       lay2.style.gridTemplateColumns = progressCols(true); lay2.style.columnGap = '40px';
       return;
     }
-    if (a === 'older') { weekOffset = Math.min(weekOffset + 4, 40); render(); return; }
-    if (a === 'newer') { weekOffset = Math.max(weekOffset - 4, 0); render(); return; }
+    if (a === 'older') { weekOffset = Math.min(weekOffset + 1, 8); render(); return; }
+    if (a === 'newer') { weekOffset = Math.max(weekOffset - 1, 0); render(); return; }
     if (a === 'project') {
       var r = b.getBoundingClientRect(), sr = stage.getBoundingClientRect(), sc = scale();
       var items = [{ id: 'pf', value: null, label: 'All', check: !filter.project }, 'sep'].concat(Object.keys(PROJ).map(function (p) { return { id: 'pf', value: p, label: p, check: filter.project === p }; }));
