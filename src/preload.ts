@@ -203,6 +203,17 @@ contextBridge.exposeInMainWorld('afterterm', {
     },
   },
 
+  // The streak calendar's counts (src/activity-store.ts): messages sent to Claude per
+  // local day, and whether the first read of the transcripts is still running.
+  activity: {
+    get: (): Promise<any> => ipcRenderer.invoke('activity:get'),
+    onChange: (callback: (snapshot: any) => void): (() => void) => {
+      const listener = (_event: IpcRendererEvent, s: any) => callback(s);
+      ipcRenderer.on('activity:changed', listener);
+      return () => { ipcRenderer.removeListener('activity:changed', listener); };
+    },
+  },
+
   // Automatic updates (src/updater.ts): the state main pushes, and the actions
   // the title bar button, the notice, the restart window and the About window take.
   update: {
