@@ -172,6 +172,18 @@ interface AftertermUsageAPI {
   onUpdate(callback: (state: UsageState) => void): () => void;
 }
 
+type Loop = import('./loops').Loop;
+type LoopAction = import('./loops-store').LoopAction;
+type LoopActResult =
+  | { ok: true; result: import('./loops-store').ActionResult }
+  | { ok: false; code: string; error: string };
+interface AftertermLoopsAPI {
+  list(): Promise<Loop[]>;
+  // A change made in the UI (Aryan's: it never replaces a loop's remembered chat).
+  act(action: LoopAction): Promise<LoopActResult>;
+  onChange(callback: (loops: Loop[]) => void): () => void;
+}
+
 // The last lines of a thread's scrollback, kept on disk so sleep and quit do not lose
 // the screen. Main trims to 200 lines / 64 KB and never throws (see src/thread-tail.ts).
 interface AftertermThreadsAPI {
@@ -354,6 +366,7 @@ interface AftertermAPI {
   threads: AftertermThreadsAPI;
   git: AftertermGitAPI;
   usage: AftertermUsageAPI;
+  loops: AftertermLoopsAPI;
   update: AftertermUpdateAPI;
   shortcuts: AftertermShortcutsAPI;
   notify: AftertermNotifyAPI;

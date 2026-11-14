@@ -4,6 +4,31 @@ What is still open in afterterm, and, once a round of work starts, the phases it
 
 **Last round: automatic updates** (2026-10-30 to 2026-10-31, PR #58), released as afterterm 0.11.0 on 2026-10-31; no round of work is in progress. The last finished round, projects and threads (Phases 0 to 9 and the fixes after them), was released as afterterm 0.9.0 on 2026-09-30; its full record, with every decision and its date, is [`docs/phases-01-projects-and-threads.md`](docs/phases-01-projects-and-threads.md).
 
+**Round in progress: loops** (started 2026-11-14, Linear AFT-82). The section below lists its phases.
+
+## Loops
+
+The pieces of work started in every project, tracked as loops: started, updated and closed by agents through `afterterm loops`, and by Aryan in the UI; a Progress column on Home with the streak calendar of messages sent to Claude, and a floating card in the workspace. The spec is `docs/design-07-loops.md` (with its "Frontend spec: exact values") and the two mocks, `docs/mockups/loops-home.html` and `docs/mockups/loops-always-visible.html`. Each phase is a Linear sub-issue of AFT-82 and its own PR into the `loops` branch; the round goes to main as one PR, "AFT-82: Loops".
+
+Order changed from the suggested one: the loop rows, opening a loop, the menu and Open chat (suggested as phase 6) come before Home and the card, because both are built from them. The design branch's last two commits (design-07 and its frontend spec) were made after PR #101 merged, so `loops` starts from main with `worktree-loops-idea` merged in.
+
+| Phase | Issue | What it contains | Status |
+|---|---|---|---|
+| 1. Store and rules | AFT-95 | `src/loops.ts` (the rules: rotting after 5 calendar days, sub-loop activity, ideas and closed never rot, order, counts, the card's 5, the remembered chat, the parent-close rule, one level of nesting, delete for 30 days); `src/loops-store.ts` (`<userData>\loops.json`, main the only writer, atomic saves, a broken file moved aside); `loops:list`, `loops:act`, `loops:changed` | In progress |
+| 2. Agents | AFT-96 | `afterterm loops` over a named pipe with a per-launch token, on PATH only in afterterm's terminals; the skill; the chat-start hook | Todo |
+| 3. Activity counts | AFT-97 | Messages sent to Claude per local day from transcript structure, saved in userData, backfilled on the first launch in chunks; shades, streak, longest streak | Todo |
+| 4. Loop rows and actions | AFT-98 | Rows, opening in place (the joined box), the fold, the right-click menu and its Update submenus, Open chat in every case, archive, delete and restore | Todo |
+| 5. Home's Progress column | AFT-99 | The Progress layout: projects at 90%, the 472px column, calendar and count cards, the filter, the list, the close and slide | Todo |
+| 6. The workspace card | AFT-100 | The floating card, its header button and Ctrl+Shift+L, the flight, the 5 rows, rotting, the remaining bar, All | Todo |
+| 7. Release readiness | AFT-101 | CHANGELOG, `docs/features-loops.md`, CLAUDE.md; fresh install, update from 0.18.1, manual install over it, startup time with a large transcript folder; every spec value measured in DevTools | Todo |
+
+Decided while building (recorded here as they come):
+
+- Closing a loop does not move it: closing records the close time but not activity, so a closed loop keeps its place until more recent loops pass it (design-07, "Order"). A note given with a close does count as activity. Reopening counts as activity.
+- Counts (remaining, open, rotting, closed) are of top-level loops; sub-loops show only as their parent's "1/5".
+- Reopening a sub-loop of a closed parent reopens the parent, so an open sub-loop never hides under a closed parent.
+- Archiving or deleting a loop takes its sub-loops with it; restoring brings back the ones that went with it.
+- A ping inside a day of the last one is accepted and changes nothing, so an eager agent cannot reshuffle the list.
 ## Automatic updates
 
 An installed afterterm finds a newer release on GitHub, tells the user ("afterterm 0.11.0 is available", with What's new, Update, Later and Skip this version), downloads the installer in the background with progress, checks it against the sha256 GitHub publishes, and on "Restart to update" closes, installs quietly, reopens and wakes every thread that was awake. Never forced; a setting turns the checks off.

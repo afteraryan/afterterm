@@ -190,6 +190,18 @@ contextBridge.exposeInMainWorld('afterterm', {
     },
   },
 
+  // Loops (src/loops-store.ts): main owns them; the UI reads the list, sends
+  // changes as Aryan, and hears every change whole.
+  loops: {
+    list: (): Promise<any[]> => ipcRenderer.invoke('loops:list'),
+    act: (action: any): Promise<any> => ipcRenderer.invoke('loops:act', action),
+    onChange: (callback: (loops: any[]) => void): (() => void) => {
+      const listener = (_event: IpcRendererEvent, l: any[]) => callback(l);
+      ipcRenderer.on('loops:changed', listener);
+      return () => { ipcRenderer.removeListener('loops:changed', listener); };
+    },
+  },
+
   // Automatic updates (src/updater.ts): the state main pushes, and the actions
   // the title bar button, the notice, the restart window and the About window take.
   update: {
