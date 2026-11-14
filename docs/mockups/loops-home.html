@@ -1,10 +1,10 @@
 <title>Loops on Home</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
-/* Layout: a control bar, then afterterm's Home as it is today, drawn at 1280x860 and scaled to fit. Pinned and Projects in one column; a resizable loops column beside it with its own scrollbar, the activity grid at its foot. Single dark look, like the app. Solid colours only: no tinted washes. */
+/* Layout: a control bar, then afterterm's Home drawn at the real window size (1920x1028) and scaled to fit. Six layouts; none is taller than the window, and a section that overflows scrolls on its own. Single dark look, like the app. Solid colours only: no tinted washes. */
 :root {
   color-scheme: dark;
-  --bg: #212121; --pane: #191919; --side: #171717; --hover: #2f2f2f; --hover2: #383838; --raise: #2f2f2f; --line: #2a2a2a;
+  --bg: #212121; --pane: #191919; --side: #171717; --hover: #2f2f2f; --hover2: #383838; --raise: #2f2f2f; --panel: #262626; --line: #2a2a2a;
   --text: #ececec; --text2: #b4b4b4; --text3: #8e8e8e; --text4: #5c5c5c;
   --btn: #ececec; --btn-text: #0d0d0d;
   --green: #4ade80; --green-ink: #06170b;
@@ -22,17 +22,17 @@ body { font-family: var(--sans); font-size: 14px; line-height: 1.45; margin: 0; 
 button { font: inherit; color: inherit; }
 button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 
-.wrap { padding-block: 16px 32px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 14px; max-width: 1400px; margin: 0 auto; }
+.wrap { padding-block: 16px 32px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 14px; max-width: 1700px; margin: 0 auto; }
 .controls { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: flex-start; }
 .ctl { display: grid; gap: 6px; min-width: 0; }
 .ctl-name { font-size: 11px; color: var(--text3); letter-spacing: .04em; text-transform: uppercase; }
 .seg { display: inline-flex; flex-wrap: wrap; background: var(--pane); border: 1px solid var(--line); border-radius: 9px; padding: 2px; gap: 2px; }
-.seg button { background: none; border: 0; border-radius: 7px; padding: 5px 10px; font-size: 13px; color: var(--text2); cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.seg button { background: none; border: 0; border-radius: 7px; padding: 5px 10px; font-size: 13px; color: var(--text2); cursor: pointer; white-space: nowrap; }
 .seg button:hover { color: var(--text); background: var(--hover); }
 .seg button[aria-pressed="true"] { background: var(--btn); color: var(--btn-text); }
 
 .stage-box { position: relative; width: 100%; overflow: hidden; border-radius: 12px; border: 1px solid var(--line); }
-.stage { position: absolute; left: 0; top: 0; width: 1280px; height: 860px; transform-origin: 0 0; background: var(--side); display: grid; grid-template-rows: 32px 1fr; overflow: hidden; }
+.stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1028px; transform-origin: 0 0; background: var(--side); display: grid; grid-template-rows: 32px 1fr; overflow: hidden; }
 .titlebar { display: flex; align-items: center; gap: 8px; padding-left: 14px; font-size: 12px; color: var(--text2); }
 .titlebar .ver { background: var(--hover); color: var(--text3); border-radius: 5px; padding: 1px 6px; font-size: 11px; }
 .titlebar .grow { flex: 1; }
@@ -47,85 +47,49 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 .rtile { position: relative; width: 36px; height: 36px; border-radius: 10px; background: var(--hover); display: grid; place-items: center; }
 .rbadge { position: absolute; right: -14px; top: 2px; display: grid; gap: 2px; }
 .rbadge span { width: 16px; height: 16px; border-radius: 50%; background: #d4a24c; color: #1a1206; font-size: 10px; font-weight: 600; display: grid; place-items: center; }
-
 .screen { position: relative; background: var(--bg); border-radius: 16px 0 0 0; overflow: hidden; min-height: 0; }
-.home { height: 100%; margin: 0 auto; padding: 0 28px; display: grid; align-items: stretch; }
-.home.single { max-width: 680px; overflow-y: auto; }
-.scrollcol { overflow-y: auto; min-height: 0; padding: 32px 4px 60px 0; scrollbar-width: thin; scrollbar-color: #444 transparent; }
-.colm { display: flex; flex-direction: column; gap: 30px; min-width: 0; }
-.date { margin: 0; font-size: 26px; font-weight: 500; letter-spacing: -.01em; }
+
+/* shared pieces */
+.scroll { overflow-y: auto; min-height: 0; scrollbar-width: thin; scrollbar-color: #444 transparent; }
+.hscroll { overflow-x: auto; scrollbar-width: thin; scrollbar-color: #444 transparent; }
+.stack { display: flex; flex-direction: column; gap: 28px; min-width: 0; }
+.date { margin: 0; font-size: 26px; font-weight: 500; letter-spacing: -.01em; white-space: nowrap; }
 .tot { display: flex; gap: 6px; margin-top: 12px; }
 .sig { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px; border-radius: 999px; background: var(--hover); font-size: 12.5px; color: var(--text2); }
 .lasthere { color: var(--text3); font-size: 12.5px; margin-top: 10px; }
 .lbl { font-size: 13.5px; color: var(--text3); margin: 0 12px 12px; display: flex; align-items: center; gap: 8px; }
 .lbl .grow { flex: 1; }
-.lbl .ibtn { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; color: var(--text3); border: 0; background: none; cursor: pointer; }
-.lbl .ibtn:hover { background: var(--hover); color: var(--text); }
+.lbl .n { color: var(--text2); font-variant-numeric: tabular-nums; }
+.ibtn { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; color: var(--text3); border: 0; background: none; cursor: pointer; flex: none; }
+.ibtn:hover { background: var(--hover); color: var(--text); }
+.ibtn.on { background: var(--btn); color: var(--btn-text); }
 .gl { display: grid; place-items: center; flex: none; }
 
-/* pinned variants */
-.pins.cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.pins.cards .cd { background: var(--raise); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 14px; min-height: 92px; }
-.cd .hd { display: flex; align-items: center; gap: 10px; font-weight: 500; font-size: 14px; min-width: 0; }
-.cd .n { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cd .pin { color: var(--text2); display: grid; }
-.cd .f { display: flex; align-items: center; color: var(--text3); font-size: 13px; margin-top: auto; }
-.cd .f .ago, .cd .ago { margin-left: auto; color: var(--text3); font-size: 12.5px; font-weight: 400; }
-.cd .sig { background: var(--hover2); height: 22px; }
-.pins.slim, .pins.three { display: grid; gap: 8px; }
-.pins.slim { grid-template-columns: 1fr 1fr; }
-.pins.three { grid-template-columns: 1fr 1fr 1fr; }
-.pins.slim .cd, .pins.three .cd { background: var(--raise); border-radius: 12px; height: 44px; padding: 0 12px; display: flex; align-items: center; gap: 9px; font-weight: 500; font-size: 13.5px; min-width: 0; }
-.pins.three .cd .ago { display: none; }
-.pins.slim .cd .sig, .pins.three .cd .sig { height: 20px; padding: 0 7px; font-size: 12px; font-weight: 400; }
-.pins.rows { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 12px; }
-.pins.rows .cd { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; font-weight: 500; font-size: 13.5px; min-width: 0; }
-.pins.rows .cd .sig { height: 20px; padding: 0 7px; font-size: 12px; font-weight: 400; }
-.pins.chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 4px; }
-.pins.chips .cd { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; border-radius: 999px; background: var(--raise); font-size: 13px; font-weight: 500; }
-.pins.chips .cd .ago { display: none; }
-.pins.chips .cd .sig { height: 20px; padding: 0 7px; font-size: 12px; font-weight: 400; margin-left: 2px; }
-
-/* projects list variants */
-.plist.today { display: flex; flex-direction: column; }
-.plist.today .pr { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 10px; font-weight: 500; }
-.plist.today .pr .t { margin-right: 60px; }
-.plist.two, .plist.three { display: grid; gap: 2px 12px; }
-.plist.two { grid-template-columns: 1fr 1fr; }
-.plist.three { grid-template-columns: 1fr 1fr 1fr; }
-.plist.two .pr, .plist.three .pr { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; font-weight: 500; font-size: 13.5px; min-width: 0; }
-.pr .n { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pr .t { color: var(--text3); font-size: 12.5px; font-weight: 400; }
-.plist.three .pr .t { display: none; }
-.plist.chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 4px; }
-.plist.chips .pr { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border-radius: 999px; background: var(--raise); font-size: 13px; font-weight: 500; }
+.pins { display: grid; gap: 8px; }
+.pins.c2 { grid-template-columns: 1fr 1fr; }
+.pins .cd { background: var(--raise); border-radius: 12px; height: 44px; padding: 0 12px; display: flex; align-items: center; gap: 9px; font-weight: 500; font-size: 13.5px; min-width: 0; }
+.pins .cd .n { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pins .cd .ago { color: var(--text3); font-size: 12.5px; font-weight: 400; }
+.pins .cd .sig { background: var(--hover2); height: 20px; padding: 0 7px; font-size: 12px; font-weight: 400; }
+.pins.strip { display: flex; gap: 8px; }
+.pins.strip .cd { width: 220px; flex: none; }
+.plist { display: grid; gap: 2px 12px; }
+.plist.c2 { grid-template-columns: 1fr 1fr; }
+.plist .pr { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; font-weight: 500; font-size: 13.5px; min-width: 0; }
+.plist .pr:hover { background: var(--hover); }
+.plist .pr .n { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.plist .pr .t { color: var(--text3); font-size: 12.5px; font-weight: 400; }
+.plist.chips { display: flex; gap: 6px; }
+.plist.chips .pr { flex: none; background: var(--raise); border-radius: 999px; height: 32px; padding: 0 12px; }
 .plist.chips .pr .t { display: none; }
-.plist.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-.plist.tiles .pr { display: grid; justify-items: center; gap: 8px; padding: 14px 6px 10px; border-radius: 12px; background: var(--raise); font-size: 12.5px; font-weight: 500; text-align: center; min-width: 0; }
-.plist.tiles .pr .n { max-width: 100%; }
-.plist.tiles .pr .t { display: none; }
 .more { color: var(--text3); padding: 8px 12px; font-size: 13.5px; }
-
-/* the handle and collapse */
-.handle { position: relative; cursor: col-resize; }
-.handle::after { content: ""; position: absolute; top: 24px; bottom: 24px; left: 50%; width: 2px; margin-left: -1px; border-radius: 1px; background: transparent; transition: background .15s; }
-.handle:hover::after, .handle.drag::after { background: #5a5a5a; }
-.reopen { position: absolute; top: 20px; right: 24px; height: 30px; border-radius: 8px; border: 0; background: var(--raise); color: var(--text2); display: inline-flex; align-items: center; gap: 7px; padding: 0 11px; font-size: 12.5px; cursor: pointer; z-index: 3; }
-.reopen:hover { background: var(--hover2); color: var(--text); }
-.reopen b { color: var(--text); font-weight: 500; }
-
-/* loops column: count and filters stay, the list scrolls, the activity grid sits at the foot */
-.loopscol { display: flex; flex-direction: column; min-height: 0; min-width: 0; padding-top: 32px; }
-.loopscol .top { flex: none; display: grid; gap: 12px; padding-bottom: 8px; }
-.loopscol .list { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #444 transparent; margin-right: -8px; padding-right: 8px; }
-.loopscol .foot { flex: none; padding: 12px 0 20px; }
 
 .count { background: var(--raise); border-radius: 16px; padding: 14px 16px; display: grid; gap: 10px; }
 .count .big { display: flex; align-items: baseline; gap: 8px; }
 .count .big b { font-size: 28px; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; }
 .count .big span { color: var(--text2); }
 .track { height: 6px; border-radius: 3px; background: #474747; overflow: hidden; display: block; }
-.track i { display: block; height: 100%; background: var(--green); transition: width .4s var(--ease); }
+.track i { display: block; height: 100%; background: var(--green); }
 .split { display: flex; gap: 4px; flex-wrap: wrap; margin-left: -8px; }
 .split button { display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 9px; border-radius: 8px; border: 0; background: none; color: var(--text2); font-size: 13px; cursor: pointer; transition: background .15s, color .15s; }
 .split button:hover { background: var(--hover2); color: var(--text); }
@@ -133,29 +97,22 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 .split button.on b { color: var(--btn-text); }
 .split b { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
 .rot-n { min-width: 20px; height: 20px; border-radius: 10px; background: var(--rot); color: var(--ink); font-weight: 600; display: grid; place-items: center; padding: 0 6px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.count.wide { grid-template-columns: auto 1fr; align-items: center; column-gap: 22px; }
+.count.wide .track { grid-column: 1 / -1; }
 
-/* filters: one button, the small segments fold open under it */
-.fbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 26px; }
-.fbtn { border: 0; background: var(--hover); height: 26px; padding: 0 10px; border-radius: 7px; font-size: 12.5px; color: var(--text2); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background .15s, color .15s; }
-.fbtn:hover { background: var(--hover2); color: var(--text); }
-.fbtn.on { background: var(--btn); color: var(--btn-text); }
-.fbtn .chev { display: grid; transition: transform .2s var(--ease); }
-.fbtn.on .chev { transform: rotate(180deg); }
-.fchip { border: 0; background: var(--btn); color: var(--btn-text); height: 24px; padding: 0 6px 0 9px; border-radius: 999px; font-size: 12px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; animation: pop .22s var(--ease); }
+/* filters: an icon, the segments open in the same row */
+.fbar { display: flex; align-items: center; gap: 6px; min-height: 28px; flex-wrap: nowrap; min-width: 0; }
+.fchip { border: 0; background: var(--btn); color: var(--btn-text); height: 24px; padding: 0 6px 0 9px; border-radius: 999px; font-size: 12px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; animation: pop .22s var(--ease); flex: none; }
 @keyframes pop { from { transform: scale(.6); opacity: 0; } }
-.fpanel { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .26s var(--ease), opacity .2s; opacity: 0; }
-.fpanel.open { grid-template-rows: 1fr; opacity: 1; }
-.fpanel > div { overflow: hidden; }
-.fpanel .inner { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-top: 8px; }
-.fseg { position: relative; display: inline-flex; background: var(--pane); border-radius: 8px; padding: 2px; gap: 1px; }
+.finline { display: inline-flex; align-items: center; gap: 6px; max-width: 0; opacity: 0; overflow: hidden; transition: max-width .32s var(--ease), opacity .2s; }
+.finline.open { max-width: 640px; opacity: 1; }
+.fseg { position: relative; display: inline-flex; background: var(--pane); border-radius: 8px; padding: 2px; gap: 1px; flex: none; }
 .fseg .thumb { position: absolute; top: 2px; bottom: 2px; left: 0; border-radius: 6px; background: var(--hover2); transition: transform .24s var(--ease), width .24s var(--ease); pointer-events: none; }
-.fseg button { position: relative; border: 0; background: none; border-radius: 6px; height: 22px; padding: 0 8px; font-size: 12px; color: var(--text3); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: color .15s; }
-.fseg button:hover { color: var(--text); }
-.fseg button.on { color: var(--text); }
-.fdrop { border: 0; background: var(--pane); height: 26px; padding: 0 9px; border-radius: 8px; font-size: 12px; color: var(--text3); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.fseg button { position: relative; border: 0; background: none; border-radius: 6px; height: 22px; padding: 0 8px; font-size: 12px; color: var(--text3); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: color .15s; white-space: nowrap; }
+.fseg button:hover, .fseg button.on { color: var(--text); }
+.fdrop { border: 0; background: var(--pane); height: 26px; padding: 0 9px; border-radius: 8px; font-size: 12px; color: var(--text3); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; flex: none; white-space: nowrap; }
 .fdrop:hover, .fdrop.on { color: var(--text); }
 
-/* rows */
 .rows { display: flex; flex-direction: column; gap: 1px; }
 .row { display: flex; align-items: center; gap: 10px; padding: 0 10px; min-height: 38px; border-radius: 10px; cursor: pointer; min-width: 0; border: 0; background: none; text-align: left; width: 100%; color: var(--text); flex: none; }
 .row:hover, .row.open-row { background: var(--hover); }
@@ -170,7 +127,6 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 .st-closed { width: 15px; height: 15px; border-radius: 50%; background: var(--green); display: grid; place-items: center; color: var(--green-ink); }
 .st-rot { width: 15px; height: 15px; border-radius: 50%; background: var(--rot); display: grid; place-items: center; color: var(--ink); }
 .frac { font-size: 12px; color: var(--text3); font-variant-numeric: tabular-nums; flex: none; padding: 2px 5px; border-radius: 5px; }
-.frac:hover { background: #444; color: var(--text); }
 .det { margin: 4px 10px 8px 36px; background: var(--boxbg); border-radius: 10px; padding: 9px 10px; display: flex; align-items: flex-start; gap: 10px; }
 .det .note { font-size: 13px; color: var(--text2); padding-top: 2px; min-width: 0; }
 .label { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 6px; background: var(--chip); color: var(--text); font-size: 12px; flex: none; }
@@ -180,33 +136,43 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 .enter { animation: enter .3s var(--ease) both; }
 @keyframes enter { from { opacity: 0; transform: translateY(6px); } }
 
-/* the activity grid */
 .act { background: var(--raise); border-radius: 16px; padding: 14px 16px 12px; display: grid; gap: 10px; }
-.act-h { display: flex; align-items: baseline; gap: 10px; }
+.act-h { display: flex; align-items: center; gap: 10px; }
 .act-h b { font-size: 20px; font-weight: 500; letter-spacing: -.01em; }
 .act-h .grow { flex: 1; }
 .act-h .long { font-size: 12px; color: var(--text3); }
 .act-h .long b { font-size: 12px; color: var(--text); }
-.months { display: grid; align-items: center; font-size: 11.5px; color: var(--text3); }
-.months button { border: 0; background: none; color: var(--text3); width: 20px; height: 20px; border-radius: 5px; display: grid; place-items: center; cursor: pointer; padding: 0; }
-.months button:hover:not(:disabled) { background: var(--hover2); color: var(--text); }
-.months button:disabled { opacity: .3; cursor: default; }
-.grid { display: grid; gap: 3px; align-items: center; justify-content: space-between; }
-.months { justify-content: space-between; column-gap: 3px; }
-.months span { white-space: nowrap; overflow: visible; width: 12px; }
-.grid .dl { font-size: 10.5px; color: var(--text3); }
+.nav { border: 0; background: none; color: var(--text3); width: 20px; height: 20px; border-radius: 5px; display: grid; place-items: center; cursor: pointer; padding: 0; }
+.nav:hover { background: var(--hover2); color: var(--text); }
+.nav.off { opacity: .3; pointer-events: none; }
+.hm { display: grid; gap: 3px; align-items: center; justify-content: start; }
+.hm .dl { font-size: 10.5px; color: var(--text3); }
+.hm .mo { font-size: 11.5px; color: var(--text3); white-space: nowrap; width: 12px; overflow: visible; }
 .cell { width: 12px; height: 12px; border-radius: 3px; background: var(--h0); }
 .cell.l1 { background: var(--h1); } .cell.l2 { background: var(--h2); } .cell.l3 { background: var(--h3); } .cell.l4 { background: var(--h4); }
-.cell.cur { box-shadow: 0 0 0 1.5px var(--bg), 0 0 0 2.5px var(--text); }
-.cell.future { background: none; }
+.cell.cur { outline: 1px solid #6e6e6e; outline-offset: 1px; }
 .legend { display: flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--text3); }
-.legend .cell { width: 11px; }
+.legend .cell { width: 11px; height: 11px; }
 .legend .grow { flex: 1; }
-.legend .curkey { width: 11px; height: 11px; border-radius: 3px; border: 1.5px solid var(--text); margin-right: 3px; }
+.legend .curkey { width: 11px; height: 11px; border-radius: 3px; outline: 1px solid #6e6e6e; outline-offset: 1px; margin-right: 4px; }
+
+/* layouts: the page itself never scrolls */
+.lay { height: 100%; min-height: 0; display: grid; }
+.handle { position: relative; cursor: col-resize; }
+.handle::after { content: ""; position: absolute; top: 24px; bottom: 24px; left: 50%; width: 2px; margin-left: -1px; border-radius: 1px; background: transparent; transition: background .15s; }
+.handle:hover::after, .handle.drag::after { background: #5a5a5a; }
+.loopscol { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.loopscol .list { flex: 1; min-height: 0; margin-right: -8px; padding-right: 8px; }
+.panel { background: var(--panel); border-radius: 18px; padding: 18px; min-height: 0; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; min-height: 0; }
+.bcol { background: var(--panel); border-radius: 16px; padding: 12px 8px 8px; display: flex; flex-direction: column; min-height: 0; }
+.bcol .bh { display: flex; align-items: center; gap: 8px; padding: 0 8px 10px; font-size: 13.5px; font-weight: 500; }
+.bcol .bh .n { color: var(--text3); font-weight: 400; }
 
 .menu { position: absolute; z-index: 30; min-width: 176px; background: #2f2f2f; border: 1px solid #3d3d3d; border-radius: 10px; padding: 4px; box-shadow: 0 10px 28px #000; display: flex; flex-direction: column; }
 .menu button { border: 0; background: none; text-align: left; padding: 6px 10px; border-radius: 7px; font-size: 13px; color: var(--text); cursor: pointer; display: flex; align-items: center; gap: 8px; }
 .menu button .lbl2 { flex: 1; }
+.menu button .mi { display: grid; color: var(--text2); }
 .menu button .chev { color: var(--text3); }
 .menu button .chk { width: 12px; }
 .menu button:hover, .menu button.hl { background: #3d3d3d; }
@@ -217,7 +183,7 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 .cfg { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
 .cfg pre { margin: 0; flex: 1; min-width: 0; background: var(--pane); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-family: var(--mono); font-size: 12px; color: var(--text2); overflow-x: auto; white-space: pre; }
 .copy { border: 0; border-radius: 10px; background: var(--btn); color: var(--btn-text); padding: 0 18px; font-size: 13px; font-weight: 500; cursor: pointer; min-height: 40px; }
-@media (prefers-reduced-motion: reduce) { .enter, .fchip { animation: none; } .fpanel, .fseg .thumb, .track i { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .enter, .fchip { animation: none; } .finline, .fseg .thumb { transition: none; } }
 </style>
 
 <div class="wrap">
@@ -228,26 +194,13 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 
 <script>
 (function () {
-  var FEAT = {
-    squarePlus: '<rect x="2" y="2" width="10" height="10" rx="2.5"/><path d="M7 4.8v4.4M4.8 7h4.4"/>',
-    puzzle: '<path d="M5.5 2.5h3v1.2a1.1 1.1 0 1 0 2.2 0V2.5h.8v3.5h-1.2a1.1 1.1 0 1 0 0 2.2h1.2v3.3H8v-1.2a1.1 1.1 0 1 0-2.2 0v1.2H2.5V8.2h1.2a1.1 1.1 0 1 0 0-2.2H2.5V2.5h3z"/>',
-    box: '<path d="M2 4.5L7 2l5 2.5v5L7 12 2 9.5z"/><path d="M2 4.5L7 7l5-2.5M7 7v5"/>',
-    hammer: '<path d="M2.5 11.5l5-5"/><path d="M6 4.5l2-2 3.5 3.5-2 2z"/>',
-    flag: '<path d="M3 12.5V2"/><path d="M3 2.5h7.5L9 5l1.5 2.5H3"/>',
-    layers: '<path d="M7 2l5 2.5L7 7 2 4.5z"/><path d="M2 7.2l5 2.5 5-2.5"/><path d="M2 9.7l5 2.5 5-2.5"/>',
-    rocket: '<path d="M7 1.8c2.2 1.5 3 3.8 2.6 6.4L7 10.4 4.4 8.2C4 5.6 4.8 3.3 7 1.8z"/><circle cx="7" cy="5.6" r="1"/><path d="M4.6 8.6L3 10.5l1.9.3M9.4 8.6l1.6 1.9-1.9.3M7 10.4v2"/>',
-    sparkle: '<path d="M7 2v3M7 9v3M2 7h3M9 7h3"/><path d="M4.2 4.2l1.3 1.3M8.5 8.5l1.3 1.3M4.2 9.8l1.3-1.3M8.5 5.5l1.3-1.3"/>'
-  };
+  var SW = 1920, SH = 1028;
   var OPTIONS = [
-    { key: 'pinned', name: 'Pinned', values: [['cards', 'As today'], ['slim', 'Slim cards'], ['three', 'Three across'], ['rows', 'Rows'], ['chips', 'Chips']] },
-    { key: 'projects', name: 'Projects list', values: [['today', 'As today'], ['two', 'Two columns'], ['three', 'Three columns'], ['chips', 'Chips'], ['tiles', 'Tiles']] },
-    { key: 'activity', name: 'A day counts', values: [['any', 'Any loop activity'], ['closed', 'Loops closed']] },
-    { key: 'position', name: 'Loops column', values: [['right', 'Right'], ['left', 'Left']] },
-    { key: 'featureIcon', name: 'Feature icon', values: Object.keys(FEAT).map(function (k) { return [k, '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">' + FEAT[k] + '</svg>']; }) },
-    { key: 'labelIcons', name: 'Label', values: [['icons', 'Icon and word'], ['words', 'Word only']] }
+    { key: 'layout', name: 'Layout', values: [['columns', 'Two columns'], ['three', 'Three columns'], ['band', 'Top band'], ['board', 'Board'], ['strips', 'Strips'], ['panels', 'Panels']] }
   ];
-  var cfg = { pinned: 'slim', projects: 'two', activity: 'any', position: 'right', featureIcon: 'squarePlus', labelIcons: 'icons', loopsWidth: 440, loopsCollapsed: false };
-  try { var sv = JSON.parse(localStorage.getItem('loops-home4-cfg') || 'null'); if (sv) for (var k in sv) if (k in cfg) cfg[k] = sv[k]; } catch (e) {}
+  /* final choices, kept in the config as agreed */
+  var cfg = { layout: 'columns', pinned: 'slim', projects: 'two', activity: 'any', position: 'right', featureIcon: 'box', labelIcons: 'icons', loopsWidth: 437 };
+  try { var sv = JSON.parse(localStorage.getItem('loops-home5-cfg') || 'null'); if (sv) { if (sv.layout) cfg.layout = sv.layout; if (sv.loopsWidth) cfg.loopsWidth = sv.loopsWidth; } } catch (e) {}
 
   var PROJ = {
     'job-hunt': { c: '#f05a5a', g: 'bell' }, 'Revy App': { c: '#e8b931', g: 'folder' }, 'afterterm': { c: '#5b8def', g: 'robot' }, 'minimi-windows': { c: '#e46ab4', g: 'robot' },
@@ -266,10 +219,10 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
   function pcol(p) { return (PROJ[p] || PROJ.General).c; }
 
   var LOOPS = [
-    { t: 'Loops on Home', p: 'afterterm', s: 'open', k: 'Feature', when: '2m', note: 'Fourth pass: activity grid, filter button.', subs: [
+    { t: 'Loops on Home', p: 'afterterm', s: 'open', k: 'Feature', when: '2m', note: 'Five layouts at the real window size.', subs: [
       { t: 'Design doc', s: 'closed', k: 'Feature', when: '1h', note: 'Decisions on AFT-82.' },
       { t: 'Loops card', s: 'closed', k: 'Feature', when: '30m', note: 'Setup picked.' },
-      { t: 'Home layout', s: 'open', k: 'Feature', when: '2m', note: 'Loops beside Pinned and Projects.' },
+      { t: 'Home layout', s: 'open', k: 'Feature', when: '2m', note: 'Comparing six layouts.' },
       { t: 'afterterm loops CLI', s: 'open', k: 'Idea', when: '3h', note: 'list, new, update, close, ping.' } ] },
     { t: 'Header shows the old model', p: 'afterterm', s: 'closed', k: 'Bug', when: '40m', note: 'Merged in PR #98.' },
     { t: 'Snapshot calendar on Windows', p: 'minimi-windows', s: 'open', k: 'Feature', when: '5h', note: 'Week view left.', subs: [
@@ -286,7 +239,8 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     { t: 'Revy onboarding flow', p: 'Revy App', s: 'rotting', k: 'Feature', when: '3w', note: 'Screens 1 to 3 built.' },
     { t: 'Founder build installer', p: 'minimi-windows', s: 'rotting', k: 'Bug', when: '4d', note: 'Signing step fails on a clean PC.' },
     { t: 'Shell integration for WSL', p: 'afterterm', s: 'rotting', k: 'Feature', when: '9d', note: 'Needs a machine with WSL.' },
-    { t: 'Portfolio page refresh', p: 'job-hunt', s: 'rotting', k: 'Feature', when: '12d', note: 'Started, then paused for applications.' }
+    { t: 'Portfolio page refresh', p: 'job-hunt', s: 'rotting', k: 'Feature', when: '12d', note: 'Started, then paused for applications.' },
+    { t: 'Tinkering scratch cleanup', p: 'Tinkering', s: 'closed', k: 'Idea', when: '1d', note: 'Old experiments archived.' }
   ];
   var filter = { status: 'all', label: null, project: null };
   var filterOpen = false, animateList = false;
@@ -296,94 +250,76 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
   var I = {
     tick: '<svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5.2l2 2L8 3"/></svg>',
     clock: '<svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M5 2.4v2.8l1.7 1"/></svg>',
+    Feature: '<path d="M2 4.5L7 2l5 2.5v5L7 12 2 9.5z"/><path d="M2 4.5L7 7l5-2.5M7 7v5"/>',
     Bug: '<rect x="4" y="4" width="6" height="8" rx="3"/><path d="M2 6h2M10 6h2M2 10h2M10 10h2M5 3l1 1M9 3L8 4"/>',
     Idea: '<path d="M5 10.5h4M5.5 12.5h3M7 1.5a4 4 0 0 0-2.3 7.3c.3.2.3.5.3.7v1h4v-1c0-.2 0-.5.3-.7A4 4 0 0 0 7 1.5z"/>',
     chev: '<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 2l3 3-3 3"/></svg>',
     left: '<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 2l-3 3 3 3"/></svg>',
     down: '<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5l3 3 3-3"/></svg>',
     x: '<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5"/></svg>',
-    filter: '<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 3.5h10M4 7h6M6 10.5h2"/></svg>',
+    filter: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 3.5h10M4 7h6M6 10.5h2"/></svg>',
     collapse: '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="2"/><path d="M10 3v10M6 6.5L7.5 8 6 9.5"/></svg>',
-    loops: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="5.5" cy="8" r="3.5"/><circle cx="10.5" cy="8" r="3.5"/></svg>',
-    pin: '<svg width="13" height="13" viewBox="0 0 14 14" fill="currentColor"><path d="M5 1.5h4l-.6 1v3.3l1.8 2V9H7.6v3.5L7 13.2l-.6-.7V9H3.8V7.8l1.8-2V2.5z"/></svg>',
     bell: '<svg width="11" height="11" viewBox="0 0 14 14" fill="#fbbf24"><path d="M7 1.5a3.6 3.6 0 0 0-3.6 3.6v2.6L2.2 10h9.6l-1.2-2.3V5.1A3.6 3.6 0 0 0 7 1.5z"/><path d="M5.6 11h2.8a1.4 1.4 0 0 1-2.8 0z"/></svg>',
     plus: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>',
     home: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M2.5 7L8 2.5 13.5 7v6.5h-11z"/></svg>',
     term: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="2"/><path d="M5 6.5L6.5 8 5 9.5M8 9.5h3"/></svg>',
     panel: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="3" width="12" height="10" rx="2"/><path d="M6 3v10"/></svg>'
   };
-  function labelIcon(k, size) {
-    var path = k === 'Feature' ? FEAT[cfg.featureIcon] : I[k];
-    return '<svg width="' + (size || 13) + '" height="' + (size || 13) + '" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">' + path + '</svg>';
-  }
+  function labelIcon(k, size) { return '<svg width="' + (size || 13) + '" height="' + (size || 13) + '" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">' + I[k] + '</svg>'; }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
   var controls = document.getElementById('controls');
   OPTIONS.forEach(function (o) {
     var d = document.createElement('div'); d.className = 'ctl';
     d.innerHTML = '<span class="ctl-name">' + o.name + '</span><div class="seg" role="group" aria-label="' + o.name + '">' +
-      o.values.map(function (v) { return '<button type="button" id="opt-' + o.key + '-' + v[0] + '" data-k="' + o.key + '" data-v="' + v[0] + '" title="' + v[0] + '">' + v[1] + '</button>'; }).join('') + '</div>';
+      o.values.map(function (v) { return '<button type="button" id="opt-' + o.key + '-' + v[0] + '" data-k="' + o.key + '" data-v="' + v[0] + '">' + v[1] + '</button>'; }).join('') + '</div>';
     controls.appendChild(d);
   });
   controls.addEventListener('click', function (e) { var b = e.target.closest('button[data-k]'); if (!b) return; cfg[b.dataset.k] = b.dataset.v; render(); });
 
   var stage = document.getElementById('stage'), box = document.getElementById('stageBox');
   function scale() { return parseFloat(stage.dataset.scale) || 1; }
-  function fit() { var s = box.clientWidth / 1280; stage.style.transform = 'scale(' + s + ')'; box.style.height = (860 * s) + 'px'; stage.dataset.scale = s; }
+  function fit() { var s = box.clientWidth / SW; stage.style.transform = 'scale(' + s + ')'; box.style.height = (SH * s) + 'px'; stage.dataset.scale = s; }
   window.addEventListener('resize', fit);
 
-  /* activity: a year of days, ending today (Saturday 14 November 2026) */
+  /* activity: a year of days ending Saturday 14 November 2026 */
   function rng(seed) { return function () { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; }; }
-  var TODAY = new Date(2026, 10, 14);
-  var DAYS = 7 * 53;
-  function activityData(kind) {
-    var r = rng(kind === 'any' ? 7 : 19), out = [];
-    for (var n = 0; n < DAYS; n++) {
-      var v = r(), lvl;
-      if (kind === 'any') lvl = v < .18 ? 0 : v < .45 ? 1 : v < .72 ? 2 : v < .9 ? 3 : 4;
-      else lvl = v < .45 ? 0 : v < .72 ? 1 : v < .88 ? 2 : v < .96 ? 3 : 4;
-      out.push(lvl);
-    }
-    /* a 4 day streak today, broken the day before */
+  var TODAY = new Date(2026, 10, 14), DAYS = 7 * 53;
+  var DATA = (function () {
+    var r = rng(7), out = [];
+    for (var n = 0; n < DAYS; n++) { var v = r(); out.push(v < .18 ? 0 : v < .45 ? 1 : v < .72 ? 2 : v < .9 ? 3 : 4); }
     for (var d = 0; d < 4; d++) out[DAYS - 1 - d] = Math.max(out[DAYS - 1 - d], 1 + (d % 3));
     out[DAYS - 5] = 0;
-    /* a 47 day run in the summer */
-    var start = DAYS - 150; for (var q = 0; q < 47; q++) out[start + q] = Math.max(out[start + q], 1 + (q % 4)); out[start - 1] = 0; out[start + 47] = 0;
+    var st = DAYS - 150; for (var q = 0; q < 47; q++) out[st + q] = Math.max(out[st + q], 1 + (q % 4)); out[st - 1] = 0; out[st + 47] = 0;
     return out;
-  }
-  function streaks(a) {
-    var cur = 0, n = a.length - 1; while (n >= 0 && a[n] > 0) { cur++; n--; }
-    var best = 0, run = 0; a.forEach(function (v) { run = v > 0 ? run + 1 : 0; if (run > best) best = run; });
+  })();
+  function streaks() {
+    var cur = 0, n = DAYS - 1; while (n >= 0 && DATA[n] > 0) { cur++; n--; }
+    var best = 0, run = 0; DATA.forEach(function (v) { run = v > 0 ? run + 1 : 0; if (run > best) best = run; });
     return { cur: cur, best: best };
   }
-  function activityHtml() {
-    var data = activityData(cfg.activity), s = streaks(data);
-    var weeks = Math.max(12, Math.min(40, Math.floor((cfg.loopsWidth - 32 - 26) / 15))), lastWeekEnd = DAYS - 1 - weekOffset * 7;
-    var firstDay = lastWeekEnd - weeks * 7 + 1;
-    var monthsRow = [], cols = [];
-    for (var w = 0; w < weeks; w++) {
-      var col = [];
-      for (var d = 0; d < 7; d++) {
-        var idx = firstDay + w * 7 + d, date = new Date(TODAY); date.setDate(TODAY.getDate() - (DAYS - 1 - idx));
-        col.push({ lvl: data[idx], cur: idx > DAYS - 1 - s.cur, date: date });
-      }
-      cols.push(col);
-      var first = col[0].date, prev = w ? cols[w - 1][0].date : null;
-      monthsRow.push(!prev || first.getMonth() !== prev.getMonth() ? first.toLocaleString('en-GB', { month: 'short' }) : '');
-    }
-    var tmpl = '26px repeat(' + weeks + ', 12px)';
-    var months = '<div class="months" style="grid-template-columns:' + tmpl + '"><button type="button" data-act="older" aria-label="Earlier">' + I.left + '</button>' +
-      monthsRow.map(function (m) { return '<span>' + m + '</span>'; }).join('') + '</div>';
+  function activityHtml(width, compact) {
+    var s = streaks();
+    var weeks = Math.max(8, Math.min(53, Math.floor((width - 32 - 26) / 15)));
+    var last = DAYS - 1 - weekOffset * 7, first = last - weeks * 7 + 1;
+    if (first < 0) { first = 0; }
     var names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    var gridCells = '';
+    var tmpl = 'grid-template-columns:26px repeat(' + weeks + ', 12px)';
+    var months = '<span></span>';
+    for (var w = 0; w < weeks; w++) {
+      var d0 = new Date(TODAY); d0.setDate(TODAY.getDate() - (DAYS - 1 - (first + w * 7)));
+      var dp = new Date(d0); dp.setDate(d0.getDate() - 7);
+      months += '<span class="mo">' + (w === 0 || d0.getMonth() !== dp.getMonth() ? d0.toLocaleString('en-GB', { month: 'short' }) : '') + '</span>';
+    }
+    var cells = '';
     for (var row = 0; row < 7; row++) {
-      gridCells += '<span class="dl">' + (row % 2 ? names[row] : '') + '</span>';
-      for (var c = 0; c < weeks; c++) { var cell = cols[c][row]; gridCells += '<span class="cell l' + cell.lvl + (cell.cur && weekOffset === 0 ? ' cur' : '') + '"></span>'; }
+      cells += '<span class="dl">' + (row % 2 ? names[row] : '') + '</span>';
+      for (var c = 0; c < weeks; c++) { var idx = first + c * 7 + row; cells += '<span class="cell l' + DATA[idx] + (weekOffset === 0 && idx > DAYS - 1 - s.cur ? ' cur' : '') + '"></span>'; }
     }
     return '<div class="act"><div class="act-h"><b>' + s.cur + ' day streak</b><span class="grow"></span><span class="long">Longest <b>' + s.best + ' days</b></span>' +
-      '<button type="button" class="ibtn-n" data-act="newer" aria-label="Later" style="border:0;background:none;color:var(--text3);cursor:pointer;display:grid;' + (weekOffset ? '' : 'opacity:.3') + '">' + I.chev + '</button></div>' +
-      months + '<div class="grid" style="grid-template-columns:' + tmpl + '">' + gridCells + '</div>' +
-      '<div class="legend"><span>Less</span><span class="cell"></span><span class="cell l1"></span><span class="cell l2"></span><span class="cell l3"></span><span class="cell l4"></span><span>More</span><span class="grow"></span><span class="curkey"></span><span>Current streak</span></div></div>';
+      '<button type="button" class="nav" data-act="older" aria-label="Earlier">' + I.left + '</button><button type="button" class="nav' + (weekOffset ? '' : ' off') + '" data-act="newer" aria-label="Later">' + I.chev + '</button></div>' +
+      '<div class="hm" style="' + tmpl + '">' + months + cells + '</div>' +
+      (compact ? '' : '<div class="legend"><span>Less</span><span class="cell"></span><span class="cell l1"></span><span class="cell l2"></span><span class="cell l3"></span><span class="cell l4"></span><span>More</span><span class="grow"></span><span class="curkey"></span><span>Current streak</span></div>') + '</div>';
   }
 
   function counts() {
@@ -391,10 +327,10 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     LOOPS.forEach(function (l) { c[l.s === 'closed' ? 'closed' : l.s === 'rotting' ? 'rotting' : 'open']++; });
     c.remaining = c.open + c.rotting; return c;
   }
-  function visible() {
+  function visible(statusOverride) {
     return LOOPS.map(function (l, i) { return { l: l, i: i }; }).filter(function (x) {
-      var l = x.l;
-      if (filter.status !== 'all' && l.s !== filter.status) return false;
+      var l = x.l, st = statusOverride || filter.status;
+      if (st !== 'all' && l.s !== st) return false;
       if (filter.label && l.k !== filter.label) return false;
       if (filter.project && l.p !== filter.project) return false;
       return true;
@@ -405,18 +341,13 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     if (s === 'rotting') return '<span class="st"><span class="st-rot">' + I.clock + '</span></span>';
     return '<span class="st"><span class="st-open"></span></span>';
   }
-  function labelTag(k) { return '<span class="label">' + (cfg.labelIcons === 'icons' ? labelIcon(k) : '') + k + '</span>'; }
-  function details(l) { return '<div class="det">' + labelTag(l.k) + '<span class="note">' + esc(l.note) + '</span></div>'; }
-  function fracOf(l) {
-    if (!l.subs) return '';
-    var done = l.subs.filter(function (s) { return s.s === 'closed'; }).length;
-    return '<span class="frac">' + done + '/' + l.subs.length + '</span>';
-  }
-  function loopBlock(l, i, n) {
+  function details(l) { return '<div class="det"><span class="label">' + labelIcon(l.k) + l.k + '</span><span class="note">' + esc(l.note) + '</span></div>'; }
+  function fracOf(l) { if (!l.subs) return ''; var done = l.subs.filter(function (s) { return s.s === 'closed'; }).length; return '<span class="frac">' + done + '/' + l.subs.length + '</span>'; }
+  function loopBlock(l, i, n, noProject) {
     var id = String(i), isOpen = !!opened[id];
     var anim = animateList ? ' enter" style="animation-delay:' + Math.min(n * 28, 300) + 'ms' : '';
     var h = '<button type="button" class="row' + (l.s === 'closed' ? ' closed' : '') + (isOpen ? ' open-row' : '') + anim + '" data-i="' + id + '">' + statusIcon(l.s) +
-      '<span class="t1">' + esc(l.t) + '</span>' + fracOf(l) + '<span class="pname" style="color:' + pcol(l.p) + '">' + esc(l.p) + '</span><span class="when">' + l.when + '</span></button>';
+      '<span class="t1">' + esc(l.t) + '</span>' + fracOf(l) + (noProject ? '' : '<span class="pname" style="color:' + pcol(l.p) + '">' + esc(l.p) + '</span>') + '<span class="when">' + l.when + '</span></button>';
     if (!isOpen) return h;
     h += details(l);
     if (l.subs) h += '<div class="subs">' + l.subs.map(function (s, j) {
@@ -425,50 +356,99 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     }).join('') + '</div>';
     return h;
   }
+  function loopRows(statusOverride, noProject) {
+    var list = visible(statusOverride);
+    if (!list.length) return '<div class="empty enter">' + ((statusOverride || filter.status) === 'archived' ? 'Nothing archived' : 'No loops') + '</div>';
+    return '<div class="rows">' + list.map(function (x, n) { return loopBlock(x.l, x.i, n, noProject); }).join('') + '</div>';
+  }
 
   var STATUSES = [['all', 'All'], ['open', 'Open'], ['rotting', 'Rotting'], ['closed', 'Closed'], ['archived', 'Archived']];
   var LABELS = ['Feature', 'Bug', 'Idea'];
   function statusWord(s) { for (var n = 0; n < STATUSES.length; n++) if (STATUSES[n][0] === s) return STATUSES[n][1]; return s; }
-  function filtersHtml() {
+  function filterBar(noStatus) {
     var chips = '';
     if (!filterOpen) {
-      if (filter.status !== 'all') chips += '<button type="button" class="fchip" data-clear="status">' + statusWord(filter.status) + I.x + '</button>';
+      if (filter.status !== 'all' && !noStatus) chips += '<button type="button" class="fchip" data-clear="status">' + statusWord(filter.status) + I.x + '</button>';
       if (filter.label) chips += '<button type="button" class="fchip" data-clear="label">' + filter.label + I.x + '</button>';
       if (filter.project) chips += '<button type="button" class="fchip" data-clear="project">' + esc(filter.project) + I.x + '</button>';
     }
-    var bar = '<div class="fbar"><button type="button" class="fbtn' + (filterOpen ? ' on' : '') + '" data-act="toggle-filters">' + I.filter + 'Filter<span class="chev">' + I.down + '</span></button>' + chips + '</div>';
-    var panel = '<div class="fpanel' + (filterOpen ? ' open' : '') + '" id="fpanel"><div><div class="inner">' +
-      '<div class="fseg" data-seg="status"><span class="thumb"></span>' + STATUSES.map(function (s) { return '<button type="button" class="' + (filter.status === s[0] ? 'on' : '') + '" data-fs="' + s[0] + '">' + s[1] + '</button>'; }).join('') + '</div>' +
-      '<div class="fseg" data-seg="label"><span class="thumb"></span>' + LABELS.map(function (k) { return '<button type="button" class="' + (filter.label === k ? 'on' : '') + '" data-fl="' + k + '" title="' + k + '">' + labelIcon(k, 12) + '</button>'; }).join('') + '</div>' +
-      '<button type="button" class="fdrop' + (filter.project ? ' on' : '') + '" data-act="project">' + (filter.project ? esc(filter.project) : 'Project') + I.down + '</button></div></div></div>';
-    return bar + panel;
+    return '<div class="fbar"><button type="button" class="ibtn' + (filterOpen ? ' on' : '') + '" data-act="toggle-filters" aria-label="Filter">' + I.filter + '</button>' +
+      '<span class="finline' + (filterOpen ? ' open' : '') + '">' +
+      (noStatus ? '' : '<span class="fseg" data-seg="status"><span class="thumb"></span>' + STATUSES.map(function (s) { return '<button type="button" class="' + (filter.status === s[0] ? 'on' : '') + '" data-fs="' + s[0] + '">' + s[1] + '</button>'; }).join('') + '</span>') +
+      '<span class="fseg" data-seg="label"><span class="thumb"></span>' + LABELS.map(function (k) { return '<button type="button" class="' + (filter.label === k ? 'on' : '') + '" data-fl="' + k + '" title="' + k + '">' + labelIcon(k, 12) + '</button>'; }).join('') + '</span>' +
+      '<button type="button" class="fdrop' + (filter.project ? ' on' : '') + '" data-act="project">' + (filter.project ? esc(filter.project) : 'Project') + I.down + '</button></span>' + chips + '</div>';
   }
-
-  function loopsColumn() {
+  function countCard(wide) {
     var c = counts(), total = c.remaining + c.closed;
     var on = function (s) { return filter.status === s ? ' class="on"' : ''; };
-    var count = '<div class="count"><div class="big"><b>' + c.remaining + '</b><span>remaining</span></div><span class="track"><i style="width:' + (c.closed / total * 100) + '%"></i></span>' +
-      '<div class="split"><button type="button" data-f="open"' + on('open') + '><b>' + c.open + '</b>open</button><button type="button" data-f="rotting"' + on('rotting') + '><span class="rot-n">' + c.rotting + '</span>rotting</button><button type="button" data-f="closed"' + on('closed') + '><b>' + c.closed + '</b>closed</button></div></div>';
-    var list = visible();
-    var rows = list.length ? '<div class="rows">' + list.map(function (x, n) { return loopBlock(x.l, x.i, n); }).join('') + '</div>' : '<div class="empty enter">' + (filter.status === 'archived' ? 'Nothing archived' : 'No loops') + '</div>';
-    return '<div class="loopscol"><div class="top"><div class="lbl" style="margin-bottom:0">Loops<span class="grow"></span><button type="button" class="ibtn" data-act="collapse" title="Hide loops">' + I.collapse + '</button></div>' + count + '<div>' + filtersHtml() + '</div></div>' +
-      '<div class="list" id="loopList">' + rows + '</div><div class="foot">' + activityHtml() + '</div></div>';
+    return '<div class="count' + (wide ? ' wide' : '') + '"><div class="big"><b>' + c.remaining + '</b><span>remaining</span></div>' +
+      '<div class="split"><button type="button" data-f="open"' + on('open') + '><b>' + c.open + '</b>open</button><button type="button" data-f="rotting"' + on('rotting') + '><span class="rot-n">' + c.rotting + '</span>rotting</button><button type="button" data-f="closed"' + on('closed') + '><b>' + c.closed + '</b>closed</button></div>' +
+      '<span class="track"><i style="width:' + (c.closed / total * 100) + '%"></i></span></div>';
   }
 
-  function sideColumn() {
-    var head = '<div><h1 class="date">Saturday, 14 November</h1><div class="tot"><span class="sig">' + I.bell + '3</span></div><div class="lasthere">Last here 1d ago</div></div>';
-    var pins = [['job-hunt', '', '53m'], ['Revy App', '', '3w'], ['afterterm', '1', 'now'], ['minimi-windows', '', '2d'], ['moctale', '1', '16h'], ['Lanterns', '1', '2d']];
-    var pinned = '<div><div class="lbl">Pinned</div><div class="pins ' + cfg.pinned + '">' + pins.map(function (p) {
-      var bellPill = p[1] ? '<span class="sig">' + I.bell + p[1] + '</span>' : '';
-      if (cfg.pinned === 'cards') return '<div class="cd"><div class="hd">' + glyph(p[0], 15) + '<span class="n">' + esc(p[0]) + '</span><span class="pin">' + I.pin + '</span></div><div class="f">' + bellPill + '<span class="ago">' + p[2] + '</span></div></div>';
-      if (cfg.pinned === 'chips') return '<div class="cd">' + glyph(p[0], 14) + esc(p[0]) + bellPill + '</div>';
-      return '<div class="cd">' + glyph(p[0], 14) + '<span class="n">' + esc(p[0]) + '</span>' + bellPill + '<span class="ago">' + p[2] + '</span></div>';
+  var PINS = [['job-hunt', '', '53m'], ['Revy App', '', '3w'], ['afterterm', '1', 'now'], ['minimi-windows', '', '2d'], ['moctale', '1', '16h'], ['Lanterns', '1', '2d']];
+  var PLIST = [['manus video', '16h'], ['Tinkering', '16h'], ['NextLeap PM', '21h'], ['Figma Claude Plugin', '21h'], ['General', '3d'], ['Lanterns', '2d'], ['moctale', '16h'], ['Revy App', '3w']];
+  function dateBlock() { return '<div><h1 class="date">Saturday, 14 November</h1><div class="tot"><span class="sig">' + I.bell + '3</span></div><div class="lasthere">Last here 1d ago</div></div>'; }
+  function pinnedBlock(cls, noLabel) {
+    return '<div>' + (noLabel ? '' : '<div class="lbl">Pinned</div>') + '<div class="pins ' + cls + '">' + PINS.map(function (p) {
+      return '<div class="cd">' + glyph(p[0], 14) + '<span class="n">' + esc(p[0]) + '</span>' + (p[1] ? '<span class="sig">' + I.bell + p[1] + '</span>' : '') + '<span class="ago">' + p[2] + '</span></div>';
     }).join('') + '</div></div>';
-    var plist = [['manus video', '16h'], ['Tinkering', '16h'], ['NextLeap PM', '21h'], ['Figma Claude Plugin', '21h'], ['General', '3d'], ['Lanterns', '2d']];
-    var projects = '<div><div class="lbl">Projects<span class="grow"></span><span style="color:var(--text3)">' + I.plus + '</span></div><div class="plist ' + cfg.projects + '">' + plist.slice(0, cfg.projects === 'today' ? 4 : 6).map(function (p) {
+  }
+  function projectsBlock(cls, count) {
+    return '<div><div class="lbl">Projects<span class="grow"></span><span style="color:var(--text3)">' + I.plus + '</span></div><div class="plist ' + cls + '">' + PLIST.slice(0, count || 6).map(function (p) {
       return '<div class="pr">' + glyph(p[0], 15) + '<span class="n">' + esc(p[0]) + '</span><span class="t">' + p[1] + '</span></div>';
     }).join('') + '</div><div class="more">Show more</div></div>';
-    return '<div class="colm">' + head + pinned + projects + '</div>';
+  }
+  function loopsLabel(extra) { return '<div class="lbl" style="margin-bottom:0">Loops' + (extra || '') + '</div>'; }
+
+  /* the six layouts */
+  function layColumns() {
+    var w = cfg.loopsWidth;
+    return '<div class="lay" style="grid-template-columns:minmax(420px, 680px) 28px ' + w + 'px;justify-content:center;padding:0 28px">' +
+      '<div class="scroll" style="padding:32px 6px 40px 0"><div class="stack">' + dateBlock() + pinnedBlock('c2') + projectsBlock('c2') + '</div></div>' +
+      '<div class="handle" data-handle="1" title="Drag to resize"></div>' +
+      '<div class="loopscol" style="padding-top:32px;gap:12px">' + loopsLabel() + countCard() + filterBar() + '<div class="list scroll" id="loopList">' + loopRows() + '</div><div style="padding:4px 0 20px">' + activityHtml(w) + '</div></div></div>';
+  }
+  function layThree() {
+    return '<div class="lay" style="grid-template-columns:320px minmax(0, 860px) 420px;gap:36px;justify-content:center;padding:0 32px">' +
+      '<div class="scroll" style="padding:32px 4px 40px 0"><div class="stack">' + dateBlock() + pinnedBlock('') + projectsBlock('', 8) + '</div></div>' +
+      '<div class="loopscol" style="padding-top:32px;gap:12px">' + loopsLabel() + filterBar() + '<div class="list scroll" id="loopList">' + loopRows() + '</div></div>' +
+      '<div class="scroll" style="padding:32px 0 32px"><div class="stack" style="gap:16px"><div class="lbl" style="margin-bottom:0">Progress</div>' + countCard() + activityHtml(420) + '</div></div></div>';
+  }
+  function layBand() {
+    return '<div class="lay" style="grid-template-rows:auto minmax(0, 1fr);padding:28px 40px 0;gap:26px;max-width:1760px;margin:0 auto">' +
+      '<div style="display:grid;grid-template-columns:300px 360px minmax(0, 1fr);gap:24px;align-items:stretch">' + dateBlock() + countCard() + '<div style="min-width:0">' + activityHtml(1000, true) + '</div></div>' +
+      '<div style="display:grid;grid-template-columns:560px minmax(0, 1fr);gap:40px;min-height:0">' +
+      '<div class="scroll" style="padding-bottom:30px"><div class="stack">' + pinnedBlock('c2') + projectsBlock('c2', 8) + '</div></div>' +
+      '<div class="loopscol" style="gap:12px">' + loopsLabel() + filterBar() + '<div class="list scroll" id="loopList" style="padding-bottom:24px">' + loopRows() + '</div></div></div></div>';
+  }
+  function layBoard() {
+    var cols = [['open', 'Open'], ['rotting', 'Rotting'], ['closed', 'Closed']].map(function (c) {
+      var n = visible(c[0]).length;
+      return '<div class="bcol"><div class="bh">' + statusIcon(c[0]) + c[1] + '<span class="n">' + n + '</span></div><div class="scroll" style="flex:1">' + loopRows(c[0]) + '</div></div>';
+    }).join('');
+    return '<div class="lay" style="grid-template-rows:auto minmax(0, 1fr);padding:28px 32px 24px;gap:22px">' +
+      '<div style="display:grid;grid-template-columns:320px auto minmax(0, 1fr);gap:28px;align-items:center">' + dateBlock() +
+      '<div>' + filterBar(true) + '</div><div style="justify-self:end;width:640px">' + activityHtml(640, true) + '</div></div>' +
+      '<div style="display:grid;grid-template-columns:320px minmax(0, 1fr);gap:24px;min-height:0">' +
+      '<div class="scroll"><div class="stack">' + pinnedBlock('') + projectsBlock('', 8) + '</div></div><div class="board">' + cols + '</div></div></div>';
+  }
+  function layStrips() {
+    return '<div class="lay" style="grid-template-rows:auto auto auto minmax(0, 1fr);padding:28px 40px 0;gap:20px;max-width:1760px;margin:0 auto">' +
+      '<div style="display:flex;align-items:flex-end;gap:24px">' + dateBlock() + '</div>' +
+      '<div class="hscroll" style="padding-bottom:6px">' + pinnedBlock('strip', true) + '</div>' +
+      '<div class="hscroll" style="padding-bottom:6px"><div class="plist chips">' + PLIST.map(function (p) { return '<div class="pr">' + glyph(p[0], 14) + '<span class="n">' + esc(p[0]) + '</span></div>'; }).join('') + '</div></div>' +
+      '<div style="display:grid;grid-template-columns:minmax(0, 1fr) 440px;gap:40px;min-height:0">' +
+      '<div class="loopscol" style="gap:12px">' + loopsLabel() + filterBar() + '<div class="list scroll" id="loopList" style="padding-bottom:24px">' + loopRows() + '</div></div>' +
+      '<div class="scroll" style="padding-bottom:24px"><div class="stack" style="gap:16px">' + countCard() + activityHtml(440) + '</div></div></div></div>';
+  }
+  function layPanels() {
+    return '<div class="lay" style="grid-template-columns:minmax(0, 1fr) minmax(0, 1.35fr) 460px;grid-template-rows:minmax(0, 1fr) minmax(0, 1fr);gap:16px;padding:24px 28px">' +
+      '<div class="panel scroll" style="grid-row:1;grid-column:1">' + dateBlock() + pinnedBlock('c2') + '</div>' +
+      '<div class="panel scroll" style="grid-row:2;grid-column:1">' + projectsBlock('c2', 8) + '</div>' +
+      '<div class="panel" style="grid-row:1 / 3;grid-column:2">' + loopsLabel() + filterBar() + '<div class="scroll" id="loopList" style="flex:1">' + loopRows() + '</div></div>' +
+      '<div class="panel" style="grid-row:1 / 3;grid-column:3">' + countCard() + activityHtml(424) +
+      '<div class="lbl" style="margin:6px 10px 0">Rotting<span class="grow"></span><span class="n">' + counts().rotting + '</span></div><div class="scroll" style="flex:1">' + loopRows('rotting') + '</div></div></div>';
   }
 
   var thumbs = {};
@@ -485,30 +465,18 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
   }
 
   function render() {
-    var inner, reopen = '';
-    var keepSide = stage.querySelector('.scrollcol'), sTop = keepSide ? keepSide.scrollTop : 0;
-    var keepList = stage.querySelector('#loopList'), lTop = keepList ? keepList.scrollTop : 0;
-    if (cfg.loopsCollapsed) {
-      inner = '<div class="home single"><div class="scrollcol">' + sideColumn() + '</div></div>';
-      reopen = '<button type="button" class="reopen" data-act="expand">' + I.loops + 'Loops <b>' + counts().remaining + '</b></button>';
-    } else {
-      var w = cfg.loopsWidth;
-      var cols = cfg.position === 'right' ? 'minmax(420px, 1fr) 28px ' + w + 'px' : w + 'px 28px minmax(420px, 1fr)';
-      var side = '<div class="scrollcol">' + sideColumn() + '</div>', handle = '<div class="handle" data-handle="1" title="Drag to resize"></div>';
-      var parts = cfg.position === 'right' ? [side, handle, loopsColumn()] : [loopsColumn(), handle, side];
-      inner = '<div class="home" style="grid-template-columns:' + cols + ';max-width:1180px">' + parts.join('') + '</div>';
-    }
+    var keep = {}; stage.querySelectorAll('.scroll').forEach(function (el, n) { keep[n] = el.scrollTop; });
+    var L = { columns: layColumns, three: layThree, band: layBand, board: layBoard, strips: layStrips, panels: layPanels }[cfg.layout] || layColumns;
     var rail = '<span class="rail-btn">' + I.panel + '</span><div class="rail-pill"><span class="rail-btn on">' + I.home + '</span><span class="rail-btn">' + I.term + '</span></div><span class="rail-sep"></span>' +
       [['afterterm', ['1', '2']], ['moctale', ['1']], ['Lanterns', ['1']]].map(function (t) { return '<span class="rtile">' + glyph(t[0], 16) + '<span class="rbadge">' + t[1].map(function (n) { return '<span>' + n + '</span>'; }).join('') + '</span></span>'; }).join('');
     stage.innerHTML = '<div class="titlebar"><span>afterterm</span><span class="ver">v0.18.1</span><span class="grow"></span><span class="caps"><span>—</span><span>☐</span><span>✕</span></span></div>' +
-      '<div class="body"><div class="rail">' + rail + '</div><div class="screen">' + reopen + inner + '</div></div>';
-    var sc = stage.querySelector('.scrollcol'); if (sc) sc.scrollTop = sTop;
-    var ll = stage.querySelector('#loopList'); if (ll && !animateList) ll.scrollTop = lTop;
+      '<div class="body"><div class="rail">' + rail + '</div><div class="screen">' + L() + '</div></div>';
+    if (!animateList) stage.querySelectorAll('.scroll').forEach(function (el, n) { if (keep[n]) el.scrollTop = keep[n]; });
     placeThumbs();
     animateList = false;
     controls.querySelectorAll('button[data-k]').forEach(function (b) { b.setAttribute('aria-pressed', String(String(cfg[b.dataset.k]) === b.dataset.v)); });
     document.getElementById('cfgOut').textContent = JSON.stringify(cfg, null, 2);
-    try { localStorage.setItem('loops-home4-cfg', JSON.stringify(cfg)); } catch (e) {}
+    try { localStorage.setItem('loops-home5-cfg', JSON.stringify(cfg)); } catch (e) {}
     fit();
   }
   function refilter() { animateList = true; render(); }
@@ -516,15 +484,15 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
   stage.addEventListener('pointerdown', function (e) {
     var h = e.target.closest('[data-handle]'); if (!h) return;
     e.preventDefault(); h.classList.add('drag'); h.setPointerCapture(e.pointerId);
-    var x0 = e.clientX, w0 = cfg.loopsWidth, sign = cfg.position === 'right' ? -1 : 1;
+    var x0 = e.clientX, w0 = cfg.loopsWidth, lay = stage.querySelector('.lay');
     function move(ev) {
-      cfg.loopsWidth = Math.max(380, Math.min(700, Math.round(w0 + sign * (ev.clientX - x0) / scale())));
-      stage.querySelector('.home').style.gridTemplateColumns = cfg.position === 'right' ? 'minmax(420px, 1fr) 28px ' + cfg.loopsWidth + 'px' : cfg.loopsWidth + 'px 28px minmax(420px, 1fr)';
+      cfg.loopsWidth = Math.max(340, Math.min(760, Math.round(w0 - (ev.clientX - x0) / scale())));
+      lay.style.gridTemplateColumns = 'minmax(420px, 680px) 28px ' + cfg.loopsWidth + 'px';
+      document.getElementById('cfgOut').textContent = JSON.stringify(cfg, null, 2);
     }
     function up() { h.removeEventListener('pointermove', move); h.removeEventListener('pointerup', up); render(); }
     h.addEventListener('pointermove', move); h.addEventListener('pointerup', up);
   });
-  stage.addEventListener('dblclick', function (e) { if (e.target.closest('[data-handle]')) { cfg.loopsWidth = 440; render(); } });
 
   function toast(text) {
     var old = stage.querySelector('.toast'); if (old) old.remove();
@@ -538,7 +506,7 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     var l = target.loop, st = target.item.s, sub = target.sub;
     var update = [
       { label: 'Status', kids: [{ id: 'status', label: 'Open', check: st !== 'closed' }, { id: 'status', label: 'Closed', check: st === 'closed' }] },
-      { label: 'Label', kids: LABELS.map(function (k) { return { id: 'label', label: k, check: target.item.k === k }; }) },
+      { label: 'Label', kids: LABELS.map(function (k) { return { id: 'label', label: k, icon: labelIcon(k), check: target.item.k === k }; }) },
       { id: 'rename', label: 'Rename' }
     ];
     if (!sub) update.push({ label: 'Move to project', kids: Object.keys(PROJ).map(function (p) { return { id: 'move', label: p, check: p === l.p }; }) });
@@ -551,21 +519,21 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     items.forEach(function (it) {
       if (it === 'sep') { var s = document.createElement('span'); s.className = 'sep'; menu.appendChild(s); return; }
       var b = document.createElement('button'); b.type = 'button'; if (it.danger) b.className = 'danger';
-      b.innerHTML = (it.check !== undefined ? '<span class="chk">' + (it.check ? '✓' : '') + '</span>' : '') + '<span class="lbl2">' + esc(it.label) + '</span>' + (it.kids ? '<span class="chev">' + I.chev + '</span>' : '');
+      b.innerHTML = (it.check !== undefined ? '<span class="chk">' + (it.check ? '✓' : '') + '</span>' : '') + (it.icon ? '<span class="mi">' + it.icon + '</span>' : '') + '<span class="lbl2">' + esc(it.label) + '</span>' + (it.kids ? '<span class="chev">' + I.chev + '</span>' : '');
       function openKids() {
         menu.querySelectorAll('button').forEach(function (x) { x.classList.remove('hl'); });
         if (!it.kids) { closeMenu(level + 1); return; }
         b.classList.add('hl');
         var sc = scale(), r = stage.getBoundingClientRect(), br = b.getBoundingClientRect(), mr = menu.getBoundingClientRect();
         var nx = (mr.right - r.left) / sc + 2, ny = (br.top - r.top) / sc - 5;
-        if (nx + 190 > 1280) nx = (mr.left - r.left) / sc - 192;
-        showMenu(it.kids, nx, Math.min(ny, 860 - (it.kids.length * 32 + 12)), level + 1);
+        if (nx + 190 > SW) nx = (mr.left - r.left) / sc - 192;
+        showMenu(it.kids, nx, Math.min(ny, SH - (it.kids.length * 32 + 12)), level + 1);
       }
       b.addEventListener('mouseenter', openKids);
       b.addEventListener('click', function (e) { e.stopPropagation(); if (it.kids) { openKids(); return; } act(it); });
       menu.appendChild(b);
     });
-    menu.style.left = Math.min(x, 1280 - 200) + 'px'; menu.style.top = Math.min(y, 860 - 40 - items.length * 30) + 'px';
+    menu.style.left = Math.min(x, SW - 200) + 'px'; menu.style.top = Math.min(y, SH - 40 - items.length * 30) + 'px';
     stage.appendChild(menu);
   }
   function act(it) {
@@ -590,7 +558,7 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     e.preventDefault();
     menuFor = findTarget(row.dataset.i); if (!menuFor) return;
     var sc = scale(), r = stage.getBoundingClientRect();
-    showMenu(loopMenu(menuFor), Math.min((e.clientX - r.left) / sc, 1280 - 360), Math.min((e.clientY - r.top) / sc, 860 - 140), 0);
+    showMenu(loopMenu(menuFor), Math.min((e.clientX - r.left) / sc, SW - 380), Math.min((e.clientY - r.top) / sc, SH - 160), 0);
   });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeMenu(); });
   document.addEventListener('click', function (e) { if (!e.target.closest('.menu') && !e.target.closest('[data-act]')) closeMenu(); });
@@ -605,14 +573,14 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     if (b.dataset.clear) { if (b.dataset.clear === 'status') filter.status = 'all'; else filter[b.dataset.clear] = null; refilter(); return; }
     if (a === 'toggle-filters') {
       filterOpen = !filterOpen;
-      var panel = stage.querySelector('#fpanel'); if (panel) panel.classList.toggle('open', filterOpen);
+      var bar = b.closest('.fbar');
+      bar.querySelectorAll('.fchip').forEach(function (c) { c.remove(); });
+      bar.querySelector('.finline').classList.toggle('open', filterOpen);
       b.classList.toggle('on', filterOpen);
-      setTimeout(render, 270);
+      setTimeout(render, 340);
       return;
     }
-    if (a === 'collapse') { cfg.loopsCollapsed = true; render(); return; }
-    if (a === 'expand') { cfg.loopsCollapsed = false; render(); return; }
-    if (a === 'older') { weekOffset = Math.min(weekOffset + 4, 36); render(); return; }
+    if (a === 'older') { weekOffset = Math.min(weekOffset + 4, 40); render(); return; }
     if (a === 'newer') { weekOffset = Math.max(weekOffset - 4, 0); render(); return; }
     if (a === 'project') {
       var r = b.getBoundingClientRect(), sr = stage.getBoundingClientRect(), sc = scale();
