@@ -45,6 +45,7 @@ import {
 import type { HeldRecord, ListAsk, RecordRead, RecordStatus, SessionRecord } from './claude-session-record.ts';
 import { gitInfo } from './git-info.ts';
 import { createUsageReader, type UsageReader } from './usage-reader.ts';
+import { LoopsStore, type LoopAction } from './loops-store.ts';
 import { isThreadId, parseTail, serializeTail, tailFilePath, trimTail } from './thread-tail.ts';
 import {
   applyMsysParents,
@@ -3426,6 +3427,31 @@ function getUsageReader(): UsageReader {
 ipcMain.handle('usage:read', () => getUsageReader().read());
 ipcMain.handle('usage:state', () => getUsageReader().state());
 app.on('will-quit', () => usageReader?.stop());
+
+// ─── Loops (design-07, AFT-82) ──────────────────────────────────────────────
+// Main owns <userData>\loops.json and is its only writer (loops-store.ts). The UI
+// changes loops through `loops:act` as Aryan; the `afterterm loops` command changes
+// them as an agent. Every change goes to the renderer whole, as `loops:changed`.
+let loopsStore: LoopsStore | null = null;
+function getLoopsStore(): LoopsStore {
+  if (!loopsStore) {
+    loopsStore = new LoopsStore(app.getPath('userData'));
+    if (loopsStore.loadNote) console.warn(`[loops] ${loopsStore.loadNote}`);
+    loopsStore.onChange((loops) => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('loops:changed', loops);
+    });
+  }
+  return loopsStore;
+}
+ipcMain.handle('loops:list', () => getLoopsStore().list());
+ipcMain.handle('loops:act', (_e, action: LoopAction) => {
+  try {
+    return { ok: true, result: getLoopsStore().apply(action, { kind: 'user' }) };
+  } catch (err) {
+    return { ok: false, code: (err as { code?: string }).code ?? 'error', error: (err as Error).message };
+  }
+});
+app.on('will-quit', () => loopsStore?.flush());
 
 app.on('before-quit', async (e) => {
   isQuitting = true; // any quit path suppresses the close-confirm dialog
