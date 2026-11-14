@@ -2,6 +2,12 @@
 
 What changed for the person using afterterm, release by release. Each release lists what was added and changed by area, then what was fixed. Every fixed bug, with the PR it landed in, is also in `docs/bugs-fixed.md`. Code-level detail lives in the commit history, `docs/phases-01-projects-and-threads.md` and `CLAUDE.md`.
 
+## Unreleased
+
+### Added
+
+- **You can now send feedback from inside afterterm.** Click the version in the title bar to open the About window, then click "Send feedback". It opens a new issue on afterterm's GitHub page in your browser, with your afterterm version already filled in, so you only write what happened or what you would like. You need a GitHub account to submit it.
+
 ## 0.18.1 (2026-11-13)
 
 ### Fixed
