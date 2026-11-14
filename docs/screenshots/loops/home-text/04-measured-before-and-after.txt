@@ -1,0 +1,3 @@
+AFT-105, measured at 1920 by 1032 from computed styles
+before: "{\"date\":\"23.4px\",\"label\":\"12px\",\"cardName\":\"12.6px\",\"cardTime\":\"11.7px\",\"rowName\":\"12.6px\",\"rowTime\":\"11.7px\",\"search\":\"11.7px\",\"progress\":472,\"projects\":1252,\"win\":\"1920x1032\"}"
+after:  "{\"date\":\"26px\",\"label\":\"13px\",\"cardName\":\"14px\",\"cardTime\":\"13px\",\"rowName\":\"14px\",\"rowTime\":\"13px\",\"search\":\"13px\",\"progress\":472,\"projects\":1252,\"scrolls\":false,\"namesCut\":0,\"win\":\"1920x1032\"}"
