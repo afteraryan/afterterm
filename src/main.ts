@@ -46,6 +46,7 @@ import type { HeldRecord, ListAsk, RecordRead, RecordStatus, SessionRecord } fro
 import { gitInfo } from './git-info.ts';
 import { createUsageReader, type UsageReader } from './usage-reader.ts';
 import { LoopsStore, type LoopAction } from './loops-store.ts';
+import { ActivityStore } from './activity-store.ts';
 import { loopsPipeName as loopsPipeNameFor, newToken, startLoopsPipe, writeLaunchers } from './loops-pipe.ts';
 import type { LoopsContext } from './loops-cli.ts';
 import { reconcileLoopsSkill } from './loops-skill.ts';
@@ -163,7 +164,7 @@ if (!isPrimaryCopy) app.exit(0);
 // Yogansh saw at launch (2026-10-29). AFTERTERM_LAG_PROBE_MS stretches the window,
 // to watch later work such as the streak calendar's backfill (AFT-97).
 if (process.env.AFTERTERM_LAG_PROBE === '1') {
-  const window = Number(process.env.AFTERTERM_LAG_PROBE_MS) || 15000;
+  const probeMs = Number(process.env.AFTERTERM_LAG_PROBE_MS) || 15000;
   const start = Date.now();
   let last = start;
   let worst = 0;
@@ -173,9 +174,9 @@ if (process.env.AFTERTERM_LAG_PROBE === '1') {
     if (stall > 30) console.log(`[lag] main thread stalled ${stall} ms at +${now - start} ms`);
     worst = Math.max(worst, stall);
     last = now;
-    if (now - start > window) {
+    if (now - start > probeMs) {
       clearInterval(probe);
-      console.log(`[lag] worst stall in the first ${Math.round(window / 1000)} s: ${worst} ms`);
+      console.log(`[lag] worst stall in the first ${Math.round(probeMs / 1000)} s: ${worst} ms`);
     }
   }, 10);
 }
@@ -2803,6 +2804,8 @@ function pushClaudeSession(tabId: string, sessionId: string, cwd: string): void 
   // the transcript on the same beat: that is what keeps the model current after a
   // /model switch, and gives a nameless chat its first-prompt fallback.
   const meta = readClaudeMeta(sessionId, cwd);
+  // A turn started or ended: the streak calendar's count may have grown.
+  activityStore?.nudge();
   // Edited files, Phase 2: from the chat's first turn on, watch the folder it
   // works in, so files its commands change can be attributed to it.
   watchChatFolder(tabId, meta.cwd || cwd);
@@ -3468,6 +3471,28 @@ ipcMain.handle('loops:act', (_e, action: LoopAction) => {
 });
 app.on('will-quit', () => loopsStore?.flush());
 
+// ─── Activity counts for the streak calendar (design-07, AFT-97) ────────────────
+// Main keeps <userData>\activity.json: the messages sent to Claude per local day,
+// read from the transcripts (activity-store.ts). The first launch without that file
+// backfills from every transcript on disk; after that a poll and a nudge per turn
+// read only what was appended. The renderer gets every change as `activity:changed`.
+let activityStore: ActivityStore | null = null;
+function getActivityStore(): ActivityStore {
+  if (!activityStore) {
+    activityStore = new ActivityStore({
+      dataDir: app.getPath('userData'),
+      projectsDir: getClaudeProjectsDir,
+      log: (m) => console.log(`[activity] ${m}`),
+    });
+    if (activityStore.loadNote) console.warn(`[activity] ${activityStore.loadNote}`);
+    activityStore.onChange((s) => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('activity:changed', s);
+    });
+  }
+  return activityStore;
+}
+ipcMain.handle('activity:get', () => getActivityStore().get());
+app.on('will-quit', () => { activityStore?.stop(); activityStore?.flush(); });
 // The `afterterm loops` command and the chat-start hook reach the store over a
 // named pipe (loops-pipe.ts). Its name and a token made at every launch go only into
 // afterterm's own terminals (pty:create below), with <userData>\bin first on their
@@ -3648,6 +3673,9 @@ app.whenReady().then(async () => {
   // (asynchronous, so it never holds the main thread; see detectDeps).
   loadEditorCache();
   setTimeout(() => { void runEditorDetection('startup'); }, 1200);
+  // The streak calendar's counts: the first scan (the backfill on a new profile) a
+  // few seconds after launch, never during window creation.
+  getActivityStore().start();
 });
 
 app.on('window-all-closed', () => {
