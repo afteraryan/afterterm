@@ -2,6 +2,18 @@
 
 What changed for the person using afterterm, release by release. Each release lists what was added and changed by area, then what was fixed. Every fixed bug, with the PR it landed in, is also in `docs/bugs-fixed.md`. Code-level detail lives in the commit history, `docs/phases-01-projects-and-threads.md` and `CLAUDE.md`.
 
+## Unreleased
+
+### Added
+
+- **afterterm now keeps track of the pieces of work you start in every project, called loops.** A loop is a feature, a bug fix or an idea you discussed with Claude. Each has a short title, what it is for, and a note on where it was left, and can hold smaller sub-loops. Claude Code starts, updates and closes them as it works, and you can change any of them yourself.
+- **Home has a Progress column on the right.** It shows every loop, most recently worked on first, with how many are left, how many are open, rotting or closed, and a filter by status, label and project. Click a loop to see what it is for and where it was left; right-click it to open its chat, close it, rename it, move it to another project, archive it or delete it. A deleted loop can be brought back for 30 days. The column can be closed to give the projects the whole width.
+- **A loop that nobody has touched for 5 days shows as rotting,** in amber, so work you started and forgot stands out. Ideas never rot.
+- **Open chat takes you back to the conversation a loop came from,** whether that chat is open, asleep, or was closed a while ago.
+- **A calendar on Home shows how many messages you sent to Claude each day,** with your current and longest streak. The first time afterterm starts with this version, it fills the calendar from the Claude Code history already on your computer. Only the count of messages is read and kept, never what they say, and nothing leaves your computer.
+- **The workspace has a small loops card at the top right.** Open it with the loops button in the thread's header or Ctrl+Shift+L. It shows your five most recent loops, how many are rotting, and how many are left. It stays open while you switch threads until you close it.
+- **Claude Code knows about your loops.** In afterterm's terminals it can use the `afterterm loops` command, and a new chat is told which loops are open in its folder, so it continues one instead of starting it again.
+
 ## 0.18.1 (2026-11-13)
 
 ### Fixed

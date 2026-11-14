@@ -121,6 +121,34 @@ export function loadActivityFile(file: string): { data: ActivityFileData; existe
   }
 }
 
+// The file's JSON built a few hundred entries at a time, yielding between them, so
+// a big file (10,000 transcripts' offsets and a year of keys is about 1.5 MB) never
+// holds main's thread in one long JSON.stringify. The offsets go first and the keys
+// last: anything counted before the offsets were written is in the keys, so a save
+// taken while the scan goes on can only make the next launch read a line again
+// (and the keys stop it counting twice), never skip one.
+export async function serializeActivityFile(data: ActivityFileData, breathe: () => Promise<void>, batch = 400): Promise<string> {
+  const parts: string[] = [`{"version":${JSON.stringify(data.version)},"backfilled":${JSON.stringify(data.backfilled)},"files":{`];
+  let n = 0;
+  let first = true;
+  for (const rel of Object.keys(data.files)) {
+    const rec = data.files[rel];
+    if (!rec) continue;
+    parts.push(`${first ? '' : ','}${JSON.stringify(rel)}:${JSON.stringify(rec)}`);
+    first = false;
+    if (++n % batch === 0) await breathe();
+  }
+  parts.push('},"seen":{');
+  first = true;
+  for (const day of Object.keys(data.seen)) {
+    parts.push(`${first ? '' : ','}${JSON.stringify(day)}:${JSON.stringify(data.seen[day])}`);
+    first = false;
+    if (++n % batch === 0) await breathe();
+  }
+  parts.push('}}');
+  return parts.join('');
+}
+
 export function writeActivityFile(file: string, data: ActivityFileData): void {
   const tmp = file + '.tmp';
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -147,6 +175,9 @@ export class ActivityStore {
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private nudgeTimer: ReturnType<typeof setTimeout> | null = null;
   private dirtySave = false;
+  private saving: Promise<void> | null = null;
+  // Set by the quit flush: a save still in flight then never renames over it.
+  private flushed = false;
   private dirtyEmit = false;
   private lastEmit = 0;
   private sliceStart = 0;
@@ -213,7 +244,36 @@ export class ActivityStore {
 
   /** Write a pending change now, for quit. */
   flush(): void {
-    if (this.dirtySave) this.saveNow();
+    if (this.dirtySave || this.saving) this.saveNow();
+    this.flushed = true;
+  }
+
+  /**
+   * The save while the app runs: built in slices (serializeActivityFile) and written
+   * without blocking, to its own temporary file, then renamed over activity.json.
+   * One at a time; a change during a save is saved after it.
+   */
+  saveAsync(): Promise<void> {
+    if (this.saving) { this.dirtySave = true; return this.saving; }
+    this.dirtySave = false;
+    const tmp = this.file + '.saving';
+    this.saving = (async () => {
+      try {
+        const text = await serializeActivityFile(this.data, () => this.opts.yieldNow());
+        await fsp.mkdir(path.dirname(this.file), { recursive: true });
+        await fsp.writeFile(tmp, text, 'utf8');
+        // Checked and renamed with no await between, so a quit flush that wrote the
+        // file meanwhile is never replaced by this older text.
+        if (this.flushed) { fs.rmSync(tmp, { force: true }); return; }
+        fs.renameSync(tmp, this.file);
+      } catch (e) {
+        this.opts.log(`could not save ${this.file}: ${(e as Error).message}`);
+      }
+    })().finally(() => {
+      this.saving = null;
+      if (this.dirtySave && !this.stopped && !this.flushed) this.scheduleSave();
+    });
+    return this.saving;
   }
 
   saveNow(): void {
@@ -241,7 +301,7 @@ export class ActivityStore {
   private scheduleSave(): void {
     this.dirtySave = true;
     if (this.saveTimer || this.stopped) return;
-    this.saveTimer = setTimeout(() => { this.saveTimer = null; this.saveNow(); }, this.opts.saveDebounceMs);
+    this.saveTimer = setTimeout(() => { this.saveTimer = null; void this.saveAsync(); }, this.opts.saveDebounceMs);
   }
 
   private emit(force = false): void {

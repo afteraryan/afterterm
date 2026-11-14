@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { ActivityStore, ACTIVITY_FILE, loadActivityFile } from './activity-store.ts';
+import { ActivityStore, ACTIVITY_FILE, loadActivityFile, serializeActivityFile } from './activity-store.ts';
 
 let pass = 0, fail = 0;
 function check(name: string, cond: boolean, detail = '') {
@@ -148,7 +148,9 @@ console.log('\nactivity-store: quitting mid-backfill\n');
   check('the half-read file is saved without size and mtime', rec && rec.s === -1 && rec.o > 0, JSON.stringify(rec));
 
   const next = store(c);
-  check('the next launch carries on backfilling', next.get().backfilling === true && total(next) === partial);
+  // A reader of another file can count a line after the quit flush; that line is
+  // simply read again on the next launch, so the next launch may start lower, never higher.
+  check('the next launch carries on backfilling, from what was saved', next.get().backfilling === true && total(next) > 0 && total(next) <= partial, `${total(next)} vs ${partial}, backfilling ${next.get().backfilling}`);
   await next.scan();
   check('it finishes with every message once', total(next) === 401 && next.get().backfilling === false, String(total(next)));
 
@@ -201,6 +203,21 @@ console.log('\nactivity-store: files and folders\n');
   await new Promise((r) => setTimeout(r, 200));
   tm.stop();
   check('start() scans after its delay and polls', total(tm) === 2, String(total(tm)));
+}
+
+console.log('\nactivity-store: the save is built in slices\n');
+{
+  const files: Record<string, { o: number; s: number; m: number }> = {};
+  for (let i = 0; i < 1000; i++) files[`D--p${i % 7}/s${i}.jsonl`] = { o: i * 10, s: i * 10, m: 1700000000000 + i };
+  const seen: Record<string, string> = { '2026-11-01': 'aaaaaaaaaaaa', '2026-11-02': 'bbbbbbbbbbbbcccccccccccc' };
+  const data = { version: 1 as const, backfilled: false, files, seen };
+  let breaths = 0;
+  const text = await serializeActivityFile(data, async () => { breaths++; }, 200);
+  check('the same object comes back', JSON.stringify(JSON.parse(text)) === JSON.stringify(data));
+  check('it yields along the way', breaths >= 5, String(breaths));
+  check('the offsets come before the keys', text.indexOf('"files"') < text.indexOf('"seen"'));
+  const empty = await serializeActivityFile({ version: 1, backfilled: true, files: {}, seen: {} }, async () => {});
+  check('an empty file is valid', JSON.stringify(JSON.parse(empty)) === '{"version":1,"backfilled":true,"files":{},"seen":{}}');
 }
 
 fs.rmSync(tmp, { recursive: true, force: true });

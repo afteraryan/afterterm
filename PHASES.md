@@ -4,7 +4,7 @@ What is still open in afterterm, and, once a round of work starts, the phases it
 
 **Last round: automatic updates** (2026-10-30 to 2026-10-31, PR #58), released as afterterm 0.11.0 on 2026-10-31; no round of work is in progress. The last finished round, projects and threads (Phases 0 to 9 and the fixes after them), was released as afterterm 0.9.0 on 2026-09-30; its full record, with every decision and its date, is [`docs/phases-01-projects-and-threads.md`](docs/phases-01-projects-and-threads.md).
 
-**Round in progress: loops** (started 2026-11-14, Linear AFT-82). The section below lists its phases.
+**Round in progress: loops** (2026-11-14, Linear AFT-82): all seven phases built and merged into the `loops` branch; waiting for Aryan to review the PR into main. The section below lists its phases.
 
 ## Loops
 
@@ -20,7 +20,7 @@ Order changed from the suggested one: the loop rows, opening a loop, the menu an
 | 4. Loop rows and actions | AFT-98 | Rows, opening in place (the joined box), the fold, the right-click menu and its Update submenus, Open chat in every case, archive, delete and restore; first shown as the list in Home's Progress column | Done |
 | 5. Home's Progress column | AFT-99 | The Progress layout: projects at 90%, the 472px column, calendar and count cards, the filter, the list, the close and slide | Done |
 | 6. The workspace card | AFT-100 | The floating card, its header button and Ctrl+Shift+L, the flight, the 5 rows, rotting, the remaining bar, All | Done |
-| 7. Release readiness | AFT-101 | CHANGELOG, `docs/features-loops.md`, CLAUDE.md; fresh install, update from 0.18.1, manual install over it, startup time with a large transcript folder; every spec value measured in DevTools | Todo |
+| 7. Release readiness | AFT-101 | CHANGELOG, `docs/features-loops.md`, CLAUDE.md; fresh install, update from 0.18.1, manual install over it, startup time with a large transcript folder; every spec value measured in DevTools | Done |
 
 Decided while building (recorded here as they come):
 
@@ -49,6 +49,7 @@ Decided while building (recorded here as they come):
 - The card's "N rotting" button is hidden while nothing rots.
 - Whether the card is open is kept per viewer across threads and launches; the loops button is in every thread header (both halves of a split), and the card flies into the focused half's.
 - Rotting and All on the card open Home's Progress (opening it if it was closed), filtered to rotting or to everything.
+- The calendar's counts are saved in slices that yield, written without blocking: the first startup test found the old save (a 1.5 MB JSON.stringify and write every 2 s) stalling main for 31 to 70 ms during a large backfill.
 
 ## Automatic updates
 
