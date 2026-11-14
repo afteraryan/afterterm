@@ -29,7 +29,8 @@ export interface ProgressProps {
   forceOpen?: string | null;
 }
 
-const WEEKS = 22;
+// 17 weeks, about four months (AFT-107, 2026-11-15; 22 until then).
+const WEEKS = 17;
 const STEP_WEEKS = 4;
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const STATUSES: [StatusFilter, string][] = [['all', 'All'], ['open', 'Open'], ['rotting', 'Rotting'], ['closed', 'Closed'], ['archived', 'Archived']];

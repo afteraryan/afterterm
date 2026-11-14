@@ -2,6 +2,12 @@
 
 What changed for the person using afterterm, release by release. Each release lists what was added and changed by area, then what was fixed. Every fixed bug, with the PR it landed in, is also in `docs/bugs-fixed.md`. Code-level detail lives in the commit history, `docs/phases-01-projects-and-threads.md` and `CLAUDE.md`.
 
+## Unreleased
+
+### Changed
+
+- **Home's calendar shows the last 17 weeks, about four months, with bigger squares.** It showed 22 weeks before, and most of them were empty for anyone whose Claude Code history is recent.
+
 ## 0.19.0 (2026-11-14)
 
 ### Added

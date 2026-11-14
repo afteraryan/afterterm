@@ -80,14 +80,16 @@
 .pg-hmclip { position: relative; overflow: hidden; padding: 2px; margin: -2px; }
 .pg-hm {
   display: grid;
-  grid-template-columns: 24px repeat(22, 16px);
-  gap: 3.2px;
+  /* 17 weeks of 16.5px squares, half a square apart across and down, Wispr Flow's way
+     (AFT-107): the same width as the 22 weeks of 16px squares before, a taller card. */
+  grid-template-columns: 24px repeat(17, 16.5px);
+  gap: 8.25px;
   align-items: center;
   justify-content: start;
 }
 .pg-dl { font-size: 9.2px; color: var(--text3); line-height: 1; }
-.pg-mo { font-size: 8.8px; color: var(--text3); white-space: nowrap; width: 16px; overflow: visible; line-height: 1.2; }
-.pg-cell { width: 16px; height: 16px; border-radius: 3.2px; background: #363636; }
+.pg-mo { font-size: 8.8px; color: var(--text3); white-space: nowrap; width: 16.5px; overflow: visible; line-height: 1.2; }
+.pg-cell { width: 16.5px; height: 16.5px; border-radius: 3.3px; background: #363636; }
 .pg-cell.l1 { background: #1f6b47; }
 .pg-cell.l2 { background: #2c9a62; }
 .pg-cell.l3 { background: #4ade80; }
