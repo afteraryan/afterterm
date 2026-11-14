@@ -116,7 +116,7 @@ console.log('\nloops-cli: the chat-start brief\n');
   const b = chatStartBrief(store.list(), ctx, { thread: 't1', session: 'sess-x', cwd: 'D:\\Work\\afterterm' }, T0);
   check('lists the folder\'s open loops', b.includes('Open loops in afterterm') && b.includes('#1 Loops on Home'), b);
   check('not other projects\' loops', !b.includes('Other project'));
-  check('starts by pointing the chat at the skill', b.startsWith('You\u2019re running inside afterterm. Before you start, read the afterterm-loops skill.'));
+  check('starts by pointing the chat at the skill', b.startsWith('You\u2019re running inside afterterm. Before you do anything else, read the afterterm-loops skill.'));
   const resumed = chatStartBrief(store.list(), ctx, { thread: 't1', session: 'sess-1', cwd: 'D:\\Work\\afterterm' }, T0);
   check('a resumed chat gets its loop and status note', resumed.includes('This chat was working on loop #') && resumed.includes('Its status note'), resumed);
   const none = chatStartBrief(store.list(), ctx, { cwd: 'C:\\elsewhere' }, T0);

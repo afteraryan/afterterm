@@ -18,7 +18,7 @@ export const SKILL_MARKER = '<!-- written by afterterm; edits are replaced at th
 
 export const SKILL_TEXT = `---
 name: afterterm-loops
-description: Read this first in any chat inside afterterm. It explains how to work in afterterm, which keeps a "loop" for each piece of work the user starts, through the afterterm loops command.
+description: Read this first in any chat inside afterterm, before you change any file, whether a feature, a bug fix or any other edit. It explains how to work in afterterm, which keeps a "loop" for each piece of work the user starts, through the afterterm loops command.
 ---
 ${SKILL_MARKER}
 
@@ -28,9 +28,9 @@ afterterm keeps a loop for each piece of work the user starts: a feature (work s
 
 Use the command \`afterterm loops\` (it exists only in afterterm's terminals; \`afterterm loops help\` lists everything). Ids are numbers. The open loops of this folder were listed at the start of the chat; \`afterterm loops list\` shows them again.
 
-- **When you begin a feature or a bug fix the user asked for, start a loop first, before editing files:** \`afterterm loops new "<short title>" --label feature|bug --desc "<what it is for>"\`. If a loop in the list already covers the work, continue that one instead (never start a duplicate) and ping it: \`afterterm loops ping <id>\`. An idea the user wants to keep for later is a loop too: \`--label idea\`. A smaller piece of a bigger loop is a sub-loop: \`--parent <id>\` (one level only).
+- **When you begin a feature or a bug fix the user asked for (a bug is any error, crash or wrong behaviour the user reports), start a loop first, before editing files:** \`afterterm loops new "<short title>" --label feature|bug --desc "<what it is for>"\`. If a loop in the list already covers the work, continue that one instead (never start a duplicate) and ping it: \`afterterm loops ping <id>\`. An idea the user wants to keep for later is a loop too: \`--label idea\`. A smaller piece of a bigger loop is a sub-loop: \`--parent <id>\` (one level only).
 - **Before you end your turn, update the status note** of every loop you worked on, so the next chat can pick it up: \`afterterm loops update <id> --note "<where it was left>"\`. The note is replaced each time; one or two sentences.
-- **Close a loop when its work is done** (merged, shipped, or the user says so): \`afterterm loops close <id>\`. A loop with open sub-loops cannot just close: ask the user first, and only with their say add \`--with-sub-loops\`.
+- **Close a loop only when the user says the work is done, or it is merged or shipped:** \`afterterm loops close <id>\`. Finishing the change in this turn is not enough: leave the loop open with an updated note, and the user will confirm. A loop with open sub-loops cannot just close: ask the user first, and only with their say add \`--with-sub-loops\`.
 - Only real work is a loop: something the user asked for or discussed with you. A quick question or a one-line answer is not.
 - The user can reopen, rename, move, archive or delete loops; respect what they did.
 
