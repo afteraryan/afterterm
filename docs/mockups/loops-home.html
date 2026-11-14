@@ -141,6 +141,12 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 .frac { font-size: 12px; color: var(--text3); font-variant-numeric: tabular-nums; flex: none; padding: 2px 5px; border-radius: 5px; }
 .det { margin: 4px 10px 8px 36px; background: var(--boxbg); border-radius: 10px; padding: 9px 10px; display: flex; align-items: flex-start; gap: 10px; }
 .det .note { font-size: 13px; color: var(--text2); padding-top: 2px; min-width: 0; }
+.det .dtx { display: grid; gap: 5px; min-width: 0; padding-top: 2px; }
+.det .desc { font-size: 13px; color: var(--text); }
+.det .stn { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text3); min-width: 0; }
+.det .stn span:first-of-type { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.det .stn .ago { flex: none; }
+.det .stn .ago::before { content: '\00b7'; margin-right: 6px; }
 .label { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 6px; background: var(--chip); color: var(--text); font-size: 12px; flex: none; }
 .subs { display: flex; flex-direction: column; gap: 1px; margin-left: 26px; }
 .subs .det { margin-left: 36px; }
@@ -319,10 +325,13 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     var bar = box.querySelector('.taskbar');
     if (!bar) { bar = document.createElement('div'); bar.className = 'taskbar'; bar.innerHTML = '<span></span><span></span><span></span><span></span><span></span>'; box.appendChild(bar); }
     if (full) {
-      var fs = Math.min(1, window.innerWidth / SW, (window.innerHeight - TASKBAR) / SH);
-      stage.style.transform = 'scale(' + fs + ')'; stage.dataset.scale = fs; box.style.height = ''; box.style.overflowX = 'hidden';
+      /* the window takes the screen the browser reports, at 1:1, less the taskbar */
+      SW = window.innerWidth; SH = window.innerHeight - TASKBAR;
+      stage.style.width = SW + 'px'; stage.style.height = SH + 'px';
+      stage.style.transform = 'none'; stage.dataset.scale = 1; box.style.height = ''; box.style.overflowX = 'hidden';
       return;
     }
+    SW = 1920; SH = 1032; stage.style.width = SW + 'px'; stage.style.height = SH + 'px';
     var s = cfg.zoom === 'actual' ? 1 : box.clientWidth / SW;
     stage.style.transform = 'scale(' + s + ')'; box.style.height = (SH * s) + 'px'; stage.dataset.scale = s;
     box.style.overflowX = cfg.zoom === 'actual' ? 'auto' : 'hidden';
@@ -390,7 +399,35 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     if (s === 'rotting') return '<span class="st"><span class="st-rot">' + I.clock + '</span></span>';
     return '<span class="st"><span class="st-open"></span></span>';
   }
-  function details(l) { return '<div class="det"><span class="label">' + labelIcon(l.k) + l.k + '</span><span class="note">' + esc(l.note) + '</span></div>'; }
+  var DESC = {
+    'Loops on Home': 'Show every loop, how far along it is and the streak, on Home.',
+    'Design doc': 'Every decision about loops, in one place.',
+    'Loops card': 'The floating card of recent loops in the workspace.',
+    'Home layout': 'Where loops sit on Home beside the projects.',
+    'afterterm loops CLI': 'The command agents use to start, update and close loops.',
+    'Header shows the old model': 'The thread header keeps the model the chat started with.',
+    'Snapshot calendar on Windows': 'Port the Mac calendar snapshot to Windows.',
+    'Calendar permissions': 'Ask for calendar access the Windows way.',
+    'Week view': 'Seven days side by side, with events.',
+    'Cover letters for three roles': 'One tailored letter per open application.',
+    'Review sync drops ratings': 'Ratings vanish after syncing on a second device.',
+    'Lantern construct effect': 'Objects that form out of green particles.',
+    'Live web version': 'The effect running in the browser in real time.',
+    'Offline render': 'A frame-exact video with motion blur.',
+    'Plugin reads the selection': 'Send the selected Figma frames to Claude.',
+    'Manus demo video cut': 'A two-minute demo of Manus for the launch.',
+    'Week plan template': 'A page per cohort week for NextLeap.',
+    'Revy onboarding flow': 'The first five screens a new Revy user sees.',
+    'Founder build installer': 'An installer for the founders\' test build.',
+    'Shell integration for WSL': 'Folder and prompt marks for WSL shells.',
+    'Portfolio page refresh': 'A new portfolio page for applications.',
+    'Tinkering scratch cleanup': 'Clear out old experiments in Tinkering.'
+  };
+  var CLOCK_S = '<svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="5.5"/><path d="M7 4v3.2l2 1.3"/></svg>';
+  function details(l) {
+    return '<div class="det"><span class="label">' + labelIcon(l.k) + l.k + '</span><div class="dtx"><span class="desc">' + esc(DESC[l.t] || l.t) + '</span>' +
+      '<span class="stn">' + CLOCK_S + '<span>' + esc(l.note) + '</span><span class="ago">' + l.when + '</span></span></div></div>';
+  }
   function fracOf(l) { if (!l.subs) return ''; var done = l.subs.filter(function (s) { return s.s === 'closed'; }).length; return '<span class="frac">' + done + '/' + l.subs.length + '</span>'; }
   function loopBlock(l, i, n, noProject) {
     var id = String(i), isOpen = !!opened[id];
