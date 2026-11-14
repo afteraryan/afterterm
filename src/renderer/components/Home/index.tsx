@@ -11,6 +11,8 @@ import { threadState, projectCounts } from '../../threadView';
 import { dateHeading, relativeTime, homeSections, homeTotals, lastHereLine, hasNoProjects } from '../../homeView';
 import { buildProjectMenu, ProjectActions } from '../../projectMenu';
 import type { EditorInfo } from '../../../editors';
+import type { Loop } from '../../../loops';
+import { Progress } from './Progress';
 import './Home.css';
 
 export interface HomeProps {
@@ -21,11 +23,14 @@ export interface HomeProps {
   folderExists: Record<string, boolean>; // keyed by folder path
   actions: ProjectActions;
   onNewProject: () => void;
+  loops: Loop[];
+  onOpenLoopChat: (loop: Loop) => void;
+  onToast: (message: string, actionLabel?: string, onAction?: () => void) => void;
 }
 
 const PROJECT_LIMIT = 4;
 
-export function Home({ groups, tabs, now, editors, folderExists, actions, onNewProject }: HomeProps) {
+export function Home({ groups, tabs, now, editors, folderExists, actions, onNewProject, loops, onOpenLoopChat, onToast }: HomeProps) {
   const [showAll, setShowAll] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
 
@@ -155,6 +160,8 @@ export function Home({ groups, tabs, now, editors, folderExists, actions, onNewP
 
   return (
     <div className="screen-home">
+      <div className="home-lay">
+      <div className="home-scroll">
       <div className="home">
         <div>
           <h1 className="home-date">{dateHeading(now)}</h1>
@@ -223,6 +230,9 @@ export function Home({ groups, tabs, now, editors, folderExists, actions, onNewP
             )}
           </div>
         </div>
+      </div>
+      </div>
+      <Progress loops={loops} groups={groups} now={now} onOpenChat={onOpenLoopChat} onToast={onToast} />
       </div>
 
       {menu && <Menu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}

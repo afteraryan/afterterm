@@ -47,7 +47,9 @@ import type { PaneTarget } from './splitView';
 import type { FileLinkContext, FileLinkTarget } from './components/Terminal/fileLinks';
 import type { MenuItem } from './components/Menu';
 import { EditorLogo, IconExplorer } from './components/Icons';
-import { loopsContextFrom } from './loopsView';
+import { loopsContextFrom, openChatPlan } from './loopsView';
+import { useLoops } from './hooks/useLoops';
+import type { Loop } from '../loops';
 
 let toastCounter = 0;
 
@@ -1380,6 +1382,42 @@ export function App() {
     goScreen('workspace');
   }, [refreshClaudeMeta, refreshGit, goScreen]);
 
+  // Loops, Open chat (design-07): the loop's remembered chat, wherever it is now
+  // (loopsView.ts, openChatPlan). An open thread is shown (and woken when asleep), a
+  // closed one comes back from its project's history, and a chat in neither is
+  // resumed in a new thread of the loop's project. A worktree that was deleted since
+  // cannot hold the chat any more: it opens in the project's folder instead, and
+  // Claude Code says so itself if it cannot find the session there.
+  const openLoopChat = useCallback(async (loop: Loop) => {
+    const s = stateRef.current;
+    const plan = openChatPlan(loop, s.tabs, s.groups);
+    if (plan.kind === 'none') { showToast({ message: 'No chat' }); return; }
+    if (plan.kind === 'tab') {
+      openThreadInWorkspace(plan.tabId);
+      if (plan.wake) await wakeThreadRef.current(plan.tabId);
+      return;
+    }
+    if (plan.kind === 'history') { resumeThread(plan.groupId, plan.entryId); return; }
+    let entry = plan.entry;
+    if (entry.cwd) {
+      const st = await window.afterterm.files.stat([entry.cwd]).catch(() => ({} as Record<string, 'file' | 'dir' | null>));
+      if (st[entry.cwd] !== 'dir') {
+        const folder = s.groups.find(g => g.id === plan.groupId)?.cwd;
+        entry = { ...entry, cwd: folder };
+        if (!folder) delete entry.cwd;
+        showToast({ message: 'Folder gone, opened in the project folder' });
+      }
+    }
+    const tabId = s.openResumedChat(entry, plan.groupId);
+    if (entry.sessionId && entry.cwd) refreshClaudeMeta(tabId, entry.sessionId, entry.cwd);
+    refreshGit(tabId, entry.cwd);
+    goScreen('workspace');
+  }, [openThreadInWorkspace, resumeThread, refreshClaudeMeta, refreshGit, goScreen, showToast]);
+  const loopToast = useCallback((message: string, actionLabel?: string, onAction?: () => void) => {
+    showToast({ message, actionLabel, onAction });
+  }, [showToast]);
+  const loops = useLoops();
+
   // The last lines of a terminal that is about to be destroyed. A sleeping thread's
   // tail is what its pane shows and what it replays on waking, so it is both kept in
   // state and written to disk. A closed thread's is only worth keeping when the
@@ -1770,6 +1808,9 @@ export function App() {
           folderExists={folderExists}
           actions={projectActions}
           onNewProject={() => setProjectModal({ mode: 'create' })}
+          loops={loops}
+          onOpenLoopChat={openLoopChat}
+          onToast={loopToast}
         />
       )}
 
