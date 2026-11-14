@@ -24,7 +24,7 @@ check('only step 6 is in the workspace', TOUR_STEPS.every((s, i) => (s.view === 
 check('the calendar step is green, the last is split', TOUR_STEPS[6].theme === 'green' && TOUR_STEPS[7].theme === 'mix');
 check('only the last step is last', TOUR_STEPS.every((s, i) => !!s.last === (i === 7)));
 check('the first and last steps have no ring', TOUR_STEPS[0].target === null && TOUR_STEPS[7].target === null);
-check('no heading has an em dash', TOUR_STEPS.every((s) => !s.title.includes('—')));
+check('no heading has an em dash', TOUR_STEPS.every((s) => !s.title.includes('\u2014')));
 check('every step but the keys step has a picture', TOUR_STEPS.every((s, i) => (s.art === null) === (i === 5)));
 
 console.log('tourScene');
