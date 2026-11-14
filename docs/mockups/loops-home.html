@@ -261,6 +261,10 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 .loopscol .label { height: 18px; padding: 0 6px; font-size: 11px; gap: 4px; border-radius: 5px; }
 .loopscol .label svg { width: 11px; height: 11px; }
 .loopscol .lbl { font-size: 12.5px; }
+/* an opened loop: its row and its box are one shape, the full width of the list */
+.det, .loopscol .det, .subs .det, .loopscol .subs .det { margin-left: 0 !important; margin-right: 0 !important; }
+.row.open-row, .row.open-row:hover { background: #333; border-radius: 8px 8px 0 0; }
+.row.open-row + .det { margin-top: -1px !important; background: #333; border-radius: 0 0 8px 8px; padding-top: 2px; }
 @media (prefers-reduced-motion: reduce) { .enter, .fchip { animation: none; } .finline, .fseg .thumb { transition: none; } }
 </style>
 
