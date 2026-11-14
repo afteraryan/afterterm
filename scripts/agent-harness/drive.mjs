@@ -5,7 +5,7 @@
 // Commands:
 //   targets                       list DevTools targets
 //   bounds                        main window bounds (JSON) and which display holds it
-//   screenshot <out.png> [--window]    PNG of the main window's web content; --window
+//   screenshot <out.png> [--window] [--clip x,y,w,h] [--scale n]   PNG of the main window's web content (--clip one region, --scale renders it larger); --window
 //                                  captures the whole OS window instead, through PrintWindow,
 //                                  so it still works while the window is occluded
 //   eval "<js expression>"        Runtime.evaluate, promises awaited, JSON result
@@ -448,7 +448,13 @@ async function cmdScreenshot(out) {
     console.log(file);
     return;
   }
-  const shot = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+  // --clip x,y,w,h (CSS pixels) captures one region; --scale 2 renders it at twice the size.
+  const params = { format: 'png', captureBeyondViewport: false };
+  if (opts.clip) {
+    const [x, y, width, height] = String(opts.clip).split(',').map(Number);
+    params.clip = { x, y, width, height, scale: Number(opts.scale) || 1 };
+  }
+  const shot = await cdp.send('Page.captureScreenshot', params);
   fs.writeFileSync(file, Buffer.from(shot.data, 'base64'));
   console.log(file);
 }

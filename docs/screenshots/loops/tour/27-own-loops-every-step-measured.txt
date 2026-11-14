@@ -1,0 +1,196 @@
+Step 1
+PASS  card width 420
+PASS  card radius 18px
+PASS  card padding 20px
+PASS  card colour
+PASS  card shown
+PASS  card inside the window
+PASS  a NEW tag
+PASS  no sub-line
+PASS  no "1 of 8" text shown (only for screen readers)
+PASS  progress ring filled 1/8
+PASS  Back only after step 1
+PASS  Skip on every step but the last
+PASS  Next, or Done on the last
+PASS  no ring
+PASS  card in the middle
+15 pass, 0 fail
+"{\"tag\":false,\"ex\":0}"
+Step 2
+PASS  card width 420
+PASS  card radius 18px
+PASS  card padding 20px
+PASS  card colour
+PASS  card shown
+PASS  card inside the window
+PASS  a NEW tag
+PASS  no sub-line
+PASS  no "1 of 8" text shown (only for screen readers)
+PASS  progress ring filled 2/8
+PASS  Back only after step 1
+PASS  Skip on every step but the last
+PASS  Next, or Done on the last
+PASS  ring shown
+PASS  ring border 3px
+PASS  ring colour
+PASS  ring 6px outside the target, left
+PASS  ring 6px outside the target, top
+PASS  ring 6px outside the target, right
+PASS  ring cut 12px above the window bottom
+PASS  card does not cover the ring
+PASS  card does not cover the target
+PASS  card has a pointer
+23 pass, 0 fail
+"{\"tag\":false,\"ex\":0}"
+Step 3
+PASS  card width 420
+PASS  card radius 18px
+PASS  card padding 20px
+PASS  card colour
+PASS  card shown
+PASS  card inside the window
+PASS  a NEW tag
+PASS  no sub-line
+PASS  no "1 of 8" text shown (only for screen readers)
+PASS  progress ring filled 3/8
+PASS  Back only after step 1
+PASS  Skip on every step but the last
+PASS  Next, or Done on the last
+PASS  ring shown
+PASS  ring border 3px
+PASS  ring colour
+PASS  ring 6px outside the target, left
+PASS  ring 6px outside the target, top
+PASS  ring 6px outside the target, right
+PASS  ring 6px outside the target, bottom
+PASS  card does not cover the ring
+PASS  card does not cover the target
+PASS  card has a pointer
+23 pass, 0 fail
+"{\"tag\":false,\"ex\":0}"
+Step 4
+PASS  card width 420
+PASS  card radius 18px
+PASS  card padding 20px
+PASS  card colour
+PASS  card shown
+PASS  card inside the window
+PASS  a NEW tag
+PASS  no sub-line
+PASS  no "1 of 8" text shown (only for screen readers)
+PASS  progress ring filled 4/8
+PASS  Back only after step 1
+PASS  Skip on every step but the last
+PASS  Next, or Done on the last
+PASS  ring shown
+PASS  ring border 3px
+PASS  ring colour
+PASS  ring 6px outside the target, left
+PASS  ring 6px outside the target, top
+PASS  ring 6px outside the target, right
+PASS  ring cut 12px above the window bottom
+PASS  card does not cover the ring
+PASS  card does not cover the target
+PASS  card has a pointer
+23 pass, 0 fail
+"{\"tag\":false,\"ex\":0}"
+Step 5
+PASS  card width 420
+PASS  card radius 18px
+PASS  card padding 20px
+PASS  card colour
+PASS  card shown
+PASS  card inside the window
+PASS  a NEW tag
+PASS  no sub-line
+PASS  no "1 of 8" text shown (only for screen readers)
+PASS  progress ring filled 5/8
+PASS  Back only after step 1
+PASS  Skip on every step but the last
+PASS  Next, or Done on the last
+PASS  ring shown
+PASS  ring border 3px
+PASS  ring colour
+PASS  ring 6px outside the target, left
+PASS  ring 6px outside the target, top
+PASS  ring 6px outside the target, right
+PASS  ring 6px outside the target, bottom
+PASS  card does not cover the ring
+PASS  card does not cover the target
+PASS  card has a pointer
+23 pass, 0 fail
+"{\"tag\":false,\"ex\":0}"
+Step 6
+PASS  card width 420
+PASS  card radius 18px
+PASS  card padding 20px
+PASS  card colour
+PASS  card shown
+PASS  card inside the window
+PASS  a NEW tag
+PASS  no sub-line
+PASS  no "1 of 8" text shown (only for screen readers)
+PASS  progress ring filled 6/8
+PASS  Back only after step 1
+PASS  Skip on every step but the last
+PASS  Next, or Done on the last
+PASS  ring shown
+PASS  ring border 3px
+PASS  ring colour
+PASS  ring 6px outside the target, left
+PASS  ring 6px outside the target, top
+PASS  ring 6px outside the target, right
+PASS  ring 6px outside the target, bottom
+PASS  card does not cover the ring
+PASS  card does not cover the target
+PASS  card has a pointer
+PASS  placed from the loops card: x
+PASS  placed from the loops card: y
+PASS  loops card open
+PASS  card does not cover the loops card
+27 pass, 0 fail
+"{\"tag\":false,\"ex\":0}"
+Step 7
+PASS  card width 420
+PASS  card radius 18px
+PASS  card padding 20px
+PASS  card colour
+PASS  card shown
+PASS  card inside the window
+PASS  a NEW tag
+PASS  no sub-line
+PASS  no "1 of 8" text shown (only for screen readers)
+PASS  progress ring filled 7/8
+PASS  Back only after step 1
+PASS  Skip on every step but the last
+PASS  Next, or Done on the last
+PASS  ring shown
+PASS  ring border 3px
+PASS  ring colour
+PASS  ring 6px outside the target, left
+PASS  ring 6px outside the target, top
+PASS  ring 6px outside the target, right
+PASS  ring 6px outside the target, bottom
+PASS  card does not cover the ring
+PASS  card does not cover the target
+PASS  card has a pointer
+23 pass, 0 fail
+"{\"tag\":false,\"ex\":0}"
+Step 8
+PASS  card width 420
+PASS  card radius 18px
+PASS  card padding 20px
+PASS  card colour
+PASS  card shown
+PASS  card inside the window
+PASS  a NEW tag
+PASS  no sub-line
+PASS  no "1 of 8" text shown (only for screen readers)
+PASS  progress ring filled 8/8
+PASS  Back only after step 1
+PASS  Skip on every step but the last
+PASS  Next, or Done on the last
+PASS  no ring
+PASS  card in the middle
+15 pass, 0 fail
+"{\"tag\":false,\"ex\":0}"

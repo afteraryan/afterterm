@@ -212,15 +212,20 @@ export function LoopsTour({ step, setStep, remaining, subsLoopId, rotLoopId, onE
   const back = useCallback(() => { if (step > 0) setStep(step - 1); }, [step, setStep]);
 
   // Arrow keys move, Esc is Skip. Taken before anything under the tour sees them.
+  // The tour keeps the focus on its Next button (so Enter never reaches a Wake
+  // button under it), but draws the focus outline only while it is driven by keys.
   useEffect(() => {
+    const onPointer = () => cardRef.current?.classList.remove('kbd');
     const onKey = (e: KeyboardEvent) => {
       if (ending.current) return;
+      if (e.key === 'Tab' || e.key === 'Enter' || e.key === ' ' || e.key.startsWith('Arrow')) cardRef.current?.classList.add('kbd');
       if (e.key === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); next(); }
       else if (e.key === 'ArrowLeft') { e.preventDefault(); e.stopPropagation(); back(); }
       else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); skip(); }
     };
     window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
+    window.addEventListener('pointerdown', onPointer, true);
+    return () => { window.removeEventListener('keydown', onKey, true); window.removeEventListener('pointerdown', onPointer, true); };
   }, [next, back, skip]);
 
   const theme = s.theme === 'blue' ? '' : ` theme-${s.theme}`;

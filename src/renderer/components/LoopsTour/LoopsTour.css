@@ -4,7 +4,7 @@
    on a hard diagonal, about 75% blue and 25% green. Solid colours only. */
 
 .tour-layer {
-  --tour: #2f6bff; --tour-deep: #1d55e6; --tour-ink: #ffffff; --tour-soft: #dce6ff; --tour-dark: #0f2f8c;
+  --tour: #2d66f2; --tour-deep: #1c51db; --tour-ink: #ffffff; --tour-soft: #dce6ff; --tour-dark: #0f2f8c;
   --tour-ease: cubic-bezier(.2, .8, .2, 1);
   position: fixed;
   inset: 0;
@@ -49,7 +49,7 @@
 .tour-card.jump { transition: opacity 220ms; }
 .tour-card.hidden { opacity: 0; pointer-events: none; }
 .tour-card.theme-green { --tour: #2c9a62; --tour-deep: #1f6b47; --tour-soft: #dcf6e8; --tour-dark: #0f3d27; }
-.tour-card.theme-mix { background: linear-gradient(135deg, #2f6bff 0 75%, #2c9a62 75% 100%); }
+.tour-card.theme-mix { background: linear-gradient(135deg, #2d66f2 0 75%, #2c9a62 75% 100%); }
 .tour-card.theme-mix .ta-art { background: #0f2f8c; }
 .tour-card.theme-mix .tour-pring .track { stroke: #0f2f8c; }
 
@@ -97,7 +97,8 @@
   height: 38px; padding: 0 20px; border-radius: 10px; cursor: pointer;
 }
 .tour-next:hover { background: var(--tour-soft); }
-.tour-card button:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
+.tour-card button:focus-visible { outline: none; }
+.tour-card.kbd button:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
 
 /* The last card's cheer: a thumbs-up pops in with a burst of dots. */
 .tour-cheer {

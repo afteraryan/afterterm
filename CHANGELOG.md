@@ -13,6 +13,8 @@ What changed for the person using afterterm, release by release. Each release li
 - **A calendar on Home shows how many messages you sent to Claude each day,** with your current and longest streak. The first time afterterm starts with this version, it fills the calendar from the Claude Code history already on your computer. Only the count of messages is read and kept, never what they say, and nothing leaves your computer.
 - **The workspace has a small loops card at the top right.** Open it with the loops button in the thread's header or Ctrl+Shift+L. It shows your five most recent loops, how many are rotting, and how many are left. It stays open while you switch threads until you close it.
 - **Claude Code knows about your loops.** In afterterm's terminals it can use the `afterterm loops` command, and a new chat is told which loops are open in its folder, so it continues one instead of starting it again.
+- **A short tour introduces loops the first time you open afterterm after updating.** It shows example loops and an example calendar if you have none yet, and they go when it ends. Take the loops tour in the About window plays it again.
+- **The loops button is in the workspace header even with no thread open.**
 
 ## 0.18.1 (2026-11-13)
 
