@@ -206,7 +206,7 @@ contextBridge.exposeInMainWorld('afterterm', {
   // The one-time tours (src/tours.ts): which ones were already shown (prefs.json's
   // toursSeen), and writing one as seen after Done or Skip.
   tours: {
-    seen: (): Promise<string[]> => ipcRenderer.invoke('tours:seen'),
+    seen: (): Promise<string[] | null> => ipcRenderer.invoke('tours:seen'),
     markSeen: (id: string): Promise<boolean> => ipcRenderer.invoke('tours:mark-seen', id),
   },
 

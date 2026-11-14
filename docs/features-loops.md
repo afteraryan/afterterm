@@ -10,7 +10,7 @@ Loops are the pieces of work started in every project (design-07, `docs/design-0
 | The store: `<userData>\loops.json`, main the only writer | `src/loops-store.ts`, tested in `src/loops-store.test.ts`; IPC `loops:list`, `loops:act`, `loops:changed` in `src/main.ts` |
 | `afterterm loops`: every command, its output and the chat-start text | `src/loops-cli.ts`, tested in `src/loops-cli.test.ts` |
 | The pipe, its token, the launchers | `src/loops-pipe.ts`; the client `assets/cli/afterterm-cli.js`; tested end to end in `src/loops-pipe.test.ts` |
-| The skill | `src/loops-skill.ts` (writes `<Claude folder>\skills\afterterm-loops\SKILL.md`) |
+| The skill | `src/loops-skill.ts` (writes `<Claude folder>\skills\afterterm\SKILL.md`, and removes the `afterterm-loops` skill that 0.19.0 and 0.20.0 wrote; AFT-110) |
 | The chat-start hook | `assets/hooks/afterterm-notify.ps1`, `Get-LoopsBrief` on SessionStart |
 | Messages per day for the calendar | `src/activity-counts.ts`, `src/activity-store.ts`, `src/renderer/streakView.ts`, each with its test; IPC `activity:get`, `activity:changed` |
 | The renderer's helpers (Open chat, the filter, project colours, the context sent to main) | `src/renderer/loopsView.ts`, tested in `src/renderer/loopsView.test.ts` |

@@ -10,7 +10,7 @@ import {
   type CallerEnv, type LoopsContext,
 } from './loops-cli.ts';
 import { DAY_MS } from './loops.ts';
-import { reconcileLoopsSkill, SKILL_MARKER, SKILL_TEXT } from './loops-skill.ts';
+import { reconcileAftertermSkill, SKILL_MARKER, SKILL_TEXT } from './loops-skill.ts';
 
 let pass = 0, fail = 0;
 function check(name: string, cond: boolean, detail = '') {
@@ -116,7 +116,7 @@ console.log('\nloops-cli: the chat-start brief\n');
   const b = chatStartBrief(store.list(), ctx, { thread: 't1', session: 'sess-x', cwd: 'D:\\Work\\afterterm' }, T0);
   check('lists the folder\'s open loops', b.includes('Open loops in afterterm') && b.includes('#1 Loops on Home'), b);
   check('not other projects\' loops', !b.includes('Other project'));
-  check('starts by pointing the chat at the skill', b.startsWith('You\u2019re running inside afterterm. Before you do anything else, read the afterterm-loops skill.'));
+  check('starts by pointing the chat at the skill', b.startsWith('You\u2019re running inside afterterm. Before you do anything else, read the afterterm skill.'));
   const resumed = chatStartBrief(store.list(), ctx, { thread: 't1', session: 'sess-1', cwd: 'D:\\Work\\afterterm' }, T0);
   check('a resumed chat gets its loop and status note', resumed.includes('This chat was working on loop #') && resumed.includes('Its status note'), resumed);
   const none = chatStartBrief(store.list(), ctx, { cwd: 'C:\\elsewhere' }, T0);
@@ -131,17 +131,30 @@ console.log('\nloops-cli: the chat-start brief\n');
 console.log('\nloops-skill\n');
 {
   const cd = fs.mkdtempSync(path.join(os.tmpdir(), 'loops-skill-'));
-  check('written the first time', reconcileLoopsSkill({ claudeDir: cd, optedOut: false }).status === 'written');
-  check('unchanged the second', reconcileLoopsSkill({ claudeDir: cd, optedOut: false }).status === 'unchanged');
-  const f = path.join(cd, 'skills', 'afterterm-loops', 'SKILL.md');
-  check('the text has its marker and name', fs.readFileSync(f, 'utf8') === SKILL_TEXT && SKILL_TEXT.includes(SKILL_MARKER) && SKILL_TEXT.includes('name: afterterm-loops'));
+  // An update from 0.20.0 or earlier: the old afterterm-loops skill, written by afterterm.
+  const oldDir = path.join(cd, 'skills', 'afterterm-loops');
+  fs.mkdirSync(oldDir, { recursive: true });
+  fs.writeFileSync(path.join(oldDir, 'SKILL.md'), ['---', 'name: afterterm-loops', '---', SKILL_MARKER, 'old text'].join('\n'));
+  const first = reconcileAftertermSkill({ claudeDir: cd, optedOut: false });
+  check('written the first time', first.status === 'written');
+  check('the old afterterm-loops skill of ours is removed, folder and all', first.oldSkill === 'removed' && !fs.existsSync(oldDir));
+  check('unchanged the second', reconcileAftertermSkill({ claudeDir: cd, optedOut: false }).status === 'unchanged');
+  const f = path.join(cd, 'skills', 'afterterm', 'SKILL.md');
+  check('the text has its marker and name', fs.readFileSync(f, 'utf8') === SKILL_TEXT && SKILL_TEXT.includes(SKILL_MARKER) && SKILL_TEXT.includes('name: afterterm\n'));
   fs.writeFileSync(f, SKILL_TEXT.replace('Ids are numbers.', 'Ids are numbers!'));
-  check('an old version of ours is replaced', reconcileLoopsSkill({ claudeDir: cd, optedOut: false }).status === 'written');
+  check('an old version of ours is replaced', reconcileAftertermSkill({ claudeDir: cd, optedOut: false }).status === 'written');
   fs.writeFileSync(f, '# my own skill');
-  check('someone else\'s file is left alone', reconcileLoopsSkill({ claudeDir: cd, optedOut: false }).status === 'skipped-not-ours' && fs.readFileSync(f, 'utf8') === '# my own skill');
+  check('someone else\'s file is left alone', reconcileAftertermSkill({ claudeDir: cd, optedOut: false }).status === 'skipped-not-ours' && fs.readFileSync(f, 'utf8') === '# my own skill');
+  fs.mkdirSync(oldDir, { recursive: true });
+  fs.writeFileSync(path.join(oldDir, 'SKILL.md'), '# someone wrote their own afterterm-loops skill');
+  check('someone else\'s afterterm-loops skill is kept', reconcileAftertermSkill({ claudeDir: cd, optedOut: false }).oldSkill === 'kept-not-ours' && fs.existsSync(path.join(oldDir, 'SKILL.md')));
   const cd2 = fs.mkdtempSync(path.join(os.tmpdir(), 'loops-skill-'));
-  check('the opt-out writes nothing', reconcileLoopsSkill({ claudeDir: cd2, optedOut: true }).status === 'skipped-opt-out' && !fs.existsSync(path.join(cd2, 'skills')));
-  check('no em dash in the skill', !SKILL_TEXT.includes('\u2014'));
+  check('the opt-out writes nothing', reconcileAftertermSkill({ claudeDir: cd2, optedOut: true }).status === 'skipped-opt-out' && !fs.existsSync(path.join(cd2, 'skills')));
+  check('no em dash in the skill', !SKILL_TEXT.includes(String.fromCharCode(0x2014)));
+  check('closing is the agent\'s call when the work is done', SKILL_TEXT.includes('**Close a loop when its work is done.** Leave it open if something is still pending. If you are unsure, ask the user.'));
+  check('the old wait-for-the-user rule is gone', !SKILL_TEXT.includes('the user will confirm') && !SKILL_TEXT.includes('only when the user says'));
+  check('every command once, in the Commands table', SKILL_TEXT.split('afterterm loops close').length === 2 && SKILL_TEXT.includes('### Commands'));
+  check('says what afterterm is first', SKILL_TEXT.indexOf('You are running inside afterterm, a terminal for Windows') < SKILL_TEXT.indexOf('## Loops'));
   fs.rmSync(cd, { recursive: true, force: true });
   fs.rmSync(cd2, { recursive: true, force: true });
 }

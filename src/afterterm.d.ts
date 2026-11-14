@@ -188,8 +188,8 @@ interface AftertermLoopsAPI {
 
 // The one-time tours (src/tours.ts), kept in prefs.json's toursSeen.
 interface AftertermToursAPI {
-  /** The tours already shown (Done or Skip). */
-  seen(): Promise<string[]>;
+  /** The tours already shown (Done or Skip); null when prefs.json cannot be read, and then no tour shows. */
+  seen(): Promise<string[] | null>;
   /** Writes a tour as seen; false when prefs.json could not be written. */
   markSeen(id: string): Promise<boolean>;
 }
