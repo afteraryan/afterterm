@@ -14,9 +14,9 @@ Order changed from the suggested one: the loop rows, opening a loop, the menu an
 
 | Phase | Issue | What it contains | Status |
 |---|---|---|---|
-| 1. Store and rules | AFT-95 | `src/loops.ts` (the rules: rotting after 5 calendar days, sub-loop activity, ideas and closed never rot, order, counts, the card's 5, the remembered chat, the parent-close rule, one level of nesting, delete for 30 days); `src/loops-store.ts` (`<userData>\loops.json`, main the only writer, atomic saves, a broken file moved aside); `loops:list`, `loops:act`, `loops:changed` | In progress |
-| 2. Agents | AFT-96 | `afterterm loops` over a named pipe with a per-launch token, on PATH only in afterterm's terminals; the skill; the chat-start hook | Todo |
-| 3. Activity counts | AFT-97 | Messages sent to Claude per local day from transcript structure, saved in userData, backfilled on the first launch in chunks; shades, streak, longest streak | Todo |
+| 1. Store and rules | AFT-95 | `src/loops.ts` (the rules: rotting after 5 calendar days, sub-loop activity, ideas and closed never rot, order, counts, the card's 5, the remembered chat, the parent-close rule, one level of nesting, delete for 30 days); `src/loops-store.ts` (`<userData>\loops.json`, main the only writer, atomic saves, a broken file moved aside); `loops:list`, `loops:act`, `loops:changed` | Done (PR #109) |
+| 2. Agents | AFT-96 | `afterterm loops` over a named pipe with a per-launch token, on PATH only in afterterm's terminals; the skill; the chat-start hook | In progress |
+| 3. Activity counts | AFT-97 | Messages sent to Claude per local day from transcript structure, saved in userData, backfilled on the first launch in chunks; shades, streak, longest streak | In progress (an Opus subagent, worktree `loops-activity`) |
 | 4. Loop rows and actions | AFT-98 | Rows, opening in place (the joined box), the fold, the right-click menu and its Update submenus, Open chat in every case, archive, delete and restore | Todo |
 | 5. Home's Progress column | AFT-99 | The Progress layout: projects at 90%, the 472px column, calendar and count cards, the filter, the list, the close and slide | Todo |
 | 6. The workspace card | AFT-100 | The floating card, its header button and Ctrl+Shift+L, the flight, the 5 rows, rotting, the remaining bar, All | Todo |
@@ -29,7 +29,12 @@ Decided while building (recorded here as they come):
 - Reopening a sub-loop of a closed parent reopens the parent, so an open sub-loop never hides under a closed parent.
 - Archiving or deleting a loop takes its sub-loops with it; restoring brings back the ones that went with it.
 - A ping inside a day of the last one is accepted and changes nothing, so an eager agent cannot reshuffle the list.
-## Automatic updates
+- The command's names (design-07 left them open): `afterterm loops list | show | new | update | ping | close | reopen | archive | unarchive | delete | restore | help`, with `--json`; `new` and `update` take `--label`, `--desc`, `--note`, `--title`, `--project`, `--parent`; `close` takes `--note` and `--with-sub-loops`. Ids are short numbers (`#12` also works). `list` shows the thread's own project unless `--all` or `--project`. Exit codes: 0 done, 1 not reachable or unknown command, 2 refused input, 3 a parent with open sub-loops, 4 no such loop, 5 a wrong token.
+- The command runs on afterterm's own executable in Node mode (`ELECTRON_RUN_AS_NODE=1`, as VS Code's `code` does), through two launchers afterterm writes to `<userData>\bin` at every launch (`afterterm.cmd` for cmd and PowerShell, `afterterm` for Git Bash); that folder goes first on PATH in afterterm's terminals only. No Node install is needed. WSL is not covered (its PATH and paths would need translating; WSL is not on the dev machine).
+- All the command's rules and output live in main (`src/loops-cli.ts`); the client script (`assets/cli/afterterm-cli.js`) only carries the request. One pipe per data folder, so a harness run or the test build never reaches the real app.
+- Where the chat-start text sits (left open in design-07): in the chat's context through SessionStart's `additionalContext`, at most 8 loops on one line each, the resumed chat's loop and status note first, and one line telling the agent to reuse a loop rather than start a duplicate. An older afterterm, or no answer within 2 seconds, gives the title only.
+- The skill is written to `<Claude folder>\skills\afterterm-loops\SKILL.md` beside the hook, under the hook's own guard (never from a test launch without its own Claude folder) and opt-out; a file there without afterterm's marker line is never touched. Its description limits it to chats inside afterterm.
+- Agents' messages say "Ask the user", not "Ask Aryan", since other people use afterterm.## Automatic updates
 
 An installed afterterm finds a newer release on GitHub, tells the user ("afterterm 0.11.0 is available", with What's new, Update, Later and Skip this version), downloads the installer in the background with progress, checks it against the sha256 GitHub publishes, and on "Restart to update" closes, installs quietly, reopens and wakes every thread that was awake. Never forced; a setting turns the checks off.
 
