@@ -364,10 +364,12 @@ export function closeLoop(file: LoopsFile, id: string, now: number, actor: Actor
   if (open.length && !opts.withSubLoops) {
     throw new LoopError('open-sub-loops', `Loop ${id} has ${open.length} open sub-loop${open.length === 1 ? '' : 's'}: ${open.map((s) => s.id).join(', ')}`);
   }
+  // Closing does not change the remembered chat: Open chat on a finished loop goes
+  // back to the chat that did the work, not the one that only said it was done
+  // (AFT-104, the third real-Claude test).
   const closed: Loop[] = [];
   for (const l of [...open, loop]) {
     if (l.status !== 'closed') { l.status = 'closed'; l.closedAt = now; closed.push(l); }
-    remember(l, actor);
   }
   if (opts.note !== undefined) { loop.note = opts.note.slice(0, 4000); loop.noteAt = now; loop.activityAt = now; }
   return closed;

@@ -116,6 +116,8 @@ console.log('\nloops: the remembered chat\n');
   check('another agent\'s edit replaces it', l.chat?.sessionId === 's-b' && l.chat.cwd === 'C:\\p\\wt');
   pingLoop(f, l.id, at(2), agentA);
   check('a ping from a chat replaces it too', l.chat?.sessionId === 's-a');
+  closeLoop(f, l.id, at(3), agentB);
+  check('closing keeps the chat that did the work', l.chat?.sessionId === 's-a');
   const u = createLoop(f, { title: 'U' }, MON, user);
   check('a loop Aryan started has no chat', u.chat === null);
 }
