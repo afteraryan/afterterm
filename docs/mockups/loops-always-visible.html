@@ -108,6 +108,8 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 .row.closed .kind { color: var(--text4); }
 .subs { display: flex; flex-direction: column; gap: 1px; margin-left: 21px; }
 .subs .det { margin-left: 29px; }
+.fullbox .det { margin-left: 0; margin-right: 0; }
+.fullbox .subs .det { margin-left: 0; }
 
 .lp-foot { display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 14px; margin-top: 6px; border-top: 1px solid #333; }
 .barbox { flex: 1; display: grid; gap: 6px; font-size: 12px; color: var(--text2); }
@@ -193,9 +195,12 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 
   /* controls: open or shrunk, and full screen */
   var controls = document.getElementById('controls');
+  var fullBox = true;
   controls.innerHTML = '<div class="ctl"><span class="ctl-name">Card</span><div class="seg"><button type="button" data-k="no">Open</button><button type="button" data-k="yes">Shrunk</button></div></div>' +
+    '<div class="ctl"><span class="ctl-name">Opened loop</span><div class="seg"><button type="button" data-box="full">Full width</button><button type="button" data-box="indent">Indented</button></div></div>' +
     '<div class="ctl"><span class="ctl-name">Screen</span><div class="seg"><button type="button" id="fsBtn">Full screen</button></div></div>';
   controls.addEventListener('click', function (e) {
+    var bx = e.target.closest('button[data-box]'); if (bx) { fullBox = bx.dataset.box === 'full'; render(); return; }
     var b = e.target.closest('button[data-k]'); if (b) { setShrunk(b.dataset.k === 'yes'); return; }
     if (e.target.closest('#fsBtn')) { try { var p = box.requestFullscreen(); if (p && p.catch) p.catch(function () {}); } catch (err) {} }
   });
@@ -256,6 +261,8 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
       '<div class="main">' + header + '<div class="term">' + TERM + '</div>' + (shrunk ? '' : card()) + '</div></div>';
     var l2 = stage.querySelector('#lpList'); if (l2) l2.scrollTop = top;
     controls.querySelectorAll('button[data-k]').forEach(function (b) { b.setAttribute('aria-pressed', String((b.dataset.k === 'yes') === shrunk)); });
+    controls.querySelectorAll('button[data-box]').forEach(function (b) { b.setAttribute('aria-pressed', String((b.dataset.box === 'full') === fullBox)); });
+    stage.classList.toggle('fullbox', fullBox);
   }
 
   /* the card flies into the header button and back */
