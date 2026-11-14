@@ -170,9 +170,11 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 .reopen { position: absolute; top: 28px; right: 32px; height: 30px; border-radius: 8px; border: 0; background: var(--raise); color: var(--text2); display: inline-flex; align-items: center; gap: 7px; padding: 0 11px; font-size: 12.5px; cursor: pointer; z-index: 3; animation: pop .22s var(--ease); }
 .reopen:hover { background: var(--hover2); color: var(--text); }
 .reopen b { color: var(--text); font-weight: 500; }
-.psearch { display: inline-flex; align-items: center; gap: 7px; height: 26px; width: 190px; padding: 0 9px; border-radius: 7px; color: var(--text3); cursor: text; transition: background .15s, width .2s var(--ease); }
-.psearch:hover, .psearch:focus-within { background: var(--hover); }
-.psearch:focus-within { width: 230px; color: var(--text2); }
+.psearch { position: relative; display: inline-flex; align-items: center; gap: 7px; height: 26px; width: 190px; padding: 0 9px; border-radius: 7px; background: #262626; color: var(--text3); cursor: text; transition: background .15s; }
+.psearch:hover, .psearch:focus-within { background: #2a2a2a; }
+.psearch:focus-within { color: var(--text2); }
+.psearch .dots { position: absolute; left: 29px; top: 0; bottom: 0; display: none; align-items: center; padding-right: 1px; background: inherit; color: var(--text2); font-size: 13px; pointer-events: none; }
+.psearch.over .dots { display: flex; }
 .psearch input { flex: 1; min-width: 0; border: 0; background: none; outline: none; color: var(--text); font: inherit; font-size: 13px; padding: 0; }
 .psearch input::placeholder { color: var(--text3); }
 .handle { position: relative; cursor: col-resize; }
@@ -453,7 +455,7 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     lastProjectsArgs = [cls, count];
     return '<div><div class="lbl">Projects<span class="grow"></span>' +
       '<label class="psearch"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>' +
-      '<input id="projSearch" type="text" placeholder="Search" autocomplete="off" spellcheck="false" value="' + esc(projectQuery) + '"></label>' +
+      '<span class="dots">…</span><input id="projSearch" type="text" aria-label="Search projects" autocomplete="off" spellcheck="false" value="' + esc(projectQuery) + '"></label>' +
       '<span class="ibtn" style="cursor:default">' + I.plus + '</span></div><div id="plistWrap">' + projectRows(cls, count) + '</div></div>';
   }
   function loopsLabel(extra) { return '<div class="lbl" style="margin-bottom:0">Loops' + (extra || '') + '</div>'; }
@@ -541,6 +543,7 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
       '<div class="body"><div class="rail">' + rail + '</div><div class="screen">' + L() + '</div></div>';
     if (!animateList) stage.querySelectorAll('.scroll').forEach(function (el, n) { if (keep[n]) el.scrollTop = keep[n]; });
     placeThumbs();
+    markOverflow(stage.querySelector('#projSearch'));
     animateList = false;
     controls.querySelectorAll('button[data-k]').forEach(function (b) { b.setAttribute('aria-pressed', String(String(cfg[b.dataset.k]) === b.dataset.v)); });
     document.getElementById('cfgOut').textContent = JSON.stringify(cfg, null, 2);
@@ -621,8 +624,19 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     var sub = parts.length > 1 ? l.subs[+parts[1]] : null;
     return { loop: l, item: sub || l, sub: !!sub };
   }
+  /* a long search shows its end, with a leading ellipsis over the cut start */
+  function markOverflow(el) {
+    if (!el) return;
+    var over = el.scrollWidth > el.clientWidth + 1;
+    if (over && document.activeElement !== el) el.scrollLeft = el.scrollWidth;
+    el.parentNode.classList.toggle('over', over && el.scrollLeft > 0);
+  }
+  ['keyup', 'scroll', 'focusin', 'focusout', 'click'].forEach(function (ev) {
+    stage.addEventListener(ev, function (e) { if (e.target && e.target.id === 'projSearch') setTimeout(function () { markOverflow(e.target); }, 0); }, true);
+  });
   stage.addEventListener('input', function (e) {
     if (e.target.id !== 'projSearch') return;
+    var el = e.target; setTimeout(function () { markOverflow(el); }, 0);
     projectQuery = e.target.value;
     var wrap = stage.querySelector('#plistWrap'); if (wrap) wrap.innerHTML = projectRows(lastProjectsArgs[0], lastProjectsArgs[1]);
   });
