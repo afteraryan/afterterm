@@ -2,7 +2,7 @@
 //   node src/renderer/streakView.test.ts
 // Exits 0 if all pass, 1 on any failure.
 
-import { addDays, calendarWeeks, shade, streaks, weekday } from './streakView.ts';
+import { addDays, calendarWeeks, rowWeekdays, shade, streaks, weekday } from './streakView.ts';
 
 let pass = 0, fail = 0;
 function check(name: string, cond: boolean, detail = '') {
@@ -66,17 +66,25 @@ console.log('\nstreak: the calendar weeks\n');
   let w = calendarWeeks(today);
   check('22 columns by default', w.length === 22);
   check('7 days a column', w.every((c) => c.length === 7));
-  check('every column starts on a Sunday', w.every((c) => weekday(c[0].day) === 0));
-  check('the last column holds today', w[21].some((d) => d.day === today));
+  check('on a Saturday every column starts on a Sunday', w.every((c) => weekday(c[0].day) === 0));
+  check('the last square is today', w[21][6].day === today);
   check('the last column is Sun 2026-11-08 to Sat 2026-11-14', w[21][0].day === '2026-11-08' && w[21][6].day === today);
   check('days follow each other with no gap', w.flat().every((d, i, a) => i === 0 || addDays(a[i - 1].day, 1) === d.day));
-  check('nothing is in the future on a Saturday', w.flat().every((d) => !d.future));
+  check('nothing is in the future', w.flat().every((d) => !d.future));
+  check('on a Saturday the rows are Sun to Sat', rowWeekdays(w).join() === '0,1,2,3,4,5,6');
+
+  w = calendarWeeks('2026-11-15', 17); // a Sunday: the last column is not six empty days
+  check('a Sunday: the last square is today', w[16][6].day === '2026-11-15');
+  check('a Sunday: the last column is the seven days up to today', w[16][0].day === '2026-11-09');
+  check('a Sunday: no future day anywhere', w.flat().every((d) => !d.future));
+  check('a Sunday: the rows run Mon to Sun', rowWeekdays(w).join() === '1,2,3,4,5,6,0');
+  check('17 weeks reach back 119 days', w[0][0].day === addDays('2026-11-15', -118));
 
   w = calendarWeeks('2026-11-11'); // a Wednesday
-  check('a Wednesday: Thursday to Saturday are future', w[21].filter((d) => d.future).map((d) => d.day).join() === '2026-11-12,2026-11-13,2026-11-14');
+  check('a Wednesday: the last square is today', w[21][6].day === '2026-11-11' && !w.flat().some((d) => d.future));
 
   w = calendarWeeks(today, 22, 4);
-  check('offset 4 moves four weeks back', w[21][0].day === '2026-10-11' && !w.flat().some((d) => d.future), w[21][0].day);
+  check('offset 4 moves four weeks back', w[21][6].day === '2026-10-17' && !w.flat().some((d) => d.future), w[21][6].day);
   check('a negative offset is the newest view', calendarWeeks(today, 22, -3)[21][6].day === today);
   check('a smaller count', calendarWeeks(today, 3).length === 3 && calendarWeeks(today, 3)[0][0].day === '2026-10-25');
 }

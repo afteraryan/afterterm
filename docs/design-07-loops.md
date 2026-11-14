@@ -66,7 +66,7 @@ Mock: `loops-home.html`, the Progress layout. The page itself never scrolls; eac
 
 ## The streak calendar
 
-- 22 weeks (about five months), the last column always the current week. Every day of the week labelled. The card never changes size. The arrows move four weeks, with a pure slide (no fade, no blur) on a smooth ease-out.
+- 17 weeks (about four months; 22 until AFT-107 on 2026-11-15, when most of them were empty), the grid ending on today: the bottom-right square is today and the last column is the seven days up to it, never empty future days, so the weekday names down the side follow the days (AFT-107, 2026-11-15; until then the last column was the current week, Sunday to Saturday). Every day of the week labelled. The card never changes size while the weeks slide. The arrows move four weeks, with a pure slide (no fade, no blur) on a smooth ease-out.
 - "N day streak" and "Longest N days". The current streak is outlined subtly. A legend from less to more.
 - **A day counts the messages Aryan sent to Claude that day**, across all projects: user turns in the transcripts, excluding tool results, subagent (sidechain) lines, meta lines, interrupts and local-command wrappers, deduplicated by uuid, in local time. Counted from structure fields only; the text is never used or stored.
 - **Shades:** none is empty; 1 to 4 darkest; 5 to 14 dark; 15 to 39 bright; 40 or more brightest. Lenient at the start so a new user sees green quickly; the top is earned.
@@ -106,13 +106,13 @@ Label icons (14 by 14 viewBox, stroke 1.4, round caps and joins, no fill), paths
 
 ### Home, the projects section (today's Home at 90%)
 
-Take today's Home values (Home.css) and multiply every size by 0.9: date 23.4px; Pinned cards min height 83px, padding 14px, radius 14px, name 12.6px weight 500, pill 22px high with 11.3px text, time 11.7px, gap 11px, two columns; Projects rows: name 12.6px weight 500, padding 9px 11px, icon 14px, time 11.7px, two columns; section labels 12px. The search box: 171 by 23px, radius 6px, icon 12px, text 11.7px, no placeholder, fixed width (does not grow on focus), a long query shows its end with a leading ellipsis. Show more toggles the full list. The section scrolls on its own; the page never scrolls.
+Take today's Home values (Home.css) and multiply every box size by 0.9; the text keeps the old Home's sizes (AFT-105, 2026-11-14: the 90% text was too small): date 26px; Pinned cards min height 83px, padding 14px, radius 14px, name 14px weight 500, pill 22px high with 12.5px text, time 13px, gap 11px, two columns; Projects rows: name 14px weight 500, padding 9px 11px, icon 14px, time 13px, two columns; section labels 13px. The search box: 171 by 23px, radius 6px, icon 12px, text 13px, no placeholder, fixed width (does not grow on focus), a long query shows its end with a leading ellipsis. Show more toggles the full list. The section scrolls on its own; the page never scrolls.
 
 ### Home, the Progress column
 
 - Width fixed at 472px; 40px gap to the projects section; 40px page padding on both sides. No resize handle.
 - Heading "Progress" (10px text3 in the mock at 0.8; use 10px) with the close button at its right. Closing animates the column to zero width (grid columns, 340ms, cubic-bezier(.2,.8,.2,1)); a "Progress N" button (30px high, raise background, 12.5px) appears at the top right and opens it again the same way.
-- The calendar card and the count card are 472px wide. Calendar card: padding 9px 10px 8px, radius 10px, gap 6px; heading "N day streak" 13.6px weight 500; "Longest N days" 9.2px; squares 16px with 3.2px gaps, radius 3.2px; month labels 8.8px; day labels Sun to Sat 9.2px; legend 8.8px; arrows 16px.
+- The calendar card and the count card are 472px wide. Calendar card: padding 9px 10px 8px, radius 10px, gap 6px; heading "N day streak" 13.6px weight 500; "Longest N days" 9.2px; squares 16.5px with 8.25px gaps across and down (half a square, as Wispr Flow's calendar), radius 3.3px (AFT-107; 16px squares with 3.2px gaps before); month labels 8.8px; day labels Sun to Sat 9.2px; legend 8.8px; arrows 16px.
 - Count card: padding 9px 10px, radius 10px, gap 6px; the remaining number 19.2px weight 500 with "remaining" 10.4px; open, rotting, closed buttons 18.4px high, text 10px, the rotting number in an amber circle 13.6px; the bar 4px.
 - Filter row (full size): a 22px icon button; the segments 19px high with 11.5px text, the project dropdown 22px high; chips 20px high with 11.5px text.
 - The list (full size): rows 31px, title 12.5px, padding 0 8px, radius 8px, gap 8px; status circle 11 to 12px; label icon 12px; "1/5" 11px; project name and time 11.5px; sub-loop rows 26px with 12px titles, indented 21px.

@@ -10,7 +10,7 @@ import { LoopList } from '../Loops/LoopList';
 import { LoopMenu, type LoopMenuItem } from '../Loops/LoopMenu';
 import { ChevronDown, ChevronLeft, ChevronRight, FilterIcon, LabelIcon, PanelCloseIcon, SmallX } from '../Loops/LoopIcons';
 import { filterIsSet, LABEL_WORDS, loopProjects, projectLook, visibleLoops, type LoopFilter, type StatusFilter } from '../../loopsView';
-import { calendarWeeks, shade, streaks } from '../../streakView';
+import { calendarWeeks, rowWeekdays, shade, streaks } from '../../streakView';
 import './Progress.css';
 
 export interface ProgressProps {
@@ -29,7 +29,8 @@ export interface ProgressProps {
   forceOpen?: string | null;
 }
 
-const WEEKS = 22;
+// 17 weeks, about four months (AFT-107, 2026-11-15; 22 until then).
+const WEEKS = 17;
 const STEP_WEEKS = 4;
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const STATUSES: [StatusFilter, string][] = [['all', 'All'], ['open', 'Open'], ['rotting', 'Rotting'], ['closed', 'Closed'], ['archived', 'Archived']];
@@ -60,9 +61,10 @@ function CalendarGrid({ days, today, offset, streakStart, reveal }: { days: Reco
     <div className="pg-hm">
       <span />
       {months.map((m, w) => <span key={`m${w}`} className="pg-mo">{m}</span>)}
-      {DAY_NAMES.map((name, row) => (
-        <React.Fragment key={name}>
-          <span className="pg-dl">{name}</span>
+      {/* The grid ends on today, so the rows follow the days: the bottom row is today's weekday. */}
+      {rowWeekdays(weeks).map((wd, row) => (
+        <React.Fragment key={wd}>
+          <span className="pg-dl">{DAY_NAMES[wd]}</span>
           {weeks.map((col, w) => {
             const c = col[row];
             if (c.future) return <span key={c.day} className="pg-cell future" />;

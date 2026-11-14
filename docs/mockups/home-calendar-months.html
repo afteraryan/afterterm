@@ -1,0 +1,168 @@
+<title>Home Calendar Months</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+<style>
+/* afterterm's own dark UI (theme.css, Progress.css). Single dark look on purpose: it shows
+   the app as it is. Layout: one column of calendar cards at the app's real 472px width. */
+:root {
+  color-scheme: dark;
+  --side: #171717; --bg: #212121; --raise: #2f2f2f; --hover2: #383838;
+  --text: #ececec; --text2: #b4b4b4; --text3: #8e8e8e;
+  --h0: #363636; --h1: #1f6b47; --h2: #2c9a62; --h3: #4ade80; --h4: #b9f6d0;
+  --pick: #ececec;
+  --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+html, body { background: var(--side); color: var(--text); }
+body { font-family: var(--sans); font-size: 14px; line-height: 1.45; margin: 0; }
+* { box-sizing: border-box; }
+.wrap { max-width: 1640px; margin: 0 auto; padding-block: 28px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 28px; }
+h1 { margin: 0; font-size: 20px; font-weight: 600; text-wrap: balance; }
+.lead { margin: 6px 0 0; color: var(--text2); font-size: 13.5px; max-width: 70ch; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(500px, 1fr)); gap: 28px 24px; align-items: start; }
+@media (max-width: 560px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.opt { display: grid; gap: 10px; min-width: 0; }
+.opt h2 { margin: 0 2px; font-size: 14px; font-weight: 600; }
+.opt p { margin: 0 2px; font-size: 12.5px; color: var(--text3); }
+.scroll { overflow-x: auto; padding: 4px; margin: -4px; }
+.col { width: 472px; background: var(--bg); padding: 14px; border-radius: 12px; box-sizing: content-box; }
+.opt.now h2::after { content: "Today"; margin-left: 8px; font-size: 10.5px; font-weight: 500; color: #0d0d0d; background: var(--pick); border-radius: 999px; padding: 1px 7px; vertical-align: 1px; }
+
+/* The calendar card, values from Progress.css */
+.pg-act { background: var(--raise); border-radius: 10px; padding: 9px 10px 8px; display: grid; gap: 6px; width: 472px; }
+.pg-act-h { display: flex; align-items: center; gap: 8px; }
+.pg-act-h > b { font-size: 13.6px; font-weight: 500; letter-spacing: -.01em; }
+.grow { flex: 1; }
+.pg-long { font-size: 9.2px; color: var(--text3); }
+.pg-long b { font-weight: 500; color: var(--text); }
+.pg-nav { width: 16px; height: 16px; display: grid; place-items: center; color: var(--text3); border-radius: 4px; }
+.pg-nav.off { opacity: .3; }
+.pg-hm { display: grid; align-items: center; justify-content: start; }
+.pg-dl { font-size: 9.2px; color: var(--text3); line-height: 1; }
+.pg-mo { font-size: 8.8px; color: var(--text3); white-space: nowrap; overflow: visible; line-height: 1.2; }
+.cell { height: 16px; border-radius: 3.2px; background: var(--h0); }
+.cell.l1 { background: var(--h1); } .cell.l2 { background: var(--h2); } .cell.l3 { background: var(--h3); } .cell.l4 { background: var(--h4); }
+.cell.cur { outline: 1px solid #6e6e6e; outline-offset: 1px; }
+.cell.future { background: none; box-shadow: inset 0 0 0 1px #3a3a3a; }
+.cell:hover { outline: 1px solid var(--text2); outline-offset: 1px; }
+.pg-legend { display: flex; align-items: center; gap: 3.2px; font-size: 8.8px; color: var(--text3); }
+.pg-legend .cell { width: 7.2px; height: 7.2px; border-radius: 2.4px; }
+.pg-curkey { width: 7.2px; height: 7.2px; border-radius: 2.4px; outline: 1px solid #6e6e6e; outline-offset: 1px; margin-right: 3.2px; }
+.tip { position: fixed; z-index: 5; pointer-events: none; background: #3a3a3a; color: var(--text); font-size: 12px; padding: 4px 8px; border-radius: 6px; white-space: nowrap; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>How many weeks should Home's calendar show?</h1>
+    <p class="lead">Each card is the calendar card at its real size in Home's Progress column, 472px wide. The new ones work like Wispr Flow's: fewer weeks, bigger squares, the space between squares half a square, and the card as tall as the grid needs. The days are like yours: Claude Code's history on this computer starts on 26 September. Hover a square to see its date.</p>
+  </header>
+  <div class="grid" id="grid"></div>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+(function () {
+  var TODAY = new Date(2026, 10, 14);                 // Saturday 14 November 2026
+  var FIRST = new Date(2026, 8, 26);                  // the oldest history on this computer
+  var key = function (d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  var addDays = function (d, n) { return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n); };
+
+  // Days like Aryan's: nothing before 26 September, most days after it, a few days off.
+  var seed = 19, rnd = function () { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
+  var days = {};
+  for (var d = new Date(FIRST); d <= TODAY; d = addDays(d, 1)) {
+    var v = rnd();
+    var n = v < 0.18 ? 0 : v < 0.35 ? 3 + Math.floor(rnd() * 2) : v < 0.6 ? 6 + Math.floor(rnd() * 8) : v < 0.88 ? 16 + Math.floor(rnd() * 22) : 42 + Math.floor(rnd() * 40);
+    if (n) days[key(d)] = n;
+  }
+  days[key(TODAY)] = 23; days[key(addDays(TODAY, -1))] = 31; days[key(addDays(TODAY, -2))] = 12;
+  delete days[key(addDays(TODAY, -3))];
+  var shade = function (n) { return !n ? 0 : n < 5 ? 1 : n < 15 ? 2 : n < 40 ? 3 : 4; };
+
+  // Streaks, as streakView.ts counts them.
+  var current = 0, start = null;
+  for (var c = new Date(TODAY); days[key(c)]; c = addDays(c, -1)) { current++; start = key(c); }
+  var longest = 0, run = 0;
+  for (var e = new Date(FIRST); e <= TODAY; e = addDays(e, 1)) { run = days[key(e)] ? run + 1 : 0; longest = Math.max(longest, run); }
+
+  var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+  var NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  var LABEL = 24, GRID_W = 446.4;                    // the day-name column, and the grid's width today
+
+  function card(weeks, cellW, gap, rowGap) {
+    var lastSun = addDays(TODAY, -TODAY.getDay());
+    var firstSun = addDays(lastSun, -7 * (weeks - 1));
+    var hm = document.createElement('div');
+    hm.className = 'pg-hm';
+    hm.style.gridTemplateColumns = LABEL + 'px repeat(' + weeks + ', ' + cellW.toFixed(2) + 'px)';
+    hm.style.gap = rowGap.toFixed(2) + 'px ' + gap.toFixed(2) + 'px';
+    hm.appendChild(document.createElement('span'));
+    for (var w = 0; w < weeks; w++) {
+      var col0 = addDays(firstSun, 7 * w), label = '';
+      for (var r = 0; r < 7; r++) { var dd = addDays(col0, r); if (dd.getDate() === 1) label = MON[dd.getMonth()]; }
+      if (!label && w === 0 && col0.getDate() <= 18) label = MON[col0.getMonth()];
+      var m = document.createElement('span'); m.className = 'pg-mo'; m.textContent = label; hm.appendChild(m);
+    }
+    for (var row = 0; row < 7; row++) {
+      var dl = document.createElement('span'); dl.className = 'pg-dl'; dl.textContent = NAMES[row]; hm.appendChild(dl);
+      for (var w2 = 0; w2 < weeks; w2++) {
+        var day = addDays(firstSun, 7 * w2 + row), k = key(day), cell = document.createElement('span');
+        if (day > TODAY) { cell.className = 'cell future'; }
+        else {
+          var n2 = days[k] || 0;
+          cell.className = 'cell l' + shade(n2) + (start && k >= start && n2 ? ' cur' : '');
+          cell.dataset.tip = day.getDate() + ' ' + MON[day.getMonth()] + ': ' + (n2 ? n2 + ' messages' : 'no messages');
+        }
+        cell.style.width = cellW.toFixed(2) + 'px'; cell.style.height = cellW.toFixed(2) + 'px'; cell.style.borderRadius = (cellW * 0.2).toFixed(2) + 'px';
+        hm.appendChild(cell);
+      }
+    }
+    var act = document.createElement('div');
+    act.className = 'pg-act';
+    act.innerHTML = '<div class="pg-act-h"><b>' + current + ' day streak</b><span class="grow"></span><span class="pg-long">Longest <b>' + longest + ' days</b></span>' +
+      '<span class="pg-nav' + (weeks >= 22 ? ' off' : '') + '"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 2l-3 3 3 3"/></svg></span>' +
+      '<span class="pg-nav off"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 2l3 3-3 3"/></svg></span></div>';
+    act.appendChild(hm);
+    var leg = document.createElement('div');
+    leg.className = 'pg-legend';
+    leg.innerHTML = '<span>Less</span><span class="cell"></span><span class="cell l1"></span><span class="cell l2"></span><span class="cell l3"></span><span class="cell l4"></span><span>More</span><span class="grow"></span><span class="pg-curkey"></span><span>Current streak</span>';
+    act.appendChild(leg);
+    return act;
+  }
+
+  // Wispr Flow's way: real squares, the gap half a square across and down, the card as
+  // tall as the grid. The grid keeps today's width (the 24px day names, then the weeks).
+  function wispr(weeks) { var cell = (GRID_W - LABEL) / (1.5 * weeks); return [cell, cell / 2, cell / 2]; }
+  var gridH = function (cell, rowGap) { return 7 * cell + 6 * rowGap; };
+  var BASE = gridH(16, 3.2);
+  var OPTIONS = [
+    { cls: 'now', title: '22 weeks, about 5 months', note: 'Squares 16px, 3px apart.', weeks: 22, size: [16, 3.2, 3.2] },
+    { title: '17 weeks, about 4 months', weeks: 17, size: wispr(17) },
+    { title: '13 weeks, about 3 months', weeks: 13, size: wispr(13) }
+  ];
+  OPTIONS.forEach(function (o) {
+    if (o.note) return;
+    var c = o.size[0];
+    o.note = 'Squares ' + Math.round(c) + 'px, ' + Math.round(o.size[1]) + 'px apart. The card is ' + Math.round(gridH(c, o.size[2]) - BASE) + 'px taller than today.';
+  });
+  var grid = document.getElementById('grid');
+  OPTIONS.forEach(function (o) {
+    var sec = document.createElement('section');
+    sec.className = 'opt' + (o.cls ? ' ' + o.cls : '');
+    sec.innerHTML = '<h2>' + o.title + '</h2><p>' + o.note + '</p>';
+    var sc = document.createElement('div'); sc.className = 'scroll';
+    var col = document.createElement('div'); col.className = 'col';
+    col.appendChild(card(o.weeks, o.size[0], o.size[1], o.size[2]));
+    sc.appendChild(col); sec.appendChild(sc); grid.appendChild(sec);
+  });
+
+  var tip = document.getElementById('tip');
+  document.addEventListener('mouseover', function (ev) {
+    var t = ev.target.closest && ev.target.closest('[data-tip]');
+    if (!t) { tip.hidden = true; return; }
+    tip.textContent = t.dataset.tip; tip.hidden = false;
+    var r = t.getBoundingClientRect();
+    tip.style.left = Math.max(8, r.left + r.width / 2 - tip.offsetWidth / 2) + 'px';
+    tip.style.top = (r.top - tip.offsetHeight - 6) + 'px';
+  });
+})();
+</script>
