@@ -270,7 +270,7 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     { key: 'layout', name: 'Layout', values: [['progress', 'Progress'], ['columns', 'Two columns'], ['three', 'Three columns'], ['band', 'Top band'], ['board', 'Board'], ['strips', 'Strips'], ['panels', 'Panels']] }
   ];
   /* final choices, kept in the config as agreed */
-  var cfg = { layout: 'progress', pinned: 'slim', projects: 'two', activity: 'any', position: 'right', featureIcon: 'box', labelIcons: 'icons', loopsWidth: 590, zoom: 'actual' };
+  var cfg = { layout: 'progress', pinned: 'slim', projects: 'two', activity: 'any', position: 'right', featureIcon: 'box', labelIcons: 'icons', loopsWidth: 472, zoom: 'actual' };
   try { var sv = JSON.parse(localStorage.getItem('loops-home5-cfg') || 'null'); if (sv) { if (sv.layout) cfg.layout = sv.layout; if (sv.zoom) cfg.zoom = sv.zoom; } } catch (e) {}
 
   var PROJ = {
@@ -574,9 +574,9 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     var w = cfg.loopsWidth;
     var reopen = progressOpen ? '' : '<button type="button" class="reopen" data-act="progress-open">' + I.collapse + 'Progress <b>' + counts().remaining + '</b></button>';
     return '<div class="lay prog" style="grid-template-columns:' + progressCols(progressOpen) + ';column-gap:' + (progressOpen ? 40 : 0) + 'px;padding:0 40px">' + reopen +
-      '<div class="scroll" style="padding:32px 6px 40px 0"><div class="stack">' + dateBlock() + pinnedBlock('c2') + projectsBlock('c2') + '</div></div>' +
-      '<div class="loopscol" style="padding-top:32px;gap:12px;overflow:hidden"><div style="width:' + w + 'px;display:flex;flex-direction:column;gap:12px;min-height:0;flex:1">' +
-      '<div class="lbl" style="margin-bottom:0">Progress<span class="grow"></span><button type="button" class="ibtn" data-act="progress-close" title="Close progress">' + I.collapse + '</button></div>' + activityHtml(w) + countCard() + filterBar() +
+      '<div class="scroll" style="padding:32px 6px 40px 0"><div class="stack" style="zoom:0.9">' + dateBlock() + pinnedBlock('c2') + projectsBlock('c2') + '</div></div>' +
+      '<div class="loopscol" style="padding-top:32px;gap:12px;overflow:hidden"><div style="width:' + w + 'px;display:flex;flex-direction:column;gap:12px;min-height:0;flex:1"><div style="zoom:0.8;width:590px;display:flex;flex-direction:column;gap:12px;flex:none">' +
+      '<div class="lbl" style="margin-bottom:0">Progress<span class="grow"></span><button type="button" class="ibtn" data-act="progress-close" title="Close progress">' + I.collapse + '</button></div>' + activityHtml(590) + countCard() + '</div>' + filterBar() +
       '<div class="list scroll" id="loopList" style="padding-bottom:24px">' + loopRows() + '</div></div></div></div>';
   }
   function layThree() {
