@@ -144,7 +144,13 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 .det .dtx { display: grid; gap: 5px; min-width: 0; padding-top: 2px; }
 .det .desc { font-size: 13px; color: var(--text); }
 .det .stn { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text3); min-width: 0; }
-.det .stn span:first-of-type { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.det { display: block !important; }
+.det .stn { align-items: flex-start !important; line-height: 1.45; }
+.det .stn svg { flex: none; margin-top: 2px; }
+.det .dtx { gap: 6px !important; }
+.det .desc { line-height: 1.45; }
+.row .kind { display: grid; place-items: center; color: var(--text3); flex: none; }
+.row.closed .kind { color: var(--text4); }
 .det .stn .ago { flex: none; }
 .det .stn .ago::before { content: '\00b7'; margin-right: 6px; }
 .label { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 6px; background: var(--chip); color: var(--text); font-size: 12px; flex: none; }
@@ -484,7 +490,7 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
   };
   var CLOCK_S = '<svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="5.5"/><path d="M7 4v3.2l2 1.3"/></svg>';
   function details(l) {
-    return '<div class="det"><span class="label">' + labelIcon(l.k) + l.k + '</span><div class="dtx"><span class="desc">' + esc(DESC[l.t] || l.t) + '</span>' +
+    return '<div class="det"><div class="dtx"><span class="desc">' + esc(DESC[l.t] || l.t) + '</span>' +
       '<span class="stn">' + CLOCK_S + '<span>' + esc(l.note) + '</span></span></div></div>';
   }
   function fracOf(l) { if (!l.subs) return ''; var done = l.subs.filter(function (s) { return s.s === 'closed'; }).length; return '<span class="frac">' + done + '/' + l.subs.length + '</span>'; }
@@ -492,12 +498,12 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     var id = String(i), isOpen = !!opened[id];
     var anim = animateList ? ' enter" style="animation-delay:' + Math.min(n * 28, 300) + 'ms' : '';
     var h = '<button type="button" class="row' + (l.s === 'closed' ? ' closed' : '') + (isOpen ? ' open-row' : '') + anim + '" data-i="' + id + '">' + statusIcon(l.s) +
-      '<span class="t1">' + esc(l.t) + '</span>' + fracOf(l) + (noProject ? '' : '<span class="pname" style="color:' + pcol(l.p) + '">' + esc(l.p) + '</span>') + '<span class="when">' + l.when + '</span></button>';
+      '<span class="kind" title="' + l.k + '">' + labelIcon(l.k, 12) + '</span><span class="t1">' + esc(l.t) + '</span>' + fracOf(l) + (noProject ? '' : '<span class="pname" style="color:' + pcol(l.p) + '">' + esc(l.p) + '</span>') + '<span class="when">' + l.when + '</span></button>';
     if (!isOpen) return h;
     h += details(l);
     if (l.subs) h += '<div class="subs">' + l.subs.map(function (s, j) {
       var sid = id + '.' + j, so = !!opened[sid];
-      return '<button type="button" class="row sub' + (s.s === 'closed' ? ' closed' : '') + (so ? ' open-row' : '') + '" data-i="' + sid + '">' + statusIcon(s.s) + '<span class="t1">' + esc(s.t) + '</span><span class="when">' + s.when + '</span></button>' + (so ? details(s) : '');
+      return '<button type="button" class="row sub' + (s.s === 'closed' ? ' closed' : '') + (so ? ' open-row' : '') + '" data-i="' + sid + '">' + statusIcon(s.s) + '<span class="kind" title="' + s.k + '">' + labelIcon(s.k, 11) + '</span><span class="t1">' + esc(s.t) + '</span><span class="when">' + s.when + '</span></button>' + (so ? details(s) : '');
     }).join('') + '</div>';
     return h;
   }
