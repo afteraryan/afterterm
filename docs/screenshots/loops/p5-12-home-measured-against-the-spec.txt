@@ -1,0 +1,79 @@
+PASS  Progress column width: spec 472, measured 472
+PASS  gap from projects to Progress: spec "40px", measured "40px"
+PASS  page padding: spec "40px", measured "40px"
+PASS  Progress heading: spec "10px", measured "10px"
+PASS  calendar card width: spec 472, measured 472
+PASS  calendar card padding: spec "9px 10px 8px", measured "9px 10px 8px"
+PASS  calendar card radius: spec "10px", measured "10px"
+PASS  calendar card gap: spec "6px", measured "6px"
+PASS  streak heading: spec "13.6px", measured "13.6px"
+PASS  streak heading weight: spec "500", measured "500"
+PASS  Longest: spec "9.2px", measured "9.2px"
+PASS  square: spec 16, measured 16
+PASS  square height: spec 16, measured 16
+PASS  square gap: spec "3.2px", measured "3.2px"
+PASS  square radius: spec "3.2px", measured "3.2px"
+PASS  month label: spec "8.8px", measured "8.8px"
+PASS  day label: spec "9.2px", measured "9.2px"
+PASS  legend: spec "8.8px", measured "8.8px"
+PASS  arrow: spec 16, measured 16
+PASS  count card width: spec 472, measured 472
+PASS  count card padding: spec "9px 10px", measured "9px 10px"
+PASS  count card radius: spec "10px", measured "10px"
+PASS  remaining number: spec "19.2px", measured "19.2px"
+PASS  remaining word: spec "10.4px", measured "10.4px"
+PASS  open/rotting/closed button: spec 18.4, measured 18.4
+PASS  open/rotting/closed text: spec "10px", measured "10px"
+PASS  rotting circle: spec 13.6, measured 13.6
+PASS  rotting circle colour: spec "rgb(232, 162, 58)", measured "rgb(232, 162, 58)"
+PASS  bar: spec 4, measured 4
+PASS  filter icon button: spec 22, measured 22
+PASS  segment: spec 19, measured 19
+PASS  segment text: spec "11.5px", measured "11.5px"
+PASS  project dropdown: spec 22, measured 22
+PASS  row height: spec 31, measured 31
+PASS  row title: spec "12.5px", measured "12.5px"
+PASS  row padding: spec "0px 8px", measured "0px 8px"
+PASS  row radius: spec "8px", measured "8px"
+PASS  row gap: spec "8px", measured "8px"
+PASS  open status circle: spec 11, measured 11
+PASS  filled status circle: spec 12, measured 12
+PASS  label icon: spec 12, measured 12
+PASS  1/5: spec "11px", measured "11px"
+PASS  project name: spec "11.5px", measured "11.5px"
+PASS  time: spec "11.5px", measured "11.5px"
+PASS  sub-loop row: spec 26, measured 26
+PASS  sub-loop title: spec "12px", measured "12px"
+PASS  sub-loop indent: spec "21px", measured "21px"
+PASS  opened row colour: spec "rgb(51, 51, 51)", measured "rgb(51, 51, 51)"
+PASS  opened row radius: spec "8px 8px 0px 0px", measured "8px 8px 0px 0px"
+PASS  box colour: spec "rgb(51, 51, 51)", measured "rgb(51, 51, 51)"
+PASS  box radius: spec "0px 0px 8px 8px", measured "0px 0px 8px 8px"
+PASS  box padding: spec "2px 8px 7px", measured "2px 8px 7px"
+PASS  box full width: spec true, measured "461 vs 461"
+PASS  description: spec "12px", measured "12px"
+PASS  status note: spec "11.5px", measured "11.5px"
+PASS  status note colour: spec "rgb(142, 142, 142)", measured "rgb(142, 142, 142)"
+PASS  note clock: spec 11, measured 11
+PASS  description line height (1.45): spec "17.4px", measured "17.4px"
+PASS  status note line height (1.45): spec "16.675px", measured "16.675px"
+PASS  current streak outline not cut: spec true, measured true
+PASS  between description and note: spec "6px", measured "6px"
+PASS  date: spec "23.4px", measured "23.4px"
+PASS  pinned card height: spec "83px", measured "83px"
+PASS  pinned card padding: spec "14px", measured "14px"
+PASS  pinned card radius: spec "14px", measured "14px"
+PASS  pinned card name: spec "12.6px", measured "12.6px"
+PASS  pinned card time: spec "11.7px", measured "11.7px"
+PASS  pinned card gap: spec "11px", measured "11px"
+PASS  project row name: spec "12.6px", measured "12.6px"
+PASS  project row padding: spec "9px 11px", measured "9px 11px"
+PASS  project row time: spec "11.7px", measured "11.7px"
+PASS  section label: spec "12px", measured "12px"
+PASS  search box width: spec 171, measured 171
+PASS  search box height: spec 23, measured 23
+PASS  search box radius: spec "6px", measured "6px"
+PASS  search text: spec "11.7px", measured "11.7px"
+PASS  the page itself does not scroll: spec true, measured true
+
+77 match, 0 differ

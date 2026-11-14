@@ -385,6 +385,7 @@ interface AftertermAPI {
   pty: AftertermPtyAPI;
   // Agent harness only: rejects outside a harness run (AFTERTERM_HARNESS=1).
   harness: {
+    setSize(size: { width: number; height: number }): Promise<unknown>;
     windowHome(sim?: { event?: string; displays?: unknown[]; windowDisplayId?: number }): Promise<unknown>;
     // The toast hold's state in main (AFT-72).
     notifier(): Promise<unknown>;

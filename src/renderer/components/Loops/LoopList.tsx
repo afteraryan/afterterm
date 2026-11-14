@@ -29,7 +29,7 @@ export interface LoopListProps {
   variant: 'list' | 'card';
   // Changes when the filter changes: the rows then fade up into place.
   enterKey?: number;
-  emptyText?: string;
+  emptyText?: string | null; // null: nothing at all when there are no rows
   onOpenChat: (loop: Loop) => void;
   onToast?: (message: string, actionLabel?: string, onAction?: () => void) => void;
 }
@@ -225,7 +225,7 @@ export function LoopList({ loops, rows, groups, now, variant, enterKey, emptyTex
   return (
     <div ref={rootRef} className={`lp-list lp-${variant}`} data-loop-list={variant}>
       {rows.length === 0 ? (
-        <div className="lp-empty">{emptyText ?? 'No loops'}</div>
+        emptyText === null ? null : <div className="lp-empty">{emptyText ?? 'No loops'}</div>
       ) : (
         rows.map((l, n) => {
           const isOpen = opened.has(l.id);

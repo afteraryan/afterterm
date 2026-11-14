@@ -25,3 +25,18 @@ export function useMinuteClock(): number {
   }, []);
   return now;
 }
+
+// The streak calendar's counts (activity-store.ts in main): messages sent to Claude
+// per local day, kept current from `activity:changed`.
+export function useActivityDays(): Record<string, number> {
+  const [days, setDays] = useState<Record<string, number>>({});
+  useEffect(() => {
+    const api = window.afterterm?.activity;
+    if (!api) return;
+    let alive = true;
+    const off = api.onChange((s) => { if (alive) setDays(s.days); });
+    api.get().then((s) => { if (alive) setDays(s.days); }).catch(() => { /* the next change brings it */ });
+    return () => { alive = false; off(); };
+  }, []);
+  return days;
+}

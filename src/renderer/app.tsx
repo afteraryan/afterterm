@@ -47,8 +47,8 @@ import type { PaneTarget } from './splitView';
 import type { FileLinkContext, FileLinkTarget } from './components/Terminal/fileLinks';
 import type { MenuItem } from './components/Menu';
 import { EditorLogo, IconExplorer } from './components/Icons';
-import { loopsContextFrom, openChatPlan } from './loopsView';
-import { useLoops } from './hooks/useLoops';
+import { loopsContextFrom, NO_FILTER, openChatPlan, type LoopFilter } from './loopsView';
+import { useActivityDays, useLoops } from './hooks/useLoops';
 import type { Loop } from '../loops';
 
 let toastCounter = 0;
@@ -1417,6 +1417,18 @@ export function App() {
     showToast({ message, actionLabel, onAction });
   }, [showToast]);
   const loops = useLoops();
+  const activityDays = useActivityDays();
+  // Home's Progress column: open or closed (remembered per viewer in local storage,
+  // a convenience only) and its filter, here so the workspace card's rotting and All
+  // buttons can open it filtered.
+  const [progressOpen, setProgressOpenState] = useState<boolean>(() => {
+    try { return localStorage.getItem('afterterm.progressOpen') !== 'false'; } catch { return true; }
+  });
+  const setProgressOpen = useCallback((open: boolean) => {
+    setProgressOpenState(open);
+    try { localStorage.setItem('afterterm.progressOpen', String(open)); } catch { /* not kept */ }
+  }, []);
+  const [progressFilter, setProgressFilter] = useState<LoopFilter>(NO_FILTER);
 
   // The last lines of a terminal that is about to be destroyed. A sleeping thread's
   // tail is what its pane shows and what it replays on waking, so it is both kept in
@@ -1809,6 +1821,11 @@ export function App() {
           actions={projectActions}
           onNewProject={() => setProjectModal({ mode: 'create' })}
           loops={loops}
+          days={activityDays}
+          progressOpen={progressOpen}
+          setProgressOpen={setProgressOpen}
+          filter={progressFilter}
+          setFilter={setProgressFilter}
           onOpenLoopChat={openLoopChat}
           onToast={loopToast}
         />
