@@ -266,7 +266,7 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
   function card() {
     var title = cfg.remaining === 'title' ? 'Loops <span class="t-count">' + REMAINING + '</span>' : 'Loops';
     return '<div class="lp" id="lp"><div class="lp-head"><span class="lp-title">' + title + '</span>' + rotButton() +
-      '<button type="button" class="lp-hbtn" data-act="shrink" aria-label="Shrink">' + I.shrink + '</button></div>' +
+      '</div>' +
       '<div class="lp-list">' + LOOPS.slice(0, 5).map(loopHtml).join('') + '</div>' +
       foot() + '</div>';
   }
@@ -287,7 +287,7 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
       ['afterterm', 'minimi-windows', 'afterthought'].map(function (p) { return '<span class="tile" style="background:' + P[p] + '">' + p[0].toUpperCase() + '</span>'; }).join('');
     var header = '<div class="header"><span class="h-ic">' + I.chat + '</span><div class="h-txt"><div class="h-name">' + esc(activeChat) + '</div>' +
       '<div class="h-meta"><b>' + esc(activeProject) + '</b> · Opus 5.5 · loops-idea</div></div>' +
-      '<button type="button" class="h-loops' + (s ? '' : ' on') + '" data-act="toggle" data-target="1">' + I.loops + '<span class="cnt">' + REMAINING + '</span></button>' +
+      '<button type="button" class="h-loops' + (s ? '' : ' on') + '" data-act="toggle" data-target="1" title="Loops  Ctrl+Shift+L">' + I.loops + '<span class="cnt">' + REMAINING + '</span></button>' +
       '<span class="h-btn">' + I.code + '</span><span class="h-btn">' + I.dots + '</span></div>';
     stage.innerHTML =
       '<div class="titlebar"><span class="name">afterterm</span><span>0.16.0</span><span class="grow"></span><span class="caps"><span>—</span><span>☐</span><span>✕</span></span></div>' +
@@ -385,7 +385,10 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     var sc = parseFloat(stage.dataset.scale) || 1, r = stage.getBoundingClientRect();
     showMenu(menuItems(menuFor), Math.min((e.clientX - r.left) / sc, 1280 - 360), Math.min((e.clientY - r.top) / sc, 780 - 140), 0);
   });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeMenu(); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeMenu();
+    if (e.ctrlKey && e.shiftKey && (e.key === 'L' || e.key === 'l')) { e.preventDefault(); setShrunk(cfg.shrunk !== 'yes'); }
+  });
   document.addEventListener('click', function (e) { if (!e.target.closest('.menu')) closeMenu(); });
 
   stage.addEventListener('click', function (e) {
