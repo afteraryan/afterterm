@@ -269,12 +269,11 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
   /* a maximized window on a 1920x1080 screen: 1080 less the 48px taskbar */
   var SW = 1920, SH = 1032, TASKBAR = 48;
   var OPTIONS = [
-    { key: 'months', name: 'Calendar', values: [['4', '4 months'], ['5', '5 months']] },
-    { key: 'progressWidth', name: 'Progress width', values: [['472', '472px, as now'], ['425', '425px, as at 90%']] }
+
   ];
   /* final choices, kept in the config as agreed */
-  var cfg = { layout: 'progress', pinned: 'slim', projects: 'two', activity: 'any', position: 'right', featureIcon: 'box', labelIcons: 'icons', loopsWidth: 472, zoom: 'actual', months: '4', progressWidth: '472' };
-  try { var sv = JSON.parse(localStorage.getItem('loops-home5-cfg') || 'null'); if (sv) { if (sv.months) cfg.months = sv.months; if (sv.progressWidth) cfg.progressWidth = sv.progressWidth; } } catch (e) {}
+  var cfg = { layout: 'progress', pinned: 'slim', projects: 'two', activity: 'any', position: 'right', featureIcon: 'box', labelIcons: 'icons', loopsWidth: 472, zoom: 'actual', months: '5', progressWidth: '472' };
+  try { var sv = JSON.parse(localStorage.getItem('loops-home5-cfg') || 'null'); if (sv) { } } catch (e) {}
 
   var PROJ = {
     'job-hunt': { c: '#f05a5a', g: 'bell' }, 'Revy App': { c: '#e8b931', g: 'folder' }, 'afterterm': { c: '#5b8def', g: 'robot' }, 'minimi-windows': { c: '#e46ab4', g: 'robot' },
@@ -403,12 +402,14 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     var s = streaks();
     /* four whole months: this month and the three before it (weekOffset counts months back) */
     var DAY = 86400000;
-    var endMonth = new Date(TODAY.getFullYear(), TODAY.getMonth() - weekOffset + 1, 0);
-    var startMonth = new Date(endMonth.getFullYear(), endMonth.getMonth() - (+cfg.months - 1), 1);
+    /* 22 weeks (about five months) ending with this week; each arrow moves four weeks */
+    var WEEKS = 22;
+    var endMonth = new Date(TODAY); endMonth.setDate(TODAY.getDate() + (6 - TODAY.getDay()) - weekOffset * 28);
+    var startMonth = new Date(endMonth); startMonth.setDate(endMonth.getDate() - (WEEKS * 7 - 1));
     var gridStart = new Date(startMonth); gridStart.setDate(startMonth.getDate() - startMonth.getDay());
     var gridEnd = new Date(endMonth); gridEnd.setDate(endMonth.getDate() + (6 - endMonth.getDay()));
     /* always 19 columns, so the squares and the card never change size; four months never need more */
-    var weeks = +cfg.months === 5 ? 24 : 19;
+    var weeks = WEEKS;
     var gap = 4, size = Math.max(8, Math.min(24, Math.floor((width - 34 - 30 - (weeks - 1) * gap) / weeks)));
     var names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     var tmpl = 'grid-template-columns:30px repeat(' + weeks + ', ' + size + 'px);--c:' + size + 'px;gap:' + gap + 'px';
@@ -417,7 +418,7 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     for (var w = 0; w < weeks; w++) {
       var label = '';
       for (var d = 0; d < 7; d++) { var dt = dateAt(w, d); if (dt.getDate() === 1 && dt >= startMonth && dt <= endMonth) label = dt.toLocaleString('en-GB', { month: 'short' }); }
-      if (w === 0) label = startMonth.toLocaleString('en-GB', { month: 'short' });
+      if (w === 0 && startMonth.getDate() <= 18) label = startMonth.toLocaleString('en-GB', { month: 'short' });
       months += '<span class="mo">' + label + '</span>';
     }
     var cells = '';
