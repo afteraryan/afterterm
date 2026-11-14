@@ -10,6 +10,7 @@
 import React, { useEffect, useState } from 'react';
 import { REPO_URL, errorText, lastCheckedText, percent } from '../../../update-check';
 import type { UpdateState } from '../../../update-check';
+import { FEEDBACK_URL, feedbackUrl } from '../../../feedback';
 import { AppLogo, IconChevD } from '../Icons';
 import { UpdateDialog } from '../UpdateDialog';
 import { ReleaseNotesList, notesOf } from '../UpdateNotes';
@@ -91,6 +92,7 @@ export function AboutWindow({ update, onClose, onRestart }: AboutWindowProps) {
           </button>
           <div className="links">
             <a href={REPO_URL} onClick={e => { e.preventDefault(); window.afterterm.shell.openExternal(REPO_URL); }}>afterterm on GitHub</a>
+            <a href={FEEDBACK_URL} data-about-feedback="" onClick={e => { e.preventDefault(); window.afterterm.shell.openExternal(feedbackUrl(update.current)); }}>Send feedback</a>
           </div>
           <div className="up-dbtns"><button className="b p s" onClick={close}>Close</button></div>
         </>
