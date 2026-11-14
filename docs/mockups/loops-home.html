@@ -1,0 +1,404 @@
+<title>Loops on Home</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: a control bar, then afterterm's Home screen drawn at 1280x820 and scaled to fit, with a loops section in it. Single dark look, like the app. Solid colours only: no tinted washes. */
+:root {
+  color-scheme: dark;
+  --bg: #212121; --pane: #191919; --side: #171717; --hover: #2f2f2f; --hover2: #383838; --raise: #2f2f2f; --line: #2a2a2a;
+  --text: #ececec; --text2: #b4b4b4; --text3: #8e8e8e; --text4: #5c5c5c;
+  --btn: #ececec; --btn-text: #0d0d0d;
+  --green: #4ade80; --green-ink: #06170b;
+  --rot: #e8a23a; --ink: #141414;
+  --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'Cascadia Code', 'Cascadia Mono', Consolas, monospace;
+}
+[hidden] { display: none !important; }
+html, body { background: var(--side); color: var(--text); }
+body { font-family: var(--sans); font-size: 14px; line-height: 1.45; margin: 0; }
+* { box-sizing: border-box; }
+button { font: inherit; color: inherit; }
+button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
+
+.wrap { padding-block: 16px 32px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 14px; max-width: 1400px; margin: 0 auto; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: flex-start; }
+.ctl { display: grid; gap: 6px; min-width: 0; }
+.ctl-name { font-size: 11px; color: var(--text3); letter-spacing: .04em; text-transform: uppercase; }
+.seg { display: inline-flex; flex-wrap: wrap; background: var(--pane); border: 1px solid var(--line); border-radius: 9px; padding: 2px; gap: 2px; }
+.seg button { background: none; border: 0; border-radius: 7px; padding: 5px 10px; font-size: 13px; color: var(--text2); cursor: pointer; white-space: nowrap; }
+.seg button:hover { color: var(--text); background: var(--hover); }
+.seg button[aria-pressed="true"] { background: var(--btn); color: var(--btn-text); }
+
+.stage-box { position: relative; width: 100%; overflow: hidden; border-radius: 12px; border: 1px solid var(--line); }
+.stage { position: absolute; left: 0; top: 0; width: 1280px; height: 820px; transform-origin: 0 0; background: var(--side); display: grid; grid-template-rows: 32px 1fr; overflow: hidden; }
+.titlebar { display: flex; align-items: center; gap: 10px; padding-left: 14px; font-size: 12px; color: var(--text3); }
+.titlebar .name { color: var(--text2); }
+.titlebar .grow { flex: 1; }
+.caps { display: flex; height: 100%; }
+.caps span { width: 46px; display: grid; place-items: center; }
+.body { display: grid; grid-template-columns: 76px 1fr; min-height: 0; }
+.rail { display: flex; flex-direction: column; align-items: center; gap: 6px; padding-top: 10px; }
+.rail-btn { width: 40px; height: 36px; border-radius: 10px; display: grid; place-items: center; color: var(--text3); }
+.rail-btn.on { background: var(--hover); color: var(--text); }
+.rail-sep { width: 32px; height: 1px; background: var(--line); margin: 4px 0; }
+.tile { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; font-size: 13px; font-weight: 500; color: #111; }
+
+.screen { background: var(--bg); border-radius: 16px 0 0 0; overflow-y: auto; min-height: 0; scrollbar-width: thin; scrollbar-color: #444 transparent; }
+.home { margin: 0 auto; padding: 28px 24px 60px; display: flex; flex-direction: column; gap: 36px; }
+.home.one { max-width: 680px; }
+.home.two { max-width: 1100px; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 40px; align-items: start; }
+.colm { display: flex; flex-direction: column; gap: 36px; min-width: 0; }
+.date { margin: 0; font-size: 26px; font-weight: 500; letter-spacing: -.01em; }
+.tot { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+.sig { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px; border-radius: 7px; background: var(--hover); font-size: 12.5px; color: var(--text2); font-variant-numeric: tabular-nums; }
+.lasthere { color: var(--text3); font-size: 12.5px; margin-top: 8px; }
+.lbl { font-size: 13px; color: var(--text3); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+.lbl .grow { flex: 1; }
+.cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.cd { background: var(--raise); border-radius: 16px; padding: 16px 16px 14px; display: flex; flex-direction: column; gap: 14px; min-height: 92px; }
+.cd .hd { display: flex; align-items: center; gap: 10px; font-weight: 500; }
+.cd .f { display: flex; gap: 12px; color: var(--text3); font-size: 13px; margin-top: auto; }
+.cd .f .ago { margin-left: auto; }
+.pic { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; color: #111; font-size: 12px; font-weight: 500; flex: none; }
+.pr { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 10px; }
+.pr .n { flex: 1; font-weight: 500; }
+.pr .t { color: var(--text3); font-size: 13px; }
+.more { color: var(--text3); padding: 9px 12px; font-size: 13px; }
+
+/* loops section */
+.lhead-btn { height: 24px; padding: 0 9px; border-radius: 7px; border: 0; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.rot { background: var(--rot); color: var(--ink); font-weight: 500; }
+.rot:hover { background: #f3b04c; }
+.allb { background: var(--btn); color: var(--btn-text); font-weight: 500; height: 22px; font-size: 11.5px; }
+.allb:hover { background: #fff; }
+.pill-n { color: var(--text2); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.pill-n b { color: var(--text); font-weight: 500; }
+
+.lbox { background: var(--raise); border-radius: 16px; padding: 6px; }
+.lbox.flat { background: none; padding: 0; }
+.rows { display: flex; flex-direction: column; gap: 1px; }
+.row { display: flex; align-items: center; gap: 10px; padding: 0 10px; height: 38px; border-radius: 10px; cursor: pointer; min-width: 0; border: 0; background: none; text-align: left; width: 100%; color: var(--text); flex: none; }
+.row:hover, .row.open-row { background: var(--hover2); }
+.lbox.flat .row:hover, .lbox.flat .row.open-row { background: var(--hover); }
+.row .t1 { flex: 1; min-width: 0; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row.closed .t1 { color: var(--text3); }
+.row.sub { height: 32px; }
+.row.sub .t1 { font-size: 13px; }
+.pname { font-size: 12.5px; white-space: nowrap; flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; }
+.when { font-size: 12.5px; color: var(--text3); flex: none; width: 28px; text-align: right; font-variant-numeric: tabular-nums; }
+.st { width: 16px; height: 16px; flex: none; display: grid; place-items: center; }
+.st-open { width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid var(--text3); }
+.st-closed { width: 15px; height: 15px; border-radius: 50%; background: var(--green); display: grid; place-items: center; color: var(--green-ink); }
+.frac { font-size: 11.5px; color: var(--text3); font-variant-numeric: tabular-nums; flex: none; padding: 2px 5px; border-radius: 5px; }
+.frac:hover { background: #444; color: var(--text); }
+.det { margin: 2px 0 8px 36px; display: grid; gap: 8px; padding-right: 10px; }
+.det-meta { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text3); }
+.det-meta .k { display: inline-flex; align-items: center; gap: 5px; color: var(--text2); }
+.det-note { font-size: 13px; color: var(--text2); }
+.subs { display: flex; flex-direction: column; gap: 1px; margin-left: 26px; }
+.subs .det { margin-left: 26px; }
+
+.bar { display: flex; align-items: center; gap: 10px; padding: 10px 10px 6px; }
+.barbox { flex: 1; display: grid; gap: 7px; font-size: 12.5px; color: var(--text2); }
+.barbox b { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
+.track { height: 5px; border-radius: 3px; background: #444; overflow: hidden; display: block; }
+.track i { display: block; height: 100%; background: var(--green); }
+.lbox.flat .track { background: #3a3a3a; }
+
+.grp { display: flex; flex-direction: column; gap: 1px; }
+.grp + .grp { margin-top: 10px; }
+.grp-h { display: flex; align-items: center; gap: 8px; padding: 4px 10px; font-size: 12.5px; color: var(--text2); }
+.grp-h i { width: 9px; height: 9px; border-radius: 3px; }
+.grp-h .c { color: var(--text3); margin-left: auto; font-variant-numeric: tabular-nums; }
+
+.lcards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.lcard { background: var(--raise); border-radius: 14px; padding: 12px 14px; display: grid; gap: 10px; border: 0; text-align: left; cursor: pointer; color: var(--text); min-width: 0; }
+.lcard:hover { background: var(--hover2); }
+.lcard .top { display: flex; gap: 10px; align-items: flex-start; min-width: 0; }
+.lcard .tt { font-size: 13.5px; line-height: 1.35; min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.lcard .ft { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--text3); }
+.lcard .ft .grow { flex: 1; }
+.lcard.closed .tt { color: var(--text3); }
+
+.summary { background: var(--raise); border-radius: 16px; padding: 16px; display: grid; gap: 12px; }
+.summary .big { display: flex; align-items: baseline; gap: 8px; }
+.summary .big b { font-size: 30px; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; }
+.summary .big span { color: var(--text2); }
+.summary .split { display: flex; gap: 16px; font-size: 12.5px; color: var(--text2); }
+.summary .split b { color: var(--text); font-weight: 500; }
+.summary .actions { display: flex; gap: 8px; }
+
+.menu { position: absolute; z-index: 30; min-width: 176px; background: #2f2f2f; border: 1px solid #3d3d3d; border-radius: 10px; padding: 4px; box-shadow: 0 10px 28px #000; display: flex; flex-direction: column; }
+.menu button { border: 0; background: none; text-align: left; padding: 6px 10px; border-radius: 7px; font-size: 13px; color: var(--text); cursor: pointer; display: flex; align-items: center; gap: 8px; }
+.menu button .lbl2 { flex: 1; }
+.menu button .chev { color: var(--text3); }
+.menu button .chk { width: 12px; }
+.menu button:hover, .menu button.hl { background: #3d3d3d; }
+.menu .sep { height: 1px; background: #3d3d3d; margin: 4px 6px; }
+.menu .danger { color: #f87171; }
+.toast { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--btn); color: var(--btn-text); font-size: 13px; padding: 7px 14px; border-radius: 999px; z-index: 40; }
+
+.cfg { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+.cfg pre { margin: 0; flex: 1; min-width: 0; background: var(--pane); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-family: var(--mono); font-size: 12px; color: var(--text2); overflow-x: auto; white-space: pre; }
+.copy { border: 0; border-radius: 10px; background: var(--btn); color: var(--btn-text); padding: 0 18px; font-size: 13px; font-weight: 500; cursor: pointer; min-height: 40px; }
+</style>
+
+<div class="wrap">
+  <div class="controls" id="controls"></div>
+  <div class="stage-box" id="stageBox"><div class="stage" id="stage"></div></div>
+  <div class="cfg"><pre id="cfgOut"></pre><button class="copy" id="copyBtn" type="button">Copy config</button></div>
+</div>
+
+<script>
+(function () {
+  var OPTIONS = [
+    { key: 'position', name: 'Place on Home', values: [['top', 'Above Pinned'], ['middle', 'Between Pinned and Projects'], ['bottom', 'Below Projects'], ['side', 'Column on the right']] },
+    { key: 'form', name: 'Shape', values: [['rows', 'Rows'], ['byProject', 'By project'], ['cards', 'Cards'], ['summary', 'Counts only']] },
+    { key: 'surface', name: 'Surface', values: [['flat', 'Flat'], ['box', 'On a card']] },
+    { key: 'count', name: 'How many', values: [['5', '5'], ['8', '8']] },
+    { key: 'when', name: 'Last update', values: [['shown', 'Shown'], ['hidden', 'Hidden']] },
+    { key: 'pill', name: 'Pill in the counts', values: [['none', 'None'], ['remaining', 'Remaining'], ['rotting', 'Rotting']] }
+  ];
+  var cfg = { position: 'middle', form: 'rows', surface: 'flat', count: '5', when: 'shown', pill: 'none' };
+  try { var sv = JSON.parse(localStorage.getItem('loops-home-cfg') || 'null'); if (sv) for (var k in sv) if (k in cfg) cfg[k] = sv[k]; } catch (e) {}
+
+  var P = { 'afterterm': '#5b8def', 'minimi-windows': '#e07a5f', 'afterthought': '#9b7ede', 'canvas-agent': '#4fb3a4', 'General': '#8e8e8e', 'transcript-fetcher-clone': '#d4a24c', 'aftertales': '#e46a9a' };
+  var LOOPS = [
+    { t: 'Loops always-visible view', p: 'afterterm', s: 'open', k: 'Feature', when: '2m', note: 'Card agreed. Home next.', subs: [
+      { t: 'Design doc', s: 'closed', k: 'Feature', when: '1h', note: 'Decisions on AFT-82.' },
+      { t: 'Mock of the loops card', s: 'closed', k: 'Feature', when: '5m', note: 'Setup picked.' },
+      { t: 'Loops on Home', s: 'open', k: 'Feature', when: '2m', note: 'Configurable mock.' },
+      { t: 'afterterm loops CLI', s: 'open', k: 'Idea', when: '3h', note: 'list, new, update, close, ping.' },
+      { t: 'Loops screen', s: 'open', k: 'Idea', when: '1h', note: 'After Home.' } ] },
+    { t: 'Header shows the old model', p: 'afterterm', s: 'closed', k: 'Bug', when: '40m', note: 'Merged in PR #98.' },
+    { t: 'Snapshot calendar on Windows', p: 'minimi-windows', s: 'open', k: 'Feature', when: '5h', note: 'Week view left.', subs: [
+      { t: 'Calendar permissions', s: 'closed', k: 'Feature', when: '1d', note: 'Works on Windows 11.' },
+      { t: 'Week view', s: 'open', k: 'Feature', when: '5h', note: 'Layout done, events missing.' } ] },
+    { t: 'GitHub poll page', p: 'afterthought', s: 'open', k: 'Feature', when: '1d', note: 'Poll form built, results page next.' },
+    { t: 'Rail tile order', p: 'afterterm', s: 'open', k: 'Bug', when: '2d', note: 'Waiting on the order picker design.', subs: [
+      { t: 'Group pinned tiles', s: 'closed', k: 'Bug', when: '3d', note: 'Done.' },
+      { t: 'Order picker', s: 'open', k: 'Idea', when: '2d', note: 'Three options to mock.' },
+      { t: 'Badge meanings', s: 'closed', k: 'Bug', when: '2d', note: 'Tooltips added.' } ] },
+    { t: 'Memory between canvas sessions', p: 'canvas-agent', s: 'open', k: 'Idea', when: '2d', note: 'Store a summary per board.' },
+    { t: 'Daily Chrome activity summary', p: 'General', s: 'open', k: 'Idea', when: '2d', note: 'Read history, summarise each evening.' },
+    { t: 'Usage in the title bar', p: 'afterterm', s: 'closed', k: 'Feature', when: '2d', note: 'Shipped in 0.16.0.' },
+    { t: 'Transcript fetcher clone', p: 'transcript-fetcher-clone', s: 'open', k: 'Feature', when: '2d', note: 'Fetch works, export left.' }
+  ];
+  var ROTTING = 4;
+  function counts() {
+    var open = LOOPS.filter(function (l) { return l.s === 'open'; }).length, closed = LOOPS.length - open;
+    return { open: open, closed: closed, remaining: open + ROTTING };
+  }
+  var opened = {};
+
+  var I = {
+    rot: '<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="5.5"/><path d="M7 4v3.2l2 1.3"/></svg>',
+    tick: '<svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5.2l2 2L8 3"/></svg>',
+    loops: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="5.5" cy="8" r="3.5"/><circle cx="10.5" cy="8" r="3.5"/></svg>',
+    Feature: '<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M7 1.5l1.7 3.6 3.8.5-2.8 2.6.7 3.8L7 10.2 3.6 12l.7-3.8L1.5 5.6l3.8-.5z"/></svg>',
+    Bug: '<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><rect x="4" y="4" width="6" height="8" rx="3"/><path d="M2 6h2M10 6h2M2 10h2M10 10h2M5 3l1 1M9 3L8 4"/></svg>',
+    Idea: '<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M5 10.5h4M5.5 12.5h3M7 1.5a4 4 0 0 0-2.3 7.3c.3.2.3.5.3.7v1h4v-1c0-.2 0-.5.3-.7A4 4 0 0 0 7 1.5z"/></svg>',
+    panel: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="3" width="12" height="10" rx="2"/><path d="M6 3v10"/></svg>',
+    search: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>',
+    plus: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>',
+    home: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M2.5 7L8 2.5 13.5 7v6.5h-11z"/></svg>',
+    chev: '<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 2l3 3-3 3"/></svg>',
+    need: '<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="#fbbf24" stroke-width="1.6" stroke-linecap="round"><path d="M7 2.5v5M7 10.5v.5"/></svg>',
+    play: '<svg width="11" height="11" viewBox="0 0 12 12" fill="#4ade80"><path d="M3 2l7 4-7 4z"/></svg>'
+  };
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  var controls = document.getElementById('controls');
+  OPTIONS.forEach(function (o) {
+    var d = document.createElement('div'); d.className = 'ctl';
+    d.innerHTML = '<span class="ctl-name">' + o.name + '</span><div class="seg" role="group" aria-label="' + o.name + '">' +
+      o.values.map(function (v) { return '<button type="button" id="opt-' + o.key + '-' + v[0] + '" data-k="' + o.key + '" data-v="' + v[0] + '">' + v[1] + '</button>'; }).join('') + '</div>';
+    controls.appendChild(d);
+  });
+  controls.addEventListener('click', function (e) { var b = e.target.closest('button[data-k]'); if (!b) return; cfg[b.dataset.k] = b.dataset.v; render(); });
+
+  var stage = document.getElementById('stage'), box = document.getElementById('stageBox');
+  function fit() { var s = box.clientWidth / 1280; stage.style.transform = 'scale(' + s + ')'; box.style.height = (820 * s) + 'px'; stage.dataset.scale = s; }
+  window.addEventListener('resize', fit);
+
+  function statusIcon(s) { return s === 'closed' ? '<span class="st"><span class="st-closed">' + I.tick + '</span></span>' : '<span class="st"><span class="st-open"></span></span>'; }
+  function details(l) { return '<div class="det"><div class="det-meta"><span class="k">' + I[l.k] + l.k + '</span><span>' + l.when + '</span></div><div class="det-note">' + esc(l.note) + '</div></div>'; }
+  function fracOf(l, id) {
+    if (!l.subs) return '';
+    var done = l.subs.filter(function (s) { return s.s === 'closed'; }).length;
+    return '<span class="frac">' + done + '/' + l.subs.length + '</span>';
+  }
+  function loopRow(l, i, showProject) {
+    var id = String(i), isOpen = !!opened[id];
+    var h = '<button type="button" class="row' + (l.s === 'closed' ? ' closed' : '') + (isOpen ? ' open-row' : '') + '" data-i="' + id + '">' + statusIcon(l.s) +
+      '<span class="t1">' + esc(l.t) + '</span>' + fracOf(l, id) +
+      (showProject ? '<span class="pname" style="color:' + P[l.p] + '">' + esc(l.p) + '</span>' : '') +
+      (cfg.when === 'shown' ? '<span class="when">' + l.when + '</span>' : '') + '</button>';
+    if (isOpen) {
+      h += details(l);
+      if (l.subs) h += '<div class="subs">' + l.subs.map(function (s, j) {
+        var sid = id + '.' + j, so = !!opened[sid];
+        return '<button type="button" class="row sub' + (s.s === 'closed' ? ' closed' : '') + (so ? ' open-row' : '') + '" data-i="' + sid + '">' + statusIcon(s.s) + '<span class="t1">' + esc(s.t) + '</span>' + (cfg.when === 'shown' ? '<span class="when">' + s.when + '</span>' : '') + '</button>' + (so ? details(s) : '');
+      }).join('') + '</div>';
+    }
+    return h;
+  }
+  function barHtml() {
+    var c = counts(), total = c.remaining + c.closed;
+    return '<div class="bar"><span class="barbox"><span><b>' + c.remaining + '</b> remaining</span><span class="track"><i style="width:' + (c.closed / total * 100) + '%"></i></span></span>' +
+      '<button type="button" class="lhead-btn allb" data-act="all">All</button></div>';
+  }
+  function rotBtn() { return '<button type="button" class="lhead-btn rot" data-act="rotting">' + I.rot + ROTTING + ' rotting</button>'; }
+
+  function loopsSection() {
+    var n = +cfg.count, list = LOOPS.slice(0, n), body = '';
+    if (cfg.form === 'rows') body = '<div class="rows">' + list.map(function (l) { return loopRow(l, LOOPS.indexOf(l), true); }).join('') + '</div>' + barHtml();
+    if (cfg.form === 'byProject') {
+      var order = [], by = {};
+      list.forEach(function (l) { if (!by[l.p]) { by[l.p] = []; order.push(l.p); } by[l.p].push(l); });
+      body = order.map(function (p) {
+        var open = LOOPS.filter(function (l) { return l.p === p && l.s === 'open'; }).length;
+        return '<div class="grp"><div class="grp-h"><i style="background:' + P[p] + '"></i>' + esc(p) + '<span class="c">' + open + '</span></div>' +
+          by[p].map(function (l) { return loopRow(l, LOOPS.indexOf(l), false); }).join('') + '</div>';
+      }).join('') + barHtml();
+    }
+    if (cfg.form === 'cards') {
+      body = '<div class="lcards">' + list.map(function (l) {
+        var i = LOOPS.indexOf(l);
+        return '<button type="button" class="lcard row-like' + (l.s === 'closed' ? ' closed' : '') + '" data-i="' + i + '"><span class="top">' + statusIcon(l.s) + '<span class="tt">' + esc(l.t) + '</span></span>' +
+          '<span class="ft"><span style="color:' + P[l.p] + '">' + esc(l.p) + '</span><span class="grow"></span>' + fracOf(l) + (cfg.when === 'shown' ? '<span>' + l.when + '</span>' : '') + '</span></button>';
+      }).join('') + '</div>' + barHtml();
+    }
+    if (cfg.form === 'summary') {
+      var c = counts(), total = c.remaining + c.closed;
+      return '<div><div class="lbl">Loops</div><div class="summary"><div class="big"><b>' + c.remaining + '</b><span>remaining</span></div>' +
+        '<span class="track"><i style="width:' + (c.closed / total * 100) + '%"></i></span>' +
+        '<div class="split"><span><b>' + c.open + '</b> open</span><span><b>' + ROTTING + '</b> rotting</span><span><b>' + c.closed + '</b> closed</span></div>' +
+        '<div class="actions">' + rotBtn() + '<button type="button" class="lhead-btn allb" data-act="all" style="height:24px;font-size:12px">All</button></div></div></div>';
+    }
+    var surface = cfg.form === 'cards' ? 'lbox flat' : (cfg.surface === 'box' ? 'lbox' : 'lbox flat');
+    return '<div><div class="lbl">Loops<span class="grow"></span>' + rotBtn() + '</div><div class="' + surface + '">' + body + '</div></div>';
+  }
+
+  function render() {
+    var c = counts();
+    var pills = '<span class="sig">' + I.need + '2</span><span class="sig">' + I.play + '1</span>' +
+      (cfg.pill === 'remaining' ? '<span class="sig">' + I.loops + c.remaining + '</span>' : '') +
+      (cfg.pill === 'rotting' ? '<span class="sig" style="background:var(--rot);color:var(--ink)">' + I.rot + ROTTING + '</span>' : '');
+    var head = '<div><h1 class="date">Saturday, 14 November</h1><div class="tot">' + pills + '</div><div class="lasthere">Last here 2d ago</div></div>';
+    var pinned = '<div><div class="lbl">Pinned</div><div class="cards">' + ['afterterm', 'minimi-windows'].map(function (p, n) {
+      return '<div class="cd"><div class="hd"><span class="pic" style="background:' + P[p] + '">' + p[0].toUpperCase() + '</span>' + p + '</div><div class="f"><span>' + (n ? '2 threads' : '6 threads') + '</span><span class="ago">' + (n ? '5h' : '2m') + '</span></div></div>';
+    }).join('') + '</div></div>';
+    var projects = '<div><div class="lbl">Projects</div>' + ['afterthought', 'canvas-agent', 'transcript-fetcher-clone', 'aftertales'].map(function (p, n) {
+      return '<div class="pr"><span class="pic" style="background:' + P[p] + '">' + p[0].toUpperCase() + '</span><span class="n">' + p + '</span><span class="t">' + ['1d', '2d', '2d', '6d'][n] + '</span></div>';
+    }).join('') + '<div class="more">Show more</div></div>';
+    var loops = loopsSection(), inner;
+    if (cfg.position === 'side') inner = '<div class="home two"><div class="colm">' + head + pinned + projects + '</div><div class="colm" style="padding-top:6px">' + loops + '</div></div>';
+    else {
+      var parts = [head];
+      if (cfg.position === 'top') parts.push(loops, pinned, projects);
+      if (cfg.position === 'middle') parts.push(pinned, loops, projects);
+      if (cfg.position === 'bottom') parts.push(pinned, projects, loops);
+      inner = '<div class="home one">' + parts.join('') + '</div>';
+    }
+    var rail = '<span class="rail-btn">' + I.panel + '</span><span class="rail-btn">' + I.search + '</span><span class="rail-btn">' + I.plus + '</span><span class="rail-sep"></span><span class="rail-btn on">' + I.home + '</span><span class="rail-sep"></span>' +
+      ['afterterm', 'minimi-windows'].map(function (p) { return '<span class="tile" style="background:' + P[p] + '">' + p[0].toUpperCase() + '</span>'; }).join('');
+    var keep = stage.querySelector('.screen'), top = keep ? keep.scrollTop : 0;
+    stage.innerHTML = '<div class="titlebar"><span class="name">afterterm</span><span>0.16.0</span><span class="grow"></span><span class="caps"><span>—</span><span>☐</span><span>✕</span></span></div>' +
+      '<div class="body"><div class="rail">' + rail + '</div><div class="screen">' + inner + '</div></div>';
+    var sc = stage.querySelector('.screen'); if (sc) sc.scrollTop = top;
+    controls.querySelectorAll('button[data-k]').forEach(function (b) { b.setAttribute('aria-pressed', String(cfg[b.dataset.k] === b.dataset.v)); });
+    document.getElementById('cfgOut').textContent = JSON.stringify(cfg, null, 2);
+    try { localStorage.setItem('loops-home-cfg', JSON.stringify(cfg)); } catch (e) {}
+    fit();
+  }
+
+  function toast(text) {
+    var old = stage.querySelector('.toast'); if (old) old.remove();
+    var t = document.createElement('div'); t.className = 'toast'; t.textContent = text; stage.appendChild(t);
+    setTimeout(function () { t.remove(); }, 1400);
+  }
+
+  /* right-click menu, the same as the card's */
+  var menuFor = null;
+  function closeMenu(from) { stage.querySelectorAll('.menu').forEach(function (m) { if (!from || +m.dataset.level >= from) m.remove(); }); }
+  function menuItems(target) {
+    var l = target.loop, st = target.item.s, sub = target.sub;
+    var update = [
+      { label: 'Status', kids: [{ id: 'status', label: 'Open', check: st === 'open' }, { id: 'status', label: 'Closed', check: st === 'closed' }] },
+      { label: 'Kind', kids: ['Feature', 'Bug', 'Idea'].map(function (k) { return { id: 'kind', label: k, check: target.item.k === k }; }) },
+      { id: 'rename', label: 'Rename' }
+    ];
+    if (!sub) update.push({ label: 'Move to project', kids: Object.keys(P).map(function (p) { return { id: 'move', label: p, check: p === l.p }; }) });
+    update.push({ id: 'archive', label: 'Archive' }, 'sep', { id: 'delete', label: 'Delete', danger: true });
+    return [{ id: 'open', label: 'Open chat' }, { id: 'close', label: st === 'closed' ? 'Reopen' : 'Close' }, 'sep', { label: 'Update', kids: update }];
+  }
+  function showMenu(items, x, y, level) {
+    closeMenu(level);
+    var menu = document.createElement('div'); menu.className = 'menu'; menu.dataset.level = level;
+    items.forEach(function (it) {
+      if (it === 'sep') { var s = document.createElement('span'); s.className = 'sep'; menu.appendChild(s); return; }
+      var b = document.createElement('button'); b.type = 'button'; if (it.danger) b.className = 'danger';
+      b.innerHTML = (it.check !== undefined ? '<span class="chk">' + (it.check ? '✓' : '') + '</span>' : '') + '<span class="lbl2">' + esc(it.label) + '</span>' + (it.kids ? '<span class="chev">' + I.chev + '</span>' : '');
+      function openKids() {
+        menu.querySelectorAll('button').forEach(function (x) { x.classList.remove('hl'); });
+        if (!it.kids) { closeMenu(level + 1); return; }
+        b.classList.add('hl');
+        var sc = parseFloat(stage.dataset.scale) || 1, r = stage.getBoundingClientRect(), br = b.getBoundingClientRect(), mr = menu.getBoundingClientRect();
+        var nx = (mr.right - r.left) / sc + 2, ny = (br.top - r.top) / sc - 5;
+        if (nx + 180 > 1280) nx = (mr.left - r.left) / sc - 182;
+        showMenu(it.kids, nx, Math.min(ny, 820 - (it.kids.length * 32 + 12)), level + 1);
+      }
+      b.addEventListener('mouseenter', openKids);
+      b.addEventListener('click', function (e) { e.stopPropagation(); if (it.kids) { openKids(); return; } act(it); });
+      menu.appendChild(b);
+    });
+    menu.style.left = x + 'px'; menu.style.top = y + 'px';
+    stage.appendChild(menu);
+  }
+  function act(it) {
+    var target = menuFor; closeMenu(); if (!target) return;
+    var l = target.loop, item = target.item;
+    if (it.id === 'open') return toast('Opens the chat');
+    if (it.id === 'close') { item.s = item.s === 'closed' ? 'open' : 'closed'; render(); return; }
+    if (it.id === 'status') { item.s = it.label === 'Closed' ? 'closed' : 'open'; render(); return; }
+    if (it.id === 'kind') { item.k = it.label; render(); return; }
+    if (it.id === 'move') { l.p = it.label; render(); return; }
+    toast(({ rename: 'Rename', archive: 'Archived', 'delete': 'Deleted' })[it.id] || it.label);
+  }
+  function findTarget(id) {
+    var parts = String(id).split('.'), l = LOOPS[+parts[0]]; if (!l) return null;
+    var sub = parts.length > 1 ? l.subs[+parts[1]] : null;
+    return { loop: l, item: sub || l, sub: !!sub };
+  }
+  stage.addEventListener('contextmenu', function (e) {
+    var row = e.target.closest('[data-i]'); if (!row) return;
+    e.preventDefault();
+    menuFor = findTarget(row.dataset.i); if (!menuFor) return;
+    var sc = parseFloat(stage.dataset.scale) || 1, r = stage.getBoundingClientRect();
+    showMenu(menuItems(menuFor), Math.min((e.clientX - r.left) / sc, 1280 - 360), Math.min((e.clientY - r.top) / sc, 820 - 140), 0);
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeMenu(); });
+  document.addEventListener('click', function (e) { if (!e.target.closest('.menu')) closeMenu(); });
+
+  stage.addEventListener('click', function (e) {
+    if (e.target.closest('.menu')) return;
+    var b = e.target.closest('[data-act], [data-i]'); if (!b) return;
+    if (b.dataset.act === 'all') return toast('Loops screen');
+    if (b.dataset.act === 'rotting') return toast('Loops screen · Rotting');
+    if (b.dataset.i !== undefined) {
+      if (b.classList.contains('lcard')) return toast('Loops screen');
+      opened[b.dataset.i] = !opened[b.dataset.i]; render();
+    }
+  });
+
+  var copyBtn = document.getElementById('copyBtn');
+  copyBtn.addEventListener('click', function () {
+    var txt = document.getElementById('cfgOut').textContent;
+    function done() { copyBtn.textContent = 'Copied'; setTimeout(function () { copyBtn.textContent = 'Copy config'; }, 1200); }
+    function fallback() { var rg = document.createRange(); rg.selectNodeContents(document.getElementById('cfgOut')); var sel = getSelection(); sel.removeAllRanges(); sel.addRange(rg); }
+    try { navigator.clipboard.writeText(txt).then(done, fallback); } catch (e) { fallback(); }
+  });
+
+  render();
+})();
+</script>
