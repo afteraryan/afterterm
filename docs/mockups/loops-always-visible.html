@@ -87,7 +87,7 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 .lp-list { overflow-y: auto; padding: 0 6px; display: flex; flex-direction: column; gap: 1px; scrollbar-width: thin; scrollbar-color: #444 transparent; }
 .row { display: flex; align-items: center; gap: 8px; padding: 0 8px; min-height: 31px; border-radius: 8px; cursor: pointer; min-width: 0; border: 0; background: none; text-align: left; width: 100%; color: var(--text); flex: none; }
 .row:hover, .row.open-row { background: var(--hover2); }
-.row .t1 { flex: 1; min-width: 0; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .t1 { flex: 1; min-width: 0; font-size: 12.5px; line-height: 1.35; padding-block: 6px; overflow-wrap: anywhere; }
 .row.closed .t1 { color: var(--text3); }
 .row.sub { min-height: 26px; }
 .row.sub .t1 { font-size: 12px; }
@@ -98,12 +98,14 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 .st-closed { width: 12px; height: 12px; border-radius: 50%; background: var(--green); display: grid; place-items: center; color: var(--green-ink); }
 .frac { font-size: 11px; color: var(--text3); font-variant-numeric: tabular-nums; flex: none; padding: 1px 4px; border-radius: 4px; }
 .frac:hover { background: #444; color: var(--text); }
-.det { margin: 3px 8px 6px 29px; background: var(--boxbg); border-radius: 8px; padding: 7px 8px; display: flex; align-items: flex-start; gap: 8px; }
+.det { margin: 3px 8px 6px 29px; background: var(--boxbg); border-radius: 8px; padding: 8px 10px; }
 .label { display: inline-flex; align-items: center; gap: 4px; height: 18px; padding: 0 6px; border-radius: 5px; background: var(--chip); color: var(--text); font-size: 11px; flex: none; }
-.dtx { display: grid; gap: 4px; min-width: 0; padding-top: 1px; }
-.desc { font-size: 12px; color: var(--text); }
-.stn { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--text3); min-width: 0; }
-.stn span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dtx { display: grid; gap: 6px; min-width: 0; }
+.desc { font-size: 12px; color: var(--text); line-height: 1.45; }
+.stn { display: flex; align-items: flex-start; gap: 6px; font-size: 11.5px; color: var(--text3); min-width: 0; line-height: 1.45; }
+.stn svg { flex: none; margin-top: 2px; }
+.kind { display: grid; place-items: center; color: var(--text3); flex: none; }
+.row.closed .kind { color: var(--text4); }
 .subs { display: flex; flex-direction: column; gap: 1px; margin-left: 21px; }
 .subs .det { margin-left: 29px; }
 
@@ -207,19 +209,19 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 
   function statusIcon(s) { return s === 'closed' ? '<span class="st"><span class="st-closed">' + I.tick + '</span></span>' : '<span class="st"><span class="st-open"></span></span>'; }
   function details(l) {
-    return '<div class="det"><span class="label">' + labelIcon(l.k) + l.k + '</span><div class="dtx"><span class="desc">' + esc(l.desc) + '</span>' +
+    return '<div class="det"><div class="dtx"><span class="desc">' + esc(l.desc) + '</span>' +
       '<span class="stn">' + I.clockS + '<span>' + esc(l.note) + '</span></span></div></div>';
   }
   function loopHtml(l, i) {
     var id = String(i), isOpen = !!opened[id], frac = '';
     if (l.subs) { var done = l.subs.filter(function (s) { return s.s === 'closed'; }).length; frac = '<span class="frac">' + done + '/' + l.subs.length + '</span>'; }
     var h = '<button type="button" class="row' + (l.s === 'closed' ? ' closed' : '') + (isOpen ? ' open-row' : '') + '" data-i="' + id + '">' + statusIcon(l.s) +
-      '<span class="t1">' + esc(l.t) + '</span>' + frac + '<span class="pname" style="color:' + pcol(l.p) + '">' + esc(l.p) + '</span><span class="when">' + l.when + '</span></button>';
+      '<span class="kind" title="' + l.k + '">' + labelIcon(l.k, 12) + '</span><span class="t1">' + esc(l.t) + '</span>' + frac + '<span class="pname" style="color:' + pcol(l.p) + '">' + esc(l.p) + '</span><span class="when">' + l.when + '</span></button>';
     if (!isOpen) return h;
     h += details(l);
     if (l.subs) h += '<div class="subs">' + l.subs.map(function (s, j) {
       var sid = id + '.' + j, so = !!opened[sid];
-      return '<button type="button" class="row sub' + (s.s === 'closed' ? ' closed' : '') + (so ? ' open-row' : '') + '" data-i="' + sid + '">' + statusIcon(s.s) + '<span class="t1">' + esc(s.t) + '</span><span class="when">' + s.when + '</span></button>' + (so ? details(s) : '');
+      return '<button type="button" class="row sub' + (s.s === 'closed' ? ' closed' : '') + (so ? ' open-row' : '') + '" data-i="' + sid + '">' + statusIcon(s.s) + '<span class="kind" title="' + s.k + '">' + labelIcon(s.k, 11) + '</span><span class="t1">' + esc(s.t) + '</span><span class="when">' + s.when + '</span></button>' + (so ? details(s) : '');
     }).join('') + '</div>';
     return h;
   }
