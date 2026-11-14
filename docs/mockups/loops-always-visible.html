@@ -8,7 +8,6 @@
   --text: #ececec; --text2: #b4b4b4; --text3: #8e8e8e; --text4: #5c5c5c;
   --btn: #ececec; --btn-text: #0d0d0d;
   --green: #4ade80; --green-ink: #06170b;
-  --rot: #d4a24c; --rot-ink: #1a1206; --rot-bg: #2b2414;
   --card: #262626;
   --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'Cascadia Code', 'Cascadia Mono', Consolas, monospace;
@@ -82,13 +81,14 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 .lp-title { font-size: 13px; font-weight: 500; flex: 1; }
 .lp-hbtn { height: 26px; min-width: 26px; padding: 0 7px; border-radius: 7px; border: 0; background: none; color: var(--text3); font-size: 12px; cursor: pointer; display: grid; place-items: center; }
 .lp-hbtn:hover { background: var(--hover2); color: var(--text); }
-.rot-line { display: flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; border-radius: 7px; border: 0; background: var(--rot-bg); color: var(--rot); font-size: 12px; cursor: pointer; }
-.rot-line:hover { background: #3a3019; }
-.rot-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--rot); }
-.rot-foot { margin: 6px 8px 8px; height: 32px; border-radius: 9px; border: 0; background: var(--rot-bg); color: var(--rot); font-size: 12px; display: flex; align-items: center; gap: 8px; padding: 0 12px; cursor: pointer; }
-.rot-foot:hover { background: #3a3019; }
+.rot-line { display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border-radius: 7px; border: 0; background: var(--hover2); color: var(--text); font-size: 12px; cursor: pointer; }
+.rot-line:hover { background: #444; }
+.rot-ic { display: grid; place-items: center; color: var(--text3); }
+.rot-foot { margin: 6px 8px 8px; height: 32px; border-radius: 9px; border: 0; background: var(--hover2); color: var(--text); font-size: 12px; display: flex; align-items: center; gap: 8px; padding: 0 12px; cursor: pointer; }
+.rot-foot:hover { background: #444; }
+.rot-foot .view { color: var(--text3); }
 .rot-foot .grow { flex: 1; }
-.rot-badge { position: absolute; top: -8px; left: -8px; min-width: 22px; height: 22px; border-radius: 11px; background: var(--rot); color: var(--rot-ink); font-size: 12px; font-weight: 500; display: grid; place-items: center; padding: 0 6px; border: 2px solid var(--bg); cursor: pointer; z-index: 2; }
+.rot-badge { position: absolute; top: -8px; left: -8px; min-width: 22px; height: 22px; border-radius: 11px; background: var(--btn); color: var(--btn-text); font-size: 12px; font-weight: 500; display: grid; place-items: center; padding: 0 6px; border: 2px solid var(--bg); cursor: pointer; z-index: 2; }
 
 .lp-list { overflow: hidden; padding: 0 6px 6px; display: flex; flex-direction: column; gap: 1px; }
 .lp-list.scroll { overflow-y: auto; scrollbar-width: thin; scrollbar-color: #444 transparent; }
@@ -119,7 +119,6 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 .strip button { width: 30px; border: 0; background: none; border-radius: 8px; color: var(--text2); display: grid; justify-items: center; gap: 4px; padding: 7px 0; cursor: pointer; font-size: 12px; }
 .strip button:hover, .strip button.on { background: var(--hover); color: var(--text); }
 .cnt { font-size: 12px; font-variant-numeric: tabular-nums; }
-.mini-rot { position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border-radius: 50%; background: var(--rot); border: 1.5px solid var(--side); }
 
 .flash { animation: flash 900ms var(--ease); }
 @keyframes flash { 0% { color: var(--green); } 100% { color: var(--text); } }
@@ -182,6 +181,7 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 
   var I = {
     loops: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="5.5" cy="8" r="3.5"/><circle cx="10.5" cy="8" r="3.5"/></svg>',
+    rot: '<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="7" cy="7" r="5.5"/><path d="M7 4v3.2l2 1.3"/></svg>',
     shrink: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l8-8M5 3h6v6"/></svg>',
     tick: '<svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5.2l2 2L8 3"/></svg>',
     feature: '<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M7 1.5l1.7 3.6 3.8.5-2.8 2.6.7 3.8L7 10.2 3.6 12l.7-3.8L1.5 5.6l3.8-.5z"/></svg>',
@@ -270,10 +270,10 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
     if (cfg.list === 'scroll' && kind === 'float') listStyle = ' style="max-height:' + (rowH() * 5 + 6) + 'px"';
     var rot = cfg.rotting;
     var head = '<div class="lp-head"><span class="lp-title">Loops</span>' +
-      (rot === 'head' ? '<button type="button" class="rot-line" data-act="rotting"><i class="rot-dot"></i>' + ROTTING + ' rotting</button>' : '') +
+      (rot === 'head' ? '<button type="button" class="rot-line" data-act="rotting"><span class="rot-ic">' + I.rot + '</span>' + ROTTING + ' rotting</button>' : '') +
       '<button type="button" class="lp-hbtn" data-act="all">All</button>' +
       '<button type="button" class="lp-hbtn" data-act="shrink" aria-label="Shrink">' + I.shrink + '</button></div>';
-    var foot = rot === 'foot' ? '<button type="button" class="rot-foot" data-act="rotting"><i class="rot-dot"></i><span class="grow">' + ROTTING + ' rotting</span><span>View</span></button>' : '';
+    var foot = rot === 'foot' ? '<button type="button" class="rot-foot" data-act="rotting"><span class="rot-ic">' + I.rot + '</span><span class="grow">' + ROTTING + ' rotting</span><span class="view">View</span></button>' : '';
     var badge = rot === 'badge' && kind === 'float' ? '<button type="button" class="rot-badge" data-act="rotting" aria-label="' + ROTTING + ' rotting">' + ROTTING + '</button>' : '';
     var sideBadge = rot === 'badge' && kind === 'side' ? '' : '';
     var listCls = 'lp-list' + (cfg.list === 'scroll' ? ' scroll' : '');
@@ -283,7 +283,7 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 
   function shrunkButton(where) {
     var on = cfg.shrunk === 'yes' ? '' : ' on';
-    var rotMark = '<i class="mini-rot"></i>';
+    var rotMark = '';
     if (where === 'header') return '<button type="button" class="h-btn loops' + on + '" data-act="toggle" data-target="1">' + I.loops + '<span class="cnt">' + OPEN_COUNT + '</span>' + rotMark + '</button>';
     if (where === 'rail') return '<button type="button" class="rail-btn loops' + on + '" data-act="toggle" data-target="1" aria-label="Loops">' + I.loops + rotMark + '</button>';
     if (where === 'titlebar') return '<button type="button" class="tb-loops' + on + '" data-act="toggle" data-target="1">' + I.loops + '<span class="cnt">' + OPEN_COUNT + '</span></button>';
