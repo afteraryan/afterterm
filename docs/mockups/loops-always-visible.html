@@ -125,7 +125,7 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 .track i { display: block; height: 100%; background: var(--green); }
 .lp-foot.tall { padding-block: 10px; align-items: flex-end; }
 .t-count { color: var(--text3); font-weight: 400; margin-left: 6px; font-variant-numeric: tabular-nums; }
-.clean { height: 26px; padding: 0 10px; border-radius: 7px; border: 0; background: var(--btn); color: var(--btn-text); font-size: 12px; font-weight: 500; cursor: pointer; }
+.clean { height: 22px; padding: 0 9px; border-radius: 6px; border: 0; background: var(--btn); color: var(--btn-text); font-size: 11.5px; font-weight: 500; cursor: pointer; }
 .clean:hover { background: #fff; }
 
 /* menus */
@@ -148,18 +148,15 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 <div class="wrap">
   <div class="controls" id="controls"></div>
   <div class="stage-box" id="stageBox"><div class="stage" id="stage"></div></div>
-  <div class="cfg"><pre id="cfgOut"></pre><button class="copy" id="copyBtn" type="button">Copy config</button></div>
+  
 </div>
 
 <script>
 (function () {
   var OPTIONS = [
-    { key: 'rotting', name: 'Rotting', values: [['solid', 'Solid'], ['icon', 'Icon'], ['badge', 'Number']] },
-    { key: 'remaining', name: 'Remaining', values: [['foot', 'Foot'], ['big', 'Big number'], ['split', 'Open and rotting'], ['bar', 'Bar'], ['title', 'In the title']] },
-    { key: 'cleanup', name: 'Clean up', values: [['shown', 'Shown'], ['hidden', 'Hidden']] },
     { key: 'shrunk', name: 'State', values: [['no', 'Open'], ['yes', 'Shrunk']] }
   ];
-  var cfg = { placement: 'floating', shrinkTo: 'header', list: 'five', row: 'oneLine', subLoops: 'count', closed: 'tickDim', kind: 'onOpen', rotting: 'solid', width: '320', remaining: 'foot', cleanup: 'shown', shrunk: 'no' };
+  var cfg = { placement: 'floating', shrinkTo: 'header', list: 'five', row: 'oneLine', subLoops: 'count', closed: 'tickDim', kind: 'onOpen', rotting: 'solid', width: '320', remaining: 'bar', cleanup: 'shown', shrunk: 'no' };
 
   var P = { 'afterterm': '#5b8def', 'minimi-windows': '#e07a5f', 'afterthought': '#9b7ede', 'canvas-agent': '#4fb3a4', 'General': '#8e8e8e', 'transcript-fetcher-clone': '#d4a24c', 'aftertales': '#e46a9a' };
   var LOOPS = [
@@ -254,14 +251,14 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
   }
   function foot() {
     var r = cfg.remaining, left = '';
-    var clean = cfg.cleanup === 'shown' ? '<button type="button" class="clean" data-act="clean">Clean up</button>' : '';
+    var clean = cfg.cleanup === 'shown' ? '<button type="button" class="clean" data-act="all">All</button>' : '';
     if (r === 'title') return clean ? '<div class="lp-foot"><span class="remain"></span>' + clean + '</div>' : '';
     if (r === 'foot') left = '<span class="remain"><b>' + REMAINING + '</b> remaining</span>';
     if (r === 'big') left = '<span class="remain big"><b>' + REMAINING + '</b>remaining</span>';
     if (r === 'split') left = '<span class="remain split"><span><b>' + OPEN + '</b> open</span><span><b>' + ROTTING + '</b> rotting</span></span>';
     if (r === 'bar') {
       var total = REMAINING + CLOSED;
-      left = '<span class="remain barbox"><span class="barline"><b>' + REMAINING + '</b> remaining<span class="grow"></span><span class="muted">' + CLOSED + ' closed</span></span>' +
+      left = '<span class="remain barbox"><span class="barline"><b>' + REMAINING + '</b> remaining</span>' +
         '<span class="track"><i style="width:' + (CLOSED / total * 100) + '%"></i></span></span>';
     }
     return '<div class="lp-foot' + (r === 'bar' ? ' tall' : '') + '">' + left + clean + '</div>';
@@ -269,7 +266,7 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
   function card() {
     var title = cfg.remaining === 'title' ? 'Loops <span class="t-count">' + REMAINING + '</span>' : 'Loops';
     return '<div class="lp" id="lp"><div class="lp-head"><span class="lp-title">' + title + '</span>' + rotButton() +
-      '<button type="button" class="lp-hbtn" data-act="all">All</button><button type="button" class="lp-hbtn" data-act="shrink" aria-label="Shrink">' + I.shrink + '</button></div>' +
+      '<button type="button" class="lp-hbtn" data-act="shrink" aria-label="Shrink">' + I.shrink + '</button></div>' +
       '<div class="lp-list">' + LOOPS.slice(0, 5).map(loopHtml).join('') + '</div>' +
       foot() + '</div>';
   }
@@ -297,8 +294,6 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
       '<div class="body"><div class="rail">' + rail + '</div><div class="panel">' + panel + '</div>' +
       '<div class="main">' + header + '<div class="term">' + TERM + '</div>' + (s ? '' : card()) + '</div></div>';
     controls.querySelectorAll('button[data-k]').forEach(function (b) { b.setAttribute('aria-pressed', String(cfg[b.dataset.k] === b.dataset.v)); });
-    var out = {}; for (var k in cfg) if (k !== 'shrunk') out[k] = cfg[k];
-    document.getElementById('cfgOut').textContent = JSON.stringify(out, null, 2);
     fit();
   }
 
@@ -406,7 +401,7 @@ button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
   });
 
   var copyBtn = document.getElementById('copyBtn');
-  copyBtn.addEventListener('click', function () {
+  if (copyBtn) copyBtn.addEventListener('click', function () {
     var txt = document.getElementById('cfgOut').textContent;
     function done() { copyBtn.textContent = 'Copied'; setTimeout(function () { copyBtn.textContent = 'Copy config'; }, 1200); }
     function fallback() { var rg = document.createRange(); rg.selectNodeContents(document.getElementById('cfgOut')); var sel = getSelection(); sel.removeAllRanges(); sel.addRange(rg); }
