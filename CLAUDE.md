@@ -240,7 +240,8 @@ assets/
     README.md                          ← The mascot's guide: its rules, the still pictures, every pose field, how to make a film and render it
     mascot.js                          ← The mascot (a dark blob with fangs, hair, the three dots, flat-topped eyes): Mascot.svg (a still), Mascot.create (a posable copy in an SVG), eight emotions, track/at/hops/EASE, Mascot.player. One plain script, no build step; not used by the app yet
     stills/                            ← mascot.svg, mascot-tile.svg and mood-<name>.svg for each emotion; written by export.mjs
-    films/fix-the-bug.html             ← The 15 second film (a task arrives, it works, loses its temper, loses a dot and gets it back); the example to copy for a new film
+    films/fix-the-bug.js               ← The 15 second film's story (a task arrives, it works, loses its temper, loses a dot and gets it back), with a layout per shape (landscape, portrait); the example to copy for a new film
+    films/fix-the-bug.html, fix-the-bug-portrait.html ← Its two pages: 16:9, and 9:16 for reels (window.FILM_LAYOUT = 'portrait'; render with --size 1080x1920). film.css is the page round a film
     render.mjs                         ← Film page to MP4: every frame drawn in a headless browser, then ffmpeg; --audio adds music with fades
     export.mjs                         ← Writes stills/ again from mascot.js
 forge.config.ts                        ← ASAR unpack, rebuild skip, Vite plugin config (extraResource: ['assets'] bundles the hook)

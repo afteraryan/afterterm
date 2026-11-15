@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>afterterm mascot: Fix the bug (portrait)</title>
+<!--
+  The film in portrait (9:16), for reels and shorts. Open this file in a browser to watch it.
+  Render it with:
+    node assets/mascot/render.mjs assets/mascot/films/fix-the-bug-portrait.html out/fix-the-bug-portrait.mp4 --size 1080x1920
+  The story is in fix-the-bug.js, shared with the landscape page; only the layout differs.
+-->
+<link rel="stylesheet" href="film.css">
+</head>
+<body>
+<main class="portrait">
+  <h1>The mascot gets a task, works on it, loses its temper, loses a dot and gets it back</h1>
+  <svg id="stage" role="img" aria-label="The afterterm mascot in a short film, in portrait"></svg>
+  <input id="bar" type="range" value="0" aria-label="Position in the film">
+  <div class="line">
+    <p class="cap"><span class="clock" id="clock"></span><span id="cap"></span></p>
+    <button type="button" id="play">Pause</button><button type="button" id="restart">Restart</button>
+  </div>
+</main>
+<script>window.FILM_LAYOUT = 'portrait';</script>
+<script src="../mascot.js"></script>
+<script src="fix-the-bug.js"></script>
+</body>
+</html>
