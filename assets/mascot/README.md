@@ -13,7 +13,10 @@ yet; these files are for making pictures and films of it.
 |---|---|
 | `mascot.js` | The character: how it is drawn, its emotions, a posable copy for animation, and small helpers for timing. One script, loaded with a script tag, used through the global `Mascot`. |
 | `stills/` | Ready SVG pictures: `mascot.svg` (transparent), `mascot-tile.svg` (on its pink tile) and `mood-<name>.svg` for each of the eight emotions. Written by `export.mjs`. |
-| `films/fix-the-bug.html` | A finished 15 second film, and the example to copy when making a new one. Open it in a browser to watch it. |
+| `films/fix-the-bug.html` | A finished 15 second film in landscape (16:9). Open it in a browser to watch it. |
+| `films/fix-the-bug-portrait.html` | The same film in portrait (9:16), for reels and shorts. |
+| `films/fix-the-bug.js` | That film's story, shared by both pages, with one layout per shape. The example to copy when making a new film. |
+| `films/film.css` | The page round a film: stage, scrub bar, caption, buttons. |
 | `render.mjs` | Turns a film page into an MP4, with music if you give it some. |
 | `export.mjs` | Writes `stills/` again from `mascot.js`. |
 
@@ -91,11 +94,11 @@ when something has to fly off its head or back on. `bot.el` is the `<g>` element
 
 ## Make a new film
 
-Copy `films/fix-the-bug.html` and change it. A film is one function, `draw(t)`, that sets
-everything on the stage from the time in seconds and nothing else. That is what lets it be
-paused, dragged and rendered to exact frames.
+Copy `films/fix-the-bug.js` and one of its pages, and change them. A film is one function,
+`draw(t)`, that sets everything on the stage from the time in seconds and nothing else. That
+is what lets it be paused, dragged and rendered to exact frames.
 
-The pieces, all in that file:
+The pieces, all in `fix-the-bug.js`:
 
 1. **The stage.** An 800 by 450 SVG with the backgrounds and the props (there: a task
    notification, a terminal, confetti). The mascot goes in with `Mascot.create`.
@@ -118,6 +121,17 @@ The pieces, all in that file:
    it, loops it and wires up the controls. Adding `?t=7.5` to the page's address opens it
    paused at that second.
 
+### One story, landscape and portrait
+
+`fix-the-bug.js` keeps the story (timing, emotions, hops) apart from the layout. `LAYOUTS`
+at its top has one entry per shape: the stage size, the ground line, the mascot's size, how
+far each prop is moved, where the mascot stands for each beat (`walk`) and how high it must
+jump to reach each prop (`jump`). The portrait page sets `window.FILM_LAYOUT = 'portrait'`
+before loading the script. To add a shape, such as a square, add an entry and a page.
+
+In portrait the mascot is larger (1.5 against 1.15) and the task and the terminal sit above
+it instead of to its sides, so it walks less and jumps more.
+
 What made the first film work, worth keeping:
 
 - Move fast. The drop takes 0.4 seconds and a hop about 0.2 to 0.3.
@@ -136,6 +150,12 @@ It opens the page in a headless browser (no window appears), draws every frame s
 and encodes them, so the result is smooth however slow the page runs live. The default is
 1920 by 1080 at 60 frames a second; fifteen seconds takes about two minutes.
 
+The portrait page, at reel size:
+
+```
+node assets/mascot/render.mjs assets/mascot/films/fix-the-bug-portrait.html out/fix-the-bug-portrait.mp4 --size 1080x1920
+```
+
 With music:
 
 ```
@@ -151,5 +171,5 @@ exe if it is not found). Music files are not kept in this repository: the reposi
 public and a track's licence rarely allows that.
 
 A film page works with `render.mjs` when it plays through `Mascot.player` and hides
-everything but the stage under `html.render` (copy the four `html.render` lines from the
-example's styles).
+everything but the stage under `html.render` (`films/film.css` does this; link it from the
+new page).
