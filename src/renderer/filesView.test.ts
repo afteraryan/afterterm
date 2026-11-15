@@ -92,7 +92,7 @@ console.log('the list');
 }
 {
   const v = filesListView({ changed: [], pasted: [{ key: 'a', n: 1, at: NOW, times: 1, mediaType: 'image/png', cwd: null }] }, FOLDER, HOME, NOW);
-  check('only pasted images: nothing counted, so no button', v.count === 0 && !hasFilesButton(v));
+  check('only pasted images: nothing counted, but the icon-only button shows', v.count === 0 && hasFilesButton(v));
   check('only pasted images: the Code row does not start open', v.codeStartsOpen === false);
 }
 {
