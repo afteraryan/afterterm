@@ -45,6 +45,7 @@ stranger." Mnemonic: **break it → X, add to it → Y, fix it → Z.**
 | `v0.19.0` | Loops: the pieces of work you start, tracked by Claude as it works; Home's Progress column with a calendar of messages sent to Claude; the loops card in the workspace; a short tour |
 | `v0.20.0` | Home's calendar shows 17 weeks with bigger squares and ends on today |
 | `v0.20.1` | One afterterm skill for Claude; Claude closes a loop when its work is done; no tour when the settings file cannot be read |
+| `v0.20.2` | The Files button shows when a chat has only pasted images |
 
 (`v0.1.0`–`v0.4.1` were backfilled onto the existing history; releases from `v0.5.0` on were cut with `npm run release`.)
 
