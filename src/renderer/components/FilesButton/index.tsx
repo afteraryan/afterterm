@@ -8,7 +8,7 @@
 // is positioned fixed under the button's right edge, measured on open.
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { FilesListView, FileRow, PastedRow } from '../../filesView';
-import { filesButtonLabel } from '../../filesView';
+import { filesButtonLabel, hasFilesButton } from '../../filesView';
 import { EditorLogo, IconCode, IconDoc, IconExplorer, IconFiles, IconFoldChev, IconImage } from '../Icons';
 import type { EditorProduct } from '../../../editors';
 import { Menu, MenuItem } from '../Menu';
@@ -142,7 +142,8 @@ export function FilesButton(props: FilesButtonProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, pastedOpen, view.pasted]);
 
-  if (!label) return null;
+  // No changed files and no pasted images: no button. Only pasted images: the icon alone.
+  if (!hasFilesButton(view)) return null;
 
   const openFile = (row: FileRow) => { close(); props.onOpenFile(row.path); };
   const openPasted = (p: PastedRow) => { close(); props.onOpenPasted(p.key); };
@@ -197,8 +198,10 @@ export function FilesButton(props: FilesButtonProps) {
       <button
         ref={btnRef}
         type="button"
-        className={`fbtn${open ? ' open' : ''}`}
+        className={`fbtn${open ? ' open' : ''}${label ? '' : ' icon'}`}
         data-files-button
+        aria-label={label ? undefined : 'Files and pasted images in this chat'}
+        data-tip={label ? undefined : 'Pasted images'}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={toggle}
@@ -221,9 +224,9 @@ export function FilesButton(props: FilesButtonProps) {
             <div className="fsec">Documents<span className="n">{view.docs.length}</span></div>
             {view.docs.map(d => row(d, false))}
           </>
-        ) : (
+        ) : view.count > 0 || view.pasted.length === 0 ? (
           <div className="fempty">No documents in this chat yet</div>
-        )}
+        ) : null}
 
         {view.code.length > 0 && (
           <>

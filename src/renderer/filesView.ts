@@ -29,7 +29,7 @@ export interface PastedRow {
 }
 
 export interface FilesListView {
-  /** Documents and code: what the button counts. Pasted images are not counted. */
+  /** Documents and code: what the button's label counts. Pasted images are not counted. */
   count: number;
   docs: FileRow[];
   code: FileRow[];
@@ -137,7 +137,7 @@ export function filesListView(
   };
 }
 
-/** True when the list has anything to show at all (a chat with only pasted images still gets no button). */
+/** True when the list has anything to show: a changed file or a pasted image. With only pasted images the button is the icon alone (no count). */
 export function hasFilesButton(view: FilesListView): boolean {
-  return view.count > 0;
+  return view.count > 0 || view.pasted.length > 0;
 }

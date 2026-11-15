@@ -2,6 +2,12 @@
 
 What changed for the person using afterterm, release by release. Each release lists what was added and changed by area, then what was fixed. Every fixed bug, with the PR it landed in, is also in `docs/bugs-fixed.md`. Code-level detail lives in the commit history, `docs/phases-01-projects-and-threads.md` and `CLAUDE.md`.
 
+## Unreleased
+
+### Fixed
+
+- **The Files button now shows when you paste an image into a chat, even before Claude has changed any file.** It shows as just the icon then, and gets its "N files" text once Claude changes a file. It used to be missing, so the pasted image could not be reached.
+
 ## 0.20.1 (2026-11-15)
 
 ### Changed
