@@ -93,6 +93,13 @@
 .u-fill.crit { background: #f87171; }
 .u-fail { margin: 14px 0 6px; color: var(--text2); }
 
+/* No breakdown (AFT-93): the skeleton stays, hidden, so the card keeps the height it had while
+   loading; the sad mascot and one line sit in the middle. Nothing moves. */
+.u-held { position: relative; }
+.u-held-skel { visibility: hidden; }
+.u-none { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+.u-none p { margin: 0; color: var(--text2); }
+
 /* Breakdown */
 .u-bd { padding-top: 4px; }
 .u-hd { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 8px; min-height: 18px; }
