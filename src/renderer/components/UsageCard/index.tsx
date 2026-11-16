@@ -11,6 +11,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { UsageState } from '../../../usage-screen';
 import { IconRestart, IconX } from '../Icons';
+import { MascotSad } from './MascotSad';
 import { breakdownPhase, failText, isBigNumber, isReading, limitTone, limitsPhase, pendingLimitRows } from '../../usageView';
 import './UsageCard.css';
 
@@ -69,27 +70,42 @@ function LimitsPane({ s }: { s: UsageState | null }) {
   );
 }
 
+function BreakdownSkeleton() {
+  return (
+    <div className="u-bd">
+      <div className="u-hd"><Sk w={190} h={12} /></div>
+      {[230, 200, 215, 180, 240].map((w, i) => (
+        <div className="u-tp" key={i}><span className="u-n"><Sk w={30} /></span><span><Sk w={w} /></span></div>
+      ))}
+      <div className="u-lists">
+        {[0, 1, 2].map(i => (
+          <div key={i}>
+            <div className="u-tt"><Sk w={70} /></div>
+            {[100, 84, 92].map((w, j) => <div className="u-li" key={j}><Sk w={w} /><Sk w={22} /></div>)}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function BreakdownPane({ s }: { s: UsageState | null }) {
   const phase = breakdownPhase(s);
-  if (phase === 'none') return null;
-  if (phase === 'skeleton') {
+  // AFT-93: a read that ended with no breakdown used to draw nothing, so the pane had no height and
+  // the card collapsed to its tab bar. Now the skeleton stays in place, hidden, to hold the height
+  // the card had while loading, and the sad mascot with one line sits in the middle of it.
+  if (phase === 'none') {
     return (
-      <div className="u-bd">
-        <div className="u-hd"><Sk w={190} h={12} /></div>
-        {[230, 200, 215, 180, 240].map((w, i) => (
-          <div className="u-tp" key={i}><span className="u-n"><Sk w={30} /></span><span><Sk w={w} /></span></div>
-        ))}
-        <div className="u-lists">
-          {[0, 1, 2].map(i => (
-            <div key={i}>
-              <div className="u-tt"><Sk w={70} /></div>
-              {[100, 84, 92].map((w, j) => <div className="u-li" key={j}><Sk w={w} /><Sk w={22} /></div>)}
-            </div>
-          ))}
+      <div className="u-held" data-breakdown="none">
+        <div className="u-held-skel" aria-hidden="true"><BreakdownSkeleton /></div>
+        <div className="u-none">
+          <MascotSad height={190} />
+          <p>No breakdown here</p>
         </div>
       </div>
     );
   }
+  if (phase === 'skeleton') return <BreakdownSkeleton />;
   const b = s!.usage!.breakdown!;
   return (
     <div className="u-bd">

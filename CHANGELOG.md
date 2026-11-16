@@ -6,6 +6,7 @@ What changed for the person using afterterm, release by release. Each release li
 
 ### Fixed
 
+- **The usage card no longer shrinks to a thin bar when there is no breakdown.** The Breakdown tab now keeps the size it had while loading and shows the sad mascot with "No breakdown here".
 - **A chat's header now shows the new model right after `/model`.** Before, after switching to Opus the header kept saying Sonnet until Claude finished its next reply, and a switch with no message after it was not shown at all. Now the header changes about a second after you press Enter on `/model`.
 
 ## 0.20.2 (2026-11-15)
