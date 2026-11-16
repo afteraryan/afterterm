@@ -380,10 +380,17 @@ export function modelLabel(model: string | undefined): string | null {
 // `t => isWaitingState(threadState(t))` (attention.ts's own definition of
 // "waiting for you", kept in one place). Omitting `isWaiting` keeps the old
 // active-only behaviour, unchanged.
+//
+// `expanded` has three values. `true`: the user clicked Show more. `undefined`:
+// the user has not touched this list, so the rule above may hold it open.
+// `false`: the user clicked Show less, and the list folds even when the open
+// thread or a waiting thread is behind the fold (AFT-122, Aryan 2026-11-16:
+// "don't stop the collapse ... we just allow collapse"). Until then Show less
+// read as a button that did nothing while the list was held open.
 export function foldThreads<T extends { id: string }>(
   threads: T[],
   activeId: string,
-  expanded: boolean,
+  expanded: boolean | undefined,
   limit = 5,
   isWaiting?: (t: T) => boolean,
 ): { shown: T[]; hiddenCount: number; showMore: boolean; forcedOpen: boolean } {
@@ -391,7 +398,7 @@ export function foldThreads<T extends { id: string }>(
   const activeForcesOpen = activeIndex >= limit;
   const waitingForcesOpen = !!isWaiting && threads.slice(limit).some(isWaiting);
   const forcedOpen = activeForcesOpen || waitingForcesOpen;
-  const open = expanded || forcedOpen;
+  const open = expanded === true || (expanded === undefined && forcedOpen);
   const shown = open ? threads : threads.slice(0, limit);
   const hiddenCount = open ? 0 : Math.max(0, threads.length - limit);
   const showMore = threads.length > limit;

@@ -232,6 +232,12 @@ console.log('\npanelView: visibleThreadIds\n');
     });
     check('a waiting thread past the fold keeps the whole project visible',
       ids.length === 7 && ids.includes('t6'), show(ids));
+    // AFT-122: after Show less on that project, the keyboard cycle sees the fold too.
+    const folded = visibleThreadIds(sections, {
+      activeTabId: '', expandedLists: { R: false }, limit: 5, isWaiting: isWaitingByNotification,
+    });
+    check('after Show less, a waiting thread past the fold is hidden from the cycle',
+      folded.join(',') === 't0,t1,t2,t3,t4', show(folded));
   }
   {
     // Other never contributes rows, even with tabs sitting behind it.
