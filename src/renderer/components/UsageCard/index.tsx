@@ -99,7 +99,7 @@ function BreakdownPane({ s }: { s: UsageState | null }) {
       <div className="u-held" data-breakdown="none">
         <div className="u-held-skel" aria-hidden="true"><BreakdownSkeleton /></div>
         <div className="u-none">
-          <MascotSad size={120} />
+          <MascotSad height={190} />
           <p>No breakdown here</p>
         </div>
       </div>
