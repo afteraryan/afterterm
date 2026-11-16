@@ -2,6 +2,16 @@
 
 What changed for the person using afterterm, release by release. Each release lists what was added and changed by area, then what was fixed. Every fixed bug, with the PR it landed in, is also in `docs/bugs-fixed.md`. Code-level detail lives in the commit history, `docs/phases-01-projects-and-threads.md` and `CLAUDE.md`.
 
+## 0.21.0 (2026-11-17)
+
+### Added
+
+- **The loops card can now show only your open loops.** Next to the word "Loops" at the top of the card there is a small switch: the left icon shows every loop, the right one hides the loops you have closed. The card remembers your choice.
+
+### Changed
+
+- **The rotting count on the loops card is quieter.** It is now a grey button with a small yellow dot and the number. Point at it to read "rotting", and click it to see those loops, as before.
+
 ## 0.20.4 (2026-11-16)
 
 ### Fixed

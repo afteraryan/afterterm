@@ -103,6 +103,9 @@ console.log('\nloops: the workspace card\n');
   check('never a rotting loop', recentForCard(f.loops, at(20)).length === 0);
   closeLoop(f, card[0].id, now, user);
   check('a closed loop stays on the card', recentForCard(f.loops, now)[0].title === 'L7');
+  const open = recentForCard(f.loops, now, 5, true);
+  check('Open leaves the closed loop out', open.every((l) => l.status === 'open') && open[0].title === 'L6');
+  check('Open still fills 5 rows', open.length === 5);
 }
 
 console.log('\nloops: the remembered chat\n');

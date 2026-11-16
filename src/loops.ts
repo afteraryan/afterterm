@@ -215,9 +215,12 @@ export function subLoopFraction(id: string, all: readonly Loop[]): { closed: num
 }
 
 // The workspace card: the 5 most recent top-level loops, open or closed, never
-// rotting.
-export function recentForCard(all: readonly Loop[], now: number, n = 5): Loop[] {
-  return orderedTopLoops(all).filter((l) => loopStatus(l, all, now) !== 'rotting').slice(0, n);
+// rotting. With openOnly (the card's Open switch, AFT-124) the closed ones go too.
+export function recentForCard(all: readonly Loop[], now: number, n = 5, openOnly = false): Loop[] {
+  return orderedTopLoops(all).filter((l) => {
+    const s = loopStatus(l, all, now);
+    return s !== 'rotting' && !(openOnly && s === 'closed');
+  }).slice(0, n);
 }
 
 // The parent-close rule: a parent with open sub-loops cannot just close. The UI

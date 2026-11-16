@@ -19,23 +19,67 @@
 }
 
 .lc-head { display: flex; align-items: center; gap: 6px; padding: 10px 10px 8px 14px; flex: none; }
-.lc-title { font-size: 13px; font-weight: 500; flex: 1; }
+.lc-title { font-size: 13px; font-weight: 500; }
+.lc-sp { flex: 1; }
+/* The rotting count (AFT-124): a grey chip, the colour only on its dot. */
 .lc-rot {
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 24px;
-  padding: 0 9px;
-  border-radius: 7px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 6px;
   border: 0;
   font: inherit;
   font-size: 12px;
-  font-weight: 500;
+  font-variant-numeric: tabular-nums;
   cursor: pointer;
-  background: #e8a23a;
-  color: #141414;
+  background: #333333;
+  color: var(--text);
 }
-.lc-rot:hover { background: #f3b04c; }
+.lc-rot:hover { background: #3d3d3d; }
+.lc-rot-dot { width: 6px; height: 6px; border-radius: 50%; background: #e8a23a; flex: none; }
+
+/* The All / Open switch (AFT-124): a grey thumb sliding under two icons. */
+.lc-sw {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  height: 20px;
+  padding: 2px;
+  box-sizing: border-box;
+  border-radius: 6px;
+  background: #1b1b1b;
+  flex: none;
+}
+.lc-sw button {
+  position: relative;
+  z-index: 1;
+  width: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text2);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: color 200ms var(--ease);
+}
+.lc-sw button:hover { color: var(--text); }
+.lc-sw button[aria-pressed="true"] { color: var(--text); }
+.lc-sw button:focus-visible { outline: 2px solid var(--text); outline-offset: 1px; }
+.lc-sw-thumb {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc(50% - 2px);
+  border-radius: 4px;
+  background: #3d3d3d;
+  transition: transform 220ms cubic-bezier(.2,.8,.2,1);
+}
+.lc-sw.on .lc-sw-thumb { transform: translateX(100%); }
 
 .lc-list {
   overflow-y: auto;

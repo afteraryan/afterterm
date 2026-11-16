@@ -8,7 +8,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Group } from '../TabBar/types';
 import { loopCounts, recentForCard, type Loop } from '../../../loops';
 import { LoopList } from './LoopList';
-import { ClockIcon } from './LoopIcons';
+import { LoopsIcon } from './LoopIcons';
 import './LoopsCard.css';
 
 export interface LoopsCardProps {
@@ -22,6 +22,13 @@ export interface LoopsCardProps {
   onToast: (message: string, actionLabel?: string, onAction?: () => void) => void;
   // The loops tour shows example loops here with an "Example" tag (AFT-103).
   example?: boolean;
+}
+
+// The card's All / Open switch is a per-window convenience, kept like the card's
+// own open state (AFT-124).
+const OPEN_ONLY_KEY = 'afterterm.loopsCardOpenOnly';
+function readOpenOnly(): boolean {
+  try { return localStorage.getItem(OPEN_ONLY_KEY) === 'true'; } catch { return false; }
 }
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -45,6 +52,11 @@ export function LoopsCard({ open, loops, groups, now, onRotting, onAll, onOpenCh
   const ref = useRef<HTMLDivElement>(null);
   const flying = useRef<Animation | null>(null);
   const opening = useRef(false);
+  const [openOnly, setOpenOnlyState] = useState(readOpenOnly);
+  const setOpenOnly = (v: boolean) => {
+    setOpenOnlyState(v);
+    try { localStorage.setItem(OPEN_ONLY_KEY, String(v)); } catch { /* not kept */ }
+  };
 
   // Closing: fly into the button, then go.
   useEffect(() => {
@@ -72,19 +84,29 @@ export function LoopsCard({ open, loops, groups, now, onRotting, onAll, onOpenCh
 
   if (!shown) return null;
   const counts = loopCounts(loops, now);
-  const rows = recentForCard(loops, now);
+  const rows = recentForCard(loops, now, 5, openOnly);
   return (
     <div className={`lc-card${example ? ' ex' : ''}`} ref={ref} data-loops-card="">
       <div className="lc-head">
         <span className="lc-title">Loops{example && <span className="lc-example">Example</span>}</span>
+        <div className={`lc-sw${openOnly ? ' on' : ''}`} role="group" aria-label="Which loops to show" data-loops-switch="">
+          <span className="lc-sw-thumb" />
+          <button type="button" aria-pressed={!openOnly} aria-label="All loops" data-tip="All loops" data-act="show-all" onClick={() => setOpenOnly(false)}>
+            <LoopsIcon size={13} />
+          </button>
+          <button type="button" aria-pressed={openOnly} aria-label="Open loops only" data-tip="Open loops only" data-act="show-open" onClick={() => setOpenOnly(true)}>
+            <svg width={11} height={11} viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth={1.7} aria-hidden="true"><circle cx="7" cy="7" r="5" /></svg>
+          </button>
+        </div>
+        <span className="lc-sp" />
         {counts.rotting > 0 && (
-          <button type="button" className="lc-rot" data-act="rotting" onClick={onRotting}>
-            <ClockIcon size={13} strokeWidth={1.6} />{counts.rotting} rotting
+          <button type="button" className="lc-rot" data-act="rotting" data-tip={`${counts.rotting} rotting`} aria-label={`${counts.rotting} rotting`} onClick={onRotting}>
+            <span className="lc-rot-dot" />{counts.rotting}
           </button>
         )}
       </div>
       <div className="lc-list">
-        <LoopList loops={loops} rows={rows} groups={groups} now={now} variant="card" emptyText="No loops yet" onOpenChat={onOpenChat} onToast={onToast} />
+        <LoopList loops={loops} rows={rows} groups={groups} now={now} variant="card" emptyText={openOnly ? 'No open loops' : 'No loops yet'} onOpenChat={onOpenChat} onToast={onToast} />
       </div>
       <div className="lc-foot">
         <span className="lc-barbox">
