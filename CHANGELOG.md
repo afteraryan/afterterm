@@ -2,6 +2,12 @@
 
 What changed for the person using afterterm, release by release. Each release lists what was added and changed by area, then what was fixed. Every fixed bug, with the PR it landed in, is also in `docs/bugs-fixed.md`. Code-level detail lives in the commit history, `docs/phases-01-projects-and-threads.md` and `CLAUDE.md`.
 
+## 0.21.1 (2026-11-17)
+
+### Fixed
+
+- **The loops card's switch now flips on every click.** Clicking the side that was already selected did nothing until you moved the mouse. Now either side switches between all loops and open loops only.
+
 ## 0.21.0 (2026-11-17)
 
 ### Added

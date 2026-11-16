@@ -91,10 +91,10 @@ export function LoopsCard({ open, loops, groups, now, onRotting, onAll, onOpenCh
         <span className="lc-title">Loops{example && <span className="lc-example">Example</span>}</span>
         <div className={`lc-sw${openOnly ? ' on' : ''}`} role="group" aria-label="Which loops to show" data-loops-switch="">
           <span className="lc-sw-thumb" />
-          <button type="button" aria-pressed={!openOnly} aria-label="All loops" data-tip="All loops" data-act="show-all" onClick={() => setOpenOnly(false)}>
+          <button type="button" aria-pressed={!openOnly} aria-label="All loops" data-tip="All loops" data-act="show-all" onClick={() => setOpenOnly(!openOnly)}>
             <LoopsIcon size={13} />
           </button>
-          <button type="button" aria-pressed={openOnly} aria-label="Open loops only" data-tip="Open loops only" data-act="show-open" onClick={() => setOpenOnly(true)}>
+          <button type="button" aria-pressed={openOnly} aria-label="Open loops only" data-tip="Open loops only" data-act="show-open" onClick={() => setOpenOnly(!openOnly)}>
             <svg width={11} height={11} viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth={1.7} aria-hidden="true"><circle cx="7" cy="7" r="5" /></svg>
           </button>
         </div>
