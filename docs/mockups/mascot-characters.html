@@ -1,0 +1,1297 @@
+<title>afterterm bot characters</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+<style>
+  /* Layout: one grid of ten equal cards, each a big tile, the same tile at small sizes, a name and one line. */
+  :root {
+    color-scheme: dark;
+    --bg: #171717;
+    --card: #212121;
+    --line: #2f2f2f;
+    --text: #ececec;
+    --text2: #b4b4b4;
+    --text3: #8e8e8e;
+    --font: Inter, "Segoe UI", system-ui, sans-serif;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    padding-block: 40px 64px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+  h1 { font-size: 26px; font-weight: 600; margin: 0; text-wrap: balance; }
+  .lede { color: var(--text2); font-size: 15px; line-height: 1.55; max-width: 62ch; margin: 8px 0 0; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .big { width: 100%; max-width: 180px; align-self: center; display: block; }
+  .sizes { display: flex; align-items: center; gap: 12px; justify-content: center; }
+  .sizes svg:nth-child(1) { width: 48px; height: 48px; }
+  .sizes svg:nth-child(2) { width: 28px; height: 28px; }
+  .sizes svg:nth-child(3) { width: 18px; height: 18px; }
+  .name { font-size: 15px; font-weight: 600; margin: 0; }
+  .num { color: var(--text3); font-variant-numeric: tabular-nums; margin-right: 6px; font-weight: 500; }
+  .note { color: var(--text2); font-size: 13px; line-height: 1.45; margin: 4px 0 0; }
+
+  .eye { transform-box: fill-box; transform-origin: center; animation: blink 5.2s infinite; }
+  @keyframes blink { 0%, 93%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.08); } }
+  .hop { animation: hop 2.4s infinite ease-in-out; }
+  .hop.b2 { animation-delay: 0.18s; }
+  .hop.b3 { animation-delay: 0.36s; }
+  @keyframes hop { 0%, 40%, 100% { transform: translateY(0); } 20% { transform: translateY(-16px); } }
+  .cur { animation: cur 1.1s steps(1) infinite; }
+  @keyframes cur { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+  .wave { transform-origin: 158px 112px; animation: wave 1.6s infinite ease-in-out; }
+  @keyframes wave { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-22deg); } }
+  .wrap > header:not(:first-child) { margin-top: 28px; }
+  .hair, .h2, .h3 { animation: breeze 4.2s ease-in-out infinite; animation-delay: var(--hd, 0s); }
+  .h2 { animation-delay: calc(var(--hd, 0s) + 0.07s); }
+  .h3 { animation-delay: calc(var(--hd, 0s) + 0.14s); }
+  @keyframes breeze { 0%, 50%, 100% { transform: skewX(0deg); } 14% { transform: skewX(-20deg); } 28% { transform: skewX(12deg); } 40% { transform: skewX(-5deg); } }
+  .look { animation: look 5s ease-in-out infinite; }
+  @keyframes look { 0%, 20%, 100% { transform: translate(0, 0); } 30%, 50% { transform: translate(-13px, 3px); } 60%, 80% { transform: translate(2px, 6px); } }
+  .peek { animation: peek 5s ease-in-out infinite; }
+  @keyframes peek { 0%, 50%, 100% { transform: translate(0, 0); } 62%, 78% { transform: translate(84px, 18px); } }
+  .breathe { animation: breathe 4s ease-in-out infinite; }
+  @keyframes breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.03, 0.95); } }
+  .pop { transform-box: fill-box; transform-origin: center; animation: pop 2.7s ease-in-out infinite; }
+  .pop.p2 { animation-delay: 0.3s; } .pop.p3 { animation-delay: 0.6s; }
+  @keyframes pop { 0%, 30%, 100% { transform: scale(1); } 12% { transform: scale(1.4); } }
+  .walk { animation: walk 0.9s ease-in-out infinite; }
+  .walk.w2 { animation-delay: 0.15s; } .walk.w3 { animation-delay: 0.3s; }
+  @keyframes walk { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+  .squash { animation: squash 1.8s ease-in-out infinite; }
+  @keyframes squash { 0%, 100% { transform: scale(1.05, 0.94); } 50% { transform: scale(0.96, 1.05); } }
+  .lean { animation: lean 3.4s ease-in-out infinite; }
+  @keyframes lean { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(13deg); } }
+  .drift { animation: drift 3.8s ease-in-out infinite; }
+  @keyframes drift { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(7deg); } }
+  @media (prefers-reduced-motion: reduce) { .eye, .hop, .cur, .wave, .hair, .h2, .h3, .look, .peek, .breathe, .pop, .walk, .squash, .lean, .drift { animation: none; } }
+
+  /* Round 3 and the configurator */
+  .page { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 28px; max-width: 1560px; margin: 0 auto; align-items: start; }
+  .page .wrap { max-width: none; margin: 0; }
+  .config { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 0 16px 16px; display: flex; flex-direction: column; gap: 12px; }
+  .config h2 { font-size: 17px; font-weight: 600; margin: 16px 0 0; }
+  .cf-prev { position: sticky; top: 0; z-index: 2; background: var(--card); padding: 12px 0; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 14px; justify-content: center; }
+  .cf-prev .big { width: 150px; max-width: 150px; align-self: auto; }
+  .cf-prev .sizes { flex-direction: column; }
+  .cf-row { display: flex; flex-direction: column; gap: 6px; }
+  .cf-label { font-size: 12px; color: var(--text3); margin: 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font: inherit; font-size: 12.5px; color: var(--text2); background: #2a2a2a; border: 1px solid #3a3a3a; border-radius: 8px; padding: 5px 9px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  .chip:hover { background: #333333; color: var(--text); }
+  .chip[aria-pressed="true"] { background: var(--text); color: #0d0d0d; border-color: var(--text); }
+  .chip:focus-visible, .btn:focus-visible, .cf-row input:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
+  .sw { width: 11px; height: 11px; border-radius: 50%; border: 1px solid #5c5c5c; display: inline-block; }
+  .cf-row input[type="range"] { width: 100%; accent-color: #ececec; }
+  .cf-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn { font: inherit; font-size: 13px; font-weight: 500; color: var(--text); background: #2f2f2f; border: 1px solid #444444; border-radius: 8px; padding: 7px 12px; cursor: pointer; }
+  .btn:hover { background: #383838; }
+  .card .btn { align-self: flex-start; margin-top: auto; }
+  .cf-code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 11.5px; line-height: 1.5; color: var(--text2); background: #171717; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 0; user-select: all; overflow-wrap: anywhere; }
+  .hopb { animation: hopb 2.2s ease-in-out infinite; }
+  @keyframes hopb { 0%, 55%, 100% { transform: translateY(0); } 70% { transform: translateY(-12px); } 85% { transform: translateY(0); } 92% { transform: translateY(-4px); } }
+  .press { animation: press 2.6s ease-in-out infinite; }
+  @keyframes press { 0%, 60%, 100% { transform: scale(1, 1); } 70%, 80% { transform: scale(1.03, 0.9); } }
+  .swayA { animation: swayA 3s ease-in-out infinite; }
+  .swayB { animation: swayA 3s ease-in-out infinite reverse; }
+  @keyframes swayA { 0%, 100% { transform: translateX(-5px); } 50% { transform: translateX(5px); } }
+  @media (prefers-reduced-motion: reduce) { .hopb, .press, .swayA, .swayB { animation: none; } }
+  @media (max-width: 900px) {
+    .page { grid-template-columns: minmax(0, 1fr); }
+    .config { position: static; max-height: none; order: -1; }
+  }
+
+  /* Bigger configurator with picture options, and the ten eye emotions */
+  .page { grid-template-columns: minmax(0, 1fr) 500px; }
+  .cf-prev .big { width: 180px; max-width: 180px; }
+  .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 8px; }
+  .thumb { font: inherit; font-size: 11px; line-height: 1.25; color: var(--text2); background: #2a2a2a; border: 2px solid #2a2a2a; border-radius: 10px; padding: 6px 4px 5px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
+  .thumb svg { width: 100%; max-width: 68px; height: auto; display: block; }
+  .thumb:hover { background: #333333; border-color: #333333; color: var(--text); }
+  .thumb[aria-pressed="true"] { border-color: #ececec; background: #333333; color: var(--text); }
+  .thumb:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
+  .em { transform-box: fill-box; transform-origin: center; }
+  .em-narrow { transform-origin: center bottom; animation: em-narrow 3.2s ease-in-out infinite; }
+  @keyframes em-narrow { 0%, 55%, 100% { transform: scaleY(1); } 65%, 88% { transform: scaleY(0.5); } }
+  .em-dart { animation: em-dart 3s ease-in-out infinite; }
+  @keyframes em-dart { 0%, 15%, 70%, 100% { transform: translateX(0); } 20%, 40% { transform: translateX(-8px); } 45%, 65% { transform: translateX(8px); } }
+  .em-bounce { animation: em-bounce 1.8s ease-in-out infinite; }
+  @keyframes em-bounce { 0%, 40%, 80%, 100% { transform: translateY(0); } 20%, 60% { transform: translateY(-6px); } }
+  .em-pop { animation: em-pop 2.6s ease-in-out infinite; }
+  @keyframes em-pop { 0%, 60%, 100% { transform: scale(1); } 70% { transform: scale(1.32); } 85% { transform: scale(0.95); } }
+  .em-side { animation: em-side 4s ease-in-out infinite; }
+  @keyframes em-side { 0%, 10%, 90%, 100% { transform: translateX(-8px); } 45%, 55% { transform: translateX(8px); } }
+  .em-droop { animation: em-droop 3s ease-in-out infinite; }
+  @keyframes em-droop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(5px); } }
+  .em-twinkle { animation: em-twinkle 1.6s ease-in-out infinite; }
+  @keyframes em-twinkle { 0%, 100% { transform: scale(0.8) rotate(0deg); } 50% { transform: scale(1.2) rotate(45deg); } }
+  .em-shake { animation: em-shake 2.4s linear infinite; }
+  @keyframes em-shake { 0%, 50%, 85%, 100% { transform: translateX(0); } 55%, 65%, 75% { transform: translateX(-2.5px); } 60%, 70%, 80% { transform: translateX(2.5px); } }
+  .em-wink { animation: em-wink 3s ease-in-out infinite; }
+  @keyframes em-wink { 0%, 68%, 96%, 100% { transform: scaleY(1); } 76%, 90% { transform: scaleY(0.12); } }
+  @media (prefers-reduced-motion: reduce) { .em-narrow, .em-dart, .em-bounce, .em-pop, .em-side, .em-droop, .em-twinkle, .em-shake, .em-wink { animation: none; } }
+  @media (max-width: 1100px) {
+    .page { grid-template-columns: minmax(0, 1fr); }
+    .config { position: static; max-height: none; order: -1; }
+  }
+
+  /* The table of every eye in every emotion */
+  .mxwrap { overflow-x: auto; }
+  .mx-grid { display: grid; grid-template-columns: 96px repeat(8, minmax(64px, 1fr)); gap: 8px; align-items: center; min-width: 700px; }
+  .mx-h { font-size: 12px; color: var(--text3); text-align: center; }
+  .mx-r { font-size: 13px; font-weight: 500; color: var(--text); }
+  .mx { background: none; border: 2px solid transparent; border-radius: 12px; padding: 2px; cursor: pointer; display: block; }
+  .mx svg { display: block; width: 100%; height: auto; }
+  .mx:hover { border-color: #5c5c5c; }
+  .mx:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
+  .cf-now { font-size: 12px; color: var(--text2); margin: 0; text-align: center; }
+  .cf-now .moodname { color: var(--text); font-weight: 600; }
+
+  /* Number 43's show reel */
+  .sr { display: flex; flex-direction: column; gap: 14px; }
+  #srStage, #fmStage { width: 100%; height: auto; display: block; }
+  #fmEyes .emo-surprised .ee, .sr-eyes .emo-surprised .ee { transform: scale(1.14); }
+  .wm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 16px; }
+  .wm-card { margin: 0; display: flex; flex-direction: column; gap: 8px; }
+  .wm-card svg { width: 100%; height: auto; display: block; }
+  .wm-card svg text { font-family: Inter, system-ui, sans-serif; }
+  .wm-card figcaption { font-size: 14px; color: var(--text2); }
+  .wm-card figcaption b { color: var(--text); margin-right: 6px; }
+  .fm-bar { width: 100%; margin: 0; accent-color: #c366f0; }
+  #fmStage text { font-family: Inter, system-ui, sans-serif; }
+  #fmStage .hair, #fmStage .h2, #fmStage .h3 { animation: breeze 4.2s ease-in-out infinite; }
+  .sr-line { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .sr-cap { font-size: 20px; font-weight: 600; margin: 0; flex: 1 1 240px; min-width: 0; }
+  .sr-count { color: var(--text3); font-variant-numeric: tabular-nums; font-weight: 500; font-size: 14px; margin-right: 10px; }
+  .sr-red, .sr-blue, .sr-orbit, .sr-cursorw { opacity: 0; transition: opacity 0.35s ease; }
+  .sr-toast { transform: translateX(340px); transition: transform 0.32s cubic-bezier(0.2, 1.4, 0.4, 1); }
+  .sr-dots { transition: opacity 0.2s ease; }
+  .sr-squash, .sr-hairs { transition: transform 0.3s ease; }
+  .sr-conf { transform: scale(0); transform-box: fill-box; transform-origin: center; }
+  [data-scene="toast"] .sr-toast, [data-scene="happy"] .sr-toast { transform: none; }
+
+  [data-scene="drop"] .sr-move { animation: sr-drop 0.38s cubic-bezier(0.55, 0, 0.9, 0.6) both; }
+  [data-scene="drop"] .sr-squash { animation: sr-land 0.5s 0.36s both; }
+  [data-scene="drop"] .sr-shadow { animation: sr-shadow-in 0.38s ease-in both; }
+  @keyframes sr-drop { from { transform: translateY(-470px); } to { transform: translateY(0); } }
+  @keyframes sr-land { 0% { transform: scale(1.28, 0.66); } 35% { transform: scale(0.9, 1.14); } 65% { transform: scale(1.06, 0.95); } 100% { transform: scale(1, 1); } }
+  @keyframes sr-shadow-in { from { transform: scale(0.3); } to { transform: scale(1); } }
+  .sr-shadow { transform-box: fill-box; transform-origin: center; }
+
+  [data-scene="look"] .sr-eyes { animation: sr-look 2.2s ease-in-out both; }
+  [data-scene="look"] .sr-squash { animation: sr-sway 2.2s ease-in-out both; }
+  @keyframes sr-look { 0%, 100% { transform: translate(0, 0); } 15%, 40% { transform: translate(-13px, 2px); } 55%, 82% { transform: translate(13px, 2px); } }
+  @keyframes sr-sway { 0%, 100% { transform: rotate(0deg); } 28% { transform: rotate(-5deg); } 68% { transform: rotate(5deg); } }
+
+  [data-scene="toast"] .sr-move { animation: sr-jump 0.45s 0.18s cubic-bezier(0.3, 0, 0.4, 1) both; }
+  [data-scene="toast"] .sr-eyes { transform: translate(10px, -8px); transition: transform 0.2s 0.18s; }
+  @keyframes sr-jump { 0%, 100% { transform: translateY(0); } 45% { transform: translateY(-70px); } }
+
+  [data-scene="happy"] .sr-move { animation: sr-jump 0.6s ease-in-out 4; }
+  [data-scene="happy"] .sr-squash { animation: sr-hopsq 0.6s ease-in-out 4; }
+  [data-scene="happy"] .sr-conf { animation: sr-burst 1.3s ease-out both; }
+  @keyframes sr-hopsq { 0%, 100% { transform: scale(1.1, 0.88); } 45% { transform: scale(0.94, 1.08) rotate(4deg); } }
+  @keyframes sr-burst { 0% { transform: translate(0, 0) scale(0); } 55% { transform: translate(var(--dx), var(--dy)) scale(1); } 100% { transform: translate(var(--dx), calc(var(--dy) + 70px)) scale(0); } }
+
+  .sr-mouth { transform: scale(0); transform-box: fill-box; transform-origin: center; transition: transform 0.25s cubic-bezier(0.2, 1.5, 0.4, 1); }
+  [data-scene="happy"] .m-happy, [data-scene="sad"] .m-sad { transform: scale(1); }
+  [data-scene="happy"] .sr-eyes { transform: translateY(-4px); }
+
+  [data-scene="sad"] .sr-blue { opacity: 1; }
+  [data-scene="sad"] .sr-shadow { fill: #4d5d94; }
+  [data-scene="sad"] .sr-squash { transform: scale(1.06, 0.9); }
+  [data-scene="sad"] .sr-hairs { transform: scaleY(0.55) rotate(24deg); }
+  [data-scene="sad"] .sr-d.d3 { animation: sr-fall 1.1s 0.3s both; }
+  [data-scene="sad"] .sr-eyes { animation: sr-watch 3.6s ease-in-out both; }
+  @keyframes sr-fall { 0% { transform: translate(0, 0); animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.5); } 55% { transform: translate(60px, 96px); animation-timing-function: ease-out; } 72% { transform: translate(66px, 78px); animation-timing-function: ease-in; } 88%, 100% { transform: translate(70px, 96px); } }
+  @keyframes sr-watch { 0%, 8% { transform: translate(0, 0); } 30%, 100% { transform: translate(11px, 8px); } }
+  [data-scene="juggle"] .sr-d { animation: sr-toss 1.2s infinite; }
+  [data-scene="juggle"] .sr-d.d2 { animation-delay: 0.4s; }
+  [data-scene="juggle"] .sr-d.d3 { animation-delay: 0.8s; }
+  [data-scene="juggle"] .sr-eyes { animation: sr-nod 0.4s ease-in-out infinite; }
+  [data-scene="juggle"] .sr-squash { animation: sr-bob 0.4s ease-in-out infinite; }
+  @keyframes sr-toss { 0%, 34%, 100% { transform: translateY(0); animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1); } 17% { transform: translateY(-62px) scale(1.5); animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.3); } }
+  @keyframes sr-nod { 0%, 100% { transform: translateY(-5px); } 50% { transform: translateY(-1px); } }
+  @keyframes sr-bob { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.04, 0.95); } }
+
+  [data-scene="work"] .sr-dots { opacity: 0; }
+  [data-scene="work"] .sr-orbit { opacity: 1; animation: sr-spin 1.1s linear infinite; }
+  [data-scene="work"] .sr-cursorw, [data-scene="side"] .sr-cursorw { opacity: 1; }
+  [data-scene="work"] .sr-shake { animation: sr-jit 0.22s linear infinite; }
+  [data-scene="work"] .sr-eyes { transform: translate(-8px, 6px); }
+  @keyframes sr-spin { to { transform: rotate(360deg); } }
+  @keyframes sr-jit { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(1.5px); } }
+
+  [data-scene="angry"] .sr-red { opacity: 1; }
+  [data-scene="angry"] .sr-squash { transform: scale(1.16); }
+  [data-scene="angry"] .sr-hairs { transform: scaleY(1.8); }
+  [data-scene="angry"] .sr-shake { animation: sr-rage 0.1s linear infinite; }
+  @keyframes sr-rage { 0%, 100% { transform: translateX(-2.5px); } 50% { transform: translateX(2.5px); } }
+
+  [data-scene="side"] .sr-squash { transform: rotate(4deg); }
+  [data-scene="side"] .sr-eyes { animation: sr-glance 3.2s ease-in-out both; }
+  @keyframes sr-glance { 0%, 20% { transform: translate(8px, 0); } 35%, 100% { transform: translate(-6px, 2px); } }
+
+  [data-scene="wink"] .m-happy, [data-scene="bye"] .m-happy { transform: scale(1); }
+  [data-scene="wink"] .sr-eyes .eR { animation: sr-wink 2s both; }
+  [data-scene="wink"] .sr-squash { animation: sr-tilt 2s ease-in-out both; }
+  @keyframes sr-wink { 0%, 22% { transform: none; animation-timing-function: ease-in; } 27%, 36% { transform: scaleY(0.2); animation-timing-function: ease-out; } 42%, 100% { transform: none; } }
+  @keyframes sr-tilt { 0%, 14%, 62%, 100% { transform: rotate(0deg); } 24%, 46% { transform: rotate(8deg) scale(1.03, 0.98); } }
+
+  [data-scene="bye"] .sr-eyes .eR { animation: sr-wink2 2.3s both; }
+  [data-scene="bye"] .sr-squash { animation: sr-floatw 2.3s both; }
+  [data-scene="bye"] .sr-move { animation: sr-leave 2.3s both; }
+  [data-scene="bye"] .sr-hairs { animation: sr-hairup 2.3s both; }
+  [data-scene="bye"] .sr-shadow { animation: sr-shadow-out 2.3s both; }
+  @keyframes sr-wink2 { 0%, 8% { transform: none; animation-timing-function: ease-in; } 12%, 20% { transform: scaleY(0.2); animation-timing-function: ease-out; } 25%, 100% { transform: none; } }
+  @keyframes sr-floatw { 0%, 30% { transform: none; } 12%, 22% { transform: rotate(8deg); } 40% { transform: scale(1.16, 0.8); } 47% { transform: scale(0.9, 1.16) rotate(-7deg); } 55% { transform: scale(0.94, 1.1) rotate(8deg); } 63% { transform: scale(0.94, 1.1) rotate(-8deg); } 71%, 100% { transform: scale(0.94, 1.1) rotate(6deg); } }
+  @keyframes sr-leave { 0%, 41% { transform: translateY(0); animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.5); } 70%, 100% { transform: translateY(-560px); } }
+  @keyframes sr-hairup { 0%, 41% { transform: none; } 50%, 100% { transform: scaleY(1.5); } }
+  @keyframes sr-shadow-out { 0%, 41% { transform: scale(1); } 70%, 100% { transform: scale(0.25); } }
+</style>
+
+<div class="page">
+<div class="wrap">
+  <header>
+    <h1>Number 43's film: a task arrives, it works, loses its temper, loses a dot and gets it back</h1>
+    <p class="lede">One fixed stage, 15 seconds, and it loops. Drag the bar to any moment.</p>
+  </header>
+  <div class="sr">
+    <svg id="fmStage" viewBox="0 0 800 450" role="img" aria-label="Number 43 in a short film"></svg>
+    <input class="fm-bar" id="fmBar" type="range" min="0" max="2440" value="0" aria-label="Position in the film">
+    <div class="sr-line">
+      <p class="sr-cap"><span class="sr-count" id="fmClock"></span><span id="fmCap"></span></p>
+      <button class="btn" type="button" id="fmPlay">Pause</button><button class="btn" type="button" id="fmRestart">Restart</button>
+    </div>
+  </div>
+  <header>
+    <h1>Number 43's show reel: eleven things it does</h1>
+    <p class="lede">The glossy dark one with fangs, acting. It plays on its own and loops. Pick a scene below to jump to it.</p>
+  </header>
+  <div class="sr">
+    <svg id="srStage" viewBox="0 0 800 450" role="img" aria-label="Number 43 acting out eleven scenes"></svg>
+    <div class="sr-line">
+      <p class="sr-cap"><span class="sr-count" id="srCount"></span><span id="srCap"></span></p>
+      <button class="btn" type="button" id="srPrev">Back</button><button class="btn" type="button" id="srPlay">Pause</button><button class="btn" type="button" id="srNext">Next</button>
+    </div>
+    <div class="chips" id="srChips"></div>
+  </div>
+  <header>
+    <h1>Every eye shape in every emotion</h1>
+    <p class="lede">Ten eye shapes down the side, eight emotions across. The shape stays the same along a row; only its lid and position change, so the flat-topped eye can be happy, sad or confused and so can every other eye. Click a cell to put it on the bot in the configurator. Nothing here is asleep.</p>
+  </header>
+  <div class="mxwrap"><div class="mx-grid" id="gridE"></div></div>
+  <header>
+    <h1>Round 6: ten objects and plain shapes, unlike any earlier round</h1>
+    <p class="lede">No blobs this time. Six are whole objects drawn with their parts, the way the icons in the X post are (a toaster, a traffic light, a tram, a floppy disk, a jar, a magnifying glass). Four are plain shapes (a socket, a triangle, a bell, a cube). Each is something afterterm does, and each caption says what.</p>
+  </header>
+  <div class="grid" id="grid6"></div>
+  <header>
+    <h1>Round 5: the reference's six tricks, taken apart and mixed</h1>
+    <p class="lede">Each icon in your picture is unique for a different reason: the cat is a lopsided glossy body, the pink one is pale on its own colour with bored eyelids and fangs, the skull is a thick sticker outline with punched-out eyes, the chef is a prop bigger than the character, the bunny is a side view cut off by the tile, and the flame has eyes in the tile's colour with a highlight. Each character below combines two or three of those, and its caption says which.</p>
+  </header>
+  <div class="grid" id="grid5"></div>
+  <header>
+    <h1>Round 4: ten more, drawn the way your reference icons are</h1>
+    <p class="lede">What I took from the picture this time: big shapes that fill the tile or get cut off by its edge, a head in profile, a hat bigger than the face, a sticker outline, eyes cut out in the tile's own colour, and bright tiles. No cats, nothing asleep, no thin lines except hair.</p>
+  </header>
+  <div class="grid" id="grid4"></div>
+  <header>
+    <h1>Round 3: ten new buddies, each a different thing from afterterm</h1>
+    <p class="lede">None of these come from number 7. Each one is something afterterm has: a project folder, a toast, a thread, the Enter key. They use the block and flat-topped eyes you liked, hair in the body's own colour, no cats, no robots, no glow. Press "Open in configurator" on one to change its pieces on the right.</p>
+  </header>
+  <div class="grid" id="grid0"></div>
+  <header>
+    <h1>Round 2: ten characters, all grown from number 7</h1>
+    <p class="lede">You liked only number 7, the app icon with eyes and feet. These ten keep that idea and give it a softer body, three strands of hair that catch a breeze, a pose and its own small animation. Number 18 is number 4's leaning shape with afterterm's three dots. Under each is the same character at 48, 28 and 18 pixels.</p>
+  </header>
+  <div class="grid" id="grid2"></div>
+  <header>
+    <h1>Four eye shapes on the same bot</h1>
+    <p class="lede">A is the oval that looked like the Grok bot. B is what round 2 now uses: two block cursors, the shape a terminal already owns. C and D are the other small changes I tried.</p>
+  </header>
+  <div class="grid" id="grid3"></div>
+  <header>
+    <h1>Round 1: the first ten, kept as they were</h1>
+    <p class="lede">You liked 7 and the look of 4. The rest were rejected.</p>
+  </header>
+  <div class="grid" id="grid"></div>
+</div>
+<aside class="config" id="config" aria-label="Bot configurator">
+  <h2>Build your own bot</h2>
+  <div class="cf-prev" style="flex-wrap:wrap"><svg id="cfBig" class="big" viewBox="0 0 200 200" role="img" aria-label="Your bot"></svg><div class="sizes" id="cfSizes"></div><p class="cf-now" id="cfNow" style="flex-basis:100%">Emotion showing now: <span class="moodname"></span></p></div>
+  <div class="cf-actions"><button class="btn" type="button" id="cfRandom">Randomise</button><button class="btn" type="button" id="cfReset">Reset</button></div>
+  <div id="cfControls" style="display:flex;flex-direction:column;gap:12px"></div>
+  <div class="cf-row"><p class="cf-label">Settings to send me</p><p class="cf-code" id="cfCode"></p></div>
+  <div class="cf-actions"><button class="btn" type="button" id="cfCopy">Copy settings</button></div>
+</aside>
+</div>
+
+<script>
+  const T = '#20b2aa', O = '#d28c32', P = '#9467bd', INK = '#1a1a1a', W = '#ececec';
+  const eye = (cx, cy, rx, ry, fill) => `<ellipse class="eye" cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${fill}"/>`;
+  const tile = (id, c1, c2, inner) => `
+    <defs>
+      <linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient>
+      <clipPath id="${id}c"><rect width="200" height="200" rx="46"/></clipPath>
+    </defs>
+    <rect width="200" height="200" rx="46" fill="url(#${id})"/>
+    <g clip-path="url(#${id}c)">${inner(id)}</g>`;
+
+  const chars = [
+    { name: 'The prompt is its face', note: 'A pale blob whose eyes are the icon\'s ">" and cursor bar, with the three dots above it.',
+      draw: id => tile(id, '#2e2e2e', '#151515', () => `
+        <circle cx="72" cy="42" r="9" fill="${T}"/><circle cx="100" cy="42" r="9" fill="${O}"/><circle cx="128" cy="42" r="9" fill="${P}"/>
+        <path d="M28 210 C28 120 58 78 100 78 C142 78 172 120 172 210 Z" fill="${W}"/>
+        <polyline points="66,118 90,132 66,146" fill="none" stroke="${INK}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+        <rect class="eye" x="118" y="114" width="11" height="36" rx="5.5" fill="${INK}"/>`) },
+    { name: 'A black cat with pointed ears', note: 'The icon\'s dark colour as a cat, on the orange dot\'s colour.',
+      draw: id => tile(id, '#f1b566', '#cf7a24', () => `
+        <path d="M46 172 C40 120 50 88 56 52 L84 84 C94 80 106 80 116 84 L144 52 C150 88 160 120 154 172 C154 186 46 186 46 172 Z" fill="${INK}" stroke="${INK}" stroke-width="6" stroke-linejoin="round"/>
+        ${eye(81, 128, 11, 17, '#ffffff')}${eye(119, 128, 11, 17, '#ffffff')}`) },
+    { name: 'A ghost', note: 'For the "after" in afterterm, and for threads that are asleep. On the teal dot\'s colour.',
+      draw: id => tile(id, '#62d8cf', '#158c84', () => `
+        <path d="M52 168 V104 C52 70 73 50 100 50 C127 50 148 70 148 104 V168 L132 152 L116 168 L100 152 L84 168 L68 152 Z" fill="#f6f6f6" stroke="#f6f6f6" stroke-width="8" stroke-linejoin="round"/>
+        ${eye(85, 104, 9, 14, INK)}${eye(115, 104, 9, 14, INK)}`) },
+    { name: 'The cursor bar, standing up', note: 'The white bar from the prompt mark as a small leaning character. On the purple dot\'s colour.',
+      draw: id => tile(id, '#b79aea', '#7446c2', () => `
+        <ellipse cx="102" cy="172" rx="44" ry="8" fill="#5c349f"/>
+        <g transform="rotate(-7 100 105)">
+          <rect x="68" y="42" width="64" height="124" rx="22" fill="#f6f6f6"/>
+          ${eye(88, 84, 7, 11, INK)}${eye(114, 84, 7, 11, INK)}
+        </g>`) },
+    { name: 'A bird with the ">" as its beak', note: 'A round orange bird seen from the side. Its beak is the prompt\'s ">".',
+      draw: id => tile(id, '#2e2e2e', '#151515', () => `
+        <line x1="80" y1="160" x2="80" y2="182" stroke="${W}" stroke-width="7" stroke-linecap="round"/>
+        <line x1="104" y1="160" x2="104" y2="182" stroke="${W}" stroke-width="7" stroke-linecap="round"/>
+        <circle cx="92" cy="110" r="56" fill="${O}"/>
+        <polyline points="138,90 172,110 138,130" fill="none" stroke="${W}" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+        ${eye(106, 94, 9, 14, INK)}`) },
+    { name: 'The three dots, each alive', note: 'The icon\'s teal, orange and purple dots as three small characters that hop one after another.',
+      draw: id => tile(id, '#2e2e2e', '#151515', () => [[46, T, 'b1'], [100, O, 'b2'], [154, P, 'b3']].map(([x, c, b]) => `
+        <g class="hop ${b}"><circle cx="${x}" cy="112" r="27" fill="${c}"/>${eye(x - 9, 108, 4.5, 7.5, INK)}${eye(x + 9, 108, 4.5, 7.5, INK)}</g>`).join('')) },
+    { name: 'The app icon with eyes and feet', note: 'The dark tile itself, three dots on its forehead, walking around.',
+      draw: id => tile(id, '#f4f4f4', '#c6c6c6', () => `
+        <rect x="68" y="150" width="16" height="32" rx="8" fill="${INK}"/><rect x="116" y="150" width="16" height="32" rx="8" fill="${INK}"/>
+        <rect x="38" y="44" width="124" height="120" rx="34" fill="${INK}"/>
+        <circle cx="66" cy="70" r="7" fill="${T}"/><circle cx="86" cy="70" r="7" fill="${O}"/><circle cx="106" cy="70" r="7" fill="${P}"/>
+        ${eye(82, 120, 11, 16, '#ffffff')}${eye(120, 120, 11, 16, '#ffffff')}`) },
+    { name: 'A sleeper under the moon', note: 'A pale blob with its eyes shut. afterterm\'s threads sleep until you wake them.',
+      draw: id => tile(id, '#7a5cd4', '#2f1d68', () => `
+        <mask id="${id}m"><rect width="200" height="200" fill="#fff"/><circle cx="160" cy="40" r="15" fill="#000"/></mask>
+        <circle cx="150" cy="48" r="18" fill="#f0e2a0" mask="url(#${id}m)"/>
+        <path d="M30 210 C30 130 60 92 100 92 C140 92 170 130 170 210 Z" fill="#e6dcff"/>
+        <path d="M66 142 q12 11 24 0" fill="none" stroke="#2f1d68" stroke-width="7" stroke-linecap="round"/>
+        <path d="M110 142 q12 11 24 0" fill="none" stroke="#2f1d68" stroke-width="7" stroke-linecap="round"/>`) },
+    { name: 'A small robot', note: 'A white head with a dark visor, teal eyes and a purple antenna.',
+      draw: id => tile(id, '#2e2e2e', '#151515', () => `
+        <line x1="100" y1="56" x2="100" y2="78" stroke="${W}" stroke-width="7" stroke-linecap="round"/>
+        <circle cx="100" cy="48" r="10" fill="${P}"/>
+        <rect x="34" y="102" width="16" height="28" rx="8" fill="${W}"/><rect x="150" y="102" width="16" height="28" rx="8" fill="${W}"/>
+        <rect x="70" y="164" width="60" height="60" rx="18" fill="${W}"/>
+        <rect x="46" y="74" width="108" height="84" rx="30" fill="${W}"/>
+        <rect x="60" y="92" width="80" height="48" rx="22" fill="${INK}"/>
+        ${eye(85, 116, 8, 12, T)}${eye(115, 116, 8, 12, T)}`) },
+    { name: 'A dome standing on the three dots', note: 'A dark dome whose three feet are the icon\'s teal, orange and purple dots.',
+      draw: id => tile(id, '#f4f4f4', '#c6c6c6', () => `
+        <path d="M44 142 C44 86 70 54 100 54 C130 54 156 86 156 142 Z" fill="${INK}" stroke="${INK}" stroke-width="6" stroke-linejoin="round"/>
+        <circle cx="64" cy="152" r="16" fill="${T}"/><circle cx="100" cy="152" r="16" fill="${O}"/><circle cx="136" cy="152" r="16" fill="${P}"/>
+        ${eye(85, 102, 10, 15, '#ffffff')}${eye(115, 102, 10, 15, '#ffffff')}`) },
+  ];
+
+  // Round 2: one shared body (the app tile, softened), posed ten ways.
+  const BODY = 'M100 40 C140 40 160 48 162 82 C164 110 166 130 164 142 C161 164 140 168 100 168 C60 168 39 164 36 142 C34 130 36 110 38 82 C40 48 60 40 100 40 Z';
+  // Three strands of hair from the top of the head, each swaying from its root.
+  const hairs = (x, y, c, still) => [[`M${x - 5} ${y + 3} q-5 -15 -18 -15`, ''], [`M${x} ${y + 3} q-2 -19 8 -25`, ' h2'], [`M${x + 5} ${y + 3} q9 -11 20 -7`, ' h3']]
+    .map(([d, k]) => `<path class="${still ? '' : 'hair' + k}" style="transform-origin:${x}px ${y + 3}px" d="${d}" fill="none" stroke="${c}" stroke-width="5" stroke-linecap="round"/>`).join('');
+  const eyeShape = (kind, x, y, rx, ry, fill) => {
+    if (kind === 'oval') return eye(x, y, rx, ry, fill);
+    if (kind === 'pupil') return eye(x, y, rx, ry, fill) + `<circle cx="${x + 3}" cy="${y - 3}" r="${rx * 0.5}" fill="${fill === INK ? '#ffffff' : INK}"/>`;
+    if (kind === 'lid') return `<path class="eye" d="M${x - rx} ${y - ry * 0.25} H${x + rx} V${y + ry * 0.1} A${rx} ${ry * 0.9} 0 0 1 ${x - rx} ${y + ry * 0.1} Z" fill="${fill}"/>`;
+    const w = rx * 1.6, h = ry * 1.65;
+    return `<rect class="eye" x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="${w * 0.3}" fill="${fill}"/>`;
+  };
+  function unit(id, o = {}) {
+    const top = o.top || '#3a3a3a', bot = o.bot || '#0e0e0e', hi = o.hi || '#5a5a5a', ef = o.eyeFill || '#ffffff';
+    const [gx, gy] = o.gaze || [0, 0], ff = o.feet === undefined ? '#0e0e0e' : o.feet;
+    const ds = o.dots === undefined ? [T, O, P] : o.dots, ey = o.eyeY || 116, [rx, ry] = o.er || [11, 16];
+    let s = `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${top}"/><stop offset="1" stop-color="${bot}"/></linearGradient></defs>`;
+    if (ff) s += `<rect x="68" y="154" width="17" height="32" rx="8.5" fill="${ff}"/><rect x="${o.step ? 120 : 115}" y="${o.step ? 150 : 154}" width="17" height="32" rx="8.5" fill="${ff}"${o.step ? ' transform="rotate(-16 128 166)"' : ''}/>`;
+    s += `<path d="${BODY}" fill="url(#${id})"/>` + (o.hair === null ? '' : hairs(100, 42, o.hair || top, o.still));
+    if (ds) s += ds.map((c, i) => `<circle cx="${66 + i * 20}" cy="70" r="6.5" fill="${c}"/>`).join('');
+    if (o.closed) s += [70, 108].map(x => `<path d="M${x} ${ey} q12 11 24 0" fill="none" stroke="${ef}" stroke-width="7" stroke-linecap="round"/>`).join('');
+    else if (o.happy) s += [70, 108].map(x => `<path d="M${x} ${ey + 6} q12 -15 24 0" fill="none" stroke="${ef}" stroke-width="7" stroke-linecap="round"/>`).join('');
+    else s += (o.look ? '<g class="look">' : '<g>') + [[82, 5], [120, -5]].map(([x, r]) => `<g transform="rotate(${(o.eyes || 'block') === 'block' ? r * 0.5 : r} ${x + gx} ${ey + gy})">${eyeShape(o.eyes || 'block', x + gx, ey + gy, rx, ry, ef)}</g>`).join('') + '</g>';
+    return s;
+  }
+  const LIGHT = ['#f4f4f4', '#c6c6c6'], DARK = ['#2e2e2e', '#151515'], TEAL = ['#62d8cf', '#158c84'], ORANGE = ['#f1b566', '#cf7a24'], PURPLE = ['#b79aea', '#7446c2'], LAV = ['#d6c8fa', '#9274e2'];
+  const shadow = (fill, cx = 100, rx = 52, cy = 186) => `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="7" fill="${fill}"/>`;
+
+  const round2 = [
+    { name: 'Leaning in, curious', note: 'Number 7 with a softer body, tilted, one foot forward, looking up at something.',
+      draw: id => tile(id, ...LIGHT, () => `${shadow('#b0b0b0', 104)}<g transform="rotate(-6 100 110)">${unit(id + 'u', { gaze: [5, -4], step: true, look: true })}</g>`) },
+    { name: 'Peeking in from the side', note: 'Only half of it shows, looking back into the tile. Good for an empty screen.',
+      draw: id => tile(id, ...TEAL, () => `<g class="peek"><g transform="translate(58 24) rotate(-14 100 110)">${unit(id + 'u', { gaze: [-7, 1], feet: null })}</g></g>`) },
+    { name: 'With the prompt on its belly', note: 'Eyes up top, the ">" and a cursor that really blinks on its front.',
+      draw: id => tile(id, ...LIGHT, () => `${shadow('#b0b0b0')}${unit(id + 'u', { eyeY: 104, er: [9, 13], gaze: [0, 2] })}
+        <polyline points="78,132 92,140 78,148" fill="none" stroke="${W}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        <rect class="cur" x="100" y="130" width="7" height="20" rx="3.5" fill="${W}"/>`) },
+    { name: 'Asleep, with its dots switched off', note: 'Sitting, eyes shut, the three dots gone grey. The same character for an asleep thread.',
+      draw: id => tile(id, ...LAV, () => `
+        <mask id="${id}m"><rect width="200" height="200" fill="#fff"/><circle cx="162" cy="34" r="14" fill="#000"/></mask>
+        <circle cx="152" cy="42" r="17" fill="#fff3bf" mask="url(#${id}m)"/>
+        ${shadow('#7a5cd4', 104, 62, 190)}
+        <g class="breathe" style="transform-origin:100px 190px"><g transform="translate(0 22) rotate(7 100 168)">${unit(id + 'u', { still: true, closed: true, feet: null, dots: ['#5c5c5c', '#5c5c5c', '#5c5c5c'] })}</g></g>`) },
+    { name: 'The three dots grow from its head', note: 'The dots sit on short stalks like sprouts and it looks up at them.',
+      draw: id => tile(id, ...ORANGE, () => `${shadow('#b5661a', 100, 48, 192)}
+        <path d="M78 72 Q70 52 62 38" fill="none" stroke="${INK}" stroke-width="5" stroke-linecap="round"/>
+        <path d="M100 68 V26" fill="none" stroke="${INK}" stroke-width="5" stroke-linecap="round"/>
+        <path d="M122 72 Q130 54 140 42" fill="none" stroke="${INK}" stroke-width="5" stroke-linecap="round"/>
+        <circle class="pop" cx="60" cy="34" r="11" fill="${T}"/><circle class="pop p2" cx="100" cy="22" r="11" fill="#f6f6f6"/><circle class="pop p3" cx="142" cy="38" r="11" fill="${P}"/>
+        <g transform="translate(12 30) scale(.88)">${unit(id + 'u', { gaze: [0, -5], dots: null, hair: null })}</g>`) },
+    { name: 'A project walking with its threads', note: 'One big one and two small ones following it, each small one wearing one dot.',
+      draw: id => tile(id, ...LIGHT, () => `${shadow('#b0b0b0', 104, 84, 160)}
+        <g class="walk"><g transform="translate(8 44) scale(.62)">${unit(id + 'u1', { gaze: [5, 0] })}</g></g>
+        <g class="walk w2"><g transform="translate(106 103) scale(.3)">${unit(id + 'u2', { dots: [O], gaze: [-4, -6] })}</g></g>
+        <g class="walk w3"><g transform="translate(150 114) scale(.24)">${unit(id + 'u3', { dots: [P], gaze: [-4, -6] })}</g></g>`) },
+    { name: 'The pale version, for dark screens', note: 'afterterm is dark, so this one is light and needs no tile behind it.',
+      draw: id => tile(id, ...DARK, () => `${shadow('#0a0a0a')}<g class="squash" style="transform-origin:100px 186px"><g transform="rotate(5 100 110)">${unit(id + 'u', { top: '#fbfbfb', bot: '#c2c2c2', hi: '#ffffff', eyeFill: INK, feet: '#b8b8b8', gaze: [-4, -2], hair: '#fbfbfb' })}</g></g>`) },
+    { name: 'Number 4\'s leaning shape, with the three dots', note: 'The white leaning body you liked the look of, now carrying afterterm\'s dots.',
+      draw: id => tile(id, ...PURPLE, () => `
+        <defs><linearGradient id="${id}w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#d8d2e6"/></linearGradient></defs>
+        ${shadow('#5c349f', 104, 46, 180)}<g class="lean" style="transform-origin:100px 178px">
+        <g transform="rotate(-7 100 105)">
+          <rect x="80" y="150" width="13" height="28" rx="6.5" fill="#cfc8e0"/><rect x="108" y="150" width="13" height="28" rx="6.5" fill="#cfc8e0"/>
+          <path d="M100 34 C122 34 133 42 134 62 C136 96 137 126 135 146 C133 162 122 168 100 168 C78 168 67 162 65 146 C63 126 64 96 66 62 C67 42 78 34 100 34 Z" fill="url(#${id}w)"/>
+          ${hairs(100, 35, '#ffffff')}
+          <circle cx="85" cy="58" r="5.5" fill="${T}"/><circle cx="100" cy="58" r="5.5" fill="${O}"/><circle cx="115" cy="58" r="5.5" fill="${P}"/>
+          ${eyeShape('block', 90, 92, 7.5, 11.5, INK)}${eyeShape('block', 114, 92, 7.5, 11.5, INK)}</g></g><g>
+        </g>`) },
+    { name: 'Holding the three dots as balloons', note: 'The dots have left its forehead and it is looking up at them.',
+      draw: id => tile(id, ...LIGHT, () => `${shadow('#b0b0b0', 74, 44, 186)}
+        <g class="drift" style="transform-origin:126px 112px"><path d="M126 112 L112 60 M126 112 L146 54 M126 112 L166 82" fill="none" stroke="#6a6a6a" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="110" cy="44" r="18" fill="${T}"/><circle cx="148" cy="38" r="18" fill="${O}"/><circle cx="170" cy="68" r="18" fill="${P}"/></g>
+        <line x1="108" y1="134" x2="126" y2="112" stroke="#0e0e0e" stroke-width="8" stroke-linecap="round"/>
+        <g transform="translate(6 62) scale(.66)">${unit(id + 'u', { gaze: [6, -6], dots: null })}</g>`) },
+    { name: 'Happy and waving', note: 'Smiling eyes and one arm up. For "done", or for saying hello on a first launch.',
+      draw: id => tile(id, ...TEAL, () => `${shadow('#0f7a73')}
+        <line x1="42" y1="112" x2="26" y2="136" stroke="#0e0e0e" stroke-width="9" stroke-linecap="round"/>
+        <line class="wave" x1="158" y1="112" x2="182" y2="80" stroke="#1c1c1c" stroke-width="9" stroke-linecap="round"/>
+        ${unit(id + 'u', { happy: true })}`) },
+  ];
+
+  const svg = (c, id, cls) => `<svg class="${cls}" viewBox="0 0 200 200" role="img" aria-label="${c.name}">${c.draw(id)}</svg>`;
+  const render = (list, el, prefix, first, letters) => { document.getElementById(el).innerHTML = list.map((c, i) => `
+    <article class="card">
+      ${svg(c, prefix + 'a' + i, 'big')}
+      <div class="sizes">${svg(c, prefix + 'b' + i, '')}${svg(c, prefix + 'c' + i, '')}${svg(c, prefix + 'd' + i, '')}</div>
+      <div><p class="name"><span class="num">${letters ? letters[i] : i + first}</span>${c.name}</p><p class="note">${c.note}</p></div>
+    </article>`).join(''); };
+  render(round2, 'grid2', 'r', 11);
+  render(chars, 'grid', 'q', 1);
+  render([['oval', 'Tall ovals (before)', 'The shape the Grok bot uses.'], ['block', 'Block cursors (now used)', 'Rounded blocks, like a terminal cursor. A blink reads as a cursor blink.'], ['lid', 'Flat-topped, half shut', 'A lid across the top makes it look relaxed, a bit sleepy.'], ['pupil', 'Ovals with a pupil', 'A pupil gives a direction to the look, but it is the most ordinary of the four.']]
+    .map(([k, name, note]) => ({ name, note, draw: id => tile(id, ...LIGHT, () => `${shadow('#b0b0b0', 104)}<g transform="rotate(-6 100 110)">${unit(id + 'u', { gaze: [5, -4], step: true, eyes: k })}</g>`) })), 'grid3', 'e', 0, 'ABCD');
+  document.querySelectorAll('#grid2 .card').forEach((card, i) => card.style.setProperty('--hd', (-i * 1.3) + 's'));
+  document.querySelectorAll('.card').forEach((card, i) => card.querySelectorAll('.eye').forEach(e => { e.style.animationDelay = (i * 0.47) + 's'; }));
+
+  // ---- Round 3 and the configurator: one renderer, every piece chosen by a settings object ----
+  const grad = (id, a, b) => `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient>`;
+  const PAL = {
+    dark:   { top: '#3a3a3a', bot: '#0e0e0e', deep: '#000000', eye: '#ffffff', second: 'teal' },
+    pale:   { top: '#fbfbfb', bot: '#c2c2c2', deep: '#9a9a9a', eye: INK, second: 'orange' },
+    teal:   { top: '#58d6cc', bot: '#128a82', deep: '#0b625c', eye: INK, second: 'purple' },
+    orange: { top: '#f2b769', bot: '#c97420', deep: '#96520f', eye: INK, second: 'teal' },
+    purple: { top: '#bb9cee', bot: '#7446c2', deep: '#4f2c92', eye: INK, second: 'teal' },
+    yellow: { top: '#fff5c9', bot: '#ecd27c', deep: '#bfa244', eye: INK, second: 'purple' },
+    bread:  { top: '#fbe9c6', bot: '#eccf9a', deep: '#c98a36', eye: INK, second: 'orange' },
+  };
+  const BG = {
+    light: ['#f4f4f4', '#c6c6c6', '#b0b0b0'], dark: ['#2e2e2e', '#151515', '#0a0a0a'], teal: ['#62d8cf', '#158c84', '#0f7a73'],
+    orange: ['#f1b566', '#cf7a24', '#b5661a'], purple: ['#b79aea', '#7446c2', '#5c349f'], lavender: ['#d6c8fa', '#9274e2', '#7a5cd4'],
+    night: ['#7a5cd4', '#2f1d68', '#24154f'], none: null,
+  };
+  const SHAPES = {
+    tile: { d: BODY, ex: [82, 120], ey: 116, hair: [100, 42], dots: [[66, 70, 6.5], [86, 70, 6.5], [106, 70, 6.5]], fx: [68, 115], fy: 154, fw: 17, ax: [40, 160], ay: 112, belly: [78, 140] },
+    tall: { d: 'M100 34 C122 34 133 42 134 62 C136 96 137 126 135 146 C133 162 122 168 100 168 C78 168 67 162 65 146 C63 126 64 96 66 62 C67 42 78 34 100 34 Z',
+      ex: [89, 113], ey: 94, es: 0.7, hair: [100, 35], dots: [[86, 60, 5.5], [100, 60, 5.5], [114, 60, 5.5]], fx: [81, 106], fy: 152, fw: 13, ax: [68, 132], ay: 112, belly: [88, 128] },
+    folder: { d: 'M36 80 C36 71 42 66 51 66 H149 C158 66 164 71 164 80 L160 150 C159 161 152 166 142 166 H58 C48 166 41 161 40 150 Z',
+      under: p => `<path d="M42 150 V58 C42 50 47 46 55 46 H86 C93 46 97 49 100 55 L106 66 H150 C156 66 160 70 160 76 V150 Z" fill="${p.deep}"/>`,
+      ex: [82, 120], ey: 120, hair: [70, 47], dots: [[58, 86, 6], [76, 86, 6], [94, 86, 6]], fx: [68, 115], fy: 154, fw: 17, ax: [41, 159], ay: 122, belly: [80, 146] },
+    toast: { d: 'M50 72 C36 68 34 46 54 42 C68 35 86 37 100 39 C114 37 132 35 146 42 C166 46 164 68 150 72 L152 150 C152 161 146 166 136 166 H64 C54 166 48 161 48 150 Z',
+      crust: true, ex: [84, 116], ey: 100, hair: [100, 40], dots: [[80, 134, 7], [100, 139, 7], [120, 134, 7]], fx: [72, 112], fy: 158, fw: 16, ax: [50, 150], ay: 114, belly: [84, 134] },
+    yarn: { d: 'M100 50 A58 58 0 1 1 99.9 50 Z',
+      extra: p => `<g fill="none" stroke="${p.deep}" stroke-width="3" stroke-linecap="round"><path d="M52 78 Q100 54 148 78"/><path d="M50 140 Q100 124 150 140"/><path d="M64 152 Q100 140 136 152"/><path d="M58 68 Q50 108 66 150"/><path d="M142 68 Q150 108 134 150"/></g>
+        <path d="M150 144 q26 2 22 20 q-4 14 -26 8" fill="none" stroke="${p.top}" stroke-width="5" stroke-linecap="round"/>`,
+      ex: [84, 118], ey: 106, hair: [100, 51], dots: [[84, 76, 5.5], [100, 72, 5.5], [116, 76, 5.5]], fx: [76, 108], fy: 156, fw: 16, ax: [45, 155], ay: 114, belly: [84, 136] },
+    dome: { d: 'M34 134 C34 84 62 54 100 54 C138 54 166 84 166 134 C166 150 154 156 140 156 H60 C46 156 34 150 34 134 Z', depth: 6,
+      under: (p, id, c) => `<g fill="none" stroke="${p.bot}" stroke-width="${c && c.thick ? 12 : 7}" stroke-linecap="round"><path d="M44 118 L22 108"/><path d="M40 136 L18 138"/><path d="M48 150 L28 164"/><path d="M156 118 L178 108"/><path d="M160 136 L182 138"/><path d="M152 150 L172 164"/></g>`,
+      ex: [82, 118], ey: 124, hair: [100, 55], dots: [[68, 92, 9], [100, 80, 9], [132, 92, 9]], fx: [72, 112], fy: 150, fw: 16, ax: [38, 162], ay: 126, belly: [84, 142] },
+    round: { d: 'M100 44 A60 60 0 1 1 99.9 44 Z',
+      extra: p => `<path d="M128 51 A60 60 0 0 1 128 157 A80 80 0 0 0 128 51 Z" fill="${p.bot}"/><ellipse cx="62" cy="78" rx="8" ry="6" fill="${p.bot}"/><ellipse cx="78" cy="142" rx="6" ry="4.5" fill="${p.bot}"/>`,
+      ex: [80, 112], ey: 106, hair: [100, 45], dots: [[82, 72, 5], [96, 68, 5], [110, 72, 5]], fx: [76, 108], fy: 154, fw: 16, ax: [43, 157], ay: 112, belly: [80, 136] },
+    capsule: { d: 'M72 62 H128 C152 62 170 81 170 104 C170 127 152 146 128 146 H72 C48 146 30 127 30 104 C30 81 48 62 72 62 Z', depth: 6,
+      extra: (p, id) => `<path d="M100 62 H128 C152 62 170 81 170 104 C170 127 152 146 128 146 H100 Z" fill="url(#${id}s)"/>`,
+      ex: [68, 132], ey: 106, hair: [100, 63], dots: [[86, 78, 5], [100, 78, 5], [114, 78, 5]], fx: [72, 112], fy: 138, fw: 16, ax: [34, 166], ay: 110, belly: [84, 128] },
+    bubble: { d: 'M54 44 H146 C162 44 172 54 172 70 V118 C172 134 162 144 146 144 H98 L64 172 L72 144 H54 C38 144 28 134 28 118 V70 C28 54 38 44 54 44 Z', depth: 6, round: true,
+      ex: [80, 122], ey: 102, hair: [100, 45], dots: [[52, 64, 6], [70, 64, 6], [88, 64, 6]], fx: [112, 142], fy: 134, fw: 15, ax: [32, 168], ay: 102, belly: [84, 126] },
+    key: { d: 'M94 40 H150 C160 40 166 46 166 56 V146 C166 156 160 162 150 162 H52 C42 162 36 156 36 146 V112 C36 102 42 96 52 96 H78 V56 C78 46 84 40 94 40 Z', depth: 9,
+      extra: (p, id, c) => `<path d="M104 116 V130 H62 M73 120 L60 130 L73 140" fill="none" stroke="${p.eye === INK ? INK : W}" stroke-width="${c && c.thick ? 11 : 5.5}" stroke-linecap="round" stroke-linejoin="round"/>`,
+      ex: [108, 138], ey: 82, es: 0.8, hair: [122, 41], dots: [[106, 56, 5], [122, 56, 5], [138, 56, 5]], fx: [66, 122], fy: 156, fw: 16, ax: [40, 162], ay: 124, belly: null },
+  };
+  SHAPES.blob = { d: 'M58 60 C74 40 126 38 144 58 C162 80 172 130 160 152 C152 168 60 170 46 154 C32 136 42 82 58 60 Z',
+    ex: [84, 120], ey: 110, hair: [102, 45], dots: [[78, 74, 6], [97, 70, 6], [116, 74, 6]], fx: [72, 114], fy: 154, fw: 17, ax: [46, 160], ay: 116, belly: [82, 140] };
+  SHAPES.bean = { d: 'M60 84 C80 70 130 70 146 86 C170 104 174 140 158 154 C146 166 56 166 42 154 C26 138 36 100 60 84 Z',
+    ex: [80, 124], ey: 124, hair: [102, 76], dots: [[84, 98, 5.5], [100, 95, 5.5], [116, 98, 5.5]], fx: [70, 116], fy: 152, fw: 17, ax: [38, 164], ay: 130, belly: null };
+  const eBlk = (x, y, rx, ry, f, cls = '') => { const w = rx * 1.6, h = ry * 1.65; return `<rect class="${cls}" x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="${w * 0.3}" fill="${f}"/>`; };
+  const eLid = (x, y, rx, ry, f, cls = '') => `<path class="${cls}" d="M${x - rx} ${y - ry * 0.25} H${x + rx} V${y + ry * 0.1} A${rx} ${ry * 0.9} 0 0 1 ${x - rx} ${y + ry * 0.1} Z" fill="${f}"/>`;
+  const eRot = (r, x, y, inner) => `<g transform="rotate(${r} ${x} ${y})">${inner}</g>`;
+  const EMO = {
+    calm: ([a, b], y, rx, ry, f) => eRot(2.5, a, y, eBlk(a, y, rx, ry, f, 'eye')) + eRot(-2.5, b, y, eBlk(b, y, rx, ry, f, 'eye')),
+    annoyed: ([a, b], y, rx, ry, f) => eRot(11, a, y, eLid(a, y, rx, ry, f, 'em em-narrow')) + eRot(-11, b, y, eLid(b, y, rx, ry, f, 'em em-narrow')),
+    curious: ([a, b], y, rx, ry, f) => `<g class="em-dart">${eBlk(a, y, rx * 0.85, ry * 0.85, f)}${eBlk(b, y - ry * 0.15, rx * 1.2, ry * 1.2, f)}</g>`,
+    happy: ([a, b], y, rx, ry, f) => [a, b].map(x => `<path class="em em-bounce" d="M${x - rx * 1.1} ${y + ry * 0.45} A${rx * 1.1} ${ry} 0 0 1 ${x + rx * 1.1} ${y + ry * 0.45} Z" fill="${f}"/>`).join(''),
+    surprised: ([a, b], y, rx, ry, f) => [a, b].map(x => `<circle class="em em-pop" cx="${x}" cy="${y}" r="${rx * 1.2}" fill="${f}"/>`).join(''),
+    suspicious: ([a, b], y, rx, ry, f) => `<g class="em-side">${[a, b].map(x => `<rect x="${x - rx * 1.2}" y="${y - ry * 0.3}" width="${rx * 2.4}" height="${ry * 0.6}" rx="${ry * 0.3}" fill="${f}"/>`).join('')}</g>`,
+    sad: ([a, b], y, rx, ry, f) => `<g class="em-droop">${eRot(-13, a, y, eLid(a, y, rx, ry, f))}${eRot(13, b, y, eLid(b, y, rx, ry, f))}</g>`,
+    starry: ([a, b], y, rx, ry, f) => [a, b].map(x => { const R = ry, k = R * 0.22; return `<path class="em em-twinkle" d="M${x} ${y - R} Q${x + k} ${y - k} ${x + R} ${y} Q${x + k} ${y + k} ${x} ${y + R} Q${x - k} ${y + k} ${x - R} ${y} Q${x - k} ${y - k} ${x} ${y - R} Z" fill="${f}"/>`; }).join(''),
+    trying: ([a, b], y, rx, ry, f) => `<g class="em-shake">${[[a, 1], [b, -1]].map(([x, k]) => `<polygon points="${x - k * rx},${y - ry * 0.7} ${x + k * rx},${y} ${x - k * rx},${y + ry * 0.7}" fill="${f}" stroke="${f}" stroke-width="${rx * 0.5}" stroke-linejoin="round"/>`).join('')}</g>`,
+    cheeky: ([a, b], y, rx, ry, f) => eRot(2.5, a, y, eBlk(a, y, rx, ry, f)) + eRot(-2.5, b, y, eBlk(b, y, rx, ry, f, 'em em-wink')),
+  };
+  // Ten eye shapes. Each one can show every emotion: the emotion is a lid (a clip) and a small move, applied to whatever the shape is.
+  const STYLE = {
+    's-lid': (x, y, rx, ry, f) => eLid(x, y, rx, ry, f),
+    's-block': (x, y, rx, ry, f) => eBlk(x, y, rx, ry, f),
+    's-oval': (x, y, rx, ry, f) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${f}"/>`,
+    's-round': (x, y, rx, ry, f) => `<circle cx="${x}" cy="${y}" r="${rx * 1.2}" fill="${f}"/>`,
+    's-pupil': (x, y, rx, ry, f) => `<ellipse cx="${x}" cy="${y}" rx="${rx * 1.1}" ry="${ry}" fill="${f}"/><circle cx="${x + rx * 0.25}" cy="${y + ry * 0.15}" r="${rx * 0.55}" fill="${f === INK ? '#ffffff' : INK}"/>`,
+    's-dome': (x, y, rx, ry, f) => `<path d="M${x - rx * 1.15} ${y + ry * 0.55} A${rx * 1.15} ${ry * 1.2} 0 0 1 ${x + rx * 1.15} ${y + ry * 0.55} Z" fill="${f}"/>`,
+    's-pill': (x, y, rx, ry, f) => `<rect x="${x - rx * 1.3}" y="${y - ry * 0.5}" width="${rx * 2.6}" height="${ry}" rx="${ry * 0.5}" fill="${f}"/>`,
+    's-diamond': (x, y, rx, ry, f) => `<polygon points="${x},${y - ry} ${x + rx * 1.1},${y} ${x},${y + ry} ${x - rx * 1.1},${y}" fill="${f}" stroke="${f}" stroke-width="${rx * 0.4}" stroke-linejoin="round"/>`,
+    's-dee': (x, y, rx, ry, f, i) => { const k = i ? -1 : 1, fx = x + k * rx * 0.7; return `<path d="M${fx} ${y - ry} V${y + ry} A${rx * 1.7} ${ry} 0 0 ${i ? 0 : 1} ${fx} ${y - ry} Z" fill="${f}"/>`; },
+    's-odd': (x, y, rx, ry, f, i) => `<circle cx="${x}" cy="${y - (i ? ry * 0.15 : 0)}" r="${rx * (i ? 1.4 : 0.85)}" fill="${f}"/>`,
+  };
+  const STYLE_LIST = [['s-lid', 'Flat-topped'], ['s-block', 'Block'], ['s-oval', 'Oval'], ['s-round', 'Round'], ['s-pupil', 'With a pupil'], ['s-dome', 'Arch'], ['s-pill', 'Slit'], ['s-diamond', 'Diamond'], ['s-dee', 'Half circles'], ['s-odd', 'Odd pair']];
+  const MOOD_LIST = [['neutral', 'Neutral'], ['happy', 'Happy'], ['sad', 'Sad'], ['angry', 'Angry'], ['surprised', 'Surprised'], ['confused', 'Confused'], ['suspicious', 'Suspicious'], ['cheeky', 'Cheeky']];
+  const styleEyes = (kind, xs, y, rx, ry, f, mood) => `<g class="emo-${mood || 'neutral'}">${xs.map((x, i) =>
+    `<g transform="rotate(${(i ? -1 : 1) * (kind === 's-lid' ? 6 : kind === 's-block' ? 2.5 : 0)} ${x} ${y})"><g class="ee ${i ? 'eR' : 'eL'}">${STYLE[kind](x, y, rx, ry, f, i)}</g></g>`).join('')}</g>`;
+  // Each emotion: the part of the eye left showing (8 points, in percent of the eye's own box) and a move, for the left and the right eye.
+  (() => {
+    const P = {
+      full: '0% 0%,50% 0%,100% 0%,100% 100%,75% 100%,50% 100%,25% 100%,0% 100%',
+      // a smooth arch: 13 points round the top, 13 back along the underside
+      happy: [...Array.from({ length: 13 }, (_, i) => { const t = Math.PI * i / 12; return [50 - 50 * Math.cos(t), 100 - 100 * Math.sin(t)]; }), ...Array.from({ length: 13 }, (_, i) => { const t = Math.PI * i / 12; return [50 + 30 * Math.cos(t), 100 - 50 * Math.sin(t)]; })].map(([x, y]) => x.toFixed(1) + '% ' + y.toFixed(1) + '%').join(','),
+      sadL: '0% 48%,50% 24%,100% 0%,100% 100%,75% 100%,50% 100%,25% 100%,0% 100%',
+      sadR: '0% 0%,50% 24%,100% 48%,100% 100%,75% 100%,50% 100%,25% 100%,0% 100%',
+      squint: '0% 36%,50% 36%,100% 36%,100% 72%,75% 72%,50% 72%,25% 72%,0% 72%',
+      topcut: '0% 38%,50% 38%,100% 38%,100% 100%,75% 100%,50% 100%,25% 100%,0% 100%',
+    };
+    const E = {
+      neutral: [[P.full, 'none'], [P.full, 'none']],
+      happy: [[P.happy, 'translateY(-8%) scale(1.15)'], [P.happy, 'translateY(-8%) scale(1.15)']],
+      sad: [[P.sadL, 'translateY(10%)'], [P.sadR, 'translateY(10%)']],
+      angry: [[P.sadR, 'none'], [P.sadL, 'none']],
+      surprised: [[P.full, 'scale(1.3)'], [P.full, 'scale(1.3)']],
+      confused: [[P.topcut, 'scale(0.8)'], [P.full, 'scale(1.22) translateY(-10%)']],
+      suspicious: [[P.squint, 'translateX(-14%)'], [P.squint, 'translateX(-14%)']],
+      cheeky: [[P.happy, 'translateY(-8%) scale(1.15)'], [P.full, 'scaleY(0.14)']],
+    };
+    // Every shape gets 26 points (13 along the top, 13 along the bottom) so the lids can slide between any two emotions.
+    const samp = (line, n) => Array.from({ length: n }, (_, i) => { const u = i / (n - 1) * (line.length - 1), a = Math.min(Math.floor(u), line.length - 2), k = u - a; return [line[a][0] + (line[a + 1][0] - line[a][0]) * k, line[a][1] + (line[a + 1][1] - line[a][1]) * k]; });
+    const wide = str => { const p = str.split(',').map(q => q.trim().split(' ').map(parseFloat)); return p.length !== 8 ? str : [...samp(p.slice(0, 3), 13), ...samp(p.slice(3), 13)].map(([x, y]) => x.toFixed(1) + '% ' + y.toFixed(1) + '%').join(','); };
+    let css = '.ee{transform-box:fill-box;transform-origin:center;transition:clip-path .32s ease,transform .32s ease}@media (prefers-reduced-motion: reduce){.ee{transition:none}}';
+    for (const [name, sides] of Object.entries(E)) sides.forEach(([poly, tf], i) => {
+      const side = i ? 'eR' : 'eL';
+      css += `.emo-${name} .${side},:root[data-mood="${name}"] .emo-cycle .${side}{clip-path:polygon(${wide(poly)});transform:${tf}}`;
+    });
+    document.head.appendChild(Object.assign(document.createElement('style'), { textContent: css }));
+    let n = 0;
+    const tick = () => {
+      const [key, label] = MOOD_LIST[n % MOOD_LIST.length]; n++;
+      document.documentElement.dataset.mood = key;
+      document.querySelectorAll('.moodname').forEach(el => { el.textContent = label; });
+    };
+    tick(); setInterval(tick, 1700);
+  })();
+  const ANIM = { squash: 'squash', lean: 'lean', breathe: 'breathe', walk: 'walk', hop: 'hopb', press: 'press' };
+
+  function buddy(id, c) {
+    const sh = SHAPES[c.shape] || SHAPES.tile, p = PAL[c.color] || PAL.dark, p2 = PAL[p.second];
+    const es = (sh.es || 1) * ({ small: 0.78, medium: 1, large: 1.22 }[c.eyeSize] || 1), rx = 11 * es, ry = 16 * es;
+    const [hx, hy] = sh.hair, ink = p.eye === INK ? INK : W;
+    let s = `<defs>${grad(id, p.top, p.bot)}${grad(id + 's', p2.top, p2.bot)}</defs>`;
+    if (c.hair === 'strands') s += hairs(hx, hy, p.top);
+    if (c.hair === 'curl') s += `<path class="hair" style="transform-origin:${hx}px ${hy + 3}px" d="M${hx} ${hy + 3} c-3 -16 3 -27 13 -25 c10 2 9 15 0 14" fill="none" stroke="${p.top}" stroke-width="5" stroke-linecap="round"/>`;
+    if (c.hair === 'antennae') s += [-1, 1].map((k, i) => `<g class="${i ? 'h2' : 'hair'}" style="transform-origin:${hx + k * 12}px ${hy + 5}px"><path d="M${hx + k * 12} ${hy + 5} q${k * 4} -18 ${k * 16} -22" fill="none" stroke="${p.top}" stroke-width="5" stroke-linecap="round"/><circle cx="${hx + k * 28}" cy="${hy - 18}" r="6" fill="${p.top}"/></g>`).join('');
+    if (c.hair === 'sprouts') s += [[-24, -20, T], [0, -30, O], [24, -20, P]].map(([dx, dy, col], i) => `<path d="M${hx + dx / 2} ${hy + 5} L${hx + dx} ${hy + dy}" fill="none" stroke="${p.top}" stroke-width="5" stroke-linecap="round"/><circle class="pop${i ? ' p' + (i + 1) : ''}" cx="${hx + dx}" cy="${hy + dy}" r="9" fill="${col}"/>`).join('');
+    const [al, ar] = sh.ax, ay = sh.ay;
+    if (c.arms === 'down' || c.arms === 'wave') {
+      s += `<line x1="${al + 4}" y1="${ay}" x2="${al - 12}" y2="${ay + 24}" stroke="${p.bot}" stroke-width="9" stroke-linecap="round"/>`;
+      s += c.arms === 'wave'
+        ? `<line class="wave" style="transform-origin:${ar - 4}px ${ay}px" x1="${ar - 4}" y1="${ay}" x2="${ar + 20}" y2="${ay - 30}" stroke="${p.bot}" stroke-width="9" stroke-linecap="round"/>`
+        : `<line x1="${ar - 4}" y1="${ay}" x2="${ar + 12}" y2="${ay + 24}" stroke="${p.bot}" stroke-width="9" stroke-linecap="round"/>`;
+    }
+    if (c.feet && c.feet !== 'none') {
+      const h = c.feet === 'long' ? 44 : 30, w = sh.fw, [f1, f2] = sh.fx, step = c.feet === 'step';
+      s += `<rect x="${f1}" y="${sh.fy}" width="${w}" height="${h}" rx="${w / 2}" fill="${p.bot}"/><rect x="${f2 + (step ? 4 : 0)}" y="${sh.fy - (step ? 4 : 0)}" width="${w}" height="${h}" rx="${w / 2}" fill="${p.bot}"${step ? ` transform="rotate(-16 ${f2 + 12} ${sh.fy + 12})"` : ''}/>`;
+    }
+    if (sh.under) s += sh.under(p, id, c);
+    if (sh.depth) s += `<path d="${sh.d}" fill="${p.deep}" transform="translate(0 ${sh.depth})"${sh.round ? ` stroke="${p.deep}" stroke-width="6" stroke-linejoin="round"` : ''}/>`;
+    s += `<path d="${sh.d}" fill="url(#${id})"${sh.crust ? ` stroke="${p.deep}" stroke-width="8" stroke-linejoin="round"` : ''}${sh.round ? ` stroke="${p.top}" stroke-width="0"` : ''}/>`;
+    if (sh.extra && !(c.thick && c.shape === 'yarn')) s += sh.extra(p, id, c);
+    if (c.dots === 'on' || c.dots === 'grey') {
+      const own = { teal: T, orange: O, purple: P }[c.color];
+      s += sh.dots.map(([x, y, r], i) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${c.dots === 'grey' ? (p.eye === INK ? '#9a9a9a' : '#5c5c5c') : ([T, O, P][i] === own ? '#f6f6f6' : [T, O, P][i])}"/>`).join('');
+    }
+    if (c.belly === 'prompt' && sh.belly) {
+      const [bx, by] = sh.belly;
+      s += `<polyline points="${bx},${by - 8} ${bx + 14},${by} ${bx},${by + 8}" fill="none" stroke="${ink}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><rect class="cur" x="${bx + 22}" y="${by - 10}" width="7" height="20" rx="3.5" fill="${ink}"/>`;
+    }
+    const kind = c.eyes || 'block', ey = sh.ey;
+    s += c.anim === 'look' ? '<g class="look">' : '<g>';
+    if (STYLE[kind]) s += styleEyes(kind, sh.ex, ey, rx, ry, p.eye, c.mood);
+    else if (EMO[kind]) s += EMO[kind](sh.ex, ey, rx, ry, p.eye);
+    else if (kind === 'closed' || kind === 'happy') s += sh.ex.map(x => `<path d="M${x - 12 * es} ${ey + (kind === 'happy' ? 6 * es : 0)} q${12 * es} ${(kind === 'happy' ? -15 : 11) * es} ${24 * es} 0" fill="none" stroke="${p.eye}" stroke-width="${7 * es}" stroke-linecap="round"/>`).join('');
+    else s += sh.ex.map((x, i) => { const r = (i ? -1 : 1) * (kind === 'lid' ? 11 : kind === 'block' ? 2.5 : 5); return `<g transform="rotate(${r} ${x} ${ey})">${eyeShape(kind, x, ey, rx, ry, p.eye)}</g>`; }).join('');
+    s += '</g>';
+    s = `<g transform="rotate(${c.tilt || 0} 100 112)">${s}</g>`;
+    return ANIM[c.anim] ? `<g class="${ANIM[c.anim]}" style="transform-origin:100px 182px">${s}</g>` : s;
+  }
+  function scene(id, c) {
+    const bg = BG[c.bg], foot = c.feet && c.feet !== 'none';
+    if (!bg) return buddy(id, c);
+    return tile(id + 't', bg[0], bg[1], () => shadow(bg[2], 100, 50, foot ? 187 : 181) + buddy(id, c));
+  }
+  const DEFAULT = { shape: 'tile', color: 'dark', eyes: 'lid', eyeSize: 'medium', hair: 'strands', dots: 'on', feet: 'short', arms: 'none', belly: 'none', bg: 'light', tilt: -6, anim: 'look' };
+
+  // Round 3: ten different things afterterm has. Eight are settings for the renderer above, two are drawn by hand.
+  const round3 = [
+    { name: 'A project folder', note: 'A project in afterterm is a folder. A little annoyed, with the three dots on its front.',
+      cfg: { shape: 'folder', color: 'orange', eyes: 'lid', hair: 'none', dots: 'on', feet: 'short', bg: 'dark', tilt: -4, anim: 'look' } },
+    { name: 'A slice of toast', note: 'afterterm\'s notifications are called toasts. The three dots are jam, and it waves when it pops up.',
+      cfg: { shape: 'toast', color: 'bread', eyes: 'block', hair: 'none', dots: 'on', feet: 'short', arms: 'wave', bg: 'teal', tilt: 3, anim: 'none' } },
+    { name: 'A ball of yarn', note: 'afterterm is made of threads, so this one is thread. It rocks from side to side.',
+      cfg: { shape: 'yarn', color: 'purple', eyes: 'lid', hair: 'curl', dots: 'none', feet: 'short', bg: 'light', tilt: 0, anim: 'lean' } },
+    { name: 'A caterpillar made of the three dots', note: 'A dark head pulling the teal, orange and purple dots behind it, one step each.',
+      draw: id => tile(id, ...BG.light.slice(0, 2), () => `
+        <defs>${grad(id + 'h', '#3a3a3a', '#0e0e0e')}${grad(id + '1', PAL.teal.top, PAL.teal.bot)}${grad(id + '2', PAL.orange.top, PAL.orange.bot)}${grad(id + '3', PAL.purple.top, PAL.purple.bot)}</defs>
+        ${shadow('#b0b0b0', 108, 84, 160)}
+        <g class="walk w3"><rect x="160" y="138" width="11" height="20" rx="5.5" fill="${PAL.purple.deep}"/><circle cx="166" cy="124" r="21" fill="url(#${id}3)"/></g>
+        <g class="walk w2"><rect x="127" y="138" width="11" height="20" rx="5.5" fill="${PAL.orange.deep}"/><circle cx="133" cy="120" r="24" fill="url(#${id}2)"/></g>
+        <g class="walk"><rect x="92" y="138" width="11" height="20" rx="5.5" fill="${PAL.teal.deep}"/><circle cx="98" cy="121" r="25" fill="url(#${id}1)"/></g>
+        <g class="hopb">
+          <rect x="40" y="134" width="12" height="24" rx="6" fill="#0e0e0e"/><rect x="62" y="134" width="12" height="24" rx="6" fill="#0e0e0e"/>
+          ${[-1, 1].map((k, i) => `<g class="${i ? 'h2' : 'hair'}" style="transform-origin:${56 + k * 10}px 76px"><path d="M${56 + k * 10} 76 q${k * 3} -16 ${k * 14} -20" fill="none" stroke="#3a3a3a" stroke-width="5" stroke-linecap="round"/><circle cx="${56 + k * 24}" cy="56" r="5.5" fill="#3a3a3a"/></g>`).join('')}
+          <circle cx="56" cy="108" r="35" fill="url(#${id}h)"/>
+          <g transform="rotate(11 43 106)">${eyeShape('lid', 43, 106, 8.5, 12.5, '#ffffff')}</g><g transform="rotate(-11 68 106)">${eyeShape('lid', 68, 106, 8.5, 12.5, '#ffffff')}</g>
+        </g>`) },
+    { name: 'A bug with three spots', note: 'Every developer has bugs. This one carries the three dots on its back and has antennae.',
+      cfg: { shape: 'dome', color: 'dark', eyes: 'block', hair: 'antennae', dots: 'on', feet: 'none', bg: 'orange', tilt: 0, anim: 'walk' } },
+    { name: 'A moon, for asleep threads', note: 'afterterm marks an asleep thread with a moon. Eyes shut, dots switched off, breathing slowly.',
+      cfg: { shape: 'round', color: 'yellow', eyes: 'closed', hair: 'none', dots: 'grey', feet: 'none', bg: 'night', tilt: -8, anim: 'breathe' } },
+    { name: 'Two halves, for two threads side by side', note: 'One capsule in two colours with one eye on each half, like afterterm\'s split view.',
+      cfg: { shape: 'capsule', color: 'teal', eyes: 'lid', hair: 'strands', dots: 'none', feet: 'short', bg: 'light', tilt: 0, anim: 'squash' } },
+    { name: 'The three dots as a stack', note: 'The dots flattened into three slabs that slide over each other. The top one has the face.',
+      draw: id => tile(id, ...BG.dark.slice(0, 2), () => `
+        <defs>${grad(id + '1', PAL.teal.top, PAL.teal.bot)}${grad(id + '2', PAL.orange.top, PAL.orange.bot)}${grad(id + '3', PAL.purple.top, PAL.purple.bot)}</defs>
+        ${shadow('#0a0a0a', 100, 62, 184)}
+        <g class="swayA"><rect x="46" y="142" width="108" height="32" rx="15" fill="${PAL.purple.deep}"/><rect x="46" y="134" width="108" height="32" rx="15" fill="url(#${id}3)"/></g>
+        <g class="swayB"><rect x="34" y="106" width="132" height="32" rx="15" fill="${PAL.orange.deep}"/><rect x="34" y="98" width="132" height="32" rx="15" fill="url(#${id}2)"/></g>
+        <g class="swayA">${hairs(100, 47, PAL.teal.top)}<rect x="56" y="58" width="88" height="44" rx="18" fill="${PAL.teal.deep}"/><rect x="56" y="48" width="88" height="46" rx="18" fill="url(#${id}1)"/>
+          <g transform="rotate(2.5 86 71)">${eyeShape('block', 86, 71, 7.5, 11, INK)}</g><g transform="rotate(-2.5 114 71)">${eyeShape('block', 114, 71, 7.5, 11, INK)}</g></g>`) },
+    { name: 'A chat bubble', note: 'A chat is the main kind of thread. Its tail is its only leg, and it hops.',
+      cfg: { shape: 'bubble', color: 'teal', eyes: 'lid', hair: 'strands', dots: 'on', feet: 'none', bg: 'light', tilt: 4, anim: 'hop' } },
+    { name: 'The Enter key', note: 'A thread needs you until you press Enter in it. This one gets pressed every few seconds.',
+      cfg: { shape: 'key', color: 'dark', eyes: 'block', hair: 'strands', dots: 'on', feet: 'short', bg: 'light', tilt: 0, anim: 'press' } },
+  ];
+  document.getElementById('grid0').innerHTML = round3.map((c, i) => {
+    const d = (id) => c.draw ? c.draw(id) : scene(id, { ...DEFAULT, arms: 'none', belly: 'none', ...c.cfg });
+    const one = (id, cls) => `<svg class="${cls}" viewBox="0 0 200 200" role="img" aria-label="${c.name}">${d(id)}</svg>`;
+    return `<article class="card">
+      ${one('n' + i + 'a', 'big')}
+      <div class="sizes">${one('n' + i + 'b', '')}${one('n' + i + 'c', '')}${one('n' + i + 'd', '')}</div>
+      <div><p class="name"><span class="num">${i + 21}</span>${c.name}</p><p class="note">${c.note}</p></div>
+      ${c.cfg ? `<button class="btn" type="button" data-open="${i}">Open in configurator</button>` : ''}
+    </article>`; }).join('');
+  document.querySelectorAll('#grid0 .card').forEach((card, i) => {
+    card.style.setProperty('--hd', (-i * 1.3) + 's');
+    card.querySelectorAll('.eye').forEach(e => { e.style.animationDelay = (i * 0.53) + 's'; });
+  });
+
+  // Every eye shape in every emotion, as one table of small bots
+  const START = { ...DEFAULT, eyes: 's-lid', mood: 'cycle' };
+  document.getElementById('gridE').innerHTML = `<span></span>${MOOD_LIST.map(([, n]) => `<span class="mx-h">${n}</span>`).join('')}` + STYLE_LIST.map(([k, name], r) =>
+    `<span class="mx-r">${name}</span>` + MOOD_LIST.map(([m, mn], c) =>
+      `<button class="mx" type="button" data-eyes="${k}" data-mood="${m}" aria-label="${name} eyes, ${mn}"><svg viewBox="0 0 200 200" aria-hidden="true">${scene('x' + r + '_' + c, { ...START, eyes: k, mood: m, eyeSize: 'large', anim: 'none', tilt: 0, hair: 'none', dots: 'none', feet: 'none', thick: true })}</svg></button>`).join('')).join('');
+
+  // Round 4: drawn the way the reference icons are. Big shapes that fill or leave the tile, a profile, a hat, eyes cut out in the tile's colour.
+  const g3 = (id, a, b, c) => `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="0.68" stop-color="${b}"/><stop offset="1" stop-color="${c}"/></linearGradient>`;
+  const lidAt = (x, y, rx, ry, f, r, cls = 'eye') => eRot(r, x, y, eLid(x, y, rx, ry, f, cls));
+  const blkAt = (x, y, rx, ry, f, r, cls = 'eye') => eRot(r, x, y, eBlk(x, y, rx, ry, f, cls));
+  const three = (pts, r = 5) => pts.map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${[T, O, P][i]}"/>`).join('');
+  const round4 = [
+    { name: 'A big dark blob that fills the tile', note: 'Cut off by the bottom edge, leaning, with the three dots on its forehead and annoyed flat-topped eyes.',
+      draw: id => tile(id, '#ddd2fc', '#a487ee', () => `<defs>${g3(id + 'b', '#2b2733', '#0d0b12', '#3d2c6e')}</defs>
+        ${hairs(104, 52, '#2b2733')}
+        <path d="M38 210 C30 140 42 86 74 62 C96 46 130 50 148 68 C174 96 174 150 166 210 Z" fill="url(#${id}b)"/>
+        ${three([[88, 84], [104, 80], [120, 83]])}
+        <g class="look">${lidAt(84, 126, 14, 20, '#ffffff', 9)}${lidAt(126, 122, 14, 20, '#ffffff', -9)}</g>`) },
+    { name: 'A head in profile, with a swept-back crest', note: 'Seen from the side, one large eye, coming in from the left edge. The crest blows back like hair.',
+      draw: id => tile(id, '#9a88f8', '#4532c2', () => `<defs>${g3(id + 'b', '#1d1a26', '#0b0a10', '#2a1f66')}</defs>
+        <path class="hair" style="transform-origin:80px 90px" d="M72 90 C58 58 68 34 98 20 C90 44 96 64 110 84 Z" fill="#1d1a26"/>
+        <path class="h2" style="transform-origin:54px 98px" d="M46 100 C26 74 30 50 50 34 C48 58 58 76 80 88 Z" fill="#1d1a26"/>
+        <path d="M-10 210 C-8 148 20 98 72 84 C112 74 152 92 164 128 C172 154 162 188 152 210 Z" fill="url(#${id}b)"/>
+        ${three([[66, 158], [82, 164], [98, 166]])}
+        ${lidAt(128, 128, 17, 23, '#ffffff', -8)}`) },
+    { name: 'A pale one with three spikes and eyes cut out', note: 'Its eyes are holes showing the tile\'s pink. The three spikes are tipped with the three dots.',
+      draw: id => tile(id, '#ffa3e6', '#ee4cc4', () => `<defs>${grad(id + 'b', '#fff7fd', '#ffd0f1')}</defs>
+        <g class="hopb" style="transform-origin:100px 180px">
+        <path d="M50 80 C50 64 60 58 70 60 L80 40 L92 60 L100 34 L110 60 L122 42 L130 60 C142 58 150 64 150 80 V140 C150 152 144 158 134 158 L128 176 L120 158 H82 L76 174 L70 158 C58 158 50 152 50 140 Z" fill="url(#${id}b)" stroke="#fff7fd" stroke-width="8" stroke-linejoin="round"/>
+        <circle cx="80" cy="38" r="7" fill="${T}"/><circle cx="100" cy="31" r="7" fill="${O}"/><circle cx="122" cy="40" r="7" fill="${P}"/>
+        ${lidAt(80, 108, 16, 21, '#ee4cc4', 7)}${lidAt(120, 108, 16, 21, '#ee4cc4', -7)}</g>`) },
+    { name: 'A sticker with a thick outline', note: 'A pale angular head with a heavy dark outline, block eyes, and a small prompt wedge for a mouth.',
+      draw: id => tile(id, '#cda4ff', '#8444dc', () => `<defs>${grad(id + 'b', '#ffffff', '#d9d2f4')}</defs>
+        <g class="lean" style="transform-origin:100px 170px"><g transform="rotate(-6 100 110)">
+        <polygon points="90,54 106,20 124,56" fill="url(#${id}b)" stroke="#131118" stroke-width="12" stroke-linejoin="round"/>
+        <polygon points="56,64 96,50 150,60 162,112 132,160 72,162 42,118" fill="url(#${id}b)" stroke="#131118" stroke-width="12" stroke-linejoin="round"/>
+        ${blkAt(84, 104, 12, 17, '#131118', 3)}${blkAt(124, 100, 12, 17, '#131118', -3)}
+        <polygon points="96,130 112,138 96,146" fill="#131118" stroke="#131118" stroke-width="5" stroke-linejoin="round"/>
+        </g></g>`) },
+    { name: 'A yellow one under a big hat', note: 'Like the chef in your picture, but awake: a dark beanie with the three dots on it and a pom-pom that bounces.',
+      draw: id => tile(id, '#66dbd2', '#128a82', () => `<defs>${grad(id + 'b', '#ffdc66', '#f0aa14')}${grad(id + 'h', '#34313f', '#15131b')}</defs>
+        <path d="M26 210 C26 150 58 110 100 110 C142 110 174 150 174 210 Z" fill="url(#${id}b)"/>
+        <circle class="pop" cx="100" cy="42" r="15" fill="#f6f6f6"/>
+        <path d="M50 124 C42 82 66 50 100 50 C134 50 158 82 150 124 Z" fill="url(#${id}h)"/>
+        <rect x="42" y="110" width="116" height="26" rx="13" fill="#3d3948"/>
+        <circle cx="76" cy="86" r="9" fill="${T}"/><circle cx="100" cy="80" r="9" fill="${O}"/><circle cx="124" cy="86" r="9" fill="${P}"/>
+        ${blkAt(84, 164, 9, 13, INK, 2.5)}${blkAt(116, 164, 9, 13, INK, -2.5)}`) },
+    { name: 'A pale flame with three tips', note: 'For a thread that is working. Its eyes are cut out in the tile\'s red, and it flickers.',
+      draw: id => tile(id, '#ff6aa0', '#ee1f4c', () => `<defs>${grad(id + 'b', '#fff8fa', '#ffccd9')}</defs>
+        <g class="squash" style="transform-origin:100px 172px">
+        <path d="M100 28 C108 52 122 58 128 42 C142 60 160 92 156 124 C152 156 128 172 100 172 C72 172 48 156 44 124 C40 96 54 70 68 50 C72 66 84 62 86 46 C90 42 96 36 100 28 Z" fill="url(#${id}b)"/>
+        ${lidAt(82, 120, 14, 19, '#ee1f4c', 9)}${lidAt(120, 120, 14, 19, '#ee1f4c', -9)}
+        </g>`) },
+    { name: 'Peeking in from the corner', note: 'A huge dark shape coming in from the bottom right. It slides out of the tile and back in.',
+      draw: id => tile(id, '#ffb552', '#ee5f16', () => `<defs>${g3(id + 'b', '#2a2622', '#0d0b0a', '#5a2a10')}</defs>
+        <g class="peek">${hairs(150, 66, '#2a2622')}
+        <path d="M210 62 C150 52 90 90 70 150 C62 176 64 196 70 210 H210 Z" fill="url(#${id}b)"/>
+        ${three([[104, 180], [120, 184], [136, 186]])}
+        ${blkAt(122, 132, 14, 21, '#ffffff', -10)}${blkAt(166, 116, 14, 21, '#ffffff', -10)}</g>`) },
+    { name: 'Three eyes, one for each dot', note: 'The teal, orange and purple dots are its eyes. They blink one after another.',
+      draw: id => tile(id, '#ebbcff', '#b05eee', () => `<defs>${g3(id + 'b', '#2b2733', '#0d0b12', '#4a2470')}</defs>
+        ${hairs(102, 52, '#2b2733')}
+        <path d="M34 210 C28 150 34 92 62 66 C84 46 124 46 144 66 C170 92 172 150 166 210 Z" fill="url(#${id}b)"/>
+        ${lidAt(66, 124, 14, 20, T, 10)}${lidAt(102, 110, 14, 20, O, 0)}${lidAt(138, 124, 14, 20, P, -10)}`) },
+    { name: 'One eye, and it is the cursor', note: 'A wide dark body with a single large block eye, the terminal\'s cursor, and the three dots above it.',
+      draw: id => tile(id, '#ff9264', '#e63c26', () => `<defs>${g3(id + 'b', '#2a2622', '#0d0b0a', '#5c1c12')}</defs>
+        <path class="hair" style="transform-origin:100px 86px" d="M100 86 c-3 -18 4 -30 15 -28 c11 2 10 17 0 16" fill="none" stroke="#2a2622" stroke-width="6" stroke-linecap="round"/>
+        <path d="M22 210 C22 140 50 84 100 84 C150 84 178 140 178 210 Z" fill="url(#${id}b)"/>
+        ${three([[82, 106], [100, 102], [118, 106]])}
+        <g class="look"><rect class="eye" x="78" y="122" width="44" height="60" rx="13" fill="#ffffff"/></g>`) },
+    { name: 'A big pale one and a small dark one', note: 'A project and one of its threads. The big one looks down, the small one hops.',
+      draw: id => tile(id, '#bda1ee', '#6e40bc', () => `<defs>${grad(id + 'b', '#ffffff', '#d6cfe6')}${g3(id + 's', '#2b2733', '#0d0b12', '#3d2c6e')}</defs>
+        ${hairs(122, 62, '#ffffff')}
+        <path d="M60 210 C56 150 60 96 86 72 C106 54 142 58 158 80 C178 108 174 160 170 210 Z" fill="url(#${id}b)"/>
+        ${three([[104, 86], [120, 82], [136, 85]])}
+        ${lidAt(104, 118, 11, 15, INK, 8)}${lidAt(140, 116, 11, 15, INK, -8)}
+        <g class="hopb">${hairs(58, 144, '#2b2733')}
+        <path d="M20 210 C18 176 30 150 56 146 C82 142 98 166 98 210 Z" fill="url(#${id}s)"/>
+        ${blkAt(46, 178, 7, 10.5, '#ffffff', 2.5)}${blkAt(72, 176, 7, 10.5, '#ffffff', -2.5)}</g>`) },
+  ];
+  render(round4, 'grid4', 'v', 31);
+  document.querySelectorAll('#grid4 .card').forEach((card, i) => {
+    card.style.setProperty('--hd', (-i * 1.3) + 's');
+    card.querySelectorAll('.eye').forEach((e, j) => { e.style.animationDelay = (i * 0.53 + (i === 7 ? j * 0.35 : 0)) + 's'; });
+  });
+
+  // Round 5: the six tricks in the reference picture, taken apart and recombined two or three at a time.
+  const OUT = '#131118';
+  const spiky = (cx, cy, n, r1, r2) => Array.from({ length: n * 2 }, (_, i) => { const a = Math.PI * i / n - Math.PI / 2, r = i % 2 ? r2 : r1; return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`; }).join(' ');
+  const round5 = [
+    { name: 'An outlined head in profile', note: 'Mix: the skull\'s thick sticker outline and hollow eye, on the bunny\'s side view cut off by the edge.',
+      draw: id => tile(id, '#84e4db', '#17968c', () => `<defs>${grad(id + 'b', '#ffffff', '#d3efec')}</defs>
+        <g class="lean" style="transform-origin:90px 200px">
+        <path d="M58 104 C30 76 44 40 92 36 C78 50 84 66 106 80 Z" fill="url(#${id}b)" stroke="${OUT}" stroke-width="12" stroke-linejoin="round"/>
+        <path d="M30 220 C26 150 44 96 86 82 C122 70 156 86 166 116 C170 128 184 132 186 143 C187 153 172 155 162 157 C160 178 150 198 146 220 Z" fill="url(#${id}b)" stroke="${OUT}" stroke-width="12" stroke-linejoin="round"/>
+        ${three([[66, 152], [82, 160], [98, 163]], 6)}
+        ${blkAt(126, 118, 13, 18, OUT, -6)}</g>`) },
+    { name: 'A small one holding up a huge folder', note: 'Mix: the chef\'s prop that is bigger than the character, in the pink one\'s single-colour frosted look.',
+      draw: id => tile(id, '#ffc271', '#ee7b18', () => `<defs>${grad(id + 'b', '#fff5e4', '#ffd49a')}${grad(id + 'f', '#fff0d6', '#ffdcab')}</defs>
+        <g class="swayA"><path d="M64 62 L70 44 C72 38 76 36 82 36 H108 C114 36 118 40 120 46 L124 62 Z" fill="#ffd297"/>
+        <path d="M70 58 H170 C178 58 182 64 181 72 L174 138 C173 146 168 150 160 150 H66 C58 150 54 144 55 136 L60 68 C61 62 64 58 70 58 Z" fill="url(#${id}f)"/>
+        ${three([[78, 76], [95, 76], [112, 76]], 6.5)}</g>
+        <path d="M66 180 L60 146 M128 180 L138 146" fill="none" stroke="#fff5e4" stroke-width="13" stroke-linecap="round"/>
+        <path d="M52 210 C50 176 66 152 96 152 C126 152 142 176 140 210 Z" fill="url(#${id}b)"/>
+        ${lidAt(84, 182, 8.5, 12, '#ee7b18', 6)}${lidAt(110, 182, 8.5, 12, '#ee7b18', -6)}`) },
+    { name: 'A glossy dark one with fangs, bored', note: 'Mix: the black cat\'s lopsided glossy body, with the pink one\'s fangs, off-centre tuft and half-shut bored eyes.',
+      draw: id => tile(id, '#f4c8ff', '#c366f0', () => `<defs>${g3(id + 'b', '#2b2733', '#0d0b12', '#4a2470')}</defs>
+        ${shadow('#a44fd6', 104, 46, 186)}
+        <g class="hopb">${hairs(128, 58, '#2b2733')}
+        <path d="M52 148 C44 100 56 62 92 52 C128 44 154 66 158 104 C160 124 158 138 154 150 C150 158 140 158 136 150 L130 172 L122 152 H92 L86 170 L78 152 C70 160 56 158 52 148 Z" fill="url(#${id}b)"/>
+        ${three([[74, 78], [90, 72], [106, 72]])}
+        ${lidAt(86, 108, 15, 17, '#ffffff', 0)}${lidAt(124, 105, 15, 17, '#ffffff', 0)}</g>`) },
+    { name: 'An outlined flame with hollow eyes', note: 'Mix: the flame\'s shape, drawn as the skull is: thick outline, eyes punched out, a jagged mouth, tilted.',
+      draw: id => tile(id, '#ffdb72', '#f39c10', () => `<defs>${grad(id + 'b', '#ffffff', '#ffe9c0')}</defs>
+        <g class="squash" style="transform-origin:100px 176px"><g transform="rotate(-8 100 110)">
+        <path d="M100 28 C108 52 122 58 128 42 C142 60 160 92 156 124 C152 156 128 172 100 172 C72 172 48 156 44 124 C40 96 54 70 68 50 C72 66 84 62 86 46 C90 42 96 36 100 28 Z" fill="url(#${id}b)" stroke="${OUT}" stroke-width="12" stroke-linejoin="round"/>
+        ${blkAt(82, 112, 11, 16, OUT, 4)}${blkAt(120, 110, 11, 16, OUT, -4)}
+        <polygon points="88,138 96,145 102,137 108,145 116,137 116,146 108,154 102,146 96,154 88,147" fill="${OUT}"/>
+        </g></g>`) },
+    { name: 'A side view with a shine and a pupil', note: 'Mix: the bunny\'s profile and the sheen across its ear, the cat\'s glossy body, and the flame\'s eye with a highlight in it.',
+      draw: id => tile(id, '#95d4ff', '#2c68de', () => `<defs>${g3(id + 'b', '#262231', '#0c0a12', '#1c2f78')}</defs>
+        <g class="walk">${hairs(152, 76, '#262231')}
+        <path d="M210 210 V96 C180 70 120 66 84 92 C56 112 40 140 44 164 C46 182 60 192 70 210 Z" fill="url(#${id}b)"/>
+        <path d="M204 92 C172 72 122 72 92 94 C120 82 168 84 204 104 Z" fill="#474062"/>
+        ${three([[132, 158], [152, 164], [172, 166]], 6.5)}
+        <g class="eye"><circle cx="92" cy="138" r="19" fill="#ffffff"/><circle cx="87" cy="141" r="10.5" fill="${OUT}"/><circle cx="83.5" cy="137" r="3.6" fill="#ffffff"/></g></g>`) },
+    { name: 'A frosted crystal', note: 'Mix: the skull\'s angular facets, in the pink one\'s pale-on-its-own-colour look with half-shut eyes in the tile\'s purple.',
+      draw: id => tile(id, '#cdaaff', '#7a3cde', () => `<defs>${grad(id + 'b', '#f6eeff', '#d6bfff')}</defs>
+        <g class="press" style="transform-origin:100px 176px"><g transform="rotate(6 100 104)">
+        <polygon points="100,32 150,62 164,120 128,170 72,170 36,120 50,62" fill="url(#${id}b)" stroke="#f6eeff" stroke-width="7" stroke-linejoin="round"/>
+        <polygon points="100,32 150,62 100,78 50,62" fill="#ffffff"/>
+        ${three([[86, 150], [100, 154], [114, 150]], 4.8)}
+        ${lidAt(82, 116, 14, 18, '#7a3cde', 8)}${lidAt(120, 116, 14, 18, '#7a3cde', -8)}</g></g>`) },
+    { name: 'A sticker holding a giant prompt', note: 'Mix: the chef\'s oversized prop, here afterterm\'s ">", with the skull\'s sticker outline on both.',
+      draw: id => tile(id, '#ffa5b5', '#ec395f', () => `<defs>${grad(id + 'b', '#ffffff', '#ffd6de')}</defs>
+        <g class="swayA"><polygon points="98,28 178,82 98,136 98,104 130,82 98,60" fill="#ffffff" stroke="${OUT}" stroke-width="12" stroke-linejoin="round"/></g>
+        <path d="M92 164 L104 124" fill="none" stroke="${OUT}" stroke-width="24" stroke-linecap="round"/><path d="M92 164 L104 124" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round"/>
+        <path d="M18 220 C16 166 34 136 66 134 C98 132 116 164 114 220 Z" fill="url(#${id}b)" stroke="${OUT}" stroke-width="12" stroke-linejoin="round"/>
+        ${lidAt(52, 172, 9.5, 13, OUT, 7)}${lidAt(80, 170, 9.5, 13, OUT, -7)}`) },
+    { name: 'Hanging down from the top edge', note: 'Mix: the bunny\'s trick of being cut off by the tile, turned upside down, with the pink one\'s drips. Each drip ends in one of the three dots.',
+      draw: id => tile(id, '#86e3c5', '#0c9472', () => `<defs>${grad(id + 'b', '#f4fffb', '#c4f2e4')}</defs>
+        <path d="M40 -10 V84 C40 98 48 104 58 104 L64 124 L72 104 H96 L102 134 L110 104 H132 L138 120 L146 104 C156 104 162 98 162 84 V-10 Z" fill="url(#${id}b)" stroke="#f4fffb" stroke-width="8" stroke-linejoin="round"/>
+        <circle class="pop" cx="64" cy="132" r="8" fill="${T}"/><circle class="pop p2" cx="102" cy="143" r="8" fill="${O}"/><circle class="pop p3" cx="138" cy="128" r="8" fill="${P}"/>
+        <g class="look">${lidAt(82, 62, 15, 19, '#0c9472', 7)}${lidAt(120, 62, 15, 19, '#0c9472', -7)}</g>`) },
+    { name: 'A spiky ball with one eye', note: 'Mix: the pink one\'s spikes taken all the way round, the cat\'s glossy dark body, and the bunny\'s single eye.',
+      draw: id => tile(id, '#ffc4ea', '#ee5cb4', () => `<defs>${g3(id + 'b', '#2b2733', '#0d0b12', '#6a1f52')}</defs>
+        ${shadow('#cf3f98', 100, 50, 186)}
+        <g class="lean" style="transform-origin:100px 176px">
+        <polygon points="${spiky(100, 110, 9, 66, 48)}" fill="url(#${id}b)" stroke="#16131c" stroke-width="9" stroke-linejoin="round"/>
+        <circle cx="100" cy="44" r="6" fill="${O}"/><circle cx="142.4" cy="59.4" r="6" fill="${P}"/><circle cx="57.6" cy="59.4" r="6" fill="${T}"/>
+        <g class="eye">${eLid(100, 112, 24, 30, '#ffffff')}<circle cx="105" cy="122" r="10" fill="${OUT}"/><circle cx="101.5" cy="118" r="3.4" fill="#ffffff"/></g></g>`) },
+    { name: 'A yellow one wearing the three dots as a crown', note: 'Mix: the chef\'s flat colours and headwear, with the flame\'s sideways look and the highlight in each eye.',
+      draw: id => tile(id, '#403c4e', '#16141d', () => `<defs>${grad(id + 'b', '#ffd84a', '#f3ae12')}</defs>
+        <path d="M24 210 C24 140 56 100 100 100 C144 100 176 140 176 210 Z" fill="url(#${id}b)"/>
+        <g class="hopb"><polygon points="62,108 58,62 82,88 100,54 118,88 142,62 138,108" fill="#ffffff" stroke="#ffffff" stroke-width="8" stroke-linejoin="round"/>
+        <circle cx="58" cy="56" r="9" fill="${T}"/><circle cx="100" cy="46" r="9" fill="${O}"/><circle cx="142" cy="56" r="9" fill="${P}"/></g>
+        <g class="em-side">${lidAt(82, 156, 13, 17, INK, 6, '')}${lidAt(122, 156, 13, 17, INK, -6, '')}<circle cx="87" cy="160" r="4" fill="#ffffff"/><circle cx="127" cy="160" r="4" fill="#ffffff"/></g>`) },
+  ];
+  render(round5, 'grid5', 'w', 41);
+  document.querySelectorAll('#grid5 .card').forEach((card, i) => {
+    card.style.setProperty('--hd', (-i * 1.3) + 's');
+    card.querySelectorAll('.eye').forEach(e => { e.style.animationDelay = (i * 0.53) + 's'; });
+  });
+
+  // Round 6: real objects and plain shapes, none of them a blob with a face stuck on.
+  const DK = '#34313f', DK2 = '#15131b';
+  const round6 = [
+    { name: 'A toaster, popping two toasts', note: 'A whole object. afterterm\'s notifications are toasts, so this is where they come from. The slices jump.',
+      draw: id => tile(id, '#ffdcae', '#f09636', () => `<defs>${grad(id + 'b', '#f8f8fa', '#b6b9c4')}</defs>
+        ${shadow('#c97420', 100, 74, 186)}
+        <g class="hopb"><rect x="58" y="42" width="38" height="70" rx="13" fill="#fbe9c6" stroke="#c98a36" stroke-width="6"/></g>
+        <g class="hopb" style="animation-delay:.25s"><rect x="104" y="42" width="38" height="70" rx="13" fill="#fbe9c6" stroke="#c98a36" stroke-width="6"/></g>
+        <rect x="46" y="170" width="20" height="14" rx="6" fill="${DK}"/><rect x="134" y="170" width="20" height="14" rx="6" fill="${DK}"/>
+        <rect x="164" y="112" width="20" height="12" rx="6" fill="${DK}"/><circle cx="184" cy="118" r="9" fill="${DK}"/>
+        <rect x="28" y="92" width="144" height="86" rx="28" fill="url(#${id}b)"/>
+        <rect x="46" y="88" width="108" height="16" rx="8" fill="${DK}"/>
+        ${three([[126, 160], [140, 160], [154, 160]], 4.8)}
+        ${lidAt(80, 134, 11.5, 16, INK, 7)}${lidAt(116, 134, 11.5, 16, INK, -7)}`) },
+    { name: 'A traffic light made of the three dots', note: 'The dots as signals, lighting up one after another: working, needs you, done.',
+      draw: id => tile(id, '#c4ebff', '#4696e6', () => `<defs>${grad(id + 'b', DK, DK2)}</defs>
+        <rect x="90" y="160" width="20" height="60" fill="#232129"/>
+        <rect x="38" y="82" width="18" height="24" rx="7" fill="#232129"/><rect x="144" y="82" width="18" height="24" rx="7" fill="#232129"/>
+        <rect x="52" y="16" width="96" height="164" rx="32" fill="url(#${id}b)"/>
+        ${lidAt(82, 50, 10.5, 14, '#ffffff', 8)}${lidAt(118, 50, 10.5, 14, '#ffffff', -8)}
+        <circle class="pop" cx="100" cy="88" r="15" fill="${T}"/><circle class="pop p2" cx="100" cy="122" r="15" fill="${O}"/><circle class="pop p3" cx="100" cy="156" r="15" fill="${P}"/>`) },
+    { name: 'The front of a tram', note: 'afterterm has a rail down its left edge, so this one runs on it. The windscreen is its face and the sign on top shows the three dots.',
+      draw: id => tile(id, '#bdf1e8', '#17a091', () => `<defs>${grad(id + 'b', '#ffffff', '#dadfe8')}</defs>
+        <g class="walk">${hairs(100, 34, '#ffffff')}
+        <path d="M34 220 V84 C34 52 56 36 100 36 C144 36 166 52 166 84 V220 Z" fill="url(#${id}b)"/>
+        <rect x="68" y="41" width="64" height="13" rx="6.5" fill="#1b1a22"/>${three([[86, 47.5], [100, 47.5], [114, 47.5]], 4)}
+        <path d="M48 94 C48 72 64 60 100 60 C136 60 152 72 152 94 V120 C152 130 146 134 136 134 H64 C54 134 48 130 48 120 Z" fill="#1b1a22"/>
+        ${lidAt(80, 100, 12.5, 17, '#ffffff', 7)}${lidAt(120, 100, 12.5, 17, '#ffffff', -7)}
+        <rect x="34" y="144" width="132" height="11" fill="${O}"/>
+        <circle cx="60" cy="172" r="10" fill="#ffd84a"/><circle cx="140" cy="172" r="10" fill="#ffd84a"/>
+        <rect x="46" y="190" width="108" height="16" rx="8" fill="${DK}"/></g>`) },
+    { name: 'A floppy disk', note: 'afterterm saves your session and brings it back. The label is its face.',
+      draw: id => tile(id, '#cdbdff', '#6844d6', () => `<defs>${grad(id + 'b', '#3d3a49', '#17151e')}</defs>
+        ${shadow('#4a2cb0', 100, 62, 188)}
+        <g class="lean" style="transform-origin:100px 180px"><g transform="rotate(-6 100 104)">
+        <rect x="62" y="160" width="16" height="24" rx="8" fill="#17151e"/><rect x="118" y="160" width="16" height="24" rx="8" fill="#17151e"/>
+        <path d="M44 32 H138 L166 60 V158 C166 164 162 168 156 168 H44 C38 168 34 164 34 158 V42 C34 36 38 32 44 32 Z" fill="url(#${id}b)"/>
+        <rect x="68" y="32" width="62" height="40" rx="5" fill="#c9ccd6"/><rect x="106" y="38" width="15" height="28" rx="4" fill="#3d3a49"/>
+        <path d="M54 100 C54 94 58 90 64 90 H136 C142 90 146 94 146 100 V168 H54 Z" fill="#f6f6f6"/>
+        ${three([[66, 104], [79, 104], [92, 104]], 4.6)}
+        ${lidAt(84, 134, 10.5, 15, INK, 7)}${lidAt(116, 134, 10.5, 15, INK, -7)}</g></g>`) },
+    { name: 'A wall socket, about to be plugged in', note: 'A plain square whose two slots are already eyes. Waking a thread is plugging it back in.',
+      draw: id => tile(id, '#ffe5b4', '#f09e36', () => `<defs>${grad(id + 'b', '#ffffff', '#dcdfe6')}</defs>
+        <rect x="36" y="42" width="124" height="124" rx="30" fill="#aeb1bc"/>
+        <rect x="36" y="32" width="124" height="124" rx="30" fill="url(#${id}b)"/>
+        <circle cx="98" cy="96" r="45" fill="#e6e8ee"/>
+        ${three([[84, 44], [98, 44], [112, 44]], 4)}
+        <rect class="eye" x="76" y="72" width="14" height="34" rx="5" fill="${INK}"/><rect class="eye" x="106" y="72" width="14" height="34" rx="5" fill="${INK}"/>
+        <path d="M90 122 a8 8 0 0 1 16 0 v4 h-16 Z" fill="${INK}"/>
+        <g class="hopb"><path d="M168 186 C182 196 196 200 214 200" fill="none" stroke="${DK}" stroke-width="13" stroke-linecap="round"/>
+        <g transform="rotate(-38 152 172)"><rect x="142" y="148" width="7" height="16" rx="2" fill="#c9ccd6"/><rect x="156" y="148" width="7" height="16" rx="2" fill="#c9ccd6"/><rect x="130" y="160" width="44" height="32" rx="11" fill="${DK}"/></g></g>`) },
+    { name: 'A play triangle, running', note: 'afterterm marks a running server with a play icon. A thick teal triangle leaving the three dots behind it.',
+      draw: id => tile(id, '#2e2e2e', '#151515', () => `<defs>${grad(id + 'b', PAL.teal.top, PAL.teal.bot)}</defs>
+        <circle class="pop" cx="22" cy="78" r="8" fill="${T}"/><circle class="pop p2" cx="34" cy="104" r="8" fill="${O}"/><circle class="pop p3" cx="22" cy="130" r="8" fill="${P}"/>
+        <g class="squash" style="transform-origin:100px 170px">
+        <polygon points="74,50 158,104 74,158" fill="${PAL.teal.deep}" stroke="${PAL.teal.deep}" stroke-width="26" stroke-linejoin="round" transform="translate(0 9)"/>
+        <polygon points="74,50 158,104 74,158" fill="url(#${id}b)" stroke="url(#${id}b)" stroke-width="26" stroke-linejoin="round"/>
+        ${lidAt(86, 100, 10.5, 15, INK, 7)}${lidAt(116, 102, 10.5, 15, INK, -7)}</g>`) },
+    { name: 'A jar holding the three dots', note: 'The three dots as gumballs in a jar with a lid. They jiggle when it moves.',
+      draw: id => tile(id, '#ffcde2', '#ec5894', () => `<defs>${grad(id + 'b', '#fafdff', '#d2e4f6')}</defs>
+        ${shadow('#c93874', 100, 62, 186)}
+        <rect x="74" y="50" width="52" height="16" fill="#c4d6ea"/>
+        <rect x="60" y="28" width="80" height="26" rx="9" fill="${DK}"/>
+        <path d="M58 60 H142 C160 72 166 98 166 124 C166 156 150 176 124 176 H76 C50 176 34 156 34 124 C34 98 40 72 58 60 Z" fill="url(#${id}b)"/>
+        <g class="walk"><circle cx="70" cy="146" r="20" fill="${T}"/></g><g class="walk w2"><circle cx="102" cy="152" r="20" fill="${O}"/></g><g class="walk w3"><circle cx="134" cy="144" r="20" fill="${P}"/></g>
+        ${lidAt(84, 98, 11, 15, INK, 7)}${lidAt(116, 98, 11, 15, INK, -7)}`) },
+    { name: 'A magnifying glass with an eye in it', note: 'afterterm\'s search. The lens holds one big eye that looks around.',
+      draw: id => tile(id, '#fff2ae', '#f0bc1c', () => `<defs>${grad(id + 'b', '#fafdff', '#cbe0f6')}</defs>
+        <g class="lean" style="transform-origin:150px 160px">
+        <path d="M132 132 L178 180" fill="none" stroke="${DK2}" stroke-width="26" stroke-linecap="round"/>
+        <circle cx="92" cy="92" r="64" fill="${DK}"/>
+        ${three([[45, 62], [58, 46], [74, 35]], 5)}
+        <circle cx="92" cy="92" r="48" fill="url(#${id}b)"/>
+        <g class="look"><g class="eye">${eLid(92, 96, 22, 28, INK)}<circle cx="98" cy="106" r="6" fill="#ffffff"/></g></g></g>`) },
+    { name: 'A desk bell', note: 'When a thread needs you, this is what rings. A brass dome with a button on top, shaking.',
+      draw: id => tile(id, '#dacdfb', '#8862de', () => `<defs>${grad(id + 'b', '#ffe066', '#dc9a0c')}</defs>
+        ${shadow('#6a44c4', 100, 78, 184)}
+        <g class="em-shake">
+        <g class="press" style="transform-origin:100px 72px"><rect x="91" y="46" width="18" height="30" rx="7" fill="${DK}"/><circle cx="100" cy="42" r="14" fill="${DK}"/></g>
+        <path d="M40 152 C40 100 64 70 100 70 C136 70 160 100 160 152 Z" fill="url(#${id}b)"/>
+        <rect x="26" y="150" width="148" height="24" rx="12" fill="${DK}"/>
+        ${three([[84, 162], [100, 162], [116, 162]], 5)}
+        ${lidAt(82, 118, 11.5, 16, INK, 7)}${lidAt(118, 118, 11.5, 16, INK, -7)}</g>`) },
+    { name: 'A die that rolled a three', note: 'A plain cube. Its top shows three pips in the three dots\' colours, and its face is on the side.',
+      draw: id => tile(id, '#ffd3bc', '#ee6c36', () => `
+        ${shadow('#c04a1c', 100, 60, 186)}
+        <g class="hopb">
+        <polygon points="36,62 100,92 100,170 36,138" fill="#e2e2ea" stroke="#e2e2ea" stroke-width="8" stroke-linejoin="round"/>
+        <polygon points="100,92 164,62 164,138 100,170" fill="#c4c4d0" stroke="#c4c4d0" stroke-width="8" stroke-linejoin="round"/>
+        <polygon points="100,32 164,62 100,92 36,62" fill="#ffffff" stroke="#ffffff" stroke-width="8" stroke-linejoin="round"/>
+        <ellipse cx="72" cy="62" rx="10" ry="5.5" fill="${T}"/><ellipse cx="100" cy="62" rx="10" ry="5.5" fill="${O}"/><ellipse cx="128" cy="62" rx="10" ry="5.5" fill="${P}"/>
+        <polygon points="48,100 62,106.6 62,132.6 48,126" fill="${INK}" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/>
+        <polygon points="74,112.2 88,118.8 88,144.8 74,138.2" fill="${INK}" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/>
+        </g>`) },
+  ];
+  render(round6, 'grid6', 'u', 51);
+  document.querySelectorAll('#grid6 .card').forEach((card, i) => {
+    card.style.setProperty('--hd', (-i * 1.3) + 's');
+    card.querySelectorAll('.eye').forEach(e => { e.style.animationDelay = (i * 0.53) + 's'; });
+  });
+
+  // Number 43's show reel: one stage, eleven scenes, each scene is a data-scene value the CSS animates from.
+  (() => {
+    const SR = [
+      ['drop', 'Drops in from above', 'surprised', 1500],
+      ['look', 'Looks around, bored', 'neutral', 2200],
+      ['toast', 'A notification arrives', 'surprised', 1500],
+      ['happy', 'Is happy about it', 'happy', 3000],
+      ['juggle', 'Bounces the three dots on its head', 'neutral', 4000],
+      ['sad', 'Is sad when a dot rolls away', 'sad', 3600],
+      ['work', 'Gets to work', 'suspicious', 3800],
+      ['angry', 'Loses its temper', 'angry', 2800],
+      ['side', 'Side-eyes the cursor', 'suspicious', 3200],
+      ['wink', 'Winks', 'neutral', 2000],
+      ['bye', 'Winks and floats off', 'neutral', 2300],
+    ];
+    const conf = Array.from({ length: 14 }, (_, i) => { const a = (Math.PI * 2 * i) / 14, r = 150 + (i % 3) * 40; return `<circle class="sr-conf" style="--dx:${(Math.cos(a) * r).toFixed(0)}px;--dy:${(Math.sin(a) * r * 0.7 - 40).toFixed(0)}px;animation-delay:${(i % 4) * 0.05}s" cx="400" cy="230" r="${9 + (i % 3) * 3}" fill="${[T, O, P][i % 3]}"/>`; }).join('');
+    const stage = document.getElementById('srStage');
+    stage.innerHTML = `
+      <defs>${grad('srbg', '#f4c8ff', '#c366f0')}${grad('srred', '#ffa1ae', '#ec3a5a')}${grad('srblue', '#c3cdea', '#5f72ad')}${g3('srb', '#2b2733', '#0d0b12', '#4a2470')}<clipPath id="srclip"><rect width="800" height="450" rx="30"/></clipPath></defs>
+      <g clip-path="url(#srclip)">
+        <rect width="800" height="450" fill="url(#srbg)"/>
+        <rect class="sr-red" width="800" height="450" fill="url(#srred)"/><rect class="sr-blue" width="800" height="450" fill="url(#srblue)"/>
+        <ellipse class="sr-shadow" cx="400" cy="408" rx="118" ry="14" fill="#8d3ec0"/>
+        <g class="sr-toast"><rect x="528" y="56" width="236" height="76" rx="20" fill="#212121"/><circle cx="566" cy="94" r="16" fill="${T}"/><rect x="594" y="76" width="130" height="13" rx="6.5" fill="#ececec"/><rect x="594" y="100" width="88" height="11" rx="5.5" fill="#8e8e8e"/></g>
+        <g class="sr-cursorw"><rect class="cur" x="176" y="246" width="38" height="70" rx="10" fill="#ffffff"/></g>
+        ${conf}
+        <g class="sr-move"><g transform="translate(200 62) scale(1.9)">
+          <g class="sr-squash" style="transform-origin:105px 172px"><g class="sr-shake">
+            <g class="sr-hairs" style="transform-origin:128px 60px">${hairs(128, 58, '#2b2733')}</g>
+            <path d="M52 148 C44 100 56 62 92 52 C128 44 154 66 158 104 C160 124 158 138 154 150 C150 158 140 158 136 150 L130 172 L122 152 H92 L86 170 L78 152 C70 160 56 158 52 148 Z" fill="url(#srb)"/>
+            <g class="sr-dots"><circle class="sr-d" cx="74" cy="78" r="5.5" fill="${T}"/><circle class="sr-d d2" cx="90" cy="72" r="5.5" fill="${O}"/><circle class="sr-d d3" cx="106" cy="72" r="5.5" fill="${P}"/></g>
+            <g class="sr-orbit" style="transform-origin:105px 106px"><circle cx="105" cy="22" r="8" fill="${T}"/><circle cx="177.7" cy="148" r="8" fill="${O}"/><circle cx="32.3" cy="148" r="8" fill="${P}"/></g>
+            <g class="sr-eyes">${styleEyes('s-lid', [86, 124], 107, 15, 17, '#ffffff', 'neutral')}</g>
+            <path class="sr-mouth m-happy" d="M90 128 H120 A15 14 0 0 1 90 128 Z" fill="#ffffff"/>
+            <path class="sr-mouth m-sad" d="M93 144 A12 11 0 0 1 117 144 Q105 136 93 144 Z" fill="#ffffff"/>
+          </g></g>
+        </g></g>
+      </g>`;
+    const eyes = stage.querySelector('.sr-eyes > g'), cap = document.getElementById('srCap'), count = document.getElementById('srCount'), chips = document.getElementById('srChips'), playBtn = document.getElementById('srPlay');
+    chips.innerHTML = SR.map(([, c], i) => `<button class="chip" type="button" data-sr="${i}" aria-pressed="false">${i + 1}. ${c}</button>`).join('');
+    let cur = 0, timer = null, playing = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function show(i) {
+      cur = (i + SR.length) % SR.length;
+      const [key, text, mood, ms] = SR[cur];
+      stage.dataset.scene = ''; void stage.getBoundingClientRect(); stage.dataset.scene = key;
+      eyes.setAttribute('class', 'emo-' + mood);
+      cap.textContent = text; count.textContent = `${cur + 1} of ${SR.length}`;
+      chips.querySelectorAll('.chip').forEach((b, n) => b.setAttribute('aria-pressed', String(n === cur)));
+      playBtn.textContent = playing ? 'Pause' : 'Play';
+      clearTimeout(timer);
+      if (playing) timer = setTimeout(() => show(cur + 1), ms);
+    }
+    playBtn.addEventListener('click', () => { playing = !playing; show(cur); });
+    document.getElementById('srPrev').addEventListener('click', () => show(cur - 1));
+    document.getElementById('srNext').addEventListener('click', () => show(cur + 1));
+    chips.addEventListener('click', e => { const b = e.target.closest('[data-sr]'); if (b) show(Number(b.dataset.sr)); });
+    show(0);
+  })();
+
+  // Five ways to sign the film, each on the same still frame.
+  (() => {
+    const host = document.getElementById('wmGrid');
+    if (!host) return;
+    const glyph = col => `<path d="M70 122 L162 166 L70 210" fill="none" stroke="${col}" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/><rect x="174" y="146" width="14" height="42" fill="${col}"/>`;
+    const word = (x, y, size, fill, extra) => `<text x="${x}" y="${y}" text-anchor="end" font-size="${size}" font-weight="600" letter-spacing="-0.2" fill="${fill}" ${extra || ''}>afterterm</text>`;
+    const MARKS = [
+      ['A', 'The word alone, white, half see-through', word(772, 424, 18, '#ffffff', 'opacity="0.55"')],
+      ['B', 'The word alone, in a darker shade of the background', word(772, 424, 18, '#a34fd4')],
+      ['C', 'The prompt mark and the word, white, half see-through', `<g opacity="0.6"><g transform="translate(650 398) scale(0.12)">${glyph('#ffffff')}</g>${word(772, 424, 18, '#ffffff')}</g>`],
+      ['D', 'A dark pill with the three dots and the word', `<rect x="632" y="398" width="146" height="36" rx="18" fill="#1a1a1a"/><circle cx="650" cy="416" r="4" fill="${T}"/><circle cx="661" cy="416" r="4" fill="${O}"/><circle cx="672" cy="416" r="4" fill="${P}"/>${word(764, 421.5, 15.5, '#ececec')}`],
+      ['E', 'The icon alone, small, slightly see-through', `<g opacity="0.8" transform="translate(738 392) scale(0.15)"><rect x="8" y="8" width="240" height="240" rx="52" fill="#1a1a1a"/><circle cx="88" cy="54" r="13" fill="${T}"/><circle cx="128" cy="54" r="13" fill="${O}"/><circle cx="168" cy="54" r="13" fill="${P}"/>${glyph('#e0e0e0')}</g>`],
+    ];
+    host.innerHTML = MARKS.map(([k, name, mark]) => `<figure class="wm-card"><svg viewBox="0 0 800 450" role="img" aria-label="Style ${k}: ${name}">
+      <defs>${grad('wmbg' + k, '#f4c8ff', '#c366f0')}${g3('wmb' + k, '#2b2733', '#0d0b12', '#4a2470')}<clipPath id="wmc${k}"><rect width="800" height="450" rx="30"/></clipPath></defs>
+      <g clip-path="url(#wmc${k})"><rect width="800" height="450" fill="url(#wmbg${k})"/>
+        <ellipse cx="400" cy="386" rx="74" ry="10" fill="#8d3ec0"/>
+        <g><rect x="540" y="40" width="236" height="76" rx="20" fill="#212121"/><rect x="560" y="63" width="30" height="30" rx="9" fill="${O}"/><rect x="568" y="71" width="14" height="14" rx="4" fill="#212121"/><text x="604" y="71" font-size="13" font-weight="500" fill="#a8a8a8">New task</text><text x="604" y="96" font-size="19" font-weight="600" fill="#f2f2f2">Fix the bug</text></g>
+        <g transform="translate(${400 - 105 * 1.15} ${372 - 172 * 1.15}) scale(1.15)">${hairs(128, 58, '#2b2733', true)}
+          <path d="M52 148 C44 100 56 62 92 52 C128 44 154 66 158 104 C160 124 158 138 154 150 C150 158 140 158 136 150 L130 172 L122 152 H92 L86 170 L78 152 C70 160 56 158 52 148 Z" fill="url(#wmb${k})"/>
+          <circle cx="74" cy="78" r="5.5" fill="${T}"/><circle cx="90" cy="72" r="5.5" fill="${O}"/><circle cx="106" cy="72" r="5.5" fill="${P}"/>
+          ${styleEyes('s-lid', [86, 124], 107, 15, 17, '#ffffff', 'neutral')}</g>
+        ${mark}</g></svg><figcaption><b>${k}</b> ${name}</figcaption></figure>`).join('');
+  })();
+
+  // Number 43's film: one fixed stage, one story. Everything on screen is worked out from the time alone, so it can be paused and dragged like a video.
+  (() => {
+    const stage = document.getElementById('fmStage');
+    if (!stage) return;
+    const S = 1.15, G = 372, DUR = 15.4;
+    const ROWS = [
+      [76, [[60, 6.3], [40, 6.5], [80, 6.7]]],
+      [104, [[36, 7.0], [90, 7.2], [50, 7.4]]],
+      [132, [[70, 7.7], [30, 7.9], [60, 8.2, 1]]],
+
+    ];
+    const blocks = [];
+    ROWS.forEach(([y, list]) => { let x = 96; list.forEach(([w, at, err]) => { blocks.push({ x, y, w, at, err }); x += w + 8; }); });
+    const chev = y => `<polygon points="68,${y} 74,${y} 80,${y + 7} 74,${y + 14} 68,${y + 14} 74,${y + 7}" fill="#8e8e8e"/>`;
+    const toast = (id, col, w1, w2) => `<g id="${id}"><rect x="540" y="40" width="236" height="76" rx="20" fill="#212121"/><circle cx="578" cy="78" r="16" fill="${col}"/><rect x="606" y="60" width="${w1}" height="13" rx="6.5" fill="#ececec"/><rect x="606" y="84" width="${w2}" height="11" rx="5.5" fill="#8e8e8e"/></g>`;
+    const CONF = Array.from({ length: 14 }, (_, i) => { const a = (Math.PI * 2 * i) / 14, r = 110 + (i % 3) * 34; return [Math.cos(a) * r, Math.sin(a) * r * 0.7 - 50, 7 + (i % 3) * 3, [T, O, P][i % 3]]; });
+    stage.innerHTML = `
+      <defs>${grad('fmbg', '#f4c8ff', '#c366f0')}${grad('fmgr', '#ffa1ae', '#ec3a5a')}${grad('fmgb', '#c3cdea', '#5f72ad')}${g3('fmb', '#2b2733', '#0d0b12', '#4a2470')}<clipPath id="fmclip"><rect width="800" height="450" rx="30"/></clipPath></defs>
+      <g clip-path="url(#fmclip)">
+        <rect width="800" height="450" fill="url(#fmbg)"/>
+        <rect id="fmRed" width="800" height="450" fill="url(#fmgr)"/>
+        <rect id="fmBlue" width="800" height="450" fill="url(#fmgb)"/>
+        <ellipse id="fmShadow" cx="0" cy="386" rx="74" ry="10" fill="#8d3ec0"/>
+        <g id="fmPanel">
+          <rect x="50" y="36" width="300" height="132" rx="22" fill="#212121"/>
+          <circle cx="72" cy="56" r="5" fill="${T}"/><circle cx="88" cy="56" r="5" fill="${O}"/><circle cx="104" cy="56" r="5" fill="${P}"/>
+          ${ROWS.map(([y]) => `<g class="fm-chev">${chev(y)}</g>`).join('')}
+          ${blocks.map(b => `<rect class="fm-blk" x="${b.x}" y="${b.y}" width="0" height="14" rx="5" fill="${b.err ? '#ec3a5a' : '#ececec'}"/>`).join('')}
+          <rect id="fmCur" x="96" y="76" width="10" height="14" rx="3" fill="#ffffff"/>
+        </g>
+        <g id="fmT1"><rect x="540" y="40" width="236" height="76" rx="20" fill="#212121"/><rect x="560" y="63" width="30" height="30" rx="9" fill="${O}"/><rect x="568" y="71" width="14" height="14" rx="4" fill="#212121"/><text x="604" y="71" font-size="13" font-weight="500" fill="#a8a8a8">New task</text><text x="604" y="96" font-size="19" font-weight="600" fill="#f2f2f2">Fix the bug</text></g>
+        ${CONF.map(c => `<circle class="fm-conf" r="${c[2]}" fill="${c[3]}"/>`).join('')}
+        <g id="fmPos"><g transform="translate(${400 - 105 * S} ${G - 172 * S}) scale(${S})"><g id="fmSq"><g id="fmShake">
+          <g id="fmHair">${hairs(128, 58, '#2b2733', true)}</g>
+          <path d="M52 148 C44 100 56 62 92 52 C128 44 154 66 158 104 C160 124 158 138 154 150 C150 158 140 158 136 150 L130 172 L122 152 H92 L86 170 L78 152 C70 160 56 158 52 148 Z" fill="url(#fmb)"/>
+          <g id="fmDots"><circle cx="74" cy="78" r="5.5" fill="${T}"/><circle cx="90" cy="72" r="5.5" fill="${O}"/><circle id="fmD3" cx="106" cy="72" r="5.5" fill="${P}"/></g>
+          <g id="fmOrbit"><circle cx="105" cy="22" r="8" fill="${T}"/><circle cx="177.7" cy="148" r="8" fill="${O}"/><circle cx="32.3" cy="148" r="8" fill="${P}"/></g>
+          <g id="fmEyes">${styleEyes('s-lid', [86, 124], 107, 15, 17, '#ffffff', 'neutral')}</g>
+          <path id="fmMH" d="M90 128 H120 A15 14 0 0 1 90 128 Z" fill="#ffffff"/>
+          <path id="fmMS" d="M93 144 A12 11 0 0 1 117 144 Q105 136 93 144 Z" fill="#ffffff"/>
+        </g></g></g></g>
+        <circle id="fmLoose" r="7.5" fill="${P}"/>
+        <g opacity="0.6"><g transform="translate(650 398) scale(0.12)"><path d="M70 122 L162 166 L70 210" fill="none" stroke="#ffffff" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/><rect x="174" y="146" width="14" height="42" fill="#ffffff"/></g><text x="772" y="424" text-anchor="end" font-size="18" font-weight="600" letter-spacing="-0.2" fill="#ffffff">afterterm</text></g>
+      </g>`;
+    const $ = id => stage.querySelector('#' + id);
+    const el = { red: $('fmRed'), blue: $('fmBlue'), shadow: $('fmShadow'), panel: $('fmPanel'), cur: $('fmCur'), t1: $('fmT1'), pos: $('fmPos'), sq: $('fmSq'), shake: $('fmShake'), hair: $('fmHair'), dots: $('fmDots'), d3: $('fmD3'), orbit: $('fmOrbit'), eyes: $('fmEyes'), mh: $('fmMH'), ms: $('fmMS'), loose: $('fmLoose') };
+    const eyeMood = el.eyes.firstElementChild, eyeR = el.eyes.querySelector('.eR');
+    const blkEls = [...stage.querySelectorAll('.fm-blk')], chevEls = [...stage.querySelectorAll('.fm-chev')], confEls = [...stage.querySelectorAll('.fm-conf')];
+
+    const EASE = {
+      io: u => u < 0.5 ? 2 * u * u : 1 - 2 * (1 - u) * (1 - u), in: u => u * u, out: u => 1 - (1 - u) * (1 - u), lin: u => u,
+      back: u => { const c = 1.9; return 1 + (c + 1) * Math.pow(u - 1, 3) + c * Math.pow(u - 1, 2); },
+    };
+    // A track is a list of [time, value, how to arrive]; the value holds before the first and after the last.
+    const tr = (k, t) => {
+      if (t <= k[0][0]) return k[0][1];
+      for (let i = 1; i < k.length; i++) if (t < k[i][0]) { const a = k[i - 1], b = k[i]; return a[1] + (b[1] - a[1]) * EASE[b[2] || 'io']((t - a[0]) / (b[0] - a[0])); }
+      return k[k.length - 1][1];
+    };
+    const K = {
+      bx: [[3.75, 0], [4.4, 240, 'lin'], [5.5, 240], [6.1, 70, 'lin'], [8.8, 70], [9.3, -200, 'lin'], [11.2, -200], [11.9, -55, 'lin'], [12.6, -55], [13.15, 0, 'lin']],
+      by: [[0, -560], [0.38, 0, 'in'], [14.25, 0], [14.8, -620, 'in']],
+      sx: [[0.38, 1], [0.46, 1.3, 'out'], [0.62, 0.92], [0.8, 1], [2.1, 1], [2.25, 1.03], [2.4, 1], [8.4, 1], [8.55, 1.14], [9.6, 1.14], [9.8, 1], [10.0, 1], [10.3, 1.06], [11.9, 1.06], [11.98, 1.2], [12.1, 0.92], [12.3, 1], [13.15, 1], [13.22, 1.18], [13.4, 1], [14.0, 1], [14.2, 1.16], [14.33, 0.9], [14.8, 0.95]],
+      sy: [[0, 1.12], [0.38, 1.12], [0.46, 0.66, 'out'], [0.62, 1.12], [0.8, 1], [2.1, 1], [2.25, 0.95], [2.4, 1], [8.4, 1], [8.55, 1.14], [9.6, 1.14], [9.8, 1], [10.0, 1], [10.3, 0.9], [11.9, 0.9], [11.98, 0.74], [12.1, 1.12], [12.3, 1], [13.15, 1], [13.22, 0.82], [13.4, 1], [14.0, 1], [14.2, 0.8], [14.33, 1.16], [14.8, 1.08]],
+      rot: [[0.9, 0], [1.2, -5], [1.75, 5], [2.1, 0], [13.4, 0], [13.52, 7], [13.9, 7], [14.0, 0]],
+      hs: [[8.4, 1], [8.55, 1.8], [9.6, 1.8], [9.8, 1], [10.0, 1], [10.3, 0.55], [12.05, 0.55], [12.2, 1.35], [12.45, 1], [14.25, 1], [14.45, 1.5]],
+      hr: [[10.0, 0], [10.3, 22], [12.05, 22], [12.2, 0]],
+      ex: [[1.0, 0], [1.12, -12], [1.4, -12], [1.55, 12], [1.95, 12], [2.1, 0], [2.6, 0], [2.7, 9], [3.1, 9], [3.2, 0], [3.7, 0], [3.85, 6], [4.9, 6], [5.05, -11], [6.1, -11], [6.2, -8], [8.8, -8], [8.9, -4], [9.6, -4], [9.8, 10], [11.95, 11], [12.1, 0]],
+      ey: [[1.0, 0], [1.12, 2], [1.95, 2], [2.1, 0], [2.6, 0], [2.7, -7], [3.1, -7], [3.2, -3], [4.9, -4], [8.8, -5], [9.6, -6], [9.8, -2], [10.2, 7], [11.95, 7], [12.1, -3], [13.2, -3], [13.4, 0]],
+      red: [[8.3, 0], [8.5, 1], [9.6, 1], [9.9, 0]],
+      blue: [[10.0, 0], [10.3, 1], [11.6, 1], [11.9, 0]],
+      orbit: [[6.2, 0], [6.35, 1], [8.2, 1], [8.3, 0]],
+      d3: [[0, 1], [12.07, 1], [12.08, 1.9, 'lin'], [12.35, 1]],
+      wink: [[13.5, 1], [13.58, 0.2, 'in'], [13.72, 0.2], [13.82, 1, 'out']],
+      mh: [[3.1, 0], [3.25, 1, 'back'], [4.75, 1], [4.9, 0], [12.3, 0], [12.45, 1, 'back']],
+      ms: [[10.0, 0], [10.2, 1, 'back'], [11.95, 1], [12.05, 0]],
+      t1x: [[2.4, 320], [2.7, 0, 'back']],
+      t1y: [[4.675, 0], [4.75, -26, 'out'], [5.05, -260, 'in']],
+
+      ps: [[4.95, 0], [5.25, 1, 'back'], [14.2, 1], [14.45, 0, 'in']],
+      py: [[9.575, 0], [9.645, -16, 'out'], [9.875, 0]],
+      pr: [[9.575, 0], [9.645, -3, 'out'], [9.925, 0]],
+      lx: [[9.575, 201], [10.45, 345, 'out']],
+      ly: [[9.575, 187], [9.775, 150, 'out'], [10.15, 364, 'in'], [10.28, 340, 'out'], [10.42, 364, 'in']],
+    };
+    const HOPS = [[2.62, 1, 0.3, 45], [3.15, 2, 0.3, 50], [3.75, 3, 0.2167, 26], [4.45, 1, 0.45, 100], [5.5, 3, 0.2, 22], [8.8, 3, 0.1667, 18], [9.35, 1, 0.45, 70], [11.2, 4, 0.175, 9], [12.1, 1, 0.32, 40], [12.6, 1, 0.55, 90]];
+    const MOODS = [[0, 'surprised'], [0.9, 'neutral'], [2.6, 'surprised'], [3.1, 'happy'], [4.9, 'surprised'], [5.5, 'neutral'], [6.2, 'suspicious'], [8.2, 'surprised'], [8.4, 'angry'], [9.65, 'surprised'], [10.0, 'sad'], [12.05, 'surprised'], [12.35, 'neutral']];
+    const CAPS = [[0, 'Drops in'], [0.9, 'Has nothing to do'], [2.4, 'A task arrives'], [3.1, 'Is happy about it'], [3.75, 'Goes and opens it'], [4.95, 'A terminal opens'], [6.2, 'Gets to work'], [8.2, 'The work fails'], [8.4, 'Loses its temper'], [9.35, 'Hits the terminal, which fixes it, but knocks a dot off its head'], [10.0, 'Is sad about the dot'], [11.2, 'Goes to get it back'], [12.08, 'Has its dot back'], [12.6, 'Jumps to the centre'], [13.4, 'Winks'], [14.0, 'Floats off']];
+    const BURSTS = [[3.15, 400, 290], [12.1, 345, 290]];
+    const at = (list, t) => { let v = list[0][1]; for (const [a, b] of list) if (t >= a) v = b; return v; };
+    const f = n => n.toFixed(2);
+    let mood = '';
+
+    function draw(t) {
+      let by = tr(K.by, t), sx = tr(K.sx, t), sy = tr(K.sy, t), rot = tr(K.rot, t);
+      for (const [t0, n, p, h] of HOPS) if (t >= t0 && t < t0 + n * p) { const u = ((t - t0) % p) / p, s = Math.sin(Math.PI * u); by -= h * s; sy *= 1 + 0.07 * s - 0.1 * Math.pow(1 - s, 6); sx *= 1 - 0.04 * s + 0.08 * Math.pow(1 - s, 6); }
+      if (t > 14.25) rot += 8 * Math.sin((t - 14.25) * 16);
+      const bx = tr(K.bx, t), red = tr(K.red, t), blue = tr(K.blue, t), orbit = tr(K.orbit, t);
+      let shx = 0, shy = 0;
+      if (t > 8.45 && t < 9.6) shx = Math.sin(t * 62) > 0 ? 2.4 : -2.4;
+      if (orbit > 0.5) shy = 1.2 * Math.sin(t * 30);
+      el.pos.setAttribute('transform', `translate(${f(bx)} ${f(by)})`);
+      el.sq.setAttribute('transform', `translate(105 172) rotate(${f(rot)}) scale(${f(sx)} ${f(sy)}) translate(-105 -172)`);
+      el.shake.setAttribute('transform', `translate(${f(shx)} ${f(shy)})`);
+      el.hair.setAttribute('transform', `translate(128 60) rotate(${f(tr(K.hr, t))}) scale(1 ${f(tr(K.hs, t))}) translate(-128 -60)`);
+      el.eyes.setAttribute('transform', `translate(${f(tr(K.ex, t))} ${f(tr(K.ey, t))})`);
+      const m = at(MOODS, t);
+      if (m !== mood) { mood = m; eyeMood.setAttribute('class', 'emo-' + m); }
+      const wk = tr(K.wink, t);
+      if (wk < 0.99) { eyeR.style.transition = 'none'; eyeR.style.transform = `scaleY(${f(wk)})`; } else { eyeR.style.transition = ''; eyeR.style.transform = ''; }
+      const pop = (node, cx, cy, s) => node.setAttribute('transform', `translate(${cx} ${cy}) scale(${f(Math.max(s, 0))}) translate(${-cx} ${-cy})`);
+      pop(el.mh, 105, 133, tr(K.mh, t)); pop(el.ms, 105, 140, tr(K.ms, t));
+      pop(el.dots, 90, 74, 1 - orbit);
+      const loose = t >= 9.575 && t < 12.08;
+      pop(el.d3, 106, 72, loose ? 0 : tr(K.d3, t));
+      el.loose.setAttribute('transform', loose ? `translate(${f(tr(K.lx, t))} ${f(tr(K.ly, t))})` : 'translate(-50 -50)');
+      el.orbit.setAttribute('transform', `translate(105 106) rotate(${f(t * 330)}) scale(${f(orbit)}) translate(-105 -106)`);
+      el.red.setAttribute('opacity', f(red)); el.blue.setAttribute('opacity', f(blue));
+      const high = Math.min(1, Math.max(0.25, 1 + by / 520));
+      el.shadow.setAttribute('transform', `translate(${f(400 + bx)} 0) translate(0 386) scale(${f(high)}) translate(0 -386)`);
+      el.shadow.setAttribute('fill', red > 0.5 ? '#b3243f' : blue > 0.5 ? '#4d5d94' : '#8d3ec0');
+      el.t1.setAttribute('transform', `translate(${f(tr(K.t1x, t))} ${f(tr(K.t1y, t))})`);
+      const ps = tr(K.ps, t), jolt = t > 8.2 && t < 8.4 ? 3 * Math.sin(t * 70) : 0;
+      el.panel.setAttribute('transform', `translate(${f(200 + jolt)} ${f(102 + tr(K.py, t))}) rotate(${f(tr(K.pr, t))}) scale(${f(Math.max(ps, 0))}) translate(-200 -102)`);
+      let cx = 96, cy = 76;
+      blocks.forEach((b, i) => {
+        const g = Math.min(1, Math.max(0, (t - b.at) / 0.14));
+        blkEls[i].setAttribute('width', f(b.w * g));
+        if (b.err) blkEls[i].setAttribute('fill', t >= 9.6 ? T : '#ec3a5a');
+        if (g > 0) { cx = b.x + b.w * g + 8; cy = b.y; }
+      });
+      ROWS.forEach(([y, list], i) => { chevEls[i].setAttribute('opacity', i === 0 || t >= list[0][1] - 0.2 ? 1 : 0); if (t >= list[0][1] - 0.2 && cy < y) { cx = 96; cy = y; } });
+      el.cur.setAttribute('x', f(cx)); el.cur.setAttribute('y', cy);
+      el.cur.setAttribute('opacity', t < 8.2 && (t * 2) % 1 < 0.62 ? 1 : 0);
+      confEls.forEach((c, i) => {
+        let tf = 'translate(-60 -60) scale(0)';
+        for (const [t0, ox, oy] of BURSTS) { const u = (t - t0 - (i % 4) * 0.04) / 1.1; if (u > 0 && u < 1) { const e = EASE.out(u), [dx, dy] = CONF[i]; tf = `translate(${f(ox + dx * e)} ${f(oy + dy * e + 130 * u * u)}) scale(${f(Math.sin(Math.PI * Math.min(1, u * 1.15)))})`; } }
+        c.setAttribute('transform', tf);
+      });
+    }
+
+    const cap = document.getElementById('fmCap'), bar = document.getElementById('fmBar'), playBtn = document.getElementById('fmPlay'), clock = document.getElementById('fmClock');
+    let t = 0, playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, last = 0, shown = '';
+    const paint = () => {
+      draw(t);
+      const c = at(CAPS, t); if (c !== shown) { shown = c; cap.textContent = c; }
+      bar.value = String(Math.round(t * 100));
+      clock.textContent = `${t.toFixed(1)}s of ${DUR.toFixed(1)}s`;
+    };
+    const frame = now => {
+      if (!playing) return;
+      t += Math.min(0.05, (now - last) / 1000); last = now;
+      if (t >= DUR) t = 0;
+      paint(); requestAnimationFrame(frame);
+    };
+    const setPlaying = on => { playing = on; playBtn.textContent = on ? 'Pause' : 'Play'; if (on) { last = performance.now(); requestAnimationFrame(frame); } };
+    bar.max = String(Math.round(DUR * 100));
+    bar.addEventListener('input', () => { t = Number(bar.value) / 100; if (playing) setPlaying(false); paint(); });
+    playBtn.addEventListener('click', () => setPlaying(!playing));
+    document.getElementById('fmRestart').addEventListener('click', () => { t = 0; paint(); if (!playing) setPlaying(true); });
+    const q = /[?&]fm=([\d.]+)/.exec(location.search);
+    if (q) { playing = false; t = Number(q[1]); } else if (!playing) t = 3.3;
+    paint(); setPlaying(playing);
+  })();
+
+
+  // The configurator: every option is a small live picture of the bot with that one piece changed
+  const CONTROLS = [
+    ['shape', 'Body shape', [['tile', 'Tile'], ['tall', 'Tall'], ['blob', 'Blob'], ['bean', 'Loaf'], ['folder', 'Folder'], ['toast', 'Toast'], ['dome', 'Bug'], ['capsule', 'Capsule'], ['bubble', 'Chat bubble'], ['key', 'Enter key']]],
+    ['color', 'Body colour', [['dark', 'Dark'], ['pale', 'Pale'], ['teal', 'Teal'], ['orange', 'Orange'], ['purple', 'Purple'], ['yellow', 'Yellow'], ['bread', 'Bread']]],
+    ['eyes', 'Eye shape', STYLE_LIST],
+    ['mood', 'Emotion', [['cycle', 'All, in turn'], ...MOOD_LIST]],
+    ['eyeSize', 'Eye size', [['small', 'Small'], ['medium', 'Medium'], ['large', 'Large']]],
+    ['hair', 'Hair', [['none', 'None'], ['strands', 'Three strands'], ['curl', 'One curl'], ['antennae', 'Antennae'], ['sprouts', 'Dots on stalks']]],
+    ['dots', 'The three dots', [['on', 'Shown'], ['none', 'Hidden']]],
+    ['feet', 'Feet', [['none', 'None'], ['short', 'Short'], ['long', 'Long'], ['step', 'Stepping']]],
+    ['arms', 'Arms', [['none', 'None'], ['down', 'Down'], ['wave', 'Waving']]],
+    ['belly', 'On its front', [['none', 'Nothing'], ['prompt', 'Prompt']]],
+    ['anim', 'Body movement', [['none', 'Still'], ['look', 'Looks around'], ['squash', 'Squashes'], ['lean', 'Leans'], ['walk', 'Bobs'], ['hop', 'Hops'], ['press', 'Gets pressed']]],
+    ['bg', 'Tile behind it', [['light', 'Light'], ['dark', 'Dark'], ['teal', 'Teal'], ['orange', 'Orange'], ['purple', 'Purple'], ['lavender', 'Lavender'], ['night', 'Night'], ['none', 'None']]],
+  ];
+  let state = { ...START };
+  try { const saved = JSON.parse(localStorage.getItem('afterterm-bot-config-3') || 'null'); if (saved && typeof saved === 'object') state = { ...START, ...saved }; } catch (e) { /* storage is optional */ }
+  const $ = id => document.getElementById(id);
+  $('cfControls').innerHTML = CONTROLS.map(([key, label, opts]) => `<div class="cf-row"><p class="cf-label">${label}</p><div class="thumbs">${opts.map(([v, t]) =>
+    `<button class="thumb" type="button" data-key="${key}" data-val="${v}" aria-pressed="false" aria-label="${label}: ${t}"><svg viewBox="0 0 200 200" aria-hidden="true"></svg><span>${t}</span></button>`).join('')}</div></div>`).join('')
+    + `<div class="cf-row"><label class="cf-label" for="cfTilt">Tilt</label><input id="cfTilt" type="range" min="-14" max="14" step="1"></div>`;
+  function paint() {
+    const full = { ...state, thick: true };
+    const svgAt = id => `<svg viewBox="0 0 200 200" role="img" aria-label="Your bot">${scene(id, full)}</svg>`;
+    $('cfBig').innerHTML = scene('cfa', full);
+    $('cfSizes').innerHTML = svgAt('cfb') + svgAt('cfc') + svgAt('cfd');
+    document.querySelectorAll('#cfControls .thumb').forEach(b => {
+      const k = b.dataset.key, v = b.dataset.val;
+      b.querySelector('svg').innerHTML = scene('t' + k + v, { ...full, [k]: v });
+      b.setAttribute('aria-pressed', String(String(state[k]) === v));
+    });
+    $('cfTilt').value = state.tilt;
+    $('cfNow').hidden = state.mood !== 'cycle';
+    $('cfCode').textContent = Object.keys(START).map(k => `${k}=${state[k]}`).join(' ');
+    try { localStorage.setItem('afterterm-bot-config-3', JSON.stringify(state)); } catch (e) { /* storage is optional */ }
+  }
+  $('cfControls').addEventListener('click', e => { const b = e.target.closest('.thumb'); if (!b) return; state[b.dataset.key] = b.dataset.val; paint(); });
+  $('cfTilt').addEventListener('input', e => { state.tilt = Number(e.target.value); paint(); });
+  $('cfReset').addEventListener('click', () => { state = { ...START }; paint(); });
+  $('cfRandom').addEventListener('click', () => {
+    CONTROLS.forEach(([key, , opts]) => { state[key] = opts[Math.floor(Math.random() * opts.length)][0]; });
+    state.tilt = Math.round(Math.random() * 16 - 8); paint();
+  });
+  $('cfCopy').addEventListener('click', () => {
+    const done = () => { $('cfCopy').textContent = 'Copied'; setTimeout(() => { $('cfCopy').textContent = 'Copy settings'; }, 1400); };
+    const select = () => { const r = document.createRange(); r.selectNodeContents($('cfCode')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); };
+    try { navigator.clipboard.writeText($('cfCode').textContent).then(done, select); } catch (e) { select(); }
+  });
+  const toConfig = () => { if (matchMedia('(max-width: 1100px)').matches) $('config').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  $('grid0').addEventListener('click', e => {
+    const b = e.target.closest('[data-open]'); if (!b) return;
+    const cfg = round3[Number(b.dataset.open)].cfg, shut = cfg.eyes === 'closed';
+    state = { ...START, arms: 'none', belly: 'none', ...cfg, eyes: cfg.eyes === 'block' ? 's-block' : 's-lid', mood: cfg.eyes === 'lid' ? 'angry' : 'cycle', dots: cfg.dots === 'grey' ? 'on' : cfg.dots, anim: cfg.anim === 'breathe' ? 'none' : cfg.anim };
+    if (shut) state.mood = 'neutral';
+    paint(); toConfig();
+  });
+  $('gridE').addEventListener('click', e => { const b = e.target.closest('.mx'); if (!b) return; state.eyes = b.dataset.eyes; state.mood = b.dataset.mood; paint(); toConfig(); });
+  paint();
+</script>

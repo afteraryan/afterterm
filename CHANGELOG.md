@@ -6,7 +6,14 @@ What changed for the person using afterterm, release by release. Each release li
 
 ### Fixed
 
-- **The usage card no longer shrinks to a thin bar when there is no breakdown.** The Breakdown tab now says "No breakdown here" and keeps the card's size.
+- **The usage card no longer shrinks to a thin bar when there is no breakdown.** The Breakdown tab now keeps the size it had while loading and shows the sad mascot with "No breakdown here".
+
+## 0.20.2 (2026-11-15)
+
+### Fixed
+
+- **The Files button now shows up when you paste an image into a chat.** Before, it only appeared once Claude had changed a file, so a chat with just a pasted image had no way to see that image again. Now the button appears as soon as you paste an image, as just an icon at the top right of the chat.
+- **Once Claude changes a file, the button also says how many** (for example "1 file"), and its list shows those files above your pasted images.
 
 ## 0.20.1 (2026-11-15)
 

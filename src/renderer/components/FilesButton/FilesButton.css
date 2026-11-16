@@ -22,6 +22,7 @@
   transition: background 140ms var(--ease), border-color 140ms var(--ease);
 }
 
+.fbtn.icon { padding: 5px 8px; }
 .fbtn:hover { background: var(--hover2); }
 .fbtn.open { background: var(--hover2); border-color: #4a4a4a; }
 .fbtn svg { color: var(--text2); }

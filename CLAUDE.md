@@ -236,6 +236,14 @@ assets/
   hooks/
     afterterm-notify.ps1               ← bundled, distributable Claude Code hook (no-op unless AFTERTERM=1); copied into ~/.claude/hooks on first run
     test-afterterm-notify.ps1          ← standalone test harness for the hook (30 cases)
+  mascot/
+    README.md                          ← The mascot's guide: its rules, the still pictures, every pose field, how to make a film and render it
+    mascot.js                          ← The mascot (a dark blob with fangs, hair, the three dots, flat-topped eyes): Mascot.svg (a still), Mascot.create (a posable copy in an SVG), eight emotions, track/at/hops/EASE, Mascot.player. One plain script, no build step; not used by the app yet
+    stills/                            ← mascot.svg, mascot-tile.svg and mood-<name>.svg for each emotion; written by export.mjs
+    films/fix-the-bug.js               ← The 15 second film's story (a task arrives, it works, loses its temper, loses a dot and gets it back), with a layout per shape (landscape, portrait); the example to copy for a new film
+    films/fix-the-bug.html, fix-the-bug-portrait.html ← Its two pages: 16:9, and 9:16 for reels (window.FILM_LAYOUT = 'portrait'; render with --size 1080x1920). film.css is the page round a film
+    render.mjs                         ← Film page to MP4: every frame drawn in a headless browser, then ffmpeg; --audio adds music with fades
+    export.mjs                         ← Writes stills/ again from mascot.js
 forge.config.ts                        ← ASAR unpack, rebuild skip, Vite plugin config (extraResource: ['assets'] bundles the hook)
 installer/
   electron-builder.cjs                 ← The NSIS engine's settings (one-click, per-user, --prepackaged around Forge's folder); AFTERTERM_INSTALLER_SANDBOX=1 for "afterterm (test)"
@@ -493,6 +501,7 @@ Procedures an agent follows while working on this repo (not product docs, not re
 - `docs/agent-workflow/fable-orchestration.md`: read it whenever a Fable session orchestrates a round of work through agents; the orchestrator writes no code and runs no tests itself.
 
 - `docs/research-00-terminal-landscape-and-stack-validation.md` — pre-build stack/landscape research
+- `assets/mascot/README.md`: afterterm's mascot, chosen 2026-11-15 (Linear AFT-116): the character's rules, the still pictures, how to pose it, how to make a film of it and render the film to a video. The page it was chosen on, number 43 of sixty candidates, is `docs/mockups/mascot-characters.html`.
 - `docs/design-01-persistent-pty-host.md` — design for a detached PTY-host daemon so terminals survive an app update (not yet built)
 - `docs/design-02-projects-and-threads.md` — the projects-and-threads redesign (Home screen, pinned projects, named threads, sleep/wake, history); agreed 2026-09-06 against `docs/mockups/afterterm-next.html`. Its execution record is `docs/phases-01-projects-and-threads.md`.
 - `docs/design-03-sidebar-and-attention.md`: the always-on rail, the Pinned and Recent panel, needs-you until answered, mark as unread, project icons, in-place search, the keyboard cycle; agreed 2026-09-19 against `docs/mockups/design-03-final-sidebar.html`. Phases 7 and 8 in `docs/phases-01-projects-and-threads.md`.
