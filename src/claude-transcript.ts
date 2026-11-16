@@ -165,12 +165,33 @@ export function latestModelAttachment(text: string): string | null {
 }
 
 /**
+ * The model a `/model` command switched to, from the text of its output line
+ * ("Set model to `Opus 5.5` and saved as your default for new sessions"), as an id
+ * ("claude-opus-5-5"), or null when the text is not that output or names something
+ * that does not fit the family-and-version shape. A trailing note in brackets, as in
+ * "`Opus 5.5 (default)`", is dropped.
+ */
+export function modelFromSwitchOutput(text: string): string | null {
+  const m = String(text ?? '').match(/<local-command-stdout>\s*Set model to `?([A-Za-z]+) (\d+(?:\.\d+)*)\b/);
+  if (!m) return null;
+  const family = m[1].toLowerCase();
+  if (!MODEL_FAMILIES.has(family)) return null;
+  return `claude-${family}-${m[2].split('.').join('-')}`;
+}
+
+/**
  * The model to display, read from the tail of a transcript, or null.
  *
- * Two sources disagree in a useful way. An assistant line carries the model of that
- * turn but never the context-size suffix; a model attachment carries the full id
- * including "[1m]". So the assistant line decides which model, and the attachment only
- * adds the suffix back when the two are the same model.
+ * Three kinds of line say which model the chat is on, and the newest one in the file
+ * wins (AFT-86: after `/model opus` the header kept the last reply's Sonnet for the
+ * whole next turn):
+ * - an assistant line: the model of that turn, never with the context-size suffix;
+ * - a model attachment: the full id including "[1m]", written with the first prompt
+ *   after a `/model` switch (and at session start);
+ * - the `/model` command's own output, "Set model to `Opus 5.5` ...", written the
+ *   moment the switch is made, before any prompt.
+ * When the winner carries no suffix, an attachment naming the same model gives it
+ * back.
  *
  * `fallbackAttachmentId` is the attachment found in the head of the file, used when the
  * tail has none: on a long session the session-start attachment is the only one there
@@ -178,7 +199,7 @@ export function latestModelAttachment(text: string): string | null {
  * The tail's own attachment still wins, it is the more recent statement.
  */
 export function latestModel(text: string, fallbackAttachmentId?: string | null): string | null {
-  let assistantModel: string | null = null;
+  let latest: string | null = null;
   let attachmentModelId: string | null = null;
 
   for (const line of String(text ?? '').split('\n')) {
@@ -194,24 +215,28 @@ export function latestModel(text: string, fallbackAttachmentId?: string | null):
     if (obj.type === 'assistant') {
       const message = obj.message as { model?: unknown } | undefined;
       const model = message?.model;
-      if (typeof model === 'string' && model && model !== '<synthetic>') assistantModel = model;
+      if (typeof model === 'string' && model && model !== '<synthetic>') latest = model;
     } else if (obj.type === 'attachment') {
       const attachment = obj.attachment as { type?: unknown; identity?: { modelId?: unknown } } | undefined;
       if (attachment?.type === 'model' && typeof attachment.identity?.modelId === 'string') {
         attachmentModelId = attachment.identity.modelId;
+        latest = attachmentModelId;
       }
+    } else if (obj.type === 'user') {
+      const content = (obj.message as { content?: unknown } | undefined)?.content;
+      const switched = modelFromSwitchOutput(userText(content) ?? '');
+      if (switched) latest = switched;
     }
   }
 
-  if (assistantModel) {
-    // Tail attachment first, then the head one. Either only contributes its suffix,
-    // and only when it names the same model the latest assistant turn ran on.
-    for (const candidate of [attachmentModelId, fallbackAttachmentId]) {
-      if (candidate && baseModelId(candidate) === assistantModel) return candidate;
-    }
-    return assistantModel;
+  if (!latest) return fallbackAttachmentId ?? null;
+  if (latest !== baseModelId(latest)) return latest;
+  // Tail attachment first, then the head one. Either only contributes its suffix,
+  // and only when it names the same model as the newest statement.
+  for (const candidate of [attachmentModelId, fallbackAttachmentId]) {
+    if (candidate && baseModelId(candidate) === latest) return candidate;
   }
-  return attachmentModelId ?? fallbackAttachmentId ?? null;
+  return latest;
 }
 
 const MODEL_FAMILIES = new Set(['opus', 'sonnet', 'haiku', 'fable']);

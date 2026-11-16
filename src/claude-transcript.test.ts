@@ -16,6 +16,7 @@ import {
   latestModel,
   latestModelAttachment,
   modelDisplayName,
+  modelFromSwitchOutput,
   projectDirName,
   readTranscriptMeta,
   latestCwd,
@@ -184,6 +185,58 @@ console.log('\nclaude-transcript: latestModel\n');
   check('the tail attachment wins over the head one',
     latestModel(tailWithAttachment, 'claude-opus-5[1m]') === 'claude-opus-5',
     show(latestModel(tailWithAttachment, 'claude-opus-5[1m]')));
+}
+
+console.log('\nclaude-transcript: latestModel after /model (AFT-86)\n');
+{
+  const switchLines = (name: string) => [
+    userLine('<command-name>/model</command-name>\n            <command-message>model</command-message>\n            <command-args>opus</command-args>'),
+    userLine(`<local-command-stdout>Set model to \`${name}\` and saved as your default for new sessions</local-command-stdout>`),
+  ];
+  const before = [assistantLine('claude-sonnet-5-5'), assistantLine('claude-sonnet-5-5')];
+
+  const justSwitched = [...before, ...switchLines('Opus 5.5')].join('\n') + '\n';
+  check('the /model output alone moves the model, before any prompt',
+    latestModel(justSwitched) === 'claude-opus-5-5', show(latestModel(justSwitched)));
+
+  const prompted = [...before, ...switchLines('Opus 5.5'), userLine('next prompt'), modelAttachment('claude-opus-5-5')].join('\n') + '\n';
+  check('a model attachment newer than the last reply wins (the prompt after /model)',
+    latestModel(prompted) === 'claude-opus-5-5', show(latestModel(prompted)));
+
+  const replied = [...before, modelAttachment('claude-opus-5-5[1m]'), assistantLine('claude-opus-5-5')].join('\n') + '\n';
+  check('a reply after the switch keeps the attachment suffix',
+    latestModel(replied) === 'claude-opus-5-5[1m]', show(latestModel(replied)));
+
+  const back = [modelAttachment('claude-opus-5-5[1m]'), assistantLine('claude-opus-5-5'), ...switchLines('Opus 5.5')].join('\n') + '\n';
+  check('switching to the same model keeps its suffix',
+    latestModel(back) === 'claude-opus-5-5[1m]', show(latestModel(back)));
+
+  const withNote = [...before, ...switchLines('Opus 5.5 (default)')].join('\n') + '\n';
+  check('a bracketed note after the name is dropped',
+    latestModel(withNote) === 'claude-opus-5-5', show(latestModel(withNote)));
+
+  const fable = [...before, ...switchLines('Fable 5.2')].join('\n') + '\n';
+  check('a two-part version becomes a dashed id',
+    latestModel(fable) === 'claude-fable-5-2', show(latestModel(fable)));
+
+  const odd = [...before, userLine('<local-command-stdout>Set model to `something-else` and saved</local-command-stdout>')].join('\n') + '\n';
+  check('an output that does not name a known model changes nothing',
+    latestModel(odd) === 'claude-sonnet-5-5', show(latestModel(odd)));
+
+  const sideSwitch = [...before, userLine('<local-command-stdout>Set model to `Opus 5.5` and saved</local-command-stdout>', { isSidechain: true })].join('\n') + '\n';
+  check('a sidechain /model output is skipped',
+    latestModel(sideSwitch) === 'claude-sonnet-5-5', show(latestModel(sideSwitch)));
+
+  const parts = [...before, userLine([{ type: 'text', text: '<local-command-stdout>Set model to `Haiku 5.5` and saved</local-command-stdout>' }])].join('\n') + '\n';
+  check('a /model output in text parts is read too',
+    latestModel(parts) === 'claude-haiku-5-5', show(latestModel(parts)));
+
+  const later = [...switchLines('Opus 5.5'), assistantLine('claude-sonnet-5-5')].join('\n') + '\n';
+  check('a reply newer than the switch still wins',
+    latestModel(later) === 'claude-sonnet-5-5', show(latestModel(later)));
+
+  check('a plain prompt mentioning the words is not a switch',
+    modelFromSwitchOutput('please Set model to `Opus 5.5`') === null);
 }
 
 console.log('\nclaude-transcript: modelDisplayName\n');

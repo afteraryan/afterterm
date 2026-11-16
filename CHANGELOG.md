@@ -2,6 +2,12 @@
 
 What changed for the person using afterterm, release by release. Each release lists what was added and changed by area, then what was fixed. Every fixed bug, with the PR it landed in, is also in `docs/bugs-fixed.md`. Code-level detail lives in the commit history, `docs/phases-01-projects-and-threads.md` and `CLAUDE.md`.
 
+## Unreleased
+
+### Fixed
+
+- **A chat's header now shows the new model right after `/model`.** Before, after switching to Opus the header kept saying Sonnet until Claude finished its next reply, and a switch with no message after it was not shown at all. Now the header changes about a second after you press Enter on `/model`.
+
 ## 0.20.2 (2026-11-15)
 
 ### Fixed

@@ -71,6 +71,9 @@ const CHOOSER_FALLBACK = { x: 80, y: 120 };
 // branch switch is rare and nothing here is urgent, so this only has to be faster
 // than the user noticing a stale branch.
 const GIT_POLL_MS = 30_000;
+// How long after the last Enter in a chat its transcript is read again for the
+// model (AFT-86, scheduleModelRead).
+const MODEL_READ_DELAY_MS = 1_000;
 // How long the panel takes to slide shut (SidePanel.css, .side-panel.hidden).
 // Going to Home waits this long before the screen changes, so the slide is seen
 // (design-03 decision 1); under reduced motion there is nothing to see and the
@@ -904,6 +907,25 @@ export function App() {
     return window.afterterm.claudeSession.meta(sessionId, cwd).then(meta => applyClaudeMeta(tabId, sessionId, meta));
   }, [applyClaudeMeta]);
 
+  // Enter in a chat also re-reads its transcript a moment later (AFT-86). A `/model`
+  // switch writes its "Set model to" line at once but fires no hook, so without this
+  // the header kept the old model until the next prompt's hook. One read per burst of
+  // Enters, MODEL_READ_DELAY_MS after the last one, gives Claude Code time to write.
+  const modelReadTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const scheduleModelRead = useCallback((tabId: string) => {
+    const tab = stateRef.current.tabs.find(t => t.id === tabId);
+    if (!tab?.claudeSessionId || !tab.claudeCwd) return;
+    const timers = modelReadTimers.current;
+    const pending = timers.get(tabId);
+    if (pending) clearTimeout(pending);
+    timers.set(tabId, setTimeout(() => {
+      timers.delete(tabId);
+      const later = stateRef.current.tabs.find(t => t.id === tabId);
+      if (!later?.claudeSessionId || !later.claudeCwd || later.asleep) return;
+      refreshClaudeMeta(tabId, later.claudeSessionId, later.claudeCwd);
+    }, MODEL_READ_DELAY_MS));
+  }, [refreshClaudeMeta]);
+
   // Main captures each tab's live Claude session (via the notify hook's file channel)
   // and pushes it here → store on the tab so the next launch can resume it. The first
   // capture is also the moment the transcript and the folder become known, so both
@@ -1178,7 +1200,8 @@ export function App() {
     const timing = getTiming(tabId, now);
     const tab = stateRef.current.tabs.find(t => t.id === tabId);
     applyNotif(tabId, tab?.notification, onAnswer(tab?.notification, timing, now), !!tab?.backgroundTasks);
-  }, [state.setTabNotification]);
+    scheduleModelRead(tabId);
+  }, [state.setTabNotification, scheduleModelRead]);
 
   // A real keystroke in a thread. An unread chat the user is typing in is no
   // longer unread (Aryan, 2026-09-19); nothing else changes here, the attention
