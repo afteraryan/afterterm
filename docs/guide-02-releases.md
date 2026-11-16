@@ -46,6 +46,7 @@ stranger." Mnemonic: **break it → X, add to it → Y, fix it → Z.**
 | `v0.20.0` | Home's calendar shows 17 weeks with bigger squares and ends on today |
 | `v0.20.1` | One afterterm skill for Claude; Claude closes a loop when its work is done; no tour when the settings file cannot be read |
 | `v0.20.2` | The Files button shows when a chat has only pasted images |
+| `v0.20.3` | A chat's header shows the new model right after `/model`; the usage card keeps its size when there is no breakdown |
 
 (`v0.1.0`–`v0.4.1` were backfilled onto the existing history; releases from `v0.5.0` on were cut with `npm run release`.)
 
