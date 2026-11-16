@@ -499,8 +499,8 @@ console.log('\nthreadView: foldThreads\n');
   }
   {
     const threads = t(7);
-    const r = foldThreads(threads, 't6', false);
-    check('active beyond the fold forces the list open even though expanded is false',
+    const r = foldThreads(threads, 't6', undefined);
+    check('active beyond the fold forces the list open when the list is untouched',
       r.shown.length === 7 && r.hiddenCount === 0, show(r));
     check('active beyond the fold: forcedOpen is true', r.forcedOpen === true);
     check('active beyond the fold: showMore stays true', r.showMore === true);
@@ -519,7 +519,7 @@ console.log('\nthreadView: foldThreads\n');
   }
   {
     const threads = t(5);
-    const r = foldThreads(threads, 't3', false, 3);
+    const r = foldThreads(threads, 't3', undefined, 3);
     check('custom limit: active beyond the custom fold forces open', r.forcedOpen === true && r.shown.length === 5);
   }
   {
@@ -531,7 +531,7 @@ console.log('\nthreadView: foldThreads\n');
     // Phase 7 handoff: a hidden row waiting for you forces the fold open too.
     const threads = t(7);
     const isWaiting = (x: { id: string }) => x.id === 't6';
-    const r = foldThreads(threads, 't1', false, 5, isWaiting);
+    const r = foldThreads(threads, 't1', undefined, 5, isWaiting);
     check('a waiting thread beyond the fold (index 6) forces the list open',
       r.forcedOpen === true && r.shown.length === 7, show(r));
   }
@@ -548,6 +548,32 @@ console.log('\nthreadView: foldThreads\n');
     const threads = t(7);
     const r = foldThreads(threads, 't1', false, 5);
     check('no isWaiting predicate keeps the old behaviour (not forced open)', r.forcedOpen === false);
+  }
+  {
+    // AFT-122: a list nobody has touched (undefined) is still held open.
+    const threads = t(7);
+    const isWaiting = (x: { id: string }) => x.id === 't6';
+    const r = foldThreads(threads, 't1', undefined, 5, isWaiting);
+    check('untouched list: a waiting thread behind the fold still holds it open',
+      r.shown.length === 7 && r.hiddenCount === 0, show(r));
+    const a = foldThreads(threads, 't6', undefined, 5);
+    check('untouched list: the open thread behind the fold still holds it open',
+      a.shown.length === 7 && a.hiddenCount === 0, show(a));
+  }
+  {
+    // AFT-122: Show less (expanded === false) folds even when held open.
+    const threads = t(7);
+    const isWaiting = (x: { id: string }) => x.id === 't6';
+    const r = foldThreads(threads, 't1', false, 5, isWaiting);
+    check('Show less folds a list a waiting thread was holding open',
+      r.shown.map(x => x.id).join(',') === 't0,t1,t2,t3,t4' && r.hiddenCount === 2, show(r));
+    check('Show less: forcedOpen is still reported', r.forcedOpen === true);
+    const a = foldThreads(threads, 't6', false, 5);
+    check('Show less folds a list the open thread was holding open',
+      a.shown.length === 5 && a.hiddenCount === 2, show(a));
+    const both = foldThreads(threads, 't5', false, 5, isWaiting);
+    check('Show less folds with both the open thread and a waiting thread behind the fold',
+      both.shown.length === 5 && both.hiddenCount === 2 && both.showMore === true, show(both));
   }
 }
 

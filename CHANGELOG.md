@@ -2,6 +2,12 @@
 
 What changed for the person using afterterm, release by release. Each release lists what was added and changed by area, then what was fixed. Every fixed bug, with the PR it landed in, is also in `docs/bugs-fixed.md`. Code-level detail lives in the commit history, `docs/phases-01-projects-and-threads.md` and `CLAUDE.md`.
 
+## Unreleased
+
+### Fixed
+
+- **Show less in the sidebar now always folds a project's threads.** Before, it did nothing when a thread below the first five needed you or was the one you had open, and restarting afterterm did not help. Opening that project again from Home, the rail or search unfolds it so you see the thread you opened.
+
 ## 0.20.3 (2026-11-16)
 
 ### Fixed

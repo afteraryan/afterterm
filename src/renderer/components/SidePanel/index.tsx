@@ -752,6 +752,14 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
     focusSearch: () => searchRef.current?.focus(),
     revealProject: (groupId) => {
       if (query) setQuery('');
+      // Opening a project from Home, the rail, the palette or the drawer forgets
+      // a Show less on it, so the thread just opened is not left behind the fold.
+      setExpandedLists(p => {
+        if (p[groupId] !== false) return p;
+        const next = { ...p };
+        delete next[groupId];
+        return next;
+      });
       setDockOpen(false);
       setReveal(r => ({ groupId, seq: (r?.seq ?? 0) + 1 }));
     },
@@ -775,7 +783,7 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
   const renderThreadList = (threads: Tab[], key: string, inProject: boolean) => {
     // The fold never cuts a split's two rows apart (splitView.ts, foldLimit).
     const limit = foldLimit(threads, THREAD_FOLD_LIMIT, splits);
-    const { shown, hiddenCount, showMore } = foldThreads(threads, activeTabId, !!expandedLists[key], limit, isWaiting);
+    const { shown, hiddenCount, showMore } = foldThreads(threads, activeTabId, expandedLists[key], limit, isWaiting);
     const row = (tab: Tab) => (
       <ThreadRow
         key={tab.id}
@@ -814,10 +822,12 @@ export const SidePanel = forwardRef<SidePanelHandle, SidePanelProps>(function Si
     return (
       <>
         {items}
+        {/* Show more opens the list, Show less always folds it (AFT-122): the
+            button reads Show less exactly when nothing is hidden. */}
         {showMore && (
           <button
             className="thmore"
-            onClick={() => setExpandedLists(p => ({ ...p, [key]: !p[key] }))}
+            onClick={() => setExpandedLists(p => ({ ...p, [key]: hiddenCount > 0 }))}
           >
             {hiddenCount > 0 ? `Show ${hiddenCount} more` : 'Show less'}
           </button>

@@ -153,7 +153,7 @@ export function visibleThreadIds(
 
   const foldKey = (key: string, tabs: Tab[]) => {
     const limit = foldLimit(tabs, opts.limit, opts.splits ?? []);
-    const { shown } = foldThreads(tabs, opts.activeTabId, !!opts.expandedLists[key], limit, opts.isWaiting);
+    const { shown } = foldThreads(tabs, opts.activeTabId, opts.expandedLists[key], limit, opts.isWaiting);
     ids.push(...shown.map(t => t.id));
   };
 
