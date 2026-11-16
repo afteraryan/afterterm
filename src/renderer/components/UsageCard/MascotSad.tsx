@@ -7,8 +7,8 @@ import React from 'react';
 
 const EYE_BASE = { transformBox: 'fill-box', transformOrigin: 'center', transform: 'translateY(10%)' } as const;
 const HAIR = { fill: 'none', stroke: '#2b2733', strokeWidth: 5, strokeLinecap: 'round' } as const;
-/** The sad shadow's colour in the film (its blue stage's shadow). */
-const SHADOW = '#4d5d94';
+/** The shadow is black (Aryan, 2026-11-16), a solid colour, never a tint. */
+const SHADOW = '#000000';
 
 /** `height` is the picture's height in pixels; its width follows. */
 export function MascotSad({ height = 190 }: { height?: number }) {
