@@ -25,6 +25,7 @@ A feature with nothing new to track still says so on its issue: "Analytics: noth
 - **No session recording.**
 - **Time** is sent in UTC; the PostHog project's time zone is Asia/Kolkata, so charts read in IST. Each event also carries the user's own time zone and local time.
 - **Busy events are sent live** (Aryan, 2026-11-17). If users grow toward the free cap, thread switches, hover cards, toasts and chat states move to daily counts in a release; keyboard shortcuts are counted daily from the start.
+- **What "sent once a day" means** (2026-11-17). Daily counts (keyboard shortcuts, right-click copy and paste, Claude activity, and the other "once a day" rows) are kept per local calendar day, in the user's time zone, and saved in afterterm's data folder as they change, so a quit and relaunch on the same day carries on counting. A finished day is sent the first time afterterm is running after it ends: just after midnight if it is open (checked every few minutes, so a PC asleep at midnight sends on waking), otherwise at the next launch, however many days later; several waiting days are each sent. Each carries the date it counts, not the moment it was sent. A day whose PC never runs afterterm again is never sent.
 
 ## Never sent
 
