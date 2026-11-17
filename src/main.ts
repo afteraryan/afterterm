@@ -3629,7 +3629,7 @@ function getChatStarter(): ChatStarter {
     },
     threadName: (tabId) => new Promise((resolve) => {
       if (!mainWindow || mainWindow.isDestroyed()) return resolve('(unnamed)');
-      const timer = setTimeout(() => { chatNameWaits.delete(tabId); resolve('(unnamed)'); }, 3000);
+      const timer = setTimeout(() => { chatNameWaits.delete(tabId); resolve('(unnamed)'); }, 25_000); // the renderer waits up to 20s for Claude's title
       chatNameWaits.set(tabId, (name) => { clearTimeout(timer); chatNameWaits.delete(tabId); resolve(name || '(unnamed)'); });
       mainWindow.webContents.send('chat-start:name-request', tabId);
     }),

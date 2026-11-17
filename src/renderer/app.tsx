@@ -17,6 +17,8 @@ import { Toast } from './components/Toast';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { ChatRequestDialog } from './components/ChatRequestDialog';
 import type { ChatRequestView } from '../chat-start';
+// How long the name sent back to `afterterm chat start` waits for Claude's own title.
+const CHAT_NAME_WAIT_MS = 20_000;
 import { RenameDialog } from './components/RenameDialog';
 import { ArchiveDialog } from './components/ArchiveDialog';
 import { UsageCard } from './components/UsageCard';
@@ -867,9 +869,21 @@ export function App() {
     }));
     const offReq = api.onRequest((view) => setChatRequests(prev => prev.some(r => r.id === view.id) ? prev : [...prev, view]));
     const offClosed = api.onClosed((id) => setChatRequests(prev => prev.filter(r => r.id !== id)));
+    // The asking agent is told the chat's name. Right after the prompt lands the
+    // thread is still called "Claude Code", so this waits for Claude's own title (the
+    // hook's claudeTitle) up to CHAT_NAME_WAIT_MS, then sends
+    // whatever name afterterm shows.
     const offName = api.onNameRequest((tabId) => {
-      const tab = stateRef.current.tabs.find(t => t.id === tabId);
-      api.sendName(tabId, tab ? threadName(tab) : '');
+      const started = Date.now();
+      const tick = () => {
+        const tab = stateRef.current.tabs.find(t => t.id === tabId);
+        if (!tab) { api.sendName(tabId, ''); return; }
+        // Claude Code's title is "Claude Code" until it names the conversation.
+        const titled = !!tab.customName || (!!tab.claudeTitle && tab.claudeTitle !== 'Claude Code');
+        if (titled || Date.now() - started > CHAT_NAME_WAIT_MS) { api.sendName(tabId, threadName(tab)); return; }
+        setTimeout(tick, 500);
+      };
+      tick();
     });
     return () => { offReq(); offClosed(); offName(); };
   }, []);
