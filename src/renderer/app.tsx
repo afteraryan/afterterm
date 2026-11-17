@@ -749,7 +749,7 @@ export function App() {
       stateRef.current.setActiveTabId(activeThreadId);
     }
     wake.forEach((id, i) => setTimeout(() => {
-      if (stateRef.current.tabs.find(t => t.id === id)?.asleep) void wakeThreadRef.current(id);
+      if (stateRef.current.tabs.find(t => t.id === id)?.asleep) void wakeThreadRef.current(id, true);
     }, i * 250));
   }, [initialized]);
 
@@ -1334,15 +1334,18 @@ export function App() {
   // and tail read), so a session that moved worktree resumes in the folder it was
   // last working in rather than the one the hook recorded (applyClaudeMeta); the
   // wake never waits on a failed read.
-  const wakeThread = useCallback(async (tabId: string) => {
+  // `keepUnread` is for a wake the user did not ask for: the one after an update
+  // restart wakes what was awake, and must not take the marks they put on those
+  // chats (AFT-127).
+  const wakeThread = useCallback(async (tabId: string, keepUnread = false) => {
     const tab = stateRef.current.tabs.find(t => t.id === tabId);
     if (tab?.claudeSessionId && tab.claudeCwd) {
       try { await refreshClaudeMeta(tabId, tab.claudeSessionId, tab.claudeCwd); } catch { /* wake anyway */ }
     }
     stateRef.current.wakeTab(tabId);
     // Waking is acting on the thread, the same as typing in it: the unread mark
-    // has done its job.
-    if (stateRef.current.tabs.find(t => t.id === tabId)?.unread) stateRef.current.setUnread(tabId, false);
+    // has done its job. Not when afterterm woke it by itself.
+    if (!keepUnread && stateRef.current.tabs.find(t => t.id === tabId)?.unread) stateRef.current.setUnread(tabId, false);
   }, [refreshClaudeMeta]);
   const wakeThreadRef = useRef(wakeThread);
   wakeThreadRef.current = wakeThread;

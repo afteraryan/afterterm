@@ -2,6 +2,12 @@
 
 What changed for the person using afterterm, release by release. Each release lists what was added and changed by area, then what was fixed. Every fixed bug, with the PR it landed in, is also in `docs/bugs-fixed.md`. Code-level detail lives in the commit history, `docs/phases-01-projects-and-threads.md` and `CLAUDE.md`.
 
+## Unreleased
+
+### Fixed
+
+- **Chats you marked as unread stay unread after you restart to install an update.** Before, afterterm woke the threads that were open before the restart and that wake removed their unread mark, so most of your marks were gone. Marks are now kept; waking a thread yourself still clears its mark.
+
 ## 0.21.1 (2026-11-17)
 
 ### Fixed
