@@ -4,7 +4,21 @@ What is still open in afterterm, and, once a round of work starts, the phases it
 
 **Last round: automatic updates** (2026-10-30 to 2026-10-31, PR #58), released as afterterm 0.11.0 on 2026-10-31; no round of work is in progress. The last finished round, projects and threads (Phases 0 to 9 and the fixes after them), was released as afterterm 0.9.0 on 2026-09-30; its full record, with every decision and its date, is [`docs/phases-01-projects-and-threads.md`](docs/phases-01-projects-and-threads.md).
 
+**Round planned: usage analytics** (2026-11-17, Linear AFT-73): three phases, none started; the section below lists them.
+
 **Round in progress: loops** (2026-11-14, Linear AFT-82): all seven phases built and merged into the `loops` branch; waiting for Aryan to review the PR into main. The section below lists its phases.
+
+## Usage analytics
+
+**Planned, not started** (2026-11-17, Linear AFT-73). Learn how people use afterterm: PostHog, sent from main with plain HTTPS, on for everyone with no switch in the app (off only through `AFTERTERM_TELEMETRY_ENABLED=false`), the key only in release builds, installs counted by a random id, nothing read from Claude Code's files, no session recording. Every decision with its date is in AFT-73's comments; the event list, what is never sent and the rule that every new feature asks Aryan about analytics are in [`docs/analytics.md`](docs/analytics.md); the event map page Aryan reviews is https://claude.ai/artifact/Xcrtb7vYQNPtCXRNn9Fpg2. Each phase is a Linear sub-issue of AFT-73, shipped and checked before the next starts.
+
+| Phase | Issue | What it contains | Status |
+|---|---|---|---|
+| 1. The sender and app usage | AFT-130 | The sender in main (an id per event, batches, retries, dropping, flush on quit), the random install id, the key built in by `npm run release` only, the off variable, the fields on every event (version, Windows, processor, UTC time, time zone and local time, country and city), the "Opening and time in the app" events, `docs/telemetry.md`. Before it starts, Aryan creates the PostHog account and sets its time zone to Asia/Kolkata | Todo |
+| 2. Feature events and the dashboard | AFT-131 | Every feature area in `docs/analytics.md`: projects and Home, threads, sidebar and search, keyboard shortcuts (counted daily), side by side, notifications, edited files, servers and the terminal, the usage card, loops (with whether rotting works), updates, install; shortcut or mouse on every action that has both; the PostHog dashboard | Todo |
+| 3. Errors | AFT-132 | Errors (kind and place, never the message), window recovered, shell failed to start, notifications not working, freezes, memory use | Todo |
+
+Decided (2026-11-17): busy events are sent live; if users grow toward PostHog's free million events a month, thread switches, hover cards, toasts and chat states move to daily counts in a release.
 
 ## Loops
 
