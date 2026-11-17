@@ -98,14 +98,15 @@ console.log('\nloops: the workspace card\n');
   createLoop(f, { title: 'old' }, at(-10), user);
   const now = at(0, 9);
   const card = recentForCard(f.loops, now);
-  check('5 rows', card.length === 5);
+  check('every loop is listed', card.length === 9);
   check('most recent first', card[0].title === 'L7');
-  check('never a rotting loop', recentForCard(f.loops, at(20)).length === 0);
+  check('a rotting loop is listed, last', card[8].title === 'old' && loopStatus(card[8], f.loops, now) === 'rotting');
+  check('rotting loops are listed too', recentForCard(f.loops, at(20)).length === 9);
   closeLoop(f, card[0].id, now, user);
   check('a closed loop stays on the card', recentForCard(f.loops, now)[0].title === 'L7');
-  const open = recentForCard(f.loops, now, 5, true);
+  const open = recentForCard(f.loops, now, true);
   check('Open leaves the closed loop out', open.every((l) => l.status === 'open') && open[0].title === 'L6');
-  check('Open still fills 5 rows', open.length === 5);
+  check('Open lists every open loop, rotting ones too', open.length === 8);
 }
 
 console.log('\nloops: the remembered chat\n');

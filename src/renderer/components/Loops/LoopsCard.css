@@ -90,6 +90,9 @@
   flex: 1 1 auto;
   overflow-y: auto;
   min-height: 0;
+  /* Five rows (44px each) is as tall as the list gets; the rest scrolls. The card
+     never grows with more loops (AFT-115). */
+  max-height: 220px;
   padding: 0 6px;
   scrollbar-width: none;
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-top), #000 calc(100% - var(--fade-end)), transparent 100%);

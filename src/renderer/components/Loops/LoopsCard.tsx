@@ -118,7 +118,7 @@ export function LoopsCard({ open, loops, groups, now, onRotting, onAll, onOpenCh
 
   if (!shown) return null;
   const counts = loopCounts(loops, now);
-  const rows = recentForCard(loops, now, 5, openOnly);
+  const rows = recentForCard(loops, now, openOnly);
   return (
     <div className={`lc-card${example ? ' ex' : ''}`} ref={ref} data-loops-card="">
       <div className="lc-head">
