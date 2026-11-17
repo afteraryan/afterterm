@@ -2,6 +2,12 @@
 
 What changed for the person using afterterm, release by release. Each release lists what was added and changed by area, then what was fixed. Every fixed bug, with the PR it landed in, is also in `docs/bugs-fixed.md`. Code-level detail lives in the commit history, `docs/phases-01-projects-and-threads.md` and `CLAUDE.md`.
 
+## 0.21.3 (2026-11-17)
+
+### Fixed
+
+- **The loops card now shows when its list scrolls.** A thin line appears on the right edge while you scroll and fades away a second after you stop, and the rows fade into the card at an edge that has more loops past it. Before, a longer list gave no sign that there was more.
+
 ## 0.21.2 (2026-11-17)
 
 ### Fixed
