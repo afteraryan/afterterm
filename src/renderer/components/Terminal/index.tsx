@@ -60,6 +60,8 @@ interface TabInfo {
   // AFT-33: restored with its shell still running in main after a reload of the
   // window. Its terminal asks main to attach only (createOutcome in sleepWake.ts).
   reattach?: boolean;
+  // AFT-126: the line a thread opened by `afterterm chat start` types once.
+  startCommand?: string;
 }
 
 // What the app can ask this layer for at quit time: the on-screen tail of one
@@ -518,6 +520,8 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
   // reconcile effect can run again before the new TermInfo is in the map; without
   // this a second pass would build a second terminal for the same tab.
   const creatingRef = useRef(new Set<string>());
+  // Threads whose `afterterm chat start` line was typed (AFT-126): never twice.
+  const startTypedRef = useRef(new Set<string>());
 
   // A whole command line afterterm types into a shell itself (a wake's `claude
   // --resume`, a server's last command). It goes straight to the PTY, so the marks
@@ -909,6 +913,18 @@ export const TerminalArea = forwardRef<TerminalAreaHandle, TerminalAreaProps>(fu
       // "the last command re-run for a server"). wakePlan has already checked the
       // command is one safe line, so it only has to be typed here, after the same
       // wait resumeTab uses for the shell's first prompt.
+      // A chat opened by `afterterm chat start` (AFT-126): its `claude --session-id
+      // ... --model ...` line, checked by main, typed once after the shell's first
+      // prompt. Main types the prompt itself once Claude Code is ready.
+      if (tab.startCommand && outcome.mayType && !plan.resumeSessionId && !startTypedRef.current.has(tabId)) {
+        startTypedRef.current.add(tabId);
+        const line = tab.startCommand;
+        setTimeout(() => {
+          if (!termsRef.current.has(tabId)) return;
+          writeCommand(tabId, line);
+        }, SHELL_READY_MS);
+      }
+
       const runCommand = outcome.mayType ? plan.runCommand : null;
       if (runCommand) {
         setTimeout(() => {

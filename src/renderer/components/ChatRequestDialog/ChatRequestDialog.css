@@ -1,0 +1,68 @@
+/* "Start a chat in <project>?" (AFT-126), on GroupModal.css's .modal-overlay and
+   .modal-card. A heading, three short rows, the prompt, one status line. */
+
+.chatreq-card {
+  width: min(520px, 100%);
+}
+
+.chatreq-card .modal-title {
+  margin: 0;
+}
+
+.chatreq-rows {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  align-items: center;
+  gap: 8px 12px;
+  font-size: 13px;
+}
+
+.chatreq-k {
+  color: var(--text2);
+}
+
+.chatreq-v {
+  color: var(--text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chatreq-sel {
+  justify-self: start;
+  min-width: 180px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--pane);
+  border: 1px solid var(--hover2);
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
+.chatreq-prompt {
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--pane);
+  border: 1px solid var(--hover2);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.chatreq-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chatreq-status {
+  margin-right: auto;
+  font-size: 12px;
+  color: var(--text2);
+}

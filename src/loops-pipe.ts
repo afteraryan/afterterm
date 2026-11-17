@@ -18,7 +18,7 @@ import path from 'node:path';
 import net from 'node:net';
 import { chatStartBrief, runLoopsCommand, type CallerEnv, type CliReply, type LoopsBackend, type LoopsContext } from './loops-cli.ts';
 
-const MAX_REQUEST_BYTES = 256 * 1024;
+const MAX_REQUEST_BYTES = 1024 * 1024; // a chat prompt can be 100,000 characters (AFT-126)
 const REQUEST_TIMEOUT_MS = 5000;
 
 export function loopsPipeName(userDataDir: string): string {
@@ -36,6 +36,21 @@ export interface LoopsPipeOpts {
   backend: LoopsBackend;
   context: () => LoopsContext;
   log?: (line: string) => void;
+  /**
+   * `afterterm chat start` (AFT-126): answered when the request ends, which can be
+   * minutes later (Aryan's click, then Claude Code opening), so it is a promise and
+   * the connection's timeout is lifted for it. Without it the kind is refused.
+   */
+  chat?: (env: CallerEnv, argv: string[], stdin: string | undefined) => Promise<CliReply>;
+}
+
+// Whether a request carries this launch's token.
+export function tokenMatches(token: string, req: unknown): boolean {
+  if (!req || typeof req !== 'object') return false;
+  const given = typeof (req as Record<string, unknown>).token === 'string' ? (req as Record<string, string>).token : '';
+  const a = Buffer.from(given);
+  const b = Buffer.from(token);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
 function asEnv(v: unknown): CallerEnv {
@@ -85,6 +100,21 @@ export function startLoopsPipe(opts: LoopsPipeOpts): net.Server {
       if (nl < 0) return;
       let req: unknown;
       try { req = JSON.parse(buf.slice(0, nl)); } catch { reply({ code: 2, out: '', err: 'bad request\n' }); return; }
+      const rk = req as { kind?: unknown; argv?: unknown; env?: unknown; stdin?: unknown };
+      if (rk && typeof rk === 'object' && rk.kind === 'chat') {
+        if (!tokenMatches(opts.token, req)) { reply({ code: 5, out: '', err: 'afterterm refused this request: run afterterm chat from a terminal inside afterterm\n' }); return; }
+        if (!opts.chat) { reply({ code: 2, out: '', err: 'this afterterm cannot start chats\n' }); return; }
+        // The answer can take minutes: Aryan's click, then Claude Code opening.
+        sock.setTimeout(0);
+        const argv = Array.isArray(rk.argv) ? rk.argv.filter((x): x is string => typeof x === 'string').slice(0, 64) : [];
+        const stdin = typeof rk.stdin === 'string' ? rk.stdin : undefined;
+        buf = '';
+        opts.chat(asEnv(rk.env), argv, stdin).then(
+          (r) => { log(`[chat-start] reply ${r.code}`); reply(r); },
+          (e) => reply({ code: 1, out: '', err: `afterterm could not do that: ${(e as Error).message}\n` }),
+        );
+        return;
+      }
       try {
         const r = handleRequest(opts, req);
         const kind = (req as { kind?: string }).kind;

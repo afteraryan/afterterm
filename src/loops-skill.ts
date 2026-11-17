@@ -22,7 +22,7 @@ export const OLD_SKILL_NAME = 'afterterm-loops';
 
 export const SKILL_TEXT = `---
 name: afterterm
-description: Read this first in any chat inside afterterm, before you change any file. It explains afterterm, the terminal this chat runs in, and how to keep its loops, one for each piece of work the user starts.
+description: Read this first in any chat inside afterterm, before you change any file. It explains afterterm, the terminal this chat runs in, how to keep its loops, one for each piece of work the user starts, and how to start a chat in another project when the user asks.
 ---
 ${SKILL_MARKER}
 
@@ -61,6 +61,23 @@ The command \`afterterm loops\` exists only in afterterm's terminals. Ids are nu
 | Close a loop | \`afterterm loops close <id> --note "<what was finished>"\` |
 | Close a loop with its open sub-loops | add \`--with-sub-loops\` to \`close\` |
 | See every command | \`afterterm loops help\` |
+
+## Starting a chat in another project
+
+\`afterterm chat start\` opens a new Claude Code chat in any of the user's projects, with a prompt you write. **Use it only when the user asked you to start a chat or an agent.** Never on your own. The user sees every request in afterterm and must click Start; nothing opens until they do.
+
+Give the prompt as text on stdin, with a heredoc. Never write it to a file.
+
+\`\`\`
+afterterm chat start --project "<project name>" --model opus <<'EOF'
+<the prompt: everything the new chat needs, since it knows nothing of this chat>
+EOF
+\`\`\`
+
+- **--model is required, there is no default.** Pick it by the task: \`haiku\` for notes and laborious basic work; \`sonnet\` for simple coding where the result is known; \`opus\` for anything open-ended, and whenever in doubt. \`fable\` only when the user asked for it, or when the work is very broad and you asked the user first and they said yes.
+- \`--effort low|medium|high|xhigh|max\` is optional; left out, Claude Code's default.
+- The command waits for the user's click (up to 10 minutes) and for the new chat to receive the prompt, then prints the chat's name. Exit 0 started, 3 declined, 4 nobody answered, 1 failed. Do not ask again after a decline unless the user says so.
+- The prompt shows in the new chat as its first message. \`afterterm chat help\` lists the options.
 `;
 
 export interface SkillReconcileResult {

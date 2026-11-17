@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import { execFile, execFileSync, execSync, spawn } from 'child_process';
+import { randomUUID } from 'crypto';
 import * as pty from 'node-pty';
 import {
   reconcileClaudeHook,
@@ -51,6 +52,8 @@ import { ActivityStore } from './activity-store.ts';
 import { loopsPipeName as loopsPipeNameFor, newToken, startLoopsPipe, writeLaunchers } from './loops-pipe.ts';
 import type { LoopsContext } from './loops-cli.ts';
 import { reconcileAftertermSkill } from './loops-skill.ts';
+import { chatRequestFrom, outcomeReply, isEffort, type ChatRequestView, type Effort } from './chat-start.ts';
+import { ChatStarter } from './chat-starter.ts';
 import { isThreadId, parseTail, serializeTail, tailFilePath, trimTail } from './thread-tail.ts';
 import {
   applyMsysParents,
@@ -278,6 +281,9 @@ function getShellById(id?: string): ShellProfile {
 // ─── PTY tracking ─────────────────────────────────────────────────────────────
 
 const ptys = new Map<string, pty.IPty>();
+// When each PTY last printed anything: `afterterm chat start` types its prompt only
+// once Claude Code's screen has been quiet a moment (AFT-126, chat-starter.ts).
+const ptyLastOutputAt = new Map<string, number>();
 let mainWindow: BrowserWindow | null = null;
 let notifierWindow: BrowserWindow | null = null;
 
@@ -2672,6 +2678,7 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
 
   p.onData((data) => {
     buffer += data;
+    ptyLastOutputAt.set(tabId, Date.now());
     if (!flushTimer) {
       flushTimer = setTimeout(() => {
         if (mainWindow && !mainWindow.isDestroyed()) {
@@ -2696,6 +2703,7 @@ ipcMain.handle('pty:create', (_event, tabId: string, shellId?: string, cwd?: str
       mainWindow.webContents.send(`pty:exit:${tabId}`, exitCode);
     }
     ptys.delete(tabId);
+    ptyLastOutputAt.delete(tabId);
     lastActivitySent.delete(tabId);
   ptyCreatedAt.delete(tabId);
     forgetServerTab(tabId);
@@ -2735,6 +2743,7 @@ ipcMain.handle('pty:destroy', async (_event, tabId: string) => {
   // Read before forgetServerTab drops it: killTree needs the shell id and command.
   const info = shellPids.get(tabId);
   ptys.delete(tabId);
+  ptyLastOutputAt.delete(tabId);
   lastActivitySent.delete(tabId);
   ptyCreatedAt.delete(tabId);
   forgetServerTab(tabId);
@@ -3546,6 +3555,11 @@ app.whenReady().then(() => {
     backend: getLoopsStore(),
     context: () => loopsContext,
     log: (l) => console.log(l),
+    chat: (env, argv, stdin) => {
+      const made = chatRequestFrom(loopsContext, env, argv, stdin, { id: randomUUID(), sessionId: randomUUID() }, Date.now());
+      if ('reply' in made) return Promise.resolve(made.reply);
+      return getChatStarter().ask(made.request).then(outcomeReply);
+    },
   });
 });
 function loopsPipe(): string {
@@ -3559,6 +3573,91 @@ function loopsEnv(): Record<string, string> {
     AFTERTERM_LOOPS_TOKEN: loopsToken,
   };
 }
+
+// ─── `afterterm chat start` (AFT-126) ───────────────────────────────────────
+// An agent asks for a Claude Code chat in a project; nothing opens until Aryan clicks
+// Start in the window the renderer draws (ChatRequestDialog). The rules are in
+// chat-start.ts and the steps in chat-starter.ts; this is the wiring. The prompt is
+// held in memory only, by the starter, until the chat has it.
+let chatStarter: ChatStarter | null = null;
+const chatNameWaits = new Map<string, (name: string) => void>();
+function chatToastTabId(id: string): string { return `chat-request:${id}`; }
+function getChatStarter(): ChatStarter {
+  if (chatStarter) return chatStarter;
+  chatStarter = new ChatStarter({
+    now: () => Date.now(),
+    setTimer: (fn, ms) => setTimeout(fn, ms),
+    clearTimer: (h) => clearTimeout(h as NodeJS.Timeout),
+    show: (view: ChatRequestView) => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('chat-start:request', view);
+      // Aryan chose a toast as well when he is in another app. The window is never
+      // brought to the front by itself (a game in front must not lose focus).
+      if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.isFocused()) {
+        pushToNotifier({
+          id: `chat-request-${view.id}`,
+          tabId: chatToastTabId(view.id),
+          type: 'attention',
+          primaryLabel: 'A chat is waiting for your Start',
+          secondaryLabel: view.projectName,
+          message: `${view.model}${view.effort ? `, ${view.effort} effort` : ''}`,
+        });
+      }
+    },
+    close: (id) => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('chat-start:closed', id);
+      if (notifierWindow && !notifierWindow.isDestroyed()) notifierWindow.webContents.send('notify:dismiss-tab', chatToastTabId(id));
+    },
+    recordStatus: (sessionId) => {
+      const found = readSessionRecords(getClaudeSessionsDir()).find(r => r.record?.sessionId === sessionId);
+      return found?.record?.status ?? null;
+    },
+    lastOutputAt: (tabId) => (ptys.has(tabId) ? (ptyLastOutputAt.get(tabId) ?? 0) : null),
+    write: (tabId, data) => {
+      const p = ptys.get(tabId);
+      if (!p) return false;
+      p.write(data);
+      noteActivity(tabId);
+      return true;
+    },
+    hasUserMessage: (sessionId, folder) => {
+      const file = findTranscript(getClaudeProjectsDir(), folder, sessionId, fs);
+      if (!file) return false;
+      try {
+        const text = fs.readFileSync(file, 'utf-8');
+        return /"type"\s*:\s*"user"/.test(text);
+      } catch { return false; }
+    },
+    threadName: (tabId) => new Promise((resolve) => {
+      if (!mainWindow || mainWindow.isDestroyed()) return resolve('(unnamed)');
+      const timer = setTimeout(() => { chatNameWaits.delete(tabId); resolve('(unnamed)'); }, 3000);
+      chatNameWaits.set(tabId, (name) => { clearTimeout(timer); chatNameWaits.delete(tabId); resolve(name || '(unnamed)'); });
+      mainWindow.webContents.send('chat-start:name-request', tabId);
+    }),
+    log: (l) => console.log(l),
+  });
+  return chatStarter;
+}
+// A reloaded window asks again for the requests still waiting.
+ipcMain.handle('chat-start:waiting', () => getChatStarter().waiting());
+ipcMain.handle('chat-start:approve', (_e, id: unknown, model: unknown, effort: unknown) => {
+  if (typeof id !== 'string' || typeof model !== 'string') return null;
+  const eff: Effort | null = isEffort(effort) ? effort : null;
+  const approved = getChatStarter().approve(id, model, eff);
+  // The toast asked for a Start; once there is one it has nothing left to ask.
+  if (approved && notifierWindow && !notifierWindow.isDestroyed()) notifierWindow.webContents.send('notify:dismiss-tab', chatToastTabId(id));
+  return approved;
+});
+ipcMain.on('chat-start:decline', (_e, id: unknown) => { if (typeof id === 'string') getChatStarter().decline(id); });
+ipcMain.on('chat-start:opened', (_e, id: unknown, tabId: unknown) => {
+  if (typeof id === 'string' && typeof tabId === 'string') getChatStarter().opened(id, tabId);
+});
+ipcMain.on('chat-start:open-failed', (_e, id: unknown, reason: unknown) => {
+  if (typeof id === 'string') getChatStarter().openFailed(id, typeof reason === 'string' ? reason.slice(0, 200) : 'afterterm could not open the thread');
+});
+ipcMain.on('chat-start:name', (_e, tabId: unknown, name: unknown) => {
+  if (typeof tabId === 'string') chatNameWaits.get(tabId)?.(typeof name === 'string' ? name.slice(0, 200) : '');
+});
+app.on('will-quit', () => chatStarter?.endAll());
 
 app.on('before-quit', async (e) => {
   isQuitting = true; // any quit path suppresses the close-confirm dialog

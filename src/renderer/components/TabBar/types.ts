@@ -120,6 +120,10 @@ export interface Tab {
   // terminal asks main to attach only, so a shell that ended meanwhile is never
   // spawned again with a resume or a command typed into it. Cleared by sleep and wake.
   reattach?: boolean;
+  // Transient (NOT persisted): the `claude --session-id ... --model ...` line a thread
+  // opened by `afterterm chat start` types once its shell is up (AFT-126). Typed only
+  // by the terminal that is created for it, never again; cleared by sleep and wake.
+  startCommand?: string;
 }
 
 export interface Group {
