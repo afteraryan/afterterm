@@ -72,6 +72,23 @@ Phase 1 is AFT-130, Phase 2 AFT-131, Phase 3 AFT-132.
 
 Each shortcut's presses are counted all day and sent once a day as one event: Ctrl+Shift+T, Ctrl+Shift+P, Ctrl+Shift+W, Ctrl+Tab, Ctrl+Shift+Tab, Ctrl+Shift+Down, Ctrl+Shift+Up, Ctrl+Shift+B, Ctrl+Shift+F, Ctrl+Shift+A, Ctrl+Shift+L, Ctrl+Shift+U, Ctrl+C, Ctrl+V, Ctrl and scroll. Never what was copied, pasted or searched. A new shortcut is added to this list.
 
+### Claude activity (Phase 2)
+
+Counted on the user's PC all day and sent once a day as one event, "Claude activity today", so a busy day never means more events (Aryan, 2026-11-17). Every number comes from something afterterm already reads; nothing reads what a message, file or image says.
+
+| Number | Counted from | What it records |
+|---|---|---|
+| Messages sent to Claude | The count behind Home's streak calendar (`activity-counts.ts`) | How many messages, and the current streak |
+| Most chats working at once | The spinner states | The highest number of chats working at the same moment that day |
+| Claude working and waiting | The spinner and needs-you states | Minutes Claude worked, and minutes chats waited for the user |
+| Files Claude changed | The Files button's reader (`session-files-store.ts`) | How many documents and how many code files, never their names |
+| Images pasted | The Files button's reader | How many, never the images |
+| Chats in a worktree | The chat's branch and worktree info (`git-info.ts`) | How many chats worked in a worktree, out of all chats that day |
+| Compactions | The compacting state | How many times chats compacted |
+| Chats resumed | Wake and history | How many, and from where: sleep, an update, or history |
+| Subagents started | The Files button's reader, which already reads subagent files | How many |
+| How long chats lived | First and last message times | For each chat that ended that day, the time from its first message to its last |
+
 ### Projects and Home (Phase 2)
 
 | Event | When it is sent | What it records |
@@ -225,3 +242,4 @@ Events suggested and turned down, so nobody suggests them again:
 - Session recording (2026-11-17): the terminal would show code and secrets, and the rest of the window shows project and thread names.
 - Hashed Claude, OpenAI or Codex account ids, and Claude Code's machine id (2026-11-17): installs are counted by afterterm's own random id only.
 - A switch in the app to turn analytics off (2026-11-17): the environment variable is the only way, as in T3 Code.
+- Token counts per day (2026-11-17, suggested and left out): they show how much each person spends with Anthropic. Not asked for; raise again only if Aryan brings it up.
