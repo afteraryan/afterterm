@@ -174,12 +174,14 @@ export interface ChatRequestView {
   effort: Effort | null;
   prompt: string;
   fromThread: string | null;
-  expiresAt: number;
+  /** When it goes if Aryan does not answer; null while it waits behind another (AFT-135). */
+  expiresAt: number | null;
 }
 
-export function requestView(r: ChatRequest): ChatRequestView {
+export function requestView(r: ChatRequest, frontSince: number | null): ChatRequestView {
   return {
     id: r.id, projectId: r.projectId, projectName: r.projectName, model: r.model,
-    effort: r.effort, prompt: r.prompt, fromThread: r.fromThread, expiresAt: r.createdAt + REQUEST_TTL_MS,
+    effort: r.effort, prompt: r.prompt, fromThread: r.fromThread,
+    expiresAt: frontSince === null ? null : frontSince + REQUEST_TTL_MS,
   };
 }

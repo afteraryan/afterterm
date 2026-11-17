@@ -2,9 +2,10 @@
    loops card's surface (#262626, #333333 border, 14px radius), chips and menus in
    neutral greys; the only colour is the project's folder. Solid colours only. */
 
-.crb {
-  /* As wide as its own row of controls, centred at the bottom of the pane; never
-     wider than the pane. The prompt takes the bar's width, it never widens it. */
+.crs {
+  /* The stack (AFT-135): as wide as the front bar's own controls, centred, 28px off
+     the bottom of the pane; never wider than the pane. The bars behind sit on the
+     same bottom line, lifted and shrunk by their inline transform. */
   position: absolute;
   left: 50%;
   bottom: 28px;
@@ -12,12 +13,65 @@
   width: max-content;
   max-width: calc(100% - 32px);
   z-index: 40;
+  font-family: var(--sans);
+  color: var(--text);
+}
+
+.crb {
+  position: relative;
   background: #262626;
   border: 1px solid #333333;
   border-radius: 14px;
   box-shadow: 0 12px 32px #000;
-  font-family: var(--sans);
-  color: var(--text);
+  transform-origin: 50% 100%;
+  /* Moves ease out with no overshoot. */
+  transition: transform 220ms cubic-bezier(.22, .61, .36, 1), opacity 180ms ease, background-color 220ms ease, box-shadow 220ms ease;
+}
+.crb.crs-behind,
+.crb.crs-leaving {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+.crb[data-depth="1"] { background: #212121; box-shadow: none; }
+.crb[data-depth="2"], .crb[data-depth="3"] { background: #1d1d1d; box-shadow: none; }
+.crb .crb-bar { transition: opacity 180ms ease; }
+.crb.crs-behind .crb-bar { opacity: .35; }
+/* A bar behind is one row at the front bar's closed height: it only peeks out, and
+   never wraps taller when its own controls are wider than the stack. */
+.crb.crs-behind, .crb.crs-leaving { height: 48px; overflow: hidden; }
+.crb.crs-behind .crb-bar, .crb.crs-leaving .crb-bar { flex-wrap: nowrap; }
+.crb.crs-behind .crb-drawer, .crb.crs-leaving .crb-drawer { display: none; }
+.crb.crs-behind { animation: crs-in 180ms ease; }
+@keyframes crs-in { from { opacity: 0; } }
+/* The front bar that was just answered: down a little and gone, on top of the rest. */
+.crb.crs-leaving {
+  z-index: 50;
+  background: #262626;
+  box-shadow: 0 12px 32px #000;
+  pointer-events: none;
+  animation: crs-out 160ms cubic-bezier(.4, 0, 1, 1) forwards;
+}
+@keyframes crs-out { to { transform: translateY(18px); opacity: 0; } }
+
+.crs-count {
+  position: absolute;
+  right: -9px;
+  z-index: 60;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--btn);
+  color: var(--btn-text);
+  font-size: 11.5px;
+  font-weight: 600;
+  display: grid;
+  place-items: center;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 3px var(--bg);
+  transition: bottom 220ms cubic-bezier(.22, .61, .36, 1);
 }
 
 /* The prompt slides open above the bar. */
@@ -140,5 +194,6 @@
 .crb button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .crb-drawer, .crb-in, .crb-rf { transition: none; }
+  .crb, .crb-drawer, .crb-in, .crb-rf, .crs-count { transition: none; }
+  .crb.crs-behind, .crb.crs-leaving { animation: none; }
 }

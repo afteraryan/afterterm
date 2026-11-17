@@ -227,6 +227,41 @@ await (async () => {
   check('fails when the thread was closed before it was ready', (out as ChatOutcome | null)?.kind === 'failed');
 })();
 
+// AFT-135: a request's 10 minutes start when it reaches the front.
+await (async () => {
+  const h = harness();
+  const views: { id: string; expiresAt: number | null }[] = [];
+  h.deps.show = (v) => views.push({ id: v.id, expiresAt: v.expiresAt });
+  const outs: Record<string, string> = {};
+  const second = { ...request(), id: 'r2', sessionId: '22222222-2222-4333-8444-555555555555' };
+  void h.starter.ask(request()).then(o => { outs.r1 = o.kind; });
+  h.advance(60_000);
+  void h.starter.ask(second).then(o => { outs.r2 = o.kind; });
+  check('the front request has an end time', views.some(v => v.id === 'r1' && v.expiresAt === REQUEST_TTL_MS));
+  check('one waiting behind has none yet', views.filter(v => v.id === 'r2').every(v => v.expiresAt === null));
+  check('they are listed in the order asked', h.starter.waiting().map(v => v.id).join() === 'r1,r2');
+  h.advance(REQUEST_TTL_MS - 60_000 - 1000);
+  h.starter.decline('r1');
+  await flush();
+  const r2front = views.filter(v => v.id === 'r2').pop();
+  check('when the front one is answered the next gets its 10 minutes from then', r2front?.expiresAt === h.now + REQUEST_TTL_MS);
+  h.advance(REQUEST_TTL_MS - 1000);
+  await flush();
+  check('it does not expire on the clock of the one before it', outs.r2 === undefined);
+  h.advance(1000);
+  await flush();
+  check('it expires 10 minutes after reaching the front', outs.r2 === 'expired');
+})();
+
+await (async () => {
+  const h = harness();
+  const second = { ...request(), id: 'r2', sessionId: '22222222-2222-4333-8444-555555555555' };
+  void h.starter.ask(request());
+  void h.starter.ask(second);
+  h.starter.approve('r1', 'opus', 'medium');
+  check('Start moves the next one to the front', h.starter.waiting()[0]?.id === 'r2' && h.starter.waiting()[0]?.expiresAt !== null);
+})();
+
 await (async () => {
   const h = harness();
   void h.starter.ask(request());

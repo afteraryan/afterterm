@@ -2,6 +2,16 @@
 
 What changed for the person using afterterm, release by release. Each release lists what was added and changed by area, then what was fixed. Every fixed bug, with the PR it landed in, is also in `docs/bugs-fixed.md`. Code-level detail lives in the commit history, `docs/phases-01-projects-and-threads.md` and `CLAUDE.md`.
 
+## 0.23.0 (2026-11-17)
+
+### Changed
+
+- **When several chats ask to start at once, you see them all as a stack.** Before, only the first request showed, and the others could run out of time before you saw them.
+  - The request bars stack at the bottom of afterterm: the one you answer in front, up to two more peeking out behind it.
+  - A number on the front bar's corner says how many are waiting.
+  - Click **Start** or **Decline** and the front bar slides away; the next one moves to the front.
+  - Each request's 10 minutes now start only when it reaches the front.
+
 ## 0.22.0 (2026-11-17)
 
 ### Added
