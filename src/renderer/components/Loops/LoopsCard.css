@@ -81,13 +81,36 @@
 }
 .lc-sw.on .lc-sw-thumb { transform: translateX(100%); }
 
+/* The list scrolls with no native bar (AFT-129). A thin line shows only while it
+   scrolls, and the rows fade into the card at an edge that has more past it. */
+.lc-lbox { position: relative; display: flex; flex-direction: column; min-height: 0; }
 .lc-list {
+  --fade-top: 0px;
+  --fade-end: 0px;
+  flex: 1 1 auto;
   overflow-y: auto;
   min-height: 0;
   padding: 0 6px;
-  scrollbar-width: thin;
-  scrollbar-color: #444444 transparent;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-top), #000 calc(100% - var(--fade-end)), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-top), #000 calc(100% - var(--fade-end)), transparent 100%);
 }
+.lc-list::-webkit-scrollbar { display: none; }
+.lc-list[data-top="more"] { --fade-top: 28px; }
+.lc-list[data-end="more"] { --fade-end: 28px; }
+.lc-thumb {
+  position: absolute;
+  top: 0;
+  right: 2px;
+  width: 3px;
+  height: 0;
+  border-radius: 2px;
+  background: #5a5a5a;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 400ms var(--ease);
+}
+.lc-thumb.on { opacity: 1; transition-duration: 120ms; }
 
 .lc-foot {
   display: flex;

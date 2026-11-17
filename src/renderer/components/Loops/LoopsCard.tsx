@@ -82,6 +82,40 @@ export function LoopsCard({ open, loops, groups, now, onRotting, onAll, onOpenCh
     a.onfinish = () => { flying.current = null; };
   }, [shown]);
 
+  // The list's scroll cue (AFT-129): a thin line that shows only while the list
+  // scrolls, and rows that fade into the card at an edge with more past it. The
+  // list is measured again whenever it scrolls or its size changes (a loop
+  // opening, the switch, the window).
+  const listRef = useRef<HTMLDivElement>(null);
+  const thumbRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const list = listRef.current, thumb = thumbRef.current;
+    if (!shown || !list || !thumb) return;
+    let idle: ReturnType<typeof setTimeout> | undefined;
+    const measure = () => {
+      const max = list.scrollHeight - list.clientHeight;
+      const overflow = max > 1;
+      list.dataset.top = overflow && list.scrollTop > 4 ? 'more' : 'none';
+      list.dataset.end = overflow && list.scrollTop < max - 4 ? 'more' : 'none';
+      const h = Math.max(24, list.clientHeight * list.clientHeight / list.scrollHeight);
+      thumb.style.display = overflow ? '' : 'none';
+      thumb.style.height = `${h}px`;
+      thumb.style.transform = `translateY(${4 + (max > 0 ? list.scrollTop / max : 0) * (list.clientHeight - h - 8)}px)`;
+    };
+    const onScroll = () => {
+      measure();
+      thumb.classList.add('on');
+      clearTimeout(idle);
+      idle = setTimeout(() => thumb.classList.remove('on'), 1000);
+    };
+    measure();
+    list.addEventListener('scroll', onScroll, { passive: true });
+    const ro = new ResizeObserver(measure);
+    ro.observe(list);
+    if (list.firstElementChild) ro.observe(list.firstElementChild);
+    return () => { list.removeEventListener('scroll', onScroll); ro.disconnect(); clearTimeout(idle); };
+  }, [shown, loops, openOnly]);
+
   if (!shown) return null;
   const counts = loopCounts(loops, now);
   const rows = recentForCard(loops, now, 5, openOnly);
@@ -105,8 +139,11 @@ export function LoopsCard({ open, loops, groups, now, onRotting, onAll, onOpenCh
           </button>
         )}
       </div>
-      <div className="lc-list">
-        <LoopList loops={loops} rows={rows} groups={groups} now={now} variant="card" emptyText={openOnly ? 'No open loops' : 'No loops yet'} onOpenChat={onOpenChat} onToast={onToast} />
+      <div className="lc-lbox">
+        <div className="lc-list" ref={listRef} data-loops-list="">
+          <LoopList loops={loops} rows={rows} groups={groups} now={now} variant="card" emptyText={openOnly ? 'No open loops' : 'No loops yet'} onOpenChat={onOpenChat} onToast={onToast} />
+        </div>
+        <div className="lc-thumb" ref={thumbRef} />
       </div>
       <div className="lc-foot">
         <span className="lc-barbox">
