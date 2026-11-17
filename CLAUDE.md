@@ -58,6 +58,10 @@ The issues are in workspace "afteraryan builds", team `Afteraryan builds` (key A
 
 **What changes during the trial:** `docs/bugs.md`, `docs/bugs-fixed.md` and `docs/to-verify.md` get no new entries, and they stay in the repo so going back stays easy. A bug's screenshots go on its issue, not in `docs/screenshots/manual-testing/`. Test captures and recordings still go in `docs/screenshots/<phase>/`, and `CHANGELOG.md` still gets its line.
 
+## Every new feature asks about analytics
+
+Aryan's rule, 2026-11-17. afterterm sends usage analytics (planned in AFT-73, phases AFT-130 to AFT-132), and [`docs/analytics.md`](docs/analytics.md) lists every event, what is never sent, and what was turned down. **Whoever builds a new feature, or changes how an existing one is used, checks that list before opening the PR:** find what the feature adds that no event covers (a button, screen, shortcut, menu item, state or way of doing something), suggest events to Aryan in plain words (the event, when it is sent, what it records), add what he agrees to `docs/analytics.md` and the event map page, and record his answer on the feature's Linear issue. A feature with nothing new to track says "Analytics: nothing new to track" on its issue, with the reason. Never add an event he has not agreed to, and never send anything on the "Never sent" list.
+
 ## Architecture
 
 - node-pty lives in the **Electron main process** (holds ConPTY handles, spawns shells)
@@ -520,6 +524,7 @@ Procedures an agent follows while working on this repo (not product docs, not re
 - `docs/guide-01-distributable-build.md`: the installer (`npm run installer`): its screens, how it is built (WPF front end, silent NSIS engine), the test build, SmartScreen and pinning
 - `docs/guide-02-releases.md` — versioning (semver) + how to cut a tagged, version-stamped release (`npm run release`)
 - `docs/ideas.md` — feature ideas backlog
+- `docs/analytics.md`: usage analytics (AFT-73): how it is sent, what is never sent, every event by area and phase, what was turned down, and the rule that every new feature asks Aryan about analytics
 - `docs/bugs.md`: the list of open bugs up to 2026-11-07. Frozen for the Linear trial: open bugs are issues in Linear now (see "All work is tracked in Linear"). Platform constraints are under Known Limitations above.
 - `docs/to-verify.md`: changes that reached Aryan's build before 2026-11-07 and are still waiting for him to check them, each with how to check it. New changes are tracked on their Linear issue instead.
 - `docs/bugs-fixed.md`: bugs fixed up to 2026-11-07, newest first, with the PR each landed in. Frozen for the Linear trial: a fixed issue's comment in Linear and `CHANGELOG.md`'s Fixed list carry this now.
