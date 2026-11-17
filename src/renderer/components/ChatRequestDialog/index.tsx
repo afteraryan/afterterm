@@ -51,7 +51,7 @@ export function initialChoice(request: ChatRequestView): ChatChoice {
 }
 
 const MODEL_WORDS: Record<string, string> = { haiku: 'Haiku', sonnet: 'Sonnet', opus: 'Opus', fable: 'Fable' };
-const EFFORT_WORDS: Record<Effort, string> = { low: 'Low', medium: 'Medium', high: 'High', xhigh: 'Extra high', max: 'Max' };
+const EFFORT_WORDS: Record<Effort, string> = { low: 'Low', medium: 'Medium', high: 'High', xhigh: 'X High', max: 'Max' };
 const modelWord = (m: string) => MODEL_WORDS[m] ?? m;
 
 const R = 6;
@@ -71,7 +71,7 @@ function Picker<T extends string>({ kind, title, value, options, word, open, onO
   return (
     <span className="crb-pick">
       <button type="button" className="crb-chip" data-chat-pick={kind} aria-haspopup="menu" aria-expanded={open} onClick={onOpen}>
-        <span>{kind === 'effort' ? `${word(value)} effort` : word(value)}</span>
+        <span>{word(value)}</span>
         <Chevron />
       </button>
       {open && (
