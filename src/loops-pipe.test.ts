@@ -61,7 +61,16 @@ console.log('\nloops-pipe: launchers\n');
   check('not rewritten when unchanged', fs.statSync(path.join(bin, 'afterterm.cmd')).mtimeMs === before);
 }
 
-const server = startLoopsPipe({ pipeName: pipe, token, backend: store, context: () => ctx });
+// AFT-126: the chat kind, with a stand-in for main's starter that answers at once.
+const chatCalls: { argv: string[]; stdin: string | undefined; thread?: string }[] = [];
+const server = startLoopsPipe({
+  pipeName: pipe, token, backend: store, context: () => ctx,
+  chat: async (env, argv, stdin) => {
+    chatCalls.push({ argv, stdin, thread: env.thread });
+    await new Promise((r) => setTimeout(r, 6000)); // longer than the loops request timeout (5s)
+    return { code: 0, out: 'Started a chat in demo (opus): New chat\n', err: '' };
+  },
+});
 await new Promise((r) => server.once('listening', r));
 
 const clientEnv = (extra: Record<string, string | undefined> = {}) => ({
@@ -90,7 +99,17 @@ console.log('\nloops-pipe: the real command\n');
   const outside = await run(process.execPath, [CLIENT, 'loops', 'list'], { ...process.env, AFTERTERM_LOOPS_PIPE: undefined, AFTERTERM_LOOPS_TOKEN: undefined }, undefined, dir);
   check('outside afterterm\'s terminals: says so', outside.code === 1 && outside.err.includes('afterterm is not running'), outside.err);
   const other = await run(process.execPath, [CLIENT, 'frob'], clientEnv(), undefined, dir);
-  check('only "afterterm loops" exists', other.code === 1 && other.err.includes('the only command here'));
+  check('an unknown command names loops and chat', other.code === 1 && other.err.includes('"afterterm chat"'));
+}
+
+console.log('\nloops-pipe: afterterm chat start\n');
+{
+  const r = await run(process.execPath, [CLIENT, 'chat', 'start', '--project', 'demo', '--model', 'opus'], clientEnv(), 'Line one\nLine two\n', dir);
+  check('the chat reply waits past the loops timeout and reaches the shell', r.code === 0 && r.out.includes('Started a chat in demo'), r.out + r.err);
+  check('the prompt went over stdin, whole', chatCalls[0]?.stdin === 'Line one\nLine two\n' && chatCalls[0]?.thread === 'tab-1');
+  check('the arguments went with it', chatCalls[0]?.argv.join(' ') === 'chat start --project demo --model opus');
+  const bad = await run(process.execPath, [CLIENT, 'chat', 'start', '--project', 'demo', '--model', 'opus'], clientEnv({ AFTERTERM_LOOPS_TOKEN: 'nope' }), 'x', dir);
+  check('a chat request with a wrong token is refused', bad.code === 5 && bad.err.includes('refused') && chatCalls.length === 1, bad.err);
 }
 
 console.log('\nloops-pipe: the chat-start hook\n');

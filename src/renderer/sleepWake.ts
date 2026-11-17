@@ -38,6 +38,7 @@ export function sleepTab(tab: Tab, now: number): Tab {
   delete next.wokeAt;
   // A thread that sleeps has no shell to attach to any more (AFT-33).
   delete next.reattach;
+  delete next.startCommand;
   delete next.recordStatus;
   delete next.atPrompt;
   delete next.hasChildren;
@@ -55,6 +56,7 @@ export function wakeTab(tab: Tab, now: number): Tab {
   delete next.sleptAt;
   // A wake starts a fresh shell, never an attach (AFT-33).
   delete next.reattach;
+  delete next.startCommand;
   return next;
 }
 

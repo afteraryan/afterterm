@@ -186,6 +186,20 @@ interface AftertermLoopsAPI {
   setContext(ctx: import('./loops-cli').LoopsContext): void;
 }
 
+// `afterterm chat start` (AFT-126): requests waiting for Aryan's Start.
+interface AftertermChatStartAPI {
+  waiting(): Promise<import('./chat-start').ChatRequestView[]>;
+  // The line the new thread types and where, or null when the request is gone.
+  approve(id: string, model: string, effort: string | null): Promise<{ command: string; folder: string; projectId: string } | null>;
+  decline(id: string): void;
+  opened(id: string, tabId: string): void;
+  openFailed(id: string, reason: string): void;
+  sendName(tabId: string, name: string): void;
+  onRequest(callback: (view: import('./chat-start').ChatRequestView) => void): () => void;
+  onClosed(callback: (id: string) => void): () => void;
+  onNameRequest(callback: (tabId: string) => void): () => void;
+}
+
 // The one-time tours (src/tours.ts), kept in prefs.json's toursSeen.
 interface AftertermToursAPI {
   /** The tours already shown (Done or Skip); null when prefs.json cannot be read, and then no tour shows. */
@@ -385,6 +399,7 @@ interface AftertermAPI {
   git: AftertermGitAPI;
   usage: AftertermUsageAPI;
   loops: AftertermLoopsAPI;
+  chatStart: AftertermChatStartAPI;
   tours: AftertermToursAPI;
   activity: AftertermActivityAPI;
   update: AftertermUpdateAPI;

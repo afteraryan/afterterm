@@ -109,7 +109,9 @@ export function useTabState() {
     if (entering.length) setGroups(prev => moveGroupsToTop(prev, entering));
   }, [groups, tabs]);
 
-  const addTab = useCallback((groupId?: string, shellId?: string) => {
+  // opts (AFT-126): a chat opened by `afterterm chat start` stays in the background
+  // (Aryan stays where he is) and types its startCommand once its shell is up.
+  const addTab = useCallback((groupId?: string, shellId?: string, opts?: { activate?: boolean; startCommand?: string }) => {
     const id = makeTabId();
     // A terminal opened inside a group starts in the project folder and, unless the
     // shell picker overrode it, uses the group's default shell.
@@ -118,13 +120,14 @@ export function useTabState() {
     const newTab: Tab = {
       id, title: 'Terminal', groupId, shellId: shellId ?? group?.shellId, cwd: group?.cwd,
       lastActiveAt: now, asleep: false,
+      ...(opts?.startCommand ? { startCommand: opts.startCommand } : {}),
     };
     // Opening a terminal in a project is the user acting on that project, so it
     // counts as activity for the group as much as switching to one of its tabs does.
     if (group) setGroups(prev => projectInUse(prev, group.id, now));
     // First in its project, so the newest threads are the ones the fold shows.
     setTabs(prev => insertNewThread(prev, newTab));
-    setActiveTabId(id);
+    if (opts?.activate !== false) setActiveTabId(id);
     return id;
   }, [groups]);
 

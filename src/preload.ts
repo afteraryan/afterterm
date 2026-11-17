@@ -203,6 +203,31 @@ contextBridge.exposeInMainWorld('afterterm', {
     },
   },
 
+  // `afterterm chat start` (AFT-126): the Start window's requests and answers.
+  chatStart: {
+    waiting: (): Promise<any[]> => ipcRenderer.invoke('chat-start:waiting'),
+    approve: (id: string, model: string, effort: string | null): Promise<any> => ipcRenderer.invoke('chat-start:approve', id, model, effort),
+    decline: (id: string): void => ipcRenderer.send('chat-start:decline', id),
+    opened: (id: string, tabId: string): void => ipcRenderer.send('chat-start:opened', id, tabId),
+    openFailed: (id: string, reason: string): void => ipcRenderer.send('chat-start:open-failed', id, reason),
+    sendName: (tabId: string, name: string): void => ipcRenderer.send('chat-start:name', tabId, name),
+    onRequest: (callback: (view: any) => void): (() => void) => {
+      const listener = (_event: IpcRendererEvent, v: any) => callback(v);
+      ipcRenderer.on('chat-start:request', listener);
+      return () => { ipcRenderer.removeListener('chat-start:request', listener); };
+    },
+    onClosed: (callback: (id: string) => void): (() => void) => {
+      const listener = (_event: IpcRendererEvent, id: string) => callback(id);
+      ipcRenderer.on('chat-start:closed', listener);
+      return () => { ipcRenderer.removeListener('chat-start:closed', listener); };
+    },
+    onNameRequest: (callback: (tabId: string) => void): (() => void) => {
+      const listener = (_event: IpcRendererEvent, tabId: string) => callback(tabId);
+      ipcRenderer.on('chat-start:name-request', listener);
+      return () => { ipcRenderer.removeListener('chat-start:name-request', listener); };
+    },
+  },
+
   // The one-time tours (src/tours.ts): which ones were already shown (prefs.json's
   // toursSeen), and writing one as seen after Done or Skip.
   tours: {

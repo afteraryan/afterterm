@@ -15,6 +15,10 @@ import { SearchPalette } from './components/SearchPalette';
 import { GroupModal, GroupDraft } from './components/GroupModal';
 import { Toast } from './components/Toast';
 import { ConfirmDialog } from './components/ConfirmDialog';
+import { ChatRequestBar, type ChatChoice } from './components/ChatRequestDialog';
+import type { ChatRequestView } from '../chat-start';
+// How long the name sent back to `afterterm chat start` waits for Claude's own title.
+const CHAT_NAME_WAIT_MS = 20_000;
 import { RenameDialog } from './components/RenameDialog';
 import { ArchiveDialog } from './components/ArchiveDialog';
 import { UsageCard } from './components/UsageCard';
@@ -853,9 +857,57 @@ export function App() {
     });
   }, []);
 
+  // `afterterm chat start` (AFT-126): requests waiting for Aryan's Start, oldest
+  // first. Main holds them; this list only draws the window. A reloaded window asks
+  // main again for the ones still waiting.
+  const [chatRequests, setChatRequests] = useState<ChatRequestView[]>([]);
+  // Aryan's model, effort and open prompt per request: kept here, not in the bar, because
+  // the bar is drawn on whichever screen is open and remounts when the screen changes.
+  const [chatChoices, setChatChoices] = useState<Record<string, ChatChoice>>({});
+  useEffect(() => {
+    const api = window.afterterm.chatStart;
+    void api.waiting().then((list) => setChatRequests(prev => {
+      const known = new Set(prev.map(r => r.id));
+      return [...prev, ...list.filter(r => !known.has(r.id))];
+    }));
+    const offReq = api.onRequest((view) => setChatRequests(prev => prev.some(r => r.id === view.id) ? prev : [...prev, view]));
+    const offClosed = api.onClosed((id) => setChatRequests(prev => prev.filter(r => r.id !== id)));
+    // The asking agent is told the chat's name. Right after the prompt lands the
+    // thread is still called "Claude Code", so this waits for Claude's own title (the
+    // hook's claudeTitle) up to CHAT_NAME_WAIT_MS, then sends
+    // whatever name afterterm shows.
+    const offName = api.onNameRequest((tabId) => {
+      const started = Date.now();
+      const tick = () => {
+        const tab = stateRef.current.tabs.find(t => t.id === tabId);
+        if (!tab) { api.sendName(tabId, ''); return; }
+        // Claude Code's title is "Claude Code" until it names the conversation.
+        const titled = !!tab.customName || (!!tab.claudeTitle && tab.claudeTitle !== 'Claude Code');
+        if (titled || Date.now() - started > CHAT_NAME_WAIT_MS) { api.sendName(tabId, threadName(tab)); return; }
+        setTimeout(tick, 500);
+      };
+      tick();
+    });
+    return () => { offReq(); offClosed(); offName(); };
+  }, []);
+  const startChatRequest = useCallback(async (view: ChatRequestView, model: string, effort: string | null) => {
+    const api = window.afterterm.chatStart;
+    const ok = await api.approve(view.id, model, effort);
+    // Started or gone, the window is done with it either way.
+    setChatRequests(prev => prev.filter(r => r.id !== view.id));
+    if (!ok) return;
+    const group = stateRef.current.groups.find(g => g.id === ok.projectId);
+    if (!group) { api.openFailed(view.id, 'the project is gone'); return; }
+    // Aryan stays where he is: the chat opens in the background, first in its project.
+    const tabId = stateRef.current.addTab(group.id, undefined, { activate: false, startCommand: ok.command });
+    api.opened(view.id, tabId);
+  }, []);
+
   // Notifier window sends tab-click → jump to that tab
   useEffect(() => {
     window.afterterm.notify.onActivateTab((tabId) => {
+      // A chat request's toast: main has shown the window, where the request waits.
+      if (tabId.startsWith('chat-request:')) return;
       handleActivate(tabId);
     });
   }, []);
@@ -1856,7 +1908,28 @@ export function App() {
     );
   };
 
-  const tabInfos = state.tabs.map(t => ({ id: t.id, shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize, claudeSessionId: t.claudeSessionId, claudeCwd: t.claudeCwd, asleep: t.asleep, wokeAt: t.wokeAt, port: t.port, lastCommand: t.lastCommand, reattach: t.reattach }));
+  // The request bar (AFT-126): the oldest request waiting for Aryan's Start, at the
+  // bottom of the main pane on whichever screen is open.
+  const chatBar = (() => {
+    const req = chatRequests[0];
+    if (!req) return null;
+    const asker = req.fromThread ? state.tabs.find(t => t.id === req.fromThread) : undefined;
+    const group = state.groups.find(g => g.id === req.projectId);
+    return (
+      <ChatRequestBar
+        request={req}
+        projectColor={group?.color}
+        projectIcon={group?.icon}
+        from={asker ? { name: threadName(asker), onOpen: () => openThreadInWorkspace(asker.id) } : null}
+        choice={chatChoices[req.id]}
+        onChoice={c => setChatChoices(prev => ({ ...prev, [req.id]: c }))}
+        onStart={(model, effort) => { void startChatRequest(req, model, effort); }}
+        onDecline={() => window.afterterm.chatStart.decline(req.id)}
+      />
+    );
+  })();
+
+  const tabInfos = state.tabs.map(t => ({ id: t.id, shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize, claudeSessionId: t.claudeSessionId, claudeCwd: t.claudeCwd, asleep: t.asleep, wokeAt: t.wokeAt, port: t.port, lastCommand: t.lastCommand, reattach: t.reattach, startCommand: t.startCommand }));
 
   const activeTab = state.tabs.find(t => t.id === state.activeTabId);
   const activeSplit = splitOf(state.splits, state.activeTabId);
@@ -1903,6 +1976,7 @@ export function App() {
       />
 
       <div className="app-main">
+      {screen !== 'workspace' && chatBar}
       {screen === 'home' && (
         <Home
           groups={state.groups}
@@ -2007,6 +2081,7 @@ export function App() {
         />
 
         <div className="terminal-area">
+          {screen === 'workspace' && chatBar}
           {panes.length === 0 && (
             <Header
               tab={undefined}
@@ -2180,6 +2255,8 @@ export function App() {
           />
         );
       })()}
+
+
 
       {pendingConfirm && (() => {
         const tab = state.tabs.find(t => t.id === pendingConfirm.tabId);
