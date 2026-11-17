@@ -75,7 +75,7 @@ EOF
 \`\`\`
 
 - **--model is required, there is no default.** Pick it by the task: \`haiku\` for notes and laborious basic work; \`sonnet\` for simple coding where the result is known; \`opus\` for anything open-ended, and whenever in doubt. \`fable\` only when the user asked for it, or when the work is very broad and you asked the user first and they said yes.
-- \`--effort low|medium|high|xhigh|max\` is optional; left out, Claude Code's default.
+- **Leave out \`--effort\` unless the user named one.** The user sees the request in a bar at the bottom of afterterm, already set to an effort for the model, and can change the model and the effort there.
 - The command waits for the user's click (up to 10 minutes) and for the new chat to receive the prompt, then prints the chat's name. Exit 0 started, 3 declined, 4 nobody answered, 1 failed. Do not ask again after a decline unless the user says so.
 - The prompt shows in the new chat as its first message. \`afterterm chat help\` lists the options.
 `;

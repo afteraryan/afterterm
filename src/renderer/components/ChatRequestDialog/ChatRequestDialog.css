@@ -1,68 +1,136 @@
-/* "Start a chat in <project>?" (AFT-126), on GroupModal.css's .modal-overlay and
-   .modal-card. A heading, three short rows, the prompt, one status line. */
+/* The request bar (AFT-126), at the bottom of the main pane on every screen. The
+   loops card's surface (#262626, #333333 border, 14px radius), chips and menus in
+   neutral greys; the only colour is the project's folder. Solid colours only. */
 
-.chatreq-card {
-  width: min(520px, 100%);
+.crb {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  z-index: 40;
+  background: #262626;
+  border: 1px solid #333333;
+  border-radius: 14px;
+  box-shadow: 0 12px 32px #000;
+  font-family: var(--sans);
+  color: var(--text);
 }
 
-.chatreq-card .modal-title {
-  margin: 0;
-}
-
-.chatreq-rows {
+/* The prompt slides open above the bar. */
+.crb-drawer {
   display: grid;
-  grid-template-columns: 84px 1fr;
-  align-items: center;
-  gap: 8px 12px;
-  font-size: 13px;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 240ms var(--ease);
 }
-
-.chatreq-k {
-  color: var(--text2);
+.crb-drawer > div { min-height: 0; overflow: hidden; }
+.crb-in {
+  padding: 12px 12px 0;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 200ms var(--ease), transform 240ms var(--ease);
 }
-
-.chatreq-v {
-  color: var(--text);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.chatreq-sel {
-  justify-self: start;
-  min-width: 180px;
-  font: inherit;
-  font-size: 13px;
-  color: var(--text);
-  background: var(--pane);
-  border: 1px solid var(--hover2);
-  border-radius: 6px;
-  padding: 4px 8px;
-}
-
-.chatreq-prompt {
-  max-height: 220px;
-  overflow: auto;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--text);
+.crb.open .crb-drawer { grid-template-rows: 1fr; }
+.crb.open .crb-in { opacity: 1; transform: none; }
+.crb-prompt {
   background: var(--pane);
   border: 1px solid var(--hover2);
   border-radius: 8px;
   padding: 10px 12px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 220px;
+  overflow: auto;
 }
+.crb-from { font-size: 12px; color: var(--text3); padding: 8px 2px 0; }
 
-.chatreq-foot {
+.crb-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  min-height: 46px;
+  padding: 8px 8px 8px 12px;
+  font-size: 12.5px;
 }
+.crb-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.crb-proj { display: grid; place-items: center; flex: none; }
+.crb-sp { flex: 1; min-width: 8px; }
 
-.chatreq-status {
-  margin-right: auto;
+.crb-ring { width: 16px; height: 16px; flex: none; transform: rotate(-90deg); }
+.crb-ring circle { fill: none; stroke-width: 2; }
+.crb-rt { stroke: #3d3d3d; }
+.crb-rf { stroke: var(--text2); stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+
+.crb-pick { position: relative; flex: none; }
+.crb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 8px 0 9px;
+  border-radius: 6px;
+  border: 0;
+  background: #333333;
+  color: var(--text);
+  font: inherit;
   font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.crb-chip:hover, .crb-chip[aria-expanded="true"] { background: #3d3d3d; }
+.crb-chip svg { width: 10px; height: 10px; color: var(--text3); flex: none; }
+.crb-menu {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 6px);
+  min-width: 150px;
+  background: #2b2b2b;
+  border: 1px solid #3a3a3a;
+  border-radius: 10px;
+  padding: 4px;
+  box-shadow: 0 12px 32px #000;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+}
+.crb-mh { font-size: 11px; color: var(--text3); padding: 5px 8px 3px; }
+.crb-menu button {
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  background: none;
+  border: 0;
+  color: var(--text);
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.crb-menu button:hover { background: var(--hover2); }
+.crb-ck { width: 12px; height: 12px; }
+
+.crb-ib {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
   color: var(--text2);
+  cursor: pointer;
+  flex: none;
+}
+.crb-ib:hover { background: var(--hover); color: var(--text); }
+.crb-ib.on { background: #3d3d3d; color: var(--text); }
+.crb-ib svg { width: 15px; height: 15px; }
+.crb button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .crb-drawer, .crb-in, .crb-rf { transition: none; }
 }

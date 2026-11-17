@@ -6,7 +6,7 @@ What changed for the person using afterterm, release by release. Each release li
 
 ### Added
 
-- **A chat can ask to open another Claude Code chat in any of your projects, and nothing opens until you click Start.** Ask a chat to start an agent somewhere and it runs `afterterm chat start` with the project, the model and the prompt. afterterm shows a window with the project, who asked, the model, the effort and the whole prompt, and you click Start or Decline (if you are in another app, a toast tells you it is waiting). You can change the model and the effort first. On Start the chat opens in that project's folder in the background, and its prompt arrives as its first message, as if you had typed it. The prompt is never saved to a file. A request you leave alone goes away after 10 minutes.
+- **A chat can ask to open another Claude Code chat in any of your projects, and nothing opens until you click Start.** Ask a chat to start an agent somewhere and it runs `afterterm chat start` with the project, the model and the prompt. A bar appears at the bottom of afterterm, on whatever screen you are on, with the project, the model and the effort, and a ring that empties over the 10 minutes the request waits. Change the model or the effort from the bar, open the prompt with the quote button, open the chat that asked with the chat button, then click Start or Decline (if you are in another app, a toast tells you it is waiting). On Start the chat opens in that project's folder in the background, and its prompt arrives as its first message, as if you had typed it. The prompt is never saved to a file. A request you leave alone goes away after 10 minutes.
 
 ## 0.21.4 (2026-11-17)
 

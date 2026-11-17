@@ -15,7 +15,7 @@ import { SearchPalette } from './components/SearchPalette';
 import { GroupModal, GroupDraft } from './components/GroupModal';
 import { Toast } from './components/Toast';
 import { ConfirmDialog } from './components/ConfirmDialog';
-import { ChatRequestDialog } from './components/ChatRequestDialog';
+import { ChatRequestBar, type ChatChoice } from './components/ChatRequestDialog';
 import type { ChatRequestView } from '../chat-start';
 // How long the name sent back to `afterterm chat start` waits for Claude's own title.
 const CHAT_NAME_WAIT_MS = 20_000;
@@ -861,6 +861,9 @@ export function App() {
   // first. Main holds them; this list only draws the window. A reloaded window asks
   // main again for the ones still waiting.
   const [chatRequests, setChatRequests] = useState<ChatRequestView[]>([]);
+  // Aryan's model, effort and open prompt per request: kept here, not in the bar, because
+  // the bar is drawn on whichever screen is open and remounts when the screen changes.
+  const [chatChoices, setChatChoices] = useState<Record<string, ChatChoice>>({});
   useEffect(() => {
     const api = window.afterterm.chatStart;
     void api.waiting().then((list) => setChatRequests(prev => {
@@ -1905,6 +1908,27 @@ export function App() {
     );
   };
 
+  // The request bar (AFT-126): the oldest request waiting for Aryan's Start, at the
+  // bottom of the main pane on whichever screen is open.
+  const chatBar = (() => {
+    const req = chatRequests[0];
+    if (!req) return null;
+    const asker = req.fromThread ? state.tabs.find(t => t.id === req.fromThread) : undefined;
+    const group = state.groups.find(g => g.id === req.projectId);
+    return (
+      <ChatRequestBar
+        request={req}
+        projectColor={group?.color}
+        projectIcon={group?.icon}
+        from={asker ? { name: threadName(asker), onOpen: () => openThreadInWorkspace(asker.id) } : null}
+        choice={chatChoices[req.id]}
+        onChoice={c => setChatChoices(prev => ({ ...prev, [req.id]: c }))}
+        onStart={(model, effort) => { void startChatRequest(req, model, effort); }}
+        onDecline={() => window.afterterm.chatStart.decline(req.id)}
+      />
+    );
+  })();
+
   const tabInfos = state.tabs.map(t => ({ id: t.id, shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize, claudeSessionId: t.claudeSessionId, claudeCwd: t.claudeCwd, asleep: t.asleep, wokeAt: t.wokeAt, port: t.port, lastCommand: t.lastCommand, reattach: t.reattach, startCommand: t.startCommand }));
 
   const activeTab = state.tabs.find(t => t.id === state.activeTabId);
@@ -1952,6 +1976,7 @@ export function App() {
       />
 
       <div className="app-main">
+      {screen !== 'workspace' && chatBar}
       {screen === 'home' && (
         <Home
           groups={state.groups}
@@ -2056,6 +2081,7 @@ export function App() {
         />
 
         <div className="terminal-area">
+          {screen === 'workspace' && chatBar}
           {panes.length === 0 && (
             <Header
               tab={undefined}
@@ -2230,19 +2256,7 @@ export function App() {
         );
       })()}
 
-      {chatRequests.length > 0 && (() => {
-        const req = chatRequests[0];
-        const from = req.fromThread ? state.tabs.find(t => t.id === req.fromThread) : undefined;
-        return (
-          <ChatRequestDialog
-            request={req}
-            fromName={from ? threadName(from) : null}
-            behind={chatRequests.length - 1}
-            onStart={(model, effort) => { void startChatRequest(req, model, effort); }}
-            onDecline={() => window.afterterm.chatStart.decline(req.id)}
-          />
-        );
-      })()}
+
 
       {pendingConfirm && (() => {
         const tab = state.tabs.find(t => t.id === pendingConfirm.tabId);

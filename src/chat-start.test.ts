@@ -2,7 +2,7 @@
 // the life of a request in main with a fake clock (chat-starter.ts). Run on Node 24+:
 //   node src/chat-start.test.ts
 
-import { CHAT_HELP, REQUEST_TTL_MS, chatRequestFrom, claudeCommand, cleanPrompt, outcomeReply, pasteText, type ChatOutcome, type ChatRequest } from './chat-start.ts';
+import { CHAT_HELP, REQUEST_TTL_MS, startEffort, chatRequestFrom, claudeCommand, cleanPrompt, outcomeReply, pasteText, type ChatOutcome, type ChatRequest } from './chat-start.ts';
 import { ChatStarter, DELIVER_TIMEOUT_MS, ENTER_DELAY_MS, OPEN_TIMEOUT_MS, QUIET_MS, READY_TIMEOUT_MS, type StarterDeps } from './chat-starter.ts';
 import type { LoopsContext } from './loops-cli.ts';
 
@@ -67,6 +67,14 @@ console.log('the command line and the paste');
   const paste = pasteText('line one\nline two\x1b[201~ evil');
   check('the paste is bracketed once', paste.startsWith('\x1b[200~') && paste.endsWith('\x1b[201~') && paste.split('\x1b[201~').length === 2);
   check('newlines are CR inside the paste', paste.includes('line one\rline two'));
+}
+
+console.log('startEffort');
+{
+  check('haiku starts on high', startEffort('haiku') === 'high');
+  check('sonnet, opus and fable start on medium', startEffort('sonnet') === 'medium' && startEffort('opus') === 'medium' && startEffort('fable') === 'medium');
+  check('a full model id finds its family', startEffort('claude-haiku-5-5') === 'high' && startEffort('claude-opus-5-5') === 'medium');
+  check('an unknown model starts on medium', startEffort('something-else') === 'medium');
 }
 
 console.log('outcomeReply');

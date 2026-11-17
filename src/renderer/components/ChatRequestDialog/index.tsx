@@ -1,79 +1,159 @@
-// "Start a chat in <project>?" (AFT-126): an agent ran `afterterm chat start`, and
-// nothing opens until Aryan clicks Start here. Decided on 2026-11-17: he can change
-// the model and the effort, the prompt is shown as it will be sent, and a request he
-// does not answer goes after 10 minutes (main ends it; this only shows the time).
+// The request bar (AFT-126): an agent ran `afterterm chat start`, and nothing opens
+// until Aryan clicks Start here. Design picked on 2026-11-17 against
+// https://claude.ai/artifact/TXRS4CabfGTXS7aMLYYAEz: a bar at the bottom of the main
+// pane, on every screen, that never covers the app.
 //
-// Start never takes the keyboard (no autoFocus, no Enter): the window can appear
-// while Aryan is typing in a terminal, and a keystroke meant for that terminal must
-// never start a chat. A click outside the card does nothing either.
-import React, { useEffect, useState } from 'react';
-import { EFFORTS, MODEL_CHOICES, type ChatRequestView, type Effort } from '../../../chat-start';
+//   ring (time left) · folder · project · model ▴ · effort ▴ ·· chat · quote · Decline · Start
+//
+// The ring empties over the 10 minutes main gives a request. The model and effort
+// chips open a menu upward; the effort starts on the model's level (startEffort)
+// unless the agent named one, and moves with the model until Aryan picks an effort
+// himself. The chat icon opens the chat that asked. The quote button slides the
+// prompt open above the bar and stays pressed while it is open.
+//
+// Start never takes the keyboard (no autoFocus, no Enter): the bar can appear while
+// Aryan is typing in a terminal, and a keystroke meant for that terminal must never
+// start a chat.
+import React, { useEffect, useRef, useState } from 'react';
+import { EFFORTS, MODEL_CHOICES, REQUEST_TTL_MS, startEffort, type ChatRequestView, type Effort } from '../../../chat-start';
+import { FolderIcon } from '../Icons';
+import type { GroupColor, ProjectIconId } from '../TabBar/types';
 import './ChatRequestDialog.css';
 
-export interface ChatRequestDialogProps {
+export interface ChatRequestBarProps {
   request: ChatRequestView;
-  /** The name afterterm shows for the thread that asked, or null when it is not known. */
-  fromName: string | null;
-  /** How many more requests wait behind this one. */
-  behind: number;
-  onStart: (model: string, effort: Effort | null) => void;
+  /** The project's colour and icon, as the sidebar draws them. */
+  projectColor?: GroupColor;
+  projectIcon?: ProjectIconId;
+  /** The thread that asked, when it is still there: its name, and how to open it. */
+  from: { name: string; onOpen: () => void } | null;
+  /**
+   * Aryan's choices on this request, kept by the app so they survive the bar moving
+   * between screens (it is drawn in the main pane of whichever screen is open).
+   */
+  choice: ChatChoice | undefined;
+  onChoice: (c: ChatChoice) => void;
+  onStart: (model: string, effort: Effort) => void;
   onDecline: () => void;
 }
 
-function minutesLeft(expiresAt: number, now: number): string {
-  const m = Math.max(0, Math.ceil((expiresAt - now) / 60000));
-  return m <= 1 ? 'Expires in under a minute' : `Expires in ${m} min`;
+export interface ChatChoice {
+  model: string;
+  effort: Effort;
+  /** Aryan picked the effort himself, so a change of model leaves it alone. */
+  effortChosen: boolean;
+  /** The prompt is open. */
+  open: boolean;
 }
 
-export function ChatRequestDialog({ request, fromName, behind, onStart, onDecline }: ChatRequestDialogProps) {
-  const [model, setModel] = useState(request.model);
-  const [effort, setEffort] = useState<Effort | ''>(request.effort ?? '');
+export function initialChoice(request: ChatRequestView): ChatChoice {
+  return { model: request.model, effort: request.effort ?? startEffort(request.model), effortChosen: request.effort !== null, open: false };
+}
+
+const MODEL_WORDS: Record<string, string> = { haiku: 'Haiku', sonnet: 'Sonnet', opus: 'Opus', fable: 'Fable' };
+const EFFORT_WORDS: Record<Effort, string> = { low: 'Low', medium: 'Medium', high: 'High', xhigh: 'Extra high', max: 'Max' };
+const modelWord = (m: string) => MODEL_WORDS[m] ?? m;
+
+const R = 6;
+const C = 2 * Math.PI * R;
+
+function Chevron() {
+  return <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M2 6l3-3 3 3" /></svg>;
+}
+function Check() {
+  return <svg className="crb-ck" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M2.5 6.2l2.3 2.3 4.7-5" /></svg>;
+}
+
+function Picker<T extends string>({ kind, title, value, options, word, open, onOpen, onPick }: {
+  kind: string; title: string; value: T; options: readonly T[]; word: (v: T) => string;
+  open: boolean; onOpen: () => void; onPick: (v: T) => void;
+}) {
+  return (
+    <span className="crb-pick">
+      <button type="button" className="crb-chip" data-chat-pick={kind} aria-haspopup="menu" aria-expanded={open} onClick={onOpen}>
+        {kind === 'effort' ? `${word(value)} effort` : word(value)}
+        <Chevron />
+      </button>
+      {open && (
+        <span className="crb-menu" role="menu">
+          <span className="crb-mh">{title}</span>
+          {options.map(o => (
+            <button type="button" role="menuitem" key={o} data-chat-option={`${kind}:${o}`} onClick={() => onPick(o)}>
+              <span>{word(o)}</span>
+              {o === value && <Check />}
+            </button>
+          ))}
+        </span>
+      )}
+    </span>
+  );
+}
+
+export function ChatRequestBar({ request, projectColor, projectIcon, from, choice, onChoice, onStart, onDecline }: ChatRequestBarProps) {
+  const c = choice ?? initialChoice(request);
+  const { model, effort, open } = c;
+  const set = (patch: Partial<ChatChoice>) => onChoice({ ...c, ...patch });
+  const [menu, setMenu] = useState<'model' | 'effort' | null>(null);
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const barRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    setModel(request.model);
-    setEffort(request.effort ?? '');
+    setMenu(null);
     setBusy(false);
   }, [request.id]);
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 15000);
+    const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
+  // A menu closes on a click anywhere else and on Esc.
+  useEffect(() => {
+    if (!menu) return;
+    const onDown = (e: MouseEvent) => { if (!(e.target as Element).closest?.('.crb-pick')) setMenu(null); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenu(null); };
+    window.addEventListener('mousedown', onDown, true);
+    window.addEventListener('keydown', onKey, true);
+    return () => { window.removeEventListener('mousedown', onDown, true); window.removeEventListener('keydown', onKey, true); };
+  }, [menu]);
 
-  const models: string[] = (MODEL_CHOICES as readonly string[]).includes(request.model)
-    ? [...MODEL_CHOICES]
-    : [request.model, ...MODEL_CHOICES];
+  const models: string[] = (MODEL_CHOICES as readonly string[]).includes(request.model) ? [...MODEL_CHOICES] : [request.model, ...MODEL_CHOICES];
+  const left = Math.max(0, Math.min(1, (request.expiresAt - now) / REQUEST_TTL_MS));
+  const mins = Math.max(1, Math.ceil((request.expiresAt - now) / 60000));
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-card chatreq-card" data-chat-request={request.id} role="dialog" aria-modal="true">
-        <h2 className="modal-title">Start a chat in {request.projectName}?</h2>
-        <div className="chatreq-rows">
-          <span className="chatreq-k">Asked by</span>
-          <span className="chatreq-v">{fromName ?? 'An agent'}</span>
-          <span className="chatreq-k">Model</span>
-          <select className="chatreq-sel" data-chat-model value={model} onChange={e => setModel(e.target.value)}>
-            {models.map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
-          <span className="chatreq-k">Effort</span>
-          <select className="chatreq-sel" data-chat-effort value={effort} onChange={e => setEffort(e.target.value as Effort | '')}>
-            <option value="">Claude Code's default</option>
-            {EFFORTS.map(x => <option key={x} value={x}>{x}</option>)}
-          </select>
+    <div className={`crb${open ? ' open' : ''}`} ref={barRef} data-chat-request={request.id}>
+      <div className="crb-drawer">
+        <div>
+          <div className="crb-in">
+            <div className="crb-prompt" data-chat-prompt>{request.prompt}</div>
+            <div className="crb-from">Asked by {from?.name ?? 'an agent'}</div>
+          </div>
         </div>
-        <div className="chatreq-prompt" data-chat-prompt>{request.prompt}</div>
-        <div className="chatreq-foot">
-          <span className="chatreq-status">
-            {minutesLeft(request.expiresAt, now)}{behind > 0 ? ` · ${behind} more waiting` : ''}
-          </span>
-          <button type="button" className="b q" data-chat-decline disabled={busy} onClick={() => { setBusy(true); onDecline(); }}>
-            Decline
+      </div>
+      <div className="crb-bar">
+        <svg className="crb-ring" viewBox="0 0 16 16" role="img" aria-label={`${mins} min left`} data-tip={`${mins} min left`}>
+          <circle cx="8" cy="8" r={R} className="crb-rt" />
+          <circle cx="8" cy="8" r={R} className="crb-rf" strokeDasharray={C} strokeDashoffset={C * (1 - left)} />
+        </svg>
+        <span className="crb-proj"><FolderIcon color={projectColor} size={14} icon={projectIcon} /></span>
+        <span className="crb-name">{request.projectName}</span>
+        <Picker kind="model" title="Model" value={model} options={models} word={modelWord}
+          open={menu === 'model'} onOpen={() => setMenu(menu === 'model' ? null : 'model')}
+          onPick={m => { set({ model: m, effort: c.effortChosen ? effort : startEffort(m) }); setMenu(null); }} />
+        <Picker kind="effort" title="Effort" value={effort} options={EFFORTS} word={e => EFFORT_WORDS[e]}
+          open={menu === 'effort'} onOpen={() => setMenu(menu === 'effort' ? null : 'effort')}
+          onPick={e => { set({ effort: e, effortChosen: true }); setMenu(null); }} />
+        <span className="crb-sp" />
+        {from && (
+          <button type="button" className="crb-ib" data-chat-open-asker data-tip={`Open ${from.name}`} aria-label={`Open ${from.name}`} onClick={from.onOpen}>
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" aria-hidden="true"><path d="M2.5 4A1.5 1.5 0 0 1 4 2.5h8A1.5 1.5 0 0 1 13.5 4v5.5A1.5 1.5 0 0 1 12 11H7l-3 2.5V11A1.5 1.5 0 0 1 2.5 9.5z" /></svg>
           </button>
-          <button type="button" className="b p" data-chat-start disabled={busy}
-            onClick={() => { setBusy(true); onStart(model, effort || null); }}>
-            Start
-          </button>
-        </div>
+        )}
+        <button type="button" className={`crb-ib${open ? ' on' : ''}`} data-chat-prompt-toggle aria-pressed={open} aria-label="Prompt" data-tip="Prompt" onClick={() => { set({ open: !open }); setMenu(null); }}>
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M3 9.5C3 6.8 4.5 5 6.5 4.5l.4.9C5.6 6 5 7 5 8h1.6v3.5H3zm6 0C9 6.8 10.5 5 12.5 4.5l.4.9C11.6 6 11 7 11 8h1.6v3.5H9z" /></svg>
+        </button>
+        <button type="button" className="b q s" data-chat-decline disabled={busy} onClick={() => { setBusy(true); onDecline(); }}>Decline</button>
+        <button type="button" className="b p s" data-chat-start disabled={busy} onClick={() => { setBusy(true); onStart(model, effort); }}>Start</button>
       </div>
     </div>
   );

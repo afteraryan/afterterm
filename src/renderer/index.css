@@ -34,6 +34,7 @@ html, body, #root {
    workspace, one at a time. */
 .app-main {
   flex: 1;
+  position: relative; /* the request bar (AFT-126) sits at its bottom on Home and the project page */
   display: flex;
   flex-direction: column;
   min-width: 0;

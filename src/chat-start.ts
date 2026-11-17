@@ -33,13 +33,23 @@ export const CHAT_HELP = `afterterm chat start: open a Claude Code chat in a pro
 
 The prompt is read from stdin (a heredoc or a pipe), or from --prompt. Never write it
 to a file. --model is required: haiku, sonnet, opus, fable or a full model id.
---effort is low, medium, high, xhigh or max; left out, Claude Code's default.
+--effort is low, medium, high, xhigh or max. Leave it out unless Aryan named one:
+the request bar starts each model on its own effort and he can change it there.
 
-Aryan sees the request in afterterm and clicks Start or Decline. The command waits
+Aryan sees the request in a bar at the bottom of afterterm and clicks Start or Decline. The command waits
 for that (up to 10 minutes), then for the chat to get the prompt, and prints the
 chat's name. Exit 0 started, 3 declined, 4 nobody answered, 1 failed.
 Only ask for a chat when Aryan asked you to.
 `;
+
+// The effort each model starts on in the request bar when the agent named none
+// (Aryan, 2026-11-17). Start always passes the effort the bar shows.
+const START_EFFORT: Record<string, Effort> = { haiku: 'high', sonnet: 'medium', opus: 'medium', fable: 'medium' };
+export function startEffort(model: string): Effort {
+  const m = model.toLowerCase();
+  for (const k of Object.keys(START_EFFORT)) if (m === k || m.includes(k)) return START_EFFORT[k];
+  return 'medium';
+}
 
 export function isEffort(v: unknown): v is Effort {
   return typeof v === 'string' && (EFFORTS as readonly string[]).includes(v);
