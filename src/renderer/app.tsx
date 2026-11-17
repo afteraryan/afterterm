@@ -15,8 +15,8 @@ import { SearchPalette } from './components/SearchPalette';
 import { GroupModal, GroupDraft } from './components/GroupModal';
 import { Toast } from './components/Toast';
 import { ConfirmDialog } from './components/ConfirmDialog';
-import { ChatRequestBar, type ChatChoice } from './components/ChatRequestDialog';
-import type { ChatRequestView } from '../chat-start';
+import { ChatRequestStack, type ChatChoice } from './components/ChatRequestDialog';
+import type { ChatRequestView, Effort } from '../chat-start';
 // How long the name sent back to `afterterm chat start` waits for Claude's own title.
 const CHAT_NAME_WAIT_MS = 20_000;
 import { RenameDialog } from './components/RenameDialog';
@@ -870,7 +870,8 @@ export function App() {
       const known = new Set(prev.map(r => r.id));
       return [...prev, ...list.filter(r => !known.has(r.id))];
     }));
-    const offReq = api.onRequest((view) => setChatRequests(prev => prev.some(r => r.id === view.id) ? prev : [...prev, view]));
+    // A request already listed comes again when it reaches the front, with its end time (AFT-135).
+    const offReq = api.onRequest((view) => setChatRequests(prev => prev.some(r => r.id === view.id) ? prev.map(r => r.id === view.id ? view : r) : [...prev, view]));
     const offClosed = api.onClosed((id) => setChatRequests(prev => prev.filter(r => r.id !== id)));
     // The asking agent is told the chat's name. Right after the prompt lands the
     // thread is still called "Claude Code", so this waits for Claude's own title (the
@@ -1910,24 +1911,25 @@ export function App() {
 
   // The request bar (AFT-126): the oldest request waiting for Aryan's Start, at the
   // bottom of the main pane on whichever screen is open.
-  const chatBar = (() => {
-    const req = chatRequests[0];
-    if (!req) return null;
-    const asker = req.fromThread ? state.tabs.find(t => t.id === req.fromThread) : undefined;
-    const group = state.groups.find(g => g.id === req.projectId);
-    return (
-      <ChatRequestBar
-        request={req}
-        projectColor={group?.color}
-        projectIcon={group?.icon}
-        from={asker ? { name: threadName(asker), onOpen: () => openThreadInWorkspace(asker.id) } : null}
-        choice={chatChoices[req.id]}
-        onChoice={c => setChatChoices(prev => ({ ...prev, [req.id]: c }))}
-        onStart={(model, effort) => { void startChatRequest(req, model, effort); }}
-        onDecline={() => window.afterterm.chatStart.decline(req.id)}
-      />
-    );
-  })();
+  // Always drawn, so the last answered bar can still leave with its animation.
+  const chatBar = (
+    <ChatRequestStack
+      requests={chatRequests}
+      barProps={req => {
+        const asker = req.fromThread ? state.tabs.find(t => t.id === req.fromThread) : undefined;
+        const group = state.groups.find(g => g.id === req.projectId);
+        return {
+          projectColor: group?.color,
+          projectIcon: group?.icon,
+          from: asker ? { name: threadName(asker), onOpen: () => openThreadInWorkspace(asker.id) } : null,
+          choice: chatChoices[req.id],
+          onChoice: (c: ChatChoice) => setChatChoices(prev => ({ ...prev, [req.id]: c })),
+          onStart: (model: string, effort: Effort) => { void startChatRequest(req, model, effort); },
+          onDecline: () => window.afterterm.chatStart.decline(req.id),
+        };
+      }}
+    />
+  );
 
   const tabInfos = state.tabs.map(t => ({ id: t.id, shellId: t.shellId, cwd: t.cwd, fontSize: t.fontSize, claudeSessionId: t.claudeSessionId, claudeCwd: t.claudeCwd, asleep: t.asleep, wokeAt: t.wokeAt, port: t.port, lastCommand: t.lastCommand, reattach: t.reattach, startCommand: t.startCommand }));
 

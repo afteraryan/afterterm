@@ -3588,8 +3588,9 @@ function getChatStarter(): ChatStarter {
     now: () => Date.now(),
     setTimer: (fn, ms) => setTimeout(fn, ms),
     clearTimer: (h) => clearTimeout(h as NodeJS.Timeout),
-    show: (view: ChatRequestView) => {
+    show: (view: ChatRequestView, fresh: boolean) => {
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('chat-start:request', view);
+      if (!fresh) return;
       // Aryan chose a toast as well when he is in another app. The window is never
       // brought to the front by itself (a game in front must not lose focus).
       if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.isFocused()) {

@@ -27,8 +27,11 @@ export interface StarterDeps {
   now(): number;
   setTimer(fn: () => void, ms: number): unknown;
   clearTimer(handle: unknown): void;
-  /** The Start window: show this request. */
-  show(view: ChatRequestView): void;
+  /**
+   * The request bar: show this request, or show it again with a new end time when it
+   * reaches the front. `fresh` is true only the first time, when a toast may go out.
+   */
+  show(view: ChatRequestView, fresh: boolean): void;
   /** The Start window and its toast: this request is over. */
   close(id: string): void;
   /** Claude Code's record for this session: its status, or null while there is none. */
@@ -46,6 +49,8 @@ export interface StarterDeps {
 
 interface Pending {
   req: ChatRequest;
+  /** When it reached the front of the waiting requests; its 10 minutes run from here. */
+  frontSince: number | null;
   finish: (o: ChatOutcome) => void;
   expiry: unknown;
   stage: 'asked' | 'opening' | 'typed';
@@ -55,6 +60,8 @@ interface Pending {
 
 export class ChatStarter {
   private pending = new Map<string, Pending>();
+  /** Requests waiting for Aryan, oldest first: the bar shows them in this order. */
+  private waitingOrder: string[] = [];
   private deps: StarterDeps;
   constructor(deps: StarterDeps) { this.deps = deps; }
 
@@ -63,11 +70,13 @@ export class ChatStarter {
     return new Promise((resolve) => {
       const p: Pending = {
         req,
+        frontSince: null,
         stage: 'asked',
         expiry: null,
         finish: (o) => {
           if (!this.pending.has(req.id)) return;
           this.pending.delete(req.id);
+          this.leaveWaiting(req.id);
           this.deps.clearTimer(p.expiry);
           if (p.timer) this.deps.clearTimer(p.timer);
           // The prompt goes with the request: nothing holds it after this.
@@ -77,16 +86,34 @@ export class ChatStarter {
           resolve(o);
         },
       };
-      p.expiry = this.deps.setTimer(() => { if (p.stage === 'asked') p.finish({ kind: 'expired' }); }, REQUEST_TTL_MS);
       this.pending.set(req.id, p);
+      this.waitingOrder.push(req.id);
       this.deps.log(`[chat-start] ${req.id} asked: ${req.projectName}, ${req.model}${req.effort ? ', ' + req.effort : ''}`);
-      this.deps.show(requestView(req));
+      this.deps.show(requestView(req, null), true);
+      this.armFront();
     });
+  }
+
+  // The front request's 10 minutes start when it reaches the front (AFT-135), so the
+  // ones waiting behind it never run out unseen.
+  private armFront(): void {
+    const id = this.waitingOrder[0];
+    const p = id ? this.pending.get(id) : undefined;
+    if (!p || p.frontSince !== null) return;
+    p.frontSince = this.deps.now();
+    p.expiry = this.deps.setTimer(() => { if (p.stage === 'asked') p.finish({ kind: 'expired' }); }, REQUEST_TTL_MS);
+    this.deps.show(requestView(p.req, p.frontSince), false);
+  }
+  private leaveWaiting(id: string): void {
+    const i = this.waitingOrder.indexOf(id);
+    if (i < 0) return;
+    this.waitingOrder.splice(i, 1);
+    this.armFront();
   }
 
   /** The views of every request still waiting for Aryan (a reloaded window asks again). */
   waiting(): ChatRequestView[] {
-    return [...this.pending.values()].filter((p) => p.stage === 'asked').map((p) => requestView(p.req));
+    return this.waitingOrder.map((id) => this.pending.get(id)!).filter((p) => p && p.stage === 'asked').map((p) => requestView(p.req, p.frontSince));
   }
 
   decline(id: string): void {
@@ -108,6 +135,7 @@ export class ChatStarter {
     p.req = { ...p.req, model, effort };
     p.stage = 'opening';
     this.deps.clearTimer(p.expiry);
+    this.leaveWaiting(id);
     p.timer = this.deps.setTimer(() => p.finish({ kind: 'failed', reason: 'afterterm did not open the thread' }), OPEN_TIMEOUT_MS);
     return { command, folder: p.req.folder, projectId: p.req.projectId };
   }

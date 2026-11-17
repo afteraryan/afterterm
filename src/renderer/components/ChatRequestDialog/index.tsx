@@ -14,7 +14,7 @@
 // Start never takes the keyboard (no autoFocus, no Enter): the bar can appear while
 // Aryan is typing in a terminal, and a keystroke meant for that terminal must never
 // start a chat.
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { EFFORTS, MODEL_CHOICES, REQUEST_TTL_MS, startEffort, type ChatRequestView, type Effort } from '../../../chat-start';
 import { FolderIcon } from '../Icons';
 import type { GroupColor, ProjectIconId } from '../TabBar/types';
@@ -35,6 +35,12 @@ export interface ChatRequestBarProps {
   onChoice: (c: ChatChoice) => void;
   onStart: (model: string, effort: Effort) => void;
   onDecline: () => void;
+  /** Its place in the stack (AFT-135): 0 is the front bar, more is behind it. */
+  depth?: number;
+  /** Where the stack puts a bar behind the front one. */
+  style?: React.CSSProperties;
+  className?: string;
+  cardRef?: React.Ref<HTMLDivElement>;
 }
 
 export interface ChatChoice {
@@ -89,14 +95,15 @@ function Picker<T extends string>({ kind, title, value, options, word, open, onO
   );
 }
 
-export function ChatRequestBar({ request, projectColor, projectIcon, from, choice, onChoice, onStart, onDecline }: ChatRequestBarProps) {
+export function ChatRequestBar({ request, projectColor, projectIcon, from, choice, onChoice, onStart, onDecline, depth = 0, style, className, cardRef }: ChatRequestBarProps) {
   const c = choice ?? initialChoice(request);
-  const { model, effort, open } = c;
+  const { model, effort } = c;
+  const front = depth === 0;
+  const open = front && c.open;
   const set = (patch: Partial<ChatChoice>) => onChoice({ ...c, ...patch });
   const [menu, setMenu] = useState<'model' | 'effort' | null>(null);
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(() => Date.now());
-  const barRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMenu(null);
@@ -117,11 +124,13 @@ export function ChatRequestBar({ request, projectColor, projectIcon, from, choic
   }, [menu]);
 
   const models: string[] = (MODEL_CHOICES as readonly string[]).includes(request.model) ? [...MODEL_CHOICES] : [request.model, ...MODEL_CHOICES];
-  const left = Math.max(0, Math.min(1, (request.expiresAt - now) / REQUEST_TTL_MS));
-  const mins = Math.max(1, Math.ceil((request.expiresAt - now) / 60000));
+  // A request waiting behind another has not started its 10 minutes yet: a full ring.
+  const left = request.expiresAt === null ? 1 : Math.max(0, Math.min(1, (request.expiresAt - now) / REQUEST_TTL_MS));
+  const mins = request.expiresAt === null ? 10 : Math.max(1, Math.ceil((request.expiresAt - now) / 60000));
 
   return (
-    <div className={`crb${open ? ' open' : ''}`} ref={barRef} data-chat-request={request.id}>
+    <div className={`crb${open ? ' open' : ''}${className ? ' ' + className : ''}`} ref={cardRef} style={style}
+      data-chat-request={request.id} data-depth={depth} inert={!front}>
       <div className="crb-drawer">
         <div>
           <div className="crb-in">
@@ -154,6 +163,83 @@ export function ChatRequestBar({ request, projectColor, projectIcon, from, choic
         <button type="button" className="b q s" data-chat-decline disabled={busy} onClick={() => { setBusy(true); onDecline(); }}>Decline</button>
         <button type="button" className="b p s" data-chat-start disabled={busy} onClick={() => { setBusy(true); onStart(model, effort); }}>Start</button>
       </div>
+    </div>
+  );
+}
+
+// ─── The stack (AFT-135) ────────────────────────────────────────────────────
+// Several requests waiting: the front bar at the bottom, up to two more peeking
+// above it (lifted 9px each, a little smaller and darker, their text dimmed), and
+// the count in the front bar's corner. Agreed against
+// https://claude.ai/artifact/MgNBhoUc77AeUnmBk6wn9b. On Start or Decline the front
+// bar slides down and fades fast, the rest move down one place easing out with no
+// overshoot, and the next waiting one fades in at the back.
+
+export interface ChatRequestStackProps {
+  requests: ChatRequestView[];
+  /** Everything a bar needs besides the request and its place. */
+  barProps: (view: ChatRequestView) => Omit<ChatRequestBarProps, 'request' | 'depth' | 'style' | 'className' | 'cardRef'>;
+}
+
+const LIFT = 9;
+/** A closed bar's height, borders included: the bars behind are this tall. */
+const BAR_H = 48;
+const SHRINK = 0.04;
+const LEAVE_MS = 200;
+
+export function ChatRequestStack({ requests, barProps }: ChatRequestStackProps) {
+  const frontRef = useRef<HTMLDivElement>(null);
+  const [frontH, setFrontH] = useState(BAR_H);
+  // A bar that just ended stays drawn a moment to leave; its props are the last ones it had.
+  const last = useRef(new Map<string, { view: ChatRequestView; props: ReturnType<ChatRequestStackProps['barProps']> }>());
+  const [leaving, setLeaving] = useState<{ view: ChatRequestView; props: ReturnType<ChatRequestStackProps['barProps']> }[]>([]);
+
+  const ids = requests.map(r => r.id).join(',');
+  useLayoutEffect(() => {
+    const now = new Set(requests.map(r => r.id));
+    const gone = [...last.current.entries()].filter(([id]) => !now.has(id)).map(([, v]) => v);
+    // Only the front one leaves with the animation; one that ended from behind just goes.
+    const front = gone.filter(g => g.view.id === prevFront.current);
+    if (front.length) {
+      setLeaving(l => [...l, ...front]);
+      setTimeout(() => setLeaving(l => l.filter(x => !front.some(f => f.view.id === x.view.id))), LEAVE_MS);
+    }
+    for (const g of gone) last.current.delete(g.view.id);
+    prevFront.current = requests[0]?.id ?? null;
+  }, [ids]);
+  const prevFront = useRef<string | null>(null);
+
+  useLayoutEffect(() => {
+    const el = frontRef.current;
+    if (!el) return;
+    const measure = () => setFrontH(el.offsetHeight || BAR_H);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [requests[0]?.id]);
+
+  if (requests.length === 0 && leaving.length === 0) return null;
+  return (
+    <div className="crs" data-chat-stack="">
+      {leaving.map(l => (
+        <ChatRequestBar key={`leaving-${l.view.id}`} {...l.props} request={l.view} depth={1} className="crs-leaving" />
+      ))}
+      {requests.map((r, i) => {
+        const props = barProps(r);
+        last.current.set(r.id, { view: r, props });
+        const depth = Math.min(i, 3);
+        if (i === 0) return <ChatRequestBar key={r.id} {...props} request={r} depth={0} cardRef={frontRef} style={{ zIndex: 10 }} />;
+        const lift = (frontH - BAR_H) + depth * LIFT;
+        const scale = 1 - Math.min(depth, 2) * SHRINK;
+        return (
+          <ChatRequestBar key={r.id} {...props} request={r} depth={depth} className="crs-behind"
+            style={{ transform: `translateY(${-lift}px) scale(${scale})`, opacity: depth >= 3 ? 0 : 1, zIndex: 10 - i }} />
+        );
+      })}
+      {requests.length > 1 && (
+        <span className="crs-count" data-chat-count style={{ bottom: frontH - 11 }}>{requests.length}</span>
+      )}
     </div>
   );
 }
