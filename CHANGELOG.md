@@ -2,11 +2,17 @@
 
 What changed for the person using afterterm, release by release. Each release lists what was added and changed by area, then what was fixed. Every fixed bug, with the PR it landed in, is also in `docs/bugs-fixed.md`. Code-level detail lives in the commit history, `docs/phases-01-projects-and-threads.md` and `CLAUDE.md`.
 
-## Unreleased
+## 0.22.0 (2026-11-17)
 
 ### Added
 
-- **A chat can ask to open another Claude Code chat in any of your projects, and nothing opens until you click Start.** Ask a chat to start an agent somewhere and it runs `afterterm chat start` with the project, the model and the prompt. A bar appears at the bottom of afterterm, on whatever screen you are on, with the project, the model and the effort, and a ring that empties over the 10 minutes the request waits. Change the model or the effort from the bar, open the prompt with the quote button, open the chat that asked with the chat button, then click Start or Decline (if you are in another app, a toast tells you it is waiting). On Start the chat opens in that project's folder in the background, and its prompt arrives as its first message, as if you had typed it. The prompt is never saved to a file. A request you leave alone goes away after 10 minutes.
+- **A chat can ask to open another Claude Code chat in any of your projects, and nothing opens until you click Start.** Ask a chat in afterterm to start an agent in one of your projects. It sends afterterm the project, the model and the prompt.
+  - A small bar appears at the bottom of afterterm, on whatever screen you are on. If you are in another app, a notification tells you it is waiting.
+  - The bar shows the project, the model and the effort (how hard Claude thinks). Click either one to change it. Haiku starts on High, the others on Medium.
+  - The quote button shows the prompt. The chat button takes you to the chat that asked.
+  - Click **Start** and the new chat opens in that project in the background, with the prompt as its first message, as if you had typed it. Click **Decline** and nothing opens.
+  - The ring on the left empties over 10 minutes. A request you leave alone goes away when it is empty.
+  - The prompt is never saved to a file, and your Claude Code settings are not changed.
 
 ## 0.21.4 (2026-11-17)
 
