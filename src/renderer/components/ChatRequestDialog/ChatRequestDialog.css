@@ -7,7 +7,7 @@
      wider than the pane. The prompt takes the bar's width, it never widens it. */
   position: absolute;
   left: 50%;
-  bottom: 16px;
+  bottom: 28px;
   transform: translateX(-50%);
   width: max-content;
   max-width: calc(100% - 32px);
@@ -49,14 +49,16 @@
 }
 
 .crb-bar {
+  /* In a narrow window the controls wrap to a second row instead of leaving the bar. */
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   min-height: 46px;
   padding: 8px 8px 8px 12px;
   font-size: 12.5px;
 }
-.crb-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.crb-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 220px; flex: 0 1 auto; }
 .crb-proj { display: grid; place-items: center; flex: none; }
 .crb-sp { flex: 1; min-width: 14px; }
 
@@ -65,7 +67,7 @@
 .crb-rt { stroke: #3d3d3d; }
 .crb-rf { stroke: var(--text2); stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
 
-.crb-pick { position: relative; flex: none; }
+.crb-pick { position: relative; flex: 0 1 auto; min-width: 0; }
 .crb-chip {
   display: inline-flex;
   align-items: center;
@@ -80,7 +82,10 @@
   font-size: 12px;
   cursor: pointer;
   white-space: nowrap;
+  max-width: 100%;
+  min-width: 0;
 }
+.crb-chip > span { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .crb-chip:hover, .crb-chip[aria-expanded="true"] { background: #3d3d3d; }
 .crb-chip svg { width: 10px; height: 10px; color: var(--text3); flex: none; }
 .crb-menu {

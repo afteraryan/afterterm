@@ -71,7 +71,7 @@ function Picker<T extends string>({ kind, title, value, options, word, open, onO
   return (
     <span className="crb-pick">
       <button type="button" className="crb-chip" data-chat-pick={kind} aria-haspopup="menu" aria-expanded={open} onClick={onOpen}>
-        {kind === 'effort' ? `${word(value)} effort` : word(value)}
+        <span>{kind === 'effort' ? `${word(value)} effort` : word(value)}</span>
         <Chevron />
       </button>
       {open && (
