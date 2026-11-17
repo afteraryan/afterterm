@@ -126,7 +126,6 @@ export function ChatRequestBar({ request, projectColor, projectIcon, from, choic
         <div>
           <div className="crb-in">
             <div className="crb-prompt" data-chat-prompt>{request.prompt}</div>
-            <div className="crb-from">Asked by {from?.name ?? 'an agent'}</div>
           </div>
         </div>
       </div>
