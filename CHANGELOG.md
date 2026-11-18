@@ -6,23 +6,16 @@ What changed for the person using afterterm, release by release. Each release li
 
 ### Changed
 
-- **When several chats ask to start at once, you see them all as a stack.** Before, only the first request showed, and the others could run out of time before you saw them.
-  - The request bars stack at the bottom of afterterm: the one you answer in front, up to two more peeking out behind it.
-  - A number on the front bar's corner says how many are waiting.
-  - Click **Start** or **Decline** and the front bar slides away; the next one moves to the front.
-  - Each request's 10 minutes now start only when it reaches the front.
+- **Several requests from chats to start a new Claude Code chat in another project now show together, stacked at the bottom of afterterm.**
+  - Each request waits 10 minutes from the moment it reaches the front, so none runs out unseen.
 
 ## 0.22.0 (2026-11-17)
 
 ### Added
 
-- **A chat can ask to open another Claude Code chat in any of your projects, and nothing opens until you click Start.** Ask a chat in afterterm to start an agent in one of your projects. It sends afterterm the project, the model and the prompt.
-  - A small bar appears at the bottom of afterterm, on whatever screen you are on. If you are in another app, a notification tells you it is waiting.
-  - The bar shows the project, the model and the effort (how hard Claude thinks). Click either one to change it. Haiku starts on High, the others on Medium.
-  - The quote button shows the prompt. The chat button takes you to the chat that asked.
-  - Click **Start** and the new chat opens in that project in the background, with the prompt as its first message, as if you had typed it. Click **Decline** and nothing opens.
-  - The ring on the left empties over 10 minutes. A request you leave alone goes away when it is empty.
-  - The prompt is never saved to a file, and your Claude Code settings are not changed.
+- **A chat in afterterm can ask to open a new Claude Code chat in any project, and nothing opens until Start is clicked.**
+  - The model and effort can be changed before Start.
+  - A request waits 10 minutes, and the prompt is never saved to a file.
 
 ## 0.21.4 (2026-11-17)
 

@@ -106,7 +106,7 @@ The notes are what people read in What's new, usually with no idea what changed 
 these things,' or 'Okay, this was the bug, these are the...' Very simple, straightforward, no
 riddles."
 
-- A heading says what you can now do, as a whole sentence someone can understand alone.
+- A heading says what afterterm now does, as a whole sentence someone can understand alone.
 - Say what it was like before if that helps, then what happens now. For a bug, what went wrong,
   then what happens now.
 - Assume the reader was not here. No names of internal things, no code terms and no file
@@ -116,6 +116,15 @@ riddles."
 - Keep it short. One short line under a heading at most, then bullets; no long paragraphs
   (Aryan, 2026-11-06, on the 0.14.0 notes: better than 0.13.0, "but I think they can be shorter,
   especially the long paragraphs. I still like the bullet points.").
+- The heading alone must make sense to someone who has never heard of the feature, even in a
+  small release that only changes it. Name the feature in plain words first, then what changed.
+  Never lean on an earlier release's notes or on a word coined while building it. Aryan,
+  2026-11-18, on the 0.23.0 heading "When several chats ask to start at once, you see them all
+  as a stack": a stranger cannot tell what "ask to start" is.
+- Bullets keep only what is interesting or unusual, never the obvious: an approval having Start
+  and Decline, a count saying how many. Two short bullets are often enough.
+- No "you": the notes do not address a person. Write them impersonally ("nothing opens until
+  Start is clicked", "the model can be changed").
 - Aryan does not need to see them first (same date). Publish them.
 
 ## Artifacts & what's preserved
