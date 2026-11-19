@@ -4,6 +4,13 @@ What is still open in afterterm, and, once a round of work starts, the phases it
 
 **Last round: automatic updates** (2026-10-30 to 2026-10-31, PR #58), released as afterterm 0.11.0 on 2026-10-31; no round of work is in progress. The last finished round, projects and threads (Phases 0 to 9 and the fixes after them), was released as afterterm 0.9.0 on 2026-09-30; its full record, with every decision and its date, is [`docs/phases-01-projects-and-threads.md`](docs/phases-01-projects-and-threads.md).
 
+## Current priorities
+
+Said by Aryan on 2026-11-19, most important first:
+
+1. **Analytics**: build the usage analytics round (Linear AFT-73, phases AFT-130 and AFT-131; the events are in [`docs/analytics.md`](docs/analytics.md)).
+2. **AI search engine optimization**: make afterterm easy for AI search engines and assistants to find and describe correctly.
+
 ## Automatic updates
 
 An installed afterterm finds a newer release on GitHub, tells the user ("afterterm 0.11.0 is available", with What's new, Update, Later and Skip this version), downloads the installer in the background with progress, checks it against the sha256 GitHub publishes, and on "Restart to update" closes, installs quietly, reopens and wakes every thread that was awake. Never forced; a setting turns the checks off.
