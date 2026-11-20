@@ -70,7 +70,7 @@ import type { MsysProc, Proc as ServerProc } from './server-detect.ts';
 import { createSessionFilesStore } from './session-files-store.ts';
 import { EMPTY_SESSION_FILES, isAbsolutePath, isSafeForDefaultApp, normalizePath, ownsTempFile, pastedTempPath, transcriptUrls } from './session-files.ts';
 import type { ChangedFile, ShellWindow } from './session-files.ts';
-import { attributeCommandChanges, isIgnoredChange, mergeSaved, pruneChanges } from './command-files.ts';
+import { attributeCommandChanges, dropBulkSaved, isIgnoredChange, mergeSaved, pruneChanges } from './command-files.ts';
 import type { FsChange } from './command-files.ts';
 import { buildNameIndex, findByName } from './file-index.ts';
 import type { IndexFs, NameIndex } from './file-index.ts';
@@ -3016,9 +3016,11 @@ function commandFilesFor(sessionId: string, windows: ShellWindow[]): ChangedFile
     savedText = fs.readFileSync(file, 'utf-8');
     saved = (JSON.parse(savedText) as { commandFiles?: unknown }).commandFiles ?? [];
   } catch { /* none yet */ }
-  const fresh = attributeCommandChanges(fsChanges, windows, Date.now());
-  const merged = mergeSaved(saved, fresh);
-  if (fresh.length > 0) {
+  const now = Date.now();
+  const fresh = attributeCommandChanges(fsChanges, windows, now);
+  // A record saved before AFT-141's limit is trimmed by it too, and written back.
+  const merged = dropBulkSaved(mergeSaved(saved, fresh), windows, now);
+  if (fresh.length > 0 || savedText) {
     const text = JSON.stringify({ version: 1, commandFiles: merged });
     if (text !== savedText) {
       try {

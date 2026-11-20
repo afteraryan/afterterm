@@ -2,6 +2,12 @@
 
 What changed for the person using afterterm, release by release. Each release lists what was added and changed by area, then what was fixed. Every fixed bug, with the PR it landed in, is also in `docs/bugs-fixed.md`. Code-level detail lives in the commit history, `docs/phases-01-projects-and-threads.md` and `CLAUDE.md`.
 
+## Unreleased
+
+### Fixed
+
+- **A chat that cloned or installed a large project no longer makes afterterm lag or freeze.** Cloning a repository with `gh repo fork --clone` put every cloned file (5,489 of them) in the chat's Files list, and afterterm redrew that list many times a second while the chat was on screen, which froze it once for 15 seconds. Now a command that changes more than 200 files counts as a clone or install and stays out of the list, lists already saved are cleaned up the same way, and the Files list draws its rows only while it is open, at most the newest 300 per part with a count of the rest.
+
 ## 0.23.0 (2026-11-17)
 
 ### Changed

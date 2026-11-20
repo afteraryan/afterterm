@@ -6,9 +6,9 @@
 import type { IBufferLine, ILink, ILinkProvider, IMarker, Terminal } from '@xterm/xterm';
 import type { ChangedFile, EditEvent, PastedImage } from '../../../session-files';
 import {
-  findPathCandidates, resolveCandidates, isBareName, matchChangedName, continuation, openKind, elidedTail, hasExtension, narrowByTail,
+  findPathCandidates, resolveCandidates, isBareName, touchedIndex, matchTouchedName, continuation, openKind, elidedTail, hasExtension, narrowByTail,
   spacedVariants, wrappedAtSpace, findImageTags, wrappedImageTag, pastedForTag,
-  type PathCandidate,
+  type PathCandidate, type TouchedIndex,
 } from '../../filePaths';
 import './fileLinks.css';
 
@@ -56,6 +56,22 @@ type TargetLink = ILink & { target: FileLinkTarget };
 const inRange = (at: ILink['range']['start'], r: ILink['range']) =>
   (at.y > r.start.y || (at.y === r.start.y && at.x >= r.start.x))
   && (at.y < r.end.y || (at.y === r.end.y && at.x <= r.end.x));
+
+// ── the files a chat touched, grouped by name (AFT-141) ─────────────────────
+
+// The context is read fresh on every hover, but its lists are the same arrays
+// until the chat's Files list is read again, so the grouping is built once per
+// set of lists rather than on every hover. Keyed by the changed list, so the two
+// halves of a split each keep theirs.
+const touchedCache = new WeakMap<object, { edits: unknown; refs: unknown; index: TouchedIndex }>();
+
+function touchedFor(ctx: FileLinkContext): TouchedIndex {
+  const c = touchedCache.get(ctx.changed);
+  if (c && c.edits === ctx.edits && c.refs === ctx.refs) return c.index;
+  const index = touchedIndex([...ctx.changed, ...ctx.edits, ...ctx.refs], ctx.edits);
+  touchedCache.set(ctx.changed, { edits: ctx.edits, refs: ctx.refs, index });
+  return index;
+}
 
 // ── existence, cached ───────────────────────────────────────────────────────
 
@@ -393,14 +409,14 @@ export function createFileLinkProvider(
       // the files this chat touched (changed, written, read or sent; newest), then
       // the chat's and the project's folders; for a path, those folders first.
       // What is still not found is looked up by name under those folders (disk).
-      const touched = [...ctx.changed, ...ctx.edits, ...ctx.refs];
+      const touched = touchedFor(ctx);
       const options = pending.map(p => {
         // A path Claude Code shortened with "…" is matched by what follows it.
         const elided = elidedTail(p.text);
         const lookup = elided ?? p.text;
         const bare = isBareName(lookup);
         const direct = elided ? [] : resolveCandidates(lookup, ctx);
-        const named = matchChangedName(lookup, touched, ctx.edits, p.cand.tool ? p.lineTime : undefined);
+        const named = matchTouchedName(lookup, touched, p.cand.tool ? p.lineTime : undefined);
         return { p, lookup, bare, direct, named };
       });
       const all = options.flatMap(o => [...o.direct, ...(o.named ? [o.named.path] : [])]);

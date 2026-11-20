@@ -72,22 +72,52 @@ export const SLACK_BEFORE_MS = 500;
 export const SLACK_AFTER_MS = 2000;
 
 /**
+ * More files than this from one command, and the command was not the chat's work:
+ * a clone, an install, a generator, a dev server writing its cache. AFT-141: a
+ * `gh repo fork --clone` put 5,489 files in one chat's list and the app lagged
+ * whenever that chat was on screen.
+ */
+export const BULK_FILE_LIMIT = 200;
+
+/** The command window a change belongs to: the first one it falls in, by time and folder. */
+function windowOf(c: { path: string; at: number }, usable: ShellWindow[], now: number): ShellWindow | undefined {
+  return usable.find(w =>
+    c.at >= w.start - SLACK_BEFORE_MS
+    && c.at <= (w.end ?? now) + SLACK_AFTER_MS
+    && isInside(c.path, w.cwd!));
+}
+
+/** The windows that changed more than BULK_FILE_LIMIT different files. */
+function overLimit<T extends { path: string }>(owned: { item: T; win: ShellWindow }[]): Set<ShellWindow> {
+  const perWindow = new Map<ShellWindow, Set<string>>();
+  for (const { item, win } of owned) {
+    let paths = perWindow.get(win);
+    if (!paths) perWindow.set(win, paths = new Set());
+    paths.add(item.path.toLowerCase());
+  }
+  return new Set([...perWindow].filter(([, paths]) => paths.size > BULK_FILE_LIMIT).map(([win]) => win));
+}
+
+/**
  * The files the chat changed with its commands: every change inside the folder a
- * command ran in, while that command ran. `now` closes a command still running.
- * Images are left out, like images Claude made with its tools.
+ * command ran in, while that command ran, unless that one command changed more
+ * than BULK_FILE_LIMIT files. `now` closes a command still running. Images are
+ * left out, like images Claude made with its tools.
  */
 export function attributeCommandChanges(changes: FsChange[], windows: ShellWindow[], now: number): ChangedFile[] {
   const usable = windows.filter(w => w.cwd && !w.bulk);
   if (usable.length === 0 || changes.length === 0) return [];
-  const out: ChangedFile[] = [];
+  const owned: { item: FsChange; kind: 'doc' | 'code'; win: ShellWindow }[] = [];
   for (const c of changes) {
     const kind = fileKind(c.path);
     if (kind === 'image') continue;
-    const win = usable.find(w =>
-      c.at >= w.start - SLACK_BEFORE_MS
-      && c.at <= (w.end ?? now) + SLACK_AFTER_MS
-      && isInside(c.path, w.cwd!));
-    if (!win) continue;
+    const win = windowOf(c, usable, now);
+    if (win) owned.push({ item: c, kind, win });
+  }
+  const bulk = overLimit(owned);
+  const out: ChangedFile[] = [];
+  for (const { item: c, kind, win } of owned) {
+    if (bulk.has(win)) continue;
     out.push({
       path: c.path,
       kind,
@@ -97,6 +127,29 @@ export function attributeCommandChanges(changes: FsChange[], windows: ShellWindo
     });
   }
   return mergeChanged(out);
+}
+
+/**
+ * Saved command files that a later rule says were not the chat's work: those
+ * from a command now known to be bulk (isBulkCommand), and those from one command
+ * that changed more than BULK_FILE_LIMIT of them. A file saved before the limit
+ * existed is judged by the same windows, so an old record is trimmed when read.
+ * A file no window explains is kept, as before.
+ */
+export function dropBulkSaved(files: ChangedFile[], windows: ShellWindow[], now: number): ChangedFile[] {
+  const withCwd = windows.filter(w => w.cwd);
+  if (withCwd.length === 0 || files.length === 0) return files;
+  const owned: { item: ChangedFile; win: ShellWindow }[] = [];
+  const drop = new Set<ChangedFile>();
+  for (const f of files) {
+    const win = windowOf(f, withCwd, now);
+    if (!win) continue;
+    if (win.bulk) drop.add(f);
+    else owned.push({ item: f, win });
+  }
+  const bulk = overLimit(owned);
+  for (const { item, win } of owned) if (bulk.has(win)) drop.add(item);
+  return drop.size === 0 ? files : files.filter(f => !drop.has(f));
 }
 
 /** Keep a change list bounded: the newest `max`, and nothing older than `maxAgeMs`. */

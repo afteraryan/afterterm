@@ -44,7 +44,7 @@ import { projectAttention, totalAttention, railProjects, firstThreadToOpen } fro
 import type { EditorInfo } from '../editors';
 import type { SessionFiles } from '../session-files';
 import type { FilesButtonProps } from './components/FilesButton';
-import { filesListView } from './filesView';
+import { filesListView, type FilesListView } from './filesView';
 import { panesFor, splitOf, paneDropTarget } from './splitView';
 import { PANEL_DEFAULT_WIDTH, clampPanelWidth, savedUi } from './panelWidth';
 import type { PaneTarget } from './splitView';
@@ -75,6 +75,8 @@ const CHOOSER_FALLBACK = { x: 80, y: 120 };
 // branch switch is rare and nothing here is urgent, so this only has to be faster
 // than the user noticing a stale branch.
 const GIT_POLL_MS = 30_000;
+/** How long a built Files list is reused while nothing in it changed (its times read in minutes). */
+const FILES_VIEW_FRESH_MS = 15_000;
 // How long after the last Enter in a chat its transcript is read again for the
 // model (AFT-86, scheduleModelRead).
 const MODEL_READ_DELAY_MS = 1_000;
@@ -550,6 +552,20 @@ export function App() {
     ];
   };
 
+  // The Files list as drawn, kept per thread (AFT-141): the header is drawn on
+  // every app render, and building the list sorts and labels every file. Built
+  // again when the chat's files or folders change, or once its times ("2m") may
+  // have moved on.
+  const filesViewCache = useRef(new Map<string, { files: SessionFiles | undefined; folder: string | undefined; home: string | undefined; project: string | undefined; at: number; view: FilesListView }>());
+  const cachedFilesView = (tabId: string, files: SessionFiles | undefined, folder: string | undefined, home: string | undefined, project: string | undefined): FilesListView => {
+    const now = Date.now();
+    const hit = filesViewCache.current.get(tabId);
+    if (hit && hit.files === files && hit.folder === folder && hit.home === home && hit.project === project && now - hit.at < FILES_VIEW_FRESH_MS) return hit.view;
+    const view = filesListView(files, folder, home, now, project);
+    filesViewCache.current.set(tabId, { files, folder, home, project, at: now, view });
+    return view;
+  };
+
   // The Files button's props for a chat, or undefined for a shell.
   const filesButtonFor = (tab: Tab): FilesButtonProps | undefined => {
     const sessionId = tab.claudeSessionId;
@@ -558,7 +574,7 @@ export function App() {
     const entry = filesByTab[tab.id];
     const files = entry && entry.sessionId === sessionId ? entry.files : undefined;
     const project = tab.groupId ? stateRef.current.groups.find(g => g.id === tab.groupId) : undefined;
-    const view = filesListView(files, threadFolder(tab), window.afterterm.app.homeDir || undefined, Date.now(), project?.cwd);
+    const view = cachedFilesView(tab.id, files, threadFolder(tab), window.afterterm.app.homeDir || undefined, project?.cwd);
     return {
       view,
       threadKey: `${tab.id}:${sessionId}`,
