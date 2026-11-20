@@ -4,7 +4,7 @@
 //   node src/command-files.test.ts
 // Exits 0 if all pass, 1 on any failure.
 
-import { attributeCommandChanges, isIgnoredChange, isBulkCommand, pruneChanges, mergeSaved, SLACK_AFTER_MS, SLACK_BEFORE_MS, type FsChange } from './command-files.ts';
+import { attributeCommandChanges, dropBulkSaved, BULK_FILE_LIMIT, isIgnoredChange, isBulkCommand, pruneChanges, mergeSaved, SLACK_AFTER_MS, SLACK_BEFORE_MS, type FsChange } from './command-files.ts';
 import { newParseState, ingestText } from './session-files.ts';
 import type { ShellWindow } from './session-files.ts';
 
@@ -100,6 +100,41 @@ console.log('windows from a real-shaped transcript');
   check('the parser marks a checkout window bulk', s.windows[1].bulk === true && s.windows[0].bulk === false);
   const out = attributeCommandChanges([change('notes.md', base + 400, base + 400), change('src\\a.ts', base + 5200)], s.windows, base + 10000);
   check('cat > notes.md is attributed; the checkout\'s change is not', show(out.map(f => f.path.split('\\').pop())) === show(['notes.md']), show(out));
+}
+
+console.log('one command that changes too many files (AFT-141)');
+{
+  const many = (n: number, at: number, dir = 'repo') => Array.from({ length: n }, (_, i) => change(`${dir}\\f${i}.ts`, at + i % 50));
+  const w = win(T, T + 1000);
+  check('exactly the limit still counts', attributeCommandChanges(many(BULK_FILE_LIMIT, T), [w], T + 2000).length === BULK_FILE_LIMIT);
+  check('one over the limit and none of them count', attributeCommandChanges(many(BULK_FILE_LIMIT + 1, T), [w], T + 2000).length === 0);
+  const twice = [...many(BULK_FILE_LIMIT, T), ...many(BULK_FILE_LIMIT, T + 60)];
+  check('the same file changed twice counts once toward the limit', attributeCommandChanges(twice, [w], T + 2000).length === BULK_FILE_LIMIT);
+  const small = win(T + 5000, T + 6000);
+  const mixed = [...many(BULK_FILE_LIMIT + 50, T), change('docs\\notes.md', T + 5100)];
+  const kept = attributeCommandChanges(mixed, [w, small], T + 7000);
+  check('another command\'s file in the same chat still counts', show(kept.map(f => f.path)) === show([`${ROOT}\\docs\\notes.md`]), show(kept.map(f => f.path)));
+  const images = Array.from({ length: 50 }, (_, i) => change(`img\\p${i}.png`, T + 1));
+  check('images do not count toward the limit', attributeCommandChanges([...many(BULK_FILE_LIMIT, T), ...images], [w], T + 2000).length === BULK_FILE_LIMIT);
+
+  check('gh repo fork --clone is bulk', isBulkCommand('cd D:\\Pitara\\Work\\Tinkering; gh repo fork pingdotgg/t3code --clone 2>&1; cd t3code'));
+  check('gh repo clone is bulk', isBulkCommand('gh repo clone owner/name'));
+  check('gh repo fork without --clone is not bulk', !isBulkCommand('gh repo fork owner/name --remote'));
+  check('gh repo view is not bulk', !isBulkCommand('gh repo view owner/name'));
+
+  const saved = (rel: string, at: number) => ({ path: `${ROOT}\\${rel}`, kind: 'code' as const, created: false, at, source: 'command' as const });
+  const record = [
+    ...Array.from({ length: 5487 }, (_, i) => saved(`.repos\\x\\f${i}.ts`, T + 10)),
+    saved('apps\\a.json', T + 9000),
+    saved('apps\\b.ts', T + 9001),
+  ];
+  const trimmed = dropBulkSaved(record, [win(T, T + 1000), win(T + 8900, T + 9500)], T + 10000);
+  check('a saved record from before the limit is trimmed when read', show(trimmed.map(f => f.path)) === show([`${ROOT}\\apps\\a.json`, `${ROOT}\\apps\\b.ts`]), `${trimmed.length} kept`);
+  check('a saved file from a command now known to be bulk is dropped', dropBulkSaved([saved('a.ts', T + 10)], [win(T, T + 1000, ROOT, true)], T + 2000).length === 0);
+  check('a saved file no command explains is kept', dropBulkSaved([saved('a.ts', T + 50_000)], [win(T, T + 1000)], T + 60_000).length === 1);
+  check('with no command windows read yet nothing is dropped', dropBulkSaved(record, [], T + 10000).length === record.length);
+  const small2 = [saved('a.ts', T + 10), saved('b.ts', T + 20)];
+  check('a small record comes back as the same list', dropBulkSaved(small2, [win(T, T + 1000)], T + 2000) === small2);
 }
 
 console.log('pruning and saving');

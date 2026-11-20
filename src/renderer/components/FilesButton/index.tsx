@@ -40,6 +40,18 @@ export interface FilesButtonProps {
 const thumbCache = new Map<string, string | null>();
 
 const GAP_BELOW_BUTTON = 8;
+/** Longer than .fpop's closing transition (220ms). */
+const CLOSE_FADE_MS = 300;
+/**
+ * The newest rows drawn per part. AFT-141: drawing 5,489 rows took the page about
+ * seven seconds and froze the app; the count on the fold still says how many.
+ */
+const MAX_ROWS = 300;
+/** Rows past this one fade in together, so a long list is not still appearing seconds later. */
+const MAX_STAGGER = 15;
+const more = (total: number) => total > MAX_ROWS
+  ? <div className="fempty fmore" data-files-more>{(total - MAX_ROWS).toLocaleString('en')} older files not shown</div>
+  : null;
 const MARGIN = 12;
 
 export function FilesButton(props: FilesButtonProps) {
@@ -59,6 +71,17 @@ export function FilesButton(props: FilesButtonProps) {
   menuRef.current = menu;
 
   const codeOpen = codeChoice ?? view.codeStartsOpen;
+
+  // The rows are in the page only while the list is open, and for its closing
+  // fade (AFT-141: a chat with 5,489 files kept them all in the page, closed, and
+  // the app redrew them many times a second).
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    if (open) { setShown(true); return; }
+    const t = setTimeout(() => setShown(false), CLOSE_FADE_MS);
+    return () => clearTimeout(t);
+  }, [open]);
+  const rowsOn = open || shown;
 
   // Another thread in the header: close, and forget this thread's fold choices.
   useEffect(() => {
@@ -177,7 +200,7 @@ export function FilesButton(props: FilesButtonProps) {
       key={f.path}
       type="button"
       className={`frow${code ? ' code' : ''}${menu?.sel === f.path ? ' sel' : ''}`}
-      style={{ '--i': i } as React.CSSProperties}
+      style={{ '--i': Math.min(i, MAX_STAGGER) } as React.CSSProperties}
       data-file-row={code ? 'code' : 'doc'}
       data-path={f.path}
       data-source={f.source}
@@ -219,10 +242,12 @@ export function FilesButton(props: FilesButtonProps) {
         data-files-list
         style={{ top: place.top, right: place.right, maxHeight: place.maxHeight }}
       >
+        {rowsOn && (<>
         {view.docs.length > 0 ? (
           <>
             <div className="fsec">Documents<span className="n">{view.docs.length}</span></div>
-            {view.docs.map(d => row(d, false))}
+            {view.docs.slice(0, MAX_ROWS).map(d => row(d, false))}
+            {more(view.docs.length)}
           </>
         ) : view.count > 0 || view.pasted.length === 0 ? (
           <div className="fempty">No documents in this chat yet</div>
@@ -244,7 +269,7 @@ export function FilesButton(props: FilesButtonProps) {
               <span className="chev"><IconFoldChev size={12} /></span>
             </button>
             <div className={`fbody${codeOpen ? ' open' : ''}`} data-fold-body="code">
-              <div>{view.code.map((c, i) => row(c, true, i))}</div>
+              <div>{view.code.slice(0, MAX_ROWS).map((c, i) => row(c, true, i))}{more(view.code.length)}</div>
             </div>
           </>
         )}
@@ -289,8 +314,9 @@ export function FilesButton(props: FilesButtonProps) {
             </div>
           </>
         )}
+        </>)}
       </div>
-      {menu && <Menu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
+      {menu &&<Menu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
     </>
   );
 }

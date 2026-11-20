@@ -4,7 +4,9 @@
 //   node src/renderer/filePaths.test.ts
 // Exits 0 if all pass, 1 on any failure.
 
-import { looksLikePath, splitLineSuffix, findPathCandidates, isBareName, resolveCandidates, matchChangedName, continuation, openKind, elidedTail, hasExtension, narrowByTail, spacedVariants, wrappedAtSpace, findImageTags, wrappedImageTag, pastedForTag } from './filePaths.ts';
+import { looksLikePath, splitLineSuffix, findPathCandidates, isBareName, resolveCandidates, matchChangedName, touchedIndex, matchTouchedName, continuation, openKind, elidedTail, hasExtension, narrowByTail, spacedVariants, wrappedAtSpace, findImageTags, wrappedImageTag, pastedForTag } from './filePaths.ts';
+import { baseName, pathKey } from '../session-files.ts';
+import { readFileSync } from 'node:fs';
 
 let pass = 0, fail = 0;
 function check(name: string, cond: boolean, detail = '') {
@@ -292,6 +294,84 @@ console.log('[Image #N] tags');
   check('the newest of two with the number', pastedForTag(pasted, 2)?.image.key === 'new');
   check('and it says there is another', pastedForTag(pasted, 2)?.others === 1);
   check('a number not pasted', pastedForTag(pasted, 9) === null);
+}
+
+console.log('the name index finds the same file as the full pass (AFT-141)');
+{
+  // matchChangedName as it was before AFT-141, kept here as the reference.
+  const LINE_BEFORE = 1000, LINE_AFTER = 60_000;
+  type F = { path: string; at: number };
+  const reference = (name: string, changed: F[], edits: F[], lineTime?: number) => {
+    const want = baseName(name).toLowerCase();
+    if (!want) return null;
+    const tail = name.replace(/\//g, '\\').toLowerCase();
+    const fits = (p: string) => {
+      const lower = p.toLowerCase();
+      return baseName(p).toLowerCase() === want && (tail === want || lower.endsWith('\\' + tail));
+    };
+    const files = changed.filter(f => fits(f.path));
+    const keys = new Set(files.map(f => pathKey(f.path)));
+    if (lineTime !== undefined) {
+      const before = edits
+        .filter(e => fits(e.path) && e.at <= lineTime + LINE_BEFORE && lineTime - e.at <= LINE_AFTER)
+        .sort((a, b) => b.at - a.at)[0];
+      if (before) return { path: before.path, others: Math.max(0, keys.size - (keys.has(pathKey(before.path)) ? 1 : 0)) };
+    }
+    if (files.length === 0) return null;
+    const newest = [...files].sort((a, b) => b.at - a.at)[0];
+    return { path: newest.path, others: keys.size - 1 };
+  };
+
+  // Made-up chats: few names, many folders, mixed case, equal times and the same
+  // file spelled two ways, so ties and the folder rule are both exercised.
+  let seed = 141;
+  const rnd = (n: number) => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed % n; };
+  const names = ['index.tsx', 'Index.tsx', 'README.md', 'package.json', 'a.ts', 'App.tsx', 'notes.MD'];
+  const dirs = ['D:\\p', 'D:\\p\\src', 'D:\\p\\src\\Header', 'D:\\p\\src\\Home', 'D:\\P\\SRC', 'D:\\p\\.repos\\x', 'D:\\p\\apps\\web\\src'];
+  const file = (): F => ({ path: `${dirs[rnd(dirs.length)]}\\${names[rnd(names.length)]}`, at: 1000 * rnd(40) });
+  const asked = [...names, 'src/Header/index.tsx', 'Header\\index.tsx', 'eader\\index.tsx', 'SRC/index.tsx', 'apps/web/src/App.tsx', 'missing.ts', 'x\\README.md', ''];
+  let same = 0, differ = 0, firstDiff = '';
+  for (let round = 0; round < 300; round++) {
+    const changed = Array.from({ length: 1 + rnd(60) }, file);
+    const edits = Array.from({ length: rnd(30) }, file);
+    const refs = Array.from({ length: rnd(20) }, file);
+    const touched = [...changed, ...edits, ...refs];
+    const index = touchedIndex(touched, edits);
+    for (const name of asked) {
+      for (const lineTime of [undefined, 1000 * rnd(40)]) {
+        const want = show(reference(name, touched, edits, lineTime));
+        const got = show(matchTouchedName(name, index, lineTime));
+        const viaOld = show(matchChangedName(name, touched, edits, lineTime));
+        if (want === got && want === viaOld) same++;
+        else { differ++; if (!firstDiff) firstDiff = `${name} at ${lineTime}: ${want} vs ${got} / ${viaOld}`; }
+      }
+    }
+  }
+  check(`${same} lookups in made-up chats give the same file and count`, differ === 0 && same > 5000, firstDiff);
+
+  // The real record that froze the app, when it is on this machine.
+  const real = `${process.env.APPDATA ?? ''}\\afterterm\\edited-files\\01ad296b-aca7-4b3e-91b8-98a8798d243d.before-aft-141.json.bak`;
+  let realFiles: F[] = [];
+  try { realFiles = JSON.parse(readFileSync(real, 'utf8')).commandFiles; } catch { /* not this machine */ }
+  if (realFiles.length) {
+    const index = touchedIndex(realFiles, []);
+    const realNames = [...new Set(realFiles.map(f => baseName(f.path)))];
+    const tails = realFiles.slice(0, 400).map(f => f.path.split('\\').slice(-2).join('/'));
+    let ok = 0, bad = 0;
+    for (const name of [...realNames, ...tails]) {
+      if (show(reference(name, realFiles, [])) === show(matchTouchedName(name, index))) ok++; else bad++;
+    }
+    check(`the frozen chat's ${realFiles.length} files: ${ok} names give the same file and count`, bad === 0, `${bad} differ`);
+    const t0 = performance.now();
+    for (const name of realNames) reference(name, realFiles, []);
+    const full = performance.now() - t0;
+    const t1 = performance.now();
+    for (const name of realNames) matchTouchedName(name, index);
+    const grouped = performance.now() - t1;
+    console.log(`        ${realNames.length} names: full pass ${full.toFixed(0)} ms, by name ${grouped.toFixed(1)} ms`);
+  } else {
+    console.log('        (the frozen chat\'s record is not on this machine; skipped)');
+  }
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

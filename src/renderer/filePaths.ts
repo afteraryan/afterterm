@@ -162,6 +162,42 @@ export function matchChangedName(
   edits: EditEvent[],
   lineTime?: number,
 ): { path: string; others: number } | null {
+  return matchTouchedName(name, touchedIndex(changed, edits), lineTime);
+}
+
+/**
+ * The files a chat touched, grouped by lower-case file name, each group in the
+ * list's own order (AFT-141). matchChangedName went through every touched file
+ * for every name on screen; a chat with thousands of them made each hover slow.
+ * Only a file whose name equals the one written can ever match, so looking in
+ * that name's group finds exactly what the full pass found, in the same order.
+ */
+export interface TouchedIndex {
+  changed: Map<string, Pick<ChangedFile, 'path' | 'at'>[]>;
+  edits: Map<string, EditEvent[]>;
+}
+
+function groupByName<T extends { path: string }>(items: T[]): Map<string, T[]> {
+  const out = new Map<string, T[]>();
+  for (const item of items) {
+    const key = baseName(item.path).toLowerCase();
+    const group = out.get(key);
+    if (group) group.push(item);
+    else out.set(key, [item]);
+  }
+  return out;
+}
+
+export function touchedIndex(changed: Pick<ChangedFile, 'path' | 'at'>[], edits: EditEvent[]): TouchedIndex {
+  return { changed: groupByName(changed), edits: groupByName(edits) };
+}
+
+/** matchChangedName over an index built once with touchedIndex. */
+export function matchTouchedName(
+  name: string,
+  index: TouchedIndex,
+  lineTime?: number,
+): { path: string; others: number } | null {
   const want = baseName(name).toLowerCase();
   if (!want) return null;
   const tail = name.replace(/\//g, '\\').toLowerCase();
@@ -172,10 +208,10 @@ export function matchChangedName(
     const lower = p.toLowerCase();
     return baseName(p).toLowerCase() === want && (tail === want || lower.endsWith('\\' + tail));
   };
-  const files = changed.filter(f => fits(f.path));
+  const files = (index.changed.get(want) ?? []).filter(f => fits(f.path));
   const keys = new Set(files.map(f => pathKey(f.path)));
   if (lineTime !== undefined) {
-    const before = edits
+    const before = (index.edits.get(want) ?? [])
       .filter(e => fits(e.path) && e.at <= lineTime + LINE_BEFORE_EDIT_MS && lineTime - e.at <= LINE_AFTER_EDIT_MS)
       .sort((a, b) => b.at - a.at)[0];
     if (before) return { path: before.path, others: Math.max(0, keys.size - (keys.has(pathKey(before.path)) ? 1 : 0)) };

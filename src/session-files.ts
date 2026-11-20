@@ -179,7 +179,10 @@ export interface EditEvent {
 const BULK_GIT = new Set(['checkout', 'switch', 'pull', 'merge', 'rebase', 'reset', 'stash', 'clone', 'worktree', 'cherry-pick', 'am', 'fetch']);
 
 export function isBulkCommand(command: string): boolean {
-  const m = /(?:^|[;&|]\s*|\bcd\s+\S+\s*&&\s*)git(?:\s+-C\s+\S+)?\s+([a-z-]+)/.exec(String(command ?? '').trim());
+  const text = String(command ?? '').trim();
+  // GitHub's CLI clones too: `gh repo clone x`, `gh repo fork x --clone` (AFT-141).
+  if (/(?:^|[;&|]\s*)gh\s+repo\s+(?:clone\b|fork\b.*--clone\b)/.test(text)) return true;
+  const m = /(?:^|[;&|]\s*|\bcd\s+\S+\s*&&\s*)git(?:\s+-C\s+\S+)?\s+([a-z-]+)/.exec(text);
   return !!m && BULK_GIT.has(m[1]);
 }
 
